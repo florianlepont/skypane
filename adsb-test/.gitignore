@@ -1,0 +1,8 @@
+# Raw sampling output - thousands of JSONL records per run, not meant to be
+# committed. The derived metrics that matter live in RESULTS.md instead.
+samples/
+*.jsonl
+
+# Python bytecode caches
+__pycache__/
+*.pyc

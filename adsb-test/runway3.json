@@ -1,0 +1,30 @@
+{
+  "center": {
+    "lat": 48.7233,
+    "lon": 2.3794,
+    "source": "01-RESEARCH.md 'Code Examples' worked example for the Orly-Ville/runway-3 area (48.7233N, 2.3794E), cross-checked against the English Wikipedia 'Orly Airport' infobox coordinate field (48°43'24\"N 02°22'46\"E → 48.7233, 2.3794 decimal). Used as the query center/radius origin, not the runway itself - the bbox below is the actual runway-3 filter. Checked 2026-08-04."
+  },
+  "radius_nm": 5,
+  "bbox": {
+    "lat_min": 48.712,
+    "lat_max": 48.734,
+    "lon_min": 2.325,
+    "lon_max": 2.435,
+    "source": "Computed (not looked up) from the confirmed runway-3 threshold coordinates in 'runway' below: extended roughly 2.5km beyond each threshold along the runway's own bearing (magnetic ~074/254) to include the on-approach and rollout segments, plus a small lateral margin. This box is tight enough to exclude the crossing 02/20 runway and most distant taxiway/apron holding areas, but is not perfectly exclusive of the nearby, non-parallel 06/24 runway, whose western end sits close to runway 3's western threshold - a known limitation to keep in mind when reading 'in bbox' counts. Checked 2026-08-04."
+  },
+  "alt_ceiling_ft": 3000,
+  "runway": {
+    "local_designation": "Piste 3 (Orly runway 3, per PROJECT.md/REQUIREMENTS.md wording)",
+    "icao_heading_designators": "07/25",
+    "length_m": 3320,
+    "threshold_07": {
+      "lat": 48.719398,
+      "lon": 2.358590
+    },
+    "threshold_25": {
+      "lat": 48.727402,
+      "lon": 2.402070
+    },
+    "source": "OurAirports open aviation data, runways.csv (https://davidmegginson.github.io/ourairports-data/runways.csv), row with airport_ident=LFPO, le_ident=07 / he_ident=25, length_ft=10892 (=3320.0m exactly), le_latitude/le_longitude and he_latitude/he_longitude as recorded above. Cross-checked against the English Wikipedia 'Orly Airport' article infobox (r3_number=07/25, r3_length_m=3,320), which independently corroborates the exact 3320m length for this runway. Note: PROJECT.md's earlier text informally called this runway '08/26' with the same ~3,320m length; the confirmed ICAO heading-pair designator from both sources above is 07/25 (magnetic heading approx. 074deg/254deg). Because the length matches exactly across two independent sources and no other Orly runway has this length, 07/25 is treated as the confirmed identity for 'runway 3' rather than the earlier informal '08/26' label - this correction should be carried into any later document update per D-03. Checked 2026-08-04."
+  }
+}
