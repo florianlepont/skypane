@@ -16,26 +16,35 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 
 ### Active
 
-- [ ] User can see the next flights departing from Paris-Orly (ORY) on the frame
-- [ ] User can see the next RER departures from Orly-Ville station on the frame
+- [ ] User can see flight number, airline, and destination for the next plane departing from Orly runway 3
+- [ ] User can see flight number, airline, and origin for the next plane landing on runway 3 (when the runway is in arrival configuration)
+- [ ] Plane view updates one flight at a time, as real aircraft use runway 3, detected via a local ADS-B receiver — not a fixed schedule
+- [ ] User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville
+- [ ] User can see a "leave by" cue combining the next RER train's countdown with a fixed walk-time buffer
+- [ ] User can see a disruption banner on the RER view during a service disruption on the line
 - [ ] Physical button on the device switches between the plane view and the RER view
 - [ ] Switching views (button press) triggers a fresh poll for that view's data
 - [ ] Device wakes on a schedule, polls the server over HTTPS, downloads a new image if one is available, displays it, then returns to deep sleep (mirrors flightportrait's wake/poll/backoff model)
+- [ ] User can see a low-battery indicator on the frame when the battery is running low
 - [ ] Device runs on battery power for v1 (no wall power, no solar)
-- [ ] Server (small cloud VPS) fetches flight + RER data, renders display images, and serves them via a poll protocol the device calls
+- [ ] Server (small cloud VPS) ingests local ADS-B data for runway-3 detection, fetches RER data, renders display images, and serves them via a poll protocol the device calls
 - [ ] (v2/later) Companion phone app can push a short message that appears on the frame
 
 ### Out of Scope
 
 - Solar charging — deferred until real battery life and frame placement are known; indoor solar is unreliable without a well-lit window
-- Local ADS-B receiver / SDR antenna — using a public flight-data API instead, since the use case is scheduled airport departures, not overhead flyovers
+- Public flight-data/schedule API (e.g. AeroDataBox) as the plane-detection source — reversed after scoping: the actual goal is "the specific plane using runway 3 right now," which schedule APIs don't expose (no runway/operational data); local ADS-B detects real aircraft directly
 - Wall power — battery-only for v1, to force realistic power-budget decisions early
+- Freshness timestamp / graceful stale-offline handling on the display — explicitly deferred by user for v1 despite research flagging it as a risk (frame could show stale data without indicating it); revisit if staleness becomes a real problem
+- Additional views beyond plane/RER (weather, other transit lines, etc.) — stay two-view to preserve focus
+- Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions — anti-features that would make the frame read as a gadget rather than ambient art
 
 ## Context
 
 - **Reference project**: [flightportrait/frame](https://github.com/flightportrait/frame) — 13.3" E Ink Spectra 6 display (1200×1600, color), ESP32-S3 (reTerminal E1004 or XIAO ESP32-S3 Plus + EE02 driver board), microSD for offline images, BLE Security 2 provisioning, exponential-backoff polling (caps at 6h), SHA-256 verified downloads, persistent error logging, 3-endpoint HTTPS polling protocol (`docs/PROTOCOL.md`), reference Python server included. The device never accepts incoming connections — poll-only, no open ports.
-- **Key difference from the reference project**: flightportrait renders any plane detected overhead via a local ADS-B receiver. This project instead tracks scheduled/live departures from a specific airport (Orly), so it uses a public flight-data API rather than an SDR antenna — no local RF hardware needed.
-- **Airport**: Paris-Orly (ORY)
+- **Plane detection approach**: matches the reference project more closely than initially planned — a local ADS-B receiver, geofenced to runway 3's flight path, detects real aircraft directly (one plane at a time, departure or arrival depending on current wind-driven runway configuration), rather than pulling a schedule from a public flight-data API.
+- **Address / reception feasibility**: <street-address> — this commune borders/partially contains Orly airport itself; runway 3 (the 08/26 runway, ~3,320m) is close by. Low-altitude ADS-B reception at this range is expected to be very reliable, but should still be validated early with real hardware (cheap RTL-SDR dongle + antenna) before committing further, with a documented fallback to an ADS-B aggregator API (e.g. ADS-B Exchange) if reception proves insufficient.
+- **Airport**: Paris-Orly (ORY), specifically runway 3
 - **RER station**: Orly-Ville
 - **Motivation**: equal parts satisfying hardware build / ambient art piece, and genuinely useful daily tool (e.g. checking whether you'll make the next RER before leaving the house)
 
@@ -49,11 +58,12 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Public flight-data API instead of local ADS-B receiver | Airport-departures use case doesn't need an overhead-flyover antenna; simpler build, no RF hardware | — Pending |
+| Local ADS-B receiver (geofenced to runway 3) instead of a public flight-data/schedule API | The real goal is "the specific plane using runway 3 right now" (departure or arrival) — schedule APIs don't expose runway/operational data; ADS-B detects real aircraft directly, matching the flightportrait reference approach and the user's stated address (<home-city> borders Orly) supports strong reception | — Pending, validate reception early in Phase 1 |
 | Hardware mirrors flightportrait (13.3" E Ink Spectra 6 + ESP32-S3-class board) | Proven reference design, fits the €300 budget | — Pending |
 | Battery-only power for v1, defer solar | Indoor solar reliability is unknown until placement and battery life are validated | — Pending |
 | Physical button switches plane/RER view and triggers a fresh poll | Matches flightportrait's wake/poll/deep-sleep model while giving on-demand refresh on interaction | — Pending |
 | Server on a small cloud VPS, not a home server | Reliability — the device should always find a reachable server, not one that depends on home power/network uptime | — Pending |
+| No freshness timestamp / stale-data indicator in v1 | User explicitly chose to keep v1 simpler and accept the risk, despite research flagging this as a common pitfall (device could show stale data with no indication) | — Pending, revisit if staleness becomes a real problem |
 
 ## Evolution
 
