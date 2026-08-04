@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 1
-current_phase_name: Foundation — Hardware Bring-up & ADS-B Validation
+current_phase: 01
+current_phase_name: foundation-hardware-bring-up-ads-b-validation
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-08-04T15:07:11.111Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-08-04T15:41:01.852Z"
 last_activity: 2026-08-04
-last_activity_desc: Roadmap created (4 phases, 11/11 requirements mapped)
+last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 8
+  completed_plans: 1
   percent: 0
 ---
 
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 1 — Foundation: Hardware Bring-up & ADS-B Validation
+**Current focus:** Phase 01 — foundation-hardware-bring-up-ads-b-validation
 
 ## Current Position
 
-Phase: 1 of 4 (Foundation — Hardware Bring-up & ADS-B Validation)
-Plan: 0 of TBD in current phase
+Phase: 01 (foundation-hardware-bring-up-ads-b-validation) — EXECUTING
+Plan: 2 of 8
 Status: Ready to execute
-Last activity: 2026-08-04 — Roadmap created (4 phases, 11/11 requirements mapped)
+Last activity: 2026-08-04 — Phase 01 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01 P02 | 15min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,8 @@ Recent decisions affecting current work:
 - Battery-only power for v1, solar deferred — Phase 1 must produce a real mAh/wake-cycle measurement
 - Server on a small always-on cloud VPS, not a home server
 - No freshness timestamp / stale-data indicator in v1 (explicit user tradeoff, despite research flagging it as a pitfall)
+- [Phase 01]: Vendored byos_server.py byte-for-byte from flightportrait/frame @ ce3335fc, adding only a --state-dir flag so the harness's isolated test tokens never collide with the long-running stub instance the hardware plans keep alive
+- [Phase 01]: make_test_panel.py's quadrants pattern splits left/right exactly on a byte-pair boundary (column 600 of 1200) so no byte mixes two colours except the two intentional border-edge bytes
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-04T12:06:49.605Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation-hardware-bring-up-ads-b-validation/01-CONTEXT.md
+Last session: 2026-08-04T15:41:01.849Z
+Stopped at: Completed 01-02-PLAN.md
+Resume file: None

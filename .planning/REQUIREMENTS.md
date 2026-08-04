@@ -23,7 +23,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **DEVICE-01**: User can press a physical button on the frame to switch between the plane view and the RER view
 - [ ] **DEVICE-02**: Switching views (button press) triggers a fresh data poll for the newly selected view, not a stale cached image
-- [ ] **DEVICE-03**: Device wakes on a schedule, polls the server over HTTPS, downloads and displays a new image if available, then returns to deep sleep, with exponential backoff on failure
+- [x] **DEVICE-03**: Device wakes on a schedule, polls the server over HTTPS, downloads and displays a new image if available, then returns to deep sleep, with exponential backoff on failure
 - [ ] **DEVICE-04**: User can see a low-battery indicator on the frame when the battery is running low
 - [ ] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
 
@@ -63,11 +63,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RER-03 | Phase 3 | Pending |
 | DEVICE-01 | Phase 4 | Pending |
 | DEVICE-02 | Phase 4 | Pending |
-| DEVICE-03 | Phase 1 | Pending |
+| DEVICE-03 | Phase 1 | Complete |
 | DEVICE-04 | Phase 4 | Pending |
 | DEVICE-05 | Phase 1 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 11 total
 - Mapped to phases: 11 (Phase 1: 2, Phase 2: 3, Phase 3: 3, Phase 4: 3)
 - Unmapped: 0 ✓
