@@ -55,23 +55,23 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLANE-01 | TBD | Pending |
-| PLANE-02 | TBD | Pending |
-| PLANE-03 | TBD | Pending |
-| RER-01 | TBD | Pending |
-| RER-02 | TBD | Pending |
-| RER-03 | TBD | Pending |
-| DEVICE-01 | TBD | Pending |
-| DEVICE-02 | TBD | Pending |
-| DEVICE-03 | TBD | Pending |
-| DEVICE-04 | TBD | Pending |
-| DEVICE-05 | TBD | Pending |
+| PLANE-01 | Phase 2 | Pending |
+| PLANE-02 | Phase 2 | Pending |
+| PLANE-03 | Phase 2 | Pending |
+| RER-01 | Phase 3 | Pending |
+| RER-02 | Phase 3 | Pending |
+| RER-03 | Phase 3 | Pending |
+| DEVICE-01 | Phase 4 | Pending |
+| DEVICE-02 | Phase 4 | Pending |
+| DEVICE-03 | Phase 1 | Pending |
+| DEVICE-04 | Phase 4 | Pending |
+| DEVICE-05 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 11 total
-- Mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 11 ⚠️ (to be resolved by roadmap)
+- Mapped to phases: 11 (Phase 1: 2, Phase 2: 3, Phase 3: 3, Phase 4: 3)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-08-04*
-*Last updated: 2026-08-04 after initial definition*
+*Last updated: 2026-08-04 after roadmap creation*
