@@ -1,0 +1,55 @@
+CONFIG_IDF_TARGET="esp32s3"
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+
+# 960 KB framebuffer lives in PSRAM (XIAO ESP32-S3 Plus: octal/OPI PSRAM).
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+# OTA safety: new firmware must confirm (esp_ota_mark_app_valid) after one
+# successful poll, or the bootloader rolls back (PROTOCOL.md §2).
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# Watchdog on everything: any hang -> reset -> backoff sleep.
+CONFIG_ESP_TASK_WDT_INIT=y
+CONFIG_ESP_TASK_WDT_TIMEOUT_S=60
+
+# The synchronous state machine runs polling and JSON parsing on
+# app_main, nesting buffers inside the ESP-IDF TLS/HTTP client.
+# ESP-IDF's 3584-byte default overflows during that path; keep explicit
+# headroom (upstream: FlightPortrait README "Building").
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=12288
+
+# FlightPortrait project settings. Kept as-is from upstream for this
+# plan even though main/Kconfig.projbuild (which defines the CONFIG_FP_*
+# namespace, including the panel pin map) is not introduced until plan
+# 01-05 - see VENDOR.md. Do not hand-edit the pin values here; the EE02
+# profile that overrides them is a separate, later overlay file.
+CONFIG_FP_API_BASE="https://api.flightportrait.com"
+CONFIG_FP_DEV_PROVISION_SECRET=""
+CONFIG_FP_HW_REV="proto-e1004"
+CONFIG_FP_PROVISION_TIMEOUT_S=600
+CONFIG_FP_FACTORY_PREP=n
+CONFIG_FP_PIN_EPD_SCK=7
+CONFIG_FP_PIN_EPD_MOSI=9
+CONFIG_FP_PIN_EPD_CS_M=10
+CONFIG_FP_PIN_EPD_CS_S=2
+CONFIG_FP_PIN_EPD_DC=11
+CONFIG_FP_PIN_EPD_RST=38
+CONFIG_FP_PIN_EPD_BUSY=13
+CONFIG_FP_PIN_EPD_EN=12
+CONFIG_FP_PIN_KEY0=3
+CONFIG_FP_PIN_KEY1=4
+CONFIG_FP_PIN_KEY2=5
+CONFIG_FP_REPROVISION_HOLD_MS=2000
+CONFIG_FP_FACTORY_RESET_HOLD_MS=10000
+
+# Phase 1 implements no BLE provisioning - hardcoded credentials in a
+# gitignored secrets.h replace it for a device that talks only to a
+# local stub. Carrying the BLE/NimBLE stack would inflate the image for
+# no Phase 1 behaviour.
+CONFIG_BT_ENABLED=n
+CONFIG_BT_NIMBLE_ENABLED=n

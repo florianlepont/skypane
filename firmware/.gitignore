@@ -1,0 +1,17 @@
+# ESP-IDF build output
+build/
+build-*/
+
+# Generated sdkconfig files and their backups (sdkconfig.defaults and
+# sdkconfig.ee02.defaults are the committed source of truth; the plain
+# sdkconfig is regenerated per build directory)
+sdkconfig
+sdkconfig.old
+
+# ESP-IDF dependency lock file
+dependencies.lock
+
+# Local credentials - never committed. The ignore rule is added the moment
+# this directory is created, before plan 01-05 introduces the file, so
+# there is no window in which a credential could land in git history.
+main/secrets.h
