@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: foundation-hardware-bring-up-ads-b-validation
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-08-04T15:41:01.852Z"
+stopped_at: Completed 01-03-PLAN.md
+last_updated: "2026-08-04T15:54:53.516Z"
 last_activity: 2026-08-04
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 8
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 01 (foundation-hardware-bring-up-ads-b-validation) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Last activity: 2026-08-04 — Phase 01 execution started
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01 P02 | 15min | 3 tasks | 6 files |
+| Phase 01 P03 | 25min | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - No freshness timestamp / stale-data indicator in v1 (explicit user tradeoff, despite research flagging it as a pitfall)
 - [Phase 01]: Vendored byos_server.py byte-for-byte from flightportrait/frame @ ce3335fc, adding only a --state-dir flag so the harness's isolated test tokens never collide with the long-running stub instance the hardware plans keep alive
 - [Phase 01]: make_test_panel.py's quadrants pattern splits left/right exactly on a byte-pair boundary (column 600 of 1200) so no byte mixes two colours except the two intentional border-edge bytes
+- [Phase 01]: Disabled Bluetooth in firmware/sdkconfig.defaults (only functional delta from upstream) - Phase 1 has no BLE provisioning, hardcoded secrets.h credentials replace it
+- [Phase 01]: Containerised build (espressif/idf:v5.3.1), native flash - build.sh runs the whole ESP-IDF toolchain in Docker as the invoking user; USB flashing stays on the host for plan 01-06 because Docker Desktop's macOS USB passthrough is unreliable
 
 ### Pending Todos
 
@@ -92,6 +95,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-04T15:41:01.849Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-08-04T15:54:53.512Z
+Stopped at: Completed 01-03-PLAN.md
 Resume file: None
