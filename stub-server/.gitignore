@@ -1,0 +1,10 @@
+# Issued bearer tokens persisted by byos_server.py - never enter git.
+byos_state.json
+byos_state.json.tmp
+
+# Generated panel binaries (960 KB each; make_test_panel.py regenerates on demand).
+*.bin
+
+# Python bytecode caches.
+__pycache__/
+*.pyc
