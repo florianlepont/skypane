@@ -141,7 +141,7 @@ static esp_err_t small_request(esp_http_client_handle_t http,
 {
     esp_err_t err = esp_http_client_open(http, body ? strlen(body) : 0);
     if (err != ESP_OK) {
-        return err;
+        return FP_ERR_HTTP_TRANSPORT;
     }
     if (body) {
         esp_http_client_write(http, body, strlen(body));
@@ -151,7 +151,7 @@ static esp_err_t small_request(esp_http_client_handle_t http,
     int status = esp_http_client_get_status_code(http);
     esp_http_client_close(http);
     if (n < 0) {
-        return ESP_FAIL;
+        return FP_ERR_HTTP_TRANSPORT;
     }
     resp[n] = 0;
     *resp_len = n;
@@ -159,7 +159,7 @@ static esp_err_t small_request(esp_http_client_handle_t http,
         /* Bodies can echo validation inputs; never log setup credentials
          * or bearer tokens. Status + length is enough to diagnose. */
         ESP_LOGW(TAG, "HTTP %d (%d-byte response)", status, n);
-        return ESP_FAIL;
+        return FP_ERR_HTTP_STATUS;
     }
     return ESP_OK;
 }
@@ -238,7 +238,7 @@ esp_err_t fp_api_setup(const char *provision_secret)
         }
         cJSON_Delete(json);
         memset(resp, 0, sizeof(resp));
-        return ESP_FAIL;
+        return FP_ERR_HTTP_JSON;
     }
 
     nvs_handle_t nvs = 0;
@@ -295,7 +295,7 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     if (!cJSON_IsObject(json)) {
         cJSON_Delete(json);
         memset(resp, 0, sizeof(resp));
-        return ESP_FAIL;
+        return FP_ERR_HTTP_JSON;
     }
     const cJSON *url = cJSON_GetObjectItem(json, "image_url");
     const cJSON *hash = cJSON_GetObjectItem(json, "image_hash");
@@ -319,7 +319,7 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
         !sleep_ok || !cJSON_IsBool(reset)) {
         cJSON_Delete(json);
         memset(resp, 0, sizeof(resp));
-        return ESP_FAIL;
+        return FP_ERR_HTTP_JSON;
     }
     strlcpy(parsed.image_url, url->valuestring, sizeof(parsed.image_url));
     strlcpy(parsed.image_hash, hash->valuestring, sizeof(parsed.image_hash));
@@ -423,7 +423,7 @@ esp_err_t fp_api_download(const char *url, const char *expected_hash,
     }
     if (strcmp(hex, expected_hash) != 0) {
         ESP_LOGW(TAG, "sha256 MISMATCH, dropping image");
-        return ESP_FAIL;      /* never blit an unverified buffer */
+        return FP_ERR_IMAGE_VERIFY; /* never blit an unverified buffer */
     }
     return ESP_OK;
 }

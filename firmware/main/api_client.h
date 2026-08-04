@@ -23,6 +23,18 @@
 /* 1200*1600 pixels, two nibble-packed pixels per byte — PROTOCOL.md §1. */
 #define FP_IMAGE_BYTES 960000u
 
+/* Distinct failure classifications the Log Line Contract's step tokens
+ * need (firmware/VENDOR.md § Log Line Contract, 01-05-PLAN.md Task 3):
+ * api_client.c already knows exactly where a request failed, so it
+ * reports that here instead of state_machine.c re-deriving it from a
+ * single generic esp_err_t. Values are outside every ESP-IDF component's
+ * documented error-base range — they are compared for equality only,
+ * never passed to ESP_ERROR_CHECK or interpreted by IDF internals. */
+#define FP_ERR_HTTP_TRANSPORT ((esp_err_t)0x00600001) /* couldn't open/connect */
+#define FP_ERR_HTTP_STATUS    ((esp_err_t)0x00600002) /* non-200 response */
+#define FP_ERR_HTTP_JSON      ((esp_err_t)0x00600003) /* malformed/invalid response body */
+#define FP_ERR_IMAGE_VERIFY   ((esp_err_t)0x00600004) /* sha256/size mismatch on download */
+
 typedef struct {
     char image_url[768];   /* presigned URLs are long */
     char image_hash[80];   /* "sha256:<64 hex>" */
