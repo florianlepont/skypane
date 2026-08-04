@@ -32,7 +32,7 @@ docker run --rm \
     idf.py \
         -B "${BUILD_DIR}" \
         -DSDKCONFIG="${BUILD_DIR}/sdkconfig" \
-        -DSDKCONFIG_DEFAULTS=sdkconfig.defaults \
+        -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ee02.defaults" \
         "${ACTION}"
 
 if [ "${ACTION}" = "build" ]; then

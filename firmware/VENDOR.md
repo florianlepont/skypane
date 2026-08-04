@@ -32,6 +32,15 @@ re-apply any local changes it still needs, and re-run the host tests
 | `partitions.csv` | `partitions.csv` | yes | none |
 | `sdkconfig.defaults` | `sdkconfig.defaults` | no | Bluetooth disabled (`CONFIG_BT_ENABLED=n`, `CONFIG_BT_NIMBLE_ENABLED=n`) — Phase 1 implements no BLE provisioning; hardcoded credentials in a gitignored `secrets.h` replace it for a device that talks only to a local stub, so carrying the BLE/NimBLE stack would inflate the image for no Phase 1 behaviour. Everything else (ESP32-S3 target, OPI PSRAM settings, the 12 KiB `app_main` stack, watchdog settings, bootloader app-rollback, and every `CONFIG_FP_*` value including the panel pin map) is untouched from upstream. |
 | `CMakeLists.txt` | `CMakeLists.txt` | no | `PROJECT_VER` changed from upstream's `"0.2.4"` to `"0.1.0-p1"` (this project has no release-tracking server yet, so it is just a human-readable phase marker) and `project(flightportrait)` renamed to `project(inkframe)` (this project's own name), because the project name determines the build artifact's filename. Structure (the `cmake_minimum_required` version, the `IDF_PATH`-relative include of `project.cmake`) is otherwise the same shape as upstream. |
+| `main/epd13in3e.c` | `main/epd13in3e.c` | yes | none |
+| `main/epd13in3e.h` | `main/epd13in3e.h` | yes | none |
+| `main/panel.c` | `main/panel.c` | yes | none |
+| `main/panel.h` | `main/panel.h` | yes | none |
+| `main/panel_guard.c` | `main/panel_guard.c` | yes | none |
+| `main/panel_guard.h` | `main/panel_guard.h` | yes | none |
+| `tests/test_panel_guard.c` | `tests/test_panel_guard.c` | yes | none |
+| `sdkconfig.ee02.defaults` | `sdkconfig.ee02.defaults` | yes | none |
+| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Trimmed to the options this project actually compiles against: kept `FP_API_BASE`, `FP_DEV_PROVISION_SECRET`, `FP_HW_REV`, the full 8-pin panel-pins menu, and the panel menu (`FP_MIN_REFRESH_SPACING_S`, `FP_MAX_GUARD_WAIT_S`). Removed `FP_PROVISION_TIMEOUT_S` (BLE provisioning timeout) and `FP_FACTORY_PREP` (factory-prep boolean) — neither has any code behind it in this project. Retained the "E1004 controls" menu (`FP_PIN_KEY0/1/2` plus the two hold-time options) with a new comment explaining why it stays without a compiled consumer this phase — the pin values are measured hardware fact from a real EE02 key-sweep (see `sdkconfig.ee02.defaults`), and losing them would mean re-deriving that measurement when Phase 4 (DEVICE-01) wires up the button handler. |
 
 ## Original To This Repository
 

@@ -37,6 +37,7 @@ run_suite() {
 
 run_suite "test_backoff" "${SCRIPT_DIR}/test_backoff.c" "${MAIN_DIR}/backoff.c"
 run_suite "test_api_base" "${SCRIPT_DIR}/test_api_base.c" "${MAIN_DIR}/api_base.c"
+run_suite "test_panel_guard" "${SCRIPT_DIR}/test_panel_guard.c" "${MAIN_DIR}/panel_guard.c"
 
 if [ "${FAIL}" -eq 0 ]; then
     echo "== summary: all hardware-free firmware suites passed =="
