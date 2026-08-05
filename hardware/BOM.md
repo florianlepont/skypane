@@ -76,8 +76,24 @@ Per D-02, this hardware is ordered **only if** plan 01-04's aggregator-API valid
 
 | Item | Vendor | Order number | Ordered on | Estimated delivery | Arrived on |
 |---|---|---|---|---|---|
-| XIAO ePaper DIY Kit EE02 (board + panel bundle) | Seeed Studio | PENDING | PENDING | PENDING | PENDING |
-| LiPo battery pack (Kubii "Batterie 3000mAh Li-Po") | Kubii | PENDING | PENDING | PENDING | PENDING |
-| USB-C data cable (Kubii "Cable USB 3 Type-C vers USB-A") | Kubii | PENDING | PENDING | PENDING | PENDING |
+| XIAO ePaper DIY Kit EE02 (board + panel bundle) | Seeed Studio | <seeed-order-ref> | 2026-08-05 | 2026-08-14 to 2026-08-26 (window, see note below) | PENDING |
+| LiPo battery pack (Kubii "Batterie 3000mAh Li-Po") | Kubii | <kubii-order-ref> | 2026-08-05 | 2026-08-08 | PENDING |
+| USB-C data cable (Kubii "Cable USB 3 Type-C vers USB-A") | Kubii | <kubii-order-ref> (same order as the battery pack — see note below) | 2026-08-05 | 2026-08-08 | PENDING |
 
-Task 2 fills in this table once the developer has placed the orders.
+**Notes:**
+- The Kubii order (<kubii-order-ref>) covers **both** the battery pack and the USB-C cable in a single checkout — total <order-payment-details-redacted>. The two rows above share the same order number and date because they are one order, not two.
+- The Seeed order's checkout-stated shipping method was "Direct Group Shipping — Duty Included — (7-15 working days), Shipping From China Warehouse." Converting that working-day range from the 2026-08-05 order date gives an estimated calendar delivery window of **2026-08-14 to 2026-08-26** (recorded as a range, since the vendor quoted working days rather than a fixed date). The BOM's own live-lookup note above flagged the panel as 0-in-stock at lookup time with an incoming restock batch expected 2026-08-10 — this working-day estimate may already price in that restock, but that is not independently confirmed, so treat 2026-08-26 as the conservative end of the window for planning purposes.
+
+Task 2 has filled in this table now that the orders are placed.
+
+## Unblock Date
+
+**Unblock date: 2026-08-26** — the later of the two estimated delivery dates (the EE02 kit's 2026-08-14 to 2026-08-26 window; the Kubii battery + cable order's 2026-08-08 is earlier and not the constraint). Physical hardware in hand is not guaranteed before the end of that window, so 2026-08-26 is the conservative planning date.
+
+**Plans gated by this date:**
+- **01-06** (first light / hardware bring-up) — needs the physical EE02 board and panel to flash firmware and drive the display; cannot start before the kit arrives.
+- **01-07** (backoff validation on real hardware) — needs the physical device running to validate the wake/poll/backoff loop against a live battery and network conditions; cannot start before both the kit and the battery pack arrive.
+
+**Correction to the plan's original assumption:** the plan text for this task named 01-05, 01-06, and 01-07 as the three hardware-gated plans. That is no longer accurate for 01-05 — plan 01-05 (device firmware: wake loop, log line contract, vendored network stack, EE02 board profile) has already been completed and committed (see `.planning/phases/01-foundation-hardware-bring-up-ads-b-validation/01-05-SUMMARY.md`). 01-05 only required a containerized ESP-IDF build (`espressif/idf:v5.3.1`) and host-side tests — it never depended on physical hardware arriving, so it is not gated by this Unblock Date. Only 01-06 and 01-07 remain blocked on physical hardware.
+
+If the actual Seeed checkout total or shipping estimate differs materially from what `## Budget Ceiling Check` assumed, that would be noted here — no material difference was reported by the developer for this order.
