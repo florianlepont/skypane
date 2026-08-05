@@ -25,7 +25,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DEVICE-02**: Switching views (button press) triggers a fresh data poll for the newly selected view, not a stale cached image
 - [x] **DEVICE-03**: Device wakes on a schedule, polls the server over HTTPS, downloads and displays a new image if available, then returns to deep sleep, with exponential backoff on failure
 - [ ] **DEVICE-04**: User can see a low-battery indicator on the frame when the battery is running low
-- [ ] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
+- [x] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
 
 ## v2 Requirements
 
@@ -65,7 +65,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEVICE-02 | Phase 4 | Pending |
 | DEVICE-03 | Phase 1 | Complete |
 | DEVICE-04 | Phase 4 | Pending |
-| DEVICE-05 | Phase 1 | Pending |
+| DEVICE-05 | Phase 1 | Complete |
 
 **Coverage:**
 

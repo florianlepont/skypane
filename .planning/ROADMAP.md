@@ -33,9 +33,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A local ADS-B receiver (RTL-SDR) placed at the install address (<street-address>) reliably detects real aircraft transiting runway 3's flight path, confirming the plane-detection approach is viable without needing the ADS-B Exchange fallback. This validates the groundwork for PLANE-03, fully delivered in Phase 2.
   4. The device completes multiple wake/poll/sleep cycles running on battery power alone, producing a measured mAh-per-cycle figure that supports a realistic wake-interval and battery-life plan.
 
-**Plans**: 3/8 plans executed
+**Plans**: 4/8 plans executed
 
-- [ ] 01-01-PLAN.md
+- [x] 01-01-PLAN.md
 - [x] 01-02-PLAN.md
 - [x] 01-03-PLAN.md
 - [ ] 01-04-PLAN.md
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation — Hardware Bring-up & ADS-B Validation | 3/8 | In Progress|  |
+| 1. Foundation — Hardware Bring-up & ADS-B Validation | 4/8 | In Progress|  |
 | 2. Plane View — End-to-End Slice | 0/TBD | Not started | - |
 | 3. RER View — End-to-End Slice | 0/TBD | Not started | - |
 | 4. View Switching, Fresh Polls & Low Battery | 0/TBD | Not started | - |
