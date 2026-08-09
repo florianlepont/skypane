@@ -1,0 +1,15 @@
+# Local virtualenv - recreate from requirements.txt.
+.venv/
+
+# Generated/runtime panel + poll state - never enter git.
+state/panel.bin
+state/panel.bin.tmp
+state/poll_state.json
+state/poll_state.json.tmp
+
+# Python bytecode caches.
+__pycache__/
+*.pyc
+
+# Optional developer preview PNGs (render.py --preview).
+*.preview.png

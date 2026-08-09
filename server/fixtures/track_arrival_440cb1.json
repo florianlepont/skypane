@@ -1,0 +1,35 @@
+[
+  {
+    "timestamp": "2026-08-04T19:53:41Z",
+    "hex": "440cb1",
+    "flight": "EJU84YF ",
+    "lat": 48.724900,
+    "lon": 2.398300,
+    "alt_baro": 425,
+    "gs": 145.0,
+    "baro_rate": -640,
+    "seen_pos": 4.1
+  },
+  {
+    "timestamp": "2026-08-04T19:54:11Z",
+    "hex": "440cb1",
+    "flight": "EJU84YF ",
+    "lat": 48.725400,
+    "lon": 2.399100,
+    "alt_baro": 425,
+    "gs": 140.0,
+    "baro_rate": 48,
+    "seen_pos": 2.8
+  },
+  {
+    "timestamp": "2026-08-04T19:54:41Z",
+    "hex": "440cb1",
+    "flight": "EJU84YF ",
+    "lat": 48.725900,
+    "lon": 2.399900,
+    "alt_baro": 425,
+    "gs": 132.0,
+    "baro_rate": 48,
+    "seen_pos": 1.6
+  }
+]

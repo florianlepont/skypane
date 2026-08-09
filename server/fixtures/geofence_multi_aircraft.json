@@ -1,0 +1,46 @@
+{
+  "ac": [
+    {
+      "hex": "39d300",
+      "flight": "TVF23WV ",
+      "lat": 48.727996,
+      "lon": 2.405139,
+      "alt_baro": 450,
+      "gs": 137.1,
+      "baro_rate": -640,
+      "seen_pos": 56.972
+    },
+    {
+      "hex": "39dd01",
+      "flight": "TVF83DW ",
+      "lat": 48.733017,
+      "lon": 2.431852,
+      "alt_baro": 800,
+      "gs": 139.0,
+      "baro_rate": -640,
+      "seen_pos": 0.94
+    },
+    {
+      "hex": "000001",
+      "flight": "SYNTH01 ",
+      "lat": 48.900000,
+      "lon": 2.100000,
+      "alt_baro": 2000,
+      "gs": 250.0,
+      "baro_rate": 0,
+      "seen_pos": 5.0,
+      "_synthetic_note": "outside runway3.json bbox on purpose - drives the out-of-bbox negative case"
+    },
+    {
+      "hex": "000002",
+      "flight": "SYNTH02 ",
+      "lat": null,
+      "lon": null,
+      "alt_baro": 1200,
+      "gs": 210.0,
+      "baro_rate": -300,
+      "seen_pos": 12.0,
+      "_synthetic_note": "missing lat/lon on purpose - drives the position-less negative case"
+    }
+  ]
+}

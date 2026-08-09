@@ -1,0 +1,24 @@
+{
+  "ac": [
+    {
+      "hex": "3985a7",
+      "flight": "AFR56XX ",
+      "lat": 48.719800,
+      "lon": 2.359200,
+      "alt_baro": "ground",
+      "gs": 12.0,
+      "baro_rate": 0,
+      "seen_pos": 3.4
+    },
+    {
+      "hex": "39dd01",
+      "flight": "TVF83DW ",
+      "lat": 48.733017,
+      "lon": 2.431852,
+      "alt_baro": 800,
+      "gs": 139.0,
+      "baro_rate": -640,
+      "seen_pos": 0.94
+    }
+  ]
+}
