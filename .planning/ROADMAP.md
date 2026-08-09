@@ -57,7 +57,16 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. As real aircraft use runway 3, the plane view updates to reflect the new flight as detected by the local ADS-B receiver — not a fixed schedule.
   4. The full pipeline (ADS-B detection → server render → device poll → display) runs end-to-end on real hardware, replacing the Phase 1 stub server.
 
-**Plans**: TBD
+**Note on criterion 3's wording**: "local ADS-B receiver" is stale. Phase 1 plan 01-04 resolved this with a validated `aggregator-sufficient` verdict — detection is built on the free adsb.fi / airplanes.live aggregators, no RTL-SDR. See 02-CONTEXT.md D-01; the doc correction is tracked for Phase 1 close.
+
+**Plans**: 5 plans
+
+- [ ] 02-01-PLAN.md — Slice 1: live runway-3 flight number reaches the panel (detection, selection rule, minimal render, poll loop)
+- [ ] 02-02-PLAN.md — Slice 2: departing vs. arriving (D-03 deadband inference, full-bleed state colour, state label)
+- [ ] 02-03-PLAN.md — Slice 3: aircraft silhouette centrepiece (vendored CC0 asset, hard-edged compositing, state mirroring)
+- [ ] 02-04-PLAN.md — Slice 4: airline and route captions (adsbdb enrichment, persistent cache, "Route unavailable" fallback)
+- [ ] 02-05-PLAN.md — Slice 5: real HTTPS deployment (scheme fix, Hetzner CX22 + Caddy + systemd, on-glass verification)
+
 **UI hint**: yes
 
 ### Phase 3: RER View — End-to-End Slice
@@ -99,6 +108,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 5/8 | In Progress|  |
-| 2. Plane View — End-to-End Slice | 0/TBD | Not started | - |
+| 2. Plane View — End-to-End Slice | 0/5 | Planned | - |
 | 3. RER View — End-to-End Slice | 0/TBD | Not started | - |
 | 4. View Switching, Fresh Polls & Low Battery | 0/TBD | Not started | - |
