@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 01
-current_phase_name: foundation-hardware-bring-up-ads-b-validation
+current_phase: 02
+current_phase_name: plane-view-end-to-end-slice
 status: executing
-stopped_at: Phase 02 UI-SPEC revised (full-bleed poster color field) and re-approved
-last_updated: "2026-08-08T06:00:53.411Z"
-last_activity: 2026-08-04
-last_activity_desc: Phase 01 execution started
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-08-09T07:15:36.748Z"
+last_activity: 2026-08-09
+last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 8
-  completed_plans: 5
+  total_plans: 13
+  completed_plans: 6
   percent: 0
 ---
 
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 01 — foundation-hardware-bring-up-ads-b-validation
+**Current focus:** Phase 02 — plane-view-end-to-end-slice
 
 ## Current Position
 
-Phase: 01 (foundation-hardware-bring-up-ads-b-validation) — EXECUTING
-Plan: 6 of 8
+Phase: 02 (plane-view-end-to-end-slice) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-08-04 — Phase 01 execution started
+Last activity: 2026-08-09 — Phase 02 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -60,6 +60,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P05 | 50min | 3 tasks | 22 files |
 | Phase 01 P01 | 12min | 2 tasks | 1 files |
 | Phase 01 P04 | 25min | 3 tasks | 1 files |
+| Phase 02 P01 | 14min | 3 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Hardware orders placed — Seeed EE02 kit (order <seeed-order-ref>) and Kubii battery+cable (order <kubii-order-ref>); Unblock Date 2026-08-26 gates only 01-06/01-07, not 01-05 (already complete)
 - [Phase 01]: aggregator-sufficient (2026-08-05): both adsb.fi and airplanes.live cleared the coverage bar over ~92min real traffic (38/37 distinct aircraft <=3000ft, 2/2 on-ground); update-cadence miss (36.2s/22.4s vs 15s) judged immaterial given the device's multi-minute refresh cycle. No RTL-SDR hardware ordered; D-02 fallback not invoked.
 - [Phase 01]: airplanes.live preferred as primary aggregator provider (tighter update gap, zero sample errors); adsb.fi retained as secondary given near-total hex overlap.
+- [Phase 02]: D-P2-01 multi-aircraft selection rule implemented as (effective_altitude_ft, seen_pos, hex) total order, proven deterministic under shuffled input
+- [Phase 02]: poll_loop.py hardcodes state=arriving for every detected flight - deliberate stub, marked in code, 02-02 replaces with real D-03 inference
+- [Phase 02]: Deferred marking PLANE-01/02/03 complete in REQUIREMENTS.md - this slice only satisfies detect->render->serve mechanics, not the full requirement text (enrichment is 02-04, real state inference is 02-02, hardware-verified legibility is 02-05)
 
 ### Pending Todos
 
@@ -105,6 +109,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-08T06:00:53.406Z
-Stopped at: Phase 02 UI-SPEC revised (full-bleed poster color field) and re-approved
-Resume file: .planning/phases/02-plane-view-end-to-end-slice/02-UI-SPEC.md
+Last session: 2026-08-09T07:15:36.741Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None
