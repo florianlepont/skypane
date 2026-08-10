@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
 """Minimal-but-real panel renderer for the plane view (PLANE-01/02/03).
 
-Implements only the zones this end-to-end slice needs (the state field,
-flight-number caption, and bottom static tag) - 02-02 adds the state label
-and real state colour inference, 02-03 adds the silhouette centrepiece,
-02-04 adds the route and airline lines. Every draw call goes directly onto
-a "P"-mode canvas from panel_format.new_canvas() with an integer
-palette-index fill, never an RGB tuple and never an RGB compose-then-
-quantize step (02-RESEARCH.md Architecture Pattern 1) - this is the
-mechanism that satisfies 02-UI-SPEC.md's binding "disable anti-aliasing"
-rule for free.
+Implements the state field, state label, flight-number caption, and bottom
+static tag - 02-03 adds the silhouette centrepiece, 02-04 adds the route
+and airline lines. Every draw call goes directly onto a "P"-mode canvas
+from panel_format.new_canvas() with an integer palette-index fill, never an
+RGB tuple and never an RGB compose-then-quantize step (02-RESEARCH.md
+Architecture Pattern 1) - this is the mechanism that satisfies
+02-UI-SPEC.md's binding "disable anti-aliasing" rule for free.
+
+02-02 (this slice) adds the full-bleed departing/arriving colour field
+(STATE_BACKGROUND) and the DEPARTING/ARRIVING state label (glyph + tracked
+text, STATE_INK) driven by real server.plane.runway_config inference -
+replacing 02-01's placeholder colour-only rendering. The vendored Lucide
+plane-takeoff/plane-landing glyphs are pre-rasterized PNG alpha masks
+(server/assets/icons/, see VENDOR.md) - no SVG parser is a runtime
+dependency (02-RESEARCH.md's "Don't Hand-Roll" table). Every resized mask
+is hard-thresholded back to strictly binary before compositing
+(load_binary_mask(), 02-RESEARCH.md Architecture Pattern 2) - this is what
+keeps the exactly-two-palette-indices anti-aliasing guarantee intact even
+though the glyph asset itself was resized.
 
 Usage (manual QA):
     server/.venv/bin/python3 server/plane/render.py --state empty --out /tmp/panel.bin
@@ -21,7 +31,7 @@ import hashlib
 import os
 import sys
 
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 # Allow both `import server.plane.render` (package import, REPO_ROOT already
 # on sys.path per the caller) and direct script execution
@@ -35,6 +45,7 @@ if _REPO_ROOT not in sys.path:
 
 from server import panel_format as pf
 from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_WHITE, WIDTH, HEIGHT
+from server.plane import runway_config
 
 # --- UI-SPEC Spacing Scale (02-UI-SPEC.md, unchanged since Revision 1) ----
 SPACE_XS = 8
@@ -71,15 +82,45 @@ HEADING_FONT = (_INTER_BOLD, 88, 700)
 # spec'd to an exact pixel count).
 LABEL_TRACKING_PX = 4
 
+# --- 02-UI-SPEC.md Colour section, Revision 2 (state-scoped, not one fixed
+# global table) -------------------------------------------------------------
+# Keyed by runway_config's STATE_* constants (not bare string literals) so
+# the two modules cannot drift apart - reading this one dict is what makes
+# the Colour section's reservation contract ("Blue/Green is the background
+# field only; White is foreground content only") enforceable.
+STATE_BACKGROUND = {
+    runway_config.STATE_DEPARTING: IDX_BLUE,
+    runway_config.STATE_ARRIVING: IDX_GREEN,
+}
+STATE_INK = {
+    runway_config.STATE_DEPARTING: IDX_WHITE,
+    runway_config.STATE_ARRIVING: IDX_WHITE,
+}
+STATE_LABEL_TEXT = {
+    runway_config.STATE_DEPARTING: "DEPARTING",
+    runway_config.STATE_ARRIVING: "ARRIVING",
+}
+
+# Vendored Lucide glyphs (server/assets/icons/, see VENDOR.md) - pre-
+# rasterized PNG alpha masks, never an SVG parsed at runtime.
+ICON_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "icons")
+)
+STATE_GLYPH_PATH = {
+    runway_config.STATE_DEPARTING: os.path.join(ICON_DIR, "plane-takeoff.png"),
+    runway_config.STATE_ARRIVING: os.path.join(ICON_DIR, "plane-landing.png"),
+}
+
 EMPTY_HEADING_TEXT = "Watching Runway 3"
 EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment one is."
 BOTTOM_TAG_TEXT = "ORY · RWY 3"
 
-# Reserved vertical footprint for zones this slice does not yet draw (zone 1
-# state label, zone 3 silhouette) so the flight-number caption (zone 5)
-# lands where 02-UI-SPEC.md's Layout & Composition puts it and 02-02/02-03/
-# 02-04 can slot their content in above it without ever moving what this
-# plan already renders.
+# Reserved vertical footprint for zone 3 (silhouette, filled by 02-03) so
+# the flight-number caption (zone 5) lands where 02-UI-SPEC.md's Layout &
+# Composition puts it and 02-03/02-04 can slot their content in above it
+# without ever moving what this plan already renders. Zone 1 (state label)
+# is now drawn by this plan (draw_state_label()) within this same reserved
+# footprint.
 _ZONE1_STATE_LABEL_HEIGHT = 96  # "roughly the same vertical footprint... ~96px" (UI-SPEC zone 1)
 _ZONE3_SILHOUETTE_MAX_HEIGHT = 260  # UI-SPEC zone 3: "~220-260px tall"
 _ZONE3_HEIGHT = SPACE_3XL + _ZONE3_SILHOUETTE_MAX_HEIGHT + SPACE_3XL  # 3xl padding both sides
@@ -162,6 +203,71 @@ def _tracked_text_bbox(font, xy, text, tracking):
     return (x, y, x + width, y + ascent + descent)
 
 
+def load_binary_mask(path, size):
+    """Load a vendored PNG glyph asset (server/assets/icons/) as a strictly
+    binary "L"-mode mask at `size` (width, height).
+
+    02-RESEARCH.md Architecture Pattern 2 (verified this session): resizing
+    a mask reintroduces anti-aliased grey edge pixels (up to 150+ distinct
+    grey levels observed for a simple test shape) - these must be hard-
+    thresholded back to strictly binary with .point() before paste(), or
+    the resize's grey edges alpha-blend into intermediate colours and break
+    the exactly-two-palette-indices rule this render pipeline depends on.
+    """
+    mask = Image.open(path).convert("L")
+    mask = mask.resize(size, Image.LANCZOS)
+    mask = mask.point(lambda p: 255 if p > 127 else 0)
+    return mask
+
+
+def draw_state_label(canvas, state, ink_idx):
+    """Draw UI-SPEC zone 1 - the state label row: the plane-takeoff/
+    plane-landing glyph (filled `ink_idx`) + SPACE_XS gap + tracked
+    uppercase Label-role text (`STATE_LABEL_TEXT[state]`), horizontally
+    centred, top-anchored within the 96px zone-1 band already reserved by
+    FLIGHT_NUMBER_TOP_Y's zone stacking. No filled rectangle behind it -
+    02-UI-SPEC.md Revision 2 explicitly removed the mode badge (a same-
+    colour badge would be invisible against its own full-bleed background).
+
+    Called only for the active (departing/arriving) states - the Empty
+    state renders no state label and no glyph at all (nothing detected yet,
+    nothing to depict).
+    """
+    draw = ImageDraw.Draw(canvas)
+    label_font = _font(LABEL_FONT)
+    text = STATE_LABEL_TEXT[state]
+
+    # Size the glyph to the Label role's cap height, per 02-02-PLAN.md Task 3.
+    cap_bbox = label_font.getbbox("H")
+    cap_height = cap_bbox[3] - cap_bbox[1]
+    icon_size = (cap_height, cap_height)
+
+    label_ascent, label_descent = label_font.getmetrics()
+    text_height = label_ascent + label_descent
+    text_width = _tracked_text_width(label_font, text, LABEL_TRACKING_PX)
+
+    row_height = max(cap_height, text_height)
+    block_width = cap_height + SPACE_XS + text_width
+
+    center_x = WIDTH // 2
+    zone1_top = MARGIN
+    row_top = zone1_top + (_ZONE1_STATE_LABEL_HEIGHT - row_height) // 2
+    block_left = center_x - block_width / 2
+
+    icon_x = block_left
+    icon_y = row_top + (row_height - cap_height) // 2
+    mask = load_binary_mask(STATE_GLYPH_PATH[state], icon_size)
+    icon_bbox = (icon_x, icon_y, icon_x + cap_height, icon_y + cap_height)
+    _assert_in_safe_box(icon_bbox, "state label glyph")
+    canvas.paste(ink_idx, (int(icon_x), int(icon_y)), mask=mask)
+
+    text_x = icon_x + cap_height + SPACE_XS
+    text_y = row_top + (row_height - text_height) // 2
+    text_bbox = _tracked_text_bbox(label_font, (text_x, text_y), text, LABEL_TRACKING_PX)
+    _assert_in_safe_box(text_bbox, "state label text")
+    draw_tracked_text(draw, (text_x, text_y), text, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
+
+
 def _build_empty_canvas():
     canvas = pf.new_canvas(IDX_WHITE)
     draw = ImageDraw.Draw(canvas)
@@ -195,16 +301,19 @@ def _build_empty_canvas():
 
 
 def _build_active_canvas(flight, state):
-    if state == "departing":
-        bg_idx, fg_idx = IDX_BLUE, IDX_WHITE
-    elif state == "arriving":
-        bg_idx, fg_idx = IDX_GREEN, IDX_WHITE
-    else:
+    if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
+    bg_idx = STATE_BACKGROUND[state]
+    fg_idx = STATE_INK[state]
 
     canvas = pf.new_canvas(bg_idx)
     draw = ImageDraw.Draw(canvas)
     center_x = WIDTH // 2
+
+    # UI-SPEC zone 1: state label - plane-takeoff/plane-landing glyph +
+    # tracked DEPARTING/ARRIVING text, no filled rectangle behind it (the
+    # Revision 2 "mode badge removed" decision).
+    draw_state_label(canvas, state, fg_idx)
 
     # UI-SPEC zone 5: flight-number caption, Heading size, horizontally
     # centred. Falls back to the aircraft's hex uppercased when no callsign
@@ -230,7 +339,13 @@ def _build_active_canvas(flight, state):
     return canvas
 
 
-def _build_canvas(flight, state):
+def build_canvas(flight, state):
+    """Return the pre-pack "P"-mode canvas for `flight` in `state`
+    ("departing" / "arriving" / "empty"). Public (not `_build_canvas`) so
+    callers - notably server/test_render.py's anti-aliasing assertions,
+    which read Image.getcolors() directly - never have to reach into
+    private render state.
+    """
     if flight is None or state == "empty":
         return _build_empty_canvas()
     return _build_active_canvas(flight, state)
@@ -241,13 +356,13 @@ def render_panel(flight, state):
     from detect.select_runway3_aircraft(), or None) in `state`
     ("departing" / "arriving" / "empty").
 
-    Callers of this slice pass a hardcoded state: poll_loop.py passes
-    "arriving" for any detected flight - this is a deliberate stub that
-    plan 02-02 replaces with real D-03 runway-configuration inference. It
-    is marked here, not just in poll_loop.py, so this function's own
-    behaviour is not mistaken for the finished PLANE-01/02 contract.
+    `state` is the return value of a server.plane.runway_config call
+    (poll_loop.py never hardcodes it) - server.plane.runway_config.py's
+    STATE_DEPARTING/STATE_ARRIVING constants are the exact strings
+    "departing"/"arriving" this function and build_canvas() key their
+    per-state dicts on.
     """
-    canvas = _build_canvas(flight, state)
+    canvas = build_canvas(flight, state)
     return pf.pack_panel(canvas)
 
 
@@ -272,7 +387,7 @@ def main(argv=None):
     if args.state != "empty":
         flight = {"hex": args.hex, "callsign": args.callsign}
 
-    canvas = _build_canvas(flight, args.state)
+    canvas = build_canvas(flight, args.state)
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:
         sys.exit("internal error: generated %d bytes, expected %d" % (len(data), pf.IMAGE_BYTES))
