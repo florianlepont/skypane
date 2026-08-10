@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: plane-view-end-to-end-slice
 status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-08-10T07:12:09.533Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-08-10T07:35:30.029Z"
 last_activity: 2026-08-09
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 13
-  completed_plans: 6
+  completed_plans: 8
   percent: 0
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 02 (plane-view-end-to-end-slice) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-08-09 — Phase 02 execution started
 
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P04 | 25min | 3 tasks | 1 files |
 | Phase 02 P01 | 14min | 3 tasks | 21 files |
 | Phase 02 P02 | 18min | 3 tasks | 9 files |
+| Phase 02 P03 | 40min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [Phase 02]: Deferred marking PLANE-01/02/03 complete in REQUIREMENTS.md - this slice only satisfies detect->render->serve mechanics, not the full requirement text (enrichment is 02-04, real state inference is 02-02, hardware-verified legibility is 02-05)
 - [Phase 02]: D-P2-04 deadband (+-200 ft/min) implemented with explicit bool rejection; descent side backed by the real EJU84YF flare fixture, climb side documented as provisional/symmetry-derived per A-02-02-01 (02-RESEARCH.md Open Question 2, closed in 02-05's hardware QA)
 - [Phase 02]: A first-ever detection whose vertical rate sits inside the deadband (confirmed_state is None) renders the Empty state rather than guessing a colour
+- [Phase 02]: aircraft-silhouette source SVG is detailed 3/4-view line-art (evenodd multi-subpath), not a flat silhouette - cleaned via a from-scratch Pillow dilate/flood-fill/erode pipeline rather than a vector editor — no rsvg-convert/Inkscape/numpy/scipy available in this environment; the flood-fill approach turns any traced line-art into a flat solid mask without hand-editing vector paths
+- [Phase 02]: Silhouette sized by fitting within both the 900px width cap and 02-02's existing 260px height cap while preserving the vendored asset's own ~2.22:1 aspect ratio - height cap binds first, leaving 02-02's zone-3 reservation and FLIGHT_NUMBER_TOP_Y untouched
 
 ### Pending Todos
 
@@ -112,6 +115,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-10T07:12:09.529Z
-Stopped at: Completed 02-02-PLAN.md
+Last session: 2026-08-10T07:35:30.026Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None

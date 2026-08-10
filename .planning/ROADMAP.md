@@ -59,7 +59,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Note on criterion 3's wording**: "local ADS-B receiver" is stale. Phase 1 plan 01-04 resolved this with a validated `aggregator-sufficient` verdict — detection is built on the free adsb.fi / airplanes.live aggregators, no RTL-SDR. See 02-CONTEXT.md D-01; the doc correction is tracked for Phase 1 close.
 
-**Plans**: 2/5 plans executed
+**Plans**: 3/5 plans executed
 **Wave 1**
 
 - [x] 02-01-PLAN.md — Slice 1: live runway-3 flight number reaches the panel (detection, selection rule, minimal render, poll loop)
@@ -70,7 +70,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-03-PLAN.md — Slice 3: aircraft silhouette centrepiece (vendored CC0 asset, hard-edged compositing, state mirroring)
+- [x] 02-03-PLAN.md — Slice 3: aircraft silhouette centrepiece (vendored CC0 asset, hard-edged compositing, state mirroring)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -121,6 +121,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 5/8 | In Progress|  |
-| 2. Plane View — End-to-End Slice | 2/5 | In Progress|  |
+| 2. Plane View — End-to-End Slice | 3/5 | In Progress|  |
 | 3. RER View — End-to-End Slice | 0/TBD | Not started | - |
 | 4. View Switching, Fresh Polls & Low Battery | 0/TBD | Not started | - |
