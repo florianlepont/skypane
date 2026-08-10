@@ -12,6 +12,16 @@ This harness asserts on the rendered canvas and packed bytes only - never
 on a screenshot. "Dominant nibble" means the most common nibble by count,
 which is unambiguous for a full-bleed field.
 
+02-04 addition (route line / airline line, zones 7-9): text-content
+assertions for these zones are made by monkeypatching
+`render.draw_tracked_text` (captures the "TO"/"FROM" Label-role prefix)
+and `render.ImageDraw.ImageDraw.text` (captures every Body-role run - the
+city name, the airline name, and the "Route unavailable" fallback copy),
+then asserting on the captured strings/positions directly. This was picked
+over rendering each caption to its own scratch canvas and comparing pixel
+signatures because it asserts on exactly what the render pipeline
+received, without needing OCR or a second rendering pass.
+
 Usage:
     server/.venv/bin/python3 server/test_render.py
 """
@@ -24,13 +34,25 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 19
+EXPECTED_CHECK_COUNT = 25
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
 LEGAL_NIBBLES = {NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN}
 
 TEST_FLIGHT = {"hex": "3985a7", "callsign": "AF1380"}
+
+# A real resolved route (server/fixtures/adsbdb_hit_TVF16VB.json, already
+# sentence-cased per server.plane.enrich.to_sentence_case_city) - used to
+# exercise zones 7/9's "hit" branch without importing server.plane.enrich
+# itself (this harness's contract is render.py's, not enrich.py's).
+TEST_ROUTE = {
+    "airline_name": "Transavia France",
+    "origin_iata": "ORY",
+    "origin_city": "Paris",
+    "destination_iata": "PMI",
+    "destination_city": "Palma de Mallorca",
+}
 
 
 def nibble_counts(buf):
@@ -340,6 +362,172 @@ def main():
             return False, "draw_silhouette() was called while building the empty-state canvas - UI-SPEC requires text-only, no silhouette"
         return True, ""
     check("empty-state render never calls draw_silhouette() (nothing detected, nothing to depict)", _empty_state_never_calls_draw_silhouette)
+
+    # 20-25. Route line (zone 7) / airline line (zone 9), 02-04
+    # (PLANE-01/02): a resolved route renders TO/FROM + city + airline
+    # name; an enrichment miss (route=None) omits the route line entirely
+    # and renders exactly "Route unavailable" at the airline line's normal
+    # position - no doubled gap. See the module docstring's "02-04
+    # addition" note for why these checks spy on draw_tracked_text() and
+    # ImageDraw.Draw.text() instead of comparing pixel signatures.
+    class _RenderSpy:
+        """Captures every render.draw_tracked_text() call (Label-role
+        runs - the route-line prefix, among others) and every
+        ImageDraw.Draw.text() call (Body-role runs - city names, the
+        airline name, the fallback copy) made while building one canvas.
+        """
+
+        def __init__(self, render_mod):
+            self._render_mod = render_mod
+            self.tracked = []  # list of (text, xy)
+            self.body = []  # list of (text, xy)
+            self._orig_tracked = None
+            self._orig_text = None
+
+        def __enter__(self):
+            self._orig_tracked = self._render_mod.draw_tracked_text
+            self._orig_text = self._render_mod.ImageDraw.ImageDraw.text
+
+            def _spy_tracked(draw, xy, text, font, fill, tracking=0):
+                self.tracked.append((text, xy))
+                return self._orig_tracked(draw, xy, text, font, fill, tracking=tracking)
+
+            def _spy_text(draw_self, xy, text, *args, **kwargs):
+                self.body.append((text, xy))
+                return self._orig_text(draw_self, xy, text, *args, **kwargs)
+
+            self._render_mod.draw_tracked_text = _spy_tracked
+            self._render_mod.ImageDraw.ImageDraw.text = _spy_text
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self._render_mod.draw_tracked_text = self._orig_tracked
+            self._render_mod.ImageDraw.ImageDraw.text = self._orig_text
+            return False
+
+    def _departing_with_route_renders_to_prefix_city_and_airline():
+        with _RenderSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        tracked_texts = [t for t, _xy in spy.tracked]
+        body_texts = [t for t, _xy in spy.body]
+        if "TO" not in tracked_texts:
+            return False, "expected the route-line prefix 'TO' among the tracked-text draws, got %r" % (tracked_texts,)
+        if TEST_ROUTE["destination_city"] not in body_texts:
+            return False, "expected the destination city %r among the body-text draws, got %r" % (TEST_ROUTE["destination_city"], body_texts)
+        if TEST_ROUTE["airline_name"] not in body_texts:
+            return False, "expected the airline name %r among the body-text draws, got %r" % (TEST_ROUTE["airline_name"], body_texts)
+        return True, ""
+    check(
+        "departing render with a resolved route draws the route line ('TO' + destination city) and the airline line (airline name)",
+        _departing_with_route_renders_to_prefix_city_and_airline,
+    )
+
+    def _arriving_with_route_renders_from_prefix_and_city():
+        with _RenderSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
+        tracked_texts = [t for t, _xy in spy.tracked]
+        body_texts = [t for t, _xy in spy.body]
+        if "FROM" not in tracked_texts:
+            return False, "expected the route-line prefix 'FROM' among the tracked-text draws, got %r" % (tracked_texts,)
+        if TEST_ROUTE["origin_city"] not in body_texts:
+            return False, "expected the origin city %r among the body-text draws, got %r" % (TEST_ROUTE["origin_city"], body_texts)
+        return True, ""
+    check(
+        "arriving render with a resolved route draws the route line with prefix 'FROM' + origin city",
+        _arriving_with_route_renders_from_prefix_and_city,
+    )
+
+    def _miss_render_omits_route_line_and_shows_fallback():
+        with _RenderSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=None)
+        tracked_texts = [t for t, _xy in spy.tracked]
+        body_texts = [t for t, _xy in spy.body]
+        if "TO" in tracked_texts or "FROM" in tracked_texts:
+            return False, "enrichment-miss render must never draw the route-line prefix, got tracked texts %r" % (tracked_texts,)
+        fallback_count = body_texts.count("Route unavailable")
+        if fallback_count != 1:
+            return False, "expected the airline line to carry exactly one 'Route unavailable', found %d occurrence(s) in %r" % (fallback_count, body_texts)
+        return True, ""
+    check(
+        "enrichment-miss render (route=None) never draws the route line and draws the airline line with the exact fallback text 'Route unavailable'",
+        _miss_render_omits_route_line_and_shows_fallback,
+    )
+
+    def _miss_fallback_sits_at_the_normal_airline_line_position():
+        with _RenderSpy(render) as hit_spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        with _RenderSpy(render) as miss_spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=None)
+
+        hit_airline_ys = [xy[1] for t, xy in hit_spy.body if t == TEST_ROUTE["airline_name"]]
+        miss_airline_ys = [xy[1] for t, xy in miss_spy.body if t == "Route unavailable"]
+        if not hit_airline_ys:
+            return False, "did not capture the resolved-route render's airline-name draw call"
+        if not miss_airline_ys:
+            return False, "did not capture the enrichment-miss render's fallback draw call"
+        if hit_airline_ys[0] != miss_airline_ys[0]:
+            return False, (
+                "fallback airline line y-offset %r does not match the resolved-route airline line y-offset %r - "
+                "UI-SPEC requires the fallback to sit at the airline line's normal position, not doubled up "
+                "with an empty route line above it" % (miss_airline_ys[0], hit_airline_ys[0])
+            )
+        return True, ""
+    check(
+        "enrichment-miss render's fallback airline line sits at the exact same y-offset as a resolved-route render's airline line (no doubled gap)",
+        _miss_fallback_sits_at_the_normal_airline_line_position,
+    )
+
+    def _miss_render_still_has_silhouette_label_and_flight_number():
+        if not hasattr(render, "draw_silhouette") or not hasattr(render, "draw_state_label"):
+            return False, "server.plane.render is missing draw_silhouette()/draw_state_label()"
+        silhouette_calls = []
+        label_calls = []
+        orig_silhouette = render.draw_silhouette
+        orig_label = render.draw_state_label
+
+        def _spy_silhouette(*args, **kwargs):
+            silhouette_calls.append(1)
+            return orig_silhouette(*args, **kwargs)
+
+        def _spy_label(*args, **kwargs):
+            label_calls.append(1)
+            return orig_label(*args, **kwargs)
+
+        render.draw_silhouette = _spy_silhouette
+        render.draw_state_label = _spy_label
+        try:
+            with _RenderSpy(render) as spy:
+                render.build_canvas(TEST_FLIGHT, "departing", route=None)
+        finally:
+            render.draw_silhouette = orig_silhouette
+            render.draw_state_label = orig_label
+
+        if not silhouette_calls:
+            return False, "draw_silhouette() was not called for an enrichment-miss render - the silhouette must still render from ADS-B data alone"
+        if not label_calls:
+            return False, "draw_state_label() was not called for an enrichment-miss render"
+        if TEST_FLIGHT["callsign"] not in [t for t, _xy in spy.body]:
+            return False, "the flight-number caption was not drawn for an enrichment-miss render"
+        return True, ""
+    check(
+        "enrichment-miss render still renders the silhouette, state label, and flight-number caption from ADS-B data alone",
+        _miss_render_still_has_silhouette_label_and_flight_number,
+    )
+
+    def _hit_and_miss_renders_keep_two_palette_indices():
+        hit_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        miss_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=None)
+        hit_colors = hit_canvas.getcolors()
+        miss_colors = miss_canvas.getcolors()
+        if hit_colors is None or len(hit_colors) != 2:
+            return False, "resolved-route canvas has %r distinct palette indices, expected exactly 2" % (None if hit_colors is None else len(hit_colors),)
+        if miss_colors is None or len(miss_colors) != 2:
+            return False, "enrichment-miss canvas has %r distinct palette indices, expected exactly 2" % (None if miss_colors is None else len(miss_colors),)
+        return True, ""
+    check(
+        "both a resolved-route render and an enrichment-miss render retain exactly two distinct palette indices after compositing",
+        _hit_and_miss_renders_keep_two_palette_indices,
+    )
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
