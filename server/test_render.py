@@ -308,24 +308,38 @@ def main():
         return True, ""
     check("departing silhouette's bounding box stays inside the safe box and does not overlap the state-label or flight-number caption bands", _silhouette_bbox_in_safe_box_no_overlap)
 
-    def _empty_state_has_no_silhouette_pixels():
-        if not all(hasattr(render, a) for a in _SILHOUETTE_ATTRS):
-            return False, "server.plane.render is missing one or more SILHOUETTE_* geometry constants: %r" % (_SILHOUETTE_ATTRS,)
-        canvas = render.build_canvas(None, "empty")
-        band, _ = _silhouette_band(render, canvas)
-        # Empty state's canvas is White-background/Black-text - IDX_WHITE (1)
-        # is the background there, so a raw White count is meaningless;
-        # instead confirm the band is untouched by silhouette drawing by
-        # checking it contains no Black (foreground ink) pixels at all,
-        # since the empty-state heading/body text is vertically centred
-        # and does not necessarily reach this exact band - the real
-        # guarantee is simply "no draw call happened here": the band must
-        # be uniformly the empty-state background colour (White).
-        colors = band.getcolors()
-        if colors is None or any(idx != IDX_WHITE for _count, idx in colors):
-            return False, "empty-state's silhouette-zone band is not uniformly White (background) - something drew there: %r" % (colors,)
+    def _empty_state_never_calls_draw_silhouette():
+        # A pixel-region check ("the band must be blank") is the wrong
+        # invariant here: the empty state's heading/body text is
+        # vertically centred on the *whole* 1600px canvas and legitimately
+        # passes through the silhouette-zone Y range - it is Black text on
+        # White background, the exact opposite foreground/background pair
+        # the active states use, so there is no colour-based marker that
+        # distinguishes "silhouette pixel" from "empty-state text pixel"
+        # in that band. The real UI-SPEC guarantee ("nothing detected,
+        # nothing to depict") is structural: draw_silhouette() must simply
+        # never be invoked while building the empty-state canvas. Verify
+        # that directly by spying on the call.
+        if not hasattr(render, "draw_silhouette"):
+            return False, "server.plane.render has no draw_silhouette()"
+        calls = []
+        original = render.draw_silhouette
+
+        def _spy(*args, **kwargs):
+            calls.append(1)
+            return original(*args, **kwargs)
+
+        render.draw_silhouette = _spy
+        try:
+            render.build_canvas(None, "empty")
+        except Exception as exc:
+            return False, "build_canvas(None, 'empty') raised: %r" % (exc,)
+        finally:
+            render.draw_silhouette = original
+        if calls:
+            return False, "draw_silhouette() was called while building the empty-state canvas - UI-SPEC requires text-only, no silhouette"
         return True, ""
-    check("empty-state render's silhouette-zone band contains no silhouette pixels (nothing detected, nothing to depict)", _empty_state_has_no_silhouette_pixels)
+    check("empty-state render never calls draw_silhouette() (nothing detected, nothing to depict)", _empty_state_never_calls_draw_silhouette)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

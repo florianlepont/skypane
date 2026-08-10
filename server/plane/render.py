@@ -111,6 +111,20 @@ STATE_GLYPH_PATH = {
     runway_config.STATE_ARRIVING: os.path.join(ICON_DIR, "plane-landing.png"),
 }
 
+# Vendored CC0 aircraft silhouette centrepiece (02-03, see VENDOR.md's
+# aircraft-silhouette entry for full provenance and the cleanup pipeline
+# that turned the source line-art into a flat solid mask). Pre-rasterized
+# PNG alpha mask, never an SVG parsed at runtime, same convention as
+# STATE_GLYPH_PATH above.
+SILHOUETTE_PATH = os.path.join(ICON_DIR, "aircraft-silhouette.png")
+
+# The vendored master's cockpit/nose renders on the LEFT of the asset
+# (recorded in VENDOR.md's "Source nose orientation" note) - this is read
+# here, not guessed, so draw_silhouette() below can compute whether to
+# mirror per state instead of hardcoding a flip that would silently go
+# wrong if the asset were ever re-rasterized mirrored.
+SILHOUETTE_SOURCE_NOSE = "left"
+
 EMPTY_HEADING_TEXT = "Watching Runway 3"
 EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment one is."
 BOTTOM_TAG_TEXT = "ORY · RWY 3"
@@ -121,15 +135,24 @@ BOTTOM_TAG_TEXT = "ORY · RWY 3"
 # without ever moving what this plan already renders. Zone 1 (state label)
 # is now drawn by this plan (draw_state_label()) within this same reserved
 # footprint.
-_ZONE1_STATE_LABEL_HEIGHT = 96  # "roughly the same vertical footprint... ~96px" (UI-SPEC zone 1)
-_ZONE3_SILHOUETTE_MAX_HEIGHT = 260  # UI-SPEC zone 3: "~220-260px tall"
-_ZONE3_HEIGHT = SPACE_3XL + _ZONE3_SILHOUETTE_MAX_HEIGHT + SPACE_3XL  # 3xl padding both sides
+ZONE1_STATE_LABEL_HEIGHT = 96  # "roughly the same vertical footprint... ~96px" (UI-SPEC zone 1)
+
+# UI-SPEC zone 3 geometry, named per 02-03-PLAN.md Task 2 so
+# test_render.py's assertions reference the exact numbers the renderer
+# uses instead of re-deriving them. UI-SPEC's own "~900px wide / ~220-
+# 260px tall" is a fit-within box, not a fixed size - draw_silhouette()
+# below preserves the source aspect ratio and lets whichever of the two
+# caps (width or height) binds first determine the actual rendered size.
+# The vendored asset's ~2.22:1 aspect ratio means the 260px height cap
+# binds well before the 900px width cap is reached (see VENDOR.md).
+SILHOUETTE_TARGET_W = 900  # UI-SPEC zone 3: "max ~900px wide"
+SILHOUETTE_MAX_H = 260  # UI-SPEC zone 3: "~220-260px tall"
+SILHOUETTE_ZONE_TOP = MARGIN + ZONE1_STATE_LABEL_HEIGHT + SPACE_2XL  # = 288
+SILHOUETTE_ZONE_HEIGHT = SPACE_3XL + SILHOUETTE_MAX_H + SPACE_3XL  # 3xl padding both sides = 644
 
 FLIGHT_NUMBER_TOP_Y = (
-    MARGIN
-    + _ZONE1_STATE_LABEL_HEIGHT
-    + SPACE_2XL
-    + _ZONE3_HEIGHT
+    SILHOUETTE_ZONE_TOP
+    + SILHOUETTE_ZONE_HEIGHT
     + SPACE_XL
 )  # = 1028
 
@@ -220,6 +243,26 @@ def load_binary_mask(path, size):
     return mask
 
 
+def paste_mask(canvas, mask_path, box, fill_index, mirror=False):
+    """Composite a vendored PNG mask asset onto `canvas` as a flat
+    `fill_index`-coloured shape - the single shared call site for
+    02-RESEARCH.md Architecture Pattern 2's full ordering (load ->
+    resize -> hard-threshold -> optional mirror -> paste-with-mask),
+    used by both the state-label glyph and the silhouette centrepiece so
+    neither call site can accidentally skip the threshold step.
+
+    `box` is (left, top, width, height) in canvas pixel coordinates.
+    Returns the composited element's absolute bounding box
+    (left, top, right, bottom) for the caller's own safe-box assertion.
+    """
+    left, top, w, h = box
+    mask = load_binary_mask(mask_path, (w, h))
+    if mirror:
+        mask = mask.transpose(Image.FLIP_LEFT_RIGHT)
+    canvas.paste(fill_index, (int(left), int(top)), mask=mask)
+    return (left, top, left + w, top + h)
+
+
 def draw_state_label(canvas, state, ink_idx):
     """Draw UI-SPEC zone 1 - the state label row: the plane-takeoff/
     plane-landing glyph (filled `ink_idx`) + SPACE_XS gap + tracked
@@ -251,21 +294,70 @@ def draw_state_label(canvas, state, ink_idx):
 
     center_x = WIDTH // 2
     zone1_top = MARGIN
-    row_top = zone1_top + (_ZONE1_STATE_LABEL_HEIGHT - row_height) // 2
+    row_top = zone1_top + (ZONE1_STATE_LABEL_HEIGHT - row_height) // 2
     block_left = center_x - block_width / 2
 
     icon_x = block_left
     icon_y = row_top + (row_height - cap_height) // 2
-    mask = load_binary_mask(STATE_GLYPH_PATH[state], icon_size)
-    icon_bbox = (icon_x, icon_y, icon_x + cap_height, icon_y + cap_height)
+    icon_bbox = paste_mask(canvas, STATE_GLYPH_PATH[state], (icon_x, icon_y, cap_height, cap_height), ink_idx)
     _assert_in_safe_box(icon_bbox, "state label glyph")
-    canvas.paste(ink_idx, (int(icon_x), int(icon_y)), mask=mask)
 
     text_x = icon_x + cap_height + SPACE_XS
     text_y = row_top + (row_height - text_height) // 2
     text_bbox = _tracked_text_bbox(label_font, (text_x, text_y), text, LABEL_TRACKING_PX)
     _assert_in_safe_box(text_bbox, "state label text")
     draw_tracked_text(draw, (text_x, text_y), text, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
+
+
+def draw_silhouette(canvas, state, ink_idx):
+    """Draw UI-SPEC zone 3 - the aircraft silhouette centrepiece: a flat
+    `ink_idx`-coloured fill of the vendored CC0 aircraft silhouette,
+    horizontally centred within SILHOUETTE_ZONE_TOP..+SILHOUETTE_ZONE_HEIGHT
+    with at least SPACE_3XL of clear field above/below its own bounding
+    box, mirrored by state so the nose points right for `departing`
+    (climbing away) and left for `arriving` (descending in) - a second,
+    non-colour-dependent state cue (02-UI-SPEC.md Layout & Composition
+    zone 3).
+
+    Sized to fit within both the ~SILHOUETTE_TARGET_W width cap and the
+    SILHOUETTE_MAX_H height cap while preserving the vendored asset's own
+    aspect ratio - whichever cap binds first governs the actual size (see
+    VENDOR.md: the source's ~2.22:1 aspect ratio means the height cap
+    binds well before the width cap is reached).
+
+    Called only for the active (departing/arriving) states - the Empty
+    state draws no silhouette at all (D-04/UI-SPEC: nothing detected yet,
+    nothing to depict).
+
+    Returns the silhouette's absolute bounding box (left, top, right,
+    bottom) for the caller's own guard-rail assertions.
+    """
+    with Image.open(SILHOUETTE_PATH) as probe:
+        src_w, src_h = probe.size
+    aspect = src_w / src_h
+
+    sil_w = SILHOUETTE_TARGET_W
+    sil_h = round(sil_w / aspect)
+    if sil_h > SILHOUETTE_MAX_H:
+        sil_h = SILHOUETTE_MAX_H
+        sil_w = round(sil_h * aspect)
+
+    center_x = WIDTH // 2
+    left = center_x - sil_w // 2
+    top = SILHOUETTE_ZONE_TOP + SPACE_3XL
+
+    required_nose = "right" if state == runway_config.STATE_DEPARTING else "left"
+    mirror = required_nose != SILHOUETTE_SOURCE_NOSE
+
+    bbox = paste_mask(canvas, SILHOUETTE_PATH, (left, top, sil_w, sil_h), ink_idx, mirror=mirror)
+    _assert_in_safe_box(bbox, "aircraft silhouette")
+    assert bbox[1] >= SILHOUETTE_ZONE_TOP, (
+        "silhouette top %r overlaps the state-label band (SILHOUETTE_ZONE_TOP=%d)" % (bbox[1], SILHOUETTE_ZONE_TOP)
+    )
+    assert bbox[3] <= SILHOUETTE_ZONE_TOP + SILHOUETTE_ZONE_HEIGHT, (
+        "silhouette bottom %r overflows its reserved zone-3 footprint" % (bbox[3],)
+    )
+    return bbox
 
 
 def _build_empty_canvas():
@@ -315,6 +407,12 @@ def _build_active_canvas(flight, state):
     # Revision 2 "mode badge removed" decision).
     draw_state_label(canvas, state, fg_idx)
 
+    # UI-SPEC zone 3: the aircraft silhouette centrepiece, mirrored by
+    # state (02-03) - the panel's primary visual anchor, drawn before the
+    # flight-number caption below it so the visual reading order in code
+    # matches the visual reading order on the panel.
+    draw_silhouette(canvas, state, fg_idx)
+
     # UI-SPEC zone 5: flight-number caption, Heading size, horizontally
     # centred. Falls back to the aircraft's hex uppercased when no callsign
     # was recovered, so the panel never renders an empty hero line.
@@ -335,6 +433,18 @@ def _build_active_canvas(flight, state):
     tag_bbox = (tag_x, tag_y, tag_x + tag_width, tag_y + tag_line_height)
     _assert_in_safe_box(tag_bbox, "bottom static tag")
     draw_tracked_text(draw, (tag_x, tag_y), BOTTOM_TAG_TEXT, label_font, fg_idx, tracking=LABEL_TRACKING_PX)
+
+    # Guard rail (02-RESEARCH.md Pattern 2): every mask composited above
+    # (state-label glyph, silhouette) went through load_binary_mask()'s
+    # hard threshold, so the canvas must still be exactly two palette
+    # indices (bg_idx, fg_idx). Failing loudly here is better than
+    # shipping a subtly dithered panel to the glass, where the failure is
+    # only visible by eye.
+    colors = canvas.getcolors()
+    assert colors is not None and len(colors) == 2, (
+        "%s canvas has %r distinct palette indices after compositing, expected exactly 2 - "
+        "a mask was pasted without the hard-threshold step" % (state, None if colors is None else len(colors))
+    )
 
     return canvas
 
