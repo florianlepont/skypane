@@ -24,7 +24,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 15
+EXPECTED_CHECK_COUNT = 19
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -238,6 +238,94 @@ def main():
             return False, "departing and arriving renders of the same flight are byte-identical - state does not change output"
         return True, ""
     check("departing and arriving renders of the same flight differ in bytes (state changes output)", _departing_and_arriving_differ)
+
+    # 16-19. Silhouette centrepiece (02-03, PLANE-01/02): the aircraft
+    #        silhouette must actually contribute pixels, mirror by state,
+    #        stay inside the safe box without overlapping its neighbouring
+    #        zones, and never appear in the Empty state. These checks read
+    #        the render.SILHOUETTE_* named geometry constants directly
+    #        (02-03-PLAN.md Task 2's acceptance criteria) rather than
+    #        hardcoding pixel numbers, so they stay meaningful if the
+    #        geometry ever changes deliberately.
+    _SILHOUETTE_ATTRS = ("SILHOUETTE_ZONE_TOP", "SILHOUETTE_ZONE_HEIGHT", "SILHOUETTE_TARGET_W", "SILHOUETTE_MAX_H")
+
+    def _silhouette_band(render_mod, canvas):
+        top = getattr(render_mod, "SILHOUETTE_ZONE_TOP")
+        height = getattr(render_mod, "SILHOUETTE_ZONE_HEIGHT")
+        return canvas.crop((0, top, panel_format.WIDTH, top + height)), top
+
+    def _fg_only_bytes(band, fg_idx):
+        # Reduce the band to a pure foreground/not-foreground mask so a
+        # background-colour difference (Blue vs Green) alone can never
+        # satisfy a "differs" comparison - only an actual shape change can.
+        return band.point(lambda p: 255 if p == fg_idx else 0).tobytes()
+
+    def _departing_silhouette_has_substantial_white_run():
+        if not all(hasattr(render, a) for a in _SILHOUETTE_ATTRS):
+            return False, "server.plane.render is missing one or more SILHOUETTE_* geometry constants: %r" % (_SILHOUETTE_ATTRS,)
+        canvas = render.build_canvas(TEST_FLIGHT, "departing")
+        band, _ = _silhouette_band(render, canvas)
+        white_count = band.histogram()[IDX_WHITE]
+        min_expected = int(0.1 * render.SILHOUETTE_TARGET_W * render.SILHOUETTE_MAX_H)
+        if white_count < min_expected:
+            return False, "departing silhouette band contains only %d White pixels, expected at least %d (derived from SILHOUETTE_TARGET_W x SILHOUETTE_MAX_H) - silhouette paste looks like a no-op" % (white_count, min_expected)
+        return True, ""
+    check("departing render's silhouette band contains a substantial run of White pixels (silhouette actually painted)", _departing_silhouette_has_substantial_white_run)
+
+    def _departing_and_arriving_silhouette_bands_differ_by_shape():
+        if not all(hasattr(render, a) for a in _SILHOUETTE_ATTRS):
+            return False, "server.plane.render is missing one or more SILHOUETTE_* geometry constants: %r" % (_SILHOUETTE_ATTRS,)
+        dep_canvas = render.build_canvas(TEST_FLIGHT, "departing")
+        arr_canvas = render.build_canvas(TEST_FLIGHT, "arriving")
+        dep_band, _ = _silhouette_band(render, dep_canvas)
+        arr_band, _ = _silhouette_band(render, arr_canvas)
+        dep_fg = _fg_only_bytes(dep_band, IDX_WHITE)
+        arr_fg = _fg_only_bytes(arr_band, IDX_WHITE)
+        if dep_fg == arr_fg:
+            return False, "departing and arriving foreground-only silhouette bands are byte-identical - mirroring is a no-op (a background colour difference alone cannot satisfy this check, since both bands were reduced to a White-vs-not mask first)"
+        return True, ""
+    check("departing and arriving silhouette bands differ in their foreground (White) shape specifically - not just background colour (mirroring applied)", _departing_and_arriving_silhouette_bands_differ_by_shape)
+
+    def _silhouette_bbox_in_safe_box_no_overlap():
+        if not all(hasattr(render, a) for a in _SILHOUETTE_ATTRS) or not hasattr(render, "FLIGHT_NUMBER_TOP_Y") or not hasattr(render, "MARGIN"):
+            return False, "server.plane.render is missing SILHOUETTE_* geometry, FLIGHT_NUMBER_TOP_Y, or MARGIN"
+        canvas = render.build_canvas(TEST_FLIGHT, "departing")
+        band, band_top = _silhouette_band(render, canvas)
+        fg_mask = band.point(lambda p: 255 if p == IDX_WHITE else 0)
+        bbox = fg_mask.getbbox()
+        if bbox is None:
+            return False, "no silhouette pixels found in the zone-3 band at all"
+        left, top, right, bottom = bbox
+        abs_top = top + band_top
+        abs_bottom = bottom + band_top
+        sb_left, sb_top, sb_right, sb_bottom = render.MARGIN, render.MARGIN, panel_format.WIDTH - render.MARGIN, panel_format.HEIGHT - render.MARGIN
+        if not (left >= sb_left and right <= sb_right and abs_top >= sb_top and abs_bottom <= sb_bottom):
+            return False, "silhouette bounding box (%r absolute) exceeds the inviolable safe box %r" % ((left, abs_top, right, abs_bottom), (sb_left, sb_top, sb_right, sb_bottom))
+        if abs_top < render.SILHOUETTE_ZONE_TOP:
+            return False, "silhouette bounding box top %d creeps above its reserved zone (SILHOUETTE_ZONE_TOP=%d) - overlaps the state-label band" % (abs_top, render.SILHOUETTE_ZONE_TOP)
+        if abs_bottom > render.FLIGHT_NUMBER_TOP_Y:
+            return False, "silhouette bounding box bottom %d overlaps the flight-number caption band (FLIGHT_NUMBER_TOP_Y=%d)" % (abs_bottom, render.FLIGHT_NUMBER_TOP_Y)
+        return True, ""
+    check("departing silhouette's bounding box stays inside the safe box and does not overlap the state-label or flight-number caption bands", _silhouette_bbox_in_safe_box_no_overlap)
+
+    def _empty_state_has_no_silhouette_pixels():
+        if not all(hasattr(render, a) for a in _SILHOUETTE_ATTRS):
+            return False, "server.plane.render is missing one or more SILHOUETTE_* geometry constants: %r" % (_SILHOUETTE_ATTRS,)
+        canvas = render.build_canvas(None, "empty")
+        band, _ = _silhouette_band(render, canvas)
+        # Empty state's canvas is White-background/Black-text - IDX_WHITE (1)
+        # is the background there, so a raw White count is meaningless;
+        # instead confirm the band is untouched by silhouette drawing by
+        # checking it contains no Black (foreground ink) pixels at all,
+        # since the empty-state heading/body text is vertically centred
+        # and does not necessarily reach this exact band - the real
+        # guarantee is simply "no draw call happened here": the band must
+        # be uniformly the empty-state background colour (White).
+        colors = band.getcolors()
+        if colors is None or any(idx != IDX_WHITE for _count, idx in colors):
+            return False, "empty-state's silhouette-zone band is not uniformly White (background) - something drew there: %r" % (colors,)
+        return True, ""
+    check("empty-state render's silhouette-zone band contains no silhouette pixels (nothing detected, nothing to depict)", _empty_state_has_no_silhouette_pixels)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

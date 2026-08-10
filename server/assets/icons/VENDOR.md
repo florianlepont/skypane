@@ -41,3 +41,93 @@
    `cairosvg` 2.9.0 (a vendor-time-only tool, not added to
    `server/requirements.txt` — it is never imported by any file under
    `server/` at runtime).
+
+## `aircraft-silhouette.svg` / `aircraft-silhouette.png`
+
+- **Upstream source:** freesvg.org / OpenClipart, **SVG ID 178507**,
+  "Passenger aircraft silhouette clip art"
+  (`https://freesvg.org/passenger-aircraft-silhouette-clip-art`,
+  download endpoint `https://freesvg.org/download/178507`).
+- **Retrieval date:** 2026-08-10.
+- **Licence:** Public Domain / **CC0** — the source page's
+  `<meta itemprop="license" content="https://creativecommons.org/publicdomain/zero/1.0/">`
+  tag confirms CC0 Public Domain Dedication. Originally derived by
+  OpenClipart from a public-domain Wikimedia Commons line drawing, per
+  freesvg.org's own attribution convention for OpenClipart-sourced
+  uploads. No attribution is legally required, but the source URL and
+  SVG ID are recorded here for provenance.
+- **Locked selection (02-UI-SPEC.md Design System, binding):** chosen over
+  OpenClipart SVG ID 18321 and SVG ID 37085 as the only CC0 candidate
+  reading as a modern commercial jet in profile without per-airline
+  livery detail. Do not substitute a different asset without updating
+  02-UI-SPEC.md first.
+
+### Local modifications
+
+1. `aircraft-silhouette.svg` — copied byte-for-byte from the freesvg.org
+   download endpoint; retained only for provenance, not loaded at runtime
+   (no SVG parser is a runtime dependency of this project, per
+   02-RESEARCH.md's "Don't Hand-Roll" table). The source artwork is a
+   detailed 3/4-aerial-view line-art drawing (a single compound SVG
+   `<path>` using an even-odd fill rule to trace outline strokes,
+   panel/window detail, and shading — not already a flat solid
+   silhouette).
+2. `aircraft-silhouette.png` — pre-rasterized once at vendor time
+   (`cairosvg` 2.9.0, the same vendor-time-only tool used for the Lucide
+   glyphs above; not a runtime dependency) into a 1800x830 grayscale-content
+   PNG: white aircraft shape on a black field, matching the same
+   `load_binary_mask()`-compatible convention as the Lucide glyphs. Unlike
+   the Lucide glyphs, this source is not already a flat shape, so a
+   cleanup pass was required beyond straight rasterization, per
+   02-UI-SPEC.md's Design System executor note ("clean up stray anchor
+   points and over-fine detail... so the silhouette reads as one clean
+   solid jet in profile"):
+   - Rasterized at 3600px width for antialiasing headroom, thresholded to
+     a binary ink mask (outline strokes + shaded regions).
+   - Closed hairline gaps in the traced outline (a thin unfilled cheatline
+     channel along the fuselage, and a thin gap in the tail assembly, both
+     of which let a background flood-fill leak into the aircraft's
+     interior) with a small morphological dilation (Pillow
+     `ImageFilter.MaxFilter`).
+   - Flood-filled the true exterior background from multiple canvas-edge
+     seed points, then treated every pixel *not* reached by that flood
+     fill — both the original ink and the now-enclosed interior
+     (previously-white fuselage/wing surface detail, window rows, panel
+     lines) — as the solid aircraft mask. This is what removes the
+     source's interior line-art detail and leaves one flat, continuous
+     shape.
+   - Eroded back by the same amount used for the closing dilation to
+     restore the true outer boundary, then a slight Gaussian blur +
+     re-threshold pass to smooth pixel-staircase edges before the final
+     LANCZOS downscale to 1800px width with a small padding margin.
+   - Verified at simulated render size (~579x260, the actual in-panel
+     target box) that the cleaned shape still reads as one solid,
+     unfragmented jet silhouette after the render pipeline's own
+     resize-then-threshold step (02-RESEARCH.md Pattern 2).
+   - **Source nose orientation: LEFT.** The source artwork's cockpit/nose
+     section renders on the left side of the canvas, tail assembly on the
+     right. `server/plane/render.py` must mirror
+     (`Image.transpose(Image.FLIP_LEFT_RIGHT)`) for the `departing` state
+     (UI-SPEC requires nose-right) and leave the source orientation
+     unmirrored for the `arriving` state (UI-SPEC requires nose-left,
+     which already matches the source).
+   - Content aspect ratio after cleanup: approximately 2.22:1 (width:height)
+     — wider than UI-SPEC's "~220-260px tall" anticipation once scaled to
+     fit that height, meaning the binding size constraint at render time is
+     the ~260px zone-3 height cap, not the ~900px width cap; actual
+     rendered width is well under 900px. This does not change the shape,
+     only which UI-SPEC dimension governs the final scale.
+
+### Independent-design note (carried from 02-UI-SPEC.md Revision 2, informational)
+
+flightportrait's public `flightportrait/frame` GitHub repository contains
+only device firmware and the minimal reference protocol server
+(`stub-server/byos_server.py`, already vendored in this project) — the
+repo's own README states its poster renderer is "separate, closed
+components." There is no vendorable rendering code, layout logic, or
+asset pipeline for flightportrait's own poster artwork; this project's
+full-bleed silhouette-centerpiece composition (and the specific choice of
+this CC0 asset) is an independent design decision reverse-engineered from
+flightportrait.com's public visual reference, not a copy of their
+implementation. A future contributor looking for "the flightportrait
+renderer" in that repo will not find one.
