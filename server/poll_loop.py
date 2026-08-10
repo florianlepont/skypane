@@ -38,6 +38,7 @@ if _REPO_ROOT not in sys.path:
 
 import server.plane.detect as detect
 import server.plane.render as render
+import server.plane.runway_config as runway_config
 
 DEFAULT_STATE_DIR = os.path.join(_HERE, "state")
 POLL_INTERVAL_S = 30
@@ -57,6 +58,23 @@ def _extract_aircraft(snapshot):
         if isinstance(value, list):
             return value
     return []
+
+
+def _classify_state_source(vertical_rate_fpm):
+    """Was this cycle's confirmed state newly inferred from a vertical-rate
+    reading that actually crossed a D-P2-04 threshold, or held over from a
+    prior cycle because this reading sat inside the deadband (or was
+    missing/non-numeric)? Log-only classification - mirrors
+    runway_config.infer_runway_config()'s own branches without duplicating
+    its threshold constants as literals.
+    """
+    if isinstance(vertical_rate_fpm, bool):
+        return "held"
+    if not isinstance(vertical_rate_fpm, (int, float)):
+        return "held"
+    if vertical_rate_fpm >= runway_config.CLIMB_THRESHOLD_FPM or vertical_rate_fpm <= runway_config.DESCEND_THRESHOLD_FPM:
+        return "inferred"
+    return "held"
 
 
 def _poll_state_path(state_dir):
@@ -147,41 +165,61 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
 
     poll_state = load_poll_state(state_dir)
     last_flight = poll_state.get("last_flight")
+    last_confirmed_state = poll_state.get("last_confirmed_state")
 
     if flight is not None:
-        # D-03's real departing/arriving inference lands in plan 02-02;
-        # until then every detected flight is rendered as "arriving". This
-        # is a deliberate stub, not finished PLANE-01/02 behaviour.
-        chosen_state = "arriving"
-        rendered = render.render_panel(flight, chosen_state)
+        # D-03/D-P2-04: real runway-configuration inference from the
+        # aircraft's own vertical rate, with a deadband and hold-last-state
+        # behaviour (server.plane.runway_config). Replaces the 02-01 stub
+        # that hardcoded every detected flight as "arriving".
+        confirmed_state = runway_config.infer_from_flight(flight, last_confirmed_state)
+        state_source = _classify_state_source(flight.get("vertical_rate_fpm"))
+        if confirmed_state is None:
+            # A first-ever detection whose vertical rate sits inside the
+            # deadband - nothing can be concluded yet. Render the Empty
+            # state rather than guessing a colour: an unknown runway
+            # configuration must not be shown as a confident Blue/Green
+            # field.
+            render_state = "empty"
+            rendered = render.render_panel(None, render_state)
+        else:
+            render_state = confirmed_state
+            rendered = render.render_panel(flight, render_state)
         panel_changed = write_panel_atomic(state_dir, rendered)
         poll_state["last_flight"] = flight
-        poll_state["last_state"] = chosen_state
+        poll_state["last_confirmed_state"] = confirmed_state
         save_poll_state(state_dir, poll_state)
     elif last_flight is not None:
         # D-04: nothing detected this cycle, but a flight was already on
         # screen - do nothing to panel.bin. No waiting state, no expiry.
-        chosen_state = poll_state.get("last_state", "arriving")
+        confirmed_state = last_confirmed_state
+        render_state = confirmed_state if confirmed_state is not None else "empty"
+        state_source = "held"
         panel_changed = False
     else:
         # Nothing detected, and nothing has ever been detected since the
         # state directory was last empty - render the Empty state.
-        chosen_state = "empty"
-        rendered = render.render_panel(None, chosen_state)
+        confirmed_state = None
+        render_state = "empty"
+        state_source = "held"
+        rendered = render.render_panel(None, render_state)
         panel_changed = write_panel_atomic(state_dir, rendered)
 
     print(
-        "poll_loop: hex=%s callsign=%s altitude_ft=%s state=%s panel_changed=%s"
+        "poll_loop: hex=%s callsign=%s altitude_ft=%s confirmed_state=%s render_state=%s "
+        "state_source=%s panel_changed=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
             (flight or {}).get("altitude_ft"),
-            chosen_state,
+            confirmed_state,
+            render_state,
+            state_source,
             panel_changed,
         )
     )
 
-    return {"flight": flight, "state": chosen_state, "panel_changed": panel_changed}
+    return {"flight": flight, "state": render_state, "panel_changed": panel_changed}
 
 
 def build_parser():
