@@ -37,6 +37,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import server.plane.detect as detect
+import server.plane.enrich as enrich
 import server.plane.render as render
 import server.plane.runway_config as runway_config
 
@@ -181,10 +182,30 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             # configuration must not be shown as a confident Blue/Green
             # field.
             render_state = "empty"
+            route_source = "n/a"
             rendered = render.render_panel(None, render_state)
         else:
             render_state = confirmed_state
-            rendered = render.render_panel(flight, render_state)
+            # D-02/D-P2-05: resolve the airline + route for zones 7/9 via a
+            # persistent, callsign-keyed cache (D-P2-02 - this cache lives
+            # in poll_state.json, not in-process, since this script is a
+            # systemd oneshot with no memory between invocations).
+            cache = poll_state.get("enrichment_cache")
+            if not isinstance(cache, dict):
+                cache = {}
+            normalised_callsign = enrich.normalise_callsign(flight.get("callsign"))
+            was_cached = normalised_callsign is not None and normalised_callsign in cache
+            route = enrich.lookup_route(flight.get("callsign"), cache)
+            # Three categories only (not four): a cached *miss* is still a
+            # "miss" in this log, not a "cache hit" - "cache hit" means the
+            # cache spared us a request AND returned a usable route.
+            if route is not None:
+                route_source = "cache_hit" if was_cached else "fresh_hit"
+            else:
+                route_source = "miss"
+            enrich.trim_cache(cache)
+            poll_state["enrichment_cache"] = cache
+            rendered = render.render_panel(flight, render_state, route=route)
         panel_changed = write_panel_atomic(state_dir, rendered)
         poll_state["last_flight"] = flight
         poll_state["last_confirmed_state"] = confirmed_state
@@ -195,6 +216,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         confirmed_state = last_confirmed_state
         render_state = confirmed_state if confirmed_state is not None else "empty"
         state_source = "held"
+        route_source = "held"
         panel_changed = False
     else:
         # Nothing detected, and nothing has ever been detected since the
@@ -202,12 +224,16 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         confirmed_state = None
         render_state = "empty"
         state_source = "held"
+        route_source = "n/a"
         rendered = render.render_panel(None, render_state)
         panel_changed = write_panel_atomic(state_dir, rendered)
 
+    # T-02-04-05: log only the callsign and the enrichment outcome
+    # (cache_hit / fresh_hit / miss / n/a / held) - never the raw adsbdb
+    # response body.
     print(
         "poll_loop: hex=%s callsign=%s altitude_ft=%s confirmed_state=%s render_state=%s "
-        "state_source=%s panel_changed=%s"
+        "state_source=%s route_source=%s panel_changed=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
@@ -215,6 +241,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             confirmed_state,
             render_state,
             state_source,
+            route_source,
             panel_changed,
         )
     )
