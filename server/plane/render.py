@@ -45,7 +45,7 @@ if _REPO_ROOT not in sys.path:
 
 from server import panel_format as pf
 from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_WHITE, WIDTH, HEIGHT
-from server.plane import runway_config
+from server.plane import enrich, runway_config
 
 # --- UI-SPEC Spacing Scale (02-UI-SPEC.md, unchanged since Revision 1) ----
 SPACE_XS = 8
@@ -156,6 +156,37 @@ FLIGHT_NUMBER_TOP_Y = (
     + SPACE_XL
 )  # = 1028
 
+# --- 02-04: Route line (zone 7) / Airline line (zone 9) ---------------------
+# 02-UI-SPEC.md zones 5-9: flight number -> sm gap -> route line -> md gap ->
+# airline line. On an enrichment miss, zone 7 (route line) and zone 8 (its
+# preceding md gap) are both omitted, and the airline line's fallback copy
+# sits at *exactly* the same absolute position the airline line normally
+# occupies - not "one gap lower" and with no blank line reserved above it
+# (02-UI-SPEC.md Copywriting Contract, N-02-04-01). This is guaranteed by
+# computing the airline line's top Y from *fixed font-metric constants*
+# (never from an actually-rendered, possibly-blank route line's measured
+# bbox) - the vertical cursor for zone 9 is a pure function of font sizes,
+# not of whether zone 7 drew anything this render.
+ROUTE_PREFIX_DEPARTING = "TO"
+ROUTE_PREFIX_ARRIVING = "FROM"
+ROUTE_PREFIX_TEXT = {
+    runway_config.STATE_DEPARTING: ROUTE_PREFIX_DEPARTING,
+    runway_config.STATE_ARRIVING: ROUTE_PREFIX_ARRIVING,
+}
+ROUTE_FALLBACK_TEXT = "Route unavailable"
+
+# Overflow floor (02-UI-SPEC.md's inviolable 64px margin): city/airline runs
+# shrink in small steps rather than clipping, wrapping mid-word, or
+# overflowing under the bezel - but never below this point size, so the
+# behaviour has an inspectable, named limit.
+MIN_CAPTION_FONT_SIZE = 28
+_FIT_STEP_PX = 2
+
+# Small fixed gap between the route line's tracked Label-role prefix
+# ("TO"/"FROM") and its Body-role city run - not itself a named UI-SPEC
+# token, so pinned to the smallest spacing-scale value (SPACE_XS).
+ROUTE_PREFIX_GAP_PX = SPACE_XS
+
 _font_cache = {}
 
 
@@ -165,6 +196,24 @@ def _font(spec):
     if key not in _font_cache:
         _font_cache[key] = ImageFont.truetype(path, size)
     return _font_cache[key]
+
+
+def fit_text_size(font_path, initial_size, text, max_width, min_size=MIN_CAPTION_FONT_SIZE, tracking=0):
+    """Return the largest ImageFont at `font_path`, stepping down from
+    `initial_size` in `_FIT_STEP_PX`-point decrements, whose rendered width
+    for `text` (including `tracking` extra px/glyph, if any) fits within
+    `max_width` - floored at `min_size` (MIN_CAPTION_FONT_SIZE). Never
+    clips, wraps mid-word, or overflows the safe box; the caller still
+    asserts the final bbox with `_assert_in_safe_box` as a guard rail.
+    """
+    size = initial_size
+    while size > min_size:
+        font = _font((font_path, size, None))
+        width = _tracked_text_width(font, text, tracking) if tracking else font.getlength(text)
+        if width <= max_width:
+            return font
+        size -= _FIT_STEP_PX
+    return _font((font_path, min_size, None))
 
 
 def _assert_in_safe_box(bbox, label):
@@ -360,6 +409,82 @@ def draw_silhouette(canvas, state, ink_idx):
     return bbox
 
 
+def _route_line_reserved_height():
+    """The route line's (zone 7) row height: the two runs share one
+    baseline row, so the row height is the max of the Label-role prefix's
+    and the Body-role city's font-metric line heights. Pure function of the
+    fixed LABEL_FONT/BODY_FONT sizes only - never of any rendered text -
+    which is what lets the airline line's top Y stay identical whether or
+    not the route line actually draws (see the 02-04 module note above
+    FLIGHT_NUMBER_TOP_Y).
+    """
+    label_ascent, label_descent = _font(LABEL_FONT).getmetrics()
+    body_ascent, body_descent = _font(BODY_FONT).getmetrics()
+    return max(label_ascent + label_descent, body_ascent + body_descent)
+
+
+def draw_route_line(canvas, state, ink_idx, city_text, top_y):
+    """Draw UI-SPEC zone 7: an uppercase, letter-spaced Label-role prefix
+    (`ROUTE_PREFIX_TEXT[state]` - "TO" for departing, "FROM" for arriving)
+    followed by a Body-role city name (sentence case), horizontally centred
+    as one composite line at `top_y`. Both runs are measured before either
+    is drawn so the pair reads as one centred line, not two independently
+    centred fragments. The city run shrinks via `fit_text_size()` rather
+    than clipping if it would cross the safe box on its own.
+
+    Returns the composite line's absolute bounding box.
+    """
+    draw = ImageDraw.Draw(canvas)
+    prefix = ROUTE_PREFIX_TEXT[state]
+    label_font = _font(LABEL_FONT)
+    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+
+    prefix_width = _tracked_text_width(label_font, prefix, LABEL_TRACKING_PX)
+    city_max_width = max(1, safe_width - prefix_width - ROUTE_PREFIX_GAP_PX)
+    body_font = fit_text_size(_INTER_REGULAR, BODY_FONT[1], city_text, city_max_width)
+    city_width = body_font.getlength(city_text)
+
+    total_width = prefix_width + ROUTE_PREFIX_GAP_PX + city_width
+    center_x = WIDTH // 2
+    left = center_x - total_width / 2
+
+    row_height = _route_line_reserved_height()
+    label_ascent, label_descent = label_font.getmetrics()
+    body_ascent, body_descent = body_font.getmetrics()
+    prefix_y = top_y + (row_height - (label_ascent + label_descent)) // 2
+    city_y = top_y + (row_height - (body_ascent + body_descent)) // 2
+
+    prefix_end_x = draw_tracked_text(draw, (left, prefix_y), prefix, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
+    city_x = prefix_end_x + ROUTE_PREFIX_GAP_PX
+    draw.text((city_x, city_y), city_text, font=body_font, fill=ink_idx)
+
+    bbox = (left, top_y, left + total_width, top_y + row_height)
+    _assert_in_safe_box(bbox, "route line")
+    return bbox
+
+
+def draw_airline_line(canvas, ink_idx, text, top_y):
+    """Draw UI-SPEC zone 9: a single Body-role, regular-weight run
+    (the airline name, or `ROUTE_FALLBACK_TEXT` on an enrichment miss),
+    horizontally centred, top-anchored at `top_y`. Shrinks via
+    `fit_text_size()` rather than clipping if it would cross the safe box.
+
+    `top_y` is always the caller's fixed airline-line position - identical
+    whether or not the route line rendered this call - so this function
+    never needs to know why it was invoked, only where to draw.
+
+    Returns the run's absolute bounding box.
+    """
+    draw = ImageDraw.Draw(canvas)
+    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+    font = fit_text_size(_INTER_REGULAR, BODY_FONT[1], text, safe_width)
+    center_x = WIDTH // 2
+    bbox = draw.textbbox((center_x, top_y), text, font=font, anchor="ma")
+    _assert_in_safe_box(bbox, "airline line")
+    draw.text((center_x, top_y), text, font=font, fill=ink_idx, anchor="ma")
+    return bbox
+
+
 def _build_empty_canvas():
     canvas = pf.new_canvas(IDX_WHITE)
     draw = ImageDraw.Draw(canvas)
@@ -392,7 +517,7 @@ def _build_empty_canvas():
     return canvas
 
 
-def _build_active_canvas(flight, state):
+def _build_active_canvas(flight, state, route=None):
     if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
     bg_idx = STATE_BACKGROUND[state]
@@ -422,6 +547,25 @@ def _build_active_canvas(flight, state):
     _assert_in_safe_box(heading_bbox, "flight number caption")
     draw.text((center_x, FLIGHT_NUMBER_TOP_Y), callsign, font=heading_font, fill=fg_idx, anchor="ma")
 
+    # UI-SPEC zones 5-9: route line (7) + airline line (9), 02-04
+    # (PLANE-01/02). The airline line's top Y is computed from fixed font
+    # metrics only (never from a rendered route line's bbox), so it lands
+    # at the exact same absolute position whether or not zone 7 draws this
+    # call - see the module note above ROUTE_PREFIX_DEPARTING.
+    route_line_top_y = heading_bbox[3] + SPACE_SM
+    airline_line_top_y = route_line_top_y + _route_line_reserved_height() + SPACE_MD
+
+    city_text = enrich.city_for_state(route, state) if route is not None else None
+    airline_text = route.get("airline_name") if route is not None else None
+    if city_text and airline_text:
+        draw_route_line(canvas, state, fg_idx, city_text, route_line_top_y)
+        draw_airline_line(canvas, fg_idx, airline_text, airline_line_top_y)
+    else:
+        # No route, or (defensively) an incomplete one - enrich.lookup_route
+        # never returns a half-resolved route (UI-SPEC has no partial
+        # state), so this also covers that impossible case safely.
+        draw_airline_line(canvas, fg_idx, ROUTE_FALLBACK_TEXT, airline_line_top_y)
+
     # UI-SPEC zone 11: bottom-anchored static tag, Label size, tracked
     # letter-spacing, White.
     label_font = _font(LABEL_FONT)
@@ -449,19 +593,24 @@ def _build_active_canvas(flight, state):
     return canvas
 
 
-def build_canvas(flight, state):
+def build_canvas(flight, state, route=None):
     """Return the pre-pack "P"-mode canvas for `flight` in `state`
     ("departing" / "arriving" / "empty"). Public (not `_build_canvas`) so
     callers - notably server/test_render.py's anti-aliasing assertions,
     which read Image.getcolors() directly - never have to reach into
     private render state.
+
+    `route` is the normalised dict from server.plane.enrich.lookup_route()
+    (or None on an enrichment miss / for the empty state) - drives zones 7
+    ("route line") and 9 ("airline line"), 02-04 (PLANE-01/02). Ignored for
+    the empty state, which has no flight to enrich.
     """
     if flight is None or state == "empty":
         return _build_empty_canvas()
-    return _build_active_canvas(flight, state)
+    return _build_active_canvas(flight, state, route=route)
 
 
-def render_panel(flight, state):
+def render_panel(flight, state, route=None):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
     ("departing" / "arriving" / "empty").
@@ -471,9 +620,26 @@ def render_panel(flight, state):
     STATE_DEPARTING/STATE_ARRIVING constants are the exact strings
     "departing"/"arriving" this function and build_canvas() key their
     per-state dicts on.
+
+    `route` is the normalised dict from server.plane.enrich.lookup_route()
+    (or None), passed straight through to build_canvas() (02-04).
     """
-    canvas = build_canvas(flight, state)
+    canvas = build_canvas(flight, state, route=route)
     return pf.pack_panel(canvas)
+
+
+# Manual-QA-only sample route (02-04) - server/plane/render.py's CLI has no
+# live enrichment lookup of its own (that's poll_loop.py's job); this is
+# just a plausible-looking hit so `--preview` without `--no-route` shows
+# zones 7/9's resolved-route layout rather than always previewing the
+# fallback.
+_PREVIEW_ROUTE = {
+    "airline_name": "Air France",
+    "origin_iata": "ORY",
+    "origin_city": "Paris",
+    "destination_iata": "JFK",
+    "destination_city": "New York",
+}
 
 
 def build_parser():
@@ -488,16 +654,24 @@ def build_parser():
         help="Also write a viewable PNG preview. WARNING (D-P2-03): preview colours "
              "are nominal render-internal RGB triples, not a colour-accurate panel preview.",
     )
+    parser.add_argument(
+        "--no-route",
+        action="store_true",
+        help="Manual QA only (02-04): preview the enrichment-miss fallback ('Route unavailable') "
+             "instead of the default sample resolved-route preview.",
+    )
     return parser
 
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
     flight = None
+    route = None
     if args.state != "empty":
         flight = {"hex": args.hex, "callsign": args.callsign}
+        route = None if args.no_route else _PREVIEW_ROUTE
 
-    canvas = build_canvas(flight, args.state)
+    canvas = build_canvas(flight, args.state, route=route)
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:
         sys.exit("internal error: generated %d bytes, expected %d" % (len(data), pf.IMAGE_BYTES))
