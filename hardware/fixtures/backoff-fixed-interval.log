@@ -1,0 +1,27 @@
+[2026-08-20T10:00:00] I (100) inkframe: wake reason=rtc boot_count=10
+[2026-08-20T10:00:05] I (5000) inkframe: poll ok sleep_s=300 hash_skip=1
+[2026-08-20T10:00:06] I (5100) inkframe: sleep enter sleep_s=300
+[2026-08-20T10:05:00] I (100) inkframe: wake reason=rtc boot_count=11
+[2026-08-20T10:05:05] I (5000) inkframe: poll fail step=http backoff_n=0 sleep_s=300
+[2026-08-20T10:05:06] I (5100) inkframe: sleep enter sleep_s=300
+[2026-08-20T10:10:00] I (100) inkframe: wake reason=rtc boot_count=12
+[2026-08-20T10:10:05] I (5000) inkframe: poll fail step=http backoff_n=0 sleep_s=300
+[2026-08-20T10:10:06] I (5100) inkframe: sleep enter sleep_s=300
+[2026-08-20T10:15:00] I (100) inkframe: wake reason=rtc boot_count=13
+[2026-08-20T10:15:05] I (5000) inkframe: poll fail step=http backoff_n=0 sleep_s=300
+[2026-08-20T10:15:06] I (5100) inkframe: sleep enter sleep_s=300
+[2026-08-20T10:20:00] I (100) inkframe: wake reason=rtc boot_count=14
+[2026-08-20T10:20:05] I (5000) inkframe: poll fail step=http backoff_n=0 sleep_s=300
+[2026-08-20T10:20:06] I (5100) inkframe: sleep enter sleep_s=300
+[2026-08-20T10:25:00] I (100) inkframe: wake reason=rtc boot_count=15
+[2026-08-20T10:25:05] I (5000) inkframe: poll fail step=http backoff_n=0 sleep_s=300
+[2026-08-20T10:25:06] I (5100) inkframe: sleep enter sleep_s=300
+[2026-08-20T10:30:00] I (100) inkframe: wake reason=power-on boot_count=0
+[2026-08-20T10:30:05] I (5000) inkframe: poll fail step=http backoff_n=0 sleep_s=300
+[2026-08-20T10:30:06] I (5100) inkframe: sleep enter sleep_s=300
+[2026-08-20T10:35:00] I (100) inkframe: wake reason=rtc boot_count=1
+[2026-08-20T10:35:05] I (5000) inkframe: poll ok sleep_s=300 hash_skip=1
+[2026-08-20T10:35:06] I (5100) inkframe: sleep enter sleep_s=300
+[2026-08-20T10:40:00] I (100) inkframe: wake reason=rtc boot_count=2
+[2026-08-20T10:40:05] I (5000) inkframe: poll fail step=http backoff_n=0 sleep_s=300
+[2026-08-20T10:40:06] I (5100) inkframe: sleep enter sleep_s=300
