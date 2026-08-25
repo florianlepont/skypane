@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Ink Frame — first-run (and safe-to-re-run) provisioning for a fresh
-# Ubuntu 24.04 LTS OVH VPS-1. Run as root (or via sudo) on the VPS
-# itself, never on a laptop.
+# Ubuntu 26.04 LTS OVH VPS-1. Run as root (or via sudo) on the VPS
+# itself, never on a laptop. Works whether the box allows direct root
+# SSH login or (as on current Ubuntu cloud images, which disable it by
+# default) only a passwordless-sudo non-root user - either way, invoke
+# this script itself with `sudo`.
 #
 # Usage:
 #   ./provision.sh [public-host]
