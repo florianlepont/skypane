@@ -124,8 +124,12 @@ deploy/deploy.sh root@<vps-ip>
 deploy/deploy.sh ubuntu@<vps-ip>
 ```
 
-Re-run this any time `server/` or `stub-server/` changes. It rsyncs the
-code (excluding `.venv`, `state/`, `__pycache__`, and any env file),
+Re-run this any time `server/`, `stub-server/`, or `adsb-test/runway3.json`
+changes. It rsyncs the code (excluding `.venv`, `state/`, `__pycache__`,
+and any env file) plus `adsb-test/runway3.json` — the runway-3 geofence
+boundary `server/poll_loop.py`'s `--geofence` flag reads on every cycle;
+despite living under `adsb-test/`, it is production configuration, not a
+test fixture, and every poll cycle fails without it on the server —
 reinstalls `server/requirements.txt` only if it changed, restarts
 `inkframe-byos.service`, starts `inkframe-poll.timer`, and prints the last
 10 journald lines for both units so a bad deploy is visible immediately.

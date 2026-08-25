@@ -35,7 +35,7 @@ echo "==> Creating service user and directory layout"
 id -u "${APP_USER}" >/dev/null 2>&1 || \
     useradd --system --home-dir "${APP_ROOT}" --create-home \
         --shell /usr/sbin/nologin "${APP_USER}"
-mkdir -p "${APP_ROOT}/server" "${APP_ROOT}/stub-server" "${STATE_DIR}"
+mkdir -p "${APP_ROOT}/server" "${APP_ROOT}/stub-server" "${APP_ROOT}/config" "${STATE_DIR}"
 chown -R "${APP_USER}:${APP_USER}" "${APP_ROOT}"
 
 echo "==> Installing Python 3 and python3-venv"

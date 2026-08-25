@@ -48,6 +48,12 @@ rsync -az --delete --rsync-path="sudo -u inkframe rsync" \
     --exclude '__pycache__' --exclude '*.pyc' --exclude 'inkframe.env' \
     "${REPO_ROOT}/stub-server/" "${SSH_TARGET}:${APP_ROOT}/stub-server/"
 
+echo "==> Syncing adsb-test/runway3.json (production geofence config, not a test fixture -"
+echo "    server/poll_loop.py's --geofence flag and detect.load_geofence() need this file"
+echo "    at runtime for every poll cycle) to ${SSH_TARGET}:${APP_ROOT}/config/runway3.json"
+rsync -az --rsync-path="sudo -u inkframe rsync" \
+    "${REPO_ROOT}/adsb-test/runway3.json" "${SSH_TARGET}:${APP_ROOT}/config/runway3.json"
+
 echo "==> Checking whether requirements.txt changed"
 LOCAL_HASH="$(sha256sum "${REPO_ROOT}/server/requirements.txt" | awk '{print $1}')"
 REMOTE_HASH="$(ssh "${SSH_TARGET}" "sudo cat ${APP_ROOT}/.requirements.sha256 2>/dev/null || true")"
