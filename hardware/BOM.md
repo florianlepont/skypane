@@ -76,15 +76,16 @@ Per D-02, this hardware is ordered **only if** plan 01-04's aggregator-API valid
 
 | Item | Vendor | Order number | Ordered on | Estimated delivery | Arrived on |
 |---|---|---|---|---|---|
-| XIAO ePaper DIY Kit EE02 (board + panel bundle) | Seeed Studio | <seeed-order-ref> | 2026-08-05 | 2026-08-14 to 2026-08-26 (window, see note below) | PENDING |
-| LiPo battery pack (Kubii "Batterie 3000mAh Li-Po") | Kubii | <kubii-order-ref> | 2026-08-05 | 2026-08-08 | PENDING |
-| USB-C data cable (Kubii "Cable USB 3 Type-C vers USB-A") | Kubii | <kubii-order-ref> (same order as the battery pack — see note below) | 2026-08-05 | 2026-08-08 | PENDING |
+| XIAO ePaper DIY Kit EE02 (board + panel bundle) | Seeed Studio | <seeed-order-ref> | 2026-08-05 | 2026-08-14 to 2026-08-26 (window, see note below) | Week of 2026-08-17 to 2026-08-23 (exact day not tracked) |
+| LiPo battery pack (Kubii "Batterie 3000mAh Li-Po") | Kubii | <kubii-order-ref> | 2026-08-05 | 2026-08-08 | Week of 2026-08-17 to 2026-08-23 (exact day not tracked) |
+| USB-C data cable (Kubii "Cable USB 3 Type-C vers USB-A") | Kubii | <kubii-order-ref> (same order as the battery pack — see note below) | 2026-08-05 | 2026-08-08 | Week of 2026-08-17 to 2026-08-23 (exact day not tracked) |
 
 **Notes:**
 - The Kubii order (<kubii-order-ref>) covers **both** the battery pack and the USB-C cable in a single checkout — total <order-payment-details-redacted>. The two rows above share the same order number and date because they are one order, not two.
 - The Seeed order's checkout-stated shipping method was "Direct Group Shipping — Duty Included — (7-15 working days), Shipping From China Warehouse." Converting that working-day range from the 2026-08-05 order date gives an estimated calendar delivery window of **2026-08-14 to 2026-08-26** (recorded as a range, since the vendor quoted working days rather than a fixed date). The BOM's own live-lookup note above flagged the panel as 0-in-stock at lookup time with an incoming restock batch expected 2026-08-10 — this working-day estimate may already price in that restock, but that is not independently confirmed, so treat 2026-08-26 as the conservative end of the window for planning purposes.
+- **Actual lead time vs. estimate:** both orders arrived within their estimated windows. The Seeed EE02 kit (estimated 2026-08-14 to 2026-08-26) arrived by the week of 2026-08-17 to 2026-08-23 — ahead of the conservative end of that window, so the 0-in-stock/restock flag noted at order time did not materialize into a delivery slip. The Kubii battery+cable order (estimated 2026-08-08) also arrived within the same week-of-2026-08-17 window as the developer recalls it — later than its own point estimate, though the developer did not track the two orders' arrival separately, so this is not confirmed as a genuine slip versus simply imprecise recollection. Full traceability, per `hardware/BRINGUP-LOG.md`.
 
-Task 2 has filled in this table now that the orders are placed.
+Task 2 has filled in this table now that the orders are placed. `hardware/BRINGUP-LOG.md` records the full unboxing/assembly detail; this table carries only the arrival dates and lead-time comparison.
 
 ## Unblock Date
 
