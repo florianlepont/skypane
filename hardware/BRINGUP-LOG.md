@@ -191,23 +191,134 @@ Chip identified during flash: ESP32-S3 (QFN56) revision v0.2, 8MB
 embedded PSRAM, MAC `<device-mac>`.
 
 **Status: flash byte-verified successful. First-boot console capture
-is BLOCKED** — the USB serial connection dropped again immediately
-after the flash+verify completed and before `firmware/monitor.sh` could
-capture any output (confirmed by `ls /dev/cu.*` losing the
-`/dev/cu.usbmodem1301` entry entirely, twice, with waits of several
-seconds in between). This is the same intermittent physical connection
-this log already flagged above ("This connection has been observed to be
-flaky across sessions") — not a firmware or flashing defect. The flashed
-image itself is confirmed correct (byte-for-byte verified against
-`build-ee02/inkframe.bin`); only observing it boot is blocked pending a
-physical reconnection.
+was initially BLOCKED**, then diagnosed and resolved — see
+`## First-Boot Capture: Diagnosis (resolved)` below.
 
-**Next action:** reseat/replace the USB-C cable connection (or the port)
-and re-run `firmware/monitor.sh <port>` once `ls /dev/cu.*` shows the
-device again — no re-flash is needed, the device already has the
-verified image on it.
+## First-Boot Capture: Diagnosis (resolved)
+
+**Symptom as reported:** the device "appears quickly in the USB list and
+then disappears" repeatedly. Across several sessions this looked exactly
+like a boot loop — a possible brownout during panel power-up, or a
+firmware panic, given the EE02 profile's own authors never drove this
+board on real hardware (see `## Board Profile Verification` below).
+
+**Investigation method.** Plain `ls /dev/cu.*` polling was too coarse to
+catch a connection window measured in single-digit seconds. Three
+independent evidence sources were used together instead of guessing:
+
+1. **macOS kernel-level USB log** (`/usr/bin/log show --predicate
+   'eventMessage contains "303a" ...'` — note: `log` is a zsh builtin
+   that shadows `/usr/bin/log`; the full path must be used). This
+   surfaced every `IOUSBHostFamily` enumerate/terminate event for the
+   board's native VID/PID (`0x303a/1001`, "USB JTAG/serial debug unit"),
+   with real timestamps, independent of whether any capture script
+   happened to be polling at that instant.
+2. **The stub server's own request log**
+   (`/private/tmp/inkframe-bringup/byos_server.log`, already running
+   with stdout redirected there from an earlier session). This showed
+   `/device/v1/setup` enrollment for the real device MAC
+   (`<device-mac>` — matching the MAC esptool reports), followed by
+   repeated authenticated `/device/v1/display` polls carrying real
+   telemetry (`X-Boot-Reason`, `X-Rssi` between -42 and -64 dBm,
+   `X-Fw-Version=0.1.0-p1`) — proof Wi-Fi and HTTP were working, well
+   before any console bytes were ever captured.
+3. **A race-capture script** (`ls /dev/cu.usbmodem*` polled every
+   ~150 ms; the instant the port appeared, a background `cat` was
+   attached and teed to a scratch file) — the fallback that finally
+   caught real serial text once the timing/tooling issues below were
+   fixed.
+
+**Two tooling bugs found and fixed along the way (Rule 3):**
+- `timeout` (GNU coreutils) is not present on stock macOS; a background
+  `cat <port> &` + poll-and-`kill` loop was used instead in the
+  race-capture script.
+- `log` used bare is a zsh builtin (a math/logarithm command), not
+  `/usr/bin/log` — commands must invoke `/usr/bin/log` explicitly.
+
+**Finding: this was never a boot loop.** The very first real console
+capture (during a hash-skip cycle, no download needed) read, in full:
+
+```
+I (6001) fp_wifi: clock set via SNTP
+I (6571) inkframe: image unchanged, skipping download
+I (6571) inkframe: poll ok sleep_s=300 hash_skip=1
+I (6581) wifi:state: run -> init (0x0)
+...
+I (6631) inkframe: sleep enter sleep_s=300
+```
+
+No panic, no `Brownout detector was triggered`, no `Guru Meditation
+Error` — the device printed a clean "poll ok" / "sleep enter" pair and
+then the USB connection dropped, because `esp_deep_sleep_start()`
+powers off the USB Serial/JTAG peripheral along with everything else
+outside the RTC domain. **"Appears then disappears" is the device
+correctly finishing its wake cycle and cutting power for deep sleep —
+by design, not a fault.** The kernel log's `terminateDevice: ...
+hardware connection lost` line is simply what a clean power-off looks
+like from the host's side; it is indistinguishable at that layer from
+an actual crash, which is why direct serial capture (not USB
+enumeration events alone) was necessary to close this out.
+
+The mixture of `X-Boot-Reason=power-on` and `X-Boot-Reason=rtc` visible
+across the stub server's historical log lines is fully explained by the
+several rounds of manual reflash/reconnect troubleshooting in earlier
+sessions (each reflash forces a fresh power-on-reason boot); it does not
+indicate repeated uncontrolled resets.
+
+**Forcing and capturing a real (non-hash-skip) cycle.** Because NVS
+already held the palette image's hash from an earlier successful blit,
+a later poll would hash-skip and never reach the blit path this task's
+acceptance criteria needs literal log text for. `/tmp/panel.bin` (the
+file the stub server re-reads on every request) was temporarily swapped
+to the repository's own `quadrants` test pattern via
+`stub-server/make_test_panel.py --pattern quadrants` — a different,
+still-valid 960,000-byte image with a different hash, existing
+specifically for this purpose per that script's own docstring
+("Used as the second distinct test image for the stub server's
+hash-change check"). `firmware/flash.sh` was re-run (same
+already-verified binary; this also forces an immediate fresh boot) and
+the console was captured live. Result, captured in full to
+`hardware/logs/first-light.log`:
+
+```
+I (746) inkframe: wake reason=power-on boot_count=17
+...
+I (986) wifi:connected with [home network], aid = 6, channel 6, BW20, ...
+I (986) wifi:security: WPA2-PSK, phy: bgn, rssi: -48
+...
+I (43516) epd13in3e: refresh complete
+I (43616) inkframe: blit ok bytes=960000 sha256_ok=1
+I (43626) inkframe: refreshed to sha256:f7581d2c607ed6d5...
+I (43626) inkframe: poll ok sleep_s=300 hash_skip=0
+I (43626) inkframe: sleep enter sleep_s=300
+```
+
+The real blit (GPIO configure -> panel power-on -> refresh) took from
+t=+11976ms to t=+43516ms, roughly **31.5 seconds** — comfortably inside
+`epd13in3e.c`'s 60-second `DRF` busy-wait timeout, and a first real
+measurement of this panel's full-refresh duration (see
+`## Panel Observations` in Task 3's section below). No brownout, no
+panic, across this or the two-earlier-download boot recorded in the
+stub server's log.
+
+`/tmp/panel.bin` was restored to the `palette` pattern immediately
+after this capture (`make_test_panel.py --pattern palette`, hash
+`62360cd7...`, matching the original), and the device was woken again
+(another `firmware/flash.sh` reflash) so the panel redraws the correct
+six-band image before the Task 3 human visual check — the quadrants
+image was a diagnostic-only detour and never the intended first-light
+picture.
+
+**Conclusion:** no hardware defect, no firmware bug, no EE02 profile
+correction needed for this finding. The board profile's pin values
+drove a real 31.5-second refresh end to end without incident. The only
+artifacts of this investigation are the two tooling fixes above and this
+written record, so a future session does not have to re-discover that
+"appears then disappears" is expected deep-sleep behavior.
 
 ---
 *Log opened: 2026-08-25, Task 1 of plan 01-06. Task 2 flash+verify
-recorded 2026-08-25 21:38 UTC; first-boot capture pending physical
-reconnection.*
+recorded 2026-08-25 21:38 UTC; first-boot capture diagnosed and resolved
+2026-08-25 22:1x UTC (see `## First-Boot Capture: Diagnosis (resolved)`
+above) — root cause was the device's own correct deep-sleep USB
+power-off, not a fault.*
