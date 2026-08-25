@@ -81,38 +81,79 @@ destroys the board and is not recoverable.
 
 ## Board Profile Verification
 
-**Status: PENDING**
+**Status: VERIFIED — 2026-08-25**
 
 The EE02 board profile's eight panel pin values, vendored verbatim from
-upstream in plan 01-05 (`firmware/sdkconfig.ee02.defaults`), have never
-been driven against real hardware by their own authors. A wrong
-chip-select or power-enable value on this board does not fail cleanly —
-it drives the panel incorrectly, so the symptom is a wrong-looking picture
-on the glass rather than an error message.
+upstream in plan 01-05 (`firmware/sdkconfig.ee02.defaults`), are now
+confirmed against real hardware for the first time — closing the concern
+STATE.md tracked about the Spectra 6 dual-controller driver having no
+confirmed off-the-shelf ESP-IDF library. The USB Serial/JTAG console
+routing (chosen because the panel's master chip-select and power-enable
+signals share GPIOs with UART0) is likewise confirmed correct: console
+output was captured cleanly on every boot once the capture timing issue
+was solved (see `## First-Boot Capture: Diagnosis (resolved)` above).
 
-What a wrong pin value would look like on the glass, per the plan's own
-diagnostic framing:
+No pin or configuration value required correction. `sdkconfig.ee02.defaults`
+remains byte-identical to upstream (`firmware/VENDOR.md`'s vendored-file
+table, `Verbatim? = yes`) — no divergence to record there.
 
-- **Wrong colour order** — a swapped nibble packing or palette mapping
-  shows the six bands in the wrong left-to-right order or with wrong
-  colours entirely.
-- **A visible seam discontinuity** — the panel's two controllers each
-  drive one 600px-wide half; a wrong master/slave chip-select assignment
-  shows as an offset, a duplication, or a blank/stale half at the vertical
-  midline.
-- **Partial refresh** — some rows updated and others not, pointing at the
-  busy or reset line.
-- **Wrong orientation** — bands running horizontally instead of vertically
-  would mean a row-order or rotation problem, since the image is authored
-  portrait for a portrait-native panel.
-- **No console output at all** — on this board, the panel's master
-  chip-select and power-enable signals share GPIOs with UART0, so the
-  profile deliberately routes the console to USB Serial/JTOG instead; a
-  silent console points at that routing rather than a dead board.
+**Outcome of each of the five visual checks (developer-confirmed on the
+physical 13.3" Spectra 6 glass, 2026-08-25):**
 
-Tasks 2 and 3 of this plan resolve this section from `PENDING` to
-`VERIFIED` (or, if a correction is needed, document the divergence here
-and in `firmware/VENDOR.md`).
+- **Colour order** — PASS. Six full-height vertical bands, left to
+  right: black, white, yellow, red, blue, green, exactly matching
+  `make_test_panel.py`'s `palette` pattern and the nibble packing/palette
+  mapping in `firmware/main/epd13in3e.c`.
+- **Seam continuity** — PASS. The vertical midline where the panel's two
+  controllers (master driving the left 600px, slave driving the right
+  600px) meet shows no offset, no duplication, and no blank/stale half —
+  the master/slave chip-select assignment in `sdkconfig.ee02.defaults` is
+  correct.
+- **Full coverage** — PASS. The whole panel refreshed top to bottom, no
+  partial-refresh artefacts — the busy/reset line handling in
+  `epd13in3e.c`'s `busy_wait()` is correct.
+- **Orientation** — PASS. Bands run vertically (portrait), matching the
+  portrait-native panel and the image's authored orientation — no
+  row-order or rotation problem.
+- **Sleep entry** — PASS. Console output stopped cleanly after the
+  `sleep enter sleep_s=300` line and the device went fully quiet — see
+  `## First-Boot Capture: Diagnosis (resolved)` above for why the USB
+  connection dropping at that point is the device correctly cutting
+  power for deep sleep, not a fault.
+
+This is the Walking Skeleton's first correct picture on real e-paper
+glass, produced end to end by the device polling its own local stub
+server — the phase's single largest hardware unknown (an EE02 board
+profile its own authors never drove against real hardware) is retired
+with no corrections needed.
+
+## Panel Observations
+
+Input to Phase 2's rendering work, measured against the actual 13.3"
+Spectra 6 panel on this board:
+
+- **Full-refresh duration:** measured twice from two independent live
+  boots, both driving a real (non-hash-skip) blit of a 960,000-byte
+  image. Panel GPIO configuration began at firmware uptime t=+11976ms
+  (first measurement) / t=+11473ms (second), and `epd13in3e: refresh
+  complete` logged at t=+43516ms / t=+43013ms respectively — **31.54s and
+  31.54s**, i.e. a consistent **~31.5 second full refresh**, well inside
+  `epd13in3e.c`'s 60-second `DRF` busy-wait timeout with plenty of
+  margin.
+- **Colour rendition vs nominal:** the six colours (black, white,
+  yellow, red, blue, green) render as clean, visually distinct solid
+  bands on the physical glass with the expected left-to-right order and
+  no cross-band bleed at any of the five internal band boundaries or the
+  two-controller seam.
+- **Ghosting/artefacts:** none observed after the refresh settles — no
+  visible remnant of a prior image, no banding or streaking within a
+  band.
+- **Practical implication for Phase 2:** a ~31.5s refresh means any
+  Phase 2 rendering-cadence decision should budget for the panel being
+  visibly "in progress" (redrawing) for roughly half a minute after each
+  poll that changes the image — not instantaneous, and worth accounting
+  for in any UX expectations around how quickly the frame reflects a
+  changed flight/train state.
 
 ## Flashing Tooling
 
