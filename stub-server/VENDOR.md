@@ -36,6 +36,37 @@ names, response shapes, telemetry printing) is untouched:
    modification; no endpoint, response field, status code, or telemetry
    print statement was touched.
 
+2. **Added an `--image-url-scheme` flag.** Upstream hardcodes the scheme
+   of the `image_url` field returned by `GET /device/v1/display` to the
+   literal `"http://"`, built from the request's `Host` header. Phase 2
+   of this project deploys this script behind Caddy, which terminates
+   TLS in front of it (`docs/PROTOCOL.md`'s deployment guidance and
+   `.planning/phases/02-plane-view-end-to-end-slice/02-RESEARCH.md`'s
+   Common Pitfall 2 both flag that an unconditional `http://` here means
+   the frame's metadata poll travels over TLS but its 960,000-byte panel
+   download — and the telemetry headers riding on that request — travel
+   in plaintext, a silent downgrade). This repository adds an
+   `--image-url-scheme` CLI flag, `choices=["http", "https"]`, that
+   selects the scheme used to build `image_url` in that response.
+
+   The default is **`http`**, unchanged from upstream's effective
+   behaviour, deliberately — not `https` — because Phase 1 plans
+   01-06/01-07/01-08 still drive a real device against this script
+   running locally, unproxied, on the LAN, and an unconditional `https`
+   default would break that flow the moment hardware exists. The Phase 2
+   systemd unit (`deploy/inkframe-byos.service`) passes
+   `--image-url-scheme https` explicitly for the Caddy-fronted
+   production deployment, closing the downgrade gap where it actually
+   matters.
+
+   Concretely: the `do_GET` `/device/v1/display` branch builds
+   `image_url` from `self.args.image_url_scheme` instead of the
+   hardcoded `"http://"` string literal. No other endpoint, response
+   field, status code, or telemetry print statement was touched — the
+   host portion of `image_url`, the `/img/*.bin` digest path, and every
+   other field in the response are byte-identical to before this change
+   for any given scheme.
+
 **Everything else is verbatim**, including: the three endpoint
 implementations (`POST /device/v1/setup`, `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`), the `--image`/`--port`/`--secret`/
@@ -73,6 +104,7 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply the `--state-dir` modification, update the pinned
-commit hash above, and re-run `stub-server/test_poll_cycle.py` to confirm the
-contract still holds.
+recorded here, re-apply **both** local modifications (`--state-dir` and
+`--image-url-scheme`), update the pinned commit hash above, and re-run
+`stub-server/test_poll_cycle.py` to confirm the contract — including both
+scheme checks — still holds.

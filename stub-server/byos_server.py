@@ -23,10 +23,14 @@ restarts don't strand frames.
 This is a reference, not a product: no TLS (the frame allows plain http
 for hand-set targets), no rate limiting, one image for every frame.
 
-Ink Frame local modification: added --state-dir so a throwaway harness
+Ink Frame local modifications: added --state-dir so a throwaway harness
 run (stub-server/test_poll_cycle.py) can isolate its own token state
-from the long-running instance the hardware bring-up plans keep alive.
-See stub-server/VENDOR.md for the full list of local changes.
+from the long-running instance the hardware bring-up plans keep alive;
+and added --image-url-scheme (default: http) so the served image_url
+can advertise https when this process runs behind a TLS-terminating
+reverse proxy (Phase 2's Caddy-fronted deployment), instead of always
+hardcoding http. See stub-server/VENDOR.md for the full list of local
+changes.
 """
 import argparse
 import hashlib
@@ -139,7 +143,8 @@ class Handler(BaseHTTPRequestHandler):
             digest = hashlib.sha256(image).hexdigest()
             host = self.headers.get("Host", "localhost")
             return self.send_json(200, {
-                "image_url": "http://%s/img/%s.bin" % (host, digest),
+                "image_url": "%s://%s/img/%s.bin" % (
+                    self.args.image_url_scheme, host, digest),
                 "image_hash": "sha256:" + digest,
                 "sleep_s": self.args.sleep,
                 "firmware": None,
@@ -175,6 +180,15 @@ def main():
     ap.add_argument("--state-dir", default=None,
                     help="parent directory for byos_state.json "
                          "(default: the directory containing this script)")
+    ap.add_argument("--image-url-scheme", choices=["http", "https"],
+                    default="http",
+                    help="scheme advertised in the /device/v1/display "
+                         "response's image_url (default: http). Leave at "
+                         "http for the local Phase 1 stub flow on the LAN; "
+                         "set to https for a deployment fronted by a "
+                         "TLS-terminating reverse proxy (e.g. Caddy), so "
+                         "the panel download is not silently downgraded "
+                         "to plaintext.")
     args = ap.parse_args()
     if not os.path.exists(args.image):
         sys.exit("no such image: %s" % args.image)

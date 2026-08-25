@@ -29,6 +29,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -36,7 +37,7 @@ SERVER_PATH = os.path.join(HERE, "byos_server.py")
 MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 15
+EXPECTED_CHECK_COUNT = 17
 
 
 def verify_panel_bytes(buf, expected_hash):
@@ -145,15 +146,18 @@ class Harness:
         )
         return out_path
 
-    def start_server(self, sleep_s=300):
+    def start_server(self, sleep_s=300, image_url_scheme=None):
         stdout_fh = open(self.stdout_path, "w")
+        cmd = [sys.executable, SERVER_PATH,
+               "--image", self.image_path,
+               "--port", str(self.port),
+               "--sleep", str(sleep_s),
+               "--state-dir", self.tmpdir]
+        if image_url_scheme is not None:
+            cmd += ["--image-url-scheme", image_url_scheme]
         try:
             self.proc = subprocess.Popen(
-                [sys.executable, SERVER_PATH,
-                 "--image", self.image_path,
-                 "--port", str(self.port),
-                 "--sleep", str(sleep_s),
-                 "--state-dir", self.tmpdir],
+                cmd,
                 stdout=stdout_fh, stderr=subprocess.STDOUT,
             )
         finally:
@@ -426,7 +430,66 @@ def main():
             return True, ""
         check("validate_display_response rejects uppercase hex in image_hash", _validator_rejects_uppercase_hash)
 
-        # 15. Failure classification: with the server stopped, a display poll
+        # 15. Scheme default: with the server started at its default (no
+        #     --image-url-scheme passed), image_url begins with http://.
+        def _image_url_scheme_default():
+            image_url = ctx.get("image_url")
+            if not image_url:
+                return False, "no image_url captured from the display poll"
+            if not image_url.startswith("http://"):
+                return False, "expected default image_url to start with " \
+                    "http://, got %r" % (image_url,)
+            return True, ""
+        check("default --image-url-scheme (http) is served in image_url", _image_url_scheme_default)
+
+        # 16. Scheme flag: a server started with --image-url-scheme https
+        #     serves an image_url beginning with https://, with the rest
+        #     of the URL (host, /img/ path, digest) unchanged apart from
+        #     the scheme - so the flag cannot be satisfied by an
+        #     unrelated URL rewrite.
+        def _image_url_scheme_https():
+            https_harness = Harness()
+            try:
+                https_harness.generate_panel("palette")
+                https_harness.start_server(sleep_s=300, image_url_scheme="https")
+                status, _, body = http_request(
+                    https_harness.base_url() + "/device/v1/setup", method="POST",
+                    json_body={"mac": "aa:bb:cc:dd:ee:02", "hw_rev": "poll-cycle-harness"})
+                if status != 200:
+                    return False, "https-scheme setup expected 200, got %d" % status
+                token = json.loads(body.decode())["device_token"]
+                status, _, body = http_request(
+                    https_harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % token})
+                if status != 200:
+                    return False, "https-scheme display poll expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if not validate_display_response(obj):
+                    return False, "https-scheme response failed validation: %r" % (obj,)
+                https_url = obj["image_url"]
+                if not https_url.startswith("https://"):
+                    return False, "expected image_url to start with https://, got %r" % (https_url,)
+                default_url = ctx.get("image_url")
+                if not default_url:
+                    return False, "no default-scheme image_url captured to compare against"
+                # Compare host (not port - each harness instance binds its
+                # own free port by design, see Harness._pick_free_port) and
+                # the /img/<digest>.bin path: only the scheme should differ.
+                https_parts = urllib.parse.urlsplit(https_url)
+                default_parts = urllib.parse.urlsplit(default_url)
+                if https_parts.hostname != default_parts.hostname:
+                    return False, "expected identical host, got %r vs %r" % (
+                        https_parts.hostname, default_parts.hostname)
+                if https_parts.path != default_parts.path:
+                    return False, "expected identical digest path, got %r vs %r" % (
+                        https_parts.path, default_parts.path)
+                return True, ""
+            finally:
+                https_harness.stop_server()
+                https_harness.cleanup()
+        check("--image-url-scheme https serves image_url with https:// and an unchanged host/path/digest", _image_url_scheme_https)
+
+        # 17. Failure classification: with the server stopped, a display poll
         #     raises a connection error that the harness classifies as a
         #     failed wake rather than crashing.
         def _failure_classification():
