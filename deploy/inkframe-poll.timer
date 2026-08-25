@@ -1,0 +1,16 @@
+[Unit]
+Description=Run inkframe-poll.service every 30 seconds
+
+[Timer]
+# Matches the 30s poll cadence recorded in server/README.md (Phase 1's
+# validated sampler interval, comfortably inside both aggregators' 1 req/s
+# limit given one call per cycle).
+OnBootSec=30s
+OnUnitActiveSec=30s
+# Tighten the default 1-minute scheduling jitter so a 30s interval is
+# actually honoured rather than drifting toward a 90s worst case.
+AccuracySec=1s
+Unit=inkframe-poll.service
+
+[Install]
+WantedBy=timers.target

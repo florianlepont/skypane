@@ -1,0 +1,39 @@
+[Unit]
+Description=Ink Frame BYOS device-protocol server (stub-server/byos_server.py)
+# Caddy is the only thing that should ever reach this - see deploy/Caddyfile
+# (reverse_proxy 127.0.0.1:${INK_BYOS_PORT}) and deploy/provision.sh (ufw
+# denies the app port from outside). byos_server.py itself binds 0.0.0.0 -
+# a known vendored behaviour (stub-server/byos_server.py is not modified
+# again for this; see deploy/README.md "Known vendored behaviour"), so the
+# loopback restriction is enforced at the firewall/reverse-proxy layer
+# instead of in the app.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=inkframe
+Group=inkframe
+EnvironmentFile=/opt/inkframe/inkframe.env
+WorkingDirectory=/opt/inkframe
+ExecStart=/opt/inkframe/venv/bin/python3 /opt/inkframe/stub-server/byos_server.py \
+    --image ${INK_STATE_DIR}/panel.bin \
+    --port ${INK_BYOS_PORT} \
+    --secret ${INK_BYOS_SECRET} \
+    --sleep ${INK_SLEEP_S} \
+    --state-dir ${INK_STATE_DIR} \
+    --image-url-scheme https
+Restart=always
+RestartSec=5
+
+# Hardening - cheap and unconditional for a single-purpose unprivileged
+# service. ReadWritePaths is scoped to the state directory only; everything
+# else the process might touch is read-only or private.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/inkframe/state
+
+[Install]
+WantedBy=multi-user.target

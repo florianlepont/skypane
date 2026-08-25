@@ -53,3 +53,21 @@ this plan.
 1's gitignored raw sample data, committed here so tests stay runnable on a
 fresh clone. See `server/fixtures/README.md` for exactly which fields are
 real vs. synthetic in each fixture.
+
+## Deployment
+
+This directory (plus `stub-server/`) runs on a real always-on Hetzner CX22
+in production, driven by systemd units and fronted by Caddy for automatic
+HTTPS — see `deploy/README.md` for the full runbook (provisioning,
+shipping code, verifying TLS, reading logs, rolling back).
+
+**Firmware-side change (configuration only, no C source changes):** once
+the server is deployed, `firmware/main/secrets.h`'s `INK_API_BASE` moves
+from the Phase 1 LAN address (`http://192.168.1.42:8642`) to the real
+`https://<public-host>` base recorded in `deploy/README.md`, and
+`INK_SETUP_SECRET` moves to the server's `INK_BYOS_SECRET` value. This is
+a configuration change only — `firmware/main/api_client.c`'s ESP-TLS
+`crt_bundle_attach` path is already compiled in and reachable on every
+request (see `firmware/VENDOR.md`), so pointing it at a real HTTPS base
+requires no firmware code changes, only rebuilding and reflashing with the
+new `secrets.h` values (`firmware/build.sh`).

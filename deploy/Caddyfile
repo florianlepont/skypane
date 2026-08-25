@@ -1,0 +1,33 @@
+# Ink Frame — Caddy reverse proxy + automatic HTTPS.
+#
+# Terminates TLS on :443 for the public hostname below and reverse-proxies
+# everything to byos_server.py, which listens on 127.0.0.1:8642 and is
+# never reachable directly from outside (ufw denies the app port -
+# deploy/provision.sh). This is what makes byos_server.py's
+# --image-url-scheme https flag (stub-server/byos_server.py, D-P2-07)
+# correspond to a real TLS-terminated connection rather than an empty
+# promise.
+#
+# Hostname pattern: <dashed-vps-ip>.nip.io. nip.io is a public DNS service
+# that resolves any hostname of the form <A>-<B>-<C>-<D>.nip.io to the IP
+# address A.B.C.D embedded in the hostname itself — no DNS zone, no
+# registrar, no A-record configuration needed. Caddy uses this hostname to
+# request a Let's Encrypt certificate via the HTTP-01 challenge, which only
+# requires that the hostname resolve to this server's IP (which nip.io
+# guarantees by construction) and that port 80 be reachable for the
+# challenge handshake before Caddy switches to serving 443.
+#
+# Example: a VPS with IP 203.0.113.10 uses the hostname
+# 203-0-113-10.nip.io below. Replace with the real VPS IP, dashes in place
+# of dots, at provisioning time (deploy/provision.sh writes this file with
+# the real value substituted — see deploy/README.md).
+#
+# To swap in a real owned domain later: change the site address on the
+# line below to the domain (e.g. frame.example.com), point an A record at
+# this VPS's IP, and reload Caddy (`systemctl reload caddy`). Nothing else
+# in this file, or in inkframe-byos.service, needs to change — Caddy
+# re-requests a certificate for whatever hostname the site block names.
+
+203-0-113-10.nip.io {
+    reverse_proxy 127.0.0.1:8642
+}
