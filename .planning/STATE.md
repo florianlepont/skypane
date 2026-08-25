@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: foundation-hardware-bring-up-ads-b-validation
 status: executing
-stopped_at: Completed 01-06-PLAN.md
-last_updated: "2026-08-25T20:28:15.657Z"
-last_activity: 2026-08-25
-last_activity_desc: Phase 01 execution started
+stopped_at: 01-07-PLAN.md Task 2 of 3 complete, Task 3 deferred (user-requested overnight pause)
+last_updated: "2026-08-26T00:35:00.000Z"
+last_activity: 2026-08-26
+last_activity_desc: 01-07 Task 2 (backoff doubling run) captured and verified; Task 3 (power-cycle proof) deferred to next session
 progress:
   total_phases: 4
   completed_phases: 0
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 01 (foundation-hardware-bring-up-ads-b-validation) — EXECUTING
-Plan: 2 of 8
-Status: Ready to execute
-Last activity: 2026-08-25 — Phase 01 execution started
+Plan: 7 of 8 (01-07: DEVICE-03 exponential-backoff hardware observation)
+Status: Task 2 of 3 complete and committed; Task 3 (power-cycle persistence proof) deferred — needs the user's physical hands to unplug/replug USB, deliberately not started tonight
+Last activity: 2026-08-26 — 01-07 Task 2 captured (5-step doubling curve 300/600/1200/2400/4800s, machine-verified by hardware/logtools.py check-backoff, all 6 checks pass)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -107,6 +107,8 @@ Recent decisions affecting current work:
 - [Phase 01]: EE02 board profile verified against real hardware with zero pin/config corrections needed - firmware/sdkconfig.ee02.defaults stays byte-identical to upstream
 - [Phase 01]: 'Device appears then disappears on USB' during 01-06 was diagnosed as esp_deep_sleep_start() correctly powering off USB Serial/JTAG outside the RTC domain, not a boot loop/brownout - documented in hardware/BRINGUP-LOG.md
 - [Phase 01]: measured panel full-refresh duration ~31.5s (two independent captures) - input for Phase 2 rendering-cadence UX
+- [Phase 01]: 01-07 Task 1/2 complete - hardware/logtools.py (stdlib-only stamp/check-backoff/selftest) proven on 3 fixtures before hardware use; real doubling curve (300/600/1200/2400/4800s across backoff_n=0..4) captured on real hardware over an ~80min unattended run and machine-verified. Known low-severity finding: the WiFi SSID leaks into backoff-run.log via ESP-IDF's own wifi component debug line (not the project's Log Line Contract, not the bearer token/password/setup secret) - documented in 01-07-SUMMARY.md, not yet fixed (would need a reflash+recapture).
+- [Phase 01]: 01-07 Task 3 (power-cycle persistence proof) deliberately deferred overnight at explicit user request - device left connected (USB) with battery still disconnected, holding backoff_n=5 in NVS; stub server left stopped (Task 3 needs it down through its own step 6); capture loop + caffeinate stopped so the Mac can sleep normally.
 
 ### Pending Todos
 
@@ -120,6 +122,7 @@ None yet.
 - Battery-life real-world figure for this exact hardware combo is unmeasured — 01-08 (queued, wave 5) will produce this via a real unattended discharge run.
 - 02-05: live provisioning complete (OVH VPS-1, <public-host>, Ubuntu 26.04). Task 3 (on-glass verification) is now UNBLOCKED — 01-06 hardware flash/first boot is done, hardware confirmed working. Re-run 02-05's executor to complete Task 3 whenever convenient.
 - Device wake interval (how often the physical frame polls the server, decoupled from the server's own 30s ADS-B poll) is currently 300s in the test/bring-up config — NOT yet a tuned production value. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred (2026-08-25) until 01-08 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
+- 01-07 Task 3 (power-cycle persistence proof) is NOT a technical blocker — it's a deliberate pause because the physical unplug/replug step needs the user's hands, and they're going to sleep. Resume whenever convenient; see Session Continuity below for the exact resume steps.
 
 ## Deferred Items
 
@@ -131,6 +134,19 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-25T20:28:15.652Z
-Stopped at: Completed 01-06-PLAN.md
-Resume file: None
+Last session: 2026-08-26T00:35:00.000Z
+Stopped at: 01-07-PLAN.md Task 2 of 3 complete (commits `2e8a041`, `584364e`); Task 3 not started
+
+Resume file: .planning/phases/01-foundation-hardware-bring-up-ads-b-validation/01-07-PLAN.md (Task 3)
+
+**Resume steps for 01-07 Task 3 (power-cycle persistence proof):**
+1. Confirm the device is still connected via USB and the battery is still NOT connected (unchanged from tonight).
+2. Re-verify the laptop's LAN address still matches `INK_API_BASE` in `firmware/main/secrets.h` (`ipconfig getifaddr en0`) — DHCP may have moved it overnight.
+3. Restart the reconnect-tolerant serial capture loop (the one used for Task 2, polls `/dev/cu.usbmodem*` and reattaches on every reconnect) into a fresh `hardware/logs/backoff-powercycle.log`, wrapped in `caffeinate -i`, fully detached.
+4. Follow 01-07-PLAN.md Task 3's how-to-verify steps exactly: unplug USB, wait >=30s with the board fully unpowered, replug, confirm the wake reason is `power-on` and the next failed poll reports `backoff_n=5 sleep_s=9600`, then bring the stub server back up (`python3 -u stub-server/byos_server.py --image /tmp/panel.bin --port 8642 --sleep 300`) and force one more wake to get the recovery success + reset-to-zero proof.
+5. Run `python3 hardware/logtools.py check-backoff hardware/logs/backoff-run.log hardware/logs/backoff-powercycle.log --min-steps 6 --expect-persist --expect-reset`, write `hardware/BACKOFF-OBSERVATION.md`, commit Task 3, then write/finalize the full 01-07-SUMMARY.md (superseding tonight's partial one) and run the plan's normal completion state updates (state.advance-plan, roadmap.update-plan-progress, requirements.mark-complete for DEVICE-03).
+
+**State left overnight (unchanged, needs no action unless something looks wrong):**
+- Device: connected via USB, battery still disconnected, currently holding `backoff_n=5` in NVS (asleep or cycling on its own since the stub server is down).
+- Stub server: stopped (matches the plan's own sequencing — Task 3 needs it down through its step 6).
+- Capture loop + `caffeinate`: stopped, so the Mac is free to idle-sleep overnight.
