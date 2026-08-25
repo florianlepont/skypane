@@ -11,10 +11,10 @@ last_activity: 2026-08-25
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 0
   total_plans: 13
-  completed_plans: 11
-  percent: 25
+  completed_plans: 10
+  percent: 0
 ---
 
 # Project State
@@ -115,10 +115,11 @@ None yet.
 ### Blockers/Concerns
 
 - Research flagged as unverified before commit: exact AeroDataBox tier/cost is not needed (project uses local ADS-B, not AeroDataBox, per PROJECT.md's reversed decision) — but PRIM/IDFM's exact SIRI Lite quota figures are community-sourced only; not a v1 blocker (RER deferred to v2 as of 2026-08-11) — verify against the live account dashboard before finalizing RER poll cadence when v2 planning starts.
-- Spectra 6 dual-chip display driver has no confirmed off-the-shelf ESP-IDF library (flightportrait uses a custom driver) — budget driver research/porting time in Phase 1.
+- Spectra 6 dual-chip display driver — RESOLVED 2026-08-25 (01-06): EE02 board profile verified against real hardware with zero corrections needed, first light achieved (all 5 visual checks passed), Log Line Contract captured live.
 - No publicly confirmed enclosure design exists for the EE02 kit — budget design time in Phase 1 or plan around an off-the-shelf enclosure.
-- Battery-life real-world figure for this exact hardware combo is unmeasured — must be bench-measured in Phase 1, not assumed from datasheet/precedent.
-- 02-05: live provisioning complete (OVH VPS-1, <public-host>, Ubuntu 26.04) - superseded, no longer a blocker. Task 3 (on-glass verification) is now the only remaining gate on this plan, blocked on Phase 1 plan 01-06 hardware flash/first boot, unblock date 2026-08-26.
+- Battery-life real-world figure for this exact hardware combo is unmeasured — 01-08 (queued, wave 5) will produce this via a real unattended discharge run.
+- 02-05: live provisioning complete (OVH VPS-1, <public-host>, Ubuntu 26.04). Task 3 (on-glass verification) is now UNBLOCKED — 01-06 hardware flash/first boot is done, hardware confirmed working. Re-run 02-05's executor to complete Task 3 whenever convenient.
+- Device wake interval (how often the physical frame polls the server, decoupled from the server's own 30s ADS-B poll) is currently 300s in the test/bring-up config — NOT yet a tuned production value. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred (2026-08-25) until 01-08 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
 
 ## Deferred Items
 
