@@ -1,11 +1,19 @@
 # deploy — Ink Frame Phase 2 VPS deployment
 
 Turns the render pipeline built in 02-01 through 02-04 into an always-on,
-internet-reachable server: a Hetzner CX22 running Ubuntu 24.04 LTS, Caddy
+internet-reachable server: an OVH VPS-1 running Ubuntu 24.04 LTS, Caddy
 terminating TLS in front of `stub-server/byos_server.py`, and a systemd
 timer driving `server/poll_loop.py` every 30 seconds. This closes ROADMAP
 Phase 2 success criterion 4 — the device polls this real server over HTTPS
 instead of a laptop-local stub.
+
+**Provider note:** the plan (`02-05-PLAN.md`) and its D-P2-06 decision
+specify Hetzner CX22; this deployment instead targets OVH VPS-1, an
+equivalent box (2 vCPU / 4 GB RAM / 40 GB NVMe, Ubuntu 24.04, always-on)
+at the user's explicit request after a live price/locale comparison — see
+`02-05-SUMMARY.md`'s Deviations section. Every script and unit file below
+is provider-agnostic (they target "a fresh Ubuntu 24.04 box reachable over
+SSH"); only this README's prose and the one-time human steps changed.
 
 ## What each file does
 
@@ -15,28 +23,32 @@ instead of a laptop-local stub.
 | `inkframe-byos.service` | Runs `stub-server/byos_server.py` as the `inkframe` user, bound to loopback, `--image-url-scheme https` |
 | `inkframe-poll.service` / `inkframe-poll.timer` | A `Type=oneshot` unit invoking `server/poll_loop.py --once`, fired every 30s by the timer |
 | `Caddyfile` | Reverse-proxies the public hostname to `127.0.0.1:8642` with Caddy's automatic Let's Encrypt HTTPS |
-| `provision.sh` | Idempotent first-run setup on a fresh Ubuntu 24.04 CX22: user, packages, venv, unit files, ufw, SSH hardening |
+| `provision.sh` | Idempotent first-run setup on a fresh Ubuntu 24.04 VPS: user, packages, venv, unit files, ufw, SSH hardening |
 | `deploy.sh` | Repeatable code push: rsync, conditional pip install, service restart, journald tail |
 
 ## One-time human steps (dashboard, no CLI equivalent exists)
 
-These require the Hetzner Cloud web console because they precede having
-any API token to automate with, or are one-off account setup:
+These require the OVH Manager web console — a single one-off VPS doesn't
+warrant OVH API automation, so this is a plain manual step rather than a
+scripted one:
 
-1. Create a Hetzner Cloud project (or use an existing one).
-2. Add your SSH public key to the project: **Security → SSH keys**.
-3. Create the CX22 server: **Add Server** → Ubuntu 24.04 → CX22 → Falkenstein
-   or Nuremberg → select the SSH key added above → create. Note the
-   server's public IPv4 address.
+1. In the existing OVH Manager account, order/create a **VPS-1** instance
+   (2 vCPU / 4 GB RAM / 40 GB NVMe) with the **Ubuntu 24.04** image, in the
+   **Gravelines** or **Strasbourg** datacenter.
+2. Attach the SSH public key (`~/.ssh/id_ed25519.pub`) at creation time, or
+   add it to the instance's SSH keys immediately after if the console
+   requires a separate step.
+3. Note the server's public IPv4 address once provisioning finishes.
 4. Build the nip.io hostname from that IP: replace the dots with dashes and
    append `.nip.io` — `203.0.113.10` becomes `203-0-113-10.nip.io`. This
    needs no DNS setup at all (see `Caddyfile`'s comment for how nip.io
    resolution works). A real owned domain can be swapped in later.
 
-Everything after this point is either a script Claude/you run once
-(`provision.sh`), a script run on every code change (`deploy.sh`), or one
-manual file written directly on the VPS (`inkframe.env`, see below) —
-never a dashboard click.
+No OVH API token or credential is needed anywhere in this flow — the VPS
+is created by hand in the console, and everything after that point is
+either a script Claude/you run once (`provision.sh`), a script run on
+every code change (`deploy.sh`), or one manual file written directly on
+the VPS (`inkframe.env`, see below) — never a dashboard click.
 
 ## First-time provisioning
 
@@ -138,9 +150,10 @@ re-run `deploy/deploy.sh <ssh-target>`.
 
 ## Secrets discipline
 
-The Hetzner API token (if you ever automate server creation itself, e.g.
-via `hcloud`) and `INK_BYOS_SECRET` never enter git — matching this
-project's `firmware/main/secrets.h` convention. `inkframe.env.example`
+No cloud-provider API token is used in this flow (the OVH VPS is created
+by hand in the console — see the one-time human steps above), and
+`INK_BYOS_SECRET` never enters git — matching this project's
+`firmware/main/secrets.h` convention. `inkframe.env.example`
 carries placeholders only; the real `inkframe.env` is gitignored
 (`deploy/.gitignore`) and lives solely on the VPS. Before any commit
 touching this directory, confirm `git status --porcelain` shows no real

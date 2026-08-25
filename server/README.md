@@ -56,7 +56,7 @@ real vs. synthetic in each fixture.
 
 ## Deployment
 
-This directory (plus `stub-server/`) runs on a real always-on Hetzner CX22
+This directory (plus `stub-server/`) runs on a real always-on OVH VPS-1
 in production, driven by systemd units and fronted by Caddy for automatic
 HTTPS — see `deploy/README.md` for the full runbook (provisioning,
 shipping code, verifying TLS, reading logs, rolling back).

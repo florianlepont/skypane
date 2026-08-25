@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ink Frame — repeatable code-push to an already-provisioned Hetzner VPS
+# Ink Frame — repeatable code-push to an already-provisioned OVH VPS
 # (run deploy/provision.sh once first). Run from the repository root on
 # your laptop, not on the VPS.
 #

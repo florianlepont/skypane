@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Ink Frame — first-run (and safe-to-re-run) provisioning for a fresh
-# Ubuntu 24.04 LTS Hetzner CX22. Run as root (or via sudo) on the VPS
+# Ubuntu 24.04 LTS OVH VPS-1. Run as root (or via sudo) on the VPS
 # itself, never on a laptop.
 #
 # Usage:
