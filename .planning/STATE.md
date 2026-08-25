@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 02
-current_phase_name: plane-view-end-to-end-slice
+current_phase: 01
+current_phase_name: foundation-hardware-bring-up-ads-b-validation
 status: executing
-stopped_at: "02-05: Task 2 complete and live-verified against OVH VPS-1 (<public-host>) - Task 3 blocked on Phase 1 hardware (01-06), unblock date 2026-08-26"
-last_updated: "2026-08-25T18:21:58.485Z"
-last_activity: 2026-08-11
-last_activity_desc: 02-04-PLAN.md complete
+stopped_at: Completed 01-06-PLAN.md
+last_updated: "2026-08-25T20:28:15.657Z"
+last_activity: 2026-08-25
+last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 13
-  completed_plans: 10
-  percent: 33
+  completed_plans: 11
+  percent: 25
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 02 — plane-view-end-to-end-slice
+**Current focus:** Phase 01 — foundation-hardware-bring-up-ads-b-validation
 
 ## Current Position
 
-Phase: 02 (plane-view-end-to-end-slice) — EXECUTING
-Plan: 5 of 5
+Phase: 01 (foundation-hardware-bring-up-ads-b-validation) — EXECUTING
+Plan: 2 of 8
 Status: Ready to execute
-Last activity: 2026-08-11 — 02-04-PLAN.md complete
+Last activity: 2026-08-25 — Phase 01 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -64,6 +64,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P02 | 18min | 3 tasks | 9 files |
 | Phase 02 P03 | 40min | 2 tasks | 5 files |
 | Phase 02 P04 | 45min | 3 tasks | 3 files |
+| Phase 01 P06 | 74min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,9 @@ Recent decisions affecting current work:
 - [Phase 02]: 02-05: deployment target switched from Hetzner CX22 to OVH VPS-1 (same spec, price parity) per explicit user redirect — D-P2-06 explicitly leaves infrastructure specifics to discretion, so treated as a provider substitution, not an architectural change; deploy/ scripts needed zero functional edits since they were already provider-agnostic
 - [Phase 02]: 02-05 Task 2 complete: OVH VPS-1 (<public-host>, Ubuntu 26.04) live-provisioned and fully verified - TLS, auth gate, firewall, and real ADS-B pipeline all confirmed against the live host. Fixed 4 live-discovered deploy bugs: sudo-user support, generic python3 packaging, missing adsb-test/runway3.json geofence config, missing Caddy access logging.
 - [Phase 02]: 02-05 Task 3 (on-glass verification) remains blocked on Phase 1 plan 01-06 hardware flash/first boot - unblock date 2026-08-26, not yet reached.
+- [Phase 01]: EE02 board profile verified against real hardware with zero pin/config corrections needed - firmware/sdkconfig.ee02.defaults stays byte-identical to upstream
+- [Phase 01]: 'Device appears then disappears on USB' during 01-06 was diagnosed as esp_deep_sleep_start() correctly powering off USB Serial/JTAG outside the RTC domain, not a boot loop/brownout - documented in hardware/BRINGUP-LOG.md
+- [Phase 01]: measured panel full-refresh duration ~31.5s (two independent captures) - input for Phase 2 rendering-cadence UX
 
 ### Pending Todos
 
@@ -126,6 +130,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-25T18:21:58.478Z
-Stopped at: 02-05: Task 2 complete and live-verified against OVH VPS-1 (<public-host>) - Task 3 blocked on Phase 1 hardware (01-06), unblock date 2026-08-26
-Resume file: .planning/phases/02-plane-view-end-to-end-slice/02-05-PLAN.md
+Last session: 2026-08-25T20:28:15.652Z
+Stopped at: Completed 01-06-PLAN.md
+Resume file: None
