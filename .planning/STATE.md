@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: plane-view-end-to-end-slice
 status: executing
-stopped_at: Completed 02-03-PLAN.md
-last_updated: "2026-08-10T07:35:30.029Z"
-last_activity: 2026-08-09
-last_activity_desc: Phase 02 execution started
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-08-11T00:00:00.000Z"
+last_activity: 2026-08-11
+last_activity_desc: Phase 02 execution — 02-04 closed out by orchestrator after an interrupted executor session (provider limit hit right before the SUMMARY.md commit; all 3 tasks were already committed and independently re-verified, 66/66 + 15/15 checks green)
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 13
-  completed_plans: 8
+  completed_plans: 9
   percent: 0
 ---
 
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 02 (plane-view-end-to-end-slice) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
-Last activity: 2026-08-09 — Phase 02 execution started
+Last activity: 2026-08-11 — 02-04-PLAN.md complete
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -63,6 +63,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P01 | 14min | 3 tasks | 21 files |
 | Phase 02 P02 | 18min | 3 tasks | 9 files |
 | Phase 02 P03 | 40min | 2 tasks | 5 files |
+| Phase 02 P04 | 45min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,8 @@ Recent decisions affecting current work:
 - [Phase 02]: A first-ever detection whose vertical rate sits inside the deadband (confirmed_state is None) renders the Empty state rather than guessing a colour
 - [Phase 02]: aircraft-silhouette source SVG is detailed 3/4-view line-art (evenodd multi-subpath), not a flat silhouette - cleaned via a from-scratch Pillow dilate/flood-fill/erode pipeline rather than a vector editor — no rsvg-convert/Inkscape/numpy/scipy available in this environment; the flood-fill approach turns any traced line-art into a flat solid mask without hand-editing vector paths
 - [Phase 02]: Silhouette sized by fitting within both the 900px width cap and 02-02's existing 260px height cap while preserving the vendored asset's own ~2.22:1 aspect ratio - height cap binds first, leaving 02-02's zone-3 reservation and FLIGHT_NUMBER_TOP_Y untouched
+- [Phase 02]: adsbdb.com live-verified at 52.6% real-world hit rate for this airport's traffic mix (worst on low-cost per-tail-rotating callsigns like Transavia's TVF*) - the "Route unavailable" fallback is a designed first-class state (N-02-04-01), not a rare edge case; enrichment cache persists hit *and* miss results in poll_state.json so a rotating callsign is never re-queried
+- [Phase 02]: Airline-line Y position computed from fixed font-metric constants only, never from a rendered route line's bbox - guarantees the fallback caption lands at the exact same position as a resolved-route render, no doubled gap
 
 ### Pending Todos
 
@@ -115,6 +118,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-10T07:35:30.026Z
-Stopped at: Completed 02-03-PLAN.md
+Last session: 2026-08-11T00:00:00.000Z
+Stopped at: Completed 02-04-PLAN.md
 Resume file: None
