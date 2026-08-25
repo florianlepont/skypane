@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: plane-view-end-to-end-slice
 status: executing
-stopped_at: "02-05: checkpoint - Task 1 + Task 2 file artifacts complete (re-pointed Hetzner CX22 -> OVH VPS-1), live OVH provisioning blocked on VPS not yet created, Task 3 not started"
-last_updated: "2026-08-25T12:50:29.298Z"
+stopped_at: "02-05: Task 2 complete and live-verified against OVH VPS-1 (<public-host>) - Task 3 blocked on Phase 1 hardware (01-06), unblock date 2026-08-26"
+last_updated: "2026-08-25T18:21:58.485Z"
 last_activity: 2026-08-11
 last_activity_desc: 02-04-PLAN.md complete
 progress:
@@ -101,6 +101,8 @@ Recent decisions affecting current work:
 - [Phase 02]: adsbdb.com live-verified at 52.6% real-world hit rate for this airport's traffic mix (worst on low-cost per-tail-rotating callsigns like Transavia's TVF*) - the "Route unavailable" fallback is a designed first-class state (N-02-04-01), not a rare edge case; enrichment cache persists hit *and* miss results in poll_state.json so a rotating callsign is never re-queried
 - [Phase 02]: Airline-line Y position computed from fixed font-metric constants only, never from a rendered route line's bbox - guarantees the fallback caption lands at the exact same position as a resolved-route render, no doubled gap
 - [Phase 02]: 02-05: deployment target switched from Hetzner CX22 to OVH VPS-1 (same spec, price parity) per explicit user redirect — D-P2-06 explicitly leaves infrastructure specifics to discretion, so treated as a provider substitution, not an architectural change; deploy/ scripts needed zero functional edits since they were already provider-agnostic
+- [Phase 02]: 02-05 Task 2 complete: OVH VPS-1 (<public-host>, Ubuntu 26.04) live-provisioned and fully verified - TLS, auth gate, firewall, and real ADS-B pipeline all confirmed against the live host. Fixed 4 live-discovered deploy bugs: sudo-user support, generic python3 packaging, missing adsb-test/runway3.json geofence config, missing Caddy access logging.
+- [Phase 02]: 02-05 Task 3 (on-glass verification) remains blocked on Phase 1 plan 01-06 hardware flash/first boot - unblock date 2026-08-26, not yet reached.
 
 ### Pending Todos
 
@@ -112,7 +114,7 @@ None yet.
 - Spectra 6 dual-chip display driver has no confirmed off-the-shelf ESP-IDF library (flightportrait uses a custom driver) — budget driver research/porting time in Phase 1.
 - No publicly confirmed enclosure design exists for the EE02 kit — budget design time in Phase 1 or plan around an off-the-shelf enclosure.
 - Battery-life real-world figure for this exact hardware combo is unmeasured — must be bench-measured in Phase 1, not assumed from datasheet/precedent.
-- 02-05: live provisioning blocked - target VPS switched from Hetzner CX22 to OVH VPS-1 per user redirect (price parity, existing OVH account; supersedes the earlier HCLOUD_TOKEN blocker, which no longer applies). Need: OVH VPS-1 created by hand in OVH Manager console (Ubuntu 24.04, Gravelines/Strasbourg, SSH key attached at creation) and its public IP. No OVH API token needed.
+- 02-05: live provisioning complete (OVH VPS-1, <public-host>, Ubuntu 26.04) - superseded, no longer a blocker. Task 3 (on-glass verification) is now the only remaining gate on this plan, blocked on Phase 1 plan 01-06 hardware flash/first boot, unblock date 2026-08-26.
 
 ## Deferred Items
 
@@ -124,6 +126,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-25T12:50:29.294Z
-Stopped at: 02-05: checkpoint - Task 1 + Task 2 file artifacts complete (re-pointed Hetzner CX22 -> OVH VPS-1), live OVH provisioning blocked on VPS not yet created, Task 3 not started
+Last session: 2026-08-25T18:21:58.478Z
+Stopped at: 02-05: Task 2 complete and live-verified against OVH VPS-1 (<public-host>) - Task 3 blocked on Phase 1 hardware (01-06), unblock date 2026-08-26
 Resume file: .planning/phases/02-plane-view-end-to-end-slice/02-05-PLAN.md
