@@ -10,8 +10,8 @@ last_updated: "2026-08-25T12:50:29.298Z"
 last_activity: 2026-08-11
 last_activity_desc: 02-04-PLAN.md complete
 progress:
-  total_phases: 3
-  completed_phases: 1
+  total_phases: 4
+  completed_phases: 0
   total_plans: 13
   completed_plans: 10
   percent: 33
@@ -66,6 +66,10 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P04 | 45min | 3 tasks | 3 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 4 added (2026-08-25), then renumbered to Phase 3 — "Visual Polish on Real Glass": user asked to split Phase 2 into a functional pass and a design-polish pass; since Phase 2 already built up from basic to polished internally across its 5 plans (02-01 bare flight number → 02-04 route/airline captions) and its only remaining plan (02-05) is pure deployment infra with no visual work, the agreed split instead adds a new phase after real hardware exists, dedicated to refining the already-built design against actual Spectra 6 output — closing the hardware-verified-legibility items every Phase 2 SUMMARY.md carried forward rather than guessed at. Old Phase 3 (Low-Battery Indicator) renumbered to Phase 4.
 
 ### Decisions
 

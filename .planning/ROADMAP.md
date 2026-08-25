@@ -2,7 +2,7 @@
 
 ## Overview
 
-Ink Frame v1 ships as a single-view device in three phases. Phase 1 is a foundation spike that de-risks the two things everything else depends on — real ADS-B reception at the install address and real on-battery wake/poll/sleep viability — by proving the core device protocol loop against a stub server. Phase 2 then delivers the first complete, user-visible capability: the plane view, wired end-to-end from ADS-B detection through server rendering to the physical display. Phase 3 closes out v1 with a low-battery indicator, completing the device experience.
+Ink Frame v1 ships as a single-view device in four phases. Phase 1 is a foundation spike that de-risks the two things everything else depends on — real ADS-B reception at the install address and real on-battery wake/poll/sleep viability — by proving the core device protocol loop against a stub server. Phase 2 then delivers the first complete, user-visible capability: the plane view, wired end-to-end from ADS-B detection through server rendering to the physical display, built and verified against digital previews since real hardware isn't flashed yet. Phase 3 revisits that same visual design once real hardware exists — refining it against actual Spectra 6 E-ink output rather than a monitor preview. Phase 4 closes out v1 with a low-battery indicator, completing the device experience.
 
 **v2 scope note**: The RER view (originally Phase 3) and the physical-button view-switching work (originally part of Phase 4, requirements DEVICE-01/DEVICE-02) were deferred out of v1 — v1 ships as a single-view (plane-only) device. See git history for the removed Phase 3 (RER View — End-to-End Slice) content; it and the switching work are v2 candidates once a second view exists to switch to.
 
@@ -17,13 +17,14 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception and battery/wake-cycle viability on real hardware, with the core wake/poll/backoff loop proven against a stub server
 - [ ] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display
-- [ ] **Phase 3: Low-Battery Indicator** - Low-battery warning on the frame, completing the v1 single-view device experience
+- [ ] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle
+- [ ] **Phase 4: Low-Battery Indicator** - Low-battery warning on the frame, completing the v1 single-view device experience
 
 ## Phase Details
 
 ### Phase 1: Foundation — Hardware Bring-up & ADS-B Validation
 
-**Goal**: The two highest-risk technical unknowns — ADS-B reception at the install site and real on-battery wake/poll/sleep viability — are validated on real hardware, with the core device protocol loop (wake, poll, download, display, deep sleep, backoff) working end-to-end against a stub server. This is a foundation/spike phase: it de-risks Phases 2-3 rather than shipping a user-facing view.
+**Goal**: The two highest-risk technical unknowns — ADS-B reception at the install site and real on-battery wake/poll/sleep viability — are validated on real hardware, with the core device protocol loop (wake, poll, download, display, deep sleep, backoff) working end-to-end against a stub server. This is a foundation/spike phase: it de-risks Phases 2-4 rather than shipping a user-facing view.
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
 **Requirements**: DEVICE-03, DEVICE-05
@@ -83,11 +84,27 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **UI hint**: yes
 
-### Phase 3: Low-Battery Indicator
+### Phase 3: Visual Polish on Real Glass
+
+**Goal**: The plane view's visual design is refined against real Spectra 6 E-ink output, not a rendered-PNG preview — closing out the hardware-verified-legibility items that every Phase 2 plan explicitly carried forward rather than guessed at.
+**Mode:** mvp
+**Depends on**: Phase 1 (hardware flashed via 01-06/01-07/01-08) and Phase 2 (deployed via 02-05)
+**Requirements**: PLANE-01, PLANE-02 (hardware-verified legibility closure — not new requirement scope, the final verification step on requirements Phase 2 already implemented informationally)
+**Success Criteria** (what must be TRUE):
+
+  1. The aircraft silhouette's flat-fill detail level still reads recognisably as a passenger jet at typical wall-viewing distance on real glass.
+  2. The route/airline captions (White text on saturated Blue/Green) are legible on real Spectra 6 output, including `fit_text_size()`'s shrunk-overflow case for a long city/airline name.
+  3. A-02-02-01's unvalidated departure-side deadband threshold (02-02's `runway_config.py`) is confirmed or corrected against real observed climb-rate data.
+  4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call only possible once it's actually mounted and glanced at, not eyeballed on a monitor.
+
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 4: Low-Battery Indicator
 
 **Goal**: Users can see a clear low-battery warning on the frame — completing the v1 device experience for the single-view (plane-only) device.
 **Mode:** mvp
-**Depends on**: Phase 2
+**Depends on**: Phase 3
 **Requirements**: DEVICE-04
 **Success Criteria** (what must be TRUE):
 
@@ -99,10 +116,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3
+Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 5/8 | In Progress|  |
 | 2. Plane View — End-to-End Slice | 4/5 | In Progress|  |
-| 3. Low-Battery Indicator | 0/TBD | Not started | - |
+| 3. Visual Polish on Real Glass | 0/TBD | Not started | - |
+| 4. Low-Battery Indicator | 0/TBD | Not started | - |
