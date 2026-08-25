@@ -13,16 +13,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **PLANE-02**: User can see flight number, airline, and origin for the next plane landing on runway 3 (when the runway is in arrival configuration, wind-dependent)
 - [ ] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via a local ADS-B receiver geofenced to the runway's flight path — not a fixed timetable
 
-### RER (Orly-Ville)
-
-- [ ] **RER-01**: User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville
-- [ ] **RER-02**: User can see a "leave by" cue combining the next train's countdown with a fixed walk-time buffer
-- [ ] **RER-03**: User can see a disruption banner on the RER view during a service disruption on the line
-
 ### Device
 
-- [ ] **DEVICE-01**: User can press a physical button on the frame to switch between the plane view and the RER view
-- [ ] **DEVICE-02**: Switching views (button press) triggers a fresh data poll for the newly selected view, not a stale cached image
 - [x] **DEVICE-03**: Device wakes on a schedule, polls the server over HTTPS, downloads and displays a new image if available, then returns to deep sleep, with exponential backoff on failure
 - [ ] **DEVICE-04**: User can see a low-battery indicator on the frame when the battery is running low
 - [x] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
@@ -30,6 +22,21 @@ Requirements for initial release. Each maps to roadmap phases.
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
+
+### RER (Orly-Ville)
+
+Deferred 2026-08-11 — user-requested scope reduction so v1 ships single-view (plane-only). Was Phase 3; that phase was removed from ROADMAP.md (see git history) and its full RER context is recoverable there when v2 planning starts.
+
+- **RER-01**: User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville
+- **RER-02**: User can see a "leave by" cue combining the next train's countdown with a fixed walk-time buffer
+- **RER-03**: User can see a disruption banner on the RER view during a service disruption on the line
+
+### View Switching
+
+Deferred 2026-08-11 alongside RER — meaningless in v1 with only one view. Revisit once a second view (RER or otherwise) exists in v2.
+
+- **DEVICE-01**: User can press a physical button on the frame to switch between the plane view and the RER view
+- **DEVICE-02**: Switching views (button press) triggers a fresh data poll for the newly selected view, not a stale cached image
 
 ### Messaging
 
@@ -58,19 +65,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLANE-01 | Phase 2 | Pending |
 | PLANE-02 | Phase 2 | Pending |
 | PLANE-03 | Phase 2 | Pending |
-| RER-01 | Phase 3 | Pending |
-| RER-02 | Phase 3 | Pending |
-| RER-03 | Phase 3 | Pending |
-| DEVICE-01 | Phase 4 | Pending |
-| DEVICE-02 | Phase 4 | Pending |
 | DEVICE-03 | Phase 1 | Complete |
-| DEVICE-04 | Phase 4 | Pending |
+| DEVICE-04 | Phase 3 | Pending |
 | DEVICE-05 | Phase 1 | Complete |
+
+RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase.
 
 **Coverage:**
 
-- v1 requirements: 11 total
-- Mapped to phases: 11 (Phase 1: 2, Phase 2: 3, Phase 3: 3, Phase 4: 3)
+- v1 requirements: 6 total
+- Mapped to phases: 6 (Phase 1: 2, Phase 2: 3, Phase 3: 1)
 - Unmapped: 0 ✓
 
 ---

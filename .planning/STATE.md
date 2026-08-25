@@ -103,7 +103,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Research flagged as unverified before commit: exact AeroDataBox tier/cost is not needed (project uses local ADS-B, not AeroDataBox, per PROJECT.md's reversed decision) — but PRIM/IDFM's exact SIRI Lite quota figures are community-sourced only; verify against the live account dashboard before finalizing RER poll cadence in Phase 3.
+- Research flagged as unverified before commit: exact AeroDataBox tier/cost is not needed (project uses local ADS-B, not AeroDataBox, per PROJECT.md's reversed decision) — but PRIM/IDFM's exact SIRI Lite quota figures are community-sourced only; not a v1 blocker (RER deferred to v2 as of 2026-08-11) — verify against the live account dashboard before finalizing RER poll cadence when v2 planning starts.
 - Spectra 6 dual-chip display driver has no confirmed off-the-shelf ESP-IDF library (flightportrait uses a custom driver) — budget driver research/porting time in Phase 1.
 - No publicly confirmed enclosure design exists for the EE02 kit — budget design time in Phase 1 or plan around an off-the-shelf enclosure.
 - Battery-life real-world figure for this exact hardware combo is unmeasured — must be bench-measured in Phase 1, not assumed from datasheet/precedent.

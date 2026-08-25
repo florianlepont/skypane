@@ -2,7 +2,9 @@
 
 ## Overview
 
-Ink Frame ships as four vertical slices. Phase 1 is a foundation spike that de-risks the two things everything else depends on — real ADS-B reception at the install address and real on-battery wake/poll/sleep viability — by proving the core device protocol loop against a stub server. Phase 2 then delivers the first complete, user-visible capability: the plane view, wired end-to-end from ADS-B detection through server rendering to the physical display. Phase 3 adds the RER view as a second independent vertical slice, reusing the same device/server loop. Phase 4 closes out v1 by wiring the physical button to switch between the two now-working views, guaranteeing fresh data on every switch, and surfacing a low-battery indicator — completing the full device experience end to end.
+Ink Frame v1 ships as a single-view device in three phases. Phase 1 is a foundation spike that de-risks the two things everything else depends on — real ADS-B reception at the install address and real on-battery wake/poll/sleep viability — by proving the core device protocol loop against a stub server. Phase 2 then delivers the first complete, user-visible capability: the plane view, wired end-to-end from ADS-B detection through server rendering to the physical display. Phase 3 closes out v1 with a low-battery indicator, completing the device experience.
+
+**v2 scope note**: The RER view (originally Phase 3) and the physical-button view-switching work (originally part of Phase 4, requirements DEVICE-01/DEVICE-02) were deferred out of v1 — v1 ships as a single-view (plane-only) device. See git history for the removed Phase 3 (RER View — End-to-End Slice) content; it and the switching work are v2 candidates once a second view exists to switch to.
 
 ## Phases
 
@@ -15,14 +17,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception and battery/wake-cycle viability on real hardware, with the core wake/poll/backoff loop proven against a stub server
 - [ ] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display
-- [ ] **Phase 3: RER View — End-to-End Slice** - Second vertical slice: live next-RER-departure data, reusing the proven device/server loop
-- [ ] **Phase 4: View Switching, Fresh Polls & Low Battery** - Physical button ties both views together with guaranteed-fresh polls and a low-battery indicator, completing the v1 device experience
+- [ ] **Phase 3: Low-Battery Indicator** - Low-battery warning on the frame, completing the v1 single-view device experience
 
 ## Phase Details
 
 ### Phase 1: Foundation — Hardware Bring-up & ADS-B Validation
 
-**Goal**: The two highest-risk technical unknowns — ADS-B reception at the install site and real on-battery wake/poll/sleep viability — are validated on real hardware, with the core device protocol loop (wake, poll, download, display, deep sleep, backoff) working end-to-end against a stub server. This is a foundation/spike phase: it de-risks Phases 2-4 rather than shipping a user-facing view.
+**Goal**: The two highest-risk technical unknowns — ADS-B reception at the install site and real on-battery wake/poll/sleep viability — are validated on real hardware, with the core device protocol loop (wake, poll, download, display, deep sleep, backoff) working end-to-end against a stub server. This is a foundation/spike phase: it de-risks Phases 2-3 rather than shipping a user-facing view.
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
 **Requirements**: DEVICE-03, DEVICE-05
@@ -82,33 +83,15 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **UI hint**: yes
 
-### Phase 3: RER View — End-to-End Slice
+### Phase 3: Low-Battery Indicator
 
-**Goal**: A user can glance at the frame and see live next-RER-departure data — the second vertical slice, reusing the device/server loop proven in Phase 2 to serve a second, independently useful view.
+**Goal**: Users can see a clear low-battery warning on the frame — completing the v1 device experience for the single-view (plane-only) device.
 **Mode:** mvp
 **Depends on**: Phase 2
-**Requirements**: RER-01, RER-02, RER-03
+**Requirements**: DEVICE-04
 **Success Criteria** (what must be TRUE):
 
-  1. User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville.
-  2. User can see a "leave by" cue combining the next train's countdown with a fixed walk-time buffer.
-  3. User can see a disruption banner on the RER view during a service disruption on the line.
-  4. The RER view renders end-to-end (server fetch → render → device poll → display) using the same protocol loop validated for the plane view.
-
-**Plans**: TBD
-**UI hint**: yes
-
-### Phase 4: View Switching, Fresh Polls & Low Battery
-
-**Goal**: Users can switch between the two working views with a single physical button, always see freshly polled data on switch, and see a clear low-battery warning — completing the full v1 device experience.
-**Mode:** mvp
-**Depends on**: Phase 3
-**Requirements**: DEVICE-01, DEVICE-02, DEVICE-04
-**Success Criteria** (what must be TRUE):
-
-  1. User can press a physical button on the frame to switch between the plane view and the RER view.
-  2. Pressing the button triggers a fresh poll for the newly selected view's data — never a stale cached image.
-  3. User can see a low-battery indicator on the frame when the battery is running low.
+  1. User can see a low-battery indicator on the frame when the battery is running low.
 
 **Plans**: TBD
 **UI hint**: yes
@@ -116,11 +99,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 5/8 | In Progress|  |
 | 2. Plane View — End-to-End Slice | 4/5 | In Progress|  |
-| 3. RER View — End-to-End Slice | 0/TBD | Not started | - |
-| 4. View Switching, Fresh Polls & Low Battery | 0/TBD | Not started | - |
+| 3. Low-Battery Indicator | 0/TBD | Not started | - |
