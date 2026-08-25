@@ -30,4 +30,15 @@
 
 203-0-113-10.nip.io {
     reverse_proxy 127.0.0.1:8642
+
+    # Structured per-request access log to stdout, captured by journald
+    # (journalctl -u caddy). Task 3's on-glass verification (02-05-PLAN.md)
+    # greps this for the device's /device/v1/display and /img/*.bin
+    # requests to confirm both travel over 443, not a plaintext port-80
+    # fallback - without this directive Caddy logs only lifecycle/TLS
+    # events, never individual requests.
+    log {
+        output stdout
+        format json
+    }
 }
