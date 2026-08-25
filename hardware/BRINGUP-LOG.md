@@ -114,5 +114,100 @@ Tasks 2 and 3 of this plan resolve this section from `PENDING` to
 `VERIFIED` (or, if a correction is needed, document the divergence here
 and in `firmware/VENDOR.md`).
 
+## Flashing Tooling
+
+`esptool` was installed via Homebrew (not pip), keeping Phase 1's
+zero-pip-install property intact:
+
+```
+esptool v5.3.1
+```
+
+(`brew install esptool`; binary at `/opt/homebrew/bin/esptool`, with the
+deprecated `esptool.py` alias also present.)
+
+## Console Routing Bug (Rule 3 deviation)
+
+The first flash attempt in this plan's earlier session produced **no
+console output at all** after boot. Per this plan's own diagnostic
+framing (see `## Board Profile Verification` above), a silent console on
+this board points at console routing rather than a dead board: the
+panel's master chip-select and power-enable signals share GPIOs with
+UART0, so the EE02 profile must route the console to USB Serial/JTAG
+instead of the default UART console.
+
+Root cause found: `firmware/build-ee02/sdkconfig` (the generated build
+config) did not actually carry `CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y`
+despite `firmware/sdkconfig.ee02.defaults` specifying it — a stale
+generated `sdkconfig` in the build directory did not pick up the defaults
+file's routing on an incremental build. Fix: a clean rebuild (removing
+`firmware/build-ee02` and re-running `firmware/build.sh`) regenerated
+`sdkconfig` correctly. Confirmed post-fix:
+
+```
+$ grep -E 'CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG|CONFIG_ESP_CONSOLE_UART' firmware/build-ee02/sdkconfig
+# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# CONFIG_ESP_CONSOLE_UART_CUSTOM is not set
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG_ENABLED=y
+CONFIG_ESP_CONSOLE_UART_NUM=-1
+# CONFIG_ESP_CONSOLE_UART_NONE is not set
+```
+
+This is a build-process gotcha, not a wrong value in
+`sdkconfig.ee02.defaults` itself (that file was already correct — see
+`firmware/VENDOR.md`'s vendored-file table, `Verbatim? = yes`). No
+divergence from upstream was introduced; the fix is "rebuild clean when
+`sdkconfig.ee02.defaults` changes and the build directory already
+exists," which is generic ESP-IDF build hygiene rather than an EE02-
+specific hardware fact. Logged here under Rule 3 (auto-fixed blocking
+issue) rather than as a `firmware/VENDOR.md` divergence, since no
+vendored file's content changed.
+
+## Flash Attempt (Task 2)
+
+**Working command** (device at `/dev/cu.usbmodem1301`):
+
+```
+firmware/flash.sh /dev/cu.usbmodem1301
+```
+
+**Attempts needed:** 1 successful flash + read-back verification, on the
+first attempt of this session (following the clean rebuild above).
+
+**Result:**
+
+```
+Writing '.../build-ee02/bootloader/bootloader.bin' at 0x00000000... Hash of data verified.
+Writing '.../build-ee02/partition_table/partition-table.bin' at 0x00008000... Hash of data verified.
+Writing '.../build-ee02/ota_data_initial.bin' at 0x0000f000... Hash of data verified.
+Writing '.../build-ee02/inkframe.bin' at 0x00020000... Hash of data verified.
+Verifying application region (offset=0x20000, size=1050368) against build-ee02/inkframe.bin ...
+verify_flash: OK - flashed application region matches build-ee02/inkframe.bin byte-for-byte (1050368 bytes)
+flash.sh: SUCCESS
+```
+
+Chip identified during flash: ESP32-S3 (QFN56) revision v0.2, 8MB
+embedded PSRAM, MAC `<device-mac>`.
+
+**Status: flash byte-verified successful. First-boot console capture
+is BLOCKED** — the USB serial connection dropped again immediately
+after the flash+verify completed and before `firmware/monitor.sh` could
+capture any output (confirmed by `ls /dev/cu.*` losing the
+`/dev/cu.usbmodem1301` entry entirely, twice, with waits of several
+seconds in between). This is the same intermittent physical connection
+this log already flagged above ("This connection has been observed to be
+flaky across sessions") — not a firmware or flashing defect. The flashed
+image itself is confirmed correct (byte-for-byte verified against
+`build-ee02/inkframe.bin`); only observing it boot is blocked pending a
+physical reconnection.
+
+**Next action:** reseat/replace the USB-C cable connection (or the port)
+and re-run `firmware/monitor.sh <port>` once `ls /dev/cu.*` shows the
+device again — no re-flash is needed, the device already has the
+verified image on it.
+
 ---
-*Log opened: 2026-08-25, Task 1 of plan 01-06.*
+*Log opened: 2026-08-25, Task 1 of plan 01-06. Task 2 flash+verify
+recorded 2026-08-25 21:38 UTC; first-boot capture pending physical
+reconnection.*
