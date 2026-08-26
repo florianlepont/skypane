@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: foundation-hardware-bring-up-ads-b-validation
 status: executing
-stopped_at: 01-07-PLAN.md complete (all 3 tasks); 01-08 not yet started
-last_updated: "2026-08-26T05:51:01.871Z"
+stopped_at: 01-08 Task 1 of 3 complete (check-battery checker + protocol pre-registration); Task 2 (multi-day unattended battery run) awaits explicit human go-ahead
+last_updated: "2026-08-26T06:05:13.660Z"
 last_activity: 2026-08-26
-last_activity_desc: 01-07 Task 3 complete - power-cycle persistence proof on real hardware (backoff_n survives power loss, resets on success); DEVICE-03 marked complete
+last_activity_desc: "01-08 Task 1 complete: check-battery checker built and proven on 3 new fixtures (battery-good/battery-gap/battery-flat-mv), D-07 protocol pre-registered in hardware/BATTERY-RUN.md before the battery pack was connected. Plan not yet complete - Tasks 2 and 3 remain."
 progress:
   total_phases: 4
   completed_phases: 1
@@ -29,9 +29,9 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 01 (foundation-hardware-bring-up-ads-b-validation) — EXECUTING
-Plan: 8 of 8 (01-08: not yet started — battery/unattended discharge run)
-Status: 01-07 (DEVICE-03 exponential-backoff hardware observation) complete, all 3 tasks committed. DEVICE-03 marked complete in REQUIREMENTS.md. 01-08 (queued, wave 5) is the only remaining plan in Phase 1.
-Last activity: 2026-08-26 — 01-07 Task 3 complete: power-cycle persistence proven on real hardware across 3 physical power cycles (backoff_n continues, non-zero; reset to 0 after success). See hardware/BACKOFF-OBSERVATION.md.
+Plan: 8 of 8 (01-08: Task 1 of 3 complete — battery/unattended discharge run)
+Status: 01-07 (DEVICE-03 exponential-backoff hardware observation) complete, all 3 tasks committed. DEVICE-03 marked complete in REQUIREMENTS.md. 01-08 (last plan in Phase 1) is in progress: Task 1 (check-battery checker + pre-registered D-07 protocol) done; Task 2 (checkpoint:human-action — charge pack, pull USB, run unattended for days) and Task 3 (post-mortem readout + Verdict) remain. DEVICE-05 not yet complete.
+Last activity: 2026-08-26 — 01-08 Task 1 complete: check-battery checker built and proven on 3 new fixtures, D-07 protocol pre-registered in hardware/BATTERY-RUN.md before the battery pack was connected. See .planning/phases/01-foundation-hardware-bring-up-ads-b-validation/01-08-SUMMARY.md.
 
 Progress: [█████████░] 92%
 
@@ -66,6 +66,7 @@ Progress: [█████████░] 92%
 | Phase 02 P04 | 45min | 3 tasks | 3 files |
 | Phase 01 P06 | 74min | 3 tasks | 5 files |
 | Phase 01 P07 | 136min | 3 tasks | 8 files |
+| Phase 01 P08 | 35min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,7 @@ Recent decisions affecting current work:
 - [Phase 01]: 01-07 Task 1/2 complete - hardware/logtools.py (stdlib-only stamp/check-backoff/selftest) proven on 3 fixtures before hardware use; real doubling curve (300/600/1200/2400/4800s across backoff_n=0..4) captured on real hardware over an ~80min unattended run and machine-verified. Known low-severity finding: the WiFi SSID leaks into backoff-run.log via ESP-IDF's own wifi component debug line (not the project's Log Line Contract, not the bearer token/password/setup secret) - documented in 01-07-SUMMARY.md, not yet fixed (would need a reflash+recapture).
 - [Phase 01]: 01-07 Task 3 (power-cycle persistence proof) deliberately deferred overnight at explicit user request - device left connected (USB) with battery still disconnected, holding backoff_n=5 in NVS; stub server left stopped (Task 3 needs it down through its own step 6); capture loop + caffeinate stopped so the Mac can sleep normally.
 - [Phase 01]: 01-07 Task 3 complete: NVS failure counter proven to survive three real physical power cycles (no battery) - backoff_n continued 7->8 across a power-cycle where the wall-clock gap (12m37s vs a 6h/21600s armed sleep) makes an external interruption mathematically certain; recovery poll + follow-up failure proved a success resets to backoff_n=0/sleep_s=300. The literal 'wake reason=power-on' console line could not be captured on any of 3 cold power-ons (diagnosed via macOS kernel USB log as a genuine USB re-enumeration delay on this board's marginal connection, not a capture-script bug or firmware defect); corroborated instead via the device's own X-Boot-Reason=power-on HTTP telemetry header. Full diagnosis in hardware/BACKOFF-OBSERVATION.md. DEVICE-03 marked complete.
+- [Phase 01]: 01-08 Task 1: check-battery checker + BATTERY-RUN.md protocol pre-registered (thresholds, 21-day ceiling, 3000mAh capacity from BOM.md) before the battery pack was connected - proven on 3 new fixtures (battery-good accepted; battery-gap/battery-flat-mv rejected). Tasks 2 (multi-day unattended run) and 3 (post-mortem verdict) remain.
 
 ### Pending Todos
 
@@ -121,10 +123,10 @@ None yet.
 - Research flagged as unverified before commit: exact AeroDataBox tier/cost is not needed (project uses local ADS-B, not AeroDataBox, per PROJECT.md's reversed decision) — but PRIM/IDFM's exact SIRI Lite quota figures are community-sourced only; not a v1 blocker (RER deferred to v2 as of 2026-08-11) — verify against the live account dashboard before finalizing RER poll cadence when v2 planning starts.
 - Spectra 6 dual-chip display driver — RESOLVED 2026-08-25 (01-06): EE02 board profile verified against real hardware with zero corrections needed, first light achieved (all 5 visual checks passed), Log Line Contract captured live.
 - No publicly confirmed enclosure design exists for the EE02 kit — budget design time in Phase 1 or plan around an off-the-shelf enclosure.
-- Battery-life real-world figure for this exact hardware combo is unmeasured — 01-08 (queued, wave 5) will produce this via a real unattended discharge run.
+- Battery-life real-world figure for this exact hardware combo is unmeasured — 01-08's Task 1 (check-battery checker + pre-registered protocol) is done; Tasks 2 (multi-day unattended discharge run) and 3 (post-mortem readout) will produce the actual measurement.
 - 02-05: live provisioning complete (OVH VPS-1, <public-host>, Ubuntu 26.04). Task 3 (on-glass verification) is now UNBLOCKED — 01-06 hardware flash/first boot is done, hardware confirmed working. Re-run 02-05's executor to complete Task 3 whenever convenient.
 - Device wake interval (how often the physical frame polls the server, decoupled from the server's own 30s ADS-B poll) is currently 300s in the test/bring-up config — NOT yet a tuned production value. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred (2026-08-25) until 01-08 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
-- 01-07 is now fully complete (all 3 tasks). 01-08 (battery/unattended discharge run, wave 5) is the only remaining plan in Phase 1 — no blocker, ready to plan/execute whenever convenient.
+- 01-07 is now fully complete (all 3 tasks). 01-08 (last remaining plan in Phase 1) has Task 1 done (check-battery checker + pre-registered D-07 protocol, committed). Task 2 is a `checkpoint:human-action` gate requiring the developer to confirm the laptop can stay awake for up to 21 days, confirm the pack's protection circuit, re-check polarity, then charge the pack and pull the USB cable — this has NOT been done yet and needs explicit human go-ahead before it starts, since it commits a real lithium pack to an unattended multi-day discharge.
 
 ## Deferred Items
 
@@ -136,13 +138,14 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T05:51:01.867Z
-Stopped at: 01-07-PLAN.md complete (all 3 tasks; commits `2e8a041`, `584364e`, `7fb5706`, `5cc2096`)
+Last session: 2026-08-26T06:04:47.912Z
+Stopped at: 01-08 Task 1 of 3 complete (commits `c54024c`, `3917124`); Task 2 (checkpoint:human-action) awaits explicit human go-ahead
 
-Resume file: none — 01-07 is fully complete. Next work is 01-08 (battery/unattended discharge run, wave 5), which has not yet been planned.
+Resume file: `.planning/phases/01-foundation-hardware-bring-up-ads-b-validation/01-08-PLAN.md` — resume at Task 2 ("Charge the pack, pull the cable, and let it run for days").
 
 **State at end of this session:**
 
-- Device: connected via USB, battery still disconnected. Stub server stopped (last power-down was deliberate, to prove the success-resets-counter case). Capture loop + `caffeinate` stopped.
+- Device: connected via USB, battery still disconnected (Task 1 was fully autonomous, no hardware/battery involved). Stub server not running.
+- `hardware/logtools.py check-battery` is built and proven on 3 fixtures (`battery-good` accepted; `battery-gap`, `battery-flat-mv` rejected); `hardware/BATTERY-RUN.md`'s `## Run Protocol (pre-registered)` section is committed with the D-07 thresholds, 21-day ceiling and the pack's real 3000mAh rating from `hardware/BOM.md`.
 - 01-07's DEVICE-03 backoff observation is complete and machine-checked, with one disclosed capture-tooling limitation (see `hardware/BACKOFF-OBSERVATION.md`'s "Capture-Timing Limitation" section) — the underlying persistence property is proven via a decisive wall-clock argument and independent HTTP-telemetry corroboration, not merely a clean automated-checker exit code.
-- Before 01-08 connects the battery for the first time, `hardware/BRINGUP-LOG.md`'s deferred polarity check (JST connector orientation against the board's silkscreen) is still an outstanding blocking prerequisite for that plan.
+- Before Task 2 connects the battery for the first time, `hardware/BRINGUP-LOG.md`'s deferred polarity check (JST connector orientation against the board's silkscreen) is still an outstanding blocking prerequisite, and Task 2's own `<how-to-verify>` steps require confirming the pack's protection circuit and the laptop's ability to stay awake/networked for up to 21 days before starting.
