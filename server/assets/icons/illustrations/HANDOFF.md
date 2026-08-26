@@ -69,8 +69,16 @@ carrier actually seen on runway 3.
    `server/.venv/bin/python3 server/plane/illustrations.py --validate`
    It exits 0 only when every file passes. Fix and regenerate anything it
    rejects.
-3. Open every file and confirm by eye that the nose points **left** in all
-   of them.
+3. Open every file and confirm **by eye** (no code check exists for either
+   of these):
+   - the nose points **left** in all of them;
+   - **no readable text/wordmarks/registration codes** appear anywhere on
+     the aircraft — this matters even if a file was generated before this
+     requirement was added to the prompts above; a stray "AIR FRANCE"
+     titled along the fuselage will render backwards once code mirrors it
+     for the DEPARTING state. If you already generated files before
+     reading this, re-check them against this specific point and
+     regenerate any that have text on the airframe.
 4. Report back, for the provenance record (`VENDOR.md`): the generation
    date, the tool used, the prompt if you kept it, and the aircraft type
    you chose per airline.
