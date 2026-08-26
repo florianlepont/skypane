@@ -1,5 +1,31 @@
 # server/assets/icons — Vendor Provenance
 
+## `illustrations/*.png`
+
+- **Generation date:** 2026-08-26 (visual-style revision on the same date).
+- **Tool:** OpenAI built-in image generation (`gpt-image`), generated as
+  transparent PNG cutouts and visually inspected after generation.
+- **Prompt recipe:** polished modern aviation-poster illustration with crisp
+  ink-like contours, clean coloured body planes, and restrained blue-grey
+  graphic shadows; one aircraft, landscape framing, nose pointing **left**,
+  authentic carrier livery colours, and a genuinely transparent RGBA
+  background with no ground, sky, vignette, halo, scenery, or extra aircraft.
+  The generic fallback additionally prohibits all airline identities, logos,
+  and livery colours.
+- **Selected aircraft types:**
+  - `air-france.png` — Airbus A320
+  - `iberia-airlines.png` — Airbus A320
+  - `tap-portugal.png` — Airbus A321neo
+  - `air-algerie.png` — Boeing 737-800
+  - `ccm-airlines.png` — Airbus A320 (Air Corsica / CCM Airlines)
+  - `vueling-airlines.png` — Airbus A320
+  - `generic-fallback.png` — unbranded generic narrow-body jet
+- **Local modifications / validation:** TAP and Air Algérie were regenerated
+  after a visual check identified an opaque vignette in earlier drafts. The
+  final seven files are all native RGBA PNGs, at least 1200px wide, and passed
+  `server/plane/illustrations.py --validate`. All source profiles were
+  visually confirmed nose-left before hand-off.
+
 ## `plane-takeoff.svg` / `plane-takeoff.png`, `plane-landing.svg` / `plane-landing.png`
 
 - **Upstream repository/source:** https://github.com/lucide-icons/lucide
