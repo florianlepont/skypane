@@ -1,0 +1,213 @@
+[2026-08-26T07:16:04] I (6771) wifi:<ba-add>idx:1 (ifx:0, <wifi-bssid>), tid:5, ssn:0, winSize:64
+[2026-08-26T07:16:04] [0;32mI (6791) fp_wifi: clock set via SNTP[0m
+[2026-08-26T07:16:04] [0;31mE (6861) esp-tls: [sock=54] delayed connect error: Connection reset by peer[0m
+[2026-08-26T07:16:04] [0;31mE (6861) transport_base: Failed to open a new connection: 32772[0m
+[2026-08-26T07:16:04] [0;31mE (6861) HTTP_CLIENT: Connection failed, sock < 0[0m
+[2026-08-26T07:16:04] [0;33mW (6871) inkframe: poll fail step=http backoff_n=7 sleep_s=21600[0m
+[2026-08-26T07:16:04] I (6871) wifi:state: run -> init (0x0)
+[2026-08-26T07:16:04] I (6871) wifi:pm stop, total sleep time: 4627575 us / 5957224 us
+[2026-08-26T07:16:04] 
+[2026-08-26T07:16:04] I (6871) wifi:<ba-del>idx:0, tid:0
+[2026-08-26T07:16:04] I (6871) wifi:<ba-del>idx:1, tid:5
+[2026-08-26T07:16:04] I (6871) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+[2026-08-26T07:16:04] I (6901) wifi:flush txq
+[2026-08-26T07:16:04] I (6901) wifi:stop sw txq
+[2026-08-26T07:16:04] I (6901) wifi:lmac stop hw txq
+[2026-08-26T07:16:04] I (6901) wifi:Deinit lldesc rx mblock:10
+[2026-08-26T07:16:04] [0;32mI (6911) inkframe: sleep enter sleep_s=21600[0m
+[2026-08-26T07:28:41] [0;32mI (5480) fp_wifi: clock set via SNTP[0m
+[2026-08-26T07:28:41] [0;31mE (5520) esp-tls: [sock=54] delayed connect error: Connection reset by peer[0m
+[2026-08-26T07:28:41] [0;31mE (5520) transport_base: Failed to open a new connection: 32772[0m
+[2026-08-26T07:28:41] [0;31mE (5520) HTTP_CLIENT: Connection failed, sock < 0[0m
+[2026-08-26T07:28:41] [0;33mW (5530) inkframe: poll fail step=http backoff_n=8 sleep_s=21600[0m
+[2026-08-26T07:28:41] I (5530) wifi:state: run -> init (0x0)
+[2026-08-26T07:28:41] I (5530) wifi:pm stop, total sleep time: 3463185 us / 4620527 us
+[2026-08-26T07:28:41] 
+[2026-08-26T07:28:41] I (5530) wifi:<ba-del>idx:0, tid:0
+[2026-08-26T07:28:41] f:1, snd_ch_cfg:0x0
+[2026-08-26T07:28:41] I (5530) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, proI (5580) wifi:flush txq
+[2026-08-26T07:28:41] I (5580) wifi:stop sw txq
+[2026-08-26T07:28:41] I (5580) wifi:lmac stop hw txq
+[2026-08-26T07:28:41] I (5580) wifi:Deinit lldesc rx mblock:10
+[2026-08-26T07:28:41] [0;32mI (5590) inkframe: sleep enter sleep_s=21600[0m
+[2026-08-26T07:36:37] [0;32mI (4971) fp_wifi: clock set via SNTP[0m
+[2026-08-26T07:36:38] [0;32mI (5711) inkframe: image unchanged, skipping download[0m
+[2026-08-26T07:36:38] [0;32mI (5731) inkframe: poll ok sleep_s=300 hash_skip=1[0m
+[2026-08-26T07:36:38] I (5731) wifi:state: run -> init (0x0)
+[2026-08-26T07:36:38] I (5731) wifi:pm stop, total sleep time: 3820455 us / 4819591 us
+[2026-08-26T07:36:38] 
+[2026-08-26T07:36:38] I (5731) wifi:<ba-del>idx:0, tid:0
+[2026-08-26T07:36:38] f:1, snd_ch_cfg:0x0
+[2026-08-26T07:36:38] I (5731) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, proI (5761) wifi:flush txq
+[2026-08-26T07:36:38] I (5761) wifi:stop sw txq
+[2026-08-26T07:36:38] I (5761) wifi:lmac stop hw txq
+[2026-08-26T07:36:38] I (5761) wifi:Deinit lldesc rx mblock:10
+[2026-08-26T07:36:38] [0;32mI (5771) inkframe: sleep enter sleep_s=300[0m
+[2026-08-26T07:41:37] [0;32mI (692) esp_psram: SPI SRAM memory test OK[0m
+[2026-08-26T07:41:37] [0;32mI (701) cpu_start: Pro cpu start user code[0m
+[2026-08-26T07:41:37] [0;32mI (701) cpu_start: cpu freq: 160000000 Hz[0m
+[2026-08-26T07:41:37] [0;32mI (701) app_init: Application information:[0m
+[2026-08-26T07:41:37] [0;32mI (701) app_init: Project name:     inkframe[0m
+[2026-08-26T07:41:37] [0;32mI (701) app_init: App version:      0.1.0-p1[0m
+[2026-08-26T07:41:37] [0;32mI (701) app_init: Compile time:     Aug 25 2026 19:15:03[0m
+[2026-08-26T07:41:37] [0;32mI (702) app_init: ELF file SHA256:  54dbb6b6e...[0m
+[2026-08-26T07:41:37] [0;32mI (702) app_init: ESP-IDF:          v5.3.1[0m
+[2026-08-26T07:41:37] [0;32mI (702) efuse_init: Min chip rev:     v0.0[0m
+[2026-08-26T07:41:37] [0;32mI (702) efuse_init: Max chip rev:     v0.99 [0m
+[2026-08-26T07:41:37] [0;32mI (702) efuse_init: Chip rev:         v0.2[0m
+[2026-08-26T07:41:37] [0;32mI (703) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[2026-08-26T07:41:37] [0;32mI (703) heap_init: At 3FCA7118 len 000425F8 (265 KiB): RAM[0m
+[2026-08-26T07:41:37] [0;32mI (703) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[2026-08-26T07:41:37] [0;32mI (703) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[2026-08-26T07:41:37] [0;32mI (704) heap_init: At 600FE108 len 00001EE0 (7 KiB): RTCRAM[0m
+[2026-08-26T07:41:37] [0;32mI (704) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[2026-08-26T07:41:37] [0;32mI (705) spi_flash: detected chip: generic[0m
+[2026-08-26T07:41:37] [0;32mI (705) spi_flash: flash io: dio[0m
+[2026-08-26T07:41:37] [0;33mW (706) spi_flash: Detected size(16384k) larger than the size in the binary image header(8192k). Using the size in the binary image header.[0m
+[2026-08-26T07:41:37] [0;32mI (706) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[2026-08-26T07:41:37] [0;32mI (707) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[2026-08-26T07:41:37] [0;32mI (708) main_task: Started on CPU0[0m
+[2026-08-26T07:41:37] [0;32mI (718) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[2026-08-26T07:41:37] [0;32mI (718) main_task: Calling app_main()[0m
+[2026-08-26T07:41:37] [0;32mI (748) inkframe: wake reason=rtc boot_count=45[0m
+[2026-08-26T07:41:37] [0;32mI (748) pp: pp rom version: e7ae62f[0m
+[2026-08-26T07:41:37] [0;32mI (748) net80211: net80211 rom version: e7ae62f[0m
+[2026-08-26T07:41:37] I (758) wifi:wifi driver task: 3fcbb504, prio:23, stack:6656, core=0
+[2026-08-26T07:41:37] I (768) wifi:wifi firmware version: ccaebfa
+[2026-08-26T07:41:37] I (768) wifi:wifi certification version: v7.0
+[2026-08-26T07:41:37] I (768) wifi:config NVS flash: enabled
+[2026-08-26T07:41:37] I (768) wifi:config nano formating: disabled
+[2026-08-26T07:41:37] I (768) wifi:Init data frame dynamic rx buffer num: 32
+[2026-08-26T07:41:37] I (768) wifi:Init static rx mgmt buffer num: 5
+[2026-08-26T07:41:37] I (768) wifi:Init management short buffer num: 32
+[2026-08-26T07:41:37] I (768) wifi:Init static tx buffer num: 16
+[2026-08-26T07:41:37] I (768) wifi:Init tx cache buffer num: 32
+[2026-08-26T07:41:37] I (768) wifi:Init static tx FG buffer num: 2
+[2026-08-26T07:41:37] I (768) wifi:Init static rx buffer size: 1600
+[2026-08-26T07:41:37] I (768) wifi:Init static rx buffer num: 10
+[2026-08-26T07:41:37] I (768) wifi:Init dynamic rx buffer num: 32
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: rx ba win: 6[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: accept mbox: 6[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: tcpip mbox: 32[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: udp mbox: 6[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: tcp mbox: 6[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: tcp tx win: 5760[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: tcp rx win: 5760[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: tcp mss: 1440[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: WiFi IRAM OP enabled[0m
+[2026-08-26T07:41:37] [0;32mI (768) wifi_init: WiFi RX IRAM OP enabled[0m
+[2026-08-26T07:41:37] reshold changes from OPEN to WPA2
+[2026-08-26T07:41:37] 41:10[0m
+[2026-08-26T07:41:37] W (768) wifi:Password length matches WPA2 standards, authmode th[0;32mI (768) phy_init: phy_version 680,a6008b2,Jun  4 2024,16:I (798) wifi:mode : sta (<device-mac>)
+[2026-08-26T07:41:37] I (798) wifi:enable tsf
+[2026-08-26T07:41:37] I (808) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+[2026-08-26T07:41:37] I (808) wifi:state: init -> auth (0xb0)
+[2026-08-26T07:41:37] I (828) wifi:state: auth -> assoc (0x0)
+[2026-08-26T07:41:37] I (838) wifi:state: assoc -> run (0x10)
+[2026-08-26T07:41:37] 6, BW20, bssid = <wifi-bssid>
+[2026-08-26T07:41:37] I (848) wifi:connected with <wifi-ssid>, aid = 6, channel I (848) wifi:security: WPA2-PSK, phy: bgn, rssi: -55
+[2026-08-26T07:41:37] I (848) wifi:pm start, type: 1
+[2026-08-26T07:41:37] 
+[2026-08-26T07:41:37] m 307200 us to 245760 us
+[2026-08-26T07:41:37] 0, mt_pti: 0, mt_time: 10000
+[2026-08-26T07:41:37] I (848) wifi:dp: 1, bi: 122880, li: 2, scale listen interval froI (848) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 2500I (928) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+[2026-08-26T07:41:37] I (1358) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[2026-08-26T07:41:40] [0;32mI (4358) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[2026-08-26T07:41:40] [0;31mE (4468) esp-tls: [sock=54] delayed connect error: Connection reset by peer[0m
+[2026-08-26T07:41:40] [0;31mE (4478) transport_base: Failed to open a new connection: 32772[0m
+[2026-08-26T07:41:40] [0;31mE (4478) HTTP_CLIENT: Connection failed, sock < 0[0m
+[2026-08-26T07:41:40] [0;33mW (4488) inkframe: poll fail step=http backoff_n=0 sleep_s=300[0m
+[2026-08-26T07:41:40] I (4488) wifi:state: run -> init (0x0)
+[2026-08-26T07:41:40] I (4488) wifi:pm stop, total sleep time: 2914139 us / 3634786 us
+[2026-08-26T07:41:40] 
+[2026-08-26T07:41:40] I (4488) wifi:<ba-del>idx:0, tid:0
+[2026-08-26T07:41:40] f:1, snd_ch_cfg:0x0
+[2026-08-26T07:41:40] I (4488) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, proI (4518) wifi:flush txq
+[2026-08-26T07:41:40] I (4518) wifi:stop sw txq
+[2026-08-26T07:41:40] I (4518) wifi:lmac stop hw txq
+[2026-08-26T07:41:40] I (4518) wifi:Deinit lldesc rx mblock:10
+[2026-08-26T07:41:40] [0;32mI (4528) inkframe: sleep enter sleep_s=300[0m
+[2026-08-26T07:46:39] [0;32mI (697) esp_psram: SPI SRAM memory test OK[0m
+[2026-08-26T07:46:39] [0;32mI (706) cpu_start: Pro cpu start user code[0m
+[2026-08-26T07:46:39] [0;32mI (706) cpu_start: cpu freq: 160000000 Hz[0m
+[2026-08-26T07:46:39] [0;32mI (706) app_init: Application information:[0m
+[2026-08-26T07:46:39] [0;32mI (706) app_init: Project name:     inkframe[0m
+[2026-08-26T07:46:39] [0;32mI (706) app_init: App version:      0.1.0-p1[0m
+[2026-08-26T07:46:39] [0;32mI (706) app_init: Compile time:     Aug 25 2026 19:15:03[0m
+[2026-08-26T07:46:39] [0;32mI (707) app_init: ELF file SHA256:  54dbb6b6e...[0m
+[2026-08-26T07:46:39] [0;32mI (707) app_init: ESP-IDF:          v5.3.1[0m
+[2026-08-26T07:46:39] [0;32mI (707) efuse_init: Min chip rev:     v0.0[0m
+[2026-08-26T07:46:39] [0;32mI (707) efuse_init: Max chip rev:     v0.99 [0m
+[2026-08-26T07:46:39] [0;32mI (707) efuse_init: Chip rev:         v0.2[0m
+[2026-08-26T07:46:39] [0;32mI (708) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[2026-08-26T07:46:39] [0;32mI (708) heap_init: At 3FCA7118 len 000425F8 (265 KiB): RAM[0m
+[2026-08-26T07:46:39] [0;32mI (708) heap_init: At 3FCE9710 len 00005724 (21 KiB): RAM[0m
+[2026-08-26T07:46:39] [0;32mI (708) heap_init: At 3FCF0000 len 00008000 (32 KiB): DRAM[0m
+[2026-08-26T07:46:39] [0;32mI (709) heap_init: At 600FE108 len 00001EE0 (7 KiB): RTCRAM[0m
+[2026-08-26T07:46:39] [0;32mI (709) esp_psram: Adding pool of 8192K of PSRAM memory to heap allocator[0m
+[2026-08-26T07:46:39] [0;32mI (710) spi_flash: detected chip: generic[0m
+[2026-08-26T07:46:39] [0;32mI (710) spi_flash: flash io: dio[0m
+[2026-08-26T07:46:39] [0;33mW (711) spi_flash: Detected size(16384k) larger than the size in the binary image header(8192k). Using the size in the binary image header.[0m
+[2026-08-26T07:46:39] [0;32mI (711) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[2026-08-26T07:46:39] [0;32mI (712) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[2026-08-26T07:46:39] [0;32mI (713) main_task: Started on CPU0[0m
+[2026-08-26T07:46:39] [0;32mI (723) esp_psram: Reserving pool of 32K of internal memory for DMA/internal allocations[0m
+[2026-08-26T07:46:39] [0;32mI (723) main_task: Calling app_main()[0m
+[2026-08-26T07:46:39] [0;32mI (753) inkframe: wake reason=rtc boot_count=46[0m
+[2026-08-26T07:46:39] [0;32mI (753) pp: pp rom version: e7ae62f[0m
+[2026-08-26T07:46:39] [0;32mI (753) net80211: net80211 rom version: e7ae62f[0m
+[2026-08-26T07:46:39] I (763) wifi:wifi driver task: 3fcbb504, prio:23, stack:6656, core=0
+[2026-08-26T07:46:39] I (773) wifi:wifi firmware version: ccaebfa
+[2026-08-26T07:46:39] I (773) wifi:wifi certification version: v7.0
+[2026-08-26T07:46:39] I (773) wifi:config NVS flash: enabled
+[2026-08-26T07:46:39] I (773) wifi:config nano formating: disabled
+[2026-08-26T07:46:39] I (773) wifi:Init data frame dynamic rx buffer num: 32
+[2026-08-26T07:46:39] I (773) wifi:Init static rx mgmt buffer num: 5
+[2026-08-26T07:46:39] I (773) wifi:Init management short buffer num: 32
+[2026-08-26T07:46:39] I (773) wifi:Init static tx buffer num: 16
+[2026-08-26T07:46:39] I (773) wifi:Init tx cache buffer num: 32
+[2026-08-26T07:46:39] I (773) wifi:Init static tx FG buffer num: 2
+[2026-08-26T07:46:39] I (773) wifi:Init static rx buffer size: 1600
+[2026-08-26T07:46:39] I (773) wifi:Init static rx buffer num: 10
+[2026-08-26T07:46:39] I (773) wifi:Init dynamic rx buffer num: 32
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: rx ba win: 6[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: accept mbox: 6[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: tcpip mbox: 32[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: udp mbox: 6[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: tcp mbox: 6[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: tcp tx win: 5760[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: tcp rx win: 5760[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: tcp mss: 1440[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: WiFi IRAM OP enabled[0m
+[2026-08-26T07:46:39] [0;32mI (773) wifi_init: WiFi RX IRAM OP enabled[0m
+[2026-08-26T07:46:39] W (773) wifi:Password length matches WPA2 standards, authmode threshold changes from OPEN to WPA2
+[2026-08-26T07:46:39] [0;32mI (773) phy_init: phy_version 680,a6008b2,Jun  4 2024,16:41:10[0m
+[2026-08-26T07:46:39] I (793) wifi:mode : sta (<device-mac>)
+[2026-08-26T07:46:39] I (803) wifi:enable tsf
+[2026-08-26T07:46:39] I (813) wifi:new:<6,0>, old:<1,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+[2026-08-26T07:46:39] I (813) wifi:state: init -> auth (0xb0)
+[2026-08-26T07:46:39] I (843) wifi:state: auth -> assoc (0x0)
+[2026-08-26T07:46:39] I (853) wifi:state: assoc -> run (0x10)
+[2026-08-26T07:46:39] I (863) wifi:connected with <wifi-ssid>, aid = 8, channel 6, BW20, bssid = <wifi-bssid>
+[2026-08-26T07:46:39] I (863) wifi:security: WPA2-PSK, phy: bgn, rssi: -55
+[2026-08-26T07:46:39] I (873) wifi:pm start, type: 1
+[2026-08-26T07:46:39] 
+[2026-08-26T07:46:39] I (873) wifi:dp: 1, bi: 122880, li: 2, scale listen interval from 307200 us to 245760 us
+[2026-08-26T07:46:39] I (873) wifi:set rx beacon pti, rx_bcn_pti: 0, bcn_timeout: 25000, mt_pti: 0, mt_time: 10000
+[2026-08-26T07:46:39] I (953) wifi:AP's beacon interval = 122880 us, DTIM period = 2
+[2026-08-26T07:46:40] I (1373) wifi:<ba-add>idx:0 (ifx:0, <wifi-bssid>), tid:0, ssn:0, winSize:64
+[2026-08-26T07:46:43] [0;32mI (4373) esp_netif_handlers: sta ip: 192.168.1.117, mask: 255.255.255.0, gw: 192.168.1.254[0m
+[2026-08-26T07:46:43] [0;31mE (4533) esp-tls: [sock=54] delayed connect error: Connection reset by peer[0m
+[2026-08-26T07:46:43] [0;31mE (4533) transport_base: Failed to open a new connection: 32772[0m
+[2026-08-26T07:46:43] [0;31mE (4533) HTTP_CLIENT: Connection failed, sock < 0[0m
+[2026-08-26T07:46:43] [0;33mW (4543) inkframe: poll fail step=http backoff_n=1 sleep_s=600[0m
+[2026-08-26T07:46:43] I (4543) wifi:state: run -> init (0x0)
+[2026-08-26T07:46:43] I (4543) wifi:pm stop, total sleep time: 2956379 us / 3672471 us
+[2026-08-26T07:46:43] 
+[2026-08-26T07:46:43] I (4543) wifi:<ba-del>idx:0, tid:0
+[2026-08-26T07:46:43] I (4543) wifi:new:<6,0>, old:<6,0>, ap:<255,255>, sta:<6,0>, prof:1, snd_ch_cfg:0x0
+[2026-08-26T07:46:43] I (4573) wifi:flush txq
+[2026-08-26T07:46:43] I (4573) wifi:stop sw txq
+[2026-08-26T07:46:43] I (4573) wifi:lmac stop hw txq
+[2026-08-26T07:46:43] I (4573) wifi:Deinit lldesc rx mblock:10
+[2026-08-26T07:46:43] [0;32mI (4583) inkframe: sleep enter sleep_s=600[0m

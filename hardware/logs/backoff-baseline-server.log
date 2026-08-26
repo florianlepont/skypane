@@ -1,3 +1,9 @@
 [2026-08-25T22:48:24] serving /tmp/panel.bin on port 8642 — point the frame at http://<this-host>:8642
 [2026-08-25T22:58:46]   telemetry: X-Fw-Version=0.1.0-p1 X-Boot-Reason=power-on X-Rssi=-52 X-Battery-Mv=0
 [2026-08-25T22:58:46] GET /device/v1/display
+serving /tmp/panel.bin on port 8642 — point the frame at http://<this-host>:8642
+GET /
+HEAD /device/v1/display
+HEAD /device/v1/display
+  telemetry: X-Fw-Version=0.1.0-p1 X-Boot-Reason=power-on X-Rssi=-53 X-Battery-Mv=0
+GET /device/v1/display
