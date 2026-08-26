@@ -22,8 +22,9 @@ document.
 
 ## adsb.fi
 
-- **Used in shipped code:** Yes — secondary ADS-B aggregator, queried by
-  `server/plane/detect.py` (provider key `adsbfi`, endpoint
+- **Used in shipped code:** Yes — primary, and since 2026-08-27 the sole,
+  ADS-B aggregator an automated poll queries, via `server/plane/detect.py`
+  (provider key `adsbfi`, endpoint
   `https://opendata.adsb.fi/api/v2/lat/{lat}/lon/{lon}/dist/{dist}`).
 - **Upstream:** https://adsb.fi
 - **Terms checked:** 2026-08-26 (fetched directly during this phase's
@@ -33,46 +34,56 @@ document.
 - **Verdict — citation, in full, satisfying the requirement:**
 
   > This project uses real-time ADS-B aircraft position data from
-  > [adsb.fi](https://adsb.fi) as a secondary aggregator source.
+  > [adsb.fi](https://adsb.fi), the sole aggregator source an automated
+  > poll queries as of 2026-08-27.
 
-  The same citation also appears in `README.md`'s Data Sources section,
-  where a visitor actually reads it — this document alone would satisfy
-  the letter of the requirement but not its intent, since almost nobody
-  reads a repository's compliance document before its README.
+  The same citation sentence also appears in `README.md`'s Data Sources
+  section, where a visitor actually reads it — this document alone would
+  satisfy the letter of the requirement but not its intent, since almost
+  nobody reads a repository's compliance document before its README. Both
+  places must agree; if one is ever edited, update the other in the same
+  change.
 - **Status:** requirement met, citation present in two places.
 
 ## airplanes.live
 
-- **Used in shipped code:** Yes — primary ADS-B aggregator, queried first
-  by `server/plane/detect.py` (provider key `airplaneslive`, endpoint
-  `https://api.airplanes.live/v2/point/{lat}/{lon}/{dist}`).
+- **Used in shipped code:** present in the code, but unreached by the
+  default poll path. `server/plane/detect.py` retains the `airplaneslive`
+  provider entry (endpoint
+  `https://api.airplanes.live/v2/point/{lat}/{lon}/{dist}`) for explicit
+  `--provider` use only — by a feeder operator, sponsor, or licensee — and
+  it is never queried by an automated poll cycle.
 - **Upstream:** https://airplanes.live (attribution/redistribution terms
   documented at `https://airplanes.live/api-guide/`).
 - **Terms checked:** attempted 2026-08-26 — the `/api-guide/` page
   returned **HTTP 403** on two independent automated fetch attempts this
-  phase's research session made, and again on a third attempt made
-  during this plan's execution. This looks like bot-detection rather than
-  a real access restriction, but it means the exact terms text has not
-  been read by this project, only characterized by secondary sources
-  (multiple search results describing the API as "educational and
-  non-commercial purposes only," 1 req/s rate limit on the
-  ADSB-One-compatible endpoint).
-- **What the terms require:** **unconfirmed.** No terms are quoted here
-  because none have actually been read — quoting unread terms would be
-  worse than stating plainly that they haven't been read.
-- **Verdict — open item, with a named route to closure:**
-  - In the interim, this project extends the same courtesy attribution
-    given to adsb.fi — see `README.md`'s Data Sources section — and
-    labels it explicitly as a good-faith attribution pending confirmation
-    of the actual requirement, not a claim that this satisfies a
-    confirmed term.
-  - Route to closure: a manual read of `https://airplanes.live/api-guide/`
-    in a real browser (automated fetch is blocked), and/or the reply to a
-    clarification email the developer has already sent to airplanes.live
-    about commercial-use terms. Either one should resolve this item;
-    revisit and update this section once either lands.
-- **Status: OPEN.** This is the one source in this document whose terms
-  status is unconfirmed.
+  phase's research session made, and again on a third attempt made during
+  an earlier plan's execution.
+- **The 2026-08-27 reply:** a reply to the clarification email the
+  developer had sent airplanes.live about commercial-use terms arrived
+  this day. In substance: airplanes.live discontinued its free API tier
+  for cost-sustainability reasons, and access is now gated behind one of
+  three routes — running an ADS-B feeder, paying for a sponsorship, or
+  holding a commercial licence for any revenue-generating use.
+- **Live verification, same day:** a GET against the exact endpoint
+  template `server/plane/detect.py` uses in production
+  (`https://api.airplanes.live/v2/point/{lat}/{lon}/{dist}`) returned
+  **HTTP 403**, while the adsb.fi endpoint in the same file returned
+  **HTTP 200**.
+- **What the terms require:** still not directly read — the `/api-guide/`
+  page remains unreachable by automated fetch — but the 2026-08-27 reply
+  makes the free-tier access requirement moot for this project's purposes:
+  a feeder, a paid sponsorship, and a commercial licence were all
+  considered and declined (`.planning/PROJECT.md` Key Decisions).
+- **Verdict — resolved:** adsb.fi is promoted to sole default provider;
+  the `airplaneslive` provider entry stays in `detect.py` for explicit
+  `--provider` use by a feeder operator, sponsor, or licensee, and is not
+  queried by any automated poll. Because shipped behaviour no longer
+  reaches the service, its terms are no longer a blocker on anything this
+  repository does — and the item that was waiting on a clarification-email
+  reply has now received one.
+- **Status: resolved (2026-08-27).** No longer an open item — see the
+  demotion above.
 
 ## adsbdb.com
 
@@ -149,13 +160,15 @@ document.
 ## Runtime behaviour vs. the aggregators' constraints
 
 - **Poll cadence:** `server/poll_loop.py` runs on a 30-second cadence
-  (`server/README.md`'s "Poll cadence" section), issuing at most one
-  aggregator call per cycle per provider it tries. Both aggregators
+  (`server/README.md`'s "Poll cadence" section). A production cycle now
+  issues a single aggregator request — to adsb.fi, per
+  `DEFAULT_PROVIDER_ORDER` — not one per provider tried. Both aggregators
   document a 1 request/second limit; `server/plane/detect.py`'s
-  `MIN_SECONDS_BETWEEN_CALLS = 1.1` additionally throttles the fallback
-  call to the second provider within a single poll cycle, so even a
-  poll that tries both providers stays comfortably inside their stated
-  limit.
+  `MIN_SECONDS_BETWEEN_CALLS = 1.1` still throttles any explicit
+  multi-provider invocation (e.g. `--provider both`), so even that case
+  stays comfortably inside their stated limit. Both figures — one request
+  per 30-second cycle, and 1.1s between any explicit multi-provider
+  calls — sit well inside the 1 req/s ceiling either way.
 - **No raw aggregator data is republished.** What this project serves to
   the device is a rendered panel image (`server/plane/render.py`)
   derived from a single selected flight
@@ -171,10 +184,11 @@ document.
 
 | Source | Used in shipped code | Terms status | Open action |
 |---|---|---|---|
-| adsb.fi | Yes | Confirmed (direct fetch) | None — citation present in this document and `README.md` |
-| airplanes.live | Yes | **Unconfirmed** (403 on automated fetch) | **OPEN** — manual browser read of `/api-guide/`, and/or pending clarification email reply |
+| adsb.fi | Yes — primary and sole default provider | Confirmed (direct fetch) | None — citation present in this document and `README.md` |
+| airplanes.live | Present in code, not queried by default | Resolved (2026-08-27 reply + same-day live 403) | None — demoted to explicit `--provider` opt-in only |
 | adsbdb.com | Yes | Confirmed (no explicit terms published; used within reasonable bounds) | None |
 | PRIM / Île-de-France Mobilités | No | Not applicable (unused in v1) | Revisit at v2 planning, when RER-01/02/03 are picked back up |
 | AeroDataBox | No | Not applicable (unused) | None |
 
-Exactly one row above is marked open: **airplanes.live**.
+No row above is marked open. PRIM's "revisit at v2 planning" note is a
+forward-looking reminder, not an outstanding item.

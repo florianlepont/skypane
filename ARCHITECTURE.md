@@ -15,8 +15,8 @@ purpose.
 
 ```
  Public ADS-B aggregators                adsbdb.com
- (airplanes.live primary,                (callsign -> airline/route,
-  adsb.fi secondary)                      hit+miss cache)
+ (adsb.fi, sole default -                (callsign -> airline/route,
+  airplanes.live opt-in/unused)           hit+miss cache)
         │                                       │
         │ HTTPS, geofenced query                │ HTTPS, cache-first
         ▼                                       ▼
@@ -147,9 +147,13 @@ tmp-write-then-`os.replace()` atomic pattern used throughout this
 project.
 
 **Detection.** `server/plane/detect.py` queries a geofenced bounding box
-around runway 3 against the two aggregators (`airplanes.live` first, then
-`adsb.fi` as a fallback if the first returns nothing or errors). When more
-than one aircraft is inside the geofence in the same poll,
+around runway 3 against `adsb.fi`. There is no automatic fallback provider
+— since 2026-08-27, `adsb.fi` is the sole default (`airplaneslive` remains
+in the code only as an explicit `--provider` opt-in for a feeder operator,
+sponsor, or licensee, never queried automatically); an `adsb.fi` failure
+yields no detection for that cycle, which the pipeline already handles as
+the Empty state. When more than one aircraft is inside the geofence in the
+same poll,
 `select_runway3_aircraft()` picks exactly one by a deterministic total
 order: lowest effective altitude first (an on-ground aircraft has
 effective altitude 0), then the freshest position report, then
