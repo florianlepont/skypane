@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: ci-cd-documentation-legal-compliance-github-actions-ci-tests
 status: complete
-stopped_at: 04-06 complete (repo pushed public, CI-block/deploy-gate/firmware-workflow proofs captured, production deploy approved and healthy) - Phase 4 fully closed (6/6 plans)
-last_updated: "2026-08-26T21:50:00.000Z"
+stopped_at: Phase 03.1 context gathered
+last_updated: "2026-08-26T23:02:15.987Z"
 last_activity: 2026-08-26
-last_activity_desc: Quick task 260826-vlq complete (5/5 tasks) - project renamed Ink Frame -> SkyPane end-to-end, including the GitHub repo rename; new production deployment pending developer approval, local directory rename outstanding
+last_activity_desc: Quick task 260826-vlq complete (5/5 tasks) - project renamed Ink Frame -> SkyPane end-to-end, including the GitHub repo rename (see Quick Tasks Completed below)
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 23
-  completed_plans: 21
-  percent: 91
+  completed_plans: 22
+  percent: 71
 ---
 
 # Project State
@@ -153,6 +153,7 @@ None yet.
 - Battery-life real-world figure for this exact hardware combo is unmeasured — 05-01's Task 1 (check-battery checker + pre-registered protocol) is done; Tasks 2 (multi-day unattended discharge run, needs the Mac to stay awake continuously) and 3 (post-mortem readout) are deliberately deferred to the end of the project (user decision, 2026-08-26) rather than done now.
 - Device wake interval (`sleep_s`, how often the physical frame polls the server) is currently **30s** on the live OVH deployment (`inkframe.env`'s `INK_SLEEP_S=30`, verified directly on the VPS 2026-08-26 — same cadence as the server's own ADS-B poll timer, not yet distinguished) — NOT yet a tuned production value, this is the bring-up/test default. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred until Phase 5's 05-01 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
   (Post-rename: this env file and variable are `skypane.env`'s `SKYPANE_SLEEP_S`, per quick-task 260826-vlq.)
+
 - A-02-02-01 (departure-side D-03 threshold, +200 ft/min) has never been observed against a real runway-3 departure — every real detection so far (Phase 1's sample and 02-05 Task 3's on-glass check) has been an arrival. Not a known defect, just unvalidated. Scoped to close in Phase 3 (success criterion 3 already names it); check `journalctl -u inkframe-poll` on the VPS for `confirmed_state=departing` whenever it's convenient before or during Phase 3 planning.
   (Post-rename: this is now the `skypane-poll` unit, per quick-task 260826-vlq.)
 
@@ -173,10 +174,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T21:45:00.000Z
-Stopped at: 04-05 complete (Wave 4 of 4, second of two remaining plans) - README.md + ARCHITECTURE.md + research doc status note all created and verified; 04-06 (repo push + secrets/environment provisioning) remains
+Last session: 2026-08-26T23:02:15.976Z
+Stopped at: Phase 03.1 context gathered
 
-Resume file: None - proceed to /gsd-execute-phase 4 for the final Wave 4 plan (04-06)
+Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-CONTEXT.md
 
 **State at end of this session (2026-08-26, ~09:25):**
 
@@ -230,3 +231,11 @@ Resume file: None - proceed to /gsd-execute-phase 4 for the final Wave 4 plan (0
 - **Outstanding, both requiring the developer:** (1) the new production deployment triggered by this session's push (workflow run `33016761987`, commit `f3e9a72`) is pending approval — this dispatch will never approve a production deployment gate, so it is left exactly as-is for the developer's own review; (2) the local directory rename (`/Users/florian/Projects/ink-frame` -> `/Users/florian/Projects/skypane`) is now safe to perform (every commit is pushed, all of Task 5's gates passed) but was deliberately left unattempted by every task in this plan since it would break a running session's cwd mid-flight — it must be done outside this session, and the current session will need restarting from the new path afterward.
 - One flagged security item carried forward from Task 4 (not blocking, documented in the SUMMARY): a diagnostic command during Task 4 troubleshooting printed the live `SKYPANE_BYOS_SECRET` value into this session's tool-output transcript once — never written to a file, never committed, but the developer should treat that transcript as compromised and rotate the secret on the VPS the next time the firmware is reflashed.
 - Next step: developer reviews and approves (or does not) the pending production deployment on GitHub; once ready, performs the local directory rename and restarts the session from `/Users/florian/Projects/skypane`; then resumes wherever the ROADMAP points next (Phase 5 Battery Life Tasks 2-3, or Phase 6 Final On-Glass Verification).
+
+**State at end of this session (2026-08-26/27, resume session via gsd-resume-work):**
+
+- Both developer action items from the previous session's note above are now confirmed resolved: the production deployment (id `6112618725`, triggered by commit `f3e9a72`) shows `state: success` with zero entries in `pending_deployments` for the latest run; the local directory rename is done (`git worktree list` and `ls /Users/florian/Projects/` confirm `/Users/florian/Projects/skypane` exists, no `ink-frame` directory remains).
+- The `SKYPANE_BYOS_SECRET` rotation recommendation from the prior session is still open (not yet rotated) — carried forward, not blocking.
+- **New finding relevant to Phase 3.1's origin note/success criterion 1:** confirmed via a real live `curl` to `https://opendata.adsb.fi/api/v2/lat/.../lon/.../dist/25` (this project's own `server/plane/detect.py:47` URL template, real coordinates near the install site) that this session's sandbox does have working network access to the aggregator (unlike the prior session that flagged it as network-restricted) — and the ICAO aircraft-type designator field (`"t":"B738"`, `"t":"B734"`, etc.) is genuinely present on real in-flight aircraft in the live response. This directly answers Phase 3.1 success criterion 1 (real aircraft-type data confirmed available) — the phase's stated blocking prerequisite before any rendering work. Not yet wired into `server/plane/detect.py` (criterion 2) — that's implementation work for `/gsd-discuss-phase 03.1` / `/gsd-plan-phase 03.1` to scope.
+- Developer chose "Planifier la Phase 3.1" (plan Phase 3.1) as the next action when asked. `03.1-procedural-per-airline-livery-rendering/` exists but is empty (only `.gitkeep`) — no `03.1-CONTEXT.md` yet.
+- Next step: `/gsd-discuss-phase 03.1` to gather phase context (CONTEXT.md missing), or `/gsd-plan-phase 03.1` directly if context-gathering is skipped.
