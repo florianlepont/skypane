@@ -48,6 +48,12 @@ Deferred 2026-08-26 (Phase 3 discuss-phase) — user confirmed via SenseCraft th
 
 - **VIS-01**: User can set a personal photo (e.g. of the install location) as the plane view's background, rendered with dithering instead of the current full-bleed solid state-color field
 
+### Companion Configuration Web Interface
+
+Seed idea, deferred 2026-08-26 (Phase 3 discuss-phase) — raised as a v2/v3 concept, not scoped or detailed yet.
+
+- **CFG-01**: User can configure the frame's settings (background colors/style, tracked airport, other display preferences) via a web interface, instead of every visual choice being fixed at build time
+
 ## Out of Scope
 
 Explicitly excluded. Documented to prevent scope creep.
