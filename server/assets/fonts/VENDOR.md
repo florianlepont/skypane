@@ -79,3 +79,60 @@ e-ink hairline-legibility risk describes — a slab serif was chosen
 specifically because its serifs are structurally as thick as the
 letter's main strokes, and a thin cut would reintroduce the same
 hairline risk a high-contrast display serif was already rejected for.
+
+### Supersession (Phase 3, later in the same session — D-20/D-27)
+
+Zilla Slab is **no longer referenced** by `server/plane/render.py`'s active
+font-role constants. After seeing a real rendered preview, the developer
+did not like Zilla Slab's look and chose **PT Serif** instead (see the
+entry below) — files stay vendored here for provenance, same
+"retained but inactive" treatment this file already gives Inter above.
+
+## `PTSerif-Regular.ttf` / `PTSerif-Bold.ttf`
+
+- **Upstream source:** https://github.com/google/fonts
+- **Pinned commit / retrieval date:** commit
+  `80327115aa6e63ea8947558e5fb676f5287878ba` (the most recent commit
+  touching `ofl/ptserif` at retrieval time, resolved via
+  `https://api.github.com/repos/google/fonts/commits?path=ofl/ptserif&per_page=1`),
+  retrieved 2026-08-26. Downloaded from that pinned commit SHA via
+  `https://raw.githubusercontent.com/google/fonts/<SHA>/ofl/ptserif/<file>`.
+- **Upstream paths:** `ofl/ptserif/PT_Serif-Web-Regular.ttf` (vendored here
+  as `PTSerif-Regular.ttf`), `ofl/ptserif/PT_Serif-Web-Bold.ttf` (vendored
+  here as `PTSerif-Bold.ttf`) — the static desktop/web TTFs, not a variable
+  font (PT Serif ships only static weight files upstream, no variable axis).
+- **Per-file sha256:**
+  - `PTSerif-Regular.ttf`:
+    `a4951fade06ff8f09b7673aa81ffb65a8cd409e24d3289a6dc670bc4dda2557a`
+  - `PTSerif-Bold.ttf`:
+    `038ba7336bd7ea14f12ad155bed51a4345cac5153275d521dec3ba04021c526e`
+- **Licence:** SIL OFL 1.1 — Copyright (c) 2010, ParaType Ltd.
+  (http://www.paratype.com/public), with Reserved Font Names "PT Sans",
+  "PT Serif" and "ParaType" (`ofl/ptserif/OFL.txt`, same pinned commit).
+  The full OFL 1.1 text is vendored alongside as
+  `server/assets/fonts/PTSerif-OFL.txt`.
+- **Family/weight verification:** both TTFs load via
+  `PIL.ImageFont.truetype()` without raising and report family name
+  `PT Serif` (weights `Regular` / `Bold` respectively) via `getname()`;
+  the two files have distinct sizes and distinct sha256 digests.
+
+### Local modifications
+
+None — copied byte-for-byte from the pinned commit's `ofl/ptserif/`
+directory.
+
+### Known risk — Regular weight is active (D-27, deliberate, flagged)
+
+Unlike the Zilla Slab entry above (which hard-banned Regular/Light cuts
+for e-ink hairline-legibility reasons), **`PTSerif-Regular.ttf` IS the
+active weight** for every text role after D-27 — the developer explicitly
+asked for a thinner look after seeing the Bold-only render and accepted
+this tradeoff after being shown the risk. PT Serif's Regular cut has
+visibly thinner strokes than the slab-serif Bold/SemiBold cuts this
+project previously restricted itself to. **This has not yet been verified
+on real Spectra 6 glass** — it is confirmed only on-screen (developer
+judgment via generated preview PNGs). Wave 4's on-glass checkpoint must
+explicitly re-verify legibility at this weight before treating it as
+final; if strokes prove illegible on the real panel, the documented
+fallback is `PTSerif-Bold.ttf` (already vendored here) for at least the
+smallest text roles.
