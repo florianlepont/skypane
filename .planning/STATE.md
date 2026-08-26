@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: ci-cd-documentation-legal-compliance-github-actions-ci-tests
 status: executing
-stopped_at: 04-03 complete (LICENSE + COMPLIANCE.md + Inter OFL gap closed + scripts/check-attribution.sh) - Wave 3 of 4 done, 3 plans remaining
-last_updated: "2026-08-26T19:32:55.260Z"
+stopped_at: 04-04 complete (.github/workflows/ci.yml + firmware.yml) - Wave 4 of 4 underway, 2 plans remaining (04-05, 04-06)
+last_updated: "2026-08-26T19:42:00.000Z"
 last_activity: 2026-08-26
-last_activity_desc: 04-03 executed and verified
+last_activity_desc: 04-04 executed and verified
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 23
-  completed_plans: 18
-  percent: 78
+  completed_plans: 19
+  percent: 83
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 04 (ci-cd-documentation-legal-compliance-github-actions-ci-tests) — EXECUTING
-Plans: 3/6 executed (6 plans, 4 waves - 04-01 through 04-06)
-Status: 04-01 (Wave 1), 04-02 (Wave 2), and 04-03 (Wave 3) complete. 04-01: developer selected scrub scope a-b-c (Categories A+B+C) at the checkpoint:decision gate; git-filter-repo rewrote all 154 commits, verified zero occurrences of the approved literals across every ref, backed by a verified bundle outside the repo tree. Repo-root .gitignore (D-06) committed. 04-02: server/requirements-dev.txt pins ruff+coverage (provenance-verified, separate from production deps); repo-root pyproject.toml configures Ruff (E4,E7,E9,F selected, E402 suppressed for 8 documented sys.path bootstraps, green on the untouched codebase) and coverage (server+stub-server scope, parallel mode, fail_under=75 vs a measured 79% baseline); scripts/run-all-tests.sh is the canonical 9-harness runner, gate-failure demonstrated and restored. All 9 test harnesses still pass. 04-03: repo-root MIT LICENSE with an asset-scope note; closed a real OFL 1.1 attribution gap (Inter's licence text was claimed vendored but never existed, even though the TTFs remain shipped post-supersession) by fetching the real text from the same pinned v4.1 release tag; built scripts/check-attribution.sh (bash-3.2-compatible, demonstrated failing on a deliberate rename then passing after revert); created COMPLIANCE.md covering all five real third-party data sources (adsb.fi, airplanes.live, adsbdb.com, PRIM/IDFM, AeroDataBox) with the confirmed adsb.fi attribution requirement met by real citation text and airplanes.live recorded as the one open item (403 on three fetch attempts, route to closure named). Corrected 04-CONTEXT.md's/04-PATTERNS.md's stale claim that illustrations/VENDOR.md doesn't exist — it does, and is complete. Wave 4 (04-04 through 04-06) remains.
-Last activity: 2026-08-26 — 04-03 executed and verified
+Plans: 4/6 executed (6 plans, 4 waves - 04-01 through 04-06)
+Status: 04-01 (Wave 1), 04-02 (Wave 2), 04-03 (Wave 3), and 04-04 (Wave 4) complete. 04-01: developer selected scrub scope a-b-c (Categories A+B+C) at the checkpoint:decision gate; git-filter-repo rewrote all 154 commits, verified zero occurrences of the approved literals across every ref, backed by a verified bundle outside the repo tree. Repo-root .gitignore (D-06) committed. 04-02: server/requirements-dev.txt pins ruff+coverage (provenance-verified, separate from production deps); repo-root pyproject.toml configures Ruff (E4,E7,E9,F selected, E402 suppressed for 8 documented sys.path bootstraps, green on the untouched codebase) and coverage (server+stub-server scope, parallel mode, fail_under=75 vs a measured 79% baseline); scripts/run-all-tests.sh is the canonical 9-harness runner, gate-failure demonstrated and restored. All 9 test harnesses still pass. 04-03: repo-root MIT LICENSE with an asset-scope note; closed a real OFL 1.1 attribution gap (Inter's licence text was claimed vendored but never existed, even though the TTFs remain shipped post-supersession) by fetching the real text from the same pinned v4.1 release tag; built scripts/check-attribution.sh (bash-3.2-compatible, demonstrated failing on a deliberate rename then passing after revert); created COMPLIANCE.md covering all five real third-party data sources (adsb.fi, airplanes.live, adsbdb.com, PRIM/IDFM, AeroDataBox) with the confirmed adsb.fi attribution requirement met by real citation text and airplanes.live recorded as the one open item (403 on three fetch attempts, route to closure named). Corrected 04-CONTEXT.md's/04-PATTERNS.md's stale claim that illustrations/VENDOR.md doesn't exist — it does, and is complete. 04-04: .github/workflows/ci.yml (blocking test job: lint/9-harness-suite/coverage/attribution + human-gated deploy job wrapping deploy/deploy.sh) and .github/workflows/firmware.yml (path-restricted, wraps firmware/build.sh directly rather than a marketplace action) both actionlint-clean, no host/credential literals; three repository secrets named for plan 04-06 to create (DEPLOY_SSH_PRIVATE_KEY, DEPLOY_HOST_KEY, DEPLOY_SSH_TARGET). Neither workflow observable running on real GitHub infrastructure until 04-06 pushes the repo — carried forward explicitly. Wave 4's remaining plans (04-05, 04-06) continue.
+Last activity: 2026-08-26 — 04-04 executed and verified
 
-Progress: [████░░░░░░] 50% (Phase 4, 3/6 plans)
+Progress: [████████░░] 83% (19/23 plans, Phase 4: 4/6 plans)
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Progress: [████░░░░░░] 50% (Phase 4, 3/6 plans)
 | Phase 04 P01 | ~40min | 3 tasks (pre-work + Task 1 + Task 2 decision + Task 3 execution) | 3 files (.gitignore, SCRUB-RECORD.md, 04-01-SUMMARY.md) + history-wide content rewrite across ~154 commits |
 | Phase 04 P02 | 5min | 3 tasks | 3 files |
 | Phase 04 P03 | 20min | 3 tasks | 5 files |
+| Phase 04 P04 | 12min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,7 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-01 repo-root .gitignore committed (D-06), extending the five existing per-subdirectory ignore files without weakening any of them; nested worktree removed and working tree cleaned ahead of the history rewrite (F4/F5)
 - [Phase 04]: 04-02 complete - Ruff restricted to E4,E7,E9,F (E402 suppressed for 8 documented sys.path bootstraps); coverage scoped to server+stub-server, parallel mode, fail_under=75 (4pts below measured 79% baseline); scripts/run-all-tests.sh is the canonical 9-harness runner for CI (04-04) and README (04-05), gate-failure demonstrated and restored
 - [Phase 04]: 04-03 complete - MIT LICENSE with asset-scope note; closed a real Inter OFL 1.1 attribution gap (VENDOR.md claimed the text was vendored, it never was) by fetching the real text from the same pinned v4.1 tag; scripts/check-attribution.sh (bash-3.2-compatible, no associative arrays) demonstrated failing on a deliberate rename then passing after revert; COMPLIANCE.md documents all five real data sources (adsb.fi/airplanes.live/adsbdb.com/PRIM/AeroDataBox) with adsb.fi's attribution requirement met by real citation text (mirrored into README.md by 04-05) and airplanes.live recorded as the one open item (403 confirmed on three fetch attempts); corrected the stale illustrations/VENDOR.md-missing claim in 04-CONTEXT.md/04-PATTERNS.md - the file already existed and is complete
+- [Phase 04]: 04-04 complete - .github/workflows/ci.yml built as a single file with needs:-linked jobs (not the two-file split 04-RESEARCH.md sketched - a job can't depend on a job in a different workflow file); test job blocks on lint/9-harness-suite/coverage/attribution via scripts/run-all-tests.sh and scripts/check-attribution.sh; deploy job gated on test success + push-to-main-only (pull_request cannot reach it) + a named `production` GitHub Environment (04-06 attaches the reviewer), loads the SSH key via webfactory/ssh-agent, writes the host key from a dedicated secret into known_hosts instead of ssh-keyscan (hardening over the research's Pattern 2 skeleton), invokes deploy/deploy.sh unchanged with 3 distinct secrets (DEPLOY_SSH_PRIVATE_KEY, DEPLOY_HOST_KEY, DEPLOY_SSH_TARGET - named for 04-06 to create). .github/workflows/firmware.yml is path-restricted to firmware/** and wraps firmware/build.sh directly rather than the espressif/esp-idf-ci-action marketplace action (resolves 04-RESEARCH.md Open Question 2/Assumption A2 by construction). Both actionlint-clean, no host/credential literals. Neither observable running on real GitHub infrastructure until 04-06 pushes the repo - explicit carried-forward verification gap.
 
 ### Pending Todos
 
@@ -164,10 +166,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T21:35:00.000Z
-Stopped at: 04-03 complete (Wave 3 of 4) - LICENSE, COMPLIANCE.md, Inter OFL gap closed, scripts/check-attribution.sh all verified; Wave 4 (04-04 through 04-06) remains
+Last session: 2026-08-26T19:42:00.000Z
+Stopped at: 04-04 complete (Wave 4 of 4, first of two remaining plans) - .github/workflows/ci.yml + firmware.yml both actionlint-clean and verified; 04-05 (README/ARCHITECTURE docs) and 04-06 (repo push + secrets/environment provisioning) remain
 
-Resume file: None - proceed to /gsd-execute-phase 4 for the remaining wave
+Resume file: None - proceed to /gsd-execute-phase 4 for the remaining Wave 4 plans
 
 **State at end of this session (2026-08-26, ~09:25):**
 
@@ -196,3 +198,9 @@ Resume file: None - proceed to /gsd-execute-phase 4 for the remaining wave
 - 04-03 complete (Wave 3): repo-root `LICENSE` (MIT, verbatim, copyright 2026 Florian Lepont) with a scope note excluding `server/assets/`. Closed a real, previously-undetected OFL 1.1 gap: `server/assets/fonts/VENDOR.md` claimed Inter's licence text was vendored when it never was, even though `Inter-Regular.ttf`/`Inter-Bold.ttf` remain committed post-Phase-3 supersession — fetched the real text from the same pinned `v4.1` release tag already cited for the TTFs and corrected VENDOR.md with a dated correction note. Built `scripts/check-attribution.sh` (bash-3.2-compatible — macOS's `/bin/bash` is 3.2.57 with no associative arrays, first draft had to be rewritten), demonstrated failing on a deliberate asset rename (named the exact file) then passing after revert. Created `COMPLIANCE.md` covering all five real third-party data sources — adsb.fi, airplanes.live, adsbdb.com (a fourth source no prior phase document had named, reached in production by `server/plane/enrich.py`), PRIM/IDFM, and AeroDataBox — with adsb.fi's confirmed attribution requirement met by real citation text ("This project uses real-time ADS-B aircraft position data from [adsb.fi](https://adsb.fi) as a secondary aggregator source.", also to be mirrored into `README.md` by plan 04-05) and airplanes.live recorded as the one open item (HTTP 403 confirmed on three separate automated fetch attempts). Corrected the stale claim in `04-CONTEXT.md`/`04-PATTERNS.md` that `server/assets/icons/illustrations/VENDOR.md` doesn't exist — it does, and is complete. All 9 test harnesses (117 checks) and `ruff check .` pass unchanged.
 - Progress counters again reset by the same known SDK bug when `state record-metric` was called this session (`completed_phases` bumped to 4, `percent` written as 57 despite the tool's own JSON response reporting 83) — corrected by hand to `completed_phases: 3`, `completed_plans: 18` (7+5+3+3), `percent: 78`. Decision and session-continuity entries for this plan were added via direct STATE.md edit rather than the `state add-decision`/`state record-session` CLI verbs, to avoid re-triggering the same reset.
 - Next step: continue `/gsd-execute-phase 4` for Wave 4 (04-04 through 04-06).
+
+**State at end of this session (2026-08-26, ~19:42) — supersedes the note above:**
+
+- 04-04 complete (Wave 4, first of two remaining plans): `.github/workflows/ci.yml` built as a single file (not the two-file `ci.yml`/`deploy.yml` split 04-RESEARCH.md's prose sketched — planner finding W3 established a job cannot `needs:` a job in a different workflow file). Test job: checkout, pinned Python 3.12, venv install from `server/requirements.txt` then `server/requirements-dev.txt`, blocking `ruff check .` (rule set stays in `pyproject.toml`), `scripts/run-all-tests.sh` (9 harnesses + coverage threshold), `scripts/check-attribution.sh` — triggers on pushes to `main` and every pull request. Deploy job: `needs: test`, `if: github.event_name == 'push' && github.ref == 'refs/heads/main'` (pull-request cannot reach it), declares `environment: { name: production }` (04-06 attaches the required reviewer), loads the SSH key via `webfactory/ssh-agent@v0.9.1`, writes the expected host key from a secret into `known_hosts` instead of `ssh-keyscan` (deliberate hardening over the research's Pattern 2 skeleton — TOFU-on-every-run was judged a real downgrade), then runs `deploy/deploy.sh "${{ secrets.DEPLOY_SSH_TARGET }}"` unchanged, no rsync/systemctl duplicated. Three named secrets for 04-06 to create: `DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_HOST_KEY`, `DEPLOY_SSH_TARGET`. `.github/workflows/firmware.yml` is a separate file (path-restricted triggers are workflow-level, not job-level), path-restricted to `firmware/**`, copies `firmware/main/secrets.example.h` to `firmware/main/secrets.h` (compile-only placeholders, real header stays gitignored and untouched) then runs `./firmware/build.sh` directly rather than the `espressif/esp-idf-ci-action` marketplace action — resolves 04-RESEARCH.md's Open Question 2/Assumption A2 by construction, since the script already pins the toolchain image and sdkconfig invocation. Both files `actionlint`-clean (validated at `/opt/homebrew/bin/actionlint`), zero dotted-quad/hostname/mutable-action-ref literals. All 9 test harnesses and `ruff check .` still pass locally, reproducing the exact commands the workflow calls. Neither workflow has run on real GitHub infrastructure yet — that's explicitly plan 04-06's job once the repo is pushed; carried forward as a stated verification gap in `04-04-SUMMARY.md`.
+- Progress counters corrected by hand again this session, same known SDK bug (`state update-progress` returned `completed:20/total:23` by counting `05-01-SUMMARY.md`'s in-progress partial as complete, and a separate `completed_phases: 4` bump appeared in frontmatter) — corrected to `completed_phases: 3`, `completed_plans: 19` (7+5+3+4), `percent: 83`. Decision and session-continuity entries added via direct STATE.md edit, not the `state add-decision`/`state record-metric`/`state record-session` CLI verbs, to avoid re-triggering the reset (same pattern as the 04-03 session note above).
+- Next step: continue `/gsd-execute-phase 4` for the remaining Wave 4 plans (04-05 README/ARCHITECTURE docs, 04-06 repo push + secrets/environment provisioning).
