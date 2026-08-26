@@ -1,6 +1,6 @@
-# The real production env file - contains INK_BYOS_SECRET. Created by hand
+# The real production env file - contains SKYPANE_BYOS_SECRET. Created by hand
 # on the VPS only (deploy/README.md), never on a laptop, never committed.
 # Mirrors firmware/.gitignore's `main/secrets.h` rule - the ignore entry
 # exists before the file ever does, so there is no window in which a
 # credential could land in git history.
-inkframe.env
+skypane.env

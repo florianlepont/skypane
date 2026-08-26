@@ -1,4 +1,4 @@
-# deploy — Ink Frame Phase 2 VPS deployment
+# deploy — SkyPane Phase 2 VPS deployment
 
 Turns the render pipeline built in 02-01 through 02-04 into an always-on,
 internet-reachable server: an OVH VPS-1 running Ubuntu 26.04 LTS, Caddy
@@ -25,9 +25,9 @@ passwordless-sudo non-root one — see each script's header comment.
 
 | File | Purpose |
 |------|---------|
-| `inkframe.env.example` | Template for the real, gitignored `inkframe.env` — secrets and per-deployment config, loaded by systemd's `EnvironmentFile=` |
-| `inkframe-byos.service` | Runs `stub-server/byos_server.py` as the `inkframe` user, bound to loopback, `--image-url-scheme https` |
-| `inkframe-poll.service` / `inkframe-poll.timer` | A `Type=oneshot` unit invoking `server/poll_loop.py --once`, fired every 30s by the timer |
+| `skypane.env.example` | Template for the real, gitignored `skypane.env` — secrets and per-deployment config, loaded by systemd's `EnvironmentFile=` |
+| `skypane-byos.service` | Runs `stub-server/byos_server.py` as the `skypane` user, bound to loopback, `--image-url-scheme https` |
+| `skypane-poll.service` / `skypane-poll.timer` | A `Type=oneshot` unit invoking `server/poll_loop.py --once`, fired every 30s by the timer |
 | `Caddyfile` | Reverse-proxies the public hostname to `127.0.0.1:8642` with Caddy's automatic Let's Encrypt HTTPS |
 | `provision.sh` | Idempotent first-run setup on a fresh Ubuntu VPS: user, packages, venv, unit files, ufw, SSH hardening |
 | `deploy.sh` | Repeatable code push: rsync, conditional pip install, service restart, journald tail |
@@ -61,7 +61,7 @@ No OVH API token or credential is needed anywhere in this flow — the VPS
 is created by hand in the console, and everything after that point is
 either a script Claude/you run once (`provision.sh`), a script run on
 every code change (`deploy.sh`), or one manual file written directly on
-the VPS (`inkframe.env`, see below) — never a dashboard click.
+the VPS (`skypane.env`, see below) — never a dashboard click.
 
 ## First-time provisioning
 
@@ -89,28 +89,28 @@ installs (unit files, Caddyfile) to apply the change.
 
 ## Write the real env file (once, by hand, on the VPS)
 
-`inkframe.env` is never rsynced, never committed, and never leaves the VPS.
+`skypane.env` is never rsynced, never committed, and never leaves the VPS.
 Create it directly there:
 
 ```bash
 # Direct-root example:
 ssh root@<vps-ip>
-cp deploy/inkframe.env.example /opt/inkframe/inkframe.env
-nano /opt/inkframe/inkframe.env   # fill in a real INK_BYOS_SECRET (openssl rand -hex 32),
-                                   # confirm INK_PUBLIC_HOST matches the public host above
-chown inkframe:inkframe /opt/inkframe/inkframe.env
-chmod 600 /opt/inkframe/inkframe.env
+cp deploy/skypane.env.example /opt/skypane/skypane.env
+nano /opt/skypane/skypane.env   # fill in a real SKYPANE_BYOS_SECRET (openssl rand -hex 32),
+                                   # confirm SKYPANE_PUBLIC_HOST matches the public host above
+chown skypane:skypane /opt/skypane/skypane.env
+chmod 600 /opt/skypane/skypane.env
 
 # Passwordless-sudo non-root example (e.g. Ubuntu cloud images):
 ssh ubuntu@<vps-ip>
-sudo cp /home/ubuntu/deploy/inkframe.env.example /opt/inkframe/inkframe.env
-sudo nano /opt/inkframe/inkframe.env   # same fields as above
-sudo chown inkframe:inkframe /opt/inkframe/inkframe.env
-sudo chmod 600 /opt/inkframe/inkframe.env
+sudo cp /home/ubuntu/deploy/skypane.env.example /opt/skypane/skypane.env
+sudo nano /opt/skypane/skypane.env   # same fields as above
+sudo chown skypane:skypane /opt/skypane/skypane.env
+sudo chmod 600 /opt/skypane/skypane.env
 ```
 
-The `INK_BYOS_SECRET` value written here is the same value Task 3 of
-`02-05-PLAN.md` sets `firmware/main/secrets.h`'s `INK_SETUP_SECRET` to on
+The `SKYPANE_BYOS_SECRET` value written here is the same value Task 3 of
+`02-05-PLAN.md` sets `firmware/main/secrets.h`'s `SKYPANE_SETUP_SECRET` to on
 the device side — it never enters git on either side, matching this
 repo's `secrets.h` discipline (T-02-05-02).
 
@@ -131,7 +131,7 @@ boundary `server/poll_loop.py`'s `--geofence` flag reads on every cycle;
 despite living under `adsb-test/`, it is production configuration, not a
 test fixture, and every poll cycle fails without it on the server —
 reinstalls `server/requirements.txt` only if it changed, restarts
-`inkframe-byos.service`, starts `inkframe-poll.timer`, and prints the last
+`skypane-byos.service`, starts `skypane-poll.timer`, and prints the last
 10 journald lines for both units so a bad deploy is visible immediately.
 Every remote step routes through `sudo` (see `deploy.sh`'s header comment),
 so this works whether `SSH_TARGET` logs in as root directly or as a
@@ -149,8 +149,8 @@ curl -sI https://<public-host>/device/v1/display
 curl -sI --connect-timeout 3 http://<vps-ip>:8642/device/v1/display   # expect: refused or timeout
 
 # On the VPS: timer is active and cycling.
-ssh root@<vps-ip> systemctl is-active inkframe-poll.timer
-ssh root@<vps-ip> journalctl -u inkframe-poll -n 20
+ssh root@<vps-ip> systemctl is-active skypane-poll.timer
+ssh root@<vps-ip> journalctl -u skypane-poll -n 20
 
 # On the VPS: Caddy is terminating TLS and proxying correctly.
 ssh root@<vps-ip> journalctl -u caddy -n 20
@@ -159,8 +159,8 @@ ssh root@<vps-ip> journalctl -u caddy -n 20
 ## Reading logs
 
 ```bash
-ssh root@<vps-ip> journalctl -u inkframe-poll -f     # follow the poll cycle live
-ssh root@<vps-ip> journalctl -u inkframe-byos -f     # follow device requests live
+ssh root@<vps-ip> journalctl -u skypane-poll -f     # follow the poll cycle live
+ssh root@<vps-ip> journalctl -u skypane-byos -f     # follow device requests live
 ssh root@<vps-ip> journalctl -u caddy -f             # follow TLS/proxy activity live
 ```
 
@@ -183,7 +183,7 @@ Every unit is `Restart=always` (byos) or fails-and-retries-next-cycle
 by re-running `deploy.sh` with a working commit checked out locally — there
 is no separate rollback mechanism to invoke, since the VPS state is fully
 reproducible from this repository's `server/` and `stub-server/` trees plus
-the one hand-written `inkframe.env`. To roll back to a previous release,
+the one hand-written `skypane.env`. To roll back to a previous release,
 `git checkout <previous-commit> -- server stub-server` locally, then
 re-run `deploy/deploy.sh <ssh-target>`.
 
@@ -191,9 +191,9 @@ re-run `deploy/deploy.sh <ssh-target>`.
 
 No cloud-provider API token is used in this flow (the OVH VPS is created
 by hand in the console — see the one-time human steps above), and
-`INK_BYOS_SECRET` never enters git — matching this project's
-`firmware/main/secrets.h` convention. `inkframe.env.example`
-carries placeholders only; the real `inkframe.env` is gitignored
+`SKYPANE_BYOS_SECRET` never enters git — matching this project's
+`firmware/main/secrets.h` convention. `skypane.env.example`
+carries placeholders only; the real `skypane.env` is gitignored
 (`deploy/.gitignore`) and lives solely on the VPS. Before any commit
 touching this directory, confirm `git status --porcelain` shows no real
 env file, private key, or token staged, and that `git log -p` for the

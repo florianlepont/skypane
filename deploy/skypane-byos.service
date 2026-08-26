@@ -1,7 +1,7 @@
 [Unit]
-Description=Ink Frame BYOS device-protocol server (stub-server/byos_server.py)
+Description=SkyPane BYOS device-protocol server (stub-server/byos_server.py)
 # Caddy is the only thing that should ever reach this - see deploy/Caddyfile
-# (reverse_proxy 127.0.0.1:${INK_BYOS_PORT}) and deploy/provision.sh (ufw
+# (reverse_proxy 127.0.0.1:${SKYPANE_BYOS_PORT}) and deploy/provision.sh (ufw
 # denies the app port from outside). byos_server.py itself binds 0.0.0.0 -
 # a known vendored behaviour (stub-server/byos_server.py is not modified
 # again for this; see deploy/README.md "Known vendored behaviour"), so the
@@ -12,16 +12,16 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=inkframe
-Group=inkframe
-EnvironmentFile=/opt/inkframe/inkframe.env
-WorkingDirectory=/opt/inkframe
-ExecStart=/opt/inkframe/venv/bin/python3 /opt/inkframe/stub-server/byos_server.py \
-    --image ${INK_STATE_DIR}/panel.bin \
-    --port ${INK_BYOS_PORT} \
-    --secret ${INK_BYOS_SECRET} \
-    --sleep ${INK_SLEEP_S} \
-    --state-dir ${INK_STATE_DIR} \
+User=skypane
+Group=skypane
+EnvironmentFile=/opt/skypane/skypane.env
+WorkingDirectory=/opt/skypane
+ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/stub-server/byos_server.py \
+    --image ${SKYPANE_STATE_DIR}/panel.bin \
+    --port ${SKYPANE_BYOS_PORT} \
+    --secret ${SKYPANE_BYOS_SECRET} \
+    --sleep ${SKYPANE_SLEEP_S} \
+    --state-dir ${SKYPANE_STATE_DIR} \
     --image-url-scheme https
 Restart=always
 RestartSec=5
@@ -33,7 +33,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/inkframe/state
+ReadWritePaths=/opt/skypane/state
 
 [Install]
 WantedBy=multi-user.target

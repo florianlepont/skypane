@@ -1,0 +1,27 @@
+[Unit]
+Description=SkyPane poll cycle (detect -> infer -> enrich -> render -> atomic swap)
+# Triggered by skypane-poll.timer every 30s. A failing cycle must not stop
+# the timer from firing again - systemd's default behaviour (a failed
+# oneshot unit does not disable its triggering timer) already gives us
+# this for free; the error just goes to journald and the previously
+# rendered panel.bin keeps being served by skypane-byos.service.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=skypane
+Group=skypane
+EnvironmentFile=/opt/skypane/skypane.env
+WorkingDirectory=/opt/skypane
+ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/server/poll_loop.py \
+    --once \
+    --state-dir ${SKYPANE_STATE_DIR} \
+    --geofence /opt/skypane/config/runway3.json
+
+# Hardening - same posture as skypane-byos.service.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/skypane/state

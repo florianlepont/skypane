@@ -39,7 +39,7 @@ firmware/build*/
 # (deploy/.gitignore, firmware/.gitignore); duplicating the rule here
 # is deliberate defence-in-depth so a repo-root-relative `git add -A`
 # can never stage a real credential for the first time.
-deploy/inkframe.env
+deploy/skypane.env
 firmware/main/secrets.h
 
 # --- Local planning scratch ---

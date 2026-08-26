@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ink Frame — first-run (and safe-to-re-run) provisioning for a fresh
+# SkyPane — first-run (and safe-to-re-run) provisioning for a fresh
 # Ubuntu 26.04 LTS OVH VPS-1. Run as root (or via sudo) on the VPS
 # itself, never on a laptop. Works whether the box allows direct root
 # SSH login or (as on current Ubuntu cloud images, which disable it by
@@ -20,8 +20,8 @@
 # script after a config change is the supported way to apply it.
 set -euo pipefail
 
-APP_USER="inkframe"
-APP_ROOT="/opt/inkframe"
+APP_USER="skypane"
+APP_ROOT="/opt/skypane"
 STATE_DIR="${APP_ROOT}/state"
 PUBLIC_HOST="${1:-}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -74,9 +74,9 @@ fi
 # independently re-runnable.
 
 echo "==> Installing systemd unit files"
-install -m 644 "${HERE}/inkframe-byos.service" /etc/systemd/system/inkframe-byos.service
-install -m 644 "${HERE}/inkframe-poll.service" /etc/systemd/system/inkframe-poll.service
-install -m 644 "${HERE}/inkframe-poll.timer" /etc/systemd/system/inkframe-poll.timer
+install -m 644 "${HERE}/skypane-byos.service" /etc/systemd/system/skypane-byos.service
+install -m 644 "${HERE}/skypane-poll.service" /etc/systemd/system/skypane-poll.service
+install -m 644 "${HERE}/skypane-poll.timer" /etc/systemd/system/skypane-poll.timer
 
 echo "==> Installing the Caddyfile"
 if [ -n "${PUBLIC_HOST}" ]; then
@@ -91,10 +91,10 @@ fi
 
 echo "==> Reloading systemd and enabling units"
 systemctl daemon-reload
-# Enabled for boot, not started yet - inkframe-byos/poll need server/ and
+# Enabled for boot, not started yet - skypane-byos/poll need server/ and
 # stub-server/ code in place first, which deploy.sh rsyncs and then starts.
-systemctl enable inkframe-byos.service
-systemctl enable inkframe-poll.timer
+systemctl enable skypane-byos.service
+systemctl enable skypane-poll.timer
 systemctl enable --now caddy
 
 echo "==> Configuring the firewall (ufw)"
@@ -116,7 +116,7 @@ if [ -f /etc/ssh/sshd_config ]; then
 fi
 
 echo "==> Provisioning complete."
-echo "    Next: write ${APP_ROOT}/inkframe.env by hand (copy deploy/inkframe.env.example"
-echo "    as a template, fill in real values, place it at ${APP_ROOT}/inkframe.env on this"
+echo "    Next: write ${APP_ROOT}/skypane.env by hand (copy deploy/skypane.env.example"
+echo "    as a template, fill in real values, place it at ${APP_ROOT}/skypane.env on this"
 echo "    VPS only), then run deploy.sh from your laptop to ship the code and start the"
-echo "    inkframe-byos / inkframe-poll units."
+echo "    skypane-byos / skypane-poll units."

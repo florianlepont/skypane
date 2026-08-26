@@ -1,5 +1,5 @@
 [Unit]
-Description=Run inkframe-poll.service every 30 seconds
+Description=Run skypane-poll.service every 30 seconds
 
 [Timer]
 # Matches the 30s poll cadence recorded in server/README.md (Phase 1's
@@ -10,7 +10,7 @@ OnUnitActiveSec=30s
 # Tighten the default 1-minute scheduling jitter so a 30s interval is
 # actually honoured rather than drifting toward a 90s worst case.
 AccuracySec=1s
-Unit=inkframe-poll.service
+Unit=skypane-poll.service
 
 [Install]
 WantedBy=timers.target
