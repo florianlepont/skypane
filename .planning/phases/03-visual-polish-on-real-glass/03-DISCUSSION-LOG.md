@@ -5,7 +5,34 @@
 
 **Date:** 2026-08-26
 **Phase:** 3-Visual Polish on Real Glass
-**Areas discussed:** Departure-threshold validation method, frame mount status, long-caption legibility stress test, aircraft illustration scope (emerged mid-discussion, expanded the phase)
+**Areas discussed:** Departure-threshold validation method, frame mount status, long-caption legibility stress test, aircraft illustration scope (emerged mid-discussion, expanded the phase), post-research color-gamut decision (added after `03-RESEARCH.md` surfaced it as the phase's single most load-bearing open question)
+
+---
+
+## Post-research color-gamut decision (after `/gsd-plan-phase 3` spawned the researcher)
+
+`03-RESEARCH.md` Open Question #1 surfaced a genuine fork the discussion hadn't resolved: 2-color dithering (zero risk to the locked Color contract/tests) vs. full multi-color livery (matches "covering," but reopens the locked contract).
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| 2-color dithering (White + state background) — research's recommendation | Zero risk to `02-UI-SPEC.md`'s locked Color contract and `server/test_render.py`'s existing checks; verified working this session | |
+| Full multi-color livery | Matches the user's own "covering" phrasing; reopens the locked Color contract, breaks 2 existing tests to be updated, real panel RGB becomes load-bearing | ✓ |
+
+**Follow-up: yellow (reserved for Phase 4's low-battery indicator) appearing in a livery illustration**
+
+| Option | Selected |
+|--------|----------|
+| Allow it — different zone, low confusion risk | ✓ |
+| Avoid it by precaution | |
+
+**Notes:** Red's original reservation (`02-UI-SPEC.md`'s cross-phase note, "Phase 3's disruption banner RER-03") is itself stale — RER-03 was deferred to v2 on 2026-08-11, so Red has no real future v1 consumer regardless of this decision.
+
+**Follow-up: real Spectra 6 panel RGB values (unverified since Phase 2, now load-bearing for full-color quantization)**
+
+| Option | Selected |
+|--------|----------|
+| Resolve now, before finalizing | ✓ |
+| Accept documented risk, defer | |
 
 ---
 
