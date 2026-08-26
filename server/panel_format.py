@@ -33,13 +33,22 @@ GREEN = 0x6
 # monitor. They NEVER cross the wire to the device. What the device
 # receives is exclusively the INDEX_TO_NIBBLE-mapped nibble codes above.
 # Real panel colour fidelity is verified on glass in plan 02-05, not here.
+#
+# Phase 3 D-13 (03-01-PLAN.md): indices 2/3/4/5 below were updated from the
+# original pure-primary placeholders to a community-estimate approximation
+# of the real Spectra 6 panel's muted inks - LOW confidence, an interim
+# step pending the on-glass calibration pass recorded in
+# hardware/BRINGUP-LOG.md (03-04). These values are still render-internal
+# only and still never cross the wire - that property is unchanged by this
+# edit, which is what makes it zero-risk to every downstream palette-index
+# or wire-nibble consumer.
 PALETTE_RGB = [
     0, 0, 0,        # index 0 -> nibble 0x0 black
     255, 255, 255,  # index 1 -> nibble 0x1 white
-    255, 255, 0,    # index 2 -> nibble 0x2 yellow
-    255, 0, 0,      # index 3 -> nibble 0x3 red
-    0, 0, 255,      # index 4 -> nibble 0x5 blue  (index/nibble differ!)
-    0, 255, 0,      # index 5 -> nibble 0x6 green (index/nibble differ!)
+    240, 224, 80,   # index 2 -> nibble 0x2 yellow (D-13 interim)
+    160, 32, 32,    # index 3 -> nibble 0x3 red (D-13 interim)
+    80, 128, 184,   # index 4 -> nibble 0x5 blue  (D-13 interim, index/nibble differ!)
+    96, 128, 80,    # index 5 -> nibble 0x6 green (D-13 interim, index/nibble differ!)
 ]
 
 # Pillow "P"-mode palette indices are contiguous from 0; the wire format's
@@ -59,6 +68,16 @@ IDX_GREEN = 5
 _PALETTE_SIZE = 256
 
 
+def padded_palette():
+    """Return the 768-int (256 * 3) zero-padded RGB palette list Pillow's
+    "P"-mode putpalette() expects, built from PALETTE_RGB. Shared by
+    new_canvas() below and (from 03-02 onward) by any canvas built via
+    quantization rather than new_canvas() - duplicating this expression in
+    a second module is exactly how the two would silently drift apart.
+    """
+    return list(PALETTE_RGB) + [0, 0, 0] * (_PALETTE_SIZE - len(PALETTE_RGB) // 3)
+
+
 def new_canvas(bg_index):
     """Return a fresh "P"-mode (1200x1600) canvas, palette already applied,
     filled with bg_index. Callers draw directly onto this with integer
@@ -68,8 +87,7 @@ def new_canvas(bg_index):
     from PIL import Image
 
     canvas = Image.new("P", (WIDTH, HEIGHT), color=bg_index)
-    padded = list(PALETTE_RGB) + [0, 0, 0] * (_PALETTE_SIZE - len(PALETTE_RGB) // 3)
-    canvas.putpalette(padded)
+    canvas.putpalette(padded_palette())
     return canvas
 
 
