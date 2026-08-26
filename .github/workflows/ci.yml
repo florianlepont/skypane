@@ -46,3 +46,41 @@ jobs:
 
       - name: Check vendored-asset attribution completeness
         run: ./scripts/check-attribution.sh
+
+  deploy:
+    name: Deploy to production
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The `environment:` declaration below is what makes GitHub pause this
+    # job for a required reviewer (D-11) — but only once the "production"
+    # environment actually exists, with a reviewer attached, in this
+    # repository's Settings. That environment is created in plan 04-06,
+    # not here. Without it, this declaration is inert and the approval
+    # gate silently degrades to no gate at all.
+    environment:
+      name: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Load deployment SSH key into agent
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+
+      - name: Trust the production host key
+        # Deliberately not scanned at deploy time: trusting whatever key
+        # answers is trust-on-first-use on every single run and accepts
+        # an impostor host silently. The expected key comes from its own
+        # dedicated secret instead, written straight into known_hosts.
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.DEPLOY_HOST_KEY }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy
+        # The only deploy action. deploy/deploy.sh owns every bit of the
+        # rsync/pip/systemd-restart logic; nothing is reimplemented here.
+        run: ./deploy/deploy.sh "${{ secrets.DEPLOY_SSH_TARGET }}"
