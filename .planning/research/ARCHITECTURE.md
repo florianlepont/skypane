@@ -1,3 +1,13 @@
+> **Status note (added 2026-08-26, plan 04-05):** this document is
+> **generic domain research, written 2026-08-04 at project inception,
+> before any code existed.** It is not a description of what shipped. For
+> the current-state architecture — the firmware state machine, the server
+> render pipeline, and the deployment topology as actually built — see the
+> repo-root [`ARCHITECTURE.md`](../../ARCHITECTURE.md). This file is
+> retained here as a record of the thinking that preceded the build, not
+> deleted, but it should not be read as documentation of the running
+> system.
+
 # Architecture Research
 
 **Domain:** Battery-powered e-ink IoT display + polling server + external data APIs
