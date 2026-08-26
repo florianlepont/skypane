@@ -150,13 +150,28 @@ Plans:
 **Note on scope (2026-08-26)**: Raised by the user as a missing v1 step — the project has shipped real, working code (Phases 1-3) with no CI, no README, no LICENSE, and no documented compliance check against the third-party APIs it depends on (AeroDataBox — unused per PROJECT.md's reversed decision, PRIM/IDFM, adsb.fi/airplanes.live). Scoped as its own phase rather than folded into Battery Life, since it's project-hygiene/shippability work orthogonal to the on-device experience Phases 1-3 & 5 build. **Ordered ahead of Battery Life (2026-08-26, user request)**: Battery Life's own remaining work is deliberately parked until the end of the project (its multi-day discharge run needs this Mac to stay awake continuously), so there is no reason for this phase — which has no such blocker — to wait behind it.
 
 **Goal:** GitHub Actions runs the full test suite (server/test_*.py) and code-quality/coverage checks on every push/PR, with an automated (gated, not silently-triggered) deploy step pushing to the real OVH VPS on merge to main; the repository has a README a newcomer can build/deploy from, a LICENSE, and documented confirmation that PRIM/IDFM's and the ADS-B aggregators' terms of use are actually being honored (no raw-data republishing, rate-limit compliance, attribution where required); asset attribution (fonts, icons, illustrations) is consolidated and verifiably complete via the existing VENDOR.md files.
-**Requirements**: TBD (derive during discuss-phase — CI trigger strategy, deploy gating/approval, license choice, coverage tool)
+**Requirements**: D-01 through D-16 (this phase has no PLANE-*/DEVICE-* IDs of its own — it is infra/documentation work. The discuss-phase resolved its requirements into the locked decisions D-01..D-16 in `04-CONTEXT.md`, which are the traceability anchor each plan's `requirements` frontmatter cites, per `04-VALIDATION.md`'s Phase Requirement Map.)
 **Depends on:** Phase 3
-**Plans**: 0 plans
+**Plans**: 6 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 4 to break down)
+- [ ] 04-01-PLAN.md — Pre-publish repo hygiene: root `.gitignore`, a gated scrub-scope decision, and the `git filter-repo` history rewrite (D-03/D-04/D-05/D-06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-02-PLAN.md — Quality baseline: pinned dev tooling, a measured lint ruleset and coverage threshold, and one aggregate 9-harness runner (D-07/D-08/D-09)
+- [ ] 04-03-PLAN.md — Legal: MIT LICENSE, COMPLIANCE.md for all five data sources, and a machine-checked asset-attribution audit (D-13/D-14)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-04-PLAN.md — GitHub Actions: blocking CI, an environment-gated deploy wrapping `deploy.sh`, and a path-restricted firmware build (D-07/D-08/D-09/D-10/D-11/D-12)
+- [ ] 04-05-PLAN.md — Documentation: root README a newcomer can build from, a current-state ARCHITECTURE.md, and the visible adsb.fi attribution (D-14/D-15/D-16)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-06-PLAN.md — Go public: create the repo, provision a dedicated deploy key and the approval gate, push, and prove CI blocks and the deploy gate holds (D-01/D-02/D-05/D-09/D-11/D-12)
 
 ### Phase 5: Battery Life & Low-Battery Indicator
 
@@ -188,7 +203,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 3/3 | Complete    | 2026-08-26 |
-| 4. CI/CD, Documentation & Legal Compliance | 0/0 | Not Started | - |
+| 4. CI/CD, Documentation & Legal Compliance | 0/6 | Not Started | - |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
 | 6. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 0 plans
