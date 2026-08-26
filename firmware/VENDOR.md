@@ -144,3 +144,8 @@ bash firmware/tests/run_host_tests.sh
 # Containerised ESP-IDF build (no host toolchain install):
 bash firmware/build.sh
 ```
+
+The containerised build above also runs automatically in CI
+(`.github/workflows/firmware.yml`), path-restricted to `firmware/**` so a
+change confined to this directory triggers it without waiting on the
+unrelated server/documentation pipeline (`.github/workflows/ci.yml`).
