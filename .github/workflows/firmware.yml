@@ -1,0 +1,51 @@
+# Ink Frame — Firmware build workflow (D-10).
+#
+# D-10 left the firmware CI build to discretion, with a default
+# recommendation to include it if it's low-effort. It is low-effort, but
+# not through the route 04-RESEARCH.md's Open Question 2/Assumption A2
+# originally assumed — an ESP-IDF marketplace action. firmware/build.sh
+# already pins the toolchain image and already passes the two-file
+# sdkconfig-defaults invocation that Assumption A2 flagged as the
+# marketplace action's unverified parameter-mapping risk. Docker is
+# preinstalled on GitHub-hosted Linux runners, so invoking the script
+# directly here means CI builds with the exact same command the
+# developer runs locally — the two can never drift, and the open
+# question about parameter mapping simply does not arise. This is the
+# same "wrap the working script, do not reimplement it" principle D-12
+# applies to deployment.
+name: Firmware Build
+
+on:
+  push:
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware.yml'
+  pull_request:
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware.yml'
+
+jobs:
+  build:
+    name: Build EE02 firmware image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create compile-only credentials header
+        # firmware/main/secrets.h is gitignored and never committed
+        # (firmware/.gitignore). This copies the tracked placeholder
+        # template so the build has the four symbols it needs — enough
+        # to prove the code compiles, incapable of connecting anywhere.
+        # The real header is never committed and never touched by CI.
+        run: cp firmware/main/secrets.example.h firmware/main/secrets.h
+
+      - name: Build firmware image
+        # Same containerised invocation used locally — no container
+        # image reference, toolchain setup, or sdkconfig flags belong
+        # here; all of that stays owned by the script.
+        run: ./firmware/build.sh
+
+      - name: Verify built image artifact exists
+        run: test -f firmware/build-ee02/inkframe.bin
