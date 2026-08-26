@@ -203,7 +203,7 @@ Plans:
 
 ### Phase 6: Final On-Glass Verification
 
-**Goal:** The project's true final sign-off, done once — not incrementally per phase — on the real, fully-finished device: Phase 3's shipped design (PT Serif Regular typography, the flat single-color background, the two-flight poster composition, per-airline dithered illustrations) is judged against actual Spectra 6 glass, the panel's still-interim Yellow/Red palette values are tuned by eye against the real ink, and every hardware-verification item this project has carried forward is closed out or explicitly recorded as a caveat.
+**Goal:** The project's true final sign-off, done once — not incrementally per phase — on the real, fully-finished device: Phase 3's shipped design (PT Serif Regular typography, the flat single-color background, the two-flight poster composition, per-airline dithered illustrations) is judged against actual Spectra 6 glass, the panel's still-interim Yellow/Red palette values are tuned by eye against the real ink, and every hardware-verification item this project has carried forward is closed out or explicitly recorded as a caveat. **This phase is not purely observational** — small font and structure corrections (a font-weight swap, a point-size adjustment, a geometry nudge for bezel clearance) are made directly here, based on what the glass actually shows, rather than deferred to a hypothetical future phase.
 
 **Note on origin (2026-08-26):** This phase's sole plan (06-01) is Phase 3's original fourth plan (03-04), moved here at the user's explicit request — "cause this will be my really last step." Rather than doing the on-glass sign-off mid-Phase-3, the user wants one comprehensive real-hardware pass at the very end of the project, after Phase 4 (CI/CD) and Phase 5 (Battery Life) are also done. See `06-01-PLAN.md`'s own Provenance Note for the full renumbering record, and Phase 3's "Note on the on-glass verification plan" for the other side of this move.
 
@@ -215,7 +215,8 @@ Plans:
   2. PT Serif Regular's e-ink hairline-legibility risk (flagged in `server/assets/fonts/VENDOR.md`, never before checked on real glass) is judged per typographic role, including the previous-flight card's smallest text (16px/12px floor).
   3. Whether the frame/illustrations/text — positioned inside the old 64px safe-box band at a tighter 2.5%-of-width inset (D-26) — are clipped by the physical bezel is confirmed one way or the other.
   4. `PALETTE_RGB`'s two still-interim triples (Yellow, Red) carry values tuned against the real panel; Blue and Green (already D-21-confirmed) are verified unchanged.
-  5. The frame is left running live detection at the end of the session, not frozen on a synthetic test panel.
+  5. Any small font-weight, font-size, or geometry correction the session's observations called for has been applied directly and re-confirmed on the glass — not just recorded for later. Only a genuine redesign need (a new font, a new asset, a different composition) is deferred as a scope question.
+  6. The frame is left running live detection at the end of the session, not frozen on a synthetic test panel.
 
 **Plans**: 0/1 plans executed
 
