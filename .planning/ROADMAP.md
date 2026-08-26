@@ -102,7 +102,15 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call made with the frame in its current desk/temporary location as a provisional check; a final check once wall-mounted remains an open item.
   5. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not the current flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration (same style, no specific livery) as the fallback for uncovered airlines and for the "Route unavailable" enrichment-failure state — both still readable as a passenger jet and still correctly mirrored by departing/arriving state.
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+
+- [ ] 03-01-PLAN.md — Serif typography (Zilla Slab) and the co-equal flight-number/destination hierarchy, plus D-13's interim panel RGB values
+- [ ] 03-02-PLAN.md — Dithered two-tone mood background per state, with flat quiet-zone plates behind every caption and a spatially-scoped palette contract
+- [ ] 03-03-PLAN.md — Per-airline dithered livery illustrations with a dithered generic fallback, gated on the developer's illustration hand-off
+- [ ] 03-04-PLAN.md — On-glass verification battery (RGB calibration, fresh legibility, forced departure, long names, composition) and the 02-UI-SPEC.md Colour addendum
+
 **UI hint**: yes
 
 ### Phase 03.1: Procedural Per-Airline Livery Rendering (INSERTED)
