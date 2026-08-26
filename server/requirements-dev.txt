@@ -1,0 +1,6 @@
+# CI-only tooling: linting and coverage. Deliberately separate from
+# requirements.txt so production installs never pull this in - most
+# importantly, deploy/deploy.sh installs from server/requirements.txt
+# only when shipping to the VPS, so nothing here ever reaches production.
+ruff==0.16.4
+coverage==7.15.4
