@@ -19,10 +19,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception on real hardware, with the core wake/poll/backoff loop proven against a stub server (completed 2026-08-26)
 - [x] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display (completed 2026-08-26)
-- [ ] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle
+- [ ] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle (code/asset work complete — final on-glass sign-off moved to Phase 6)
 - [ ] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Replace Phase 3's hand-generated, representative-type-per-airline static illustrations with a server-side engine that overlays real per-flight livery colors onto the correct aircraft-type SVG, scaling to any airline/type without manual image generation
 - [ ] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
+- [ ] **Phase 6: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished
 
 ## Phase Details
 
@@ -94,6 +95,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Note on scope (2026-08-26, discuss-phase):** Widened during `/gsd-discuss-phase 3` from a pure hardware-verification pass into also including a real visual upgrade to the aircraft artwork. The user confirmed via SenseCraft (Seeed's official companion app) that this panel renders dithered/photographic content well — the flat, no-dither rendering rule from 02-UI-SPEC.md Revision 2 was a deliberate Phase 2 style choice, not a hardware limit. This unlocks a per-airline illustration approach that was explicitly rejected in Phase 2 (D-02/02-UI-SPEC.md) only because no CC0/licensable per-airline livery art existed — the user will generate the illustrations themselves (AI image generation), sidestepping that licensing constraint. A personal photo as the panel's *background* was discussed and explicitly deferred to v2 (see REQUIREMENTS.md v2 backlog) — this phase's scope is the aircraft illustration only, not the background.
 
+**Note on the on-glass verification plan (2026-08-26):** This phase's original fourth plan (03-04, the on-glass verification battery) was moved to **Phase 6: Final On-Glass Verification** (now `06-01-PLAN.md`) at the user's explicit request — they want one final real-hardware sign-off at the very end of the whole project, after CI/CD and Battery Life are also done, rather than a mid-project on-glass pass. This phase's code/asset work is complete (3/3 plans), but success criteria 1-4 below are inherently on-glass judgments and remain formally open until Phase 6 runs — see Phase 6's own section.
+
 **Mode:** mvp
 **Depends on**: Phase 1 (hardware flashed via 01-06/01-07) and Phase 2 (deployed via 02-05)
 **Requirements**: PLANE-01, PLANE-02 (hardware-verified legibility closure, and a richer visual treatment of the "airline" element both requirements already call for — not new requirement scope)
@@ -105,7 +108,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call made with the frame in its current desk/temporary location as a provisional check; a final check once wall-mounted remains an open item.
   5. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not the current flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration (same style, no specific livery) as the fallback for uncovered airlines and for the "Route unavailable" enrichment-failure state — both still readable as a passenger jet. *(D-24, 2026-08-26: "correctly mirrored by departing/arriving state" is dropped — real illustrations didn't mirror convincingly, so every illustration now renders nose-left always; background colour and the state label are the sole departing/arriving cues.)*
 
-**Plans**: 3/4 plans executed
+**Plans**: 3/3 plans executed (on-glass verification moved to Phase 6, see note above)
 
 Plans:
 **Wave 1**
@@ -119,10 +122,6 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 03-03-PLAN.md — Per-airline dithered livery illustrations with a dithered generic fallback, gated on the developer's illustration hand-off
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [ ] 03-04-PLAN.md — On-glass verification battery (RGB calibration, fresh legibility, forced departure, long names, composition) and the 02-UI-SPEC.md Colour addendum
 
 **UI hint**: yes
 
@@ -186,17 +185,43 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
-| 3. Visual Polish on Real Glass | 3/4 | In Progress|  |
+| 3. Visual Polish on Real Glass | 3/3 | In Progress (final on-glass sign-off in Phase 6) |  |
 | 4. CI/CD, Documentation & Legal Compliance | 0/0 | Not Started | - |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
+| 6. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 0 plans
 
 Plans:
 
 - [ ] TBD (run /gsd-plan-phase 5 to break down)
+
+### Phase 6: Final On-Glass Verification
+
+**Goal:** The project's true final sign-off, done once — not incrementally per phase — on the real, fully-finished device: Phase 3's shipped design (PT Serif Regular typography, the flat single-color background, the two-flight poster composition, per-airline dithered illustrations) is judged against actual Spectra 6 glass, the panel's still-interim Yellow/Red palette values are tuned by eye against the real ink, and every hardware-verification item this project has carried forward is closed out or explicitly recorded as a caveat.
+
+**Note on origin (2026-08-26):** This phase's sole plan (06-01) is Phase 3's original fourth plan (03-04), moved here at the user's explicit request — "cause this will be my really last step." Rather than doing the on-glass sign-off mid-Phase-3, the user wants one comprehensive real-hardware pass at the very end of the project, after Phase 4 (CI/CD) and Phase 5 (Battery Life) are also done. See `06-01-PLAN.md`'s own Provenance Note for the full renumbering record, and Phase 3's "Note on the on-glass verification plan" for the other side of this move.
+
+**Depends on:** Phase 5 (sequential execution order — the plan's actual technical prerequisite is Phase 3's shipped render pipeline, already satisfied)
+**Requirements**: PLANE-01, PLANE-02 (closing the hardware-verified-legibility half of both, carried from Phase 3)
+**Success Criteria** (what must be TRUE):
+
+  1. Phase 3's ROADMAP success criteria 1-4 (silhouette/illustration legibility, caption legibility including the long-name shrink path, the visual DEPARTING/ARRIVING state distinction, and overall poster composition) each have a real on-glass observation behind them — not a monitor preview.
+  2. PT Serif Regular's e-ink hairline-legibility risk (flagged in `server/assets/fonts/VENDOR.md`, never before checked on real glass) is judged per typographic role, including the previous-flight card's smallest text (16px/12px floor).
+  3. Whether the frame/illustrations/text — positioned inside the old 64px safe-box band at a tighter 2.5%-of-width inset (D-26) — are clipped by the physical bezel is confirmed one way or the other.
+  4. `PALETTE_RGB`'s two still-interim triples (Yellow, Red) carry values tuned against the real panel; Blue and Green (already D-21-confirmed) are verified unchanged.
+  5. The frame is left running live detection at the end of the session, not frozen on a synthetic test panel.
+
+**Plans**: 0/1 plans executed
+
+Plans:
+**Wave 1**
+
+- [ ] 06-01-PLAN.md — On-glass verification battery (RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) and the 02-UI-SPEC.md Colour addendum (moved from 03-04)
+
+**UI hint**: no

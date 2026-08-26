@@ -5,12 +5,12 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: visual-polish-on-real-glass
 status: executing
-stopped_at: 03-03 complete - 03-04 remaining (needs on-glass human checkpoint)
-last_updated: "2026-08-26T17:10:00.000Z"
+stopped_at: Phase 3 code/assets complete (3/3) - on-glass sign-off moved to Phase 6
+last_updated: "2026-08-26T17:30:00.000Z"
 last_activity: 2026-08-26
-last_activity_desc: 03-03 gaps closed (test_illustrations.py, illustrations VENDOR.md) - only 03-04 left in Phase 3
+last_activity_desc: Moved on-glass verification (was 03-04) to new Phase 6, at the user's request - it's their intended final project step
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 2
   total_plans: 17
   completed_plans: 15
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 03 (visual-polish-on-real-glass) — EXECUTING
-Plan: 4 of 4
-Status: 03-01/03-02/03-03 complete - 03-04 (on-glass checkpoint, needs the physical device) remaining
-Last activity: 2026-08-26 — 03-03 gaps closed
+Phase: 03 (visual-polish-on-real-glass) — 3/3 plans complete (final on-glass sign-off now Phase 6)
+Plan: 3 of 3
+Status: Phase 3 code/asset work complete (3/3 plans) - final on-glass sign-off moved to Phase 6 (06-01-PLAN.md), the user's intended true last step
+Last activity: 2026-08-26 — on-glass verification moved from 03-04 to 06-01
 
 Progress: [██████████] 100% (Phase 2)
 
@@ -79,6 +79,7 @@ Progress: [██████████] 100% (Phase 2)
 - 01-08 (battery-life measurement, DEVICE-05) moved from Phase 1 to Phase 4 (2026-08-26), becoming 04-01: user wants the unattended multi-day (up to 21-day) discharge run scheduled at the end of the project, once other phases no longer need this Mac to stay awake continuously, rather than mid-Phase-1. Phase 1's goal/success-criteria trimmed to drop the on-battery-viability criterion (now Phase 4's job); Phase 1 is now 7/7 plans executed. Phase 4 renamed "Battery Life & Low-Battery Indicator", gained requirement DEVICE-05 alongside DEVICE-04 and a new success criterion for the measured mAh-per-cycle figure. Task 1 (checker + pre-registered protocol) was already done under the old numbering and carries over unchanged; only the phase/plan numbers and cross-references were updated. REQUIREMENTS.md's DEVICE-05 checkbox corrected from a stale pre-existing `[x] Complete` (predating this move, predating the actual measurement) to `[ ]` — only Task 1 of 3 is done.
 - Phase 5 added (2026-08-26): "CI/CD, Documentation & Legal Compliance" — user flagged this as a missing v1 step during Phase 3 work. GitHub Actions CI (tests + build + code-quality/coverage) with automated (gated) deploy to the real OVH VPS, a README, a LICENSE, and documented third-party API terms-of-use compliance (PRIM/IDFM, ADS-B aggregators) plus consolidated asset attribution. Scoped as its own closing phase, orthogonal to the on-device experience Phases 1-4 build — not yet planned (requirements TBD, pending /gsd-discuss-phase 5).
 - Phase 4 (Battery Life & Low-Battery Indicator) and Phase 5 (CI/CD, Documentation & Legal Compliance) swapped (2026-08-26, user request): CI/CD is now Phase 4, Battery Life is now Phase 5. Reason: Battery Life's remaining work (05-01 Tasks 2-3) is deliberately parked until the end of the project — it needs an unattended multi-day discharge run — while CI/CD has no such blocker and can run right after Phase 3. All cross-references renumbered: directories (`04-low-battery-indicator` → `05-low-battery-indicator`, `05-ci-cd-...` → `04-ci-cd-...`), plan/summary/context files (`04-01-*` → `05-01-*`, `05-CONTEXT.md`/`05-DISCUSSION-LOG.md` → `04-CONTEXT.md`/`04-DISCUSSION-LOG.md`), threat IDs (`T-04-01-*` → `T-05-01-*`), `ROADMAP.md`'s two phase entries and Depends-on chain (Phase 4 now depends on Phase 3, Phase 5 now depends on Phase 4), and `REQUIREMENTS.md`'s DEVICE-04/DEVICE-05 phase mapping. `DEVICE-05` itself (the requirement ID) was never touched — only phase/plan numbers moved.
+- Phase 6 added (2026-08-26, user request): "Final On-Glass Verification". Phase 3's fourth and final plan (03-04, the on-glass verification battery — RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) was moved out of Phase 3 and became this new phase's sole plan, `06-01-PLAN.md`. Reason, in the user's own words: "cause this will be my really last step" — they want one comprehensive real-hardware sign-off at the very end of the whole project (after Phase 4 CI/CD and Phase 5 Battery Life), not a mid-Phase-3 checkpoint. Phase 3 itself is now 3/3 plans executed (code/asset work complete), but its own ROADMAP success criteria 1-4 are inherently on-glass judgments and stay formally open until Phase 6 runs — Phase 3's top-level checkbox is deliberately left unchecked to reflect this, matching the same "plans done, criteria still open" pattern already used for the parked Battery Life phase. Renumbered: `03-04-PLAN.md` → `06-final-on-glass-verification/06-01-PLAN.md` (frontmatter `phase`/`plan`/`wave`/`depends_on`, threat IDs `T-03-04-*` → `T-06-01-*`, note ID `N-03-04-01` → `N-06-01-01`, output path → `06-01-SUMMARY.md`). Every genuine cross-reference the plan makes to Phase 3's own artifacts (`03-CONTEXT.md`, `03-UI-SPEC.md`, `03-RESEARCH.md`, `03-03-PLAN.md`, and "ROADMAP Phase 3 success criterion") was deliberately left unchanged — this plan verifies Phase 3's shipped design, it just runs later in the project timeline now. `total_phases` becomes 7; `total_plans`/`completed_plans` are unaffected since the plan moved, not was added or removed.
 
 ### Decisions
 
