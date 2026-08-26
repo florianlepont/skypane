@@ -18,6 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception on real hardware, with the core wake/poll/backoff loop proven against a stub server (completed 2026-08-26)
 - [x] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display (completed 2026-08-26)
 - [ ] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle
+- [ ] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Replace Phase 3's hand-generated, representative-type-per-airline static illustrations with a server-side engine that overlays real per-flight livery colors onto the correct aircraft-type SVG, scaling to any airline/type without manual image generation
 - [ ] **Phase 4: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
 
 ## Phase Details
@@ -103,6 +104,30 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Plans**: TBD
 **UI hint**: yes
+
+### Phase 03.1: Procedural Per-Airline Livery Rendering (INSERTED)
+
+**Goal:** Replace Phase 3's necessarily-bounded, hand-generated per-airline illustration set (one representative-type static file per airline, per `03-CONTEXT.md` D-19) with a server-side rendering pipeline that composites the real airline's livery colors onto the correct aircraft-type SVG shape for the *actual* detected flight — scaling to any airline and type combination without further manual AI-image-generation work, and without depending on an external image-generation tool at all.
+
+**Note on origin (2026-08-26):** Raised by the user during Phase 3's discuss/plan work as an alternative architecture to D-09's static-file hand-off (SVG template + programmatic per-airline color overlay, computed server-side at render time, instead of one pre-generated raster image per airline). Deliberately deferred out of Phase 3 rather than decided inline, because it depends on an unverified prerequisite — whether real ADS-B aircraft-type data (the `t`/ICAO-type-designator field, standard in the readsb/tar1090 JSON schema both `airplanes.live` and `adsb.fi` are built on, per `03-RESEARCH.md`) is actually present in this project's live aggregator responses; this project's own `server/plane/detect.py` does not currently extract it, and a live check could not be completed from the development sandbox (network-restricted). Confirming this from a real network connection is this phase's first task before any rendering work.
+
+**Depends on:** Phase 3 (its static-file approach and illustration-zone rendering path, which this phase replaces) and a confirmed source of real aircraft-type data
+
+**Requirements**: PLANE-01, PLANE-02 (same "airline" element both requirements already call for, now at real per-flight type accuracy rather than Phase 3's representative-type approximation)
+
+**Success Criteria** (what must be TRUE):
+
+  1. Real aircraft-type data (ICAO type designator) is confirmed available and reliably present in this project's live ADS-B aggregator responses — or, if genuinely unavailable, this phase is descoped/re-planned around that finding rather than proceeding on an unverified assumption.
+  2. `server/plane/detect.py` extracts and surfaces the aircraft-type field alongside the existing callsign/altitude/vertical-rate fields already captured.
+  3. A server-side rendering step composites the correct airline's livery colors onto the correct aircraft-type SVG shape for the actual detected flight, replacing Phase 3's static per-airline file lookup.
+  4. The result is at least as visually legible on real Spectra 6 glass as Phase 3's static-file approach, verified via the same `checkpoint:human-verify` on-glass pattern established in prior phases.
+  5. Coverage gracefully degrades (a sensible fallback, not a crash or a blank illustration) for any airline/type combination not yet defined in the livery/shape mapping — mirroring D-08's existing generic-fallback discipline from Phase 3.
+
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 03.1 to break down)
 
 ### Phase 4: Battery Life & Low-Battery Indicator
 
