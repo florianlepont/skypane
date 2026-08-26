@@ -98,8 +98,10 @@ First asked with a flat-monochrome-only framing; the user pushed back, noting th
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| User generates and hands off files | Claude vendors/processes them in the plan | |
-| Claude generates during the phase | Included as a plan task if a generation capability is available | ✓ |
+| User generates and hands off files | Claude vendors/processes them in the plan | (final, after correction below) |
+| Claude generates during the phase | Included as a plan task if a generation capability is available | (initially selected, then reversed) |
+
+**Correction (during `/gsd-plan-phase 3`, before spawning the researcher):** Claude checked via `ToolSearch` whether any image-generation tool exists in this environment — none does. Re-asked the question with this constraint made explicit; user confirmed the fallback: they generate the illustrations themselves externally (ChatGPT, Midjourney, etc.) and hand off files for Claude to process/vendor/integrate. `03-CONTEXT.md`'s D-09 was corrected accordingly. This is now a real external dependency the plan must account for (a human handoff gate, not an autonomous generation task).
 
 **Notes:** This is a real, deliberate expansion of Phase 3's scope beyond the original ROADMAP text — captured back into `.planning/ROADMAP.md`'s Phase 3 section (new success criterion 5, updated goal/note-on-scope) since the phase was still unplanned (Pending status, 0 plans) when this was decided, so widening it directly was safe and consistent, not a silent scope change on committed work.
 
