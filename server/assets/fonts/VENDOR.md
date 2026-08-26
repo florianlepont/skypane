@@ -10,11 +10,24 @@
   build)
 - **Licence:** SIL OFL 1.1 — Copyright (c) 2016 The Inter Project Authors
   (https://github.com/rsms/inter). The licence requires the copyright and
-  licence notice to travel with the font files; the full OFL 1.1 text is
-  vendored alongside the upstream release archive's own `LICENSE.txt` and
+  licence notice to travel with the font files. The full OFL 1.1 text is
+  vendored as `server/assets/fonts/Inter-OFL.txt`, retrieved from the same
+  pinned `v4.1` release tag as the TTFs above
+  (`https://raw.githubusercontent.com/rsms/inter/v4.1/LICENSE.txt`,
+  retrieved 2026-08-26; sha256
+  `262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a`), and
   is also available at http://scripts.sil.org/OFL. This notice, plus the
   copyright line above, constitutes that required notice for this
   repository's copy.
+
+  **Correction (2026-08-26, 04-03):** this entry previously claimed the
+  full OFL 1.1 text was "vendored alongside the upstream release archive's
+  own `LICENSE.txt`" — no such file existed in this directory at the time,
+  even though `Inter-Regular.ttf`/`Inter-Bold.ttf` remained committed and
+  distributed (see Supersession note below: retained, not deleted). That
+  gap is what this correction closes; the claim above is now true because
+  `Inter-OFL.txt` was vendored in the same session this correction was
+  written.
 
 ### Local modifications
 
@@ -31,6 +44,11 @@ Inter with Zilla Slab, see the entry below). The files
 stay vendored in this repository for provenance — same "retained for
 provenance, not loaded at runtime" treatment `server/assets/icons/VENDOR.md`
 already gives its superseded SVG sources — and are **not deleted**.
+Retention does not reduce the OFL 1.1 obligation: the licence attaches to
+distribution of the font files, not to whether they are loaded at
+runtime, and these two TTFs are still committed and shipped with every
+clone of this repository. That is exactly why `Inter-OFL.txt`'s absence
+(corrected above, 04-03) was a real gap and not a moot one.
 
 ## `ZillaSlab-SemiBold.ttf` / `ZillaSlab-Bold.ttf`
 
