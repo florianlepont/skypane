@@ -11,10 +11,10 @@ last_activity: 2026-08-26
 last_activity_desc: Quick task 260826-vlq complete (5/5 tasks) - project renamed Ink Frame -> SkyPane end-to-end, including the GitHub repo rename (see Quick Tasks Completed below)
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 4
   total_plans: 23
-  completed_plans: 22
-  percent: 71
+  completed_plans: 21
+  percent: 91
 ---
 
 # Project State
@@ -24,7 +24,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 03 — visual-polish-on-real-glass
+**Current focus:** Phase 03.1 — procedural-per-airline-livery-rendering (context gathered 2026-08-27, ready for planning)
 
 ## Current Position
 
@@ -239,3 +239,12 @@ Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-
 - **New finding relevant to Phase 3.1's origin note/success criterion 1:** confirmed via a real live `curl` to `https://opendata.adsb.fi/api/v2/lat/.../lon/.../dist/25` (this project's own `server/plane/detect.py:47` URL template, real coordinates near the install site) that this session's sandbox does have working network access to the aggregator (unlike the prior session that flagged it as network-restricted) — and the ICAO aircraft-type designator field (`"t":"B738"`, `"t":"B734"`, etc.) is genuinely present on real in-flight aircraft in the live response. This directly answers Phase 3.1 success criterion 1 (real aircraft-type data confirmed available) — the phase's stated blocking prerequisite before any rendering work. Not yet wired into `server/plane/detect.py` (criterion 2) — that's implementation work for `/gsd-discuss-phase 03.1` / `/gsd-plan-phase 03.1` to scope.
 - Developer chose "Planifier la Phase 3.1" (plan Phase 3.1) as the next action when asked. `03.1-procedural-per-airline-livery-rendering/` exists but is empty (only `.gitkeep`) — no `03.1-CONTEXT.md` yet.
 - Next step: `/gsd-discuss-phase 03.1` to gather phase context (CONTEXT.md missing), or `/gsd-plan-phase 03.1` directly if context-gathering is skipped.
+
+**State at end of this session (2026-08-27) — Phase 3.1 context gathered, major architecture pivot:**
+
+- `/gsd-discuss-phase 03.1` complete. `03.1-CONTEXT.md` and `03.1-DISCUSSION-LOG.md` written and committed (`8742f7a`). Full detail in `03.1-CONTEXT.md`; summary here:
+- **Major finding, reverses ROADMAP.md's stated architecture for this phase (CONTEXT.md D-02/D-10):** a live search this session for free/license-compatible, side-profile, per-aircraft-type SVG shapes (the asset the original "procedural render-time compositing" design needs) found no viable source — a flight-sim repaint-template forum had the right angle/detail but explicitly prohibits redistribution (incompatible with this public MIT repo regardless of non-commercial intent, a point the developer initially pushed back on and then accepted); a real Wikimedia Commons CC-BY-SA 4.0 SVG set turned out to be top-down plan-view (wrong angle, map-tracker style); generic CC0 clipart had the right angle but no per-type differentiation. **Developer decision: abandon the procedural shape+color compositing architecture for now** (not rejected in principle — shelved, see CONTEXT.md Deferred) and instead extend Phase 3's proven external-AI-generation workflow (03-CONTEXT.md D-09) to real per-flight aircraft-type accuracy via more generated static images. ROADMAP.md's Phase 3.1 section text still describes the old architecture and needs a revision pass before/during planning (D-10) — not done yet, left for the planner.
+- Built and verified (not guessed) an exhaustive airline × aircraft-type table: started from Wikipedia's real "Paris–Orly Airport" airlines/destinations list (25 airlines, well beyond the 7 Phase 3 covers), then ran ~10 targeted web searches to verify real 2026 fleet composition per airline after the developer caught a real gap in the first draft (Transavia France's in-progress B737→A320neo/A321neo transition, which started precisely at Orly). Corrected several more errors this way (Pegasus is majority-Airbus not majority-Boeing; Amelia's Pau route is specifically Embraer E145; CCM Airlines rebranded to Air Corsica in 2013 — the existing `ccm-airlines.png` filename is stale). Final table locked into `03.1-CONTEXT.md` D-03 on explicit developer confirmation: 24 airlines reduce to only **7 real distinct base aircraft shapes** (A320-family, B737-family, ATR72, Beechcraft 1900D, Embraer E-Jet, A330-family, A350-family).
+- New tiered fallback behavior decided (D-06/D-07/D-08): known airline with a type mismatch still shows that airline's illustration (brand wins); an unrecognized airline with a recognized+covered type gets a new neutral-colored correct-shape fallback (~7 new images needed, one per base shape) instead of the single generic; both-unknown keeps Phase 3's existing single universal fallback unchanged.
+- Progress counters were reset by the same documented SDK bug when `state.record-session` was called this session (`completed_phases` bumped to 5, `completed_plans` to 22, `percent` to 71, despite the body text correctly still saying Phase 4/91%/21/23) — corrected by hand back to `completed_phases: 4`, `completed_plans: 21`, `percent: 91`, matching the unchanged body text. `current_focus` line also updated (was still pointing at the completed Phase 3).
+- Next step: `/gsd-plan-phase 03.1` — the planner should read `03.1-CONTEXT.md` in full (especially D-02/D-03/D-10) before drafting tasks, and should draft the ROADMAP.md revision (D-10) as part of planning rather than leaving it stale.
