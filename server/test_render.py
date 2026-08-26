@@ -34,7 +34,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 25
+EXPECTED_CHECK_COUNT = 32
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -52,6 +52,18 @@ TEST_ROUTE = {
     "origin_city": "Paris",
     "destination_iata": "PMI",
     "destination_city": "Palma de Mallorca",
+}
+
+# 03-01 Task 2 (D-04's automated half): a genuinely long real destination
+# city name and a genuinely long real airline name, used to exercise the
+# shrink path at the new 64px Destination/Origin hero-secondary size - the
+# on-glass half of D-04 is 03-04.
+TEST_LONG_ROUTE = {
+    "airline_name": "Compagnie Nationale Royale Air Maroc Express",
+    "origin_iata": "SCQ",
+    "origin_city": "Santiago de Compostela–Rosalía de Castro",
+    "destination_iata": "ORY",
+    "destination_city": "Paris",
 }
 
 
@@ -527,6 +539,110 @@ def main():
     check(
         "both a resolved-route render and an enrichment-miss render retain exactly two distinct palette indices after compositing",
         _hit_and_miss_renders_keep_two_palette_indices,
+    )
+
+    # 26-32. 03-01 Task 2 (D-15/D-16): the four Zilla Slab typographic
+    # roles, the widened tracking, the retired-role removal, the co-equal
+    # hero-pair size contract, and the long-name shrink path.
+    _ROLE_SPECS = {
+        "LABEL_FONT": (36, 700),
+        "CAPTION_FONT": (40, 600),
+        "DESTINATION_FONT": (64, 600),
+        "FLIGHT_NUMBER_FONT": (72, 700),
+    }
+
+    def _role_constants_are_exactly_four_zilla_slab_roles():
+        for name, (size, weight) in _ROLE_SPECS.items():
+            if not hasattr(render, name):
+                return False, "server.plane.render has no %s role constant" % name
+            path, got_size, got_weight = getattr(render, name)
+            if got_size != size or got_weight != weight:
+                return False, "%s is %r, expected size=%d weight=%d" % (name, (path, got_size, got_weight), size, weight)
+            if not (path.endswith("ZillaSlab-SemiBold.ttf") or path.endswith("ZillaSlab-Bold.ttf")):
+                return False, "%s font path %r is not a vendored Zilla Slab file" % (name, path)
+        return True, ""
+    check(
+        "the four typographic role constants exist with exactly sizes 36/40/64/72 and weights 700/600/600/700, all pointing at a vendored Zilla Slab file",
+        _role_constants_are_exactly_four_zilla_slab_roles,
+    )
+
+    def _label_tracking_is_6px():
+        if not hasattr(render, "LABEL_TRACKING_PX"):
+            return False, "server.plane.render has no LABEL_TRACKING_PX"
+        if render.LABEL_TRACKING_PX != 6:
+            return False, "render.LABEL_TRACKING_PX is %r, expected 6 (D-15's widened tracking)" % (render.LABEL_TRACKING_PX,)
+        return True, ""
+    check("render.LABEL_TRACKING_PX equals 6 (D-15 widened tracking)", _label_tracking_is_6px)
+
+    def _body_and_heading_font_roles_removed():
+        if hasattr(render, "BODY_FONT"):
+            return False, "server.plane.render still exposes the retired BODY_FONT role"
+        if hasattr(render, "HEADING_FONT"):
+            return False, "server.plane.render still exposes the retired HEADING_FONT role"
+        return True, ""
+    check("render no longer exposes the retired BODY_FONT or HEADING_FONT roles", _body_and_heading_font_roles_removed)
+
+    def _hero_pair_is_co_equal():
+        if not (hasattr(render, "FLIGHT_NUMBER_FONT") and hasattr(render, "DESTINATION_FONT") and hasattr(render, "CAPTION_FONT")):
+            return False, "server.plane.render is missing one or more of FLIGHT_NUMBER_FONT/DESTINATION_FONT/CAPTION_FONT"
+        gap = render.FLIGHT_NUMBER_FONT[1] - render.DESTINATION_FONT[1]
+        if gap != 8:
+            return False, "FLIGHT_NUMBER_FONT[1] - DESTINATION_FONT[1] is %d, expected 8 (D-16 co-equal hero pair)" % gap
+        if not (render.CAPTION_FONT[1] < render.DESTINATION_FONT[1] and render.CAPTION_FONT[1] < render.FLIGHT_NUMBER_FONT[1]):
+            return False, "CAPTION_FONT[1]=%d is not strictly smaller than both hero sizes (%d, %d)" % (
+                render.CAPTION_FONT[1], render.DESTINATION_FONT[1], render.FLIGHT_NUMBER_FONT[1],
+            )
+        return True, ""
+    check(
+        "the hero pair is co-equal: FLIGHT_NUMBER_FONT - DESTINATION_FONT size gap is 8px, and CAPTION_FONT is strictly smaller than both (D-16)",
+        _hero_pair_is_co_equal,
+    )
+
+    def _departing_route_render_still_carries_all_three_captions():
+        with _RenderSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        body_texts = [t for t, _xy in spy.body]
+        if TEST_FLIGHT["callsign"] not in body_texts:
+            return False, "expected the flight number %r among the body-text draws, got %r" % (TEST_FLIGHT["callsign"], body_texts)
+        if TEST_ROUTE["destination_city"] not in body_texts:
+            return False, "expected the destination city %r among the body-text draws, got %r" % (TEST_ROUTE["destination_city"], body_texts)
+        if TEST_ROUTE["airline_name"] not in body_texts:
+            return False, "expected the airline name %r among the body-text draws, got %r" % (TEST_ROUTE["airline_name"], body_texts)
+        return True, ""
+    check(
+        "a departing render with a resolved route still draws the flight number, destination city, and airline name after the font swap",
+        _departing_route_render_still_carries_all_three_captions,
+    )
+
+    def _long_name_stress_case_shrinks_without_breaching_safe_box():
+        # arriving state shows origin_city (enrich.city_for_state) - the
+        # long name lives on TEST_LONG_ROUTE's origin_city field.
+        try:
+            with _RenderSpy(render) as spy:
+                render.build_canvas(TEST_FLIGHT, "arriving", route=TEST_LONG_ROUTE)
+        except AssertionError as exc:
+            return False, "long-name render raised the safe-box assertion: %r" % (exc,)
+        body_texts = [t for t, _xy in spy.body]
+        if TEST_LONG_ROUTE["origin_city"] not in body_texts:
+            return False, (
+                "long origin-city name %r was not drawn in full (found %r) - the shrink path must fit the "
+                "text, not truncate it" % (TEST_LONG_ROUTE["origin_city"], body_texts)
+            )
+        return True, ""
+    check(
+        "a genuinely long destination/origin city name (Santiago de Compostela) shrinks via fit_text_size() rather than breaching the safe box, and is drawn in full (automated half of D-04)",
+        _long_name_stress_case_shrinks_without_breaching_safe_box,
+    )
+
+    def _rendering_same_flight_twice_stays_deterministic_after_font_swap():
+        first = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
+        second = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
+        if first != second:
+            return False, "rendering the same flight+route twice produced different bytes after the font swap"
+        return True, ""
+    check(
+        "rendering the same flight+route twice remains byte-identical after the Zilla Slab font swap (determinism)",
+        _rendering_same_flight_twice_stays_deterministic_after_font_swap,
     )
 
     total = len(results)
