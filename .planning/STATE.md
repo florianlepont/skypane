@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: "04"
 current_phase_name: ci-cd-documentation-legal-compliance-github-actions-ci-tests
-status: executing
-stopped_at: Phase 3 complete - its on-glass criteria moved to Phase 6 in full, not just referenced
-last_updated: "2026-08-26T17:45:00.000Z"
+status: ready to execute
+stopped_at: Phase 4 planned (6 plans, 4 waves) - decision coverage 16/16, checker passed clean
+last_updated: "2026-08-26T19:15:00.000Z"
 last_activity: 2026-08-26
-last_activity_desc: Phase 3 closed (3/3 plans, criteria 1-4 relocated to Phase 6 outright) - next up is Phase 4
+last_activity_desc: Phase 4 (CI/CD, Docs & Legal) planned - ready for /gsd-execute-phase 4
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 17
+  total_plans: 23
   completed_plans: 15
-  percent: 88
+  percent: 65
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 03 (visual-polish-on-real-glass) — COMPLETE (3/3 plans, all criteria satisfied within its own scope)
-Next: Phase 04 (ci-cd-documentation-legal-compliance) — not yet planned
-Status: Phase 3 closed. Its four on-glass success criteria were moved to Phase 6 in full (not just referenced) - Phase 3's own closure does not depend on them.
-Last activity: 2026-08-26 — Phase 3 marked complete; its on-glass criteria now belong entirely to Phase 6
+Phase: 04 (ci-cd-documentation-legal-compliance-github-actions-ci-tests) — PLANNED, ready to execute
+Plans: 0/6 executed (6 plans, 4 waves - 04-01 through 04-06)
+Status: Planning complete. Research + pattern-mapping + planner + plan-checker all passed; decision coverage 16/16. 04-01 (Wave 1) is non-autonomous - it stops for a human checkpoint:decision on git-history scrub scope before the one-way rewrite runs.
+Last activity: 2026-08-26 — Phase 4 planned and verified, ready for /gsd-execute-phase 4
 
 Progress: [██████████] 100% (Phase 2)
 
