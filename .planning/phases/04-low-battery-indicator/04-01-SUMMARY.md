@@ -1,6 +1,6 @@
 ---
-phase: 01-foundation-hardware-bring-up-ads-b-validation
-plan: 08
+phase: 04-low-battery-indicator
+plan: 01
 subsystem: hardware-bringup
 tags: [battery, deep-sleep, stdlib-python, log-verification, d-07, pre-registration]
 
@@ -13,7 +13,7 @@ provides:
   - "hardware/fixtures/{battery-good,battery-gap,battery-flat-mv}.log - proven-against fixtures: a healthy ~30h discharge (accepted), the same discharge with a 6h sleeping-host hole punched in (rejected on coverage + max-gap), and a full-cadence run whose millivolts never fall (rejected on the mv-drop gate)"
   - "hardware/logtools.py selftest, extended to prove all six fixtures (3 backoff + 3 battery) before any hardware use"
   - "hardware/BATTERY-RUN.md ## Run Protocol (pre-registered) - thresholds, ceiling, capacity and D-07's exact division, committed before the battery pack was ever connected"
-affects: ["01-08 Task 2 (battery connection + multi-day unattended run - not started this session, gated on explicit human action) and Task 3 (post-mortem readout and write-up)"]
+affects: ["04-01 Task 2 (battery connection + multi-day unattended run - not started this session, gated on explicit human action) and Task 3 (post-mortem readout and write-up)"]
 
 tech-stack:
   added: []
@@ -67,7 +67,7 @@ completed: 2026-08-26
 status: in-progress
 ---
 
-# Phase 1 Plan 08 Task 1: Battery Checker Pre-Registration Summary
+# Phase 4 Plan 01 Task 1: Battery Checker Pre-Registration Summary
 
 **Before the battery pack was ever connected, `hardware/logtools.py check-battery` was built and proven on three fixtures to accept a healthy discharge and reject both a sleeping-host gap and a phantom-USB-power run, and `hardware/BATTERY-RUN.md` now carries the D-07 protocol's thresholds, ceiling and exact division, committed to git while the answer was still unknown.**
 
@@ -127,7 +127,7 @@ None for Task 1 (fully autonomous, no hardware or battery involved).
 
 ## Next Phase Readiness
 
-**Task 1 of 01-08 is complete and committed (`c54024c`).** `check-battery` is proven on fixtures and `hardware/BATTERY-RUN.md`'s protocol is pre-registered. **Tasks 2 and 3 remain** - Task 2 is a `checkpoint:human-action` (gate: `blocking-human`) requiring the developer to charge the pack, disconnect USB, and let the device run unattended for days to weeks; Task 3 depends on Task 2 having produced a real captured log. This plan, and therefore `DEVICE-05` and Phase 1's success criterion 4, remain open until both later tasks execute. No other plan in Phase 1 is blocked on this one continuing immediately - 01-08 is the last plan in Phase 1's queue.
+**Task 1 of 04-01 is complete and committed (`c54024c`).** `check-battery` is proven on fixtures and `hardware/BATTERY-RUN.md`'s protocol is pre-registered. **Tasks 2 and 3 remain** - Task 2 is a `checkpoint:human-action` (gate: `blocking-human`) requiring the developer to charge the pack, disconnect USB, and let the device run unattended for days to weeks; Task 3 depends on Task 2 having produced a real captured log. This plan, and therefore `DEVICE-05` and Phase 4's battery-measurement success criterion, remain open until both later tasks execute. Moved here from Phase 1 (was 01-08) on 2026-08-26 per user request - see STATE.md's Roadmap Evolution note. No other plan is blocked on this one continuing immediately.
 
 ---
 *Phase: 01-foundation-hardware-bring-up-ads-b-validation*

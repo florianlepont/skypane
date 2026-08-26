@@ -17,7 +17,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **DEVICE-03**: Device wakes on a schedule, polls the server over HTTPS, downloads and displays a new image if available, then returns to deep sleep, with exponential backoff on failure
 - [ ] **DEVICE-04**: User can see a low-battery indicator on the frame when the battery is running low
-- [x] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
+- [ ] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
 
 ## v2 Requirements
 
@@ -66,15 +66,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLANE-02 | Phase 2 | Pending |
 | PLANE-03 | Phase 2 | Pending |
 | DEVICE-03 | Phase 1 | Complete |
-| DEVICE-04 | Phase 3 | Pending |
-| DEVICE-05 | Phase 1 | Complete |
+| DEVICE-04 | Phase 4 | Pending |
+| DEVICE-05 | Phase 4 | In Progress (04-01 Task 1 of 3 done) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase.
 
 **Coverage:**
 
 - v1 requirements: 6 total
-- Mapped to phases: 6 (Phase 1: 2, Phase 2: 3, Phase 3: 1)
+- Mapped to phases: 6 (Phase 1: 1, Phase 2: 3, Phase 3: 1, Phase 4: 2)
 - Unmapped: 0 ✓
 
 ---
