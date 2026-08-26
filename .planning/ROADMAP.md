@@ -102,7 +102,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call made with the frame in its current desk/temporary location as a provisional check; a final check once wall-mounted remains an open item.
   5. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not the current flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration (same style, no specific livery) as the fallback for uncovered airlines and for the "Route unavailable" enrichment-failure state — both still readable as a passenger jet and still correctly mirrored by departing/arriving state.
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 
 Plans:
 **Wave 1**
@@ -111,7 +111,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-02-PLAN.md — Dithered two-tone mood background per state, with flat quiet-zone plates behind every caption and a spatially-scoped palette contract
+- [x] 03-02-PLAN.md — Dithered two-tone mood background per state, with flat quiet-zone plates behind every caption and a spatially-scoped palette contract
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -176,5 +176,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
-| 3. Visual Polish on Real Glass | 1/4 | In Progress|  |
+| 3. Visual Polish on Real Glass | 2/4 | In Progress|  |
 | 4. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |

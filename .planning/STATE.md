@@ -6,15 +6,15 @@ current_phase: 03
 current_phase_name: visual-polish-on-real-glass
 status: executing
 stopped_at: Phase 3 planned - 4 plans created, checker passed, decision-coverage gate 17/17
-last_updated: "2026-08-26T12:47:31.642Z"
+last_updated: "2026-08-26T13:08:38.189Z"
 last_activity: 2026-08-26
 last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 17
-  completed_plans: 13
-  percent: 76
+  completed_plans: 15
+  percent: 60
 ---
 
 # Project State
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 03 (visual-polish-on-real-glass) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-08-26 — Phase 03 execution started
 
@@ -68,6 +68,7 @@ Progress: [██████████] 100% (Phase 2)
 | Phase 01 P07 | 136min | 3 tasks | 8 files |
 | Phase 01 P08 | 35min | 1 tasks | 5 files |
 | Phase 03 P01 | 20min | 2 tasks | 7 files |
+| Phase 03 P02 | 30min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,9 @@ Recent decisions affecting current work:
 - [Phase 01]: 01-07 Task 3 complete: NVS failure counter proven to survive three real physical power cycles (no battery) - backoff_n continued 7->8 across a power-cycle where the wall-clock gap (12m37s vs a 6h/21600s armed sleep) makes an external interruption mathematically certain; recovery poll + follow-up failure proved a success resets to backoff_n=0/sleep_s=300. The literal 'wake reason=power-on' console line could not be captured on any of 3 cold power-ons (diagnosed via macOS kernel USB log as a genuine USB re-enumeration delay on this board's marginal connection, not a capture-script bug or firmware defect); corroborated instead via the device's own X-Boot-Reason=power-on HTTP telemetry header. Full diagnosis in hardware/BACKOFF-OBSERVATION.md. DEVICE-03 marked complete.
 - [Phase 04]: 04-01 Task 1 (formerly 01-08, moved 2026-08-26): check-battery checker + BATTERY-RUN.md protocol pre-registered (thresholds, 21-day ceiling, 3000mAh capacity from BOM.md) before the battery pack was connected - proven on 3 new fixtures (battery-good accepted; battery-gap/battery-flat-mv rejected). Tasks 2 (multi-day unattended run) and 3 (post-mortem verdict) remain, deliberately deferred to end of project.
 - [Phase 03]: 03-01 complete - Zilla Slab vendored from pinned google/fonts commit f473a26ceba660d85cf223ff121dea1fe91cfcb6 (SIL OFL 1.1), Inter fully retired from the active render path, D-16 co-equal hero pair (72px Bold flight number / 64px SemiBold destination, 8px gap) implemented, D-13 interim panel-RGB triples applied to PALETTE_RGB with zero index/nibble drift
+- [Phase 03]: 03-02 mood background rejected the UI-SPEC's full-6-color-palette recipe after measuring it produced six-colour static for the arriving mood; replaced with a two-entry [White, state_base_rgb] sub-palette (hue-pure by construction), MOOD_LIGHT_TINT_MIX finalized at 0.40, measured 80.3% state-hue / 19.7% White per state
+- [Phase 03]: 03-02 replaced the naive per-pixel jitter loop (measured 3.7s, would have blown the render-time budget) with bulk Random.randbytes() + row-scoped bytes.translate() LUTs, ~35x faster (~100ms), still fully deterministic from the same seeded local Random instance
+- [Phase 03]: 03-02 replaced the whole-canvas 'exactly 2 palette indices' guard rail with a spatially-scoped _assert_palette_contract() (per-quiet-zone + illustration-bbox-aware whole-canvas check), with the illustration_bbox hook already wired for 03-03
 
 ### Pending Todos
 
@@ -140,7 +144,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T12:43:19.850Z
+Last session: 2026-08-26T13:07:05.201Z
 Stopped at: Phase 3 UI-SPEC Revision 3 approved (full composition realignment)
 
 Resume file: .planning/phases/03-visual-polish-on-real-glass/03-UI-SPEC.md
