@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: visual-polish-on-real-glass
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-08-26T10:22:00.789Z"
+stopped_at: Phase 3 UI-SPEC approved
+last_updated: "2026-08-26T11:10:39.743Z"
 last_activity: 2026-08-26
-last_activity_desc: "Phase 3 discuss-phase complete: scope widened to include per-airline generated aircraft illustrations (SenseCraft confirmed dithering viable on real hardware). 03-CONTEXT.md and 03-DISCUSSION-LOG.md written; ROADMAP.md Phase 3 section updated with a new success criterion; REQUIREMENTS.md gained v2 VIS-01 (deferred photo background). Next: /gsd-plan-phase 3."
+last_activity_desc: "Phase 3 UI-SPEC approved (6/6 dimensions): locks the aircraft-illustration zone as a full multi-color Floyd-Steinberg-dithered amendment to 02-UI-SPEC.md, everything else unchanged. Two research passes done (2-color mechanics, then full-color livery after the user overrode the recommended default). Next: /gsd-plan-phase 3 to create PLAN.md files."
 progress:
   total_phases: 4
   completed_phases: 2
@@ -138,10 +138,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T10:22:00.785Z
-Stopped at: Phase 3 context gathered
+Last session: 2026-08-26T11:10:39.735Z
+Stopped at: Phase 3 UI-SPEC approved
 
-Resume file: .planning/phases/03-visual-polish-on-real-glass/03-CONTEXT.md
+Resume file: .planning/phases/03-visual-polish-on-real-glass/03-UI-SPEC.md
 
 **State at end of this session (2026-08-26, ~09:25):**
 
