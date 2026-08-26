@@ -86,16 +86,20 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### Phase 3: Visual Polish on Real Glass
 
-**Goal**: The plane view's visual design is refined against real Spectra 6 E-ink output, not a rendered-PNG preview — closing out the hardware-verified-legibility items that every Phase 2 plan explicitly carried forward rather than guessed at.
+**Goal**: The plane view's visual design is refined against real Spectra 6 E-ink output, not a rendered-PNG preview — closing out the hardware-verified-legibility items that every Phase 2 plan explicitly carried forward rather than guessed at, and replacing the generic flat-fill aircraft silhouette with a richer, per-airline generated illustration now that dithered/photographic rendering is confirmed viable on this exact panel (see Note on scope below).
+
+**Note on scope (2026-08-26, discuss-phase):** Widened during `/gsd-discuss-phase 3` from a pure hardware-verification pass into also including a real visual upgrade to the aircraft artwork. The user confirmed via SenseCraft (Seeed's official companion app) that this panel renders dithered/photographic content well — the flat, no-dither rendering rule from 02-UI-SPEC.md Revision 2 was a deliberate Phase 2 style choice, not a hardware limit. This unlocks a per-airline illustration approach that was explicitly rejected in Phase 2 (D-02/02-UI-SPEC.md) only because no CC0/licensable per-airline livery art existed — the user will generate the illustrations themselves (AI image generation), sidestepping that licensing constraint. A personal photo as the panel's *background* was discussed and explicitly deferred to v2 (see REQUIREMENTS.md v2 backlog) — this phase's scope is the aircraft illustration only, not the background.
+
 **Mode:** mvp
 **Depends on**: Phase 1 (hardware flashed via 01-06/01-07) and Phase 2 (deployed via 02-05)
-**Requirements**: PLANE-01, PLANE-02 (hardware-verified legibility closure — not new requirement scope, the final verification step on requirements Phase 2 already implemented informationally)
+**Requirements**: PLANE-01, PLANE-02 (hardware-verified legibility closure, and a richer visual treatment of the "airline" element both requirements already call for — not new requirement scope)
 **Success Criteria** (what must be TRUE):
 
-  1. The aircraft silhouette's flat-fill detail level still reads recognisably as a passenger jet at typical wall-viewing distance on real glass.
-  2. The route/airline captions (White text on saturated Blue/Green) are legible on real Spectra 6 output, including `fit_text_size()`'s shrunk-overflow case for a long city/airline name.
-  3. A-02-02-01's unvalidated departure-side deadband threshold (02-02's `runway_config.py`) is confirmed or corrected against real observed climb-rate data.
-  4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call only possible once it's actually mounted and glanced at, not eyeballed on a monitor.
+  1. The aircraft silhouette's flat-fill detail level still reads recognisably as a passenger jet at typical wall-viewing distance on real glass. *(Superseded in intent by criterion 5 below if the per-airline illustration replaces the flat-fill silhouette — kept here as the floor: even the fallback illustration must still read as a passenger jet.)*
+  2. The route/airline captions (White text on saturated Blue/Green) are legible on real Spectra 6 output, including `fit_text_size()`'s shrunk-overflow case for a long city/airline name — validated via a deliberately forced long-name render, not left to chance.
+  3. A-02-02-01's unvalidated departure-side deadband threshold (02-02's `runway_config.py`) is validated visually via a forced synthetic departure render (no real departure exists in Phase 1's captured sample data — confirmed 0 climbing readings across 217 real vertical-rate samples, max observed +48 ft/min). This validates the *visual* DEPARTING state only, not the real +200 ft/min threshold value itself, which remains unvalidated against real sensor data until a genuine runway-3 departure is observed.
+  4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call made with the frame in its current desk/temporary location as a provisional check; a final check once wall-mounted remains an open item.
+  5. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not the current flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration (same style, no specific livery) as the fallback for uncovered airlines and for the "Route unavailable" enrichment-failure state — both still readable as a passenger jet and still correctly mirrored by departing/arriving state.
 
 **Plans**: TBD
 **UI hint**: yes

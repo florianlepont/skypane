@@ -1,0 +1,108 @@
+# Phase 3: Visual Polish on Real Glass - Context
+
+**Gathered:** 2026-08-26
+**Status:** Ready for planning
+
+<domain>
+## Phase Boundary
+
+Refine the plane view's visual design against real Spectra 6 E-ink output, closing the hardware-verified-legibility items every Phase 2 plan carried forward, AND upgrade the aircraft illustration from a flat generic silhouette to a richer, per-airline generated illustration — now that dithered/photographic rendering is confirmed viable on this exact panel (see D-05 below). The panel's full-bleed solid state-color background field (departing = Blue, arriving = Green) is unchanged this phase; a personal photo as the background is explicitly out of scope (deferred to v2 — see Deferred Ideas).
+
+This phase does not cover the RER view, physical button, battery indicator, or any new requirement scope beyond PLANE-01/PLANE-02's existing "airline" element.
+
+</domain>
+
+<decisions>
+## Implementation Decisions
+
+### A-02-02-01 departure threshold validation
+- **D-01:** No real runway-3 departure exists in Phase 1's captured sample data — verified directly this session: 0 readings with `vertical_rate >= +200 ft/min` across all 217 real in-geofence vertical-rate readings in `adsb-test/samples/*.jsonl`; the maximum observed was +48 ft/min (the known EJU84YF flare artefact already used in `server/test_runway_config.py`). A "replay a real captured departure" approach is not possible with existing data.
+- **D-02:** Instead, force a **synthetic** departure render (vertical_rate >= +200 injected directly, same technique used in 02-05 Task 3 to force the "Route unavailable" fallback via `server.plane.render.render_panel()`) to visually confirm the DEPARTING state (Blue field, nose-right silhouette) renders correctly on real glass. This validates the *visual* rendering path only — it does **not** validate that +200 ft/min is the right real-world threshold value, since no real sensor data is used. That remains an explicit open item until a genuine runway-3 departure is observed in production (`journalctl -u inkframe-poll` on the VPS showing `confirmed_state=departing`).
+
+### Frame mount status
+- **D-03:** The frame is currently on a desk / temporary location, not yet mounted on its final wall spot. Success criteria that depend on "typical wall-viewing distance" and "reads as ambient art on the wall" (ROADMAP criteria 1 and 4) can only be judged provisionally at the desk this phase. Record this caveat explicitly in the plan's verification rather than treating a desk-distance judgment as the final word — a follow-up check once wall-mounted is a legitimate open item, not a blocker to closing this phase.
+
+### Long-caption legibility stress test
+- **D-04:** UI-SPEC's flagged risk case — `fit_text_size()`'s shrunk-overflow path for a long city/airline name — has probably not been hit by chance yet (the only real flight rendered so far, DAH1112 from Béjaïa, has short caption text). Force this case deliberately: inject a real flight with a genuinely long city and/or airline name through the production render code path (same forcing technique as D-02 above), push it live, and look at the glass. Don't rely on chance for this specific edge case.
+
+### Aircraft illustration upgrade (the phase's expanded scope)
+- **D-05 (unlocking decision):** The user confirmed via **SenseCraft** (Seeed's official companion app for this panel) that a personal photo they sent displayed well on the real hardware. This proves the panel itself renders dithered/photographic content well — the flat, no-anti-aliasing, no-dither rendering rule in `02-UI-SPEC.md` Revision 2 was a deliberate **Phase 2 style choice** (the "poster" look), not a hardware limitation. `02-UI-SPEC.md`'s own rendering-rule note already anticipated this: *"Reserve Floyd-Steinberg dithering... for any future photographic content only."* This phase is that future.
+- **D-06:** Given D-05, the aircraft illustration becomes **per-airline**, not a single shared generic shape. Each detected flight renders a dithered illustration specific to its airline (resolved via the existing D-02/02-04 `server/plane/enrich.py` callsign→route lookup, which already returns `airline_name`) — a materially bigger scope than Phase 2's single generic CC0 silhouette. This is deliberate, user-confirmed scope, not accidental creep.
+- **D-07:** Per-airline illustrations render **dithered/photo-like** (same rendering family SenseCraft uses to display a real photo well on this panel), not the current flat single-color-fill treatment. This is a genuine style departure from Phase 2's flat "poster" look for the aircraft element specifically — the full-bleed background field and all caption text stay flat/solid as before (unchanged from 02-UI-SPEC.md Revision 2); only the aircraft illustration itself changes rendering treatment.
+- **D-08:** Fallback illustration (airlines not covered by the generated set, and the "Route unavailable" enrichment-failure state where the airline is unknown) is a **single dithered generic illustration**, in the same rendered style as the per-airline set (not a return to the old flat-White CC0 silhouette) — for visual consistency across all render outcomes.
+- **D-09:** Illustrations are **AI-generated during this phase** (Claude generates them, using whatever image-generation capability is available in this environment), not sourced from real licensed airline livery art or supplied externally by the user. This deliberately sidesteps the real trademark/licensing constraint that made Phase 2 reject per-airline art (`02-UI-SPEC.md` Design System: "the only CC0 candidate that reads as a modern commercial jet in profile without per-airline-livery detail").
+- **D-10:** Mirroring by departing/arriving state (nose-right for departing, nose-left for arriving — `02-UI-SPEC.md` Layout & Composition zone 3) is unchanged and must still apply to every per-airline illustration and the fallback, not just the old generic silhouette.
+
+### Personal photo background — explicitly OUT of this phase's scope
+- Discussed and explicitly deferred to v2, despite D-05's evidence that it's technically viable. The user's own words: keep this phase's scope to the aircraft illustration only. See Deferred Ideas below and `REQUIREMENTS.md`'s new v2 "Personal Photo Background" section (VIS-01).
+
+### Claude's Discretion
+- Exact airline coverage list for the generated illustration set — left to research/planning, informed by real airline callsigns already seen in Phase 1 sample data and Phase 2's live enrichment cache (`poll_state.json` on the VPS).
+- Exact image-generation tool/approach, prompt design, and post-processing pipeline (posterize/quantize/dither parameters) to get a generated illustration correctly onto the 6-color panel — left to planning/research; the existing Pillow dilate/flood-fill/erode pipeline used to flatten the Phase 2 CC0 silhouette is the closest existing precedent but will need adaptation for dithered (not flat) output.
+- Whether the generic dithered fallback illustration is itself airline-neutral art or a dithered re-render of the retired CC0 silhouette shape — left to planning.
+- Panel RGB reference values (still unverified per `02-UI-SPEC.md` Design System) — resolve if it becomes load-bearing for the dithering work, otherwise not a blocking item this phase.
+
+</decisions>
+
+<canonical_refs>
+## Canonical References
+
+**Downstream agents MUST read these before planning or implementing.**
+
+### Phase 2 outputs this phase revises
+- `.planning/phases/02-plane-view-end-to-end-slice/02-UI-SPEC.md` — the locked Revision 2 design contract (full-bleed state-color background, White foreground, flat no-dither rendering rule, silhouette mirroring by state, legibility flag, Copywriting Contract) — this phase changes the aircraft-illustration rendering treatment and detail level, NOT the background/color/typography/copy contracts, which stay locked as-is
+- `.planning/phases/02-plane-view-end-to-end-slice/02-05-SUMMARY.md` — Task 3's on-glass verification evidence (legibility "clearly legible", edges "hard, flat", DAH1112 real-flight cross-check, forced enrichment-fallback technique this phase reuses for D-02/D-04 above)
+- `server/plane/render.py` — `render_panel()`, `_build_active_canvas()`, `draw_silhouette()`, `load_binary_mask()`/`paste_mask()` (the flat-fill masking pipeline the new dithered illustration path must either extend or add alongside)
+- `server/plane/enrich.py` — `lookup_route()` already resolves `airline_name` per flight; the illustration-selection logic keys off this same field
+- `server/plane/runway_config.py` — `CLIMB_THRESHOLD_FPM = 200`, `DESCEND_THRESHOLD_FPM = -200` (A-02-02-01's unvalidated departure side, D-01/D-02 above)
+- `server/panel_format.py` — `pack_panel()`, the 6-color palette definition the dithered output must quantize against
+
+### Project planning docs
+- `.planning/ROADMAP.md` — Phase 3 section, widened 2026-08-26 (this discussion) with success criterion 5 for the per-airline illustration pipeline; see its "Note on scope" for the full rationale
+- `.planning/REQUIREMENTS.md` — PLANE-01/PLANE-02 (airline element this phase enriches visually); new v2 "Personal Photo Background" section (VIS-01, deferred here)
+- `.planning/STATE.md` — Blockers/Concerns note on A-02-02-01's real-departure-threshold open item
+
+[No other external specs/ADRs exist for this phase.]
+
+</canonical_refs>
+
+<code_context>
+## Existing Code Insights
+
+### Reusable Assets
+- `server/plane/render.py`'s `load_binary_mask()`/`paste_mask()` — the existing flat-fill masking pipeline; a dithered illustration path is new code alongside this, not a replacement of it (the fallback + all caption text still use flat rendering)
+- The Pillow dilate/flood-fill/erode cleanup pipeline used to flatten the Phase 2 CC0 silhouette (see STATE.md's Phase 2 decision log) — closest existing precedent for turning a raster asset into panel-legal output, though it targeted flat fills, not dithering; will need real adaptation for a dithered/photo-like target
+- `server/plane/enrich.py`'s `lookup_route()` — already returns `airline_name`; no new enrichment call needed to key illustration selection
+
+### Established Patterns
+- Vendoring discipline (`stub-server/VENDOR.md`, `firmware/VENDOR.md` style provenance notes) — any generated illustration asset should get the same provenance treatment (generation date, tool/method, prompt if applicable) even though it's AI-generated rather than sourced from a third party
+- Forcing a real render via the production code path (not a fabricated image) to validate an otherwise-rare/unobserved state — established in 02-05 Task 3 for the enrichment fallback, reused here for D-02 (departure) and D-04 (long caption)
+
+### Integration Points
+- Illustration selection is a new lookup keyed by `airline_name` (from the existing `enrich.lookup_route()` call already in `poll_loop.py`'s `run_once()`) — no new external API call, just a new local asset-selection step in the render path
+- `draw_silhouette()` in `render.py` is the integration point where the new dithered-illustration path branches from the current flat-mask path
+
+</code_context>
+
+<specifics>
+## Specific Ideas
+
+- The user tested a personal photo via SenseCraft and confirmed it displayed well on the real panel — this is the concrete evidence behind D-05, not a general assumption.
+- "Illustration de l'avion et de son covering" (the user's own phrasing) — per-airline illustration including the airline's visual livery/color identity, generated rather than sourced, per D-06/D-09.
+
+</specifics>
+
+<deferred>
+## Deferred Ideas
+
+- **Personal photo as the panel's background** — confirmed technically viable (D-05), but the user explicitly chose to keep this phase's scope to the aircraft illustration only. Tracked as `REQUIREMENTS.md`'s new v2 requirement **VIS-01**. Revisit in v2 planning.
+
+### Reviewed Todos (not folded)
+None — no pending todos matched this phase.
+
+</deferred>
+
+---
+
+*Phase: 3-Visual Polish on Real Glass*
+*Context gathered: 2026-08-26*

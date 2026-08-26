@@ -42,6 +42,12 @@ Deferred 2026-08-11 alongside RER — meaningless in v1 with only one view. Revi
 
 - **MSG-01**: User can send a short message from a companion phone app that appears on the frame, delivered via the frame's next poll — the device never accepts inbound pushes, matching the poll-only security model
 
+### Personal Photo Background
+
+Deferred 2026-08-26 (Phase 3 discuss-phase) — user confirmed via SenseCraft that this panel renders dithered/photographic content well, so this is technically viable, but the user chose to keep Phase 3's scope to the aircraft illustration only and defer the background itself to v2.
+
+- **VIS-01**: User can set a personal photo (e.g. of the install location) as the plane view's background, rendered with dithering instead of the current full-bleed solid state-color field
+
 ## Out of Scope
 
 Explicitly excluded. Documented to prevent scope creep.
