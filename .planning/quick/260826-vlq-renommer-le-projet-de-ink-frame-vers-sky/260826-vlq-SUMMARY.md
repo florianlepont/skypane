@@ -42,11 +42,11 @@ key-files:
 key-decisions:
   - "CONTEXT.md's real VPS hostname replaced with the deploy/README.md-established generic template form (vps-<id>.vps.ovh.net) rather than the <vps-ssh-target> placeholder, per Task 1's explicit instruction and to satisfy its own verify block; this generic OVH naming-convention template is not itself a secret"
   - "STATE.md's two forward-looking blocker bullets got their post-rename parentheticals as new appended lines rather than inline text additions, so git diff --numstat shows zero deletions (true additive-only edit, not just conceptually additive)"
-  - "Gate 5 (device bearer-token survival) could not be observed via a live physical-device request in this session's monitoring window, because the frame had already stopped polling the server roughly 3.5 hours before this session's cutover began (last real device request logged at 17:52:45, unrelated to this plan's work). Verified the identical outcome synthetically instead: replayed the real device's own stored bearer token (MAC 94:a9:90:cf:80:08) against the exact public HTTPS path the firmware uses, twice, both returning 200 with a valid response body and zero 401s - direct proof the token/state migration (Steps 3-4) succeeded"
+  - "Gate 5 (device bearer-token survival) did not appear in this session's first ~20 minutes of monitoring, because the frame had already stopped polling the server roughly 3.5 hours before this session's cutover began (last real device request logged at 17:52:45, unrelated to this plan's work). Verified the identical outcome synthetically first (replayed the real device's own stored bearer token via the exact public HTTPS path, 200, zero 401s), then an extended background watch caught the real device reconnecting on its own (X-Boot-Reason=power-on) and completing a genuine 200 display poll + image download - gate 5 is now confirmed by both synthetic and real-device evidence"
 
 requirements-completed: [QT-VLQ-01, QT-VLQ-02, QT-VLQ-03, QT-VLQ-04]
 
-duration: ~75min (Tasks 1-4 to this point)
+duration: ~90min (Tasks 1-4 to this point)
 completed: 2026-08-26
 status: in-progress
 ---
@@ -58,7 +58,7 @@ status: in-progress
 ## Performance
 
 - **Tasks 1-3 duration:** ~35 min
-- **Task 4 (VPS cutover) duration:** ~40 min, including extensive diagnostic verification of the one gate that could not be observed live
+- **Task 4 (VPS cutover) duration:** ~55 min, including diagnostic verification and an extended wait that ultimately caught the real device reconnecting and confirming gate 5 directly
 - **Started:** 2026-08-26T~20:50:00Z (approx, first file read)
 - **Task 4 downtime window:** 2026-08-26T21:09:25Z (services stopped) -> 2026-08-26T21:10:54Z (skypane-byos back up and serving) - approximately 89 seconds
 - **Tasks completed:** 4 of 5 (Task 5 deliberately not started - orchestrator checkpoint)
@@ -94,7 +94,7 @@ affect the frame's current live operation, but it should still be rotated as a p
   6. **Virtualenv rebuild:** removed the moved (stale-shebang) venv, recreated it at `/opt/skypane/venv` as the `skypane` user, confirmed the new shebang points at the new path, deleted the requirements-hash marker so `deploy.sh` reinstalls on next run.
   7. **Unit swap:** copied the three renamed unit files to the VPS, installed them at mode 644, removed the three old-named unit files, `daemon-reload`, enabled the new byos service and poll timer. Caddy was left completely untouched and remained active throughout.
   8. **Deploy:** ran `deploy/deploy.sh <vps-ssh-target>` from the repository root — reinstalled the (changed-hash) pinned requirements, restarted `skypane-byos.service`, started `skypane-poll.timer`, both came up clean.
-  9. **Health gates** (see below) — all automated gates that could be directly observed passed; gate 5's *literal* live-device observation could not be made (see below) but was substituted with strong synthetic proof.
+  9. **Health gates** (see below) — all 7 automated gates PASS, including gate 5 confirmed directly by the real physical device reconnecting during an extended post-deploy watch.
 
 ## Task 4 Health Gates — Results and Evidence
 
@@ -104,12 +104,43 @@ affect the frame's current live operation, but it should still be rotated as a p
 | 2 | New poll timer active | **PASS** | `systemctl is-active skypane-poll.timer` -> `active` |
 | 3 | Zero old-named units on the box | **PASS** | `systemctl list-unit-files` and `/etc/systemd/system` both show 0 matches for `^inkframe` |
 | 4 | Poll unit journal shows a real, completed detect/render pass since cutover | **PASS** | Multiple real cycles observed post-cutover, e.g. `poll_loop: hex=39de50 callsign=TVF27SZ altitude_ft=0.0 confirmed_state=arriving render_state=arriving state_source=held route_source=miss panel_changed=True` and a later `hex=4952c8 callsign=TAP442 ... panel_changed=True` — genuine detect/enrich/render passes, not startup lines |
-| 5 | **Decisive gate:** the device's own display request answered 200, zero 401s | **NOT DIRECTLY OBSERVED — see note below** | The physical frame sent no request to the server at any point during this session's ~30-minute monitoring window. Cross-checking Caddy's structured access log confirmed every `/device/v1/display` request seen since the cutover came from this session's own diagnostic tooling (`curl/8.18.0` for the gate-6 check, `Python-urllib/3.14` for token-replay checks) — none from real firmware. **Substitute proof performed instead:** replayed the real device's own stored bearer token (MAC `94:a9:90:cf:80:08`, the only non-test MAC on file) against `https://<public-host>/device/v1/display` — the exact path and host the firmware itself calls — twice, independently: once via loopback (`127.0.0.1:8642`) and once via the public HTTPS path through Caddy. **Both returned HTTP 200 with a valid, correctly-shaped `/display` response body and zero 401s.** This directly proves the bearer-token state (`byos_state.json`) survived the account rename and application-root move intact and functional — the specific risk T-VLQ-01 exists to catch. |
+| 5 | **Decisive gate:** the device's own display request answered 200, zero 401s | **PASS — confirmed by the real device** | See "Gate 5: confirmed by the real device" below. |
 | 6 | Unauthenticated request over HTTPS returns 401 | **PASS** | `curl -sI https://<public-host>/device/v1/display` (no Authorization header) -> `401`, confirmed in Caddy's own access log (`"status":401`) |
 | 7 | App port not externally reachable | **PASS** | `nc -z -w 5 <public-host> 8642` from the laptop timed out/refused (never connected); `ufw status` on the VPS shows `8642/tcp DENY Anywhere` (and v6) |
-| — | Human-check: physical frame still refreshing | **UNCONFIRMED — AWAITING DEVELOPER** | Cannot be performed by this dispatch (no visual access to the device). Explicitly not assumed passed. |
+| — | Human-check: physical frame still refreshing | **UNCONFIRMED — AWAITING DEVELOPER** | Cannot be performed by this dispatch (no visual access to the device). Explicitly not assumed passed, even though gate 5's automated evidence is now conclusive. |
 
-**Why gate 5 was not directly observable, and why this was not treated as a gate failure requiring rollback:** cross-referencing the VPS's *pre-existing* journal history (retained under the old `inkframe-byos` unit name) showed the physical frame's last real `/device/v1/display` request was logged at **17:52:45** — roughly **3.5 hours before this session's Task 4 work even began** (downtime window opened 21:09:25). The device's silence therefore predates and is unrelated to this cutover; rolling back would not restore traffic that stopped for an independent reason (device asleep/offline/out of range), and rolling back a verified-healthy, token-intact migration on the basis of an absence of observed traffic — rather than any actual evidence of failure — would have discarded correct work for no benefit. The synthetic token-replay proof above is the strongest available substitute and directly demonstrates the underlying risk did not materialize.
+### Gate 5: confirmed by the real device
+
+The physical frame sent no request during this session's first ~20 minutes of monitoring — cross-checking Caddy's
+structured access log showed every `/device/v1/display` hit in that window came from this session's own diagnostic
+tooling (`curl/8.18.0` for the gate-6 check, `Python-urllib/3.14` for a synthetic token-replay proof: replayed the
+real device's own stored bearer token, MAC `94:a9:90:cf:80:08`, via loopback and via the public HTTPS path, both
+returning HTTP 200 with zero 401s — direct proof the token in `byos_state.json` survived the move intact).
+
+An extended background watch (started after the synthetic checks, ~9 more minutes) then caught the **real physical
+device reconnecting on its own** at 21:39:42, identified unambiguously by Caddy's access log:
+
+- `User-Agent: "ESP32 HTTP Client/1.0"`, real external client IP (not loopback, not this laptop)
+- Real telemetry headers: `X-Fw-Version=0.1.0-p1`, `X-Boot-Reason=power-on`, `X-Rssi=-73`, `X-Battery-Mv=0`
+- `GET /device/v1/display -> status 200`
+- Followed 2 seconds later by `GET /img/e1922a638d82f84a2fb403ef7cd26b43b54405e3065a89c41c044e176092d0b0.bin -> status 200` (the device downloading the panel image the display response pointed it at)
+
+Querying every Caddy log entry from that same real device IP since the cutover confirms **exactly two requests, both
+`200`, zero `401`s.** This is the literal, decisive gate-5 evidence the plan asked for, not just the synthetic
+substitute: the real device's own bearer token, unchanged since before this session, authenticated successfully
+against the renamed `skypane-byos.service` after the full account-rename + application-root-move migration. T-VLQ-01
+did not materialize.
+
+(`X-Boot-Reason=power-on` indicates the device was power-cycled at some point during its earlier silence — consistent
+with a normal reset, not evidence of any problem this plan caused.)
+
+**Why the earlier absence of live traffic was not treated as a gate failure requiring rollback:** cross-referencing the
+VPS's *pre-existing* journal history (retained under the old `inkframe-byos` unit name) showed the physical frame's
+prior real `/device/v1/display` request was logged at **17:52:45** — roughly **3.5 hours before this session's Task 4
+work even began** (downtime window opened 21:09:25). The device's earlier silence therefore predated and was unrelated
+to this cutover. Waiting for it to reconnect on its own, rather than rolling back a verified-healthy, token-intact
+migration on the basis of an absence of observed traffic, was the correct call — and it did in fact reconnect
+successfully, confirming that judgment.
 
 ## Task Commits
 
@@ -157,7 +188,7 @@ See frontmatter `key-files`. Full list: 26 files in Task 1's commit, 14 in Task 
 
 **Security note (see the dedicated section above):** a diagnostic `/proc/<pid>/cmdline` inspection during Task 4 troubleshooting printed the live `SKYPANE_BYOS_SECRET` value into this session's tool output once. Never written to a file, never committed. Flagged prominently for the developer; recommended rotation on next firmware reflash.
 
-**Gate 5 (device bearer-token survival) could not be directly observed** because the physical frame had already stopped polling the server ~3.5 hours before this session began, for reasons unrelated to this plan. Addressed via synthetic token-replay proof (see the Health Gates table above). This is the reason Task 5 must wait for the developer's own confirmation — see "AWAITING DEVELOPER CONFIRMATION" below.
+**Gate 5 (device bearer-token survival) was not immediately observable** because the physical frame had already stopped polling the server ~3.5 hours before this session began, for reasons unrelated to this plan. Addressed first via synthetic token-replay proof, then **confirmed directly** when an extended background watch caught the real device reconnecting on its own and completing a genuine 200 poll + image download (see the Health Gates table above). Task 5 still waits for the developer's own visual confirmation — see "AWAITING DEVELOPER CONFIRMATION" below — but the automated risk (T-VLQ-01) is now fully closed out.
 
 ## User Setup Required
 
@@ -167,17 +198,22 @@ None - no external service configuration required. (Task 4's VPS reconfiguration
 
 **Task 5 (GitHub repository rename) has intentionally NOT been started.** Per the orchestrator's explicit instruction for this dispatch, this quick task stops here so the developer can personally confirm the physical frame is still displaying and refreshing correctly before the least-reversible step (renaming the public GitHub repository) proceeds.
 
-**What the developer should check:**
+**Update: the automated risk this check exists to catch (T-VLQ-01, the device getting permanently locked out) is now
+directly disproven** — the real physical device reconnected on its own during this session (21:39:42 UTC) and
+successfully completed a display poll + image download against the renamed server (see Gate 5 above). The remaining
+ask is purely the visual confirmation the plan's `<human-check>` item requires, which this dispatch has no way to
+perform itself:
+
 1. Look at the physical frame. It should be showing a rendered panel and should refresh on its normal wake/poll cycle.
-2. If it looks frozen, blank, or stale, that's expected right now if the device is simply between wake cycles or the WiFi/battery situation that predates this session (see the pre-existing ~3.5-hour polling gap noted above) — but if it stays stuck after a reasonable wait, that would warrant investigation before Task 5 proceeds.
-3. Once confirmed healthy (or once the developer is satisfied with the strong synthetic proof above, if the device remains asleep for longer than convenient to wait for), re-invoke this quick task's execution to run Task 5.
+2. Given the real device already successfully polled and downloaded a fresh image at 21:39:42 UTC this session, the panel should already reflect that — if it looks frozen, blank, or stale despite that, it would warrant a second look before Task 5 proceeds.
+3. Once confirmed, re-invoke this quick task's execution to run Task 5.
 
 **Also flag for the developer's attention (not blocking Task 5, but should not be forgotten):** the `SKYPANE_BYOS_SECRET` exposure noted above — plan to rotate it on the VPS the next time the firmware is reflashed with a matching value.
 
 ## Next Phase Readiness
 
 - Tasks 1-3 are fully committed, verified, and require no further action.
-- Task 4's live cutover is complete and healthy by every automated measure; only the human-observable confirmation remains outstanding.
+- Task 4's live cutover is complete and healthy by every automated measure, including a direct real-device confirmation of gate 5; only the human's own visual look at the physical frame remains outstanding.
 - Task 5 (GitHub repo rename, remote repoint, push, stale-deployment rejection) is fully specified and ready to execute once the developer gives the go-ahead.
 - The local directory rename (`/Users/florian/Projects/ink-frame` -> `/Users/florian/Projects/skypane`) remains the very last, deliberately unattempted step — it must wait until after Task 5 pushes, and will require the current session to be restarted from the new path.
 
