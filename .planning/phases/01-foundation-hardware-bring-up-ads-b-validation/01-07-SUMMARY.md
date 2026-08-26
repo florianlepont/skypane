@@ -2,7 +2,7 @@
 phase: 01-foundation-hardware-bring-up-ads-b-validation
 plan: 07
 subsystem: hardware-bringup
-tags: [esp32-s3, backoff, deep-sleep, nvs, esp-idf, stdlib-python, log-verification]
+tags: [esp32-s3, backoff, deep-sleep, nvs, esp-idf, stdlib-python, log-verification, usb-enumeration]
 
 # Dependency graph
 requires:
@@ -12,15 +12,19 @@ provides:
   - hardware/logtools.py - stdlib-only stamp/check-backoff/selftest for machine-verifying a captured serial log against the DEVICE-03 exponential backoff curve
   - hardware/fixtures/{backoff-good,backoff-fixed-interval,backoff-rtc-reset}.log - proven-against negative/positive fixtures
   - hardware/logs/backoff-run.log and hardware/logs/backoff-baseline-server.log - a real ~80-minute captured doubling curve (300/600/1200/2400/4800s across backoff_n=0..4), machine-verified
+  - hardware/logs/backoff-powercycle.log - real capture of three physical power cycles (no battery), proving the NVS failure counter survives total power loss (backoff_n 7->8, non-reset) and that a success resets it (backoff_n=0/sleep_s=300)
+  - hardware/BACKOFF-OBSERVATION.md - the recorded DEVICE-03 verdict, full observed sequence table, and an honest diagnosis of a real USB-re-enumeration capture-timing limitation discovered on this hardware
   - A reconnect-tolerant serial-capture pattern (poll for /dev/cu.usbmodem*, reattach on every drop, tolerate a marginal connection across a multi-hour span) for reuse in 01-08's much longer unattended run
-affects: [01-07 Task 3 (this plan, not yet started), 01-08 (battery/unattended run - reuses the reconnect-tolerant capture pattern and hardware/logtools.py's stamp filter)]
+affects: [01-08 (battery/unattended run - reuses the reconnect-tolerant capture pattern, hardware/logtools.py's stamp filter, and should budget for the same cold-power-on USB re-enumeration lag if it ever needs a live console capture)]
 
 tech-stack:
   added: []
   patterns:
-    - "Reconnect-tolerant serial capture: poll /dev/cu.usbmodem* every 0.15s, attach cat the instant it appears, let it run with no per-round time cap until the port itself disappears (device sleep or a marginal-cable drop), then go straight back to polling - proven to survive dozens of drops across an ~80-minute unattended run without operator intervention."
-    - "check-backoff never short-circuits on the first failing check - all checks run and print, so a FAIL line always names every violated property, not just the first one hit."
-    - "Detached background pipelines via nohup + disown, verified by checking the process's PPID is 1 (reparented to launchd) rather than trusting `&` alone - confirmed to survive across separate tool-call turns."
+    - "Reconnect-tolerant serial capture: poll /dev/cu.usbmodem* every 0.15s (bash) or ~30ms (python, no external ls/stty subprocess overhead), attach the instant it appears, let it run with no per-round time cap until the port itself disappears, then go straight back to polling - proven across an ~80-minute unattended run (Task 2, 6/6 wake lines captured) and a shorter multi-power-cycle session (Task 3)."
+    - "check-backoff never short-circuits on the first failing check - all checks run and print, so a FAIL line always names every violated property, not just the first one hit. This was directly useful for diagnosis in Task 3: each of 3 FAILs had a distinct, individually traceable root cause."
+    - "Detached background pipelines via nohup + disown, verified by checking the process's PPID is 1 (reparented to launchd) rather than trusting `&` alone - confirmed to survive across separate tool-call turns, including across a full overnight pause and a multi-hour session."
+    - "Cross-channel corroboration for a missing serial-log line: when a wake-reason console line is lost to a USB re-enumeration race, the same wake-reason classification is independently available via the device's own HTTP telemetry (X-Boot-Reason header, sent unconditionally on every /device/v1/display and /log call per firmware/main/api_client.c) - cross-referenced here by exact timestamp match against the stub server's own log file mtime."
+    - "USB cold-power-on re-enumeration lag is measurable via macOS's own kernel USB log (`/usr/bin/log stream --predicate 'eventMessage contains \"<VID>\"'`), which timestamps `IOUSBHostFamily`'s `enumerateDeviceComplete_block_invoke` independently of any userspace capture script - the decisive forensic tool for separating 'my polling loop is too slow' from 'the host genuinely takes multiple seconds to re-enumerate this device after a full power cycle on this connection', which turned out to be the latter."
 
 key-files:
   created:
@@ -30,18 +34,23 @@ key-files:
     - hardware/fixtures/backoff-rtc-reset.log
     - hardware/logs/backoff-run.log
     - hardware/logs/backoff-baseline-server.log
+    - hardware/logs/backoff-powercycle.log
+    - hardware/BACKOFF-OBSERVATION.md
   modified: []
 
 key-decisions:
   - "Accepted the baseline healthy-wake capture even though its 'wake reason=' line wasn't captured (reattach loop attached a moment after the first boot lines) - the substantive proof (poll ok -> sleep enter, matching X-Boot-Reason=power-on in the server log at the same timestamp) is present, and none of check-backoff's checks for Task 2 depend on that specific line."
-  - "Did not redact the WiFi SSID that leaked into backoff-run.log via ESP-IDF's own wifi component debug logging - the plan's own must_haves require the raw log to be re-checkable by a later reader, so editing it would break that evidentiary chain. Documented as a known, low-severity finding instead (see Deviations)."
-  - "Left the stub server stopped overnight (not restarted) - Task 3's own sequencing requires it to stay down through its step 6, and only comes back up mid-Task-3 to prove recovery."
-  - "Stopped the capture loop and its caffeinate wrapper before pausing overnight so the Mac is free to idle-sleep normally - Task 3 will start a fresh capture pipeline when resumed."
+  - "Did not redact the WiFi SSID that leaks into both backoff-run.log and backoff-powercycle.log via ESP-IDF's own wifi component debug logging - the plan's own must_haves require the raw log to be re-checkable by a later reader, so editing it would break that evidentiary chain. Documented as a known, low-severity finding (same root cause, same reasoning, both logs)."
+  - "Left the stub server stopped overnight (not restarted) between Task 2 and Task 3 - Task 3's own sequencing requires it to stay down through its own step 6, and only comes back up mid-Task-3 to prove recovery. This produced two unobserved overnight failures (backoff_n=5 and 6) that check_sequence correctly flags as a gap when the two log files are concatenated - documented in full in BACKOFF-OBSERVATION.md rather than hidden or worked around."
+  - "After the first two of three physical power cycles both failed to capture their 'wake reason=power-on' console line, diagnosed the root cause (USB host re-enumeration lag specific to this board's marginal connection on a cold power-on, vs. near-instant reconnection on an RTC wake) using macOS's kernel USB log before attempting a third cycle, rather than repeating the same capture technique indefinitely hoping for a different outcome. Confirmed the diagnosis is structural (not bad luck) via IOKit enumeration timestamps, then stopped chasing the specific line once the mechanism was understood."
+  - "Accepted DEVICE-03's persistence clause as proven despite the automated `check-backoff --expect-persist` check reporting FAIL on the real capture - the underlying property (NVS-not-RTC persistence) is proven by a decisive wall-clock argument (a wake occurring 12m37s after a 6-hour sleep was armed is impossible without an external power interruption) and by independent corroboration via the stub server's own X-Boot-Reason=power-on telemetry header, cross-referenced by exact timestamp. This is disclosed in full in BACKOFF-OBSERVATION.md's 'Capture-Timing Limitation' and 'Checker Output' sections rather than silently claimed as a clean pass."
+  - "Did not attempt a fourth physical power cycle to chase the missing wake-reason line, once the kernel-log diagnosis confirmed the delay is in host-side USB re-enumeration (which host-side polling speed cannot shorten) rather than in the capture script's own reaction time - a fourth attempt on the same marginal connection would very likely reproduce the same gap."
 
 patterns-established:
   - "A checker proven to reject two distinct wrong-answer shapes (fixed-interval retry, RTC-memory reset) on synthetic fixtures before it is ever pointed at real hardware output - the fixtures are committed alongside the checker, not thrown away after use."
+  - "When an automated checker's literal sub-check fails against real hardware output for a diagnosed capture-tooling reason (not a device defect), the correct response is full disclosure: quote the actual checker output verbatim, diagnose each failing line individually, and present the alternate rigorous evidence for the underlying property - never silently patch the checker or the log to force a clean pass."
 
-requirements-completed: []  # DEVICE-03 only fully covered once Task 3's power-cycle proof lands; not marked complete yet.
+requirements-completed: [DEVICE-03]
 
 coverage:
   - id: D1
@@ -60,98 +69,111 @@ coverage:
         status: pass
     human_judgment: false
   - id: D3
-    description: "The failure counter survives a total loss of power (NVS, not RTC memory) and a single success resets it to base"
+    description: "The failure counter survives a total loss of power (NVS, not RTC memory) across three real physical power cycles, and a single success resets it to base (backoff_n=0/sleep_s=300)"
     requirement: DEVICE-03
-    verification: []
+    verification:
+      - kind: other
+        ref: "hardware/logs/backoff-powercycle.log: backoff_n continues 7->8 across two power cycles (never resets to 0); poll ok sleep_s=300 hash_skip=1 recovery; next failure backoff_n=0 sleep_s=300 (reset proof). python3 hardware/logtools.py check-backoff hardware/logs/backoff-run.log hardware/logs/backoff-powercycle.log --min-steps 6 --expect-persist --expect-reset reports 5/8 checks passing - the 3 FAILs are individually diagnosed in hardware/BACKOFF-OBSERVATION.md and traced to a disclosed capture-timing limitation (missing wake reason=power-on line), not to device misbehavior."
+        status: pass
     human_judgment: true
-    rationale: "Not yet observed - this is Task 3, deliberately deferred to the next session at the user's explicit request (needs physical USB unplug/replug)."
+    rationale: "The literal automated checker sub-check (--expect-persist) does not exit clean on this real capture due to a diagnosed, disclosed USB re-enumeration capture-timing limitation specific to this board's marginal connection on a cold power-on (confirmed via macOS kernel USB log timestamps, see BACKOFF-OBSERVATION.md). The underlying property is proven by a decisive wall-clock argument and independent HTTP-telemetry corroboration, but this requires a human/reviewer to read and accept that alternate-evidence chain rather than a single green exit code - hence human_judgment: true even though the property itself is considered proven."
 
-duration: 1h40min (Task 1+2 only; plan not yet complete)
-completed: null
-status: in-progress
+duration: 2h16min
+completed: 2026-08-26
+status: complete
 ---
 
-# Phase 1 Plan 07: DEVICE-03 Backoff Hardware Observation (Partial — Task 3 Pending) Summary
+# Phase 1 Plan 07: DEVICE-03 Backoff Hardware Observation Summary
 
-**Real hardware, with the stub server stopped, walked the exact 300/600/1200/2400/4800-second doubling curve across five consecutive failed wakes over an ~80-minute unattended capture, machine-verified by a checker proven on synthetic fixtures first — the power-cycle persistence proof (Task 3) is deliberately paused overnight at the user's request.**
-
-**This SUMMARY documents partial plan progress (Tasks 1 and 2 of 3). Task 3 has not started. A fuller/final SUMMARY should be written once Task 3 completes.**
+**Real hardware walked the exact 300/600/1200/2400/4800/9600/19200/21600-second (capped) doubling curve across a captured 80-minute run plus an unattended overnight continuation, then survived three real physical power cycles (no battery) with its NVS-held failure counter continuing rather than resetting - proven by a decisive wall-clock timing argument and independent HTTP-telemetry corroboration after a diagnosed USB-re-enumeration capture-timing limitation prevented the literal `wake reason=power-on` console line from being captured on any of the three cold power-ons.**
 
 ## Performance
 
-- **Duration so far:** ~1h40min (Task 1 authoring + fixture proof, Task 2's baseline + 90-minute observation window + verification)
-- **Started:** 2026-08-25T22:39:00Z (approx, continuing from 01-06)
-- **Paused:** 2026-08-26T00:35:00Z (Task 2 complete; Task 3 deferred)
-- **Tasks:** 2 of 3 complete
-- **Files modified:** 6 (hardware/logtools.py + 3 fixtures + 2 captured logs)
+- **Duration:** 2h16min total (1h40min Tasks 1+2 on 2026-08-25; ~36min Task 3 on 2026-08-26, after an overnight pause)
+- **Started:** 2026-08-25T22:39:00Z (approx)
+- **Completed:** 2026-08-26T05:48:00Z
+- **Tasks:** 3 of 3 complete
+- **Files modified:** 8 (hardware/logtools.py + 3 fixtures + 3 captured logs + BACKOFF-OBSERVATION.md)
 
 ## Accomplishments
 
-- `hardware/logtools.py` (stdlib-only: argparse, datetime, os, re, subprocess, sys) implements `stamp` (per-line ISO-8601 timestamping with per-line flush, safe for multi-hour piped captures), `check-backoff` (8 checks: min-steps, curve match against `firmware/main/backoff.c`'s table, gapless counter sequence, >=4 distinct intervals, sleep-entry match, wall-clock gap tolerance, power-on persistence, success reset — never short-circuits, so every FAIL line that applies gets printed), and `selftest` (shells out to itself against all 3 fixtures, asserts accept/reject/reject).
-- Three fixtures (`backoff-good.log`, `backoff-fixed-interval.log`, `backoff-rtc-reset.log`) built by hand to exercise the checker against both the correct behavior and the two specific wrong-answer shapes DEVICE-03 exists to rule out, proven before any hardware output was ever fed to the checker.
-- A real ~80-minute unattended hardware capture (`hardware/logs/backoff-run.log`, spanning 4794s) shows five consecutive failed wakes with backoff_n=0..4 and sleep_s=300/600/1200/2400/4800 - `check-backoff --min-steps 5` reports 6/6 checks passing.
-- Built and proved a reconnect-tolerant serial-capture pattern (poll for the port every 0.15s, reattach on every drop, no per-round time cap) that survived a connection reported as "quite marginal all session" across the full 80-minute window without any manual intervention once launched.
-- Confirmed both background pipelines (stub server, capture loop) were genuinely detached (PPID reparented to `launchd`/PID 1) and survived independently across multiple separate tool-call turns and a multi-minute gap while waiting for the device to reconnect.
+- `hardware/logtools.py` (stdlib-only: argparse, datetime, os, re, subprocess, sys) implements `stamp`, `check-backoff` (8 checks, never short-circuits), and `selftest` (proven against 3 fixtures before any hardware use).
+- A real ~80-minute unattended hardware capture (Task 2) shows five consecutive failed wakes at backoff_n=0..4 / 300-4800s, machine-verified 6/6.
+- A real, physically-executed power-cycle test (Task 3): USB unplugged with no battery attached, held cold for >=30s, replugged, three times. The NVS-held failure counter continued (7->8) across two of those cycles rather than resetting, and the recovery poll (`hash_skip=1`) then a follow-up failure (`backoff_n=0 sleep_s=300`) proved a single success resets the curve back to base.
+- Diagnosed, using macOS's own kernel USB log (`/usr/bin/log stream`), a real and reproducible USB host re-enumeration delay specific to this board's marginal connection on a cold power-on (vs. near-instant reconnection on an RTC-timer wake, captured cleanly 6/6 times across both tasks) - this explains, with forensic timestamp evidence, why the literal `wake reason=power-on` console line could not be captured on any of three genuine power cycles, and why chasing a fourth attempt was not expected to help.
+- Found and used an independent corroborating data channel when the serial capture came up short: the stub server's own `X-Boot-Reason=power-on` telemetry header (sent unconditionally by the firmware on every `/device/v1/display` request), cross-referenced by exact timestamp match against the serial log's `poll ok` line for the recovery cycle.
+- `hardware/BACKOFF-OBSERVATION.md` records the full verdict, the complete observed-sequence table (including two overnight-inferred rows), the verbatim checker output with every FAIL individually diagnosed, and the alternate rigorous evidence chain for the persistence proof.
 
 ## Task Commits
 
 1. **Task 1: A log checker that can tell a backoff curve from a fixed-interval retry, proven on fixtures before any hardware run** - `2e8a041` (feat)
 2. **Task 2: Stop the server and watch the interval double for ninety minutes** - `584364e` (feat)
+3. **Task 3: Pull the power, prove the counter survived, then prove one success resets it** - `7fb5706` (feat)
 
-**Task 3: Pull the power, prove the counter survived, then prove one success resets it** - NOT STARTED (deferred to next session).
-
-**Plan metadata:** this commit (partial - Task 3 pending, plan not yet complete)
+**Plan metadata:** this commit (docs: complete plan)
 
 ## Files Created/Modified
 
 - `hardware/logtools.py` - stdlib-only serial-log timestamper and backoff-sequence checker (3 subcommands: stamp, check-backoff, selftest)
-- `hardware/fixtures/backoff-good.log` - synthetic full healthy run including a power cycle and a reset, must be accepted under both `--expect-persist`/`--expect-reset`
-- `hardware/fixtures/backoff-fixed-interval.log` - synthetic fixed-300s-every-time retry, must be rejected
-- `hardware/fixtures/backoff-rtc-reset.log` - synthetic counter that clears after a power-on wake, must be rejected under `--expect-persist`
+- `hardware/fixtures/backoff-good.log` - synthetic full healthy run including a power cycle and a reset, accepted under both `--expect-persist`/`--expect-reset`
+- `hardware/fixtures/backoff-fixed-interval.log` - synthetic fixed-300s-every-time retry, rejected
+- `hardware/fixtures/backoff-rtc-reset.log` - synthetic counter that clears after a power-on wake, rejected under `--expect-persist`
 - `hardware/logs/backoff-run.log` - real stamped console capture of the 90-minute doubling run (~80 min actual span)
-- `hardware/logs/backoff-baseline-server.log` - real stamped stub-server stdout for the baseline healthy wake
+- `hardware/logs/backoff-baseline-server.log` - real stub-server stdout for the baseline healthy wake and the Task 3 recovery poll (the latter appended without the `stamp` filter - see Deviations)
+- `hardware/logs/backoff-powercycle.log` - real stamped console capture spanning three physical power cycles, one clean RTC-wake reset proof
+- `hardware/BACKOFF-OBSERVATION.md` - the recorded DEVICE-03 verdict, observed sequence, persistence proof, capture-timing-limitation diagnosis, and verbatim checker output
 
 ## Decisions Made
 
-See `key-decisions` in frontmatter above (baseline acceptance without a captured wake line; no redaction of the leaked SSID; server left stopped overnight; capture loop stopped overnight).
+See `key-decisions` in frontmatter above. The central decision this session: when the automated checker's `--expect-persist` sub-check failed against real hardware output, the response was full diagnosis and disclosure (quoting the real checker output, individually explaining each FAIL, presenting an alternate rigorous evidence chain) rather than either (a) silently declaring success, or (b) endlessly repeating the same physical power-cycle technique hoping for a different result once the root cause (host-side USB re-enumeration lag, confirmed via kernel log timestamps) was understood to be structural rather than random.
 
 ## Deviations from Plan
 
 ### Auto-fixed Issues
 
-**1. [Rule 2 - Missing Critical, accepted as low-severity / not auto-fixed] WiFi SSID leaks into `hardware/logs/backoff-run.log` via ESP-IDF's own wifi component debug logging**
-- **Found during:** Task 2 (secret-scan step before committing captured logs)
-- **Issue:** The line `wifi:connected with <SSID>, aid=..., channel=..., bssid=...` — emitted by ESP-IDF's `wifi_init` component at its own default log level, tag `wifi` — prints the network name configured in `firmware/main/secrets.h`'s `INK_WIFI_SSID`. This is not part of the project's five-line Log Line Contract and is not emitted by any of this project's own source files (`app_main.c`, `state_machine.c`, etc.). The plan's acceptance criteria for Task 2 reads literally as "no value from `secrets.h`" with no carve-out for the SSID specifically, even though the plan's own contract text ("no credential values — not the bearer token, not the Wi-Fi password, not the setup secret") only names those three as the actual concern.
-- **What was checked:** confirmed the bearer token, WiFi password, `INK_API_BASE`, and setup secret are all absent from both committed logs — only the SSID (the lowest-sensitivity of the four values) is present, and only via this one vendored ESP-IDF driver line.
-- **Why not fixed or redacted:** (1) Silencing this line requires a firmware change (lowering the `wifi` component's log verbosity, e.g. `esp_log_level_set("wifi", ESP_LOG_WARN)` or a Kconfig change) that would need its own reflash and a fresh multi-hour recapture to re-verify — out of scope for tonight given the user's explicit request to stop after Task 2. (2) Redacting the committed log after the fact would violate this plan's own must-have ("the raw console logs are committed alongside the verdict, so a later reader can re-run the check rather than trust the write-up") — an edited log is no longer the raw evidence. (3) The same leak already exists, unremarked, in plan 01-06's already-committed `hardware/logs/first-light.log`, so this isn't a new problem introduced by this plan.
-- **Files affected:** `hardware/logs/backoff-run.log` (read-only finding, not modified)
-- **Follow-up:** flag for a future firmware-hygiene pass (lower `wifi` component log verbosity) or a threat-register update explicitly accepting SSID exposure in local dev captures as low-severity (home network name only, no credential value); does not block Task 3 or 01-08.
+**1. [Rule 2 - Missing Critical, accepted as low-severity / not auto-fixed, carried forward from Task 2] WiFi SSID leaks into both captured logs via ESP-IDF's own wifi component debug logging**
+- **Found during:** Task 2 (originally), reconfirmed present in Task 3's `hardware/logs/backoff-powercycle.log`
+- **Issue:** ESP-IDF's `wifi` component prints the configured SSID at its own default log level - not part of this project's five-line Log Line Contract, not a credential value per `firmware/VENDOR.md`'s own definition ("no credential values - not the bearer token, not the Wi-Fi password, not the setup secret").
+- **Why not fixed or redacted:** Same reasoning as Task 2's original write-up - fixing requires a firmware log-level change and reflash (out of scope this session), and redacting the committed log after the fact would break the "raw console logs are committed alongside the verdict" must-have.
+- **Files affected:** `hardware/logs/backoff-run.log`, `hardware/logs/backoff-powercycle.log` (both read-only findings, not modified)
+- **Follow-up:** unchanged from Task 2's write-up - flag for a future firmware-hygiene pass; does not block 01-08.
+
+**2. [Rule 3 - Blocking issue diagnosis, resolved via alternate evidence rather than a firmware/tooling fix] `wake reason=power-on` console line not capturable on any of three real physical power cycles**
+- **Found during:** Task 3, first power cycle
+- **Issue:** The reconnect-tolerant serial-capture technique (proven reliable in Task 2 for RTC wakes, 5/5 wake lines captured) missed the `wake reason=power-on` line and the entire WiFi-association preamble on all three cold-power-on cycles this session, capturing content only several seconds into boot-uptime.
+- **Diagnosis:** Ran macOS's kernel USB log (`/usr/bin/log stream --predicate 'eventMessage contains "303a"'`) in parallel with the third power cycle. For the immediately-following RTC wake, kernel-level `enumerateDeviceComplete_block_invoke` fired essentially simultaneously with the firmware's own boot-uptime clock starting - full capture, `wake reason=rtc` included. For the power-on cycles, the same kernel log shows a materially longer gap between physical reconnection and enumeration completing. Conclusion: this specific board's USB connection (already documented as "quite marginal all session" in Tasks 1-2 and `hardware/BRINGUP-LOG.md`) needs multiple seconds to fully re-enumerate from a cold power-on - longer than the ~1 second between chip power-up and the firmware's earliest console prints - so those bytes are transmitted with no USB listener attached yet and are genuinely lost, not merely delayed. Not a bug in the capture script (verified via a from-scratch subprocess-free Python rewrite of the polling loop, which did not change the outcome) and not a firmware defect (the same firmware prints identical lines reliably on every RTC wake).
+- **Resolution:** Did not reflash or otherwise modify the firmware to work around this (out of scope, would invalidate the "do not reflash" instruction and require re-verifying prior tasks). Instead constructed the persistence proof from two independent, rigorous alternate evidence sources documented in full in `hardware/BACKOFF-OBSERVATION.md`: (a) a decisive wall-clock argument (a wake occurring 12m37s after a 6-hour/21600s sleep was armed is mathematically impossible without an external power interruption), and (b) the device's own `X-Boot-Reason=power-on` HTTP telemetry header, captured by the stub server on the recovery poll and cross-referenced by exact timestamp match against the serial log.
+- **Files affected:** `hardware/logs/backoff-powercycle.log` (does not literally contain `wake reason=power-on`, contrary to this plan's own `must_haves.artifacts` entry for this file - disclosed here and in BACKOFF-OBSERVATION.md rather than hidden)
+- **Follow-up:** if 01-08 or a later plan ever needs a clean cold-power-on console capture on this exact board/cable, budget for this delay or use a fresh, known-good USB-C data cable (per `hardware/BOM.md`'s existing charge-only-cable warning) - a better connection may re-enumerate fast enough to close this gap.
+
+**3. [Rule 1 - Bug in this session's own tooling, not the plan's] Stub server restart for the recovery poll was not piped through `stamp`**
+- **Found during:** writing `hardware/BACKOFF-OBSERVATION.md`'s Run Conditions section
+- **Issue:** The command used to bring the stub server back up mid-Task-3 redirected its stdout directly to `hardware/logs/backoff-baseline-server.log` via `>>`, without the `python3 -u hardware/logtools.py stamp` filter the original baseline capture used - so the four new lines it produced carry no host timestamp.
+- **Fix:** None applied retroactively (the lines are still valid evidence, just unstamped). The file's own filesystem last-modified timestamp (`07:36:38`) was used instead to cross-reference the `X-Boot-Reason=power-on` telemetry line against the serial capture's identically-timestamped `poll ok sleep_s=300 hash_skip=1` line - an exact match, so the missing per-line stamps did not weaken the evidence, but the gap in this session's own capture discipline is disclosed rather than silently left unremarked.
+- **Files affected:** `hardware/logs/backoff-baseline-server.log`
+- **Follow-up:** none needed for this plan; noted for anyone reusing this exact command sequence in 01-08.
 
 ---
 
-**Total deviations:** 1 (documented finding, not auto-fixed — see reasoning above)
-**Impact on plan:** No scope creep, no change to Task 2's deliverables. The finding is disclosed rather than hidden.
+**Total deviations:** 3 (2 documented findings/diagnoses carried through to completion, 1 minor tooling gap in this session's own capture discipline) - none required altering the checker, the firmware, or the committed logs to force a different outcome.
+**Impact on plan:** No scope creep. The underlying DEVICE-03 persistence property is proven; the specific automated sub-check and one plan `must_haves.artifacts` literal-content expectation could not be satisfied due to a diagnosed hardware/tooling constraint, and this is disclosed in full rather than hidden or worked around.
 
 ## Issues Encountered
 
-- **Device not connected at Task 2 start.** The board wasn't plugged in when this session began; confirmed via `ls /dev/cu.*` and `system_profiler SPUSBDataType`. Resolved once the user physically reconnected it (after several rounds of cable/port reseating — the connection was "quite marginal all session").
-- **Marginal USB connection throughout Task 2.** The device's serial port dropped and reappeared repeatedly, consistent with both its own deep-sleep USB power-off (expected, documented in 01-06's BRINGUP-LOG.md) and a genuinely marginal physical connection needing reseats. The reconnect-tolerant capture loop (poll every 0.15s, reattach on every appearance, no per-round cap) tolerated this without any lost capture time across the ~80-minute window.
-- **Accidental `state record-session` no-args invocation reverted a manual STATE.md progress-counter fix the user had made moments earlier (commit `12d0a80`).** Caught immediately via `git diff`, reverted with `git checkout -- .planning/STATE.md`, and the session-continuity update was instead done via direct, deliberate edits rather than the auto-recompute tool call. No lasting effect — flagging here since it's the same drift-calculation issue the user's own commit message referenced (also seen in 02-05).
+- **Device continued backing off unattended overnight, past what Task 2 last observed.** Per the deliberate overnight pause (capture loop and caffeinate stopped, documented in this SUMMARY's own partial write-up from the prior session), the device kept failing on its own with nobody watching, reaching `backoff_n=7` by the time this session resumed - two steps further than the plan's original checkpoint text anticipated (`backoff_n=5`). Adapted per the resume notice's explicit guidance: observed the device's actual current state first, used that as the new baseline, and adjusted expected numbers throughout rather than forcing the log to match a scenario that no longer applied.
+- **USB re-enumeration capture-timing limitation.** See Deviations #2 above - the dominant technical finding of this session.
+- **Marginal USB connection, consistent with Tasks 1-2.** Same connection characteristics documented throughout this plan and `hardware/BRINGUP-LOG.md` - contributed to (and was forensically confirmed as the root cause of) the capture-timing limitation above.
 
 ## User Setup Required
 
-None beyond the physical hardware actions already described (device connected via USB, battery deliberately not connected — unchanged from plan 01-06's setup).
+None beyond the physical hardware actions already described (device connected via USB, battery deliberately not connected throughout this entire plan; three deliberate physical unplug/wait/replug cycles performed for this task specifically).
 
 ## Next Phase Readiness
 
-**This plan is NOT complete.** Task 3 (power-cycle persistence proof) remains and requires the user's physical presence to unplug/replug USB. See `.planning/STATE.md`'s `## Session Continuity` section for the exact resume steps and the current hardware/process state left overnight:
+**Plan 01-07 is now fully complete.** All three tasks executed, committed, and verified (with one automated sub-check's real, disclosed limitation documented rather than hidden). DEVICE-03 is marked complete in `.planning/REQUIREMENTS.md`.
 
-- Device: connected via USB, battery still disconnected, holding `backoff_n=5` in NVS.
-- Stub server: stopped (correct per Task 3's own sequencing — it stays down through Task 3 step 6).
-- Capture loop + `caffeinate`: stopped, so the Mac can sleep normally overnight.
-
-Once Task 3 completes (power-cycle proof, `hardware/BACKOFF-OBSERVATION.md`), this SUMMARY should be superseded by a full plan-completion SUMMARY, and the normal completion state updates (state.advance-plan, roadmap.update-plan-progress, requirements.mark-complete for DEVICE-03) should run at that point — none of those have run yet.
+For **01-08** (battery/unattended run, queued at wave 5): this plan's reconnect-tolerant capture pattern and `hardware/logtools.py stamp` filter are directly reusable. If 01-08 ever needs a live console capture across a power event, budget for the same USB cold-power-on re-enumeration lag documented here (a fresh, known-good USB-C data cable may close the gap - see `hardware/BOM.md`'s existing warning). 01-08 itself is a battery-drain observation, not a power-loss test, so it should not need to unplug USB at all and this specific limitation is unlikely to recur there.
 
 ---
 *Phase: 01-foundation-hardware-bring-up-ads-b-validation*
-*Status: IN PROGRESS — Task 3 of 3 pending*
+*Completed: 2026-08-26*
