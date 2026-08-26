@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "04"
+current_phase: 04
 current_phase_name: ci-cd-documentation-legal-compliance-github-actions-ci-tests
 status: executing
-stopped_at: 04-01 complete (.gitignore + history-wide sensitive-literal scrub, verified) - Wave 1 of 4 done, 5 plans remaining
-last_updated: "2026-08-26T19:10:00.000Z"
+stopped_at: 04-02 complete (dev tooling pins + pyproject.toml lint/coverage config + scripts/run-all-tests.sh) - Wave 2 of 4 done, 4 plans remaining
+last_updated: "2026-08-26T19:21:41.107Z"
 last_activity: 2026-08-26
-last_activity_desc: 04-01 executed - repo-root .gitignore + git-filter-repo history scrub (Categories A+B+C) verified clean
+last_activity_desc: 04-02 executed and verified
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 23
-  completed_plans: 16
-  percent: 70
+  completed_plans: 17
+  percent: 74
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 04 (ci-cd-documentation-legal-compliance-github-actions-ci-tests) — EXECUTING
-Plans: 1/6 executed (6 plans, 4 waves - 04-01 through 04-06)
-Status: 04-01 (Wave 1) complete. Developer selected scrub scope a-b-c (Categories A+B+C) at the checkpoint:decision gate; git-filter-repo rewrote all 154 commits, verified zero occurrences of the approved literals across every ref, backed by a verified bundle outside the repo tree. All 9 test harnesses still pass. Repo-root .gitignore (D-06) committed. Waves 2-4 (04-02 through 04-06) remain.
-Last activity: 2026-08-26 — 04-01 executed and verified
+Plans: 2/6 executed (6 plans, 4 waves - 04-01 through 04-06)
+Status: 04-01 (Wave 1) and 04-02 (Wave 2) complete. 04-01: developer selected scrub scope a-b-c (Categories A+B+C) at the checkpoint:decision gate; git-filter-repo rewrote all 154 commits, verified zero occurrences of the approved literals across every ref, backed by a verified bundle outside the repo tree. Repo-root .gitignore (D-06) committed. 04-02: server/requirements-dev.txt pins ruff+coverage (provenance-verified, separate from production deps); repo-root pyproject.toml configures Ruff (E4,E7,E9,F selected, E402 suppressed for 8 documented sys.path bootstraps, green on the untouched codebase) and coverage (server+stub-server scope, parallel mode, fail_under=75 vs a measured 79% baseline); scripts/run-all-tests.sh is the canonical 9-harness runner, gate-failure demonstrated and restored. All 9 test harnesses still pass. Waves 3-4 (04-03 through 04-06) remain.
+Last activity: 2026-08-26 — 04-02 executed and verified
 
-Progress: [██░░░░░░░░] 17% (Phase 4, 1/6 plans)
+Progress: [███░░░░░░░] 33% (Phase 4, 2/6 plans)
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [██░░░░░░░░] 17% (Phase 4, 1/6 plans)
 | Phase 03 P02 | 30min | 2 tasks | 4 files |
 | Phase 03 P03 | 5min | 2 gaps closed (scoped re-entry, not a fresh execution) | 3 files |
 | Phase 04 P01 | ~40min | 3 tasks (pre-work + Task 1 + Task 2 decision + Task 3 execution) | 3 files (.gitignore, SCRUB-RECORD.md, 04-01-SUMMARY.md) + history-wide content rewrite across ~154 commits |
+| Phase 04 P02 | 5min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,7 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-01 Task 2 checkpoint:decision - developer selected scrub scope a-b-c (Categories A+B+C in full) over a-only or a-b, removing the home Wi-Fi SSID/BSSID/device MAC and home street address alongside the D-05-locked VPS IP/hostname, before the one-way git-filter-repo rewrite ran
 - [Phase 04]: 04-01 Task 3 - git-filter-repo rewrote all 154 commits (--replace-text + --replace-message, since one literal only appeared in a commit message) in a scratch clone, re-homed onto main, verified zero occurrences of any approved literal across every ref; a verified git bundle backup exists outside the repo tree as the rollback path. Also deleted the stale, fully-redundant `claude/faience-blanche-mate-434eeb` branch ref (the removed 01-worktree's branch) which would otherwise have kept pre-rewrite objects reachable.
 - [Phase 04]: 04-01 repo-root .gitignore committed (D-06), extending the five existing per-subdirectory ignore files without weakening any of them; nested worktree removed and working tree cleaned ahead of the history rewrite (F4/F5)
+- [Phase 04]: 04-02 complete - Ruff restricted to E4,E7,E9,F (E402 suppressed for 8 documented sys.path bootstraps); coverage scoped to server+stub-server, parallel mode, fail_under=75 (4pts below measured 79% baseline); scripts/run-all-tests.sh is the canonical 9-harness runner for CI (04-04) and README (04-05), gate-failure demonstrated and restored
 
 ### Pending Todos
 
@@ -160,8 +162,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T19:10:00.000Z
-Stopped at: 04-01 complete (Wave 1 of 4) - .gitignore + git-history scrub verified; Waves 2-4 (04-02 through 04-06) remain
+Last session: 2026-08-26T19:21:41.107Z
+Stopped at: 04-02 complete (Wave 2 of 4) - dev tooling pins, pyproject.toml lint/coverage config, scripts/run-all-tests.sh all verified; Waves 3-4 (04-03 through 04-06) remain
 
 Resume file: None - proceed to /gsd-execute-phase 4 for the remaining waves
 
@@ -180,3 +182,9 @@ Resume file: None - proceed to /gsd-execute-phase 4 for the remaining waves
 - Every commit hash in this repo changed as a result of the rewrite (content unchanged, hashes rewritten) — any hash recorded before this session in a SUMMARY or elsewhere is now stale.
 - A verified pre-rewrite backup bundle exists outside the repo tree; its path is recorded in `SCRUB-RECORD.md` (not restated here per the no-literal-restatement rule, though it is not itself one of the scrubbed literals).
 - Next step: continue `/gsd-execute-phase 4` for Waves 2-4 (04-02 through 04-06).
+
+**State at end of this session (2026-08-26, ~19:22) — supersedes the note above:**
+
+- 04-02 complete (Wave 2): `server/requirements-dev.txt` pins `ruff==0.16.4`/`coverage==7.15.4` (provenance-verified against upstream, separate from `server/requirements.txt` so `deploy/deploy.sh` never installs them on the VPS). Repo-root `pyproject.toml` configures Ruff (`E4,E7,E9,F` selected, `E402` ignored repo-wide for 8 documented sys.path bootstrap blocks, zero findings on the untouched codebase) and coverage (`server`+`stub-server` scope, parallel mode, `fail_under=75` derived from a measured 79% production-only baseline). `scripts/run-all-tests.sh` runs all 9 harnesses, combines coverage, and enforces the threshold — demonstrated to fail when the threshold was temporarily raised to 100, then restored byte-identical. All 9 harnesses (117 checks) still pass; `git status` clean after every run.
+- Progress counters corrected in this session's STATE.md update: `state.update-progress` (SDK verb) miscounted `completed_plans` as 18 by treating `05-01-SUMMARY.md` (status: in-progress, only Task 1/3 done) as a completed plan, and separately bumped `completed_phases` to 4 incorrectly. Corrected by hand to `completed_phases: 3`, `completed_plans: 17` (7+5+3+2), `percent: 74` — matches the known SDK progress-counter bug already on file in project memory.
+- Next step: continue `/gsd-execute-phase 4` for Waves 3-4 (04-03 through 04-06).
