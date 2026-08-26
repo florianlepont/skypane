@@ -167,8 +167,27 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     poll_state = load_poll_state(state_dir)
     last_flight = poll_state.get("last_flight")
     last_confirmed_state = poll_state.get("last_confirmed_state")
+    last_route = poll_state.get("last_route")
+    previous_flight = poll_state.get("previous_flight")
+    previous_confirmed_state = poll_state.get("previous_confirmed_state")
+    previous_route = poll_state.get("previous_route")
 
     if flight is not None:
+        # D-25 (03-CONTEXT.md): two-deep flight history for the poster's
+        # current+previous layout. A genuinely NEW aircraft (a different
+        # hex than the current "last_flight") shifts the old current
+        # flight - and its resolved state/route - down into "previous"
+        # BEFORE this cycle's detection overwrites "last_flight" below.
+        # Re-detecting the SAME aircraft across consecutive poll cycles
+        # (same hex) must NOT shift anything - it is still the same
+        # current flight, not a new one.
+        new_hex = flight.get("hex")
+        old_hex = last_flight.get("hex") if isinstance(last_flight, dict) else None
+        if last_flight is not None and new_hex != old_hex:
+            previous_flight = last_flight
+            previous_confirmed_state = last_confirmed_state
+            previous_route = last_route
+
         # D-03/D-P2-04: real runway-configuration inference from the
         # aircraft's own vertical rate, with a deadband and hold-last-state
         # behaviour (server.plane.runway_config). Replaces the 02-01 stub
@@ -183,6 +202,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             # field.
             render_state = "empty"
             route_source = "n/a"
+            route = None
             rendered = render.render_panel(None, render_state)
         else:
             render_state = confirmed_state
@@ -205,10 +225,23 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
                 route_source = "miss"
             enrich.trim_cache(cache)
             poll_state["enrichment_cache"] = cache
-            rendered = render.render_panel(flight, render_state, route=route)
+            # D-25/D-26: the previous flight's own real illustration/text
+            # rides along on the same panel as the current detection's.
+            rendered = render.render_panel(
+                flight,
+                render_state,
+                route=route,
+                previous_flight=previous_flight,
+                previous_route=previous_route,
+                previous_state=previous_confirmed_state,
+            )
         panel_changed = write_panel_atomic(state_dir, rendered)
         poll_state["last_flight"] = flight
         poll_state["last_confirmed_state"] = confirmed_state
+        poll_state["last_route"] = route
+        poll_state["previous_flight"] = previous_flight
+        poll_state["previous_confirmed_state"] = previous_confirmed_state
+        poll_state["previous_route"] = previous_route
         save_poll_state(state_dir, poll_state)
     elif last_flight is not None:
         # D-04: nothing detected this cycle, but a flight was already on
