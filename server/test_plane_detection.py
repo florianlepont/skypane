@@ -22,7 +22,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 6
+EXPECTED_CHECK_COUNT = 8
 
 
 def load_fixture(name):
@@ -134,6 +134,39 @@ def main():
                 first["hex"], second["hex"])
         return True, ""
     check("select_runway3_aircraft is deterministic under input reordering", _deterministic_under_shuffle)
+
+    # 7. Default poll (no providers argument - exactly how
+    #    server/poll_loop.py:165 calls it in production) queries adsb.fi
+    #    only. Pins the 2026-08-27 default-provider demotion so this
+    #    regression cannot silently reopen.
+    def _default_poll_queries_adsbfi_only():
+        recorded = []
+
+        def recording_query_provider(name, lat, lon, radius_nm, timeout=10.0):
+            recorded.append(name)
+            return []
+
+        original_query_provider = detect.query_provider
+        detect.query_provider = recording_query_provider
+        try:
+            detect.poll_current_aircraft(geofence)
+        finally:
+            detect.query_provider = original_query_provider
+
+        if recorded != ["adsbfi"]:
+            return False, "expected default poll to query exactly ['adsbfi'], got %r" % (recorded,)
+        return True, ""
+    check("default poll (no providers arg) queries adsb.fi only", _default_poll_queries_adsbfi_only)
+
+    # 8. The airplanes.live opt-in path survives the demotion: still
+    #    selectable via --provider, but no longer in the default order.
+    def _airplaneslive_still_opt_in():
+        if "airplaneslive" not in detect.PROVIDERS:
+            return False, "airplaneslive was removed from PROVIDERS - the opt-in path must be retained"
+        if "airplaneslive" in detect.DEFAULT_PROVIDER_ORDER:
+            return False, "airplaneslive is still in DEFAULT_PROVIDER_ORDER - it must be opt-in only"
+        return True, ""
+    check("airplaneslive remains a selectable opt-in, absent from the default order", _airplaneslive_still_opt_in)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
