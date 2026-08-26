@@ -19,11 +19,27 @@ Subcommands:
                  check plus a summary line, and exits 0 only when every
                  check passed.
 
+  check-battery  Read one or more captured stub-server stdout logs
+                 (concatenated in the order given) and decide whether
+                 they show a valid unattended battery discharge run, as
+                 opposed to a run interrupted by a sleeping host or a
+                 pack that was never actually off USB power. Also
+                 computes the D-07 mAh-per-cycle figure and a two-ended
+                 projection band for candidate wake intervals. In gated
+                 mode (the default) prints one PASS/FAIL line per check
+                 plus a summary line and exits 0 only when every check
+                 passed. In --status mode, prints the same derived
+                 figures with no gating at all and always exits 0 — the
+                 daily check-in command, which must never fail a
+                 developer's routine glance just because the run has
+                 not finished yet.
+
   selftest       Run check-backoff against the three fixtures under
-                 hardware/fixtures/ with the flags each is meant to be
-                 judged under, and assert the good one is accepted while
-                 both bad ones are rejected. A checker that has never
-                 been shown a bad log has not been tested.
+                 hardware/fixtures/, and check-battery against three
+                 more, each with the flags it is meant to be judged
+                 under, and assert the good ones are accepted while the
+                 bad ones are rejected. A checker that has never been
+                 shown a bad log has not been tested.
 
 Only argparse, datetime, os, re, subprocess and sys are imported — no pip
 install, matching this phase's zero-external-install property.
@@ -72,6 +88,15 @@ WAKE_RE = re.compile(r"wake reason=([\w-]+) boot_count=(\d+)")
 POLL_OK_RE = re.compile(r"poll ok sleep_s=(\d+) hash_skip=([01])")
 POLL_FAIL_RE = re.compile(r"poll fail step=(\w+) backoff_n=(\d+) sleep_s=(\d+)")
 SLEEP_ENTER_RE = re.compile(r"sleep enter sleep_s=(\d+)")
+
+# The stub server (stub-server/byos_server.py, log_telemetry()) prints
+# battery telemetry on its own line, e.g.:
+#   "  telemetry: X-Fw-Version=0.1.0-p1 X-Boot-Reason=power-on X-Rssi=-52 X-Battery-Mv=4150"
+# after `stamp` has prefixed it with "[ISO-8601] ". The token is searched
+# for anywhere in the line, tolerating whatever separator/surrounding
+# text the upstream server code emits, rather than matched against a
+# reformatted expectation.
+BATTERY_MV_RE = re.compile(r"X-Battery-Mv\D*(\d+)")
 
 
 class Event(object):
@@ -271,6 +296,211 @@ def check_reset(events):
         "no failed poll reporting backoff_n=0 sleep_s=300 was found after a successful poll")
 
 
+# --- Battery discharge-run analysis (D-07) ------------------------------
+#
+# check-battery reads captured stub-server stdout (not device console
+# output) and treats every timestamped line carrying an X-Battery-Mv
+# telemetry reading as one observed poll, and therefore one observed
+# wake - the device polls exactly once per wake, so this log doubles as
+# a wake counter and a voltage log.
+
+
+class BatteryPoll(object):
+    __slots__ = ("ts", "mv", "line")
+
+    def __init__(self, ts, mv, line):
+        self.ts = ts
+        self.mv = mv
+        self.line = line
+
+
+def load_battery_polls(paths):
+    """Return (all_matches, polls): all_matches is the count of lines
+    carrying an X-Battery-Mv token regardless of whether they also carry
+    a timestamp; polls is the list of BatteryPoll for the lines that
+    carry both. The distinction lets check_timestamps_and_min_polls tell
+    "no battery telemetry at all" apart from "battery telemetry present,
+    but the stamp filter was left out of the capture pipeline".
+    """
+    all_matches = 0
+    polls = []
+    for path in paths:
+        with open(path, "r", errors="replace") as fh:
+            for line in fh:
+                m = BATTERY_MV_RE.search(line)
+                if not m:
+                    continue
+                all_matches += 1
+                ts = parse_timestamp(line)
+                if ts is not None:
+                    polls.append(BatteryPoll(ts, int(m.group(1)), line))
+    return all_matches, polls
+
+
+def compute_battery_stats(polls, interval_s, capacity_mah, boot_start, boot_end):
+    """Compute the derived figures from a list of BatteryPoll, in the
+    order given (assumed chronological, matching the order the logs
+    were concatenated in). Uses windowed means (first/last tenth of
+    samples) rather than single first/last readings, because a single
+    instantaneous reading taken while the radio is transmitting is
+    noisy enough to mislead on its own.
+    """
+    observed = len(polls)
+    first, last = polls[0], polls[-1]
+    span_s = (last.ts - first.ts).total_seconds()
+    span_days = span_s / 86400.0
+    nominal = (span_s / interval_s) if interval_s else 0.0
+    coverage = (observed / nominal) if nominal > 0 else 0.0
+
+    max_gap = 0.0
+    for a, b in zip(polls, polls[1:]):
+        gap_s = (b.ts - a.ts).total_seconds()
+        gap_intervals = (gap_s / interval_s) if interval_s else 0.0
+        if gap_intervals > max_gap:
+            max_gap = gap_intervals
+
+    tenth = max(1, observed // 10)
+    open_mv = sum(p.mv for p in polls[:tenth]) / float(tenth)
+    close_mv = sum(p.mv for p in polls[-tenth:]) / float(tenth)
+    drop_mv = open_mv - close_mv
+    last_mv = last.mv
+
+    boot_delta = None
+    if boot_start is not None and boot_end is not None:
+        boot_delta = boot_end - boot_start
+
+    if boot_delta is not None:
+        cycle_count, cycle_source = boot_delta, "device boot-counter delta"
+    elif observed > 0:
+        cycle_count, cycle_source = observed, "observed poll count"
+    else:
+        cycle_count, cycle_source = nominal, "nominal count"
+
+    mah_per_day = (capacity_mah / span_days) if span_days > 0 else None
+    mah_per_cycle = (capacity_mah / cycle_count) if cycle_count else None
+
+    return {
+        "first_ts": first.ts, "last_ts": last.ts,
+        "span_s": span_s, "span_days": span_days,
+        "observed": observed, "nominal": nominal, "coverage": coverage,
+        "max_gap": max_gap,
+        "open_mv": open_mv, "close_mv": close_mv, "drop_mv": drop_mv,
+        "last_mv": last_mv,
+        "boot_delta": boot_delta,
+        "cycle_count": cycle_count, "cycle_source": cycle_source,
+        "mah_per_day": mah_per_day, "mah_per_cycle": mah_per_cycle,
+    }
+
+
+def check_timestamps_and_min_polls(all_matches, polls):
+    name = "logs carry timestamps and at least two battery-bearing polls"
+    if not all_matches:
+        return CheckResult(name, "FAIL",
+            "no X-Battery-Mv telemetry found in the supplied log(s)")
+    if not polls:
+        return CheckResult(name, "FAIL",
+            "battery telemetry is present but no line carries a timestamp "
+            "- the stamp filter was left out of the capture pipeline, "
+            "destroying the elapsed-time evidence")
+    if len(polls) < 2:
+        return CheckResult(name, "FAIL",
+            "only %d timestamped battery poll(s) found, need at least 2" %
+            len(polls))
+    return CheckResult(name, "PASS")
+
+
+def check_span(stats, min_days):
+    name = "run spans at least %g day(s)" % min_days
+    if stats["span_days"] >= min_days:
+        return CheckResult(name, "PASS")
+    return CheckResult(name, "FAIL",
+        "span is %.3f day(s) (%.0fs), need >= %g - a pack that empties "
+        "inside a day is not a battery-life result" %
+        (stats["span_days"], stats["span_s"], min_days))
+
+
+def check_coverage(stats, min_coverage):
+    name = "coverage is at least %.2f" % min_coverage
+    if stats["coverage"] >= min_coverage:
+        return CheckResult(name, "PASS")
+    return CheckResult(name, "FAIL",
+        "coverage is %.3f (observed=%d, nominal=%.1f), below %.2f - a "
+        "sleeping host or a moved DHCP lease is the likely cause" %
+        (stats["coverage"], stats["observed"], stats["nominal"], min_coverage))
+
+
+def check_max_gap(stats, max_gap_intervals):
+    name = "no gap between consecutive polls exceeds %g interval(s)" % max_gap_intervals
+    if stats["max_gap"] <= max_gap_intervals:
+        return CheckResult(name, "PASS")
+    return CheckResult(name, "FAIL",
+        "largest gap between consecutive polls is %.2f interval(s), "
+        "exceeds %g" % (stats["max_gap"], max_gap_intervals))
+
+
+def check_mv_drop(stats, min_mv_drop):
+    name = "millivolt drop between opening and closing windows is at least %d mV" % min_mv_drop
+    if stats["drop_mv"] >= min_mv_drop:
+        return CheckResult(name, "PASS")
+    return CheckResult(name, "FAIL",
+        "drop is %.1f mV (opening mean=%.1f, closing mean=%.1f), below "
+        "%d mV - the pack may never have left USB power" %
+        (stats["drop_mv"], stats["open_mv"], stats["close_mv"], min_mv_drop))
+
+
+def check_depleted(stats, cutoff_mv):
+    name = "last observed millivolt reading is at or below the %d mV cutoff" % cutoff_mv
+    if stats["last_mv"] <= cutoff_mv:
+        return CheckResult(name, "PASS")
+    return CheckResult(name, "FAIL",
+        "last observed reading is %d mV, above the %d mV cutoff - the "
+        "run did not end by depletion" % (stats["last_mv"], cutoff_mv))
+
+
+def check_boot_reconciliation(stats, min_coverage):
+    name = "device boot-counter delta does not exceed observed polls by more than 1/min-coverage"
+    delta = stats["boot_delta"]
+    observed = stats["observed"]
+    limit = (observed * (1.0 / min_coverage)) if min_coverage else float("inf")
+    if delta <= limit:
+        return CheckResult(name, "PASS")
+    return CheckResult(name, "FAIL",
+        "boot-counter delta is %d, observed polls is %d, limit is %.2f - "
+        "the device woke far more often than it polled, i.e. it was "
+        "waking and failing, not waking and polling" %
+        (delta, observed, limit))
+
+
+def print_battery_derived(stats, interval_s):
+    print("span: %.3f day(s) (%.0fs), from %s to %s" %
+        (stats["span_days"], stats["span_s"], stats["first_ts"].isoformat(),
+         stats["last_ts"].isoformat()))
+    boot_part = ""
+    if stats["boot_delta"] is not None:
+        boot_part = " device-boot-delta=%d" % stats["boot_delta"]
+    print("cycle counts: observed=%d nominal=%.2f%s" %
+        (stats["observed"], stats["nominal"], boot_part))
+    print("coverage: %.3f" % stats["coverage"])
+    if stats["mah_per_day"] is not None:
+        print("mAh/day: %.2f" % stats["mah_per_day"])
+    if stats["mah_per_cycle"] is not None:
+        print("mAh/cycle: %.3f (dividing by %s = %.2f cycles)" %
+            (stats["mah_per_cycle"], stats["cycle_source"], stats["cycle_count"]))
+    print("battery mV: opening window mean=%.1f closing window mean=%.1f "
+        "drop=%.1f last=%d" %
+        (stats["open_mv"], stats["close_mv"], stats["drop_mv"], stats["last_mv"]))
+    print("projection band (days) for candidate wake intervals - lower "
+        "bound assumes all drain is standing leakage (life unchanged), "
+        "upper bound assumes all drain is per-wake (life scales linearly "
+        "with the interval); a single-cadence run cannot separate the two:")
+    for candidate in (300, 900, 3600):
+        ratio = (candidate / float(interval_s)) if interval_s else 0.0
+        per_wake_life = stats["span_days"] * ratio
+        leakage_life = stats["span_days"]
+        lo, hi = sorted((per_wake_life, leakage_life))
+        print("  %5ds interval: %.2f-%.2f days" % (candidate, lo, hi))
+
+
 # --- Subcommands --------------------------------------------------------
 
 
@@ -319,22 +549,82 @@ def cmd_check_backoff(args):
     return 0 if ok else 1
 
 
+def cmd_check_battery(args):
+    all_matches, polls = load_battery_polls(args.logs)
+    ts_check = check_timestamps_and_min_polls(all_matches, polls)
+
+    if args.status:
+        # Never gates, never fails - this is the daily check-in command.
+        # Prints no PASS/FAIL lines at all, only the derived figures (or,
+        # if there's not yet enough data, a plain one-line notice).
+        if ts_check.status == "FAIL":
+            print("battery: %s" % ts_check.reason)
+            return 0
+        stats = compute_battery_stats(polls, args.interval_s, args.capacity_mah,
+                                       args.boot_start, args.boot_end)
+        print_battery_derived(stats, args.interval_s)
+        age_s = (datetime.datetime.now() - polls[-1].ts).total_seconds()
+        print("age of last poll: %.0f s" % age_s)
+        return 0
+
+    results = [ts_check]
+    if ts_check.status == "FAIL":
+        for r in results:
+            print(r.line())
+        print("battery: %d/%d checks pass" % (0, len(results)))
+        return 1
+
+    stats = compute_battery_stats(polls, args.interval_s, args.capacity_mah,
+                                   args.boot_start, args.boot_end)
+    results.append(check_span(stats, args.min_days))
+    results.append(check_coverage(stats, args.min_coverage))
+    results.append(check_max_gap(stats, args.max_gap_intervals))
+    results.append(check_mv_drop(stats, args.min_mv_drop))
+    if args.expect_depleted:
+        results.append(check_depleted(stats, args.cutoff_mv))
+    if args.boot_start is not None and args.boot_end is not None:
+        results.append(check_boot_reconciliation(stats, args.min_coverage))
+
+    for r in results:
+        print(r.line())
+
+    total = len(results)
+    passed = sum(1 for r in results if r.status in ("PASS", "SKIP"))
+    print("battery: %d/%d checks pass" % (passed, total))
+
+    print_battery_derived(stats, args.interval_s)
+
+    ok = all(r.status != "FAIL" for r in results)
+    return 0 if ok else 1
+
+
 def cmd_selftest(_args):
-    """Run check-backoff, as a subprocess of this same script, against
-    each of the three fixtures with the flags each one is meant to be
-    judged under. Asserts the good fixture is accepted (exit 0) and
-    both negative fixtures are rejected (non-zero exit).
+    """Run check-backoff and check-battery, each as a subprocess of this
+    same script, against the fixtures under hardware/fixtures/ with the
+    flags each one is meant to be judged under. Asserts every good
+    fixture is accepted (exit 0) and every negative fixture is rejected
+    (non-zero exit).
     """
     script_path = os.path.abspath(__file__)
+    battery_common = ["--interval-s", "3600", "--min-days", "1",
+                       "--capacity-mah", "3000"]
     cases = [
-        ("backoff-good.log", ["--expect-persist", "--expect-reset"], True),
-        ("backoff-fixed-interval.log", [], False),
-        ("backoff-rtc-reset.log", ["--expect-persist"], False),
+        ("check-backoff", "backoff-good.log",
+         ["--expect-persist", "--expect-reset"], True),
+        ("check-backoff", "backoff-fixed-interval.log", [], False),
+        ("check-backoff", "backoff-rtc-reset.log",
+         ["--expect-persist"], False),
+        ("check-battery", "battery-good.log",
+         battery_common + ["--expect-depleted"], True),
+        ("check-battery", "battery-gap.log",
+         battery_common + ["--expect-depleted"], False),
+        ("check-battery", "battery-flat-mv.log",
+         battery_common + ["--expect-depleted"], False),
     ]
     all_ok = True
-    for fixture, flags, should_be_accepted in cases:
+    for command, fixture, flags, should_be_accepted in cases:
         path = os.path.join(FIXTURES_DIR, fixture)
-        cmd = [sys.executable, script_path, "check-backoff", path] + flags
+        cmd = [sys.executable, script_path, command, path] + flags
         proc = subprocess.run(cmd, capture_output=True, text=True)
         actually_accepted = (proc.returncode == 0)
         requirement = "accepted" if should_be_accepted else "rejected"
@@ -373,8 +663,43 @@ def build_parser():
     cb.add_argument("--expect-reset", action="store_true",
         help="require a success to reset the counter back to 0 / 300s")
 
+    bat = sub.add_parser("check-battery",
+        help="check captured stub-server stdout for a valid unattended "
+             "battery discharge run and compute the D-07 mAh/cycle figure")
+    bat.add_argument("logs", nargs="+",
+        help="log file path(s), read and concatenated in the order given")
+    bat.add_argument("--capacity-mah", type=int, required=True,
+        help="the pack's rated capacity in mAh")
+    bat.add_argument("--interval-s", type=int, default=300,
+        help="the server's configured sleep value in seconds (default: 300)")
+    bat.add_argument("--min-days", type=float, default=1,
+        help="minimum run span in days required (default: 1)")
+    bat.add_argument("--min-coverage", type=float, default=0.95,
+        help="minimum observed/nominal poll coverage required (default: 0.95)")
+    bat.add_argument("--max-gap-intervals", type=float, default=3,
+        help="maximum allowed gap between consecutive polls, in "
+             "intervals (default: 3)")
+    bat.add_argument("--min-mv-drop", type=int, default=100,
+        help="minimum millivolt drop between opening and closing "
+             "windows required (default: 100)")
+    bat.add_argument("--cutoff-mv", type=int, default=3400,
+        help="millivolt value at or below which the pack is considered "
+             "depleted (default: 3400)")
+    bat.add_argument("--boot-start", type=int, default=None,
+        help="device NVS boot counter read before the run started")
+    bat.add_argument("--boot-end", type=int, default=None,
+        help="device NVS boot counter read after the run ended "
+             "(post-mortem boot already subtracted out, if it incremented it)")
+    bat.add_argument("--expect-depleted", action="store_true",
+        help="require the run to have ended by depletion (last reading "
+             "at or below --cutoff-mv)")
+    bat.add_argument("--status", action="store_true",
+        help="ungated daily check-in: print derived figures only, no "
+             "PASS/FAIL gating, always exits 0")
+
     sub.add_parser("selftest",
-        help="run check-backoff against hardware/fixtures/*.log and assert outcomes")
+        help="run check-backoff and check-battery against "
+             "hardware/fixtures/*.log and assert outcomes")
 
     return p
 
@@ -386,6 +711,8 @@ def main(argv=None):
         return 0
     if args.command == "check-backoff":
         return cmd_check_backoff(args)
+    if args.command == "check-battery":
+        return cmd_check_battery(args)
     if args.command == "selftest":
         return cmd_selftest(args)
     return 1  # pragma: no cover — argparse enforces `required=True` above
