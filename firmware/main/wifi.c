@@ -105,8 +105,8 @@ esp_err_t fp_wifi_connect(int timeout_ms)
     }
 
     wifi_config_t cfg = {0};
-    strlcpy((char *)cfg.sta.ssid, INK_WIFI_SSID, sizeof(cfg.sta.ssid));
-    strlcpy((char *)cfg.sta.password, INK_WIFI_PASS, sizeof(cfg.sta.password));
+    strlcpy((char *)cfg.sta.ssid, SKYPANE_WIFI_SSID, sizeof(cfg.sta.ssid));
+    strlcpy((char *)cfg.sta.password, SKYPANE_WIFI_PASS, sizeof(cfg.sta.password));
 
     s_retries = 0;
     xEventGroupClearBits(s_events, CONNECTED_BIT | FAILED_BIT);

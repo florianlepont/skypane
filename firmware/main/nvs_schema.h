@@ -1,12 +1,12 @@
 /* SPDX-FileCopyrightText: 2026 YODE PTE LTD
  * SPDX-License-Identifier: Apache-2.0 */
-/* Ink Frame NVS schema — trimmed from flightportrait/frame's own
+/* SkyPane NVS schema — trimmed from flightportrait/frame's own
  * `main/nvs_schema.h` (@ ce3335fc), which defines roughly thirty keys
  * supporting BLE provisioning, possession pairing, OTA build-profile
  * tracking, shipping mode and Security-2/QR state. None of that is
  * compiled into this project this phase (see firmware/VENDOR.md
- * "Deliberately Not Vendored"). This is the COMPLETE list of what an
- * Ink Frame device remembers in Phase 1: the namespace, plus exactly
+ * "Deliberately Not Vendored"). This is the COMPLETE list of what a
+ * SkyPane device remembers in Phase 1: the namespace, plus exactly
  * four keys.
  *
  * A later phase reintroducing provisioning MUST migrate this namespace
@@ -18,7 +18,7 @@
  */
 #pragma once
 
-#define FP_NVS_NAMESPACE "inkframe"
+#define FP_NVS_NAMESPACE "skypane"
 
 /* Bearer token returned by POST /device/v1/setup; sent thereafter as
  * `Authorization: Bearer <token>` on every /display and /log call. */

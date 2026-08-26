@@ -1,4 +1,4 @@
-# Ink Frame — CI pipeline (D-07 through D-12).
+# SkyPane — CI pipeline (D-07 through D-12).
 #
 # Single workflow file, two jobs: `test` runs blocking lint + all 9
 # harnesses + coverage threshold + attribution check on every push and

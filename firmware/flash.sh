@@ -16,7 +16,7 @@
 # flasher_args.json, never hand-typed, so they can never drift from what
 # build.sh actually produced. After writing, the application region is
 # read back off the device and compared byte-for-byte against
-# build-ee02/inkframe.bin; a partial or corrupted flash is caught here,
+# build-ee02/skypane.bin; a partial or corrupted flash is caught here,
 # not misdiagnosed later as a firmware bug (T-01-06-01).
 
 set -eu
@@ -89,7 +89,7 @@ esptool --chip "${CHIP}" --port "${PORT}" --baud "${BAUD}" \
 echo "Flash write complete."
 
 verify_flash() {
-    APP_BIN="${BUILD_DIR}/inkframe.bin"
+    APP_BIN="${BUILD_DIR}/skypane.bin"
     APP_OFFSET=$(python3 -c "import json; print(json.load(open('${FLASHER_ARGS}'))['app']['offset'])")
     APP_SIZE=$(python3 -c "import os; print(os.path.getsize('${APP_BIN}'))")
     READBACK="${BUILD_DIR}/.flash-readback.bin"

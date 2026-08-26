@@ -1,4 +1,4 @@
-# Ink Frame — Firmware build workflow (D-10).
+# SkyPane — Firmware build workflow (D-10).
 #
 # D-10 left the firmware CI build to discretion, with a default
 # recommendation to include it if it's low-effort. It is low-effort, but
@@ -48,4 +48,4 @@ jobs:
         run: ./firmware/build.sh
 
       - name: Verify built image artifact exists
-        run: test -f firmware/build-ee02/inkframe.bin
+        run: test -f firmware/build-ee02/skypane.bin

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Ink Frame — Phase 1 credential template.
+/* SkyPane — Phase 1 credential template.
  *
  * Copy this file to `secrets.h` (gitignored — see firmware/.gitignore,
  * where the ignore rule was placed by plan 01-03 before this file ever
@@ -18,8 +18,8 @@
 #pragma once
 
 /* The Wi-Fi network the device joins on every wake. */
-#define INK_WIFI_SSID "your-wifi-ssid"
-#define INK_WIFI_PASS "your-wifi-password"
+#define SKYPANE_WIFI_SSID "your-wifi-ssid"
+#define SKYPANE_WIFI_PASS "your-wifi-password"
 
 /* The stub server's base URL: the http scheme, followed by the laptop's
  * LAN IPv4 address, followed by the stub server's port — for example
@@ -28,9 +28,9 @@
  * stub-server/README.md "Point the device at it" for the full command
  * and the transport decision behind why this is plain http, not https,
  * for Phase 1 only). */
-#define INK_API_BASE "http://192.168.1.42:8642"
+#define SKYPANE_API_BASE "http://192.168.1.42:8642"
 
 /* The setup secret sent as `provision_secret` in POST /device/v1/setup.
  * The local stub (stub-server/byos_server.py) accepts any value here
  * unless it was started with --secret. */
-#define INK_SETUP_SECRET "dev-setup-secret"
+#define SKYPANE_SETUP_SECRET "dev-setup-secret"

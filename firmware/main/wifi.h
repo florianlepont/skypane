@@ -3,7 +3,7 @@
 /* Trimmed from flightportrait/frame's `main/wifi.h` (@ ce3335fc). Upstream
  * loads STA credentials from NVS because a BLE provisioning flow put them
  * there; this project has no provisioning this phase, so the credential
- * source is the INK_WIFI_SSID / INK_WIFI_PASS macros in the gitignored
+ * source is the SKYPANE_WIFI_SSID / SKYPANE_WIFI_PASS macros in the gitignored
  * secrets.h instead. Fast-connect hints (remembered BSSID/channel) are
  * dropped along with the NVS keys they depended on — see
  * firmware/main/nvs_schema.h. */
@@ -15,7 +15,7 @@
  * call more than once during one boot. */
 esp_err_t fp_wifi_platform_init(void);
 
-/* Join the network named by INK_WIFI_SSID/INK_WIFI_PASS and sync the
+/* Join the network named by SKYPANE_WIFI_SSID/SKYPANE_WIFI_PASS and sync the
  * clock over SNTP (a TLS prerequisite after any power loss, since the
  * device has no RTC battery). Blocks up to timeout_ms. */
 esp_err_t fp_wifi_connect(int timeout_ms);

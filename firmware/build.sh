@@ -36,5 +36,5 @@ docker run --rm \
         "${ACTION}"
 
 if [ "${ACTION}" = "build" ]; then
-    echo "Artifact: ${SCRIPT_DIR}/${BUILD_DIR}/inkframe.bin"
+    echo "Artifact: ${SCRIPT_DIR}/${BUILD_DIR}/skypane.bin"
 fi

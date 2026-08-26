@@ -14,7 +14,7 @@
 #include "secrets.h"
 #include "wifi.h"
 
-static const char *TAG = "inkframe";
+static const char *TAG = "skypane";
 
 fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
                               const char **fail_step_out)
@@ -34,7 +34,7 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
          * no BLE provisioning, so the setup secret comes straight from
          * the gitignored secrets.h — see api_client.c's base-URL
          * resolution comment for the same Phase-1-only scoping. */
-        if (fp_api_setup(INK_SETUP_SECRET) != ESP_OK) {
+        if (fp_api_setup(SKYPANE_SETUP_SECRET) != ESP_OK) {
             *fail_step_out = "http";
             return FP_POLL_FAILED;
         }

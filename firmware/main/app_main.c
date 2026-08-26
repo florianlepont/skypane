@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /*
- * Ink Frame - Phase 1 wake dispatcher.
+ * SkyPane - Phase 1 wake dispatcher.
  *
  * On every wake: init NVS, let the panel guard account for elapsed
  * awake/sleep time, classify why we woke, run one poll attempt through
@@ -36,7 +36,7 @@
 #include "state_machine.h"
 #include "wifi.h"
 
-static const char *TAG = "inkframe";
+static const char *TAG = "skypane";
 
 static const char *wake_reason_string(esp_sleep_wakeup_cause_t cause)
 {

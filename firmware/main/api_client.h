@@ -1,12 +1,12 @@
 /* SPDX-FileCopyrightText: 2026 YODE PTE LTD
  * SPDX-License-Identifier: Apache-2.0 */
-/* Ink Frame device-protocol client — trimmed from flightportrait/frame's
+/* SkyPane device-protocol client — trimmed from flightportrait/frame's
  * `main/api_client.c/.h` (@ ce3335fc). Upstream implements the full
  * production surface: OTA firmware offers, possession-pairing signed
  * headers, and a versioned target-blob (BYOS override) resolution chain
  * written only by provisioning flows. None of that is compiled here —
  * Phase 1's only server is the local stub in stub-server/, addressed
- * directly via the INK_API_BASE macro in the gitignored secrets.h.
+ * directly via the SKYPANE_API_BASE macro in the gitignored secrets.h.
  *
  * Kept: the three endpoints, all four telemetry headers, and the
  * streamed download with SHA-256 + exact-byte-count verification before

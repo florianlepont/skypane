@@ -8,4 +8,4 @@ cmake_minimum_required(VERSION 3.16)
 # marker of which phase produced the binary.
 set(PROJECT_VER "0.1.0-p1")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(inkframe)
+project(skypane)

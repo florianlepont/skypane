@@ -22,7 +22,7 @@
 static const char *TAG = "fp_api";
 
 #define RESP_MAX 2048               /* poll responses are <1 KB */
-#define API_BASE_MAX 256            /* fits INK_API_BASE with room to spare */
+#define API_BASE_MAX 256            /* fits SKYPANE_API_BASE with room to spare */
 #define URL_MAX (API_BASE_MAX + 24) /* base + "/device/v1/display" */
 
 /* ---------------------------------------------------------------- helpers */
@@ -87,19 +87,19 @@ static bool url_valid(const char *url, size_t cap)
  * falling back to a compiled default, through a versioned target blob
  * written only by provisioning flows (target_contract.h / identity.h,
  * deliberately not vendored here — see firmware/VENDOR.md). This
- * project has no provisioning this phase, so it targets INK_API_BASE
+ * project has no provisioning this phase, so it targets SKYPANE_API_BASE
  * from the gitignored secrets.h directly.
  *
  * A plain http base is accepted here because PROTOCOL.md §5 explicitly
  * permits a hand-set target to be plain http. This is scoped to the
  * local stub server on the developer's own LAN and MUST NOT be carried
  * into the Phase 2 deployed-server firmware — that move is a
- * configuration change (INK_API_BASE moves to the VPS's https:// base),
+ * configuration change (SKYPANE_API_BASE moves to the VPS's https:// base),
  * not a code change, because the ESP-TLS + public CA bundle path below
  * (crt_bundle_attach) stays compiled in and reachable the whole time. */
 static void api_base_get(char *out, size_t cap)
 {
-    strlcpy(out, INK_API_BASE, cap);
+    strlcpy(out, SKYPANE_API_BASE, cap);
 }
 
 static void auth_header(esp_http_client_handle_t http)
