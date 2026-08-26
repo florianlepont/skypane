@@ -103,9 +103,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The route/airline captions (White text on saturated Blue/Green) are legible on real Spectra 6 output, including `fit_text_size()`'s shrunk-overflow case for a long city/airline name — validated via a deliberately forced long-name render, not left to chance.
   3. A-02-02-01's unvalidated departure-side deadband threshold (02-02's `runway_config.py`) is validated visually via a forced synthetic departure render (no real departure exists in Phase 1's captured sample data — confirmed 0 climbing readings across 217 real vertical-rate samples, max observed +48 ft/min). This validates the *visual* DEPARTING state only, not the real +200 ft/min threshold value itself, which remains unvalidated against real sensor data until a genuine runway-3 departure is observed.
   4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call made with the frame in its current desk/temporary location as a provisional check; a final check once wall-mounted remains an open item.
-  5. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not the current flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration (same style, no specific livery) as the fallback for uncovered airlines and for the "Route unavailable" enrichment-failure state — both still readable as a passenger jet and still correctly mirrored by departing/arriving state.
+  5. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not the current flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration (same style, no specific livery) as the fallback for uncovered airlines and for the "Route unavailable" enrichment-failure state — both still readable as a passenger jet. *(D-24, 2026-08-26: "correctly mirrored by departing/arriving state" is dropped — real illustrations didn't mirror convincingly, so every illustration now renders nose-left always; background colour and the state label are the sole departing/arriving cues.)*
 
-**Plans**: 2/4 plans executed
+**Plans**: 3/4 plans executed
 
 Plans:
 **Wave 1**
@@ -118,7 +118,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-03-PLAN.md — Per-airline dithered livery illustrations with a dithered generic fallback, gated on the developer's illustration hand-off
+- [x] 03-03-PLAN.md — Per-airline dithered livery illustrations with a dithered generic fallback, gated on the developer's illustration hand-off
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -192,7 +192,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
-| 3. Visual Polish on Real Glass | 2/4 | In Progress|  |
+| 3. Visual Polish on Real Glass | 3/4 | In Progress|  |
 | 4. CI/CD, Documentation & Legal Compliance | 0/0 | Not Started | - |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
 **Plans:** 0 plans
