@@ -10,7 +10,7 @@ last_updated: "2026-08-26T16:30:00.000Z"
 last_activity: 2026-08-26
 last_activity_desc: Completed quick task 260826-p7a - reconciled Phase 3 planning docs with shipped two-flight design
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 2
   total_plans: 17
   completed_plans: 14
@@ -76,6 +76,7 @@ Progress: [██████████] 100% (Phase 2)
 
 - Phase 4 added (2026-08-25), then renumbered to Phase 3 — "Visual Polish on Real Glass": user asked to split Phase 2 into a functional pass and a design-polish pass; since Phase 2 already built up from basic to polished internally across its 5 plans (02-01 bare flight number → 02-04 route/airline captions) and its only remaining plan (02-05) is pure deployment infra with no visual work, the agreed split instead adds a new phase after real hardware exists, dedicated to refining the already-built design against actual Spectra 6 output — closing the hardware-verified-legibility items every Phase 2 SUMMARY.md carried forward rather than guessed at. Old Phase 3 (Low-Battery Indicator) renumbered to Phase 4.
 - 01-08 (battery-life measurement, DEVICE-05) moved from Phase 1 to Phase 4 (2026-08-26), becoming 04-01: user wants the unattended multi-day (up to 21-day) discharge run scheduled at the end of the project, once other phases no longer need this Mac to stay awake continuously, rather than mid-Phase-1. Phase 1's goal/success-criteria trimmed to drop the on-battery-viability criterion (now Phase 4's job); Phase 1 is now 7/7 plans executed. Phase 4 renamed "Battery Life & Low-Battery Indicator", gained requirement DEVICE-05 alongside DEVICE-04 and a new success criterion for the measured mAh-per-cycle figure. Task 1 (checker + pre-registered protocol) was already done under the old numbering and carries over unchanged; only the phase/plan numbers and cross-references were updated. REQUIREMENTS.md's DEVICE-05 checkbox corrected from a stale pre-existing `[x] Complete` (predating this move, predating the actual measurement) to `[ ]` — only Task 1 of 3 is done.
+- Phase 5 added (2026-08-26): "CI/CD, Documentation & Legal Compliance" — user flagged this as a missing v1 step during Phase 3 work. GitHub Actions CI (tests + build + code-quality/coverage) with automated (gated) deploy to the real OVH VPS, a README, a LICENSE, and documented third-party API terms-of-use compliance (PRIM/IDFM, ADS-B aggregators) plus consolidated asset attribution. Scoped as its own closing phase, orthogonal to the on-device experience Phases 1-4 build — not yet planned (requirements TBD, pending /gsd-discuss-phase 5).
 
 ### Decisions
 

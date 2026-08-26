@@ -6,6 +6,8 @@ Ink Frame v1 ships as a single-view device in four phases. Phase 1 is a foundati
 
 **v2 scope note**: The RER view (originally Phase 3) and the physical-button view-switching work (originally part of Phase 4, requirements DEVICE-01/DEVICE-02) were deferred out of v1 — v1 ships as a single-view (plane-only) device. See git history for the removed Phase 3 (RER View — End-to-End Slice) content; it and the switching work are v2 candidates once a second view exists to switch to.
 
+**Phase 5 note**: Added 2026-08-26 as a closing, project-hygiene phase — CI/CD, README, LICENSE, and third-party API compliance — orthogonal to the on-device single-view experience Phases 1-4 build.
+
 ## Phases
 
 **Phase Numbering:**
@@ -20,6 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle
 - [ ] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Replace Phase 3's hand-generated, representative-type-per-airline static illustrations with a server-side engine that overlays real per-flight livery colors onto the correct aircraft-type SVG, scaling to any airline/type without manual image generation
 - [ ] **Phase 4: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
+- [ ] **Phase 5: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution
 
 ## Phase Details
 
@@ -170,7 +173,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -178,3 +181,17 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 2/4 | In Progress|  |
 | 4. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
+| 5. CI/CD, Documentation & Legal Compliance | 0/0 | Not Started | - |
+
+### Phase 5: CI/CD, Documentation & Legal Compliance
+
+**Note on scope (2026-08-26)**: Raised by the user as a missing v1 step — the project has shipped real, working code (Phases 1-3) with no CI, no README, no LICENSE, and no documented compliance check against the third-party APIs it depends on (AeroDataBox — unused per PROJECT.md's reversed decision, PRIM/IDFM, adsb.fi/airplanes.live). Scoped as its own closing phase rather than folded into Phase 4, since it's project-hygiene/shippability work orthogonal to the device experience Phase 4 completes.
+
+**Goal:** GitHub Actions runs the full test suite (server/test_*.py) and code-quality/coverage checks on every push/PR, with an automated (gated, not silently-triggered) deploy step pushing to the real OVH VPS on merge to main; the repository has a README a newcomer can build/deploy from, a LICENSE, and documented confirmation that PRIM/IDFM's and the ADS-B aggregators' terms of use are actually being honored (no raw-data republishing, rate-limit compliance, attribution where required); asset attribution (fonts, icons, illustrations) is consolidated and verifiably complete via the existing VENDOR.md files.
+**Requirements**: TBD (derive during discuss-phase — CI trigger strategy, deploy gating/approval, license choice, coverage tool)
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 5 to break down)
