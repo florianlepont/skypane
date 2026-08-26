@@ -10,7 +10,8 @@ provides:
   - "Firmware renamed (CMake project, log tag, NVS namespace, SKYPANE_ macro prefix), containerized build verified green, artifact skypane.bin produced"
   - "Deployment artifacts (systemd units, deploy.sh, provision.sh, Caddyfile comment, env template) renamed locally, nothing yet sent to the VPS at that point"
   - "Live OVH VPS cut over: service account renamed in place (UID/GID preserved), application root moved intact, env file rewritten, new units installed and enabled, old units removed, deploy.sh run against the renamed root"
-affects: [quick-260826-vlq-task-5-github-rename]
+  - "GitHub repository renamed florianlepont/ink-frame -> florianlepont/skypane, old URL redirect confirmed via API, local origin repointed, production environment and all 3 deployment secrets confirmed intact post-rename, main pushed"
+affects: []
 
 tech-stack:
   added: []
@@ -43,26 +44,29 @@ key-decisions:
   - "CONTEXT.md's real VPS hostname replaced with the deploy/README.md-established generic template form (vps-<id>.vps.ovh.net) rather than the <vps-ssh-target> placeholder, per Task 1's explicit instruction and to satisfy its own verify block; this generic OVH naming-convention template is not itself a secret"
   - "STATE.md's two forward-looking blocker bullets got their post-rename parentheticals as new appended lines rather than inline text additions, so git diff --numstat shows zero deletions (true additive-only edit, not just conceptually additive)"
   - "Gate 5 (device bearer-token survival) did not appear in this session's first ~20 minutes of monitoring, because the frame had already stopped polling the server roughly 3.5 hours before this session's cutover began (last real device request logged at 17:52:45, unrelated to this plan's work). Verified the identical outcome synthetically first (replayed the real device's own stored bearer token via the exact public HTTPS path, 200, zero 401s), then an extended background watch caught the real device reconnecting on its own (X-Boot-Reason=power-on) and completing a genuine 200 display poll + image download - gate 5 is now confirmed by both synthetic and real-device evidence"
+  - "Task 5 found two stale pre-rename pending deployments (not one), both docs-only Phase 4 commits (30f3349, 9a1af37) predating this quick task and already ancestors of HEAD - both rejected via the pending_deployments API with an explanatory comment, matching the plan's single-stale-deployment scenario extended to the actual count found"
+  - "The new pending deployment triggered by this push (commit f3e9a72, the HEAD of this quick task's own work) was left unapproved for the developer, per the plan's explicit instruction and the standing project rule that no agent ever approves a production deployment gate"
 
 requirements-completed: [QT-VLQ-01, QT-VLQ-02, QT-VLQ-03, QT-VLQ-04]
 
-duration: ~90min (Tasks 1-4 to this point)
+duration: ~100min (Tasks 1-5)
 completed: 2026-08-26
-status: in-progress
+status: complete
 ---
 
-# Quick Task 260826-vlq: Rename Ink Frame -> SkyPane (Tasks 1-4) Summary
+# Quick Task 260826-vlq: Rename Ink Frame -> SkyPane Summary
 
-**Renamed all live documentation, firmware C sources/build artifact, and deployment tooling from Ink Frame to SkyPane, and cut the live OVH production VPS over to the new systemd units and application root — Task 5 (GitHub repo rename) intentionally not started, pending the developer's own physical-frame confirmation.**
+**Renamed the project end-to-end: all live documentation, firmware C sources/build artifact, deployment tooling, the live OVH production VPS (systemd units + application root), and the public GitHub repository itself (florianlepont/ink-frame -> florianlepont/skypane) — the newly triggered production deployment from this session's push is left pending for the developer's own approval, per standing project policy that no agent ever approves that gate.**
 
 ## Performance
 
 - **Tasks 1-3 duration:** ~35 min
 - **Task 4 (VPS cutover) duration:** ~55 min, including diagnostic verification and an extended wait that ultimately caught the real device reconnecting and confirming gate 5 directly
+- **Task 5 (GitHub repo rename) duration:** ~10 min - `gh repo rename`, redirect verification, remote repoint, environment/secrets verification, push, and rejection of two stale pending deployments
 - **Started:** 2026-08-26T~20:50:00Z (approx, first file read)
 - **Task 4 downtime window:** 2026-08-26T21:09:25Z (services stopped) -> 2026-08-26T21:10:54Z (skypane-byos back up and serving) - approximately 89 seconds
-- **Tasks completed:** 4 of 5 (Task 5 deliberately not started - orchestrator checkpoint)
-- **Files modified:** 26 (Task 1) + 14 (Task 2) + 11 (Task 3) = 51 repository files across 3 commits; Task 4 touched zero repository files (VPS-only)
+- **Tasks completed:** 5 of 5 - plan fully executed
+- **Files modified:** 26 (Task 1) + 14 (Task 2) + 11 (Task 3) = 51 repository files across 3 commits; Task 4 touched zero repository files (VPS-only); Task 5 touched zero repository files (GitHub API + local git remote only)
 
 ## IMPORTANT: Security incident during Task 4 diagnostics
 
@@ -142,12 +146,23 @@ to this cutover. Waiting for it to reconnect on its own, rather than rolling bac
 migration on the basis of an absence of observed traffic, was the correct call — and it did in fact reconnect
 successfully, confirming that judgment.
 
+- **Task 5** — Renamed the public GitHub repository and repointed the local remote. Sequence, in the order the plan specified:
+  1. **Rename:** `gh repo rename skypane --yes` (owner `florianlepont` unchanged, run from inside the repo, no interactive prompt).
+  2. **Landing + redirect confirmation, both observed rather than assumed:** `gh repo view --json nameWithOwner` reports `florianlepont/skypane`; querying the *old* path directly (`gh api repos/florianlepont/ink-frame`) resolves through GitHub's redirect to `full_name: "florianlepont/skypane"`; querying the new path directly confirms the same. All three checks passed.
+  3. **Local remote repointed:** `git remote set-url origin git@github.com:florianlepont/skypane.git`, verified via `git remote get-url origin`.
+  4. **Deployment machinery survival, verified not assumed:** the `production` environment still exists with `florianlepont` as its required reviewer; all three deployment secrets (`DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_HOST_KEY`, `DEPLOY_SSH_TARGET`) are still present by name. Names only — no value was queried or printed.
+  5. **Push:** `git push origin main` succeeded (`30f3349..f3e9a72 main -> main`); `git status --porcelain --branch` shows `main...origin/main` with zero commits ahead (`git log origin/main..HEAD` empty). This carried forward all of Tasks 1-4's commits plus this session's own two prior docs commits (`ba228e1`, `f3e9a72`) that recorded the mid-plan checkpoint and gate-5 confirmation.
+  6. **Stale pending deployments — found two, not one, both rejected:** querying workflow runs in `waiting` status before the push surfaced **two** pre-existing pending production deployments, not the single one the plan's prose anticipated — both from docs-only Phase 4 (`04-06`) commits already merged to `main` well before this quick task began: run `33010780555` (commit `30f3349`, "complete CI/CD, documentation & legal compliance plan") and run `33010554993` (commit `9a1af37`, "record push, CI-block proof, and deploy-gate approval evidence"). Both were confirmed via each run's `pending_deployments` endpoint to be genuine `production`-environment approval gates with `florianlepont` as reviewer. **Both rejected** via `POST .../actions/runs/{id}/pending_deployments` with `state: rejected` and an explanatory comment (their checked-out `deploy.sh` targets the pre-Task-4 `/opt/inkframe` application root, which the cutover moved to `/opt/skypane`, so they would fail on approval regardless — rejected because the cutover made them invalid, not because anything was wrong with the underlying commits). Both deployments now show `state: failure` (GitHub's terminal state for a rejected review) — confirmed by querying their deployment statuses directly, not assumed from the API call's success alone.
+  7. **New pending deployment from this session's own push — reported, NOT approved:** the push's CI run (`33016761987`, commit `f3e9a72`) is `waiting` on the same `production` environment gate, `current_user_can_approve: true`. **This dispatch did not call the approve endpoint on it, under any framing.** It is left exactly as the plan and the standing project rule require — for the developer's own review. Approving it would re-run the already-verified `deploy/deploy.sh` against the already-cut-over VPS (a no-op-shaped repeat of Task 4 Step 7), but that decision belongs to the developer, not to this dispatch. A separate `Firmware Build` workflow run also started for this push (it touches `firmware/**` via Task 2's commit in this push range) — that workflow has no environment gate and needed no action.
+
 ## Task Commits
 
 1. **Task 1: Rename documentation and cosmetic code identifiers** — `7c1f0fe` (docs)
 2. **Task 2: Rename firmware C sources, build artifact, and macro prefix** — `a6b5d50` (feat)
 3. **Task 3: Rename deploy unit files, scripts, and env template (local only)** — `fab6c7a` (feat)
 4. **Task 4: Cut the live production VPS over to the new names** — no repository commit (VPS-only, per its `<files>` declaration: "no repository files")
+   - (interim checkpoint docs, this session) — `ba228e1` (docs), `f3e9a72` (docs): recorded the mid-plan checkpoint state and the direct real-device confirmation of Task 4 gate 5
+5. **Task 5: Rename the GitHub repository, repoint origin, and push** — no repository commit (GitHub API + local git remote only, per its `<files>` declaration: "no repository files"); pushed the existing commit range `30f3349..f3e9a72` to the renamed remote
 
 ## Files Created/Modified
 
@@ -194,33 +209,28 @@ See frontmatter `key-files`. Full list: 26 files in Task 1's commit, 14 in Task 
 
 None - no external service configuration required. (Task 4's VPS reconfiguration was performed by this dispatch, not left for the user.)
 
-## AWAITING DEVELOPER CONFIRMATION
+## Developer Confirmation (received before Task 5)
 
-**Task 5 (GitHub repository rename) has intentionally NOT been started.** Per the orchestrator's explicit instruction for this dispatch, this quick task stops here so the developer can personally confirm the physical frame is still displaying and refreshing correctly before the least-reversible step (renaming the public GitHub repository) proceeds.
+The developer personally confirmed the physical frame is fine — it reconnected post-cutover with a real `200` response and zero `401`s, conclusively closing T-VLQ-01. This confirmation cleared the way for Task 5, the plan's least-reversible step, to proceed. See the Gate 5 section above for the automated evidence that preceded it.
 
-**Update: the automated risk this check exists to catch (T-VLQ-01, the device getting permanently locked out) is now
-directly disproven** — the real physical device reconnected on its own during this session (21:39:42 UTC) and
-successfully completed a display poll + image download against the renamed server (see Gate 5 above). The remaining
-ask is purely the visual confirmation the plan's `<human-check>` item requires, which this dispatch has no way to
-perform itself:
+**Also flag for the developer's attention (not blocking, but should not be forgotten):** the `SKYPANE_BYOS_SECRET` exposure noted above — plan to rotate it on the VPS the next time the firmware is reflashed with a matching value.
 
-1. Look at the physical frame. It should be showing a rendered panel and should refresh on its normal wake/poll cycle.
-2. Given the real device already successfully polled and downloaded a fresh image at 21:39:42 UTC this session, the panel should already reflect that — if it looks frozen, blank, or stale despite that, it would warrant a second look before Task 5 proceeds.
-3. Once confirmed, re-invoke this quick task's execution to run Task 5.
+## OUTSTANDING: Two items require the developer, both explicitly left untouched by this dispatch
 
-**Also flag for the developer's attention (not blocking Task 5, but should not be forgotten):** the `SKYPANE_BYOS_SECRET` exposure noted above — plan to rotate it on the VPS the next time the firmware is reflashed with a matching value.
+1. **The newly triggered production deployment (run `33016761987`, commit `f3e9a72`) is pending approval.** This dispatch will never approve a production deployment gate under any circumstance — that decision is the developer's alone. Approving it will re-run `deploy/deploy.sh` against the already-cut-over, already-healthy VPS (a no-op-shaped repeat of Task 4 Step 7), but it should still be a deliberate choice, not an automated one.
+2. **The local directory rename remains the very last, deliberately unattempted step.** Renaming `/Users/florian/Projects/ink-frame` -> `/Users/florian/Projects/skypane` was explicitly out of scope for every task in this plan (it would break the running session's cwd mid-flight). It is now safe to perform — every commit is pushed and Task 5's gates have all passed — but it must be done outside this session, and the current session will need to be restarted from the new path afterward.
 
 ## Next Phase Readiness
 
 - Tasks 1-3 are fully committed, verified, and require no further action.
-- Task 4's live cutover is complete and healthy by every automated measure, including a direct real-device confirmation of gate 5; only the human's own visual look at the physical frame remains outstanding.
-- Task 5 (GitHub repo rename, remote repoint, push, stale-deployment rejection) is fully specified and ready to execute once the developer gives the go-ahead.
-- The local directory rename (`/Users/florian/Projects/ink-frame` -> `/Users/florian/Projects/skypane`) remains the very last, deliberately unattempted step — it must wait until after Task 5 pushes, and will require the current session to be restarted from the new path.
+- Task 4's live cutover is complete and healthy by every automated measure, including a direct real-device confirmation of gate 5, plus the developer's own visual confirmation.
+- Task 5 is complete: the GitHub repository is renamed, the old URL redirects, the local remote is repointed, the production environment and all three deployment secrets survived, and `main` is pushed with nothing ahead of `origin/main`. Both stale pre-rename pending deployments were rejected with an explanatory comment. The newly triggered pending deployment from this push awaits the developer's own approval — not approved by this dispatch, per standing project policy.
+- This quick task (260826-vlq) is now fully complete, 5/5 tasks. The only outstanding items are the two listed above, both requiring the developer's own action outside this session.
 
 ---
 *Phase: quick-260826-vlq*
-*Status: in-progress (Tasks 1-4 of 5 complete)*
+*Status: complete (5 of 5 tasks)*
 
 ## Self-Check: PASSED
 
-All claimed files verified present on disk (`firmware/build-ee02/skypane.bin`, all four `deploy/skypane-*` artifacts, this SUMMARY itself). All three task commit hashes (`7c1f0fe`, `a6b5d50`, `fab6c7a`) verified present in `git log --oneline --all`.
+All claimed files verified present on disk (`firmware/build-ee02/skypane.bin`, all four `deploy/skypane-*` artifacts, this SUMMARY itself). All task/checkpoint commit hashes (`7c1f0fe`, `a6b5d50`, `fab6c7a`, `ba228e1`, `f3e9a72`) verified present in `git log --oneline --all`. Task 5's GitHub-side claims re-verified directly against the live API at close of task: `gh repo view --json nameWithOwner` -> `florianlepont/skypane`; `gh api repos/florianlepont/ink-frame --jq .full_name` -> `florianlepont/skypane` (redirect); `git remote get-url origin` -> `git@github.com:florianlepont/skypane.git`; `gh api repos/florianlepont/skypane/environments` -> `production` present; `gh secret list` -> all 3 `DEPLOY_*` secret names present; `git log origin/main..HEAD` -> empty (nothing unpushed); both stale pending deployments (`6111457639`, `6111417400`) show `state: failure` (rejected); the new pending deployment (run `33016761987`) confirmed still awaiting review, not approved.
