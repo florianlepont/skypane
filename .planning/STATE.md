@@ -5,12 +5,12 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: visual-polish-on-real-glass
 status: executing
-stopped_at: Phase 3 UI-SPEC approved
-last_updated: "2026-08-26T11:10:39.743Z"
+stopped_at: Phase 3 UI-SPEC Revision 3 approved (full composition realignment)
+last_updated: "2026-08-26T11:48:41.217Z"
 last_activity: 2026-08-26
-last_activity_desc: "Phase 3 UI-SPEC approved (6/6 dimensions): locks the aircraft-illustration zone as a full multi-color Floyd-Steinberg-dithered amendment to 02-UI-SPEC.md, everything else unchanged. Two research passes done (2-color mechanics, then full-color livery after the user overrode the recommended default). Next: /gsd-plan-phase 3 to create PLAN.md files."
+last_activity_desc: "Phase 3 scope expanded twice this session: illustration zone (per-airline dithered livery) then full composition realignment (serif typography, co-equal flight-number/destination hierarchy, dithered mood backgrounds) after comparing real flightportrait.com product photos. UI-SPEC Revision 3 approved 6/6. A third idea (procedural SVG livery engine) was split into new inserted Phase 3.1, pending live confirmation of ADS-B aircraft-type data. Next: /gsd-plan-phase 3 to create PLAN.md files."
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 2
   total_plans: 13
   completed_plans: 12
@@ -138,8 +138,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T11:10:39.735Z
-Stopped at: Phase 3 UI-SPEC approved
+Last session: 2026-08-26T11:48:41.207Z
+Stopped at: Phase 3 UI-SPEC Revision 3 approved (full composition realignment)
 
 Resume file: .planning/phases/03-visual-polish-on-real-glass/03-UI-SPEC.md
 
