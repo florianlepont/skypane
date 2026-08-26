@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display (completed 2026-08-26)
 - [x] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle (completed 2026-08-26 — on-glass visual sign-off moved to Phase 6, not a blocker on this phase)
 - [ ] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Replace Phase 3's hand-generated, representative-type-per-airline static illustrations with a server-side engine that overlays real per-flight livery colors onto the correct aircraft-type SVG, scaling to any airline/type without manual image generation
-- [ ] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution
+- [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/ink-frame, CI-block and deploy-gate proven on real infrastructure)
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
 - [ ] **Phase 6: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished
 
@@ -152,7 +152,7 @@ Plans:
 **Goal:** GitHub Actions runs the full test suite (server/test_*.py) and code-quality/coverage checks on every push/PR, with an automated (gated, not silently-triggered) deploy step pushing to the real OVH VPS on merge to main; the repository has a README a newcomer can build/deploy from, a LICENSE, and documented confirmation that PRIM/IDFM's and the ADS-B aggregators' terms of use are actually being honored (no raw-data republishing, rate-limit compliance, attribution where required); asset attribution (fonts, icons, illustrations) is consolidated and verifiably complete via the existing VENDOR.md files.
 **Requirements**: D-01 through D-16 (this phase has no PLANE-*/DEVICE-* IDs of its own — it is infra/documentation work. The discuss-phase resolved its requirements into the locked decisions D-01..D-16 in `04-CONTEXT.md`, which are the traceability anchor each plan's `requirements` frontmatter cites, per `04-VALIDATION.md`'s Phase Requirement Map.)
 **Depends on:** Phase 3
-**Plans**: 1/6 plans executed
+**Plans**: 6/6 plans executed — **phase complete**. Repository is live and public: https://github.com/florianlepont/ink-frame
 
 Plans:
 **Wave 1**
@@ -161,17 +161,17 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04-02-PLAN.md — Quality baseline: pinned dev tooling, a measured lint ruleset and coverage threshold, and one aggregate 9-harness runner (D-07/D-08/D-09)
-- [ ] 04-03-PLAN.md — Legal: MIT LICENSE, COMPLIANCE.md for all five data sources, and a machine-checked asset-attribution audit (D-13/D-14)
+- [x] 04-02-PLAN.md — Quality baseline: pinned dev tooling, a measured lint ruleset and coverage threshold, and one aggregate 9-harness runner (D-07/D-08/D-09)
+- [x] 04-03-PLAN.md — Legal: MIT LICENSE, COMPLIANCE.md for all five data sources, and a machine-checked asset-attribution audit (D-13/D-14)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-04-PLAN.md — GitHub Actions: blocking CI, an environment-gated deploy wrapping `deploy.sh`, and a path-restricted firmware build (D-07/D-08/D-09/D-10/D-11/D-12)
-- [ ] 04-05-PLAN.md — Documentation: root README a newcomer can build from, a current-state ARCHITECTURE.md, and the visible adsb.fi attribution (D-14/D-15/D-16)
+- [x] 04-04-PLAN.md — GitHub Actions: blocking CI, an environment-gated deploy wrapping `deploy.sh`, and a path-restricted firmware build (D-07/D-08/D-09/D-10/D-11/D-12)
+- [x] 04-05-PLAN.md — Documentation: root README a newcomer can build from, a current-state ARCHITECTURE.md, and the visible adsb.fi attribution (D-14/D-15/D-16)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 04-06-PLAN.md — Go public: create the repo, provision a dedicated deploy key and the approval gate, push, and prove CI blocks and the deploy gate holds (D-01/D-02/D-05/D-09/D-11/D-12)
+- [x] 04-06-PLAN.md — Go public: create the repo, provision a dedicated deploy key and the approval gate, push, and prove CI blocks and the deploy gate holds (D-01/D-02/D-05/D-09/D-11/D-12) — includes an unplanned second `git filter-repo` pass (supplier order numbers found during the pre-publish review) and a real gate defect found and fixed live (`can_admins_bypass` silently skipped the required-reviewer pause for repo admins)
 
 ### Phase 5: Battery Life & Low-Battery Indicator
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 3/3 | Complete    | 2026-08-26 |
-| 4. CI/CD, Documentation & Legal Compliance | 1/6 | In Progress|  |
+| 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
 | 6. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 0 plans
