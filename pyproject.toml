@@ -1,0 +1,86 @@
+# Ink Frame — repo-root lint/coverage configuration (plan 04-02, D-08/D-09).
+#
+# Deliberately no [project] table: this repository is a deployed
+# application (device firmware + server + stub server), not an installable
+# Python distribution. Adding [project] metadata would misrepresent it to
+# packaging tooling that scans for it.
+
+[tool.ruff]
+# Applies repo-wide: server/, stub-server/, adsb-test/.
+target-version = "py311"
+
+[tool.ruff.lint]
+# Correctness-focused families only, selected explicitly rather than left
+# to the tool's evolving defaults (M3): pycodestyle errors (E4 import
+# placement, E7 statement-level errors), E9 (syntax/runtime errors), and F
+# (pyflakes — undefined names, unused imports, unreachable logic).
+#
+# Deliberately excluded: everything else, most notably pycodestyle's E501
+# and the "UP" (pyupgrade) family. Measured unconfigured (`ruff check .`
+# with no select) this tree reports 397 findings, 328 of them UP031
+# (printf-style string formatting — e.g. `"%s: %d/%d checks pass" % (...)`)
+# — the idiom every test harness and much of server/ uses consistently.
+# Rewriting 328 call sites of working, tested code for a stylistic
+# preference is change-risk with no correctness benefit, so UP (and every
+# other non-selected family) is left out of the selected set rather than
+# individually ignored. Broadening this selection later is a deliberate
+# follow-up once there's a reason to, not an oversight — this line is what
+# a reader in six months should trust as "we measured it and chose", not
+# "we never thought about it".
+select = ["E4", "E7", "E9", "F"]
+
+# E402 (module level import not at top of file) is suppressed repo-wide,
+# not code-fixed, because the 8 findings it produces (M4: 4 in
+# server/poll_loop.py, 3 in server/plane/render.py, 1 in
+# server/plane/enrich.py) are each the project's documented sys.path
+# bootstrap — the block, preceded by a comment, that inserts the repo root
+# onto sys.path so the file's absolute `server.*` imports resolve when the
+# file is executed directly as a script (`server/.venv/bin/python3
+# server/poll_loop.py`), which is the exact invocation server/README.md
+# prescribes for the whole test suite and for poll_loop.py itself.
+# Reordering these imports above the bootstrap would break that invocation
+# style, so the rule is suppressed here with this rationale rather than
+# the working code being rearranged to satisfy it.
+ignore = ["E402"]
+
+[tool.coverage.run]
+# Parallel data files: the suite is 9 independent processes
+# (scripts/run-all-tests.sh), each of which needs its own data file before
+# `coverage combine` merges them. Do NOT also set `append` — coverage.py
+# rejects that combination outright ("Can't append to data files in
+# parallel mode"), confirmed live (M2). Parallel mode already gives each
+# process its own file; append is the alternative to it, not a companion.
+parallel = true
+
+# Source-scoped to this project's own two code directories so library
+# internals (Pillow, requests, stdlib) are never counted toward the
+# measurement — an unscoped run makes any threshold meaningless
+# (04-RESEARCH.md Pitfall 3).
+source = ["server", "stub-server"]
+
+omit = [
+    # The measuring instrument, not the thing being measured.
+    "server/test_*.py",
+    "stub-server/test_*.py",
+    # Structurally unmeasurable: test_poll_cycle.py exercises these two
+    # scripts by launching them as a **child process** (subprocess), which
+    # an uninstrumented coverage run cannot observe from the parent
+    # process. Leaving them in would permanently pin ~180 statements at 0%
+    # and turn the threshold into noise (M5).
+    "stub-server/byos_server.py",
+    "stub-server/make_test_panel.py",
+]
+
+[tool.coverage.report]
+# Threshold: 75. Derivation (M5): measured 79% production-only coverage
+# under exactly this source/omit scope (server + stub-server, harnesses
+# and the two subprocess-launched stub scripts omitted), across all 9
+# harnesses via scripts/run-all-tests.sh's parallel-mode + combine
+# invocation. 75 sits 4 points below the measurement — tight enough that a
+# genuine regression trips it, loose enough that a legitimate refactor
+# shifting a few statements doesn't red-line the build and train the
+# habit of bypassing the gate. This is a floor to ratchet upward as
+# coverage improves, not a ceiling. Changing the `source` or `omit` lists
+# above invalidates this number — it stops meaning what it was measured
+# to mean the moment the scope changes.
+fail_under = 75
