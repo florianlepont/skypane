@@ -1,4 +1,4 @@
-# server — Ink Frame Phase 2 plane-view server
+# server — SkyPane Phase 2 plane-view server
 
 The always-on backend that turns real ADS-B traffic over Orly runway 3 into
 the 960,000-byte Spectra 6 panel image the device downloads and displays
@@ -62,10 +62,10 @@ HTTPS — see `deploy/README.md` for the full runbook (provisioning,
 shipping code, verifying TLS, reading logs, rolling back).
 
 **Firmware-side change (configuration only, no C source changes):** once
-the server is deployed, `firmware/main/secrets.h`'s `INK_API_BASE` moves
+the server is deployed, `firmware/main/secrets.h`'s `SKYPANE_API_BASE` moves
 from the Phase 1 LAN address (`http://192.168.1.42:8642`) to the real
 `https://<public-host>` base recorded in `deploy/README.md`, and
-`INK_SETUP_SECRET` moves to the server's `INK_BYOS_SECRET` value. This is
+`SKYPANE_SETUP_SECRET` moves to the server's `SKYPANE_BYOS_SECRET` value. This is
 a configuration change only — `firmware/main/api_client.c`'s ESP-TLS
 `crt_bundle_attach` path is already compiled in and reachable on every
 request (see `firmware/VENDOR.md`), so pointing it at a real HTTPS base

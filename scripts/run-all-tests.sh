@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ink Frame — the single entry point for the whole test suite.
+# SkyPane — the single entry point for the whole test suite.
 #
 # Runs all 9 harnesses under coverage, aggregates the result, and enforces
 # the coverage threshold configured in pyproject.toml. Plan 04-04's CI

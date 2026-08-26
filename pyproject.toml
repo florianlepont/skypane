@@ -1,4 +1,4 @@
-# Ink Frame — repo-root lint/coverage configuration (plan 04-02, D-08/D-09).
+# SkyPane — repo-root lint/coverage configuration (plan 04-02, D-08/D-09).
 #
 # Deliberately no [project] table: this repository is a deployed
 # application (device firmware + server + stub server), not an installable

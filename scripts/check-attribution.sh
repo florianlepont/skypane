@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ink Frame — machine-checked vendored-asset attribution completeness (D-14).
+# SkyPane — machine-checked vendored-asset attribution completeness (D-14).
 #
 # Every non-markdown file under server/assets/ must be named, by filename,
 # in at least one VENDOR.md under server/assets/ — and every font family

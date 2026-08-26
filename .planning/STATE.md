@@ -152,7 +152,9 @@ None yet.
 - No publicly confirmed enclosure design exists for the EE02 kit — budget design time in Phase 1 or plan around an off-the-shelf enclosure.
 - Battery-life real-world figure for this exact hardware combo is unmeasured — 05-01's Task 1 (check-battery checker + pre-registered protocol) is done; Tasks 2 (multi-day unattended discharge run, needs the Mac to stay awake continuously) and 3 (post-mortem readout) are deliberately deferred to the end of the project (user decision, 2026-08-26) rather than done now.
 - Device wake interval (`sleep_s`, how often the physical frame polls the server) is currently **30s** on the live OVH deployment (`inkframe.env`'s `INK_SLEEP_S=30`, verified directly on the VPS 2026-08-26 — same cadence as the server's own ADS-B poll timer, not yet distinguished) — NOT yet a tuned production value, this is the bring-up/test default. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred until Phase 5's 05-01 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
+  (Post-rename: this env file and variable are `skypane.env`'s `SKYPANE_SLEEP_S`, per quick-task 260826-vlq.)
 - A-02-02-01 (departure-side D-03 threshold, +200 ft/min) has never been observed against a real runway-3 departure — every real detection so far (Phase 1's sample and 02-05 Task 3's on-glass check) has been an arrival. Not a known defect, just unvalidated. Scoped to close in Phase 3 (success criterion 3 already names it); check `journalctl -u inkframe-poll` on the VPS for `confirmed_state=departing` whenever it's convenient before or during Phase 3 planning.
+  (Post-rename: this is now the `skypane-poll` unit, per quick-task 260826-vlq.)
 
 ### Quick Tasks Completed
 

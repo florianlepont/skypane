@@ -1,4 +1,4 @@
-# Requirements: Ink Frame
+# Requirements: SkyPane
 
 **Defined:** 2026-08-04
 **Core Value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.

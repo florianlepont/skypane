@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """hardware/logtools.py — stdlib-only log timestamper and backoff-sequence
-checker for captured Ink Frame serial logs.
+checker for captured SkyPane serial logs.
 
 Subcommands:
   stamp          Prefix stdin lines with a wall-clock ISO-8601 timestamp,
@@ -80,7 +80,7 @@ def curve_seconds(n):
 # --- Log Line Contract parsing (firmware/VENDOR.md "## Log Line Contract") ---
 #
 # Every line may carry a host-added `[ISO-8601]` prefix from `stamp` and
-# an ESP log prefix (e.g. "I (746) inkframe: ") before the contract
+# an ESP log prefix (e.g. "I (746) skypane: ") before the contract
 # text, so every pattern below is applied with .search(), not .match().
 
 TS_RE = re.compile(r"^\[([^\]]+)\]")
@@ -644,7 +644,7 @@ def build_parser():
     p = argparse.ArgumentParser(
         prog="logtools.py",
         description="Stdlib-only timestamper and backoff-sequence checker "
-                     "for Ink Frame captured serial logs.")
+                     "for SkyPane captured serial logs.")
     sub = p.add_subparsers(dest="command", required=True)
 
     sub.add_parser("stamp",

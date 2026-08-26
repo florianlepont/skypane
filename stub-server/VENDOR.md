@@ -54,7 +54,7 @@ names, response shapes, telemetry printing) is untouched:
    01-06/01-07/01-08 still drive a real device against this script
    running locally, unproxied, on the LAN, and an unconditional `https`
    default would break that flow the moment hardware exists. The Phase 2
-   systemd unit (`deploy/inkframe-byos.service`) passes
+   systemd unit (`deploy/skypane-byos.service`) passes
    `--image-url-scheme https` explicitly for the Caddy-fronted
    production deployment, closing the downgrade gap where it actually
    matters.

@@ -27,7 +27,7 @@ import requests
 # same self-identification convention adsb-test/query_aggregator.py
 # established for Phase 1's spike, updated for the real Phase 2 server.
 USER_AGENT = (
-    "ink-frame-server/0.1 "
+    "skypane-server/0.1 "
     "(hobby project, Phase 2 plane-view production server; "
     "see server/README.md for what this traffic is)"
 )

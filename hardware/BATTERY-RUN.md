@@ -1,6 +1,6 @@
-# Ink Frame — Phase 1 Battery Discharge Run (DEVICE-05)
+# SkyPane — Phase 1 Battery Discharge Run (DEVICE-05)
 
-This file is the recorded DEVICE-05 verdict for the Ink Frame device: whether
+This file is the recorded DEVICE-05 verdict for the SkyPane device: whether
 it completes many consecutive wake, poll and sleep cycles on battery power
 alone, and the measured mAh-per-cycle figure that follows from that run.
 

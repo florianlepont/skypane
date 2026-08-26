@@ -23,7 +23,7 @@ restarts don't strand frames.
 This is a reference, not a product: no TLS (the frame allows plain http
 for hand-set targets), no rate limiting, one image for every frame.
 
-Ink Frame local modifications: added --state-dir so a throwaway harness
+SkyPane local modifications: added --state-dir so a throwaway harness
 run (stub-server/test_poll_cycle.py) can isolate its own token state
 from the long-running instance the hardware bring-up plans keep alive;
 and added --image-url-scheme (default: http) so the served image_url

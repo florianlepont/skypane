@@ -1,7 +1,7 @@
 # Aircraft Illustration Hand-off Specification (D-09)
 
 This environment has no image-generation tool (verified via ToolSearch, not
-assumed). The per-airline aircraft illustrations that give Ink Frame's
+assumed). The per-airline aircraft illustrations that give SkyPane's
 panel its "l'illustration de l'avion et de son covering" centrepiece must
 be generated externally (ChatGPT, Midjourney, or an equivalent AI image
 tool) and dropped into this directory using **exactly** the filenames

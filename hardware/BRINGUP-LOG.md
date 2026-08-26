@@ -1,4 +1,4 @@
-# Ink Frame — Hardware Bring-Up Log
+# SkyPane — Hardware Bring-Up Log
 
 This log records the physical assembly, first flash, and first-light
 verification of the XIAO ESP32-S3 Plus + EE02 driver board + 13.3" Spectra 6

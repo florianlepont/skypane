@@ -161,7 +161,7 @@ def main():
     check("select_illustration() never raises across a battery of malformed inputs", _select_never_raises)
 
     def _select_returns_none_only_when_fallback_missing():
-        empty_dir = tempfile.mkdtemp(prefix="ink-frame-illustrations-empty-")
+        empty_dir = tempfile.mkdtemp(prefix="skypane-illustrations-empty-")
         original_dir = ill.ILLUSTRATION_DIR
         try:
             ill.ILLUSTRATION_DIR = empty_dir
@@ -199,7 +199,7 @@ def main():
 
     # --- validate_illustration_file() rejection categories -------------------
 
-    tmp_dir = tempfile.mkdtemp(prefix="ink-frame-illustrations-fixtures-")
+    tmp_dir = tempfile.mkdtemp(prefix="skypane-illustrations-fixtures-")
     try:
         def _rgba(w, h, alpha=200):
             return Image.new("RGBA", (w, h), (10, 20, 30, alpha))

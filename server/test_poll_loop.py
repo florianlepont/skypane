@@ -70,7 +70,7 @@ def main():
         print("poll-loop: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
         return 1
 
-    tmpdir = tempfile.mkdtemp(prefix="ink-frame-poll-loop-history-")
+    tmpdir = tempfile.mkdtemp(prefix="skypane-poll-loop-history-")
     try:
         # A strong, unambiguous +2400 ft/min climb - clears the D-P2-04
         # deadband on the very first cycle, so confirmed_state is never

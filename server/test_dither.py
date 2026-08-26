@@ -121,7 +121,7 @@ def main():
     # 5. write_calibration_preview() writes the palette-swatch PNG and
     # returns its path.
     def _calibration_preview_writes_swatch_png():
-        tmp_dir = tempfile.mkdtemp(prefix="ink-frame-dither-calib-")
+        tmp_dir = tempfile.mkdtemp(prefix="skypane-dither-calib-")
         try:
             paths = dither.write_calibration_preview(tmp_dir)
             if len(paths) != 1:

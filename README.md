@@ -1,4 +1,4 @@
-# Ink Frame
+# SkyPane
 
 An e-ink wall frame that shows real-time departure and arrival information
 for aircraft using Orly (ORY) runway 3 — detected directly from public
@@ -75,7 +75,7 @@ live ADS-B aggregators, enriches it, and writes a fresh panel to a state
 directory:
 
 ```bash
-server/.venv/bin/python3 server/poll_loop.py --once --state-dir /tmp/inkframe-state
+server/.venv/bin/python3 server/poll_loop.py --once --state-dir /tmp/skypane-state
 ```
 
 In production this same script runs on a 30-second cadence as a systemd

@@ -47,7 +47,7 @@ ADSBDB_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
 # project honestly, same self-identification convention detect.py already
 # established for the aggregator calls.
 USER_AGENT = (
-    "ink-frame-server/0.1 "
+    "skypane-server/0.1 "
     "(hobby project, Phase 2 plane-view production server; "
     "see server/README.md for what this traffic is)"
 )

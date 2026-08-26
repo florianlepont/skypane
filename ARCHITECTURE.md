@@ -115,7 +115,7 @@ from upstream's ~30 keys to exactly four): the bearer token
 about which view is active is stored, because v1 has only one view.
 
 **The observable interface — the Log Line Contract** (`firmware/VENDOR.md`),
-five fixed line shapes emitted with ESP log tag `inkframe`, deliberately
+five fixed line shapes emitted with ESP log tag `skypane`, deliberately
 frozen so hardware-verification tooling can grep a serial capture for an
 exact shape:
 
@@ -224,15 +224,15 @@ as `<public-host>`, never by its real address).
   restriction is enforced at the network layer instead: `ufw deny
   8642/tcp` plus ufw's own default-deny-incoming policy block any direct
   external connection.
-- **`inkframe-byos.service`** runs `stub-server/byos_server.py` as a
-  dedicated `inkframe` user, `Restart=always`.
-- **`inkframe-poll.service` / `inkframe-poll.timer`** is a `Type=oneshot`
+- **`skypane-byos.service`** runs `stub-server/byos_server.py` as a
+  dedicated `skypane` user, `Restart=always`.
+- **`skypane-poll.service` / `skypane-poll.timer`** is a `Type=oneshot`
   unit invoking `server/poll_loop.py --once`, fired every 30 seconds by
   the timer.
 - **Device authentication** is a bearer token, issued at
   `/device/v1/setup` in exchange for a shared setup secret
-  (`INK_BYOS_SECRET`, set once in a hand-written, gitignored
-  `inkframe.env` that is never rsynced and never committed) and then sent
+  (`SKYPANE_BYOS_SECRET`, set once in a hand-written, gitignored
+  `skypane.env` that is never rsynced and never committed) and then sent
   as `Authorization: Bearer <token>` on every subsequent `/display` and
   `/log` call. The device never accepts inbound connections at any point
   — it is poll-only, with no listening socket of its own.

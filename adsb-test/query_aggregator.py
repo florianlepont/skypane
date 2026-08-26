@@ -27,7 +27,7 @@ import urllib.request
 # Identify this project to the rate-limited public services we're calling,
 # per T-01-04-02 in the 01-04-PLAN.md threat register.
 USER_AGENT = (
-    "ink-frame-adsb-validation/0.1 "
+    "skypane-adsb-validation/0.1 "
     "(hobby project, Phase 1 ADS-B-viability spike; "
     "see adsb-test/README.md for what this traffic is)"
 )

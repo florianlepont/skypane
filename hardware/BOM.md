@@ -1,4 +1,4 @@
-# Ink Frame — Phase 1 Bill of Materials
+# SkyPane — Phase 1 Bill of Materials
 
 This BOM covers only what Phase 1 needs on the bench: no enclosure, no solar, no RTL-SDR.
 

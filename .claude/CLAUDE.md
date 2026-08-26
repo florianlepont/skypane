@@ -2,7 +2,7 @@
 
 ## Project
 
-**Ink Frame**
+**SkyPane**
 
 An e-ink wall/desk frame that shows real-time departure info: flights taking off from Paris-Orly (ORY) and the next RER trains from Orly-Ville station, switchable via a physical button. Built on the same "wake → poll → display → deep sleep" architecture as the flightportrait reference project, running on battery power, with a small always-on cloud server generating the display images.
 
