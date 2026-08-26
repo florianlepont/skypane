@@ -34,7 +34,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 32
+EXPECTED_CHECK_COUNT = 37
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -226,32 +226,33 @@ def main():
         return True, ""
     check("arriving render contains no Yellow (0x2) or Red (0x3) nibble (cross-phase reservation)", _arriving_has_no_yellow_or_red)
 
-    # 12-13. Pre-pack canvas anti-aliasing guard: exactly two palette
-    #        indices, per 02-RESEARCH.md's own verified Image.getcolors()
-    #        method.
-    def _departing_canvas_has_two_indices():
+    # 12-13. Pre-pack canvas palette contract (03-02: re-expressed from
+    #        "exactly two distinct palette indices" - now that the
+    #        background is a dithered mood field rather than a flat fill,
+    #        "exactly two" is necessary but no longer sufficient; the
+    #        stronger, correct assertion is *which* two: the state's own
+    #        background index and White, and nothing else).
+    def _departing_canvas_is_exactly_blue_and_white():
         if not hasattr(render, "build_canvas"):
             return False, "server.plane.render has no build_canvas() - test cannot reach a pre-pack canvas without it"
         canvas = render.build_canvas(TEST_FLIGHT, "departing")
         colors = canvas.getcolors()
-        if colors is None or len(colors) != 2:
-            return False, "departing canvas has %r distinct palette indices, expected exactly 2" % (
-                None if colors is None else len(colors),
-            )
+        idx_set = {value for _count, value in colors} if colors else set()
+        if idx_set != {IDX_BLUE, IDX_WHITE}:
+            return False, "departing canvas index set is %r, expected exactly {IDX_BLUE, IDX_WHITE}" % (idx_set,)
         return True, ""
-    check("departing pre-pack canvas contains exactly two distinct palette indices (no anti-aliasing)", _departing_canvas_has_two_indices)
+    check("departing pre-pack canvas's index set is exactly {IDX_BLUE, IDX_WHITE}", _departing_canvas_is_exactly_blue_and_white)
 
-    def _arriving_canvas_has_two_indices():
+    def _arriving_canvas_is_exactly_green_and_white():
         if not hasattr(render, "build_canvas"):
             return False, "server.plane.render has no build_canvas() - test cannot reach a pre-pack canvas without it"
         canvas = render.build_canvas(TEST_FLIGHT, "arriving")
         colors = canvas.getcolors()
-        if colors is None or len(colors) != 2:
-            return False, "arriving canvas has %r distinct palette indices, expected exactly 2" % (
-                None if colors is None else len(colors),
-            )
+        idx_set = {value for _count, value in colors} if colors else set()
+        if idx_set != {IDX_GREEN, IDX_WHITE}:
+            return False, "arriving canvas index set is %r, expected exactly {IDX_GREEN, IDX_WHITE}" % (idx_set,)
         return True, ""
-    check("arriving pre-pack canvas contains exactly two distinct palette indices (no anti-aliasing)", _arriving_canvas_has_two_indices)
+    check("arriving pre-pack canvas's index set is exactly {IDX_GREEN, IDX_WHITE}", _arriving_canvas_is_exactly_green_and_white)
 
     # 14. Determinism: rendering the same flight twice is byte-identical.
     def _rendering_is_deterministic():
@@ -281,6 +282,20 @@ def main():
     #        (02-03-PLAN.md Task 2's acceptance criteria) rather than
     #        hardcoding pixel numbers, so they stay meaningful if the
     #        geometry ever changes deliberately.
+    #
+    # 03-02 note: these checks used to isolate the silhouette by testing
+    # `pixel == IDX_WHITE` directly, which worked only because the old flat
+    # background contained zero White pixels outside text/silhouette. Since
+    # 03-02 the background is a dithered mood gradient whose minority index
+    # IS IDX_WHITE (~19% of every band, everywhere on the canvas) - so raw
+    # index equality can no longer distinguish "silhouette White" from
+    # "background dither White" the same way. These checks are re-expressed
+    # (03-RESEARCH.md's "may need to re-express" note, same root cause as
+    # checks 12-13) to diff the composited canvas's silhouette band against
+    # the same state's un-silhouetted mood background (dither.
+    # build_mood_background() is deterministic and memoized, so this is a
+    # stable, repeatable ground truth) - any pixel that differs from that
+    # reference is unambiguously something draw_silhouette() painted.
     _SILHOUETTE_ATTRS = ("SILHOUETTE_ZONE_TOP", "SILHOUETTE_ZONE_HEIGHT", "SILHOUETTE_TARGET_W", "SILHOUETTE_MAX_H")
 
     def _silhouette_band(render_mod, canvas):
@@ -288,45 +303,53 @@ def main():
         height = getattr(render_mod, "SILHOUETTE_ZONE_HEIGHT")
         return canvas.crop((0, top, panel_format.WIDTH, top + height)), top
 
-    def _fg_only_bytes(band, fg_idx):
-        # Reduce the band to a pure foreground/not-foreground mask so a
-        # background-colour difference (Blue vs Green) alone can never
-        # satisfy a "differs" comparison - only an actual shape change can.
-        return band.point(lambda p: 255 if p == fg_idx else 0).tobytes()
+    def _silhouette_diff_mask(render_mod, state):
+        """Return (mask, band_top): a binary "L"-mode mask, same size as
+        the zone-3 band, 255 where the fully-composited canvas differs from
+        the same state's raw (un-silhouetted) mood background, 0 where it
+        matches - i.e. exactly the pixels draw_silhouette() painted, immune
+        to the background's own legitimate White dither noise.
+        """
+        import server.plane.dither as dither_mod
+
+        canvas = render_mod.build_canvas(TEST_FLIGHT, state)
+        band, band_top = _silhouette_band(render_mod, canvas)
+        bg_reference = dither_mod.build_mood_background(state)
+        bg_band, _ = _silhouette_band(render_mod, bg_reference)
+        band_bytes = band.tobytes()
+        bg_bytes = bg_band.tobytes()
+        diff_bytes = bytes(255 if a != b else 0 for a, b in zip(band_bytes, bg_bytes))
+        from PIL import Image as _Image
+
+        mask = _Image.frombytes("L", band.size, diff_bytes)
+        return mask, band_top
 
     def _departing_silhouette_has_substantial_white_run():
         if not all(hasattr(render, a) for a in _SILHOUETTE_ATTRS):
             return False, "server.plane.render is missing one or more SILHOUETTE_* geometry constants: %r" % (_SILHOUETTE_ATTRS,)
-        canvas = render.build_canvas(TEST_FLIGHT, "departing")
-        band, _ = _silhouette_band(render, canvas)
-        white_count = band.histogram()[IDX_WHITE]
+        mask, _ = _silhouette_diff_mask(render, "departing")
+        changed_count = mask.histogram()[255]
         min_expected = int(0.1 * render.SILHOUETTE_TARGET_W * render.SILHOUETTE_MAX_H)
-        if white_count < min_expected:
-            return False, "departing silhouette band contains only %d White pixels, expected at least %d (derived from SILHOUETTE_TARGET_W x SILHOUETTE_MAX_H) - silhouette paste looks like a no-op" % (white_count, min_expected)
+        if changed_count < min_expected:
+            return False, "departing silhouette band differs from its un-silhouetted background in only %d pixels, expected at least %d (derived from SILHOUETTE_TARGET_W x SILHOUETTE_MAX_H) - silhouette paste looks like a no-op" % (changed_count, min_expected)
         return True, ""
-    check("departing render's silhouette band contains a substantial run of White pixels (silhouette actually painted)", _departing_silhouette_has_substantial_white_run)
+    check("departing render's silhouette band contains a substantial run of pixels changed from its own un-silhouetted background (silhouette actually painted)", _departing_silhouette_has_substantial_white_run)
 
     def _departing_and_arriving_silhouette_bands_differ_by_shape():
         if not all(hasattr(render, a) for a in _SILHOUETTE_ATTRS):
             return False, "server.plane.render is missing one or more SILHOUETTE_* geometry constants: %r" % (_SILHOUETTE_ATTRS,)
-        dep_canvas = render.build_canvas(TEST_FLIGHT, "departing")
-        arr_canvas = render.build_canvas(TEST_FLIGHT, "arriving")
-        dep_band, _ = _silhouette_band(render, dep_canvas)
-        arr_band, _ = _silhouette_band(render, arr_canvas)
-        dep_fg = _fg_only_bytes(dep_band, IDX_WHITE)
-        arr_fg = _fg_only_bytes(arr_band, IDX_WHITE)
-        if dep_fg == arr_fg:
-            return False, "departing and arriving foreground-only silhouette bands are byte-identical - mirroring is a no-op (a background colour difference alone cannot satisfy this check, since both bands were reduced to a White-vs-not mask first)"
+        dep_mask, _ = _silhouette_diff_mask(render, "departing")
+        arr_mask, _ = _silhouette_diff_mask(render, "arriving")
+        if dep_mask.tobytes() == arr_mask.tobytes():
+            return False, "departing and arriving silhouette diff-masks are byte-identical - mirroring is a no-op (both masks isolate exactly the pixels changed from each state's own background, so a background colour/noise difference alone cannot satisfy this check)"
         return True, ""
-    check("departing and arriving silhouette bands differ in their foreground (White) shape specifically - not just background colour (mirroring applied)", _departing_and_arriving_silhouette_bands_differ_by_shape)
+    check("departing and arriving silhouette bands differ in shape specifically - not just background colour or dither noise (mirroring applied)", _departing_and_arriving_silhouette_bands_differ_by_shape)
 
     def _silhouette_bbox_in_safe_box_no_overlap():
         if not all(hasattr(render, a) for a in _SILHOUETTE_ATTRS) or not hasattr(render, "FLIGHT_NUMBER_TOP_Y") or not hasattr(render, "MARGIN"):
             return False, "server.plane.render is missing SILHOUETTE_* geometry, FLIGHT_NUMBER_TOP_Y, or MARGIN"
-        canvas = render.build_canvas(TEST_FLIGHT, "departing")
-        band, band_top = _silhouette_band(render, canvas)
-        fg_mask = band.point(lambda p: 255 if p == IDX_WHITE else 0)
-        bbox = fg_mask.getbbox()
+        mask, band_top = _silhouette_diff_mask(render, "departing")
+        bbox = mask.getbbox()
         if bbox is None:
             return False, "no silhouette pixels found in the zone-3 band at all"
         left, top, right, bottom = bbox
@@ -529,15 +552,15 @@ def main():
     def _hit_and_miss_renders_keep_two_palette_indices():
         hit_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
         miss_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=None)
-        hit_colors = hit_canvas.getcolors()
-        miss_colors = miss_canvas.getcolors()
-        if hit_colors is None or len(hit_colors) != 2:
-            return False, "resolved-route canvas has %r distinct palette indices, expected exactly 2" % (None if hit_colors is None else len(hit_colors),)
-        if miss_colors is None or len(miss_colors) != 2:
-            return False, "enrichment-miss canvas has %r distinct palette indices, expected exactly 2" % (None if miss_colors is None else len(miss_colors),)
+        hit_idx_set = {value for _count, value in hit_canvas.getcolors()} if hit_canvas.getcolors() else set()
+        miss_idx_set = {value for _count, value in miss_canvas.getcolors()} if miss_canvas.getcolors() else set()
+        if hit_idx_set != {IDX_BLUE, IDX_WHITE}:
+            return False, "resolved-route canvas index set is %r, expected exactly {IDX_BLUE, IDX_WHITE}" % (hit_idx_set,)
+        if miss_idx_set != {IDX_BLUE, IDX_WHITE}:
+            return False, "enrichment-miss canvas index set is %r, expected exactly {IDX_BLUE, IDX_WHITE}" % (miss_idx_set,)
         return True, ""
     check(
-        "both a resolved-route render and an enrichment-miss render retain exactly two distinct palette indices after compositing",
+        "both a resolved-route render and an enrichment-miss render retain exactly {IDX_BLUE, IDX_WHITE} after compositing",
         _hit_and_miss_renders_keep_two_palette_indices,
     )
 
@@ -643,6 +666,143 @@ def main():
     check(
         "rendering the same flight+route twice remains byte-identical after the Zilla Slab font swap (determinism)",
         _rendering_same_flight_twice_stays_deterministic_after_font_swap,
+    )
+
+    # 33-37. 03-02 (D-17/D-18): the mood background is not a flat fill,
+    # quiet-zone geometry actually observed on the render path is correct,
+    # no text-outline arguments exist anywhere in the source, and
+    # determinism survives an interleaved build of the other state.
+    class _QuietZoneSpy:
+        """Captures every render.draw_quiet_zone() call made while building
+        one canvas: the caller-supplied (unpadded) text bbox and the
+        clamped rectangle actually drawn and returned - the same
+        monkeypatch-a-module-global pattern _RenderSpy above already uses
+        for draw_tracked_text()/ImageDraw.Draw.text()."""
+
+        def __init__(self, render_mod):
+            self._render_mod = render_mod
+            self.calls = []  # list of (input_bbox, drawn_rect)
+            self._orig = None
+
+        def __enter__(self):
+            self._orig = self._render_mod.draw_quiet_zone
+
+            def _spy(canvas, bbox, bg_idx, pad=self._render_mod.QUIET_ZONE_PAD):
+                rect = self._orig(canvas, bbox, bg_idx, pad=pad)
+                self.calls.append((bbox, rect))
+                return rect
+
+            self._render_mod.draw_quiet_zone = _spy
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            self._render_mod.draw_quiet_zone = self._orig
+            return False
+
+    def _departing_background_is_not_a_flat_fill():
+        with _QuietZoneSpy(render) as spy:
+            canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        scratch = canvas.copy()
+        scratch_draw = render.ImageDraw.Draw(scratch)
+        SENTINEL = 255
+        for _bbox, rect in spy.calls:
+            scratch_draw.rectangle(tuple(int(v) for v in rect), fill=SENTINEL)
+        scratch_draw.rectangle(
+            (0, render.SILHOUETTE_ZONE_TOP, panel_format.WIDTH, render.SILHOUETTE_ZONE_TOP + render.SILHOUETTE_ZONE_HEIGHT),
+            fill=SENTINEL,
+        )
+        colors = scratch.getcolors()
+        idx_set = {value for _count, value in colors} if colors else set()
+        idx_set.discard(SENTINEL)
+        if IDX_BLUE not in idx_set or IDX_WHITE not in idx_set:
+            return False, (
+                "departing canvas outside every quiet zone and the silhouette band has index set %r, "
+                "expected both IDX_BLUE and IDX_WHITE present (regression to a flat pf.new_canvas() fill)" % (idx_set,)
+            )
+        return True, ""
+    check(
+        "departing background is a real dithered gradient (both IDX_BLUE and IDX_WHITE present outside every quiet zone and the silhouette band) - not a flat fill",
+        _departing_background_is_not_a_flat_fill,
+    )
+
+    def _departing_quiet_zone_geometry_is_correct():
+        if not hasattr(render, "draw_quiet_zone") or not hasattr(render, "QUIET_ZONE_PAD"):
+            return False, "server.plane.render is missing draw_quiet_zone() or QUIET_ZONE_PAD"
+        with _QuietZoneSpy(render) as spy:
+            canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        if len(spy.calls) != 5:
+            return False, "expected exactly 5 quiet-zone rectangles for a departing render with a resolved route (state label, flight number, route line, airline line, bottom tag), got %d: %r" % (
+                len(spy.calls), spy.calls,
+            )
+        sb_left, sb_top, sb_right, sb_bottom = render.SAFE_BOX
+        for bbox, rect in spy.calls:
+            r_left, r_top, r_right, r_bottom = rect
+            if not (r_left >= sb_left and r_top >= sb_top and r_right <= sb_right and r_bottom <= sb_bottom):
+                return False, "quiet-zone rectangle %r lies outside SAFE_BOX %r" % (rect, render.SAFE_BOX)
+            b_left, b_top, b_right, b_bottom = bbox
+            if not (r_left <= b_left and r_top <= b_top and r_right >= b_right and r_bottom >= b_bottom):
+                return False, "quiet-zone rectangle %r does not fully contain the text bbox %r it backs" % (rect, bbox)
+            crop = canvas.crop(tuple(int(v) for v in rect))
+            crop_colors = crop.getcolors()
+            crop_idx_set = {value for _count, value in crop_colors} if crop_colors else set()
+            if not crop_idx_set.issubset({IDX_BLUE, IDX_WHITE}):
+                return False, "quiet-zone rectangle %r contains illegal index(es) %r" % (rect, crop_idx_set - {IDX_BLUE, IDX_WHITE})
+        return True, ""
+    check(
+        "each of the 5 quiet-zone rectangles the departing render path actually draws contains only {IDX_BLUE, IDX_WHITE}, lies entirely inside SAFE_BOX, and fully contains the text bbox it backs",
+        _departing_quiet_zone_geometry_is_correct,
+    )
+
+    def _render_source_never_uses_text_outline_arguments():
+        render_path = os.path.join(REPO_ROOT, "server", "plane", "render.py")
+        with open(render_path, "r") as fh:
+            code_lines = [line for line in fh if not line.lstrip().startswith("#")]
+        stripped_source = "".join(code_lines)
+        if "stroke_width" in stripped_source or "stroke_fill" in stripped_source:
+            return False, "server/plane/render.py references stroke_width/stroke_fill outside a full-line comment"
+        return True, ""
+    check(
+        "server/plane/render.py's comment-stripped source contains no stroke_width/stroke_fill text-outline usage",
+        _render_source_never_uses_text_outline_arguments,
+    )
+
+    def _departing_determinism_survives_interleaved_other_state_build():
+        import hashlib
+
+        from server.plane import dither as dither_mod
+
+        first = render.render_panel(TEST_FLIGHT, "departing")
+        first_hash = hashlib.sha256(first).hexdigest()
+        dither_mod.build_mood_background("arriving")  # interleave the other state's memoized build
+        second = render.render_panel(TEST_FLIGHT, "departing")
+        second_hash = hashlib.sha256(second).hexdigest()
+        if first_hash != second_hash:
+            return False, "departing panel SHA-256 changed after an interleaved build_mood_background('arriving') call: %s vs %s - the memo is order-dependent" % (
+                first_hash, second_hash,
+            )
+        return True, ""
+    check(
+        "the departing panel's SHA-256 is unaffected by an interleaved build_mood_background('arriving') call (memoization is not order-dependent)",
+        _departing_determinism_survives_interleaved_other_state_build,
+    )
+
+    def _empty_state_still_uses_flat_new_canvas():
+        render_path = os.path.join(REPO_ROOT, "server", "plane", "render.py")
+        with open(render_path, "r") as fh:
+            code_lines = [line for line in fh if not line.lstrip().startswith("#")]
+        stripped_source = "".join(code_lines)
+        if stripped_source.count("new_canvas") != 1:
+            return False, "server/plane/render.py's comment-stripped source calls new_canvas() %d time(s), expected exactly 1 (only the empty state)" % (
+                stripped_source.count("new_canvas"),
+            )
+        empty_canvas = render.build_canvas(None, "empty")
+        idx_set = {value for _count, value in empty_canvas.getcolors()} if empty_canvas.getcolors() else set()
+        if idx_set != {IDX_BLACK, IDX_WHITE}:
+            return False, "empty-state canvas index set is %r, expected exactly {IDX_BLACK, IDX_WHITE} (unaffected flat fill)" % (idx_set,)
+        return True, ""
+    check(
+        "the empty state still builds its canvas via the sole remaining pf.new_canvas() call site and stays exactly {IDX_BLACK, IDX_WHITE}",
+        _empty_state_still_uses_flat_new_canvas,
     )
 
     total = len(results)

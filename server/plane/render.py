@@ -4,10 +4,11 @@
 Implements the state field, state label, flight-number caption, and bottom
 static tag - 02-03 adds the silhouette centrepiece, 02-04 adds the route
 and airline lines. Every draw call goes directly onto a "P"-mode canvas
-from panel_format.new_canvas() with an integer palette-index fill, never an
-RGB tuple and never an RGB compose-then-quantize step (02-RESEARCH.md
-Architecture Pattern 1) - this is the mechanism that satisfies
-02-UI-SPEC.md's binding "disable anti-aliasing" rule for free.
+(built via panel_format's flat-fill canvas constructor, or - since 03-02 -
+the dithered mood-background builder below) with an integer palette-index
+fill, never an RGB tuple and never an RGB compose-then-quantize step
+(02-RESEARCH.md Architecture Pattern 1) - this is the mechanism that
+satisfies 02-UI-SPEC.md's binding "disable anti-aliasing" rule for free.
 
 02-02 (this slice) adds the full-bleed departing/arriving colour field
 (STATE_BACKGROUND) and the DEPARTING/ARRIVING state label (glyph + tracked
@@ -20,6 +21,20 @@ is hard-thresholded back to strictly binary before compositing
 (load_binary_mask(), 02-RESEARCH.md Architecture Pattern 2) - this is what
 keeps the exactly-two-palette-indices anti-aliasing guarantee intact even
 though the glyph asset itself was resized.
+
+03-02 (D-17, D-18) replaces the active states' flat STATE_BACKGROUND fill
+with server.plane.dither.build_mood_background() - a deterministic,
+Floyd-Steinberg-dithered, two-tone gradient in the state's own hue. Every
+text-bearing zone (state label, flight-number caption, route/airline
+lines, bottom tag) now draws a flat "quiet-zone" rectangle of the state's
+background index (draw_quiet_zone()) *before* its own text, so no glyph
+ever sits directly on a dithered pixel - the whole-canvas "exactly two
+palette indices" guard rail is replaced by the spatially-scoped
+_assert_palette_contract() for the same reason. Pillow's built-in
+text-outline drawing arguments (see 03-RESEARCH.md Pitfall 7 for their
+exact names) must never be used anywhere in this file, for any font, in
+any state - they leak illegal palette indices through anti-aliased
+stroke-edge blending even on a flat background.
 
 Usage (manual QA):
     server/.venv/bin/python3 server/plane/render.py --state empty --out /tmp/panel.bin
@@ -44,8 +59,8 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import panel_format as pf
-from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_WHITE, WIDTH, HEIGHT
-from server.plane import enrich, runway_config
+from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW, WIDTH, HEIGHT
+from server.plane import dither, enrich, runway_config
 
 # --- UI-SPEC Spacing Scale (02-UI-SPEC.md, unchanged since Revision 1) ----
 SPACE_XS = 8
@@ -61,6 +76,13 @@ SPACE_3XL = 192
 # "Exceptions").
 MARGIN = SPACE_LG
 SAFE_BOX = (MARGIN, MARGIN, WIDTH - MARGIN, HEIGHT - MARGIN)  # (64, 64, 1136, 1536)
+
+# 03-UI-SPEC.md "Quiet-zone text compositing": every text-bearing element in
+# the Departing/Arriving states sits on a flat plate of the state's
+# background index, sized to the text's own bounding box plus this much
+# padding on every side. Reuses the existing SPACE_XS token - no new
+# spacing token is introduced (03-02-PLAN.md's locked-decisions note).
+QUIET_ZONE_PAD = SPACE_XS
 
 # --- UI-SPEC Typography (03-UI-SPEC.md Revision 3, supersedes 02-UI-SPEC.md's
 # three-role Inter sans-serif scale) -----------------------------------------
@@ -232,6 +254,36 @@ def _assert_in_safe_box(bbox, label):
     )
 
 
+def draw_quiet_zone(canvas, bbox, bg_idx, pad=QUIET_ZONE_PAD):
+    """Draw a flat `bg_idx`-coloured rectangle behind a text-bearing zone so
+    no glyph is ever drawn directly on a dithered pixel (03-UI-SPEC.md
+    "Quiet-zone text compositing"). Expands `bbox` by `pad` on all four
+    sides, clamps the result to SAFE_BOX (the bottom static tag's own
+    bounding box already ends exactly on the safe-box bottom edge, so an
+    unclamped pad would breach the inviolable margin - clamping is
+    required here, not defensive), asserts the clamped rectangle still
+    fully contains the unexpanded `bbox`, and draws it with hard corners
+    (no rounding). Returns the clamped rectangle so the caller can hand it
+    to _assert_palette_contract().
+    """
+    left, top, right, bottom = bbox
+    sb_left, sb_top, sb_right, sb_bottom = SAFE_BOX
+    clamped = (
+        max(sb_left, left - pad),
+        max(sb_top, top - pad),
+        min(sb_right, right + pad),
+        min(sb_bottom, bottom + pad),
+    )
+    c_left, c_top, c_right, c_bottom = clamped
+    assert c_left <= left and c_top <= top and c_right >= right and c_bottom >= bottom, (
+        "quiet zone %r clamped to %r no longer fully contains its own text bbox %r"
+        % ((left - pad, top - pad, right + pad, bottom + pad), clamped, bbox)
+    )
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle(clamped, fill=bg_idx)
+    return clamped
+
+
 def _wrap_text(font, text, max_width):
     """Manual word-wrap: split on spaces, greedily pack words onto a line
     while the line's rendered width (font.getlength) stays within
@@ -319,18 +371,22 @@ def paste_mask(canvas, mask_path, box, fill_index, mirror=False):
     return (left, top, left + w, top + h)
 
 
-def draw_state_label(canvas, state, ink_idx):
+def draw_state_label(canvas, state, ink_idx, bg_idx):
     """Draw UI-SPEC zone 1 - the state label row: the plane-takeoff/
     plane-landing glyph (filled `ink_idx`) + SPACE_XS gap + tracked
     uppercase Label-role text (`STATE_LABEL_TEXT[state]`), horizontally
     centred, top-anchored within the 96px zone-1 band already reserved by
-    FLIGHT_NUMBER_TOP_Y's zone stacking. No filled rectangle behind it -
-    02-UI-SPEC.md Revision 2 explicitly removed the mode badge (a same-
-    colour badge would be invisible against its own full-bleed background).
+    FLIGHT_NUMBER_TOP_Y's zone stacking. 03-02: a single flat quiet-zone
+    rectangle (`bg_idx`) is drawn behind the *combined* glyph-plus-text
+    block - both geometries are measured first, the quiet zone is drawn
+    before either the glyph is pasted or the text is drawn, so neither
+    ever sits directly on the dithered mood background.
 
     Called only for the active (departing/arriving) states - the Empty
     state renders no state label and no glyph at all (nothing detected yet,
     nothing to depict).
+
+    Returns the drawn quiet-zone rectangle.
     """
     draw = ImageDraw.Draw(canvas)
     label_font = _font(LABEL_FONT)
@@ -339,7 +395,6 @@ def draw_state_label(canvas, state, ink_idx):
     # Size the glyph to the Label role's cap height, per 02-02-PLAN.md Task 3.
     cap_bbox = label_font.getbbox("H")
     cap_height = cap_bbox[3] - cap_bbox[1]
-    icon_size = (cap_height, cap_height)
 
     label_ascent, label_descent = label_font.getmetrics()
     text_height = label_ascent + label_descent
@@ -355,14 +410,27 @@ def draw_state_label(canvas, state, ink_idx):
 
     icon_x = block_left
     icon_y = row_top + (row_height - cap_height) // 2
-    icon_bbox = paste_mask(canvas, STATE_GLYPH_PATH[state], (icon_x, icon_y, cap_height, cap_height), ink_idx)
-    _assert_in_safe_box(icon_bbox, "state label glyph")
+    icon_geom_bbox = (icon_x, icon_y, icon_x + cap_height, icon_y + cap_height)
 
     text_x = icon_x + cap_height + SPACE_XS
     text_y = row_top + (row_height - text_height) // 2
     text_bbox = _tracked_text_bbox(label_font, (text_x, text_y), text, LABEL_TRACKING_PX)
+
+    combined_bbox = (
+        min(icon_geom_bbox[0], text_bbox[0]),
+        min(icon_geom_bbox[1], text_bbox[1]),
+        max(icon_geom_bbox[2], text_bbox[2]),
+        max(icon_geom_bbox[3], text_bbox[3]),
+    )
+    quiet_rect = draw_quiet_zone(canvas, combined_bbox, bg_idx)
+
+    icon_bbox = paste_mask(canvas, STATE_GLYPH_PATH[state], (icon_x, icon_y, cap_height, cap_height), ink_idx)
+    _assert_in_safe_box(icon_bbox, "state label glyph")
+
     _assert_in_safe_box(text_bbox, "state label text")
     draw_tracked_text(draw, (text_x, text_y), text, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
+
+    return quiet_rect
 
 
 def draw_silhouette(canvas, state, ink_idx):
@@ -430,16 +498,19 @@ def _route_line_reserved_height():
     return max(label_ascent + label_descent, dest_ascent + dest_descent)
 
 
-def draw_route_line(canvas, state, ink_idx, city_text, top_y):
+def draw_route_line(canvas, state, ink_idx, city_text, top_y, bg_idx):
     """Draw UI-SPEC zone 7: an uppercase, letter-spaced Label-role prefix
     (`ROUTE_PREFIX_TEXT[state]` - "TO" for departing, "FROM" for arriving)
     followed by a Body-role city name (sentence case), horizontally centred
     as one composite line at `top_y`. Both runs are measured before either
     is drawn so the pair reads as one centred line, not two independently
     centred fragments. The city run shrinks via `fit_text_size()` rather
-    than clipping if it would cross the safe box on its own.
+    than clipping if it would cross the safe box on its own. 03-02: a
+    single quiet-zone rectangle covers the combined prefix-plus-city bbox
+    (not two separate plates), drawn before either run.
 
-    Returns the composite line's absolute bounding box.
+    Returns `(quiet_rect, bbox)` - the drawn quiet-zone rectangle and the
+    composite line's own absolute bounding box.
     """
     draw = ImageDraw.Draw(canvas)
     prefix = ROUTE_PREFIX_TEXT[state]
@@ -461,26 +532,30 @@ def draw_route_line(canvas, state, ink_idx, city_text, top_y):
     prefix_y = top_y + (row_height - (label_ascent + label_descent)) // 2
     city_y = top_y + (row_height - (dest_ascent + dest_descent)) // 2
 
+    bbox = (left, top_y, left + total_width, top_y + row_height)
+    _assert_in_safe_box(bbox, "route line")
+    quiet_rect = draw_quiet_zone(canvas, bbox, bg_idx)
+
     prefix_end_x = draw_tracked_text(draw, (left, prefix_y), prefix, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
     city_x = prefix_end_x + ROUTE_PREFIX_GAP_PX
     draw.text((city_x, city_y), city_text, font=dest_font, fill=ink_idx)
 
-    bbox = (left, top_y, left + total_width, top_y + row_height)
-    _assert_in_safe_box(bbox, "route line")
-    return bbox
+    return quiet_rect, bbox
 
 
-def draw_airline_line(canvas, ink_idx, text, top_y):
+def draw_airline_line(canvas, ink_idx, text, top_y, bg_idx):
     """Draw UI-SPEC zone 9: a single Body-role, regular-weight run
     (the airline name, or `ROUTE_FALLBACK_TEXT` on an enrichment miss),
     horizontally centred, top-anchored at `top_y`. Shrinks via
     `fit_text_size()` rather than clipping if it would cross the safe box.
+    03-02: the measured bbox gets a quiet-zone rectangle before the text
+    itself is drawn.
 
     `top_y` is always the caller's fixed airline-line position - identical
     whether or not the route line rendered this call - so this function
     never needs to know why it was invoked, only where to draw.
 
-    Returns the run's absolute bounding box.
+    Returns the drawn quiet-zone rectangle.
     """
     draw = ImageDraw.Draw(canvas)
     safe_width = SAFE_BOX[2] - SAFE_BOX[0]
@@ -488,8 +563,9 @@ def draw_airline_line(canvas, ink_idx, text, top_y):
     center_x = WIDTH // 2
     bbox = draw.textbbox((center_x, top_y), text, font=font, anchor="ma")
     _assert_in_safe_box(bbox, "airline line")
+    quiet_rect = draw_quiet_zone(canvas, bbox, bg_idx)
     draw.text((center_x, top_y), text, font=font, fill=ink_idx, anchor="ma")
-    return bbox
+    return quiet_rect
 
 
 def _build_empty_canvas():
@@ -524,25 +600,114 @@ def _build_empty_canvas():
     return canvas
 
 
+_LEGAL_PANEL_INDICES = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN}
+
+# Out-of-band sentinel used by _assert_palette_contract() to blank the
+# illustration bbox on a scratch copy of the canvas before checking the
+# rest of the panel - legal as a Pillow palette index (0..255), never
+# packed to the wire (pack_panel() only ever sees canvases built without
+# this sentinel), and cheap to fill because it happens at C speed via
+# ImageDraw.rectangle(), not a 1.92-million-element Python getdata() loop.
+_ILLUSTRATION_SENTINEL_IDX = 255
+
+
+def _assert_palette_contract(canvas, bg_idx, quiet_rects, illustration_bbox=None):
+    """Spatially-scoped replacement for the old whole-canvas "exactly 2
+    distinct palette indices" guard rail (03-RESEARCH.md Pitfall 1: a bug
+    painting the flight number Yellow would sail through a naive
+    `len(colors) <= 6` raised-ceiling check). Asserts, in order:
+
+    1. Every index present anywhere on the canvas is one of the 6 legal
+       panel indices.
+    2. Each rectangle in `quiet_rects` contains only `{bg_idx, IDX_WHITE}`,
+       and both are actually present (a quiet zone containing only bg_idx
+       means the text failed to draw).
+    3. Outside `illustration_bbox` (via a C-speed sentinel-rectangle fill on
+       a scratch copy, not a Python-level getdata()/mask zip), the index
+       set is exactly `{bg_idx, IDX_WHITE}` - or, when `illustration_bbox`
+       is None (this plan's state, before 03-03 wires the illustration),
+       the *whole* canvas's index set must be exactly `{bg_idx, IDX_WHITE}`.
+    4. `bg_idx` accounts for more pixels than IDX_WHITE does, so the panel
+       is provably hue-dominant rather than a mostly-white field.
+
+    Every assertion message names the state's background index, the
+    offending index/region, so an on-glass failure is diagnosable from a
+    log line rather than by eye.
+    """
+    colors = canvas.getcolors()
+    # Pillow's getcolors() returns (count, value) pairs - count first.
+    whole_idx_set = {value for _count, value in colors} if colors else set()
+    illegal = whole_idx_set - _LEGAL_PANEL_INDICES
+    assert not illegal, (
+        "canvas (bg_idx=%r) contains illegal palette index(es) %r - expected a subset of the 6 legal panel indices %r"
+        % (bg_idx, sorted(illegal), sorted(_LEGAL_PANEL_INDICES))
+    )
+
+    allowed_quiet = {bg_idx, IDX_WHITE}
+    for rect in quiet_rects:
+        left, top, right, bottom = (int(v) for v in rect)
+        crop = canvas.crop((left, top, right, bottom))
+        crop_colors = crop.getcolors()
+        crop_idx_set = {value for _count, value in crop_colors} if crop_colors else set()
+        illegal_in_zone = crop_idx_set - allowed_quiet
+        assert not illegal_in_zone, (
+            "quiet zone %r (bg_idx=%r) contains illegal index(es) %r - expected a subset of %r"
+            % (rect, bg_idx, sorted(illegal_in_zone), sorted(allowed_quiet))
+        )
+        assert allowed_quiet.issubset(crop_idx_set), (
+            "quiet zone %r (bg_idx=%r) is missing one of %r (found %r) - the text may have failed to draw"
+            % (rect, bg_idx, sorted(allowed_quiet), sorted(crop_idx_set))
+        )
+
+    outside_canvas = canvas.copy()
+    if illustration_bbox is not None:
+        ImageDraw.Draw(outside_canvas).rectangle(illustration_bbox, fill=_ILLUSTRATION_SENTINEL_IDX)
+        expected_outside = {bg_idx, IDX_WHITE, _ILLUSTRATION_SENTINEL_IDX}
+    else:
+        expected_outside = {bg_idx, IDX_WHITE}
+    outside_colors = outside_canvas.getcolors()
+    outside_idx_set = {value for _count, value in outside_colors} if outside_colors else set()
+    assert outside_idx_set == expected_outside, (
+        "canvas outside the illustration bbox (bg_idx=%r, illustration_bbox=%r) has index set %r, expected exactly %r"
+        % (bg_idx, illustration_bbox, sorted(outside_idx_set), sorted(expected_outside))
+    )
+
+    counts = {value: count for count, value in colors} if colors else {}
+    bg_count = counts.get(bg_idx, 0)
+    white_count = counts.get(IDX_WHITE, 0)
+    assert bg_count > white_count, (
+        "canvas's state index bg_idx=%r has %d pixels vs IDX_WHITE's %d - panel is not hue-dominant"
+        % (bg_idx, bg_count, white_count)
+    )
+
+
 def _build_active_canvas(flight, state, route=None):
     if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
     bg_idx = STATE_BACKGROUND[state]
     fg_idx = STATE_INK[state]
 
-    canvas = pf.new_canvas(bg_idx)
+    # 03-02 (D-17): the flat pf.new_canvas(bg_idx) fill is replaced by a
+    # deterministic, Floyd-Steinberg-dithered, two-tone mood gradient in
+    # the state's own hue. build_mood_background() already returns a
+    # fresh, palette-padded copy, so no further preparation is needed here.
+    canvas = dither.build_mood_background(state)
     draw = ImageDraw.Draw(canvas)
     center_x = WIDTH // 2
+    quiet_rects = []
 
     # UI-SPEC zone 1: state label - plane-takeoff/plane-landing glyph +
-    # tracked DEPARTING/ARRIVING text, no filled rectangle behind it (the
-    # Revision 2 "mode badge removed" decision).
-    draw_state_label(canvas, state, fg_idx)
+    # tracked DEPARTING/ARRIVING text, backed by its own quiet-zone
+    # rectangle now that the background is dithered, not flat (03-02).
+    quiet_rects.append(draw_state_label(canvas, state, fg_idx, bg_idx))
 
     # UI-SPEC zone 3: the aircraft silhouette centrepiece, mirrored by
     # state (02-03) - the panel's primary visual anchor, drawn before the
     # flight-number caption below it so the visual reading order in code
-    # matches the visual reading order on the panel.
+    # matches the visual reading order on the panel. Still a flat fg_idx
+    # (White) fill via load_binary_mask()'s hard threshold - no quiet zone
+    # needed (it is not text), and no multi-colour illustration exception
+    # yet (that is 03-03's job; illustration_bbox stays None until then).
     draw_silhouette(canvas, state, fg_idx)
 
     # UI-SPEC zone 5: flight-number caption, hero-primary size (D-16),
@@ -551,12 +716,14 @@ def _build_active_canvas(flight, state, route=None):
     # fixed-pattern, so this path is expected to rarely trigger, but the
     # safe-box assertion must still hold for any input). Falls back to the
     # aircraft's hex uppercased when no callsign was recovered, so the
-    # panel never renders an empty hero line.
+    # panel never renders an empty hero line. 03-02: quiet-zoned before the
+    # text itself is drawn.
     callsign = flight.get("callsign") or (flight.get("hex") or "").upper() or "?"
     safe_width = SAFE_BOX[2] - SAFE_BOX[0]
     heading_font = fit_text_size(_ZILLA_BOLD, FLIGHT_NUMBER_FONT[1], callsign, safe_width)
     heading_bbox = draw.textbbox((center_x, FLIGHT_NUMBER_TOP_Y), callsign, font=heading_font, anchor="ma")
     _assert_in_safe_box(heading_bbox, "flight number caption")
+    quiet_rects.append(draw_quiet_zone(canvas, heading_bbox, bg_idx))
     draw.text((center_x, FLIGHT_NUMBER_TOP_Y), callsign, font=heading_font, fill=fg_idx, anchor="ma")
 
     # UI-SPEC zones 5-9: route line (7) + airline line (9), 02-04
@@ -570,16 +737,20 @@ def _build_active_canvas(flight, state, route=None):
     city_text = enrich.city_for_state(route, state) if route is not None else None
     airline_text = route.get("airline_name") if route is not None else None
     if city_text and airline_text:
-        draw_route_line(canvas, state, fg_idx, city_text, route_line_top_y)
-        draw_airline_line(canvas, fg_idx, airline_text, airline_line_top_y)
+        route_quiet_rect, _route_bbox = draw_route_line(canvas, state, fg_idx, city_text, route_line_top_y, bg_idx)
+        quiet_rects.append(route_quiet_rect)
+        quiet_rects.append(draw_airline_line(canvas, fg_idx, airline_text, airline_line_top_y, bg_idx))
     else:
         # No route, or (defensively) an incomplete one - enrich.lookup_route
         # never returns a half-resolved route (UI-SPEC has no partial
         # state), so this also covers that impossible case safely.
-        draw_airline_line(canvas, fg_idx, ROUTE_FALLBACK_TEXT, airline_line_top_y)
+        quiet_rects.append(draw_airline_line(canvas, fg_idx, ROUTE_FALLBACK_TEXT, airline_line_top_y, bg_idx))
 
     # UI-SPEC zone 11: bottom-anchored static tag, Label size, tracked
-    # letter-spacing, White.
+    # letter-spacing, White. 03-02: quiet-zoned before the text is drawn -
+    # this zone's own bounding box already ends exactly on the safe-box
+    # bottom edge, so draw_quiet_zone()'s clamping is what keeps the
+    # padded rectangle from breaching the inviolable margin.
     label_font = _font(LABEL_FONT)
     tag_width = _tracked_text_width(label_font, BOTTOM_TAG_TEXT, LABEL_TRACKING_PX)
     label_ascent, label_descent = label_font.getmetrics()
@@ -588,19 +759,16 @@ def _build_active_canvas(flight, state, route=None):
     tag_y = HEIGHT - MARGIN - tag_line_height
     tag_bbox = (tag_x, tag_y, tag_x + tag_width, tag_y + tag_line_height)
     _assert_in_safe_box(tag_bbox, "bottom static tag")
+    quiet_rects.append(draw_quiet_zone(canvas, tag_bbox, bg_idx))
     draw_tracked_text(draw, (tag_x, tag_y), BOTTOM_TAG_TEXT, label_font, fg_idx, tracking=LABEL_TRACKING_PX)
 
-    # Guard rail (02-RESEARCH.md Pattern 2): every mask composited above
-    # (state-label glyph, silhouette) went through load_binary_mask()'s
-    # hard threshold, so the canvas must still be exactly two palette
-    # indices (bg_idx, fg_idx). Failing loudly here is better than
-    # shipping a subtly dithered panel to the glass, where the failure is
+    # Guard rail (03-02, replacing the old whole-canvas "exactly 2 distinct
+    # palette indices" check): a spatially-scoped palette contract - every
+    # quiet zone is {bg_idx, IDX_WHITE} only, and (with no illustration bbox
+    # wired yet) the whole canvas is too. Failing loudly here is better
+    # than shipping a subtly wrong panel to the glass, where the failure is
     # only visible by eye.
-    colors = canvas.getcolors()
-    assert colors is not None and len(colors) == 2, (
-        "%s canvas has %r distinct palette indices after compositing, expected exactly 2 - "
-        "a mask was pasted without the hard-threshold step" % (state, None if colors is None else len(colors))
-    )
+    _assert_palette_contract(canvas, bg_idx, quiet_rects, illustration_bbox=None)
 
     return canvas
 
