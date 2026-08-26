@@ -133,19 +133,21 @@ this section intentionally doesn't restate any of it.
 ## Data sources
 
 This project uses real-time ADS-B aircraft position data from
-[adsb.fi](https://adsb.fi) as a secondary aggregator source, and from
-[airplanes.live](https://airplanes.live) as the primary aggregator source
-(good-faith attribution extended pending confirmation of their exact
-terms — see `COMPLIANCE.md` for why). Callsign/airline/route enrichment
-is provided by [adsbdb.com](https://www.adsbdb.com), a free, unauthenticated,
-crowdsourced lookup service.
+[adsb.fi](https://adsb.fi), the sole aggregator source an automated poll
+queries as of 2026-08-27. Callsign/airline/route enrichment is provided by
+[adsbdb.com](https://www.adsbdb.com), a free, unauthenticated, crowdsourced
+lookup service.
+
+[airplanes.live](https://airplanes.live) remains present in the code as an
+explicit, opt-in `--provider` choice — for a feeder operator, sponsor, or
+licensee — following its 2026-08-27 free-tier closure. It is documented but
+not called by the default poll path; see [`COMPLIANCE.md`](./COMPLIANCE.md)
+for the full detail.
 
 No raw aggregator data is republished — what the device downloads is a
 rendered panel image derived from a single selected flight, not a bulk
-feed or dataset built from any of these sources. Full terms analysis,
-citation text, and the one currently open item (airplanes.live's terms
-page returning HTTP 403 on every automated fetch attempt so far) are in
-[`COMPLIANCE.md`](./COMPLIANCE.md).
+feed or dataset built from any of these sources. Full terms analysis and
+citation text are in [`COMPLIANCE.md`](./COMPLIANCE.md).
 
 ## Licence and attribution
 
