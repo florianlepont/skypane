@@ -158,6 +158,24 @@ None — no pending todos matched this phase.
 
 </decisions_addendum_2>
 
+<decisions_addendum_3>
+## Final confirmed layout, iterated live against real illustration files (D-26, supersedes D-25's brief-derived estimates with exact values)
+
+Built and iterated as real PIL mockups (not abstract wireframes) using the actual `air-france.png`/`vueling-airlines.png` files already dropped by the user, on a real 1200×1600 canvas. Each value below was individually adjusted against the user's live feedback, not guessed:
+
+- **D-27 (font weight, supersedes D-20's Bold pick):** PT Serif **Regular** (not Bold) — the user asked for a finer/thinner look after seeing Bold. **Flagged explicitly:** this reintroduces exactly the thin-hairline e-ink legibility risk `03-RESEARCH.md`'s font research warned about when recommending Bold/SemiBold-only cuts. Shown to the user with that caveat before confirming — accepted anyway. This needs a real on-glass legibility check (not just on-screen judgment) before being treated as final; flag as an open item for Wave 4's on-glass checkpoint.
+- **Frame:** thin ivory (`#FAF6EB`-ish, i.e. a warm off-white — reuse `IDX_WHITE` on the actual 6-color panel, there is no separate "ivory" ink) rectangle outline, 2px, inset 2.5% of canvas width from each edge.
+- **Top labels:** state label top-left, tag (`ORY · RWY 3`) top-right, both PT Serif Regular — state label 20px, tag 18px. Both at the existing `MARGIN` (64px) inset, not the frame's own 2.5% inset (they sit inside the frame, not on it).
+- **Main illustration:** the current detection's real per-airline PNG, always nose-left (D-24, no mirroring), width = 87% of the inner (post-2.5%-inset) canvas width, top edge at 30% of canvas height (`round(HEIGHT * 0.30)`), horizontally centered, aspect-ratio preserved.
+- **Main text block:** starts at `main_illustration_bottom - 20px` (a deliberate slight overlap — confirmed this specific illustration file has zero transparent bottom padding of its own, verified via `Image.getbbox()`, so this is the only way to get the text as close as the user wanted). Line 1 `{callsign} {to|from} {city}`, 44px, centered. Line 2 `{airline} · {aircraft_type}`, 22px, centered, 8px below line 1's bottom.
+- **Previous illustration:** the flight detected immediately before the current one (new state, see D-25's engineering note — unchanged). Always nose-left, same as main. Width = 57% of the main illustration's own rendered width. **Right-aligned to the main illustration's own right edge** (not the frame margin — the user explicitly corrected an earlier attempt that aligned it to the frame instead). Vertically positioned so its center sits at 76% of canvas height.
+- **Previous text block:** starts 22px below the previous illustration's bottom edge, right-aligned to the same X as the previous illustration's right edge. Line 1 `{callsign} {to|from} {city}` — **no `PREVIOUS ·` prefix** (explicitly removed), 28px. Line 2 `{airline} · {aircraft_type}`, 16px, 34px below line 1's top (not bottom — matches the tighter stacking the mockup used).
+- **What's explicitly NOT in this layout:** no quiet-zone rectangles (D-21's background is flat now, nothing to protect text legibility against), no drop shadows/halos/gradients/paper texture, no dotted flight-path lines or map icons (D-25's non-negotiables, unchanged).
+
+This is the accepted final direction ("c'est parfait faisons ça") — ready for real implementation in `server/plane/render.py`, `server/panel_format.py`, and `server/poll_loop.py`.
+
+</decisions_addendum_3>
+
 ---
 
 *Phase: 3-Visual Polish on Real Glass*
