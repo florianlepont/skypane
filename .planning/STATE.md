@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: visual-polish-on-real-glass
 status: executing
-stopped_at: Phase 3 UI-SPEC Revision 3 approved (full composition realignment)
-last_updated: "2026-08-26T11:48:41.217Z"
+stopped_at: Phase 3 planned - 4 plans created, checker passed, decision-coverage gate 17/17
+last_updated: "2026-08-26T12:05:00.000Z"
 last_activity: 2026-08-26
-last_activity_desc: "Phase 3 scope expanded twice this session: illustration zone (per-airline dithered livery) then full composition realignment (serif typography, co-equal flight-number/destination hierarchy, dithered mood backgrounds) after comparing real flightportrait.com product photos. UI-SPEC Revision 3 approved 6/6. A third idea (procedural SVG livery engine) was split into new inserted Phase 3.1, pending live confirmation of ADS-B aircraft-type data. Next: /gsd-plan-phase 3 to create PLAN.md files."
+last_activity_desc: "Phase 3 fully planned: 4 plans (03-01 typography/hierarchy, 03-02 dithered mood background, 03-03 per-airline illustrations with blocking hand-off gate, 03-04 on-glass verification). gsd-plan-checker passed with no blockers; the planner independently verified render mechanics against real Pillow and caught/fixed 3 bugs in RESEARCH.md (a mood-background recipe that produced 6-color static instead of a dithered 2-tone field, an alpha-mask softening bug that would leak illegal colors, and a reversed getcolors() tuple-order claim). Decision-coverage gate initially found 4 uncovered CONTEXT.md decisions (D-01/D-05/D-07/D-14); fixed by adding a D-07 must_haves citation to 03-03 and tagging D-01/D-05/D-14 as [informational] rationale-only entries - now 17/17. Next: /gsd-execute-phase 3, but 03-03/03-04 need the user's physical presence (illustration hand-off + on-glass judgment)."
 progress:
   total_phases: 5
   completed_phases: 2

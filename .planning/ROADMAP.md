@@ -105,10 +105,20 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 03-01-PLAN.md — Serif typography (Zilla Slab) and the co-equal flight-number/destination hierarchy, plus D-13's interim panel RGB values
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 03-02-PLAN.md — Dithered two-tone mood background per state, with flat quiet-zone plates behind every caption and a spatially-scoped palette contract
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 03-03-PLAN.md — Per-airline dithered livery illustrations with a dithered generic fallback, gated on the developer's illustration hand-off
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 03-04-PLAN.md — On-glass verification battery (RGB calibration, fresh legibility, forced departure, long names, composition) and the 02-UI-SPEC.md Colour addendum
 
 **UI hint**: yes
