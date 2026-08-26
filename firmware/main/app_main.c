@@ -151,5 +151,7 @@ void app_main(void)
     uint8_t hash_skip = result == FP_POLL_OK_UNCHANGED ? 1 : 0;
     ESP_LOGI(TAG, "poll ok sleep_s=%" PRIu32 " hash_skip=%u",
              sleep_s, hash_skip);
+    /* 04-06 CI proof: comment-only edit to trigger the path-restricted
+     * firmware.yml workflow on a throwaway branch/PR. No behavior change. */
     enter_deep_sleep(sleep_s);
 }
