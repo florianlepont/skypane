@@ -21,8 +21,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display (completed 2026-08-26)
 - [ ] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle
 - [ ] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Replace Phase 3's hand-generated, representative-type-per-airline static illustrations with a server-side engine that overlays real per-flight livery colors onto the correct aircraft-type SVG, scaling to any airline/type without manual image generation
-- [ ] **Phase 4: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
-- [ ] **Phase 5: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution
+- [ ] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution
+- [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
 
 ## Phase Details
 
@@ -150,23 +150,36 @@ Plans:
 
 - [ ] TBD (run /gsd-plan-phase 03.1 to break down)
 
-### Phase 4: Battery Life & Low-Battery Indicator
+### Phase 4: CI/CD, Documentation & Legal Compliance
+
+**Note on scope (2026-08-26)**: Raised by the user as a missing v1 step — the project has shipped real, working code (Phases 1-3) with no CI, no README, no LICENSE, and no documented compliance check against the third-party APIs it depends on (AeroDataBox — unused per PROJECT.md's reversed decision, PRIM/IDFM, adsb.fi/airplanes.live). Scoped as its own phase rather than folded into Battery Life, since it's project-hygiene/shippability work orthogonal to the on-device experience Phases 1-3 & 5 build. **Ordered ahead of Battery Life (2026-08-26, user request)**: Battery Life's own remaining work is deliberately parked until the end of the project (its multi-day discharge run needs this Mac to stay awake continuously), so there is no reason for this phase — which has no such blocker — to wait behind it.
+
+**Goal:** GitHub Actions runs the full test suite (server/test_*.py) and code-quality/coverage checks on every push/PR, with an automated (gated, not silently-triggered) deploy step pushing to the real OVH VPS on merge to main; the repository has a README a newcomer can build/deploy from, a LICENSE, and documented confirmation that PRIM/IDFM's and the ADS-B aggregators' terms of use are actually being honored (no raw-data republishing, rate-limit compliance, attribution where required); asset attribution (fonts, icons, illustrations) is consolidated and verifiably complete via the existing VENDOR.md files.
+**Requirements**: TBD (derive during discuss-phase — CI trigger strategy, deploy gating/approval, license choice, coverage tool)
+**Depends on:** Phase 3
+**Plans**: 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 4 to break down)
+
+### Phase 5: Battery Life & Low-Battery Indicator
 
 **Goal**: Real on-battery wake/poll/sleep viability is measured on real hardware (not estimated), producing a mAh-per-cycle figure a wake-interval and battery-life plan can be built on; users can then see a clear low-battery warning on the frame — completing the v1 device experience for the single-view (plane-only) device.
 
-**Note on scope (2026-08-26)**: The battery-measurement plan (04-01, formerly Phase 1's 01-08) was moved here at the user's request — the unattended multi-day (up to 21-day) discharge run is deliberately scheduled for the end of the project, once other phases no longer need this Mac to stay awake continuously. Task 1 (pre-registered protocol + `check-battery` checker, proven on fixtures) is already complete; Tasks 2-3 (the actual run and its verdict) remain.
+**Note on scope (2026-08-26)**: The battery-measurement plan (05-01, formerly Phase 1's 01-08) was moved here at the user's request — the unattended multi-day (up to 21-day) discharge run is deliberately scheduled for the end of the project, once other phases no longer need this Mac to stay awake continuously. Task 1 (pre-registered protocol + `check-battery` checker, proven on fixtures) is already complete; Tasks 2-3 (the actual run and its verdict) remain. **Renumbered from Phase 4 to Phase 5 (2026-08-26, user request)** to run after CI/CD, Documentation & Legal Compliance instead of before it — see that phase's note.
 **Mode:** mvp
-**Depends on**: Phase 3
+**Depends on**: Phase 4
 **Requirements**: DEVICE-04, DEVICE-05
 **Success Criteria** (what must be TRUE):
 
   1. The device completes multiple wake/poll/sleep cycles running on battery power alone, producing a measured mAh-per-cycle figure — not an estimate — that supports a realistic wake-interval and battery-life plan.
   2. User can see a low-battery indicator on the frame when the battery is running low.
 
-**Plans**: 0/1+ plans executed (04-01 in progress; a second plan to build the low-battery indicator UI itself is still TBD)
+**Plans**: 0/1+ plans executed (05-01 in progress; a second plan to build the low-battery indicator UI itself is still TBD)
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker (Task 1 done), unattended multi-day discharge run and verdict (Tasks 2-3 pending)
+- [ ] 05-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker (Task 1 done), unattended multi-day discharge run and verdict (Tasks 2-3 pending)
 
 **UI hint**: yes
 
@@ -180,16 +193,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 2/4 | In Progress|  |
-| 4. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
-| 5. CI/CD, Documentation & Legal Compliance | 0/0 | Not Started | - |
-
-### Phase 5: CI/CD, Documentation & Legal Compliance
-
-**Note on scope (2026-08-26)**: Raised by the user as a missing v1 step — the project has shipped real, working code (Phases 1-3) with no CI, no README, no LICENSE, and no documented compliance check against the third-party APIs it depends on (AeroDataBox — unused per PROJECT.md's reversed decision, PRIM/IDFM, adsb.fi/airplanes.live). Scoped as its own closing phase rather than folded into Phase 4, since it's project-hygiene/shippability work orthogonal to the device experience Phase 4 completes.
-
-**Goal:** GitHub Actions runs the full test suite (server/test_*.py) and code-quality/coverage checks on every push/PR, with an automated (gated, not silently-triggered) deploy step pushing to the real OVH VPS on merge to main; the repository has a README a newcomer can build/deploy from, a LICENSE, and documented confirmation that PRIM/IDFM's and the ADS-B aggregators' terms of use are actually being honored (no raw-data republishing, rate-limit compliance, attribution where required); asset attribution (fonts, icons, illustrations) is consolidated and verifiably complete via the existing VENDOR.md files.
-**Requirements**: TBD (derive during discuss-phase — CI trigger strategy, deploy gating/approval, license choice, coverage tool)
-**Depends on:** Phase 4
+| 4. CI/CD, Documentation & Legal Compliance | 0/0 | Not Started | - |
+| 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
 **Plans:** 0 plans
 
 Plans:

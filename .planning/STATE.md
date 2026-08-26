@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "05"
+current_phase: "04"
 current_phase_name: ci-cd-documentation-legal-compliance-github-actions-ci-tests
 status: executing
-stopped_at: Phase 5 context gathered
+stopped_at: Phase 4 context gathered
 last_updated: "2026-08-26T16:46:26.693Z"
 last_activity: 2026-08-26
-last_activity_desc: Phase 5 context gathered (CI/CD, Documentation & Legal Compliance) - ready for /gsd-plan-phase 5
+last_activity_desc: Phase 4 context gathered (CI/CD, Documentation & Legal Compliance) - ready for /gsd-plan-phase 4
 progress:
   total_phases: 6
   completed_phases: 2
@@ -77,6 +77,7 @@ Progress: [██████████] 100% (Phase 2)
 - Phase 4 added (2026-08-25), then renumbered to Phase 3 — "Visual Polish on Real Glass": user asked to split Phase 2 into a functional pass and a design-polish pass; since Phase 2 already built up from basic to polished internally across its 5 plans (02-01 bare flight number → 02-04 route/airline captions) and its only remaining plan (02-05) is pure deployment infra with no visual work, the agreed split instead adds a new phase after real hardware exists, dedicated to refining the already-built design against actual Spectra 6 output — closing the hardware-verified-legibility items every Phase 2 SUMMARY.md carried forward rather than guessed at. Old Phase 3 (Low-Battery Indicator) renumbered to Phase 4.
 - 01-08 (battery-life measurement, DEVICE-05) moved from Phase 1 to Phase 4 (2026-08-26), becoming 04-01: user wants the unattended multi-day (up to 21-day) discharge run scheduled at the end of the project, once other phases no longer need this Mac to stay awake continuously, rather than mid-Phase-1. Phase 1's goal/success-criteria trimmed to drop the on-battery-viability criterion (now Phase 4's job); Phase 1 is now 7/7 plans executed. Phase 4 renamed "Battery Life & Low-Battery Indicator", gained requirement DEVICE-05 alongside DEVICE-04 and a new success criterion for the measured mAh-per-cycle figure. Task 1 (checker + pre-registered protocol) was already done under the old numbering and carries over unchanged; only the phase/plan numbers and cross-references were updated. REQUIREMENTS.md's DEVICE-05 checkbox corrected from a stale pre-existing `[x] Complete` (predating this move, predating the actual measurement) to `[ ]` — only Task 1 of 3 is done.
 - Phase 5 added (2026-08-26): "CI/CD, Documentation & Legal Compliance" — user flagged this as a missing v1 step during Phase 3 work. GitHub Actions CI (tests + build + code-quality/coverage) with automated (gated) deploy to the real OVH VPS, a README, a LICENSE, and documented third-party API terms-of-use compliance (PRIM/IDFM, ADS-B aggregators) plus consolidated asset attribution. Scoped as its own closing phase, orthogonal to the on-device experience Phases 1-4 build — not yet planned (requirements TBD, pending /gsd-discuss-phase 5).
+- Phase 4 (Battery Life & Low-Battery Indicator) and Phase 5 (CI/CD, Documentation & Legal Compliance) swapped (2026-08-26, user request): CI/CD is now Phase 4, Battery Life is now Phase 5. Reason: Battery Life's remaining work (05-01 Tasks 2-3) is deliberately parked until the end of the project — it needs an unattended multi-day discharge run — while CI/CD has no such blocker and can run right after Phase 3. All cross-references renumbered: directories (`04-low-battery-indicator` → `05-low-battery-indicator`, `05-ci-cd-...` → `04-ci-cd-...`), plan/summary/context files (`04-01-*` → `05-01-*`, `05-CONTEXT.md`/`05-DISCUSSION-LOG.md` → `04-CONTEXT.md`/`04-DISCUSSION-LOG.md`), threat IDs (`T-04-01-*` → `T-05-01-*`), `ROADMAP.md`'s two phase entries and Depends-on chain (Phase 4 now depends on Phase 3, Phase 5 now depends on Phase 4), and `REQUIREMENTS.md`'s DEVICE-04/DEVICE-05 phase mapping. `DEVICE-05` itself (the requirement ID) was never touched — only phase/plan numbers moved.
 
 ### Decisions
 
@@ -116,7 +117,7 @@ Recent decisions affecting current work:
 - [Phase 01]: 01-07 Task 1/2 complete - hardware/logtools.py (stdlib-only stamp/check-backoff/selftest) proven on 3 fixtures before hardware use; real doubling curve (300/600/1200/2400/4800s across backoff_n=0..4) captured on real hardware over an ~80min unattended run and machine-verified. Known low-severity finding: the WiFi SSID leaks into backoff-run.log via ESP-IDF's own wifi component debug line (not the project's Log Line Contract, not the bearer token/password/setup secret) - documented in 01-07-SUMMARY.md, not yet fixed (would need a reflash+recapture).
 - [Phase 01]: 01-07 Task 3 (power-cycle persistence proof) deliberately deferred overnight at explicit user request - device left connected (USB) with battery still disconnected, holding backoff_n=5 in NVS; stub server left stopped (Task 3 needs it down through its own step 6); capture loop + caffeinate stopped so the Mac can sleep normally.
 - [Phase 01]: 01-07 Task 3 complete: NVS failure counter proven to survive three real physical power cycles (no battery) - backoff_n continued 7->8 across a power-cycle where the wall-clock gap (12m37s vs a 6h/21600s armed sleep) makes an external interruption mathematically certain; recovery poll + follow-up failure proved a success resets to backoff_n=0/sleep_s=300. The literal 'wake reason=power-on' console line could not be captured on any of 3 cold power-ons (diagnosed via macOS kernel USB log as a genuine USB re-enumeration delay on this board's marginal connection, not a capture-script bug or firmware defect); corroborated instead via the device's own X-Boot-Reason=power-on HTTP telemetry header. Full diagnosis in hardware/BACKOFF-OBSERVATION.md. DEVICE-03 marked complete.
-- [Phase 04]: 04-01 Task 1 (formerly 01-08, moved 2026-08-26): check-battery checker + BATTERY-RUN.md protocol pre-registered (thresholds, 21-day ceiling, 3000mAh capacity from BOM.md) before the battery pack was connected - proven on 3 new fixtures (battery-good accepted; battery-gap/battery-flat-mv rejected). Tasks 2 (multi-day unattended run) and 3 (post-mortem verdict) remain, deliberately deferred to end of project.
+- [Phase 05]: 05-01 Task 1 (formerly 01-08, moved 2026-08-26): check-battery checker + BATTERY-RUN.md protocol pre-registered (thresholds, 21-day ceiling, 3000mAh capacity from BOM.md) before the battery pack was connected - proven on 3 new fixtures (battery-good accepted; battery-gap/battery-flat-mv rejected). Tasks 2 (multi-day unattended run) and 3 (post-mortem verdict) remain, deliberately deferred to end of project.
 - [Phase 03]: 03-01 complete - Zilla Slab vendored from pinned google/fonts commit f473a26ceba660d85cf223ff121dea1fe91cfcb6 (SIL OFL 1.1), Inter fully retired from the active render path, D-16 co-equal hero pair (72px Bold flight number / 64px SemiBold destination, 8px gap) implemented, D-13 interim panel-RGB triples applied to PALETTE_RGB with zero index/nibble drift
 - [Phase 03]: 03-02 mood background rejected the UI-SPEC's full-6-color-palette recipe after measuring it produced six-colour static for the arriving mood; replaced with a two-entry [White, state_base_rgb] sub-palette (hue-pure by construction), MOOD_LIGHT_TINT_MIX finalized at 0.40, measured 80.3% state-hue / 19.7% White per state
 - [Phase 03]: 03-02 replaced the naive per-pixel jitter loop (measured 3.7s, would have blown the render-time budget) with bulk Random.randbytes() + row-scoped bytes.translate() LUTs, ~35x faster (~100ms), still fully deterministic from the same seeded local Random instance
@@ -131,8 +132,8 @@ None yet.
 - Research flagged as unverified before commit: exact AeroDataBox tier/cost is not needed (project uses local ADS-B, not AeroDataBox, per PROJECT.md's reversed decision) — but PRIM/IDFM's exact SIRI Lite quota figures are community-sourced only; not a v1 blocker (RER deferred to v2 as of 2026-08-11) — verify against the live account dashboard before finalizing RER poll cadence when v2 planning starts.
 - Spectra 6 dual-chip display driver — RESOLVED 2026-08-25 (01-06): EE02 board profile verified against real hardware with zero corrections needed, first light achieved (all 5 visual checks passed), Log Line Contract captured live.
 - No publicly confirmed enclosure design exists for the EE02 kit — budget design time in Phase 1 or plan around an off-the-shelf enclosure.
-- Battery-life real-world figure for this exact hardware combo is unmeasured — 04-01's Task 1 (check-battery checker + pre-registered protocol) is done; Tasks 2 (multi-day unattended discharge run, needs the Mac to stay awake continuously) and 3 (post-mortem readout) are deliberately deferred to the end of the project (user decision, 2026-08-26) rather than done now.
-- Device wake interval (`sleep_s`, how often the physical frame polls the server) is currently **30s** on the live OVH deployment (`inkframe.env`'s `INK_SLEEP_S=30`, verified directly on the VPS 2026-08-26 — same cadence as the server's own ADS-B poll timer, not yet distinguished) — NOT yet a tuned production value, this is the bring-up/test default. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred until Phase 4's 04-01 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
+- Battery-life real-world figure for this exact hardware combo is unmeasured — 05-01's Task 1 (check-battery checker + pre-registered protocol) is done; Tasks 2 (multi-day unattended discharge run, needs the Mac to stay awake continuously) and 3 (post-mortem readout) are deliberately deferred to the end of the project (user decision, 2026-08-26) rather than done now.
+- Device wake interval (`sleep_s`, how often the physical frame polls the server) is currently **30s** on the live OVH deployment (`inkframe.env`'s `INK_SLEEP_S=30`, verified directly on the VPS 2026-08-26 — same cadence as the server's own ADS-B poll timer, not yet distinguished) — NOT yet a tuned production value, this is the bring-up/test default. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred until Phase 5's 05-01 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
 - A-02-02-01 (departure-side D-03 threshold, +200 ft/min) has never been observed against a real runway-3 departure — every real detection so far (Phase 1's sample and 02-05 Task 3's on-glass check) has been an arrival. Not a known defect, just unvalidated. Scoped to close in Phase 3 (success criterion 3 already names it); check `journalctl -u inkframe-poll` on the VPS for `confirmed_state=departing` whenever it's convenient before or during Phase 3 planning.
 
 ### Quick Tasks Completed
@@ -152,9 +153,9 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-08-26T16:46:26.684Z
-Stopped at: Phase 5 context gathered
+Stopped at: Phase 4 context gathered
 
-Resume file: .planning/phases/05-ci-cd-documentation-legal-compliance-github-actions-ci-tests/05-CONTEXT.md
+Resume file: .planning/phases/04-ci-cd-documentation-legal-compliance-github-actions-ci-tests/04-CONTEXT.md
 
 **State at end of this session (2026-08-26, ~09:25):**
 
@@ -162,5 +163,5 @@ Resume file: .planning/phases/05-ci-cd-documentation-legal-compliance-github-act
 - Phase 2 fully closed: all 5 plans complete, ROADMAP success criterion 4 satisfied, PLANE-01/02/03 marked complete in REQUIREMENTS.md.
 - The OVH VPS's `inkframe-poll.timer` is running normally (restarted after the Task 3 forced-fallback test); live ADS-B detection has resumed.
 - Open item carried into Phase 3: A-02-02-01's real-departure threshold has never been observed (see Blockers/Concerns above).
-- Prior-session battery-measurement context (`hardware/logtools.py check-battery`, `hardware/BATTERY-RUN.md`'s pre-registered protocol) is unchanged and still deliberately deferred to end-of-project per Phase 4's scope note — Tasks 2/3 of 04-01 not started.
+- Prior-session battery-measurement context (`hardware/logtools.py check-battery`, `hardware/BATTERY-RUN.md`'s pre-registered protocol) is unchanged and still deliberately deferred to end-of-project per Phase 5's scope note — Tasks 2/3 of 05-01 not started.
 - Next step: `/gsd-plan-phase 3` to plan Visual Polish on Real Glass.

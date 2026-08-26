@@ -1,10 +1,10 @@
-# Phase 5: CI/CD, Documentation & Legal Compliance - Discussion Log
+# Phase 4: CI/CD, Documentation & Legal Compliance - Discussion Log
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
 **Date:** 2026-08-26
-**Phase:** 05-ci-cd-documentation-legal-compliance-github-actions-ci-tests
+**Phase:** 04-ci-cd-documentation-legal-compliance-github-actions-ci-tests
 **Areas discussed:** Repository visibility, Deploy gating, License, VPS IP/hostname exposure, Code quality/coverage enforcement
 
 ---

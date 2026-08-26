@@ -16,7 +16,7 @@ provides:
   - EE02 board profile (firmware/sdkconfig.ee02.defaults) verified against real hardware - no correction needed
   - A measured full-refresh duration (~31.5s) for Phase 2's rendering-cadence planning
   - A documented diagnosis that "device appears then disappears on USB" during this board's normal operation is deep-sleep cutting USB power, not a fault - resolves a multi-session-blocking false alarm for good
-affects: [01-07, 01-08, 02-plane-view-end-to-end-slice (rendering-cadence UX given ~31.5s refresh), 04-low-battery-indicator (deep-sleep USB-power-off behavior matters for any future USB-power-based battery signal)]
+affects: [01-07, 01-08, 02-plane-view-end-to-end-slice (rendering-cadence UX given ~31.5s refresh), 05-low-battery-indicator (deep-sleep USB-power-off behavior matters for any future USB-power-based battery signal)]
 
 tech-stack:
   added: [esptool (installed via Homebrew, not pip)]

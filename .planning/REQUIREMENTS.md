@@ -79,15 +79,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLANE-02 | Phase 2 | Complete |
 | PLANE-03 | Phase 2 | Complete |
 | DEVICE-03 | Phase 1 | Complete |
-| DEVICE-04 | Phase 4 | Pending |
-| DEVICE-05 | Phase 4 | In Progress (04-01 Task 1 of 3 done) |
+| DEVICE-04 | Phase 5 | Pending |
+| DEVICE-05 | Phase 5 | In Progress (05-01 Task 1 of 3 done) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase.
 
 **Coverage:**
 
 - v1 requirements: 6 total
-- Mapped to phases: 6 (Phase 1: 1, Phase 2: 3, Phase 3: 1, Phase 4: 2)
+- Mapped to phases: 6 (Phase 1: 1, Phase 2: 3, Phase 3: 1, Phase 5: 2)
 - Unmapped: 0 ✓
 
 ---

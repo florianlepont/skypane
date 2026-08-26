@@ -1,4 +1,4 @@
-# Phase 5: CI/CD, Documentation & Legal Compliance - Context
+# Phase 4: CI/CD, Documentation & Legal Compliance - Context
 
 **Gathered:** 2026-08-26
 **Status:** Ready for planning
@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Turn the working, tested codebase (Phases 1-3) into a properly shipped open-source project: GitHub Actions CI (tests + lint + coverage, blocking) with a manual-approval-gated deploy to the real OVH VPS, a README, a LICENSE, documented third-party API compliance, and consolidated asset attribution. Project-hygiene/shippability work, orthogonal to the on-device experience Phases 1-4 build (ROADMAP.md's Phase 5 note).
+Turn the working, tested codebase (Phases 1-3) into a properly shipped open-source project: GitHub Actions CI (tests + lint + coverage, blocking) with a manual-approval-gated deploy to the real OVH VPS, a README, a LICENSE, documented third-party API compliance, and consolidated asset attribution. Project-hygiene/shippability work, orthogonal to the on-device experience Phases 1-3 & 5 build (ROADMAP.md's Phase 4 note).
 
 </domain>
 
@@ -14,7 +14,7 @@ Turn the working, tested codebase (Phases 1-3) into a properly shipped open-sour
 ## Implementation Decisions
 
 ### Repository & visibility
-- **D-01:** This repository has never been pushed to a remote (`git remote -v` is empty). Phase 5's first real prerequisite is creating the GitHub repo.
+- **D-01:** This repository has never been pushed to a remote (`git remote -v` is empty). Phase 4's first real prerequisite is creating the GitHub repo.
 - **D-02:** Repository will be **public**. Rationale (user): willing to show/share the project.
 
 ### Pre-publish history hygiene (real, not theoretical - live-checked)
@@ -27,7 +27,7 @@ Turn the working, tested codebase (Phases 1-3) into a properly shipped open-sour
 - **D-07:** Runs the existing test harnesses under `server/.venv` - note these are **not pytest**, they're custom `check()`/PASS-FAIL/`EXPECTED_CHECK_COUNT` harnesses invoked as `python3 server/test_*.py`, each exiting 0/1 (see `server/test_render.py`, `server/test_dither.py`, `server/test_poll_loop.py`, `server/test_enrich.py`, `server/test_plane_detection.py`, `server/test_runway_config.py`, `server/test_pipeline_e2e.py`). CI must invoke each one as its own step (or a loop), not assume a pytest collector will find them.
 - **D-08:** Dependencies pinned in `server/requirements.txt` (Pillow==12.3.0, requests==2.34.2) - CI installs from this file, doesn't re-derive versions.
 - **D-09 (user decision, "Bloquante"):** Lint (tool choice left to planner/research - Ruff is the modern default for this stack) and coverage are **blocking**: the CI run must fail if lint fails, or if coverage regresses below a threshold the plan sets. This is stricter than the researcher's first-instinct "report only" recommendation - the user explicitly chose blocking despite being a solo project.
-- **D-10:** Firmware (ESP-IDF/CMake under `firmware/`) is a separate build system from the Python server. Whether Phase 5's CI also builds firmware (Espressif publishes an official `espressif/esp-idf-ci-action` for exactly this) is **Claude's Discretion** - not discussed live, no strong signal either way. Default recommendation: include it if it's low-effort via the official action; otherwise defer to a follow-up.
+- **D-10:** Firmware (ESP-IDF/CMake under `firmware/`) is a separate build system from the Python server. Whether Phase 4's CI also builds firmware (Espressif publishes an official `espressif/esp-idf-ci-action` for exactly this) is **Claude's Discretion** - not discussed live, no strong signal either way. Default recommendation: include it if it's low-effort via the official action; otherwise defer to a follow-up.
 
 ### Deploy automation
 - **D-11 (user decision):** Deploy triggers on merge to `main`, but requires a **manual approval step** before it actually runs against the real VPS - implement via GitHub Environments' required-reviewers protection rule, not a bare `workflow_dispatch` or an unprotected auto-deploy job. Rationale (user, implicit in the choice): this VPS serves a real physical device on the wall; tests passing doesn't guarantee the render pipeline looks right on real glass, so a human checkpoint before every prod push is wanted.
@@ -39,7 +39,7 @@ Turn the working, tested codebase (Phases 1-3) into a properly shipped open-sour
 
 ### Documentation
 - **D-15:** README must let a newcomer actually build/deploy from scratch - covers hardware BOM, firmware flash, server setup, and a pointer to `deploy/README.md` for the VPS provisioning flow (not a duplicate of it).
-- **D-16 ("architecture" tracking, user-requested):** A pre-existing `.planning/research/ARCHITECTURE.md` exists but is **generic domain research from project inception** (2026-08-04, before any of this was built) - not a description of what's actually shipped. Phase 5 needs a real, current architecture doc/README section describing the actual built system (device firmware state machine, server render pipeline, VPS deployment topology) - the old research doc is a useful reference, not something to just re-publish.
+- **D-16 ("architecture" tracking, user-requested):** A pre-existing `.planning/research/ARCHITECTURE.md` exists but is **generic domain research from project inception** (2026-08-04, before any of this was built) - not a description of what's actually shipped. Phase 4 needs a real, current architecture doc/README section describing the actual built system (device firmware state machine, server render pipeline, VPS deployment topology) - the old research doc is a useful reference, not something to just re-publish.
 
 ### Claude's Discretion
 - Exact lint tool (Ruff recommended) and coverage tool (pytest-cov's coverage.py engine works fine even without using pytest as the runner) - not discussed live.
@@ -108,5 +108,5 @@ None — discussion stayed within phase scope. (Firmware CI build, D-10, is not 
 
 ---
 
-*Phase: 5-ci-cd-documentation-legal-compliance-github-actions-ci-tests*
+*Phase: 4-ci-cd-documentation-legal-compliance-github-actions-ci-tests*
 *Context gathered: 2026-08-26*
