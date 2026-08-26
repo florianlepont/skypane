@@ -62,25 +62,32 @@ SPACE_3XL = 192
 MARGIN = SPACE_LG
 SAFE_BOX = (MARGIN, MARGIN, WIDTH - MARGIN, HEIGHT - MARGIN)  # (64, 64, 1136, 1536)
 
-# --- UI-SPEC Typography (02-UI-SPEC.md) ------------------------------------
+# --- UI-SPEC Typography (03-UI-SPEC.md Revision 3, supersedes 02-UI-SPEC.md's
+# three-role Inter sans-serif scale) -----------------------------------------
 FONT_DIR = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "fonts")
 )
-_INTER_REGULAR = os.path.join(FONT_DIR, "Inter-Regular.ttf")
-_INTER_BOLD = os.path.join(FONT_DIR, "Inter-Bold.ttf")
+_ZILLA_SEMIBOLD = os.path.join(FONT_DIR, "ZillaSlab-SemiBold.ttf")
+_ZILLA_BOLD = os.path.join(FONT_DIR, "ZillaSlab-Bold.ttf")
 
-# (font_path, size, weight) per role - weight is documentation only (the
-# path already selects the correct static weight file).
-LABEL_FONT = (_INTER_BOLD, 36, 700)
-BODY_FONT = (_INTER_REGULAR, 56, 400)
-HEADING_FONT = (_INTER_BOLD, 88, 700)
+# D-15/D-16 (locked, 03-CONTEXT.md): this block is a declared UI-SPEC
+# contract, not free parameters - exactly four roles, exactly two weights.
+# Only the SemiBold (600) and Bold (700) Zilla Slab cuts may ever be
+# referenced here (Regular/Light cuts reintroduce the e-ink hairline risk
+# a slab serif was chosen to structurally avoid). (font_path, size, weight)
+# per role - weight is documentation only (the path already selects the
+# correct static weight file).
+LABEL_FONT = (_ZILLA_BOLD, 36, 700)
+CAPTION_FONT = (_ZILLA_SEMIBOLD, 40, 600)
+DESTINATION_FONT = (_ZILLA_SEMIBOLD, 64, 600)
+FLIGHT_NUMBER_FONT = (_ZILLA_BOLD, 72, 700)
 
 # Label role is uppercase with widened letter-spacing (Pillow has no native
 # tracking API - UI-SPEC's Typography note calls for manual per-glyph
-# advance widening, see draw_tracked_text()). This tracking value is a
-# render-detail left to implementation discretion by UI-SPEC (not itself
-# spec'd to an exact pixel count).
-LABEL_TRACKING_PX = 4
+# advance widening, see draw_tracked_text()). D-15 widens this from Phase
+# 2's 4px to 6px ("wide letter-spacing" instruction, resolved by
+# 03-UI-SPEC.md's Typography table).
+LABEL_TRACKING_PX = 6
 
 # --- 02-UI-SPEC.md Colour section, Revision 2 (state-scoped, not one fixed
 # global table) -------------------------------------------------------------
@@ -412,15 +419,15 @@ def draw_silhouette(canvas, state, ink_idx):
 def _route_line_reserved_height():
     """The route line's (zone 7) row height: the two runs share one
     baseline row, so the row height is the max of the Label-role prefix's
-    and the Body-role city's font-metric line heights. Pure function of the
-    fixed LABEL_FONT/BODY_FONT sizes only - never of any rendered text -
-    which is what lets the airline line's top Y stay identical whether or
-    not the route line actually draws (see the 02-04 module note above
-    FLIGHT_NUMBER_TOP_Y).
+    and the Destination/Origin hero-secondary role's font-metric line
+    heights. Pure function of the fixed LABEL_FONT/DESTINATION_FONT sizes
+    only - never of any rendered text - which is what lets the airline
+    line's top Y stay identical whether or not the route line actually
+    draws (see the 02-04 module note above FLIGHT_NUMBER_TOP_Y).
     """
     label_ascent, label_descent = _font(LABEL_FONT).getmetrics()
-    body_ascent, body_descent = _font(BODY_FONT).getmetrics()
-    return max(label_ascent + label_descent, body_ascent + body_descent)
+    dest_ascent, dest_descent = _font(DESTINATION_FONT).getmetrics()
+    return max(label_ascent + label_descent, dest_ascent + dest_descent)
 
 
 def draw_route_line(canvas, state, ink_idx, city_text, top_y):
@@ -441,8 +448,8 @@ def draw_route_line(canvas, state, ink_idx, city_text, top_y):
 
     prefix_width = _tracked_text_width(label_font, prefix, LABEL_TRACKING_PX)
     city_max_width = max(1, safe_width - prefix_width - ROUTE_PREFIX_GAP_PX)
-    body_font = fit_text_size(_INTER_REGULAR, BODY_FONT[1], city_text, city_max_width)
-    city_width = body_font.getlength(city_text)
+    dest_font = fit_text_size(_ZILLA_SEMIBOLD, DESTINATION_FONT[1], city_text, city_max_width)
+    city_width = dest_font.getlength(city_text)
 
     total_width = prefix_width + ROUTE_PREFIX_GAP_PX + city_width
     center_x = WIDTH // 2
@@ -450,13 +457,13 @@ def draw_route_line(canvas, state, ink_idx, city_text, top_y):
 
     row_height = _route_line_reserved_height()
     label_ascent, label_descent = label_font.getmetrics()
-    body_ascent, body_descent = body_font.getmetrics()
+    dest_ascent, dest_descent = dest_font.getmetrics()
     prefix_y = top_y + (row_height - (label_ascent + label_descent)) // 2
-    city_y = top_y + (row_height - (body_ascent + body_descent)) // 2
+    city_y = top_y + (row_height - (dest_ascent + dest_descent)) // 2
 
     prefix_end_x = draw_tracked_text(draw, (left, prefix_y), prefix, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
     city_x = prefix_end_x + ROUTE_PREFIX_GAP_PX
-    draw.text((city_x, city_y), city_text, font=body_font, fill=ink_idx)
+    draw.text((city_x, city_y), city_text, font=dest_font, fill=ink_idx)
 
     bbox = (left, top_y, left + total_width, top_y + row_height)
     _assert_in_safe_box(bbox, "route line")
@@ -477,7 +484,7 @@ def draw_airline_line(canvas, ink_idx, text, top_y):
     """
     draw = ImageDraw.Draw(canvas)
     safe_width = SAFE_BOX[2] - SAFE_BOX[0]
-    font = fit_text_size(_INTER_REGULAR, BODY_FONT[1], text, safe_width)
+    font = fit_text_size(_ZILLA_SEMIBOLD, CAPTION_FONT[1], text, safe_width)
     center_x = WIDTH // 2
     bbox = draw.textbbox((center_x, top_y), text, font=font, anchor="ma")
     _assert_in_safe_box(bbox, "airline line")
@@ -488,8 +495,8 @@ def draw_airline_line(canvas, ink_idx, text, top_y):
 def _build_empty_canvas():
     canvas = pf.new_canvas(IDX_WHITE)
     draw = ImageDraw.Draw(canvas)
-    heading_font = _font(HEADING_FONT)
-    body_font = _font(BODY_FONT)
+    heading_font = _font(FLIGHT_NUMBER_FONT)
+    body_font = _font(CAPTION_FONT)
     center_x = WIDTH // 2
     safe_width = SAFE_BOX[2] - SAFE_BOX[0]
 
@@ -538,11 +545,16 @@ def _build_active_canvas(flight, state, route=None):
     # matches the visual reading order on the panel.
     draw_silhouette(canvas, state, fg_idx)
 
-    # UI-SPEC zone 5: flight-number caption, Heading size, horizontally
-    # centred. Falls back to the aircraft's hex uppercased when no callsign
-    # was recovered, so the panel never renders an empty hero line.
+    # UI-SPEC zone 5: flight-number caption, hero-primary size (D-16),
+    # horizontally centred, defensively fitted through fit_text_size() the
+    # same way the other roles are (ICAO-format callsigns are short and
+    # fixed-pattern, so this path is expected to rarely trigger, but the
+    # safe-box assertion must still hold for any input). Falls back to the
+    # aircraft's hex uppercased when no callsign was recovered, so the
+    # panel never renders an empty hero line.
     callsign = flight.get("callsign") or (flight.get("hex") or "").upper() or "?"
-    heading_font = _font(HEADING_FONT)
+    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+    heading_font = fit_text_size(_ZILLA_BOLD, FLIGHT_NUMBER_FONT[1], callsign, safe_width)
     heading_bbox = draw.textbbox((center_x, FLIGHT_NUMBER_TOP_Y), callsign, font=heading_font, anchor="ma")
     _assert_in_safe_box(heading_bbox, "flight number caption")
     draw.text((center_x, FLIGHT_NUMBER_TOP_Y), callsign, font=heading_font, fill=fg_idx, anchor="ma")
