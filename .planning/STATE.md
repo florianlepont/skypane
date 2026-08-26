@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: plane-view-end-to-end-slice
 status: executing
-stopped_at: "02-05 Task 3 in progress: firmware repointed at real OVH URL and rebuilt, awaiting device reconnection to flash + verify on physical glass"
-last_updated: "2026-08-26T08:45:00.000Z"
+stopped_at: 02-05 Task 3 in progress — firmware rebuilt with real OVH base URL, awaiting device USB reconnection to flash and verify on physical glass
+last_updated: "2026-08-26T09:15:00.000Z"
 last_activity: 2026-08-26
-last_activity_desc: "Moved battery-measurement plan (01-08 -> 04-01) from Phase 1 to Phase 4 at user request; Phase 1 now 7/7 plans executed. Resumed 02-05 Task 3 (point firmware at real OVH deployment, verify on glass) - firmware rebuilt, waiting on USB reconnection."
+last_activity_desc: "Phase 1 formally verified and closed (01-VERIFICATION.md: 3/3 truths, one stale-documentation gap found and fixed same session, not a real engineering gap). Active work remains 02-05 Task 3."
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 13
   completed_plans: 11
-  percent: 0
+  percent: 25
 ---
 
 # Project State
@@ -30,8 +30,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 Phase: 02 (plane-view-end-to-end-slice) — EXECUTING
 Plan: 5 of 5 (02-05 Task 3 of 3 — point firmware at real OVH deployment, verify on physical glass)
-Status: Phase 1 fully executed (7/7 plans) after moving the battery-measurement plan to Phase 4. 02-05's Tasks 1-2 complete and live-verified against the OVH VPS; Task 3 in progress — firmware rebuilt with the real base URL, needs the device reconnected via USB to flash and verify real plane data renders correctly on glass.
-Last activity: 2026-08-26 — Roadmap restructured (01-08 -> 04-01), 02-05 Task 3 resumed.
+Status: Phase 1 formally verified and closed (7/7 plans, 01-VERIFICATION.md passed 3/3 after fixing a stale-documentation gap, not an engineering gap). 02-05's Tasks 1-2 complete and live-verified against the OVH VPS; Task 3 in progress — firmware rebuilt with the real base URL, needs the device reconnected via USB to flash and verify real plane data renders correctly on glass.
+Last activity: 2026-08-26 — Phase 1 verified and closed; 02-05 Task 3 remains the active work
 
 Progress: [█████████░] 92%
 
@@ -39,7 +39,7 @@ Progress: [█████████░] 92%
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 7
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -47,7 +47,7 @@ Progress: [█████████░] 92%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01 | 7 | - | - |
 
 **Recent Trend:**
 

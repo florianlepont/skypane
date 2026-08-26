@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **PLANE-01**: User can see flight number, airline, and destination for the next plane departing from Orly runway 3
 - [ ] **PLANE-02**: User can see flight number, airline, and origin for the next plane landing on runway 3 (when the runway is in arrival configuration, wind-dependent)
-- [ ] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via a local ADS-B receiver geofenced to the runway's flight path — not a fixed timetable
+- [ ] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs (airplanes.live primary, adsb.fi secondary) geofenced to the runway's flight path — not a fixed timetable
 
 ### Device
 
@@ -49,12 +49,13 @@ Explicitly excluded. Documented to prevent scope creep.
 | Feature | Reason |
 |---------|--------|
 | Solar charging | Deferred until real battery life and frame placement are known; indoor solar is unreliable without a well-lit window |
-| Public flight-data/schedule API (e.g. AeroDataBox) as the plane-detection source | Reversed after scoping — the goal is "the specific plane using runway 3 right now," which schedule APIs don't expose; local ADS-B detects real aircraft directly |
+| Public flight-data/schedule API (e.g. AeroDataBox) as the plane-detection source | Reversed after scoping — the goal is "the specific plane using runway 3 right now," which schedule APIs don't expose; ADS-B aggregators detect real aircraft directly |
 | Wall power | Battery-only for v1, to force realistic power-budget decisions early |
 | Freshness timestamp / graceful stale-offline display state | Explicitly deferred by user for v1 despite research flagging it as a common pitfall; revisit if staleness becomes a real problem |
 | Additional views beyond plane/RER (weather, other transit lines, etc.) | Stay two-view to preserve focus on the core value |
 | Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions | Anti-features that would make the frame read as a gadget rather than ambient art |
-| ADS-B aggregator API (e.g. ADS-B Exchange) as primary plane data source | Documented fallback only, not primary plan — use if local ADS-B reception proves insufficient after Phase 1 validation |
+| Local RTL-SDR ADS-B receiver | Originally the primary plan; Phase 1 plan 01-04 validated the free adsb.fi/airplanes.live aggregators clear the coverage bar (~92min real traffic, 38/37 distinct aircraft, 2/2 on-ground) with no dedicated hardware needed — no RTL-SDR ordered |
+| ADS-B Exchange specifically (as opposed to adsb.fi/airplanes.live) | Considered as a possible aggregator but not the one validated/used — adsb.fi and airplanes.live are the two in production |
 
 ## Traceability
 

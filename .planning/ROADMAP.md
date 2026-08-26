@@ -15,7 +15,7 @@ Ink Frame v1 ships as a single-view device in four phases. Phase 1 is a foundati
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception on real hardware, with the core wake/poll/backoff loop proven against a stub server
+- [x] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception on real hardware, with the core wake/poll/backoff loop proven against a stub server (completed 2026-08-26)
 - [ ] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display
 - [ ] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle
 - [ ] **Phase 4: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
   1. Device completes a full wake → HTTPS poll → download → display → deep-sleep cycle against a stub server, repeatably and without manual intervention.
   2. When the stub server is unreachable, the device backs off exponentially instead of retrying at a fixed interval, matching the flightportrait reference model.
-  3. A local ADS-B receiver (RTL-SDR) placed at the install address (<street-address>) reliably detects real aircraft transiting runway 3's flight path, confirming the plane-detection approach is viable without needing the ADS-B Exchange fallback. This validates the groundwork for PLANE-03, fully delivered in Phase 2.
+  3. Free public ADS-B aggregator APIs (airplanes.live primary, adsb.fi secondary), geofenced to the install address (<street-address>), reliably detect real aircraft transiting runway 3's flight path — validated over ~92min of real traffic (38/37 distinct aircraft, 2/2 on-ground) against the coverage bar, with no RTL-SDR hardware needed. This validates the groundwork for PLANE-03, fully delivered in Phase 2.
 
 **Plans**: 7/7 plans executed
 
@@ -59,7 +59,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. As real aircraft use runway 3, the plane view updates to reflect the new flight as detected by the local ADS-B receiver — not a fixed schedule.
   4. The full pipeline (ADS-B detection → server render → device poll → display) runs end-to-end on real hardware, replacing the Phase 1 stub server.
 
-**Note on criterion 3's wording**: "local ADS-B receiver" is stale. Phase 1 plan 01-04 resolved this with a validated `aggregator-sufficient` verdict — detection is built on the free adsb.fi / airplanes.live aggregators, no RTL-SDR. See 02-CONTEXT.md D-01; the doc correction is tracked for Phase 1 close.
+**Note on criterion 3's wording**: corrected 2026-08-26 at Phase 1 close (was stale, said "local ADS-B receiver / RTL-SDR"; see 02-CONTEXT.md D-01 and PROJECT.md/REQUIREMENTS.md, corrected the same day).
 
 **Plans**: 4/5 plans executed
 **Wave 1**
@@ -127,7 +127,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete |  |
+| 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 4/5 | In Progress|  |
 | 3. Visual Polish on Real Glass | 0/TBD | Not started | - |
 | 4. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
