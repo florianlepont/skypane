@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: visual-polish-on-real-glass
 status: executing
-stopped_at: 02-05 Task 3 complete — Phase 2 closed; Phase 3 (Visual Polish on Real Glass) not yet planned
-last_updated: "2026-08-26T09:25:00.000Z"
+stopped_at: Phase 3 context gathered
+last_updated: "2026-08-26T10:22:00.789Z"
 last_activity: 2026-08-26
-last_activity_desc: "02-05 Task 3 completed: firmware flashed with real OVH base URL, a stale-NVS-bearer-token bug found and fixed live, on-glass verification confirmed (legibility, edge quality, layout, real-flight cross-check DAH1112, forced enrichment fallback). Phase 2 closed (5/5 plans, all v1 PLANE requirements complete). Step 6 (real-departure threshold, A-02-02-01) explicitly deferred to Phase 3."
+last_activity_desc: "Phase 3 discuss-phase complete: scope widened to include per-airline generated aircraft illustrations (SenseCraft confirmed dithering viable on real hardware). 03-CONTEXT.md and 03-DISCUSSION-LOG.md written; ROADMAP.md Phase 3 section updated with a new success criterion; REQUIREMENTS.md gained v2 VIS-01 (deferred photo background). Next: /gsd-plan-phase 3."
 progress:
   total_phases: 4
   completed_phases: 2
@@ -138,10 +138,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T09:25:00.000Z
-Stopped at: 02-05 Task 3 complete — Phase 2 closed (5/5 plans). Phase 3 (Visual Polish on Real Glass) not yet planned.
+Last session: 2026-08-26T10:22:00.785Z
+Stopped at: Phase 3 context gathered
 
-Resume file: none active — next step is `/gsd-plan-phase 3` to plan Visual Polish on Real Glass. (Phase 4's `.planning/phases/04-low-battery-indicator/04-01-PLAN.md` resumes at Task 2 whenever the multi-day battery run is scheduled, per user decision to defer it to end of project.)
+Resume file: .planning/phases/03-visual-polish-on-real-glass/03-CONTEXT.md
 
 **State at end of this session (2026-08-26, ~09:25):**
 
