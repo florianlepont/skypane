@@ -12,13 +12,12 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] User can see flight number, airline, and destination for the next plane departing from Orly runway 3 (Phase 2, 02-05 Task 3 — on-glass verified 2026-08-26)
+- [x] User can see flight number, airline, and origin for the next plane landing on runway 3 (Phase 2, 02-05 Task 3 — on-glass verified 2026-08-26 with a real flight, DAH1112 from Béjaïa)
+- [x] Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs — not a fixed schedule (Phase 2, 02-05 Task 3 — real end-to-end pipeline confirmed against the live OVH deployment)
 
 ### Active
 
-- [ ] User can see flight number, airline, and destination for the next plane departing from Orly runway 3
-- [ ] User can see flight number, airline, and origin for the next plane landing on runway 3 (when the runway is in arrival configuration)
-- [ ] Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs (airplanes.live primary, adsb.fi secondary) — not a fixed schedule
 - [ ] (v2/later) User can see line, destination, and minutes-until-departure for the next 2+ RER trains from Orly-Ville
 - [ ] (v2/later) User can see a "leave by" cue combining the next RER train's countdown with a fixed walk-time buffer
 - [ ] (v2/later) User can see a disruption banner on the RER view during a service disruption on the line
@@ -66,6 +65,8 @@ Glancing at the frame tells you, in real time, whether you'll make the next RER 
 | Server on a small cloud VPS, not a home server | Reliability — the device should always find a reachable server, not one that depends on home power/network uptime | — Pending |
 | No freshness timestamp / stale-data indicator in v1 | User explicitly chose to keep v1 simpler and accept the risk, despite research flagging this as a common pitfall (device could show stale data with no indication) | — Pending, revisit if staleness becomes a real problem |
 | Defer RER view and physical button view-switching to v2; v1 ships single-view (plane-only) | User-requested scope reduction to focus v1 on shipping the plane view well rather than two views at once; ROADMAP.md's Phase 3 (RER View) removed, old Phase 4 renumbered to Phase 3 and trimmed to just the low-battery indicator (DEVICE-04) | Decided 2026-08-11 |
+| OVH VPS-1 instead of Hetzner CX22 for hosting | Same spec/price class; user explicit redirect after a live price/locale comparison; D-P2-06 already left infrastructure specifics to discretion | Deployed and live-verified 2026-08-25/26 (`<public-host>`) |
+| Device NVS partition is never cleared by a normal app-region firmware flash | Discovered live during 02-05 Task 3: after repointing firmware at the real server, the device kept sending a bearer token issued by the Phase 1 local-stub server, since only the app region (not the `nvs` partition at 0x9000) is rewritten by `flash.sh`. The firmware also never detects/clears a stale token on a 401 — it just retries with the same one forever under backoff | Fixed by erasing the NVS region directly (`esptool erase-region 0x9000 0x6000`); worth remembering for any future backend/secret rotation on already-flashed hardware |
 
 ## Evolution
 

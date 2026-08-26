@@ -9,9 +9,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Plane (Runway 3)
 
-- [ ] **PLANE-01**: User can see flight number, airline, and destination for the next plane departing from Orly runway 3
-- [ ] **PLANE-02**: User can see flight number, airline, and origin for the next plane landing on runway 3 (when the runway is in arrival configuration, wind-dependent)
-- [ ] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs (airplanes.live primary, adsb.fi secondary) geofenced to the runway's flight path — not a fixed timetable
+- [x] **PLANE-01**: User can see flight number, airline, and destination for the next plane departing from Orly runway 3
+- [x] **PLANE-02**: User can see flight number, airline, and origin for the next plane landing on runway 3 (when the runway is in arrival configuration, wind-dependent)
+- [x] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs (airplanes.live primary, adsb.fi secondary) geofenced to the runway's flight path — not a fixed timetable
 
 ### Device
 
@@ -63,9 +63,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PLANE-01 | Phase 2 | Pending |
-| PLANE-02 | Phase 2 | Pending |
-| PLANE-03 | Phase 2 | Pending |
+| PLANE-01 | Phase 2 | Complete |
+| PLANE-02 | Phase 2 | Complete |
+| PLANE-03 | Phase 2 | Complete |
 | DEVICE-03 | Phase 1 | Complete |
 | DEVICE-04 | Phase 4 | Pending |
 | DEVICE-05 | Phase 4 | In Progress (04-01 Task 1 of 3 done) |

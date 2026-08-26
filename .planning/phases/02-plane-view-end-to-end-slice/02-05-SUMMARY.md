@@ -50,22 +50,22 @@ key-decisions:
   - "This session unblocked and completed the live-provisioning half of Task 2: the user hand-created the OVH VPS-1 in the OVH console (Ubuntu 26.04 LTS, real public DNS name <public-host>, IP <vps-ip>), handed Claude SSH access as a passwordless-sudo 'ubuntu' user, and Claude ran provision.sh + deploy.sh against it, fixing four real bugs discovered live (see Deviations) before all acceptance criteria passed."
   - "Provider swap (from a prior session, unchanged): the plan and D-P2-06 specify a Hetzner CX22; the user explicitly redirected to an OVH VPS-1. This is a substitution within D-P2-06's own stated discretion ('infrastructure specifics ... left to Claude's discretion'), not an architectural change."
   - "Used the VPS's real public DNS name (<public-host>) directly as the Caddy site address instead of the nip.io fallback the plan's Code Examples anticipated - OVH VPS-1 instances get a stable public DNS name by default, which is strictly better (no per-deployment hostname substitution dependency on the IP) and needed zero script changes since provision.sh already takes the hostname as a parameter."
-  - "Task 3 (physical-frame verification) remains not started: it is gated on Phase 1 plan 01-06 (flash and first boot), STATE.md's hardware unblock date 2026-08-26, which has not yet arrived. Task 2 is now fully complete and independently verified against the live server - this is the only remaining gate."
+  - "Task 3 (physical-frame verification) is now complete: hardware was flashed with the real base URL, a stale-NVS-bearer-token bug (left over from Phase 1 local-stub testing) was found and fixed live, and the developer confirmed on-glass legibility, edge quality, layout, a real flight cross-check, and the enrichment fallback caption. Step 6 (real-departure threshold) is explicitly deferred by developer choice, recorded as an open item, not a blocker - the plan's own text anticipates this exact outcome."
 
 patterns-established:
   - "Env-var template files (deploy/inkframe.env.example) mirror firmware/main/secrets.example.h's discipline exactly: every key present with a placeholder and a comment on where the real value comes from, paired with a scoped .gitignore rule that exists before the real file ever does."
   - "Root-vs-sudo-user SSH_TARGET ambiguity is resolved by routing every remote-privileged step through sudo unconditionally (harmless when already root, required when not) rather than branching on which kind of login the operator has - one code path serves both cases."
 
-requirements-completed: []
+requirements-completed: [PLANE-01, PLANE-02, PLANE-03]
 
-duration: ~55min prior session + ~70min this session (live provisioning, debugging, and verification)
-completed: 2026-08-25
-status: checkpoint
+duration: ~55min prior session + ~70min live-provisioning session + ~90min this session (firmware flash, stale-NVS-token debugging, on-glass verification)
+completed: 2026-08-26
+status: complete
 ---
 
-# Phase 2 Plan 5: Deploy to OVH VPS-1 (Checkpoint - Task 2 complete and live-verified, Task 3 blocked on hardware)
+# Phase 2 Plan 5: Deploy to OVH VPS-1 (Complete — all 3 tasks done, verified on real glass)
 
-**Provisioned and fully verified a real, always-on OVH VPS-1 (Ubuntu 26.04, https://<public-host>) running the complete Phase 2 pipeline — Caddy TLS, systemd timer, and byos_server.py all live and actively serving real ADS-B-detected flights over valid HTTPS — after fixing four deployment bugs (sudo-user support, Python package naming, a missing production config file, and Caddy access logging) that only surfaced against the real host. Task 3 (on-glass verification) remains blocked on Phase 1 hardware, not yet flashed.**
+**Provisioned and fully verified a real, always-on OVH VPS-1 (Ubuntu 26.04, https://<public-host>) running the complete Phase 2 pipeline — Caddy TLS, systemd timer, and byos_server.py all live and actively serving real ADS-B-detected flights over valid HTTPS — after fixing four deployment bugs (sudo-user support, Python package naming, a missing production config file, and Caddy access logging) that only surfaced against the real host. Task 3 (on-glass verification) is now also complete: the physical frame flashed with the real base URL enrolled with the server, downloaded a real flight (DAH1112 from Béjaïa, arriving), and rendered it correctly on real Spectra 6 glass — closing ROADMAP Phase 2 success criterion 4 and Phase 2 as a whole.**
 
 ## Performance
 
@@ -92,8 +92,36 @@ Each completed task/task-portion was committed atomically:
 5. **Fix: generic python3/python3-venv instead of hardcoded 3.12 packages** - `ceacd04` (fix) - complete
 6. **Fix: ship adsb-test/runway3.json geofence config to the VPS** - `a468306` (fix) - complete
 7. **Fix: Caddy access-log directive for Task 3's port-443 verification** - `7f43c32` (fix) - complete
-8. **Task 2 (live-provisioning half): provision + deploy against the real VPS, full external verification** - complete this session (no separate commit — the four fix commits above ARE the live-provisioning work; the VPS itself is not a git artifact)
-9. **Task 3: Verify the live plane view on the physical frame** - not started (blocked on Phase 1 plan 01-06, hardware unblock date 2026-08-26)
+8. **Task 2 (live-provisioning half): provision + deploy against the real VPS, full external verification** - complete (no separate commit — the four fix commits above ARE the live-provisioning work; the VPS itself is not a git artifact)
+9. **Task 3: Verify the live plane view on the physical frame** - complete this session (firmware flash + NVS-erase fix are device configuration/state, not git artifacts; the human checkpoint itself is recorded below)
+
+## Task 3: On-Glass Verification (this session)
+
+**Firmware flash.** `firmware/flash.sh /dev/cu.usbmodem101` succeeded, writing the build already configured with `INK_API_BASE=https://<public-host>` and the matching `INK_SETUP_SECRET` (both in the gitignored `firmware/main/secrets.h`, set in a prior part of this session). `verify_flash()` confirmed the app region byte-for-byte.
+
+**Bug found and fixed live: stale NVS bearer token.** The device's first poll against the real server returned `401` on `GET /device/v1/display`. Root cause: `firmware/main/state_machine.c`'s `fp_poll_once()` only calls `fp_api_setup()` (the enrollment call that exchanges `INK_SETUP_SECRET` for a bearer token) when `fp_api_has_token()` is false — and the NVS partition (`firmware/partitions.csv`: `nvs, 0x9000, 0x6000`) is untouched by a normal app-region flash. The device still held a bearer token issued by the Phase-1 local stub server from earlier testing, and sent that stale token straight to the real server, which correctly rejected it. This is a real device-state bug class (stale-credential-after-backend-swap), not a deployment or firmware-logic defect — the firmware has no code path that detects "this token was issued by a different server" and never clears a token on `401` (confirmed via `grep` on `api_client.c`/`state_machine.c` — any non-2xx status just falls through to backoff with the same stale token retried forever). Fixed by erasing just the NVS partition region (`esptool erase-region 0x9000 0x6000`), forcing `fp_api_has_token()` false on the next boot so enrollment re-ran. Confirmed via `journalctl -u inkframe-byos` on the VPS: `POST /device/v1/setup` → `200`, `setup: <device-mac> enrolled (hw_rev=proto-ee02)`, followed immediately by `GET /device/v1/display` → `200` and `GET /img/<hash>.bin` → `200` (960,000 bytes, matching Caddy's access log `size:960000`).
+
+**Step 1 (point at real server) — done**, prior part of session; confirmed above.
+
+**Step 2 (Log Line Contract via serial) — not independently captured.** This board's USB Serial/JTAG powers off entirely during deep sleep (established in Phase 1), and the post-fix awake window is short (wifi join + one HTTPS round trip, no download on the failing attempts). Multiple tight-polling attempts to attach a serial monitor within that window were unsuccessful. In its place: the server-side request sequence (`setup` 200 → `display` 200 → `img/*.bin` 200 with a hash-matched 960,000-byte body) is evidence that no `FP_ERR_HTTP_TRANSPORT`, `FP_ERR_HTTP_STATUS`, `FP_ERR_HTTP_JSON` or `FP_ERR_IMAGE_VERIFY` occurred on that cycle — any of those would have prevented the successful download and the correct on-glass render confirmed in Step 4. Recorded here as an honest evidence gap (indirect, not a live serial capture) rather than a silent pass.
+
+**Step 3 (HTTPS end to end) — confirmed.** Caddy's JSON access log for both the `/device/v1/setup` and `/device/v1/display`/`/img/*.bin` requests shows `"tls":{"resumed":false,"version":771,...,"server_name":"<public-host>"}` — real TLS 1.2 (0x0303=771) handshakes on port 443, not port 80.
+
+**Step 4 (look at the glass) — confirmed, developer's own words:**
+1. Panel showed a full-bleed field with the aircraft silhouette and captions — user reported the render as expected, not washed out or noisy.
+2. **Legibility: "Clearly legible"** — White text against the saturated field, viewed from where the frame will actually hang. Resolves 02-UI-SPEC.md's LOW-confidence flag on this contrast pairing.
+3. **Edge quality: "Hard, flat edges"** — no grey halo or dither speckle observed.
+4. Flight cross-check: **DAH1112 from Béjaïa**, rendered as an arrival (origin shown, not destination) — a real, identifiable flight.
+5. **Layout: "Correct — left-facing, no clipping"** — silhouette points left for the arriving state, full margin respected on all four edges.
+6. No clipping reported.
+
+**Step 5 (enrichment fallback) — forced and confirmed.** Rather than wait for a real no-route flight, the developer chose to force it via the plan's own suggested method: the poll timer (`inkframe-poll.timer`) was stopped on the VPS to prevent an overwrite, then the real production render code (`server.plane.render.render_panel({"callsign": "EJU84YF", "hex": "440cb1"}, "arriving", route=None)`) was invoked directly as the `inkframe` service user to write a genuine fallback panel to `/opt/inkframe/state/panel.bin` — `EJU84YF` is the same confirmed real adsbdb-404 callsign used in `server/test_enrich.py`'s fixtures, so this exercises the actual fallback code path, not a fabricated image. The device was power-cycled to force an immediate wake past backoff, downloaded the new panel (confirmed via a new `image_hash` in the byos log), and the developer confirmed on-glass: **"yes it does"** — the `Route unavailable` caption rendered where the airline line normally sits, with the flight number, silhouette, and state label all still rendering normally. The poll timer was restarted afterward (`systemctl start inkframe-poll.timer`), returning the server to live detection; per D-04 the forced panel remains on screen until the next real detection, which is expected hold-last behaviour, not a bug.
+
+**Step 6 (real departure threshold, A-02-02-01) — explicitly deferred.** DAH1112 was an arrival. The plan's own text anticipates this outcome ("if departures never trigger it... record the observed vertical-rate values so the threshold can be retuned") and the developer explicitly chose "Defer to later" rather than block on watching for a live runway-3 departure. **Open item:** the next time a real runway-3 departure is observed (via `journalctl -u inkframe-poll` showing `confirmed_state=departing`), record the vertical-rate value(s) that triggered it and confirm the panel showed `DEPARTING` with a Blue field and nose-right silhouette. A-02-02-01 remains provisional/symmetry-derived until then.
+
+**Step 7 (between-flights hold, D-04) — implicitly confirmed.** Observed directly during Step 5's revert: after the poll timer resumed, `journalctl -u inkframe-poll` logged `hex=None callsign=None ... state_source=held route_source=held panel_changed=False` during a detection gap — the server correctly held the last panel rather than reverting to a waiting/blank state, matching D-04.
+
+**Resume signal:** steps 1-5 and 7 pass; step 2 is an indirect-evidence gap (documented above, not blocking); step 6 is explicitly deferred by developer choice, with a clear reopen condition recorded. Given the plan's own text treats step 6 as legitimately possible to defer ("if departures never trigger it... record whenever observed"), and Task 3's core bar — "only the glass proves the frame" — is met, this plan and ROADMAP Phase 2 success criterion 4 are considered **satisfied**, with A-02-02-01's departure-threshold check carried forward as an explicit open item rather than a blocker.
 
 ## Files Created/Modified
 
@@ -200,24 +228,20 @@ All of `02-05-PLAN.md`'s Task 2 acceptance criteria were independently re-verifi
 
 ## User Setup Required
 
-None remaining for Task 2 — the VPS is live, provisioned, and verified. Task 3 still requires the physical hardware:
+None. All three tasks are complete; the VPS is live, provisioned, and verified, and the physical frame is flashed and confirmed rendering real flight data on real glass.
 
-**Blocked on Phase 1 plan 01-06 (flash and first boot).** STATE.md's hardware unblock date is 2026-08-26. Once the EE02 kit is flashed and booting, Task 3 can proceed per its own `<how-to-verify>` steps in `02-05-PLAN.md`: point `firmware/main/secrets.h`'s `INK_API_BASE` at `https://<public-host>` and `INK_SETUP_SECRET` at the server's `INK_BYOS_SECRET` (retrieve via `ssh ubuntu@<vps-ip> "sudo cat /opt/inkframe/inkframe.env"` at that time - never paste it into a commit, log, or chat transcript), rebuild/flash, and work through the seven verification steps on the physical glass.
+**Open item (not a blocker):** A-02-02-01's departure-side `+200 ft/min` threshold has still never been observed against a real runway-3 departure (every real detection so far, in both Phase 1 and this session, has been an arrival). Next time `journalctl -u inkframe-poll` on the VPS shows `confirmed_state=departing`, record the triggering vertical-rate value(s) and confirm the panel showed `DEPARTING` (Blue field, nose-right silhouette). Suggested to check during Phase 3 (Visual Polish on Real Glass), which already depends on real hardware being flashed and deployed.
 
 ## Next Phase Readiness
 
-**Task 2 is complete.** The only remaining gate for this plan is Task 3, which needs real hardware:
+**All 3 tasks complete.** ROADMAP Phase 2 success criterion 4 is satisfied — the full pipeline (ADS-B detection → server render → device poll → display) runs end-to-end on real hardware against the real deployed server, replacing the Phase 1 stub. Phase 2 is complete; Phase 3 (Visual Polish on Real Glass) can now be planned, since its only dependency (real hardware flashed and deployed against Phase 2) is satisfied.
 
-1. Wait for Phase 1 plan 01-06 (flash and first boot) - hardware unblock date 2026-08-26.
-2. Once the frame is booting, follow `02-05-PLAN.md`'s Task 3 `<how-to-verify>` steps 1-7 exactly, using the live server details recorded above.
-3. Re-run this executor (or a continuation agent) once Task 3's human checkpoint is answered, to write the final SUMMARY update and close ROADMAP Phase 2 success criterion 4.
-
-No blockers beyond the hardware-arrival gate, explicitly named in this plan's own `<prerequisites>` block.
+No blockers.
 
 ---
 *Phase: 02-plane-view-end-to-end-slice*
-*Completed: Task 2 fully verified live 2026-08-25 - plan not yet closed (Task 3 pending hardware)*
+*Completed: 2026-08-26 — all 3 tasks done, verified on real glass against the live OVH deployment*
 
 ## Self-Check: PASSED
 
-Verified all 9 `deploy/` files present on disk plus the 3 modified `stub-server/` files and `server/README.md`. Verified all 7 commits (`6f8ef2c`, `5d34841`, `38d80e1`, `a1264a2`, `ceacd04`, `a468306`, `7f43c32`) present in `git log --oneline`. `bash -n` clean on both shell scripts post-fix. Live-verified against `https://<public-host>`: TLS handshake valid, 401 without a token, 501 on HEAD (expected vendored behaviour), app port 8642 refused externally, `inkframe-poll.timer` active with real successive ADS-B detections in `journalctl`, full bearer-token enrollment → display → image-download → SHA-256-match round trip successful (960,000 bytes), Caddy access log now records per-request lines including `status=401` on the auth-gated endpoint. `git status --porcelain` and a `git log -p` secret scan both clean immediately before finalizing this summary.
+Verified all 9 `deploy/` files present on disk plus the 3 modified `stub-server/` files and `server/README.md`. Verified all 7 commits (`6f8ef2c`, `5d34841`, `38d80e1`, `a1264a2`, `ceacd04`, `a468306`, `7f43c32`) present in `git log --oneline`. `bash -n` clean on both shell scripts post-fix. Live-verified against `https://<public-host>`: TLS handshake valid, 401 without a token, 501 on HEAD (expected vendored behaviour), app port 8642 refused externally, `inkframe-poll.timer` active with real successive ADS-B detections in `journalctl`, full bearer-token enrollment → display → image-download → SHA-256-match round trip successful (960,000 bytes), Caddy access log now records per-request lines including `status=401` on the auth-gated endpoint. `git status --porcelain` and a `git log -p` secret scan both clean immediately before finalizing this summary. Task 3 on-glass verification confirmed via direct developer report (legibility, edge quality, layout, real-flight cross-check) plus server-side log evidence (setup 200 → display 200 → img 200 with hash-matched 960,000-byte body) for the enrollment and fallback-caption checks; step 2 (raw serial capture) and step 6 (real departure) recorded as explicit open items per the plan's own tolerance for deferring them.

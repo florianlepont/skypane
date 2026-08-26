@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 02
-current_phase_name: plane-view-end-to-end-slice
+current_phase: 03
+current_phase_name: visual-polish-on-real-glass
 status: executing
-stopped_at: 02-05 Task 3 in progress — firmware rebuilt with real OVH base URL, awaiting device USB reconnection to flash and verify on physical glass
-last_updated: "2026-08-26T09:15:00.000Z"
+stopped_at: 02-05 Task 3 complete — Phase 2 closed; Phase 3 (Visual Polish on Real Glass) not yet planned
+last_updated: "2026-08-26T09:25:00.000Z"
 last_activity: 2026-08-26
-last_activity_desc: "Phase 1 formally verified and closed (01-VERIFICATION.md: 3/3 truths, one stale-documentation gap found and fixed same session, not a real engineering gap). Active work remains 02-05 Task 3."
+last_activity_desc: "02-05 Task 3 completed: firmware flashed with real OVH base URL, a stale-NVS-bearer-token bug found and fixed live, on-glass verification confirmed (legibility, edge quality, layout, real-flight cross-check DAH1112, forced enrichment fallback). Phase 2 closed (5/5 plans, all v1 PLANE requirements complete). Step 6 (real-departure threshold, A-02-02-01) explicitly deferred to Phase 3."
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 13
-  completed_plans: 11
-  percent: 25
+  completed_plans: 12
+  percent: 92
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 02 — plane-view-end-to-end-slice (02-05 Task 3)
+**Current focus:** Phase 03 — visual-polish-on-real-glass (not yet planned)
 
 ## Current Position
 
-Phase: 02 (plane-view-end-to-end-slice) — EXECUTING
-Plan: 5 of 5 (02-05 Task 3 of 3 — point firmware at real OVH deployment, verify on physical glass)
-Status: Phase 1 formally verified and closed (7/7 plans, 01-VERIFICATION.md passed 3/3 after fixing a stale-documentation gap, not an engineering gap). 02-05's Tasks 1-2 complete and live-verified against the OVH VPS; Task 3 in progress — firmware rebuilt with the real base URL, needs the device reconnected via USB to flash and verify real plane data renders correctly on glass.
-Last activity: 2026-08-26 — Phase 1 verified and closed; 02-05 Task 3 remains the active work
+Phase: 02 (plane-view-end-to-end-slice) — COMPLETE (5/5 plans)
+Plan: 02-05 Task 3 of 3 complete — physical frame verified on real glass against the live OVH deployment
+Status: Phase 1 and Phase 2 both formally complete. Phase 2's last gate (02-05 Task 3, on-glass human verification) passed this session: firmware flashed with the real OVH base URL, a stale-NVS-bearer-token bug found and fixed live (device was sending a Phase-1-local-stub token to the real server), and the developer confirmed legibility, edge quality, layout, a real-flight cross-check (DAH1112 from Béjaïa), and a forced enrichment-fallback caption, all on real Spectra 6 glass. A-02-02-01's real-departure threshold check is explicitly deferred (every real detection so far has been an arrival) — carried forward as an open item for Phase 3. Next: `/gsd-plan-phase 3` to plan Visual Polish on Real Glass.
+Last activity: 2026-08-26 — 02-05 Task 3 completed, Phase 2 closed
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100% (Phase 2)
 
 ## Performance Metrics
 
@@ -106,7 +106,7 @@ Recent decisions affecting current work:
 - [Phase 02]: Airline-line Y position computed from fixed font-metric constants only, never from a rendered route line's bbox - guarantees the fallback caption lands at the exact same position as a resolved-route render, no doubled gap
 - [Phase 02]: 02-05: deployment target switched from Hetzner CX22 to OVH VPS-1 (same spec, price parity) per explicit user redirect — D-P2-06 explicitly leaves infrastructure specifics to discretion, so treated as a provider substitution, not an architectural change; deploy/ scripts needed zero functional edits since they were already provider-agnostic
 - [Phase 02]: 02-05 Task 2 complete: OVH VPS-1 (<public-host>, Ubuntu 26.04) live-provisioned and fully verified - TLS, auth gate, firewall, and real ADS-B pipeline all confirmed against the live host. Fixed 4 live-discovered deploy bugs: sudo-user support, generic python3 packaging, missing adsb-test/runway3.json geofence config, missing Caddy access logging.
-- [Phase 02]: 02-05 Task 3 (on-glass verification) remains blocked on Phase 1 plan 01-06 hardware flash/first boot - unblock date 2026-08-26, not yet reached.
+- [Phase 02]: 02-05 Task 3 complete (2026-08-26): firmware flashed with the real OVH base URL. Found and fixed a real bug live - the device's NVS partition still held a bearer token from Phase 1 local-stub testing (NVS is untouched by an app-region-only flash), so the first poll against the real server 401'd; fixed by erasing just the NVS region (0x9000/0x6000), forcing re-enrollment. Confirmed end-to-end via server logs (setup 200 -> display 200 -> img 200, hash-matched 960,000 bytes) and developer sign-off on real glass: legibility "clearly legible", edges "hard, flat", layout correct (left-facing arrival, no clipping), real-flight cross-check (DAH1112 from Béjaïa), and a forced enrichment-fallback caption (EJU84YF, via the real render code path) both confirmed. Step 6 (real-departure threshold, A-02-02-01) explicitly deferred by developer choice - every real detection so far has been an arrival; carried forward as an open item for Phase 3. PLANE-01/02/03 now marked complete in REQUIREMENTS.md. Phase 2 closed (5/5 plans).
 - [Phase 01]: EE02 board profile verified against real hardware with zero pin/config corrections needed - firmware/sdkconfig.ee02.defaults stays byte-identical to upstream
 - [Phase 01]: 'Device appears then disappears on USB' during 01-06 was diagnosed as esp_deep_sleep_start() correctly powering off USB Serial/JTAG outside the RTC domain, not a boot loop/brownout - documented in hardware/BRINGUP-LOG.md
 - [Phase 01]: measured panel full-refresh duration ~31.5s (two independent captures) - input for Phase 2 rendering-cadence UX
@@ -125,8 +125,8 @@ None yet.
 - Spectra 6 dual-chip display driver — RESOLVED 2026-08-25 (01-06): EE02 board profile verified against real hardware with zero corrections needed, first light achieved (all 5 visual checks passed), Log Line Contract captured live.
 - No publicly confirmed enclosure design exists for the EE02 kit — budget design time in Phase 1 or plan around an off-the-shelf enclosure.
 - Battery-life real-world figure for this exact hardware combo is unmeasured — 04-01's Task 1 (check-battery checker + pre-registered protocol) is done; Tasks 2 (multi-day unattended discharge run, needs the Mac to stay awake continuously) and 3 (post-mortem readout) are deliberately deferred to the end of the project (user decision, 2026-08-26) rather than done now.
-- 02-05 Task 3 (on-glass verification with real OVH data) is IN PROGRESS: firmware repointed at the real base URL and rebuilt, waiting on the device being reconnected via USB to flash and verify.
 - Device wake interval (how often the physical frame polls the server, decoupled from the server's own 30s ADS-B poll) is currently 300s in the test/bring-up config — NOT yet a tuned production value. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred until Phase 4's 04-01 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
+- A-02-02-01 (departure-side D-03 threshold, +200 ft/min) has never been observed against a real runway-3 departure — every real detection so far (Phase 1's sample and 02-05 Task 3's on-glass check) has been an arrival. Not a known defect, just unvalidated. Scoped to close in Phase 3 (success criterion 3 already names it); check `journalctl -u inkframe-poll` on the VPS for `confirmed_state=departing` whenever it's convenient before or during Phase 3 planning.
 
 ## Deferred Items
 
@@ -138,14 +138,16 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T08:45:00.000Z
-Stopped at: 02-05 Task 3 in progress — firmware rebuilt with real OVH base URL, awaiting device USB reconnection to flash and verify on physical glass
+Last session: 2026-08-26T09:25:00.000Z
+Stopped at: 02-05 Task 3 complete — Phase 2 closed (5/5 plans). Phase 3 (Visual Polish on Real Glass) not yet planned.
 
-Resume file: `.planning/phases/02-plane-view-end-to-end-slice/02-05-PLAN.md` — resume at Task 3. (Phase 4's `.planning/phases/04-low-battery-indicator/04-01-PLAN.md` resumes at Task 2 whenever the multi-day battery run is scheduled, per user decision to defer it to end of project.)
+Resume file: none active — next step is `/gsd-plan-phase 3` to plan Visual Polish on Real Glass. (Phase 4's `.planning/phases/04-low-battery-indicator/04-01-PLAN.md` resumes at Task 2 whenever the multi-day battery run is scheduled, per user decision to defer it to end of project.)
 
-**State at end of this session:**
+**State at end of this session (2026-08-26, ~09:25):**
 
-- Device: connected via USB, battery still disconnected (Task 1 was fully autonomous, no hardware/battery involved). Stub server not running.
-- `hardware/logtools.py check-battery` is built and proven on 3 fixtures (`battery-good` accepted; `battery-gap`, `battery-flat-mv` rejected); `hardware/BATTERY-RUN.md`'s `## Run Protocol (pre-registered)` section is committed with the D-07 thresholds, 21-day ceiling and the pack's real 3000mAh rating from `hardware/BOM.md`.
-- 01-07's DEVICE-03 backoff observation is complete and machine-checked, with one disclosed capture-tooling limitation (see `hardware/BACKOFF-OBSERVATION.md`'s "Capture-Timing Limitation" section) — the underlying persistence property is proven via a decisive wall-clock argument and independent HTTP-telemetry corroboration, not merely a clean automated-checker exit code.
-- Before Task 2 connects the battery for the first time, `hardware/BRINGUP-LOG.md`'s deferred polarity check (JST connector orientation against the board's silkscreen) is still an outstanding blocking prerequisite, and Task 2's own `<how-to-verify>` steps require confirming the pack's protection circuit and the laptop's ability to stay awake/networked for up to 21 days before starting.
+- Device: flashed with production firmware pointed at the real OVH server, running on battery power (JST connector repinned and verified against the board's silkscreen `+` marking earlier this session — correct polarity confirmed before connecting). Currently on its normal wake/poll/sleep cycle against the live deployment.
+- Phase 2 fully closed: all 5 plans complete, ROADMAP success criterion 4 satisfied, PLANE-01/02/03 marked complete in REQUIREMENTS.md.
+- The OVH VPS's `inkframe-poll.timer` is running normally (restarted after the Task 3 forced-fallback test); live ADS-B detection has resumed.
+- Open item carried into Phase 3: A-02-02-01's real-departure threshold has never been observed (see Blockers/Concerns above).
+- Prior-session battery-measurement context (`hardware/logtools.py check-battery`, `hardware/BATTERY-RUN.md`'s pre-registered protocol) is unchanged and still deliberately deferred to end-of-project per Phase 4's scope note — Tasks 2/3 of 04-01 not started.
+- Next step: `/gsd-plan-phase 3` to plan Visual Polish on Real Glass.

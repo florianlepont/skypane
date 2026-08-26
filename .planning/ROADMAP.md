@@ -16,7 +16,7 @@ Ink Frame v1 ships as a single-view device in four phases. Phase 1 is a foundati
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception on real hardware, with the core wake/poll/backoff loop proven against a stub server (completed 2026-08-26)
-- [ ] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display
+- [x] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display (completed 2026-08-26)
 - [ ] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle
 - [ ] **Phase 4: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
 
@@ -61,7 +61,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Note on criterion 3's wording**: corrected 2026-08-26 at Phase 1 close (was stale, said "local ADS-B receiver / RTL-SDR"; see 02-CONTEXT.md D-01 and PROJECT.md/REQUIREMENTS.md, corrected the same day).
 
-**Plans**: 4/5 plans executed
+**Plans**: 5/5 plans executed
 **Wave 1**
 
 - [x] 02-01-PLAN.md — Slice 1: live runway-3 flight number reaches the panel (detection, selection rule, minimal render, poll loop)
@@ -80,7 +80,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 02-05-PLAN.md — Slice 5: real HTTPS deployment (scheme fix, Hetzner CX22 + Caddy + systemd, on-glass verification)
+- [x] 02-05-PLAN.md — Slice 5: real HTTPS deployment (scheme fix, OVH VPS-1 + Caddy + systemd, on-glass verification)
 
 **UI hint**: yes
 
@@ -128,6 +128,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
-| 2. Plane View — End-to-End Slice | 4/5 | In Progress|  |
+| 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 0/TBD | Not started | - |
 | 4. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
