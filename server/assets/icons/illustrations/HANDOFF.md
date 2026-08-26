@@ -73,3 +73,102 @@ carrier actually seen on runway 3.
 4. Report back, for the provenance record (`VENDOR.md`): the generation
    date, the tool used, the prompt if you kept it, and the aircraft type
    you chose per airline.
+
+## Suggested generation prompts (ready to copy-paste)
+
+Each prompt is self-contained — paste one at a time into ChatGPT/Midjourney/
+equivalent. The aircraft type picked per airline is a plausible, commonly-seen
+one for that carrier at Orly (D-19) — swap it for another real type from the
+same airline's fleet if you prefer, it does not need to match any specific
+flight. Nose-left and transparent background are repeated in every prompt
+deliberately — do not drop them even if the tool seems to "remember" context
+from a prior prompt in the same conversation.
+
+**Common style guidance for all seven:** clean editorial aircraft-side-profile
+illustration (not a photo, not 3D-rendered) — flat, confident shapes with
+crisp edges, closer to a vintage aviation poster plate than a photorealistic
+render. This matches the poster's overall art direction (see D-14 in
+`03-CONTEXT.md` if you want the full rationale) and gives the render
+pipeline's dithering step cleaner color regions to work with than a busy
+photographic texture would.
+
+---
+
+### 1. `air-france.png`
+```
+Side-profile editorial illustration of an Airbus A320 in Air France livery
+— white fuselage, the signature Air France dark blue tail with red/white/
+blue winglet accents. Nose pointing LEFT. Clean flat illustration style,
+crisp hard edges, no gradients or photographic texture, like a vintage
+aviation poster plate. Landscape orientation, aircraft filling most of the
+frame. Transparent background (PNG with real alpha channel) — no ground,
+no sky, no shadow, nothing behind the aircraft.
+```
+
+### 2. `iberia-airlines.png`
+```
+Side-profile editorial illustration of an Airbus A320 in Iberia livery —
+white fuselage, red tail with the Iberia yellow/red brand mark. Nose
+pointing LEFT. Clean flat illustration style, crisp hard edges, no
+gradients or photographic texture, like a vintage aviation poster plate.
+Landscape orientation, aircraft filling most of the frame. Transparent
+background (PNG with real alpha channel) — no ground, no sky, no shadow,
+nothing behind the aircraft.
+```
+
+### 3. `tap-portugal.png`
+```
+Side-profile editorial illustration of an Airbus A321neo in TAP Air
+Portugal livery — white fuselage, red tail, red cheatline along the
+fuselage. Nose pointing LEFT. Clean flat illustration style, crisp hard
+edges, no gradients or photographic texture, like a vintage aviation
+poster plate. Landscape orientation, aircraft filling most of the frame.
+Transparent background (PNG with real alpha channel) — no ground, no
+sky, no shadow, nothing behind the aircraft.
+```
+
+### 4. `air-algerie.png`
+```
+Side-profile editorial illustration of a Boeing 737-800 in Air Algérie
+livery — white fuselage, green/white/red tail with the Air Algérie
+crescent-and-star emblem. Nose pointing LEFT. Clean flat illustration
+style, crisp hard edges, no gradients or photographic texture, like a
+vintage aviation poster plate. Landscape orientation, aircraft filling
+most of the frame. Transparent background (PNG with real alpha channel)
+— no ground, no sky, no shadow, nothing behind the aircraft.
+```
+
+### 5. `ccm-airlines.png`
+```
+Side-profile editorial illustration of an Airbus A320 in Air Corsica
+(CCM Airlines) livery — white fuselage, the Corsican Moor's Head emblem
+on the tail, blue/white brand colours. Nose pointing LEFT. Clean flat
+illustration style, crisp hard edges, no gradients or photographic
+texture, like a vintage aviation poster plate. Landscape orientation,
+aircraft filling most of the frame. Transparent background (PNG with
+real alpha channel) — no ground, no sky, no shadow, nothing behind the
+aircraft.
+```
+
+### 6. `vueling-airlines.png`
+```
+Side-profile editorial illustration of an Airbus A320 in Vueling livery
+— distinctive bright yellow fuselage with dark grey/black tail and
+"vueling" wordmark styling. Nose pointing LEFT. Clean flat illustration
+style, crisp hard edges, no gradients or photographic texture, like a
+vintage aviation poster plate. Landscape orientation, aircraft filling
+most of the frame. Transparent background (PNG with real alpha channel)
+— no ground, no sky, no shadow, nothing behind the aircraft.
+```
+
+### 7. `generic-fallback.png`
+```
+Side-profile editorial illustration of a generic narrow-body commercial
+jet airliner (no specific airline identity) in neutral brushed-metal /
+grey tones only — no livery colours, no logos, no tail markings, no
+airline branding of any kind. Nose pointing LEFT. Clean flat illustration
+style, crisp hard edges, no gradients or photographic texture, like a
+vintage aviation poster plate. Landscape orientation, aircraft filling
+most of the frame. Transparent background (PNG with real alpha channel)
+— no ground, no sky, no shadow, nothing behind the aircraft.
+```
