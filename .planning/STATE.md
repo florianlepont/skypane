@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: "04"
 current_phase_name: ci-cd-documentation-legal-compliance-github-actions-ci-tests
-status: ready to execute
-stopped_at: Phase 4 planned (6 plans, 4 waves) - decision coverage 16/16, checker passed clean
-last_updated: "2026-08-26T19:15:00.000Z"
+status: executing
+stopped_at: 04-01 complete (.gitignore + history-wide sensitive-literal scrub, verified) - Wave 1 of 4 done, 5 plans remaining
+last_updated: "2026-08-26T19:10:00.000Z"
 last_activity: 2026-08-26
-last_activity_desc: Phase 4 (CI/CD, Docs & Legal) planned - ready for /gsd-execute-phase 4
+last_activity_desc: 04-01 executed - repo-root .gitignore + git-filter-repo history scrub (Categories A+B+C) verified clean
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 23
-  completed_plans: 15
-  percent: 65
+  completed_plans: 16
+  percent: 70
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 04 (ci-cd-documentation-legal-compliance-github-actions-ci-tests) — PLANNED, ready to execute
-Plans: 0/6 executed (6 plans, 4 waves - 04-01 through 04-06)
-Status: Planning complete. Research + pattern-mapping + planner + plan-checker all passed; decision coverage 16/16. 04-01 (Wave 1) is non-autonomous - it stops for a human checkpoint:decision on git-history scrub scope before the one-way rewrite runs.
-Last activity: 2026-08-26 — Phase 4 planned and verified, ready for /gsd-execute-phase 4
+Phase: 04 (ci-cd-documentation-legal-compliance-github-actions-ci-tests) — EXECUTING
+Plans: 1/6 executed (6 plans, 4 waves - 04-01 through 04-06)
+Status: 04-01 (Wave 1) complete. Developer selected scrub scope a-b-c (Categories A+B+C) at the checkpoint:decision gate; git-filter-repo rewrote all 154 commits, verified zero occurrences of the approved literals across every ref, backed by a verified bundle outside the repo tree. All 9 test harnesses still pass. Repo-root .gitignore (D-06) committed. Waves 2-4 (04-02 through 04-06) remain.
+Last activity: 2026-08-26 — 04-01 executed and verified
 
-Progress: [██████████] 100% (Phase 2)
+Progress: [██░░░░░░░░] 17% (Phase 4, 1/6 plans)
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [██████████] 100% (Phase 2)
 | Phase 03 P01 | 20min | 2 tasks | 7 files |
 | Phase 03 P02 | 30min | 2 tasks | 4 files |
 | Phase 03 P03 | 5min | 2 gaps closed (scoped re-entry, not a fresh execution) | 3 files |
+| Phase 04 P01 | ~40min | 3 tasks (pre-work + Task 1 + Task 2 decision + Task 3 execution) | 3 files (.gitignore, SCRUB-RECORD.md, 04-01-SUMMARY.md) + history-wide content rewrite across ~154 commits |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Recent decisions affecting current work:
 - [Phase 03]: 03-02 mood background rejected the UI-SPEC's full-6-color-palette recipe after measuring it produced six-colour static for the arriving mood; replaced with a two-entry [White, state_base_rgb] sub-palette (hue-pure by construction), MOOD_LIGHT_TINT_MIX finalized at 0.40, measured 80.3% state-hue / 19.7% White per state
 - [Phase 03]: 03-02 replaced the naive per-pixel jitter loop (measured 3.7s, would have blown the render-time budget) with bulk Random.randbytes() + row-scoped bytes.translate() LUTs, ~35x faster (~100ms), still fully deterministic from the same seeded local Random instance
 - [Phase 03]: 03-02 replaced the whole-canvas 'exactly 2 palette indices' guard rail with a spatially-scoped _assert_palette_contract() (per-quiet-zone + illustration-bbox-aware whole-canvas check), with the illustration_bbox hook already wired for 03-03
+- [Phase 04]: 04-01 Task 2 checkpoint:decision - developer selected scrub scope a-b-c (Categories A+B+C in full) over a-only or a-b, removing the home Wi-Fi SSID/BSSID/device MAC and home street address alongside the D-05-locked VPS IP/hostname, before the one-way git-filter-repo rewrite ran
+- [Phase 04]: 04-01 Task 3 - git-filter-repo rewrote all 154 commits (--replace-text + --replace-message, since one literal only appeared in a commit message) in a scratch clone, re-homed onto main, verified zero occurrences of any approved literal across every ref; a verified git bundle backup exists outside the repo tree as the rollback path. Also deleted the stale, fully-redundant `claude/faience-blanche-mate-434eeb` branch ref (the removed 01-worktree's branch) which would otherwise have kept pre-rewrite objects reachable.
+- [Phase 04]: 04-01 repo-root .gitignore committed (D-06), extending the five existing per-subdirectory ignore files without weakening any of them; nested worktree removed and working tree cleaned ahead of the history rewrite (F4/F5)
 
 ### Pending Todos
 
@@ -156,10 +160,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T16:46:26.684Z
-Stopped at: Phase 4 context gathered
+Last session: 2026-08-26T19:10:00.000Z
+Stopped at: 04-01 complete (Wave 1 of 4) - .gitignore + git-history scrub verified; Waves 2-4 (04-02 through 04-06) remain
 
-Resume file: .planning/phases/04-ci-cd-documentation-legal-compliance-github-actions-ci-tests/04-CONTEXT.md
+Resume file: None - proceed to /gsd-execute-phase 4 for the remaining waves
 
 **State at end of this session (2026-08-26, ~09:25):**
 
@@ -169,3 +173,10 @@ Resume file: .planning/phases/04-ci-cd-documentation-legal-compliance-github-act
 - Open item carried into Phase 3: A-02-02-01's real-departure threshold has never been observed (see Blockers/Concerns above).
 - Prior-session battery-measurement context (`hardware/logtools.py check-battery`, `hardware/BATTERY-RUN.md`'s pre-registered protocol) is unchanged and still deliberately deferred to end-of-project per Phase 5's scope note — Tasks 2/3 of 05-01 not started.
 - Next step: `/gsd-plan-phase 3` to plan Visual Polish on Real Glass.
+
+**State at end of this session (2026-08-26, ~19:10) — supersedes the note above:**
+
+- 04-01 complete: repo-root `.gitignore` (D-06), nested worktree removed, and a full git-filter-repo history scrub verified clean (zero occurrences of the VPS IP/hostname, home Wi-Fi SSID/BSSID/device MAC, and home street address across all 154 commits and every ref). All 9 test harnesses still pass. `SCRUB-RECORD.md` and `04-01-SUMMARY.md` document the operation without restating any scrubbed value.
+- Every commit hash in this repo changed as a result of the rewrite (content unchanged, hashes rewritten) — any hash recorded before this session in a SUMMARY or elsewhere is now stale.
+- A verified pre-rewrite backup bundle exists outside the repo tree; its path is recorded in `SCRUB-RECORD.md` (not restated here per the no-literal-restatement rule, though it is not itself one of the scrubbed literals).
+- Next step: continue `/gsd-execute-phase 4` for Waves 2-4 (04-02 through 04-06).

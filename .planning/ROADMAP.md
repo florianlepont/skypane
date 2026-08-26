@@ -152,12 +152,12 @@ Plans:
 **Goal:** GitHub Actions runs the full test suite (server/test_*.py) and code-quality/coverage checks on every push/PR, with an automated (gated, not silently-triggered) deploy step pushing to the real OVH VPS on merge to main; the repository has a README a newcomer can build/deploy from, a LICENSE, and documented confirmation that PRIM/IDFM's and the ADS-B aggregators' terms of use are actually being honored (no raw-data republishing, rate-limit compliance, attribution where required); asset attribution (fonts, icons, illustrations) is consolidated and verifiably complete via the existing VENDOR.md files.
 **Requirements**: D-01 through D-16 (this phase has no PLANE-*/DEVICE-* IDs of its own — it is infra/documentation work. The discuss-phase resolved its requirements into the locked decisions D-01..D-16 in `04-CONTEXT.md`, which are the traceability anchor each plan's `requirements` frontmatter cites, per `04-VALIDATION.md`'s Phase Requirement Map.)
 **Depends on:** Phase 3
-**Plans**: 6 plans
+**Plans**: 1/6 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — Pre-publish repo hygiene: root `.gitignore`, a gated scrub-scope decision, and the `git filter-repo` history rewrite (D-03/D-04/D-05/D-06)
+- [x] 04-01-PLAN.md — Pre-publish repo hygiene: root `.gitignore`, a gated scrub-scope decision, and the `git filter-repo` history rewrite (D-03/D-04/D-05/D-06)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 3/3 | Complete    | 2026-08-26 |
-| 4. CI/CD, Documentation & Legal Compliance | 0/6 | Not Started | - |
+| 4. CI/CD, Documentation & Legal Compliance | 1/6 | In Progress|  |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
 | 6. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 0 plans
