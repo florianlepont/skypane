@@ -139,11 +139,22 @@ Plans:
   4. The result is at least as visually legible on real Spectra 6 glass as Phase 3's static-file approach, verified via the same `checkpoint:human-verify` on-glass pattern established in prior phases.
   5. Coverage gracefully degrades (a sensible fallback, not a crash or a blank illustration) for any airline/type combination not yet defined in the livery/shape mapping — mirroring D-08's existing generic-fallback discipline from Phase 3.
 
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 03.1 to break down)
+- [ ] 03.1-01-PLAN.md — ROADMAP D-10 revision pass, plus the live-verified record of every target airline's exact resolved name and the `t` field's presence on both aggregator providers
+- [ ] 03.1-02-PLAN.md — `detect.py` extracts and normalises the ICAO aircraft-type designator, with fixture and harness coverage for the present, absent and malformed cases
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03.1-03-PLAN.md — `classify_aircraft_type()` plus the four-tier (D-06/D-07/D-08) two-key `select_illustration()`, and the enumerable D-03 target file set
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03.1-04-PLAN.md — `{airline} · {type}` line-2 rendering with friendly labels and a presentation-only brand alias, both illustration call sites threaded, type visible in the poll log
+- [ ] 03.1-05-PLAN.md — expanded illustration hand-off spec, the developer's blocking art-generation gate, and digest-backed provenance for everything delivered
 
 ### Phase 4: CI/CD, Documentation & Legal Compliance
 
