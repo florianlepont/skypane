@@ -34,21 +34,31 @@ GREEN = 0x6
 # receives is exclusively the INDEX_TO_NIBBLE-mapped nibble codes above.
 # Real panel colour fidelity is verified on glass in plan 02-05, not here.
 #
-# Phase 3 D-13 (03-01-PLAN.md): indices 2/3/4/5 below were updated from the
-# original pure-primary placeholders to a community-estimate approximation
-# of the real Spectra 6 panel's muted inks - LOW confidence, an interim
-# step pending the on-glass calibration pass recorded in
-# hardware/BRINGUP-LOG.md (03-04). These values are still render-internal
-# only and still never cross the wire - that property is unchanged by this
-# edit, which is what makes it zero-risk to every downstream palette-index
-# or wire-nibble consumer.
+# Phase 3 D-13 (03-01-PLAN.md): indices 2/3 (yellow/red) are a community-
+# estimate approximation of the real Spectra 6 panel's muted inks - LOW
+# confidence, an interim step pending the on-glass calibration pass
+# recorded in hardware/BRINGUP-LOG.md (03-04).
+#
+# Phase 3 D-21 (03-CONTEXT.md, live-previewed and confirmed by the
+# developer against real rendered mockups this session): indices 4/5
+# (blue/green) were further lightened from D-13's muted-ink values to a
+# brighter, more "sky"-like tone the developer explicitly asked for and
+# confirmed ("c'est parfait") - blue (110,180,225) and green (140,195,130).
+# These are the panel's full-bleed background field colours (STATE_
+# BACKGROUND in render.py), so their exact tone is a real, visible design
+# choice, not just an approximation target like yellow/red currently are.
+#
+# All six values are still render-internal only and still never cross the
+# wire - that property is unchanged by any of these edits, which is what
+# makes them zero-risk to every downstream palette-index or wire-nibble
+# consumer.
 PALETTE_RGB = [
     0, 0, 0,        # index 0 -> nibble 0x0 black
     255, 255, 255,  # index 1 -> nibble 0x1 white
     240, 224, 80,   # index 2 -> nibble 0x2 yellow (D-13 interim)
     160, 32, 32,    # index 3 -> nibble 0x3 red (D-13 interim)
-    80, 128, 184,   # index 4 -> nibble 0x5 blue  (D-13 interim, index/nibble differ!)
-    96, 128, 80,    # index 5 -> nibble 0x6 green (D-13 interim, index/nibble differ!)
+    110, 180, 225,  # index 4 -> nibble 0x5 blue  (D-21, confirmed - index/nibble differ!)
+    140, 195, 130,  # index 5 -> nibble 0x6 green (D-21, confirmed - index/nibble differ!)
 ]
 
 # Pillow "P"-mode palette indices are contiguous from 0; the wire format's
