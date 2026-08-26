@@ -1,0 +1,48 @@
+# Ink Frame — CI pipeline (D-07 through D-12).
+#
+# Single workflow file, two jobs: `test` runs blocking lint + all 9
+# harnesses + coverage threshold + attribution check on every push and
+# pull request; `deploy` only runs after `test` succeeds, only on a push
+# to the default branch (never a pull request), and pauses for a human
+# reviewer before touching the production VPS. Kept as one file rather
+# than the two-file split 04-RESEARCH.md sketched, because a job cannot
+# `needs:` a job defined in a *different* workflow file — only
+# `workflow_run` crosses that boundary, and it carries its own
+# well-documented pitfalls. The firmware build lives in its own file
+# (firmware.yml) instead, because path-restricted triggers are a
+# workflow-level feature, not a job-level one, and that build is
+# independent of this pipeline.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Lint, test, coverage, attribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Create virtualenv and install dependencies
+        run: |
+          python3 -m venv server/.venv
+          server/.venv/bin/pip install -r server/requirements.txt
+          server/.venv/bin/pip install -r server/requirements-dev.txt
+
+      - name: Lint (blocking — rule set lives in pyproject.toml)
+        run: server/.venv/bin/ruff check .
+
+      - name: Run full test suite with coverage threshold
+        run: ./scripts/run-all-tests.sh
+
+      - name: Check vendored-asset attribution completeness
+        run: ./scripts/check-attribution.sh
