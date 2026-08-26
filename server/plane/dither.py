@@ -22,6 +22,8 @@ directly in render.py) after the developer confirmed a flat field on real
 rendered previews - the mood-background recipe and its supporting constants
 have been removed rather than left dead in this file.
 """
+import sys
+
 from PIL import Image
 
 from server import panel_format as pf
