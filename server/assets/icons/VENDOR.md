@@ -19,10 +19,11 @@
   - `air-algerie.png` — Boeing 737-800
   - `ccm-airlines.png` — Airbus A320 (Air Corsica / CCM Airlines)
   - `vueling-airlines.png` — Airbus A320
+  - `transavia-france.png` — Boeing 737-800
   - `generic-fallback.png` — unbranded generic narrow-body jet
 - **Local modifications / validation:** TAP and Air Algérie were regenerated
   after a visual check identified an opaque vignette in earlier drafts. The
-  final seven files are all native RGBA PNGs, at least 1200px wide, and passed
+  final eight files are all native RGBA PNGs, at least 1200px wide, and passed
   `server/plane/illustrations.py --validate`. All source profiles were
   visually confirmed nose-left before hand-off.
 

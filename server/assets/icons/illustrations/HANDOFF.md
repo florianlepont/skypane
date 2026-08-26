@@ -13,7 +13,7 @@ Read this file in full before generating anything. Run
 `server/.venv/bin/python3 server/plane/illustrations.py --required` at any
 time to reprint the authoritative filename list below.
 
-## Required files (7 total)
+## Required files (8 total)
 
 ```
 air-france.png
@@ -22,10 +22,11 @@ tap-portugal.png
 air-algerie.png
 ccm-airlines.png
 vueling-airlines.png
+transavia-france.png
 generic-fallback.png
 ```
 
-Each of the first six corresponds to a carrier whose `airline_name` was
+Each of the first seven corresponds to a carrier whose `airline_name` was
 resolved **live** against `api.adsbdb.com` on 2026-08-26 (see
 `server/plane/illustrations.py`'s module docstring for the full
 callsign-to-name table). `generic-fallback.png` is the single dithered
@@ -45,7 +46,11 @@ airline-specific design.
 | **Aircraft type (D-19)** | Pick a real, plausible, commonly-seen aircraft type for that airline at Orly - not an arbitrary generic jet. Real per-flight type detection is deliberately out of scope for this phase and is a later phase's job (Phase 3.1) - do not try to match the type to any specific flight. |
 | **No readable text anywhere on the aircraft** | **No fuselage titles, no tail wordmarks, no registration codes, no readable lettering of any kind painted on the airframe** - color blocks and non-text emblems/logo shapes (e.g. a bird mark, a crescent-and-star, a geometric tail design) are fine, but nothing a human reads as words. This is not a style preference - the code horizontally mirrors this same file to produce the DEPARTING (nose-right) render from the ARRIVING (nose-left) source, and mirrored text is backwards and unreadable in one of the two states. A logo/emblem shape still reads fine mirrored; text does not. Check every file for this specifically - it's easy for an image generator to add a fuselage title without being asked. |
 
-## Coverage caveat - why only 6 airlines, and not easyJet or KM Malta
+**Project decision (2026-08-26):** this no-text requirement is explicitly
+waived for the generated airline illustrations at the user's request. The
+current files may retain their carrier wordmarks and markings when mirrored.
+
+## Coverage caveat - easyJet and KM Malta remain excluded
 
 Illustration selection depends transitively on `adsbdb`'s crowdsourced
 callsign-to-airline coverage, which resolved only ~52.6% of this airport's
@@ -55,14 +60,13 @@ ADS-B traffic - **easyJet Europe** (`EJU`) and **KM Malta Airlines**
 available for those flights no matter how good an illustration exists for
 them, so an easyJet or KM Malta file would simply never be selectable.
 Do not generate art for either. Transavia France (`TVF`, the numerically
-dominant prefix in raw traffic) is also deliberately excluded from this
-required set - it resolves in only 2 of 20 real lookups, so a Transavia
-illustration would rarely display even though Transavia is the most common
-carrier actually seen on runway 3.
+dominant prefix in raw traffic) resolves in only 2 of 20 real lookups, so its
+illustration will still rarely display. It was nevertheless added to this set
+on 2026-08-26 at the user's request, as `transavia-france.png`.
 
 ## After generating the files
 
-1. Drop all 7 files into this directory (`server/assets/icons/illustrations/`)
+1. Drop all 8 files into this directory (`server/assets/icons/illustrations/`)
    using exactly the filenames listed above - no extra suffixes, no
    capitals, no spaces.
 2. Run the validator:

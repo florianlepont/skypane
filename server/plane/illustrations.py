@@ -9,8 +9,8 @@ of this airport's traffic in Phase 2's live test
 (`server/plane/enrich.py`'s module docstring). `EJU` (easyJet Europe) and
 `KMM` (KM Malta Airlines) are confirmed misses and will ALWAYS render the
 generic fallback no matter what art exists for them; `TVF` (Transavia
-France, the numerically dominant prefix in raw traffic) resolved only 2 of
-20 and usually falls to the fallback too.
+France, the numerically dominant prefix in raw traffic) resolves only 2 of
+20 and therefore still often falls to the fallback.
 
 This module makes no network call of its own - the live lookups below were
 performed once, out of band, during this plan's Task 1 execution, purely to
@@ -31,17 +31,18 @@ names).
 | DAH1008   | "Air Algerie"                       | yes |
 | CCM21AW   | "CCM Airlines"                      | yes |
 | VLG6PD    | "Vueling Airlines"                  | yes |
+| TVF16VB   | "Transavia France"                  | yes — user-requested extension |
 | VOE8KA    | "Volotea"                            | no - recorded for status only |
 
-All seven calls returned a full route (no misses among this set). VOE8KA
+All seven original calls returned a full route (no misses among this set). VOE8KA
 (Volotea) was queried per 03-RESEARCH.md's instruction to resolve its
 previously-`[ASSUMED]`-unconfirmed status, not to request art for it - the
-plan explicitly scopes the hand-off to the six confirmed-hit carriers above
-plus the one generic fallback (03-UI-SPEC.md's "Illustration Asset
-Contract" table, 7 files total). Volotea's now-confirmed hit is recorded
-here for completeness only; `required_filenames()` deliberately excludes
-it. `EJU`/`KMM` are not re-queried here - `server/plane/enrich.py`'s module
-docstring and 02-RESEARCH.md already document them as confirmed misses.
+originally scoped the hand-off to the six confirmed-hit carriers plus the
+generic fallback. On 2026-08-26, a user-requested extension added Transavia
+France despite its sparse resolution coverage. Volotea's now-confirmed hit is
+recorded here for completeness only; `required_filenames()` deliberately
+excludes it. `EJU`/`KMM` are not re-queried here - `server/plane/enrich.py`'s
+module docstring and 02-RESEARCH.md already document them as confirmed misses.
 
 Filenames are derived from these exact live-resolved strings via
 `normalise_airline_key()`, never hand-typed - see `required_filenames()`.
@@ -71,7 +72,10 @@ GENERIC_FALLBACK_FILENAME = "generic-fallback.png"
 # The whole set's single documented orientation convention (Pitfall 4 -
 # there is no per-file metadata and no way to detect this in code; it is
 # enforced by the HANDOFF.md spec plus human verification at the Task 2
-# checkpoint), mirroring render.SILHOUETTE_SOURCE_NOSE.
+# checkpoint). D-24 (03-CONTEXT.md): render.py never mirrors these files -
+# every illustration renders nose-left always, in both departing and
+# arriving states, so this is now the panel's one and only orientation,
+# not a "source" convention a mirror step flips per state.
 ILLUSTRATION_SOURCE_NOSE = "left"
 
 # Downscale headroom against the 900px SILHOUETTE_TARGET_W width cap.
@@ -92,6 +96,7 @@ _LIVE_RESOLVED_AIRLINES = [
     ("DAH1008", "Air Algerie"),
     ("CCM21AW", "CCM Airlines"),
     ("VLG6PD", "Vueling Airlines"),
+    ("TVF16VB", "Transavia France"),
 ]
 
 # Recorded per the module docstring's table - queried for status only, not
