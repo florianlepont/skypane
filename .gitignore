@@ -1,0 +1,48 @@
+# Repo-root .gitignore. The six existing per-subdirectory .gitignore files
+# (deploy/, server/, firmware/, stub-server/, adsb-test/, server/state/)
+# each cover their own directory only - this file is strictly additive,
+# closing the gaps those files don't reach (repo-root untracked files,
+# credential belt-and-suspenders, and tooling this phase introduces).
+
+# --- OS cruft the subdir files do not reach ---
+# macOS Finder metadata can appear at any depth.
+.DS_Store
+
+# --- Python artifacts at repo-root scope ---
+# server/.gitignore already covers server/.venv/ and server/__pycache__/;
+# these entries catch the same patterns anywhere else in the tree
+# (stub-server/, adsb-test/, scripts run from the repo root).
+__pycache__/
+*.pyc
+.venv/
+
+# --- Tooling caches this phase introduces (plan 04-02) ---
+# Landed here before ruff/coverage ever run in the working tree, so
+# there is no window in which a cache file could land in git history.
+.ruff_cache/
+.coverage
+.coverage.*
+
+# --- ESP-IDF build output at root scope ---
+# firmware/.gitignore already covers build/ and build-*/ relative to
+# firmware/; this catches the same pattern if invoked from the root.
+firmware/build*/
+
+# --- Agent/worktree scratch ---
+# A nested checkout under .claude/worktrees/ must never be stageable
+# from the root - it pins objects as reachable and is agent scratch,
+# not project content (see F4).
+.claude/worktrees/
+
+# --- Credential belt-and-suspenders (D-03/D-06) ---
+# Per-subdirectory .gitignore files already cover these two files
+# (deploy/.gitignore, firmware/.gitignore); duplicating the rule here
+# is deliberate defence-in-depth so a repo-root-relative `git add -A`
+# can never stage a real credential for the first time.
+deploy/inkframe.env
+firmware/main/secrets.h
+
+# --- Local planning scratch ---
+# Cached research API responses - not project content, not needed
+# to reconstruct any planning artifact.
+.planning/research/.cache/
