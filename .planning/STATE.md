@@ -6,15 +6,15 @@ current_phase: 03
 current_phase_name: visual-polish-on-real-glass
 status: executing
 stopped_at: Phase 3 planned - 4 plans created, checker passed, decision-coverage gate 17/17
-last_updated: "2026-08-26T12:05:00.000Z"
+last_updated: "2026-08-26T12:35:59.097Z"
 last_activity: 2026-08-26
-last_activity_desc: "Phase 3 fully planned: 4 plans (03-01 typography/hierarchy, 03-02 dithered mood background, 03-03 per-airline illustrations with blocking hand-off gate, 03-04 on-glass verification). gsd-plan-checker passed with no blockers; the planner independently verified render mechanics against real Pillow and caught/fixed 3 bugs in RESEARCH.md (a mood-background recipe that produced 6-color static instead of a dithered 2-tone field, an alpha-mask softening bug that would leak illegal colors, and a reversed getcolors() tuple-order claim). Decision-coverage gate initially found 4 uncovered CONTEXT.md decisions (D-01/D-05/D-07/D-14); fixed by adding a D-07 must_haves citation to 03-03 and tagging D-01/D-05/D-14 as [informational] rationale-only entries - now 17/17. Next: /gsd-execute-phase 3, but 03-03/03-04 need the user's physical presence (illustration hand-off + on-glass judgment)."
+last_activity_desc: Phase 03 execution started
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 13
+  total_plans: 17
   completed_plans: 12
-  percent: 92
+  percent: 71
 ---
 
 # Project State
@@ -24,14 +24,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 03 — visual-polish-on-real-glass (not yet planned)
+**Current focus:** Phase 03 — visual-polish-on-real-glass
 
 ## Current Position
 
-Phase: 02 (plane-view-end-to-end-slice) — COMPLETE (5/5 plans)
-Plan: 02-05 Task 3 of 3 complete — physical frame verified on real glass against the live OVH deployment
-Status: Phase 1 and Phase 2 both formally complete. Phase 2's last gate (02-05 Task 3, on-glass human verification) passed this session: firmware flashed with the real OVH base URL, a stale-NVS-bearer-token bug found and fixed live (device was sending a Phase-1-local-stub token to the real server), and the developer confirmed legibility, edge quality, layout, a real-flight cross-check (DAH1112 from Béjaïa), and a forced enrichment-fallback caption, all on real Spectra 6 glass. A-02-02-01's real-departure threshold check is explicitly deferred (every real detection so far has been an arrival) — carried forward as an open item for Phase 3. Next: `/gsd-plan-phase 3` to plan Visual Polish on Real Glass.
-Last activity: 2026-08-26 — 02-05 Task 3 completed, Phase 2 closed
+Phase: 03 (visual-polish-on-real-glass) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 03
+Last activity: 2026-08-26 — Phase 03 execution started
 
 Progress: [██████████] 100% (Phase 2)
 
