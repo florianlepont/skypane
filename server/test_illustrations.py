@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 36
+EXPECTED_CHECK_COUNT = 42
 
 
 def main():
@@ -546,6 +546,107 @@ def main():
     check(
         "every file in required_filenames() exists in the vendored set and passes validate_illustration_file()",
         _all_required_files_pass_validation,
+    )
+
+    # --- target_filenames() / required_filenames() / outstanding_filenames() -
+
+    def _targets_contain_all_generic_shapes_and_fallback():
+        targets = ill.target_filenames()
+        expected_generics = set("generic-%s.png" % shape for shape in ill.SHAPE_SLUGS)
+        expected_generics.add(ill.GENERIC_FALLBACK_FILENAME)
+        missing = expected_generics - set(targets)
+        if missing:
+            return False, "target_filenames() is missing generic entries: %r" % (missing,)
+        pattern = re.compile(r"^[a-z0-9-]+\.png$")
+        bad = [n for n in targets if not pattern.match(n)]
+        if bad:
+            return False, "target_filenames() contains entries not matching ^[a-z0-9-]+\\.png$: %r" % (bad,)
+        return True, ""
+    check(
+        "target_filenames() contains one generic-{shape}.png per SHAPE_SLUGS plus the universal fallback, "
+        "all matching ^[a-z0-9-]+\\.png$",
+        _targets_contain_all_generic_shapes_and_fallback,
+    )
+
+    def _targets_have_no_duplicates():
+        targets = ill.target_filenames()
+        if len(targets) != len(set(targets)):
+            dupes = sorted({n for n in targets if targets.count(n) > 1})
+            return False, "target_filenames() has duplicate entries: %r" % (dupes,)
+        return True, ""
+    check("target_filenames() has no duplicate entries", _targets_have_no_duplicates)
+
+    def _every_vendored_png_is_a_target():
+        targets = set(ill.target_filenames())
+        vendored = [f for f in os.listdir(ill.ILLUSTRATION_DIR) if f.endswith(".png")]
+        orphaned = [f for f in vendored if f not in targets]
+        if orphaned:
+            return False, "vendored .png files not present in target_filenames(): %r" % (orphaned,)
+        return True, ""
+    check(
+        "every currently-vendored .png in ILLUSTRATION_DIR is a member of target_filenames() "
+        "(widening the expected set did not orphan an existing asset)",
+        _every_vendored_png_is_a_target,
+    )
+
+    def _required_is_subset_of_targets_and_keeps_baseline():
+        required = ill.required_filenames()
+        targets = set(ill.target_filenames())
+        not_in_targets = [n for n in required if n not in targets]
+        if not_in_targets:
+            return False, "required_filenames() contains entries missing from target_filenames(): %r" % (not_in_targets,)
+        baseline = set()
+        for _callsign, airline_name in ill._LIVE_RESOLVED_AIRLINES:
+            key = ill.normalise_airline_key(airline_name)
+            if key:
+                baseline.add(key + ".png")
+        baseline.add(ill.GENERIC_FALLBACK_FILENAME)
+        missing_baseline = baseline - set(required)
+        if missing_baseline:
+            return False, "required_filenames() is missing baseline entries: %r" % (missing_baseline,)
+        return True, ""
+    check(
+        "required_filenames() is a subset of target_filenames() and still contains every baseline file",
+        _required_is_subset_of_targets_and_keeps_baseline,
+    )
+
+    def _outstanding_is_targets_minus_on_disk():
+        targets = ill.target_filenames()
+        on_disk = set(f for f in os.listdir(ill.ILLUSTRATION_DIR) if f.endswith(".png"))
+        expected_outstanding = [n for n in targets if n not in on_disk]
+        got = ill.outstanding_filenames()
+        if got != expected_outstanding:
+            return False, "outstanding_filenames() = %r, expected %r" % (got, expected_outstanding)
+        on_disk_in_outstanding = [n for n in got if n in on_disk]
+        if on_disk_in_outstanding:
+            return False, "outstanding_filenames() contains files that exist on disk: %r" % (on_disk_in_outstanding,)
+        return True, ""
+    check(
+        "outstanding_filenames() is exactly target_filenames() minus the on-disk set, in target order",
+        _outstanding_is_targets_minus_on_disk,
+    )
+
+    def _p04_secondary_variants_and_primaries_present():
+        targets = set(ill.target_filenames())
+        expected_pairs = [
+            ("ccm-airlines.png", "ccm-airlines-atr72.png"),
+            ("transavia-france.png", "transavia-france-a320.png"),
+            ("royal-air-maroc.png", "royal-air-maroc-embraer.png"),
+            ("air-caraibes.png", "air-caraibes-a330.png"),
+        ]
+        missing = []
+        for primary, secondary in expected_pairs:
+            if primary not in targets:
+                missing.append(primary)
+            if secondary not in targets:
+                missing.append(secondary)
+        if missing:
+            return False, "target_filenames() is missing P-04 primary/secondary entries: %r" % (missing,)
+        return True, ""
+    check(
+        "the four P-04 secondary variants appear in target_filenames() with the expected exact names, "
+        "alongside their unsuffixed primaries",
+        _p04_secondary_variants_and_primaries_present,
     )
 
     total = len(results)
