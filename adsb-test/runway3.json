@@ -52,5 +52,60 @@
         "heading_deg_true": "018/198"
       }
     }
-  }
+  },
+  "runways": {
+    "3": {
+      "runway": {
+        "local_designation": "Piste 3 (Orly runway 3, per PROJECT.md/REQUIREMENTS.md wording)",
+        "icao_heading_designators": "07/25",
+        "length_m": 3320,
+        "thresholds": [
+          {"lat": 48.719398, "lon": 2.358590},
+          {"lat": 48.727402, "lon": 2.402070}
+        ]
+      },
+      "corridor": {
+        "half_width_m": 500,
+        "extension_m": 2500,
+        "axis_tolerance_deg": 30
+      }
+    },
+    "06-24": {
+      "runway": {
+        "local_designation": "Orly runway 06/24",
+        "icao_heading_designators": "06/24",
+        "length_m": 3650,
+        "thresholds": [
+          {"lat": 48.720001, "lon": 2.316920},
+          {"lat": 48.735500, "lon": 2.360680}
+        ]
+      },
+      "corridor": {
+        "half_width_m": 500,
+        "extension_m": 2500,
+        "axis_tolerance_deg": 30,
+        "threshold_status": "UNVALIDATED (Assumption A1, 06-RESEARCH.md): these three numbers are copied verbatim from runway 3's measured corridor derivation, not independently re-derived from real captured traffic on runway 06/24, and have never been checked against a single real capture on this runway. Runway 3's own numbers came from comparing real runway-3 traffic (measured at or below 31 m cross-track) against real wrong-runway traffic (measured at or above 611 m); no equivalent dataset exists for this runway. Plan 06-12 is the live-capture pass that either confirms these values or replaces them."
+      },
+      "geometry_caveat": "Runway 06/24 sits only 12 degrees off runway 3's heading (062/242 vs 074/254 TRUE), so a track-alignment gate alone cannot separate 06/24 traffic from runway-3 traffic - the same asymmetry recorded in the legacy corridor.why_both_gates for the reverse case (rejecting 06/24 traffic while tracking runway 3). When 06/24 is the tracked runway, it is the corridor gate that must do the separating instead (runway 3's own pavement never comes closer than 887m to 06/24's centreline); that reversed asymmetry is precisely why plan 06-12's live capture on this runway matters."
+    },
+    "02-20": {
+      "runway": {
+        "local_designation": "Orly runway 02/20",
+        "icao_heading_designators": "02/20",
+        "length_m": 2400,
+        "thresholds": [
+          {"lat": 48.717499, "lon": 2.376700},
+          {"lat": 48.737999, "lon": 2.386970}
+        ]
+      },
+      "corridor": {
+        "half_width_m": 500,
+        "extension_m": 2500,
+        "axis_tolerance_deg": 30,
+        "threshold_status": "UNVALIDATED (Assumption A1, 06-RESEARCH.md): these three numbers are copied verbatim from runway 3's measured corridor derivation, not independently re-derived from real captured traffic on runway 02/20, and have never been checked against a single real capture on this runway. Runway 3's own numbers came from comparing real runway-3 traffic (measured at or below 31 m cross-track) against real wrong-runway traffic (measured at or above 611 m); no equivalent dataset exists for this runway. Plan 06-12 is the live-capture pass that either confirms these values or replaces them."
+      },
+      "geometry_caveat": "Runway 02/20 physically crosses runway 3's centreline (minimum cross-track ~0m, roughly mid-runway), so a corridor gate alone cannot separate 02/20 traffic from runway-3 traffic there - the same asymmetry recorded in the legacy corridor.why_both_gates for the reverse case (rejecting 02/20 traffic while tracking runway 3). When 02/20 is the tracked runway, it is the track-alignment gate that must do the separating instead (02/20 is 56 degrees off runway 3's heading); that reversed asymmetry is precisely why plan 06-12's live capture on this runway matters."
+    }
+  },
+  "runways_source": "Added by phase 6 plan 06-02 for CFG-12. The 'runways' block above supersedes the flat runway/corridor pair as the live source consulted by server/plane/detect.py's runway-parameterised functions (runway_axis()/corridor_params()/runway_block()); that flat runway/corridor pair is preserved unchanged as the legacy fallback path and as the historical record of the runway3-false-positive fix. Runway 3's entry in 'runways' (id \"3\") deliberately duplicates the legacy runway/corridor coordinates rather than referencing them, so a drift check (server/test_plane_detection.py) can assert byte-for-byte equality between the two and catch any future accidental divergence. Kept as a sibling of 'runways' rather than a key inside it so that 'runways' itself stays exactly the three runway-id keys server/plane/detect.py's runway_ids() enumerates."
 }
