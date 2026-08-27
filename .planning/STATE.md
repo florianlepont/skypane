@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: companion-configuration-web-interface-visual-settings-view-s
 status: executing
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-08-27T21:59:21.759Z"
-last_activity: 2026-08-27
-last_activity_desc: 06-04-PLAN.md executed (companion/auth.py + companion/layout.py/static/style.css — HMAC session cookies, escape_html() single-call-site, full design system, CFG-09)
+stopped_at: Completed 06-05-PLAN.md
+last_updated: "2026-08-27T22:21:15.726Z"
+last_activity: 2026-08-28
+last_activity_desc: 06-05-PLAN.md executed (companion/app.py — ThreadingHTTPServer, route table, D-02 auth gate; five companion/pages/ stubs; CFG-07/CFG-09 live end-to-end)
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 41
-  completed_plans: 32
-  percent: 78
+  completed_plans: 33
+  percent: 80
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 06 (companion-configuration-web-interface-visual-settings-view-s) — EXECUTING
-Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 4/12 executed (06-01 Wave 1 device_config.py/history_db.py persistence layer; 06-02 Wave 1 detect.py runway-parameterisation + diagnostics signal, CFG-05/CFG-12; 06-03 Wave 1 server/panel_preview.py — unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), CFG-10; 06-04 Wave 1 companion/auth.py (stateless HMAC session cookies, constant-time password gate, fail-closed AuthNotConfigured, process-global LoginThrottle) + companion/layout.py/static/style.css (single-call-site escape_html(), full page shell, 06-UI-SPEC.md design system), CFG-09).
+Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 5/12 executed (06-01 Wave 1 device_config.py/history_db.py persistence layer; 06-02 Wave 1 detect.py runway-parameterisation + diagnostics signal, CFG-05/CFG-12; 06-03 Wave 1 server/panel_preview.py — unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), CFG-10; 06-04 Wave 1 companion/auth.py (stateless HMAC session cookies, constant-time password gate, fail-closed AuthNotConfigured, process-global LoginThrottle) + companion/layout.py/static/style.css (single-call-site escape_html(), full page shell, 06-UI-SPEC.md design system), CFG-09; 06-05 Wave 2 companion/app.py — stdlib ThreadingHTTPServer, flat route dispatch, D-02 auth gate enforced route-by-route on all nine authenticated routes, five companion/pages/ contract-complete stubs, CFG-07's manual poll trigger and CFG-09's theme toggle now genuinely live end-to-end).
 Status: Executing Phase 06
-Last activity: 2026-08-27 — 06-04-PLAN.md complete
+Last activity: 2026-08-28 — 06-05-PLAN.md complete
 
-Progress: [████████░░] 78% (32/41 plans)
+Progress: [████████░░] 80% (33/41 plans)
 
 ## Performance Metrics
 
@@ -86,6 +86,7 @@ Progress: [████████░░] 78% (32/41 plans)
 | Phase 06 P02 | 15min | 3 tasks | 3 files |
 | Phase 06 P03 | 15min | 2 tasks | 3 files |
 | Phase 06 P04 | 35min | 3 tasks | 5 files |
+| Phase 06 P05 | ~50min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -164,6 +165,7 @@ Recent decisions affecting current work:
 - [Phase 06]: 06-02 complete - detect.py generalised to select_aircraft_for_runway(runway_id=...), select_runway3_aircraft() preserved as a byte-compatible thin wrapper (all 28 pre-existing checks pass unmodified); runway3.json gained a runways block (ids 3/06-24/02-20) with 06-24/02-20 corridor thresholds explicitly documented as unvalidated copies pending plan 06-12's live capture (06-RESEARCH.md Assumption A1); poll_current_aircraft() gained a diagnostics dict distinguishing an all-providers-failed poll from a no-aircraft poll (CFG-05); harness grew 28 -> 38 checks
 - [Phase 06]: 06-03 complete - server/panel_preview.py added as unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), NIBBLE_TO_INDEX derived by inverting INDEX_TO_NIBBLE (never hand-typed); PanelDecodeError raised on wrong-length/illegal-nibble input; test_panel_preview.py proves the round trip over all six palette indices plus a mixed nibble pair, a production render_panel(None,'empty') round trip, and a live-demonstrated (then reverted) nibble-transposition regression; pyproject.toml coverage-omit extended for the new module following 06-01's precedent, pending removal in 06-11
 - [Phase 06]: 06-04 complete - companion/auth.py (stateless HMAC session cookies, constant-time password gate, fail-closed AuthNotConfigured, process-global LoginThrottle) and companion/layout.py/static/style.css (single-call-site escape_html(), full page shell, 06-UI-SPEC.md design system) built and tested via real RED->GREEN TDD pairs matching 06-01's precedent; harness grew to 20/20 checks; CFG-09 requirements-completed deliberately left unchecked since the HTTP route to receive the theme POST arrives in plan 06-05
+- [Phase 06]: 06-05 complete - companion/app.py (stdlib ThreadingHTTPServer, flat route dispatch, D-02 auth gate on all nine authenticated routes) and five companion/pages/ stubs built; CFG-07 (manual poll trigger, in-process run_once(), server-global cooldown) and CFG-09 (theme toggle) are now genuinely live end-to-end and marked complete; CFG-10's preview route and CFG-11's gallery-file route are wired safely (directory-listing validated, never path-joined); harness grew 20 -> 49 checks; fixed a real stdout-buffering bug (sys.stdout.reconfigure) found while smoke-testing
 
 ### Pending Todos
 
@@ -205,8 +207,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T21:58:29.908Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-08-27T22:21:15.601Z
+Stopped at: Completed 06-05-PLAN.md
 
 Resume file: None
 
