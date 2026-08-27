@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 05
-current_phase_name: in progress
+current_phase: 06
+current_phase_name: companion-configuration-web-interface-visual-settings-view-s
 status: executing
-stopped_at: Phase 6 UI-SPEC approved
-last_updated: "2026-08-27T20:15:37.963Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-08-27T21:18:33.883Z"
 last_activity: 2026-08-27
-last_activity_desc: "Completed quick task 260827-oz9: production logging of unrecognized ADS-B callsign ICAO prefixes (bounded registry in poll_state.json + unknown_prefix= log field + runbook recipe) — 212/212 checks pass across all 9 harnesses"
+last_activity_desc: 06-01-PLAN.md executed (device_config.py/history_db.py persistence layer)
 progress:
   total_phases: 8
   completed_phases: 6
-  total_plans: 29
-  completed_plans: 28
-  percent: 75
+  total_plans: 41
+  completed_plans: 29
+  percent: 71
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 03 — visual-polish-on-real-glass
+**Current focus:** Phase 06 — companion-configuration-web-interface-visual-settings-view-s
 
 ## Current Position
 
-Phase: 05 — Battery Life & Low-Battery Indicator (in progress)
-Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending).
-Status: Two branch-lines merged 2026-08-27: this branch's Phase 03 gap-closure + runway3-false-positive debug fix, and origin/main's Phase 04 completion + quick task 260827-1i6. 04-01: developer selected scrub scope a-b-c (Categories A+B+C) at the checkpoint:decision gate; git-filter-repo rewrote all 154 commits, verified zero occurrences of the approved literals across every ref, backed by a verified bundle outside the repo tree. Repo-root .gitignore (D-06) committed. 04-02: server/requirements-dev.txt pins ruff+coverage (provenance-verified, separate from production deps); repo-root pyproject.toml configures Ruff (E4,E7,E9,F selected, E402 suppressed for 8 documented sys.path bootstraps, green on the untouched codebase) and coverage (server+stub-server scope, parallel mode, fail_under=75 vs a measured 79% baseline); scripts/run-all-tests.sh is the canonical 9-harness runner, gate-failure demonstrated and restored. All 9 test harnesses still pass. 04-03: repo-root MIT LICENSE with an asset-scope note; closed a real OFL 1.1 attribution gap (Inter's licence text was claimed vendored but never existed, even though the TTFs remain shipped post-supersession) by fetching the real text from the same pinned v4.1 release tag; built scripts/check-attribution.sh (bash-3.2-compatible, demonstrated failing on a deliberate rename then passing after revert); created COMPLIANCE.md covering all five real third-party data sources (adsb.fi, airplanes.live, adsbdb.com, PRIM/IDFM, AeroDataBox) with the confirmed adsb.fi attribution requirement met by real citation text and airplanes.live recorded as the one open item at the time (403 on three fetch attempts) — since closed by quick task 260827-1i6 below. Corrected 04-CONTEXT.md's/04-PATTERNS.md's stale claim that illustrations/VENDOR.md doesn't exist — it does, and is complete. 04-04: .github/workflows/ci.yml (blocking test job: lint/9-harness-suite/coverage/attribution + human-gated deploy job wrapping deploy/deploy.sh) and .github/workflows/firmware.yml (path-restricted, wraps firmware/build.sh directly rather than a marketplace action) both actionlint-clean, no host/credential literals; three repository secrets named for plan 04-06 to create (DEPLOY_SSH_PRIVATE_KEY, DEPLOY_HOST_KEY, DEPLOY_SSH_TARGET). 04-05: repo-root README.md (newcomer front door — hardware/server/tests/firmware/deployment sections each pointing at the authoritative doc, honest v1 scope, visible adsb.fi/airplanes.live/adsbdb attribution) and ARCHITECTURE.md (current-state system description written from state_machine.c/backoff.c/poll_loop.py/detect.py/enrich.py/render.py/panel_format.py/byos_server.py, not from the stale research doc; ASCII data-flow diagram; deliberate-constraints section) both created and pass every automated check; .planning/research/ARCHITECTURE.md got an additive status note (zero lines deleted) pointing at the new document. 04-06: repo published on real GitHub infrastructure, deploy secrets/environment configured, human-gated deploy job proven on real infra (1 file, 04-06-SUMMARY.md). All 9 test harnesses, ruff, and check-attribution.sh pass throughout. Quick task 260827-1i6 (2026-08-27, on origin/main): adsb.fi promoted to sole default plane-detection provider (`DEFAULT_PROVIDER_ORDER`) after airplanes.live shut down its free API tier that same day (confirmed live 403 vs adsb.fi's 200); airplanes.live retained as an explicit `--provider` opt-in only; COMPLIANCE.md's one OPEN item closed. Debug session runway3-false-positive (2026-08-27, this branch, resolved): `select_runway3_aircraft()`'s bbox-only gate let aircraft on Orly's neighbouring runways 06/24 and 02/20 win selection as "runway 3" (reproduced live — a real runway-20 departure and a runway-02/20-aligned arrival, one of which also corrupted the departing/arriving state); fixed with a runway-aligned corridor gate + track-alignment gate derived from real published LFPO geometry, plus per-poll cross-source validation (single-source and multi-source paths both covered) layered on top since the two fixes address different failure modes. Both branch lines' `server/plane/detect.py`/`server/test_plane_detection.py` changes merged (test count 6 base + 4 aircraft-type + 9 runway-gate + 2 provider-default + 3 cross-source = 24/24).
-Last activity: 2026-08-27 — Completed quick task 260827-oz9: production logging of unrecognized ADS-B callsign ICAO prefixes (bounded registry in poll_state.json + unknown_prefix= log field + runbook recipe) — 212/212 checks pass across all 9 harnesses
+Phase: 06 (companion-configuration-web-interface-visual-settings-view-s) — EXECUTING
+Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 1/12 executed (06-01, Wave 1 of 5 — device_config.py/history_db.py persistence layer).
+Status: Executing Phase 06
+Last activity: 2026-08-27 — 06-01-PLAN.md complete
 
-Progress: [██████████] 93% (27/29 plans)
+Progress: [███████░░░] 71% (29/41 plans)
 
 ## Performance Metrics
 
@@ -82,6 +82,7 @@ Progress: [██████████] 93% (27/29 plans)
 | Phase 03.1 P04 | ~20min | 2 tasks | 3 files |
 | Phase 03.1 PP05 | 35min | 3 tasks | 30 files |
 | Phase 03 P04 | 20min | 2 tasks | 2 files |
+| Phase 06 P01 | 30min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -156,6 +157,7 @@ Recent decisions affecting current work:
 - [Phase 03]: `/gsd-plan-phase 3 --gaps` decision-coverage gate flagged 5 pre-existing uncovered CONTEXT.md decisions (D-02, D-03, D-20, D-21, D-22) — none introduced by the new 03-04 gap-closure plan. Override accepted rather than re-planning: D-02 (departure-threshold on-glass validation) was already relocated to Phase 6's scope in this file's own "Phase 6 added" entry above; D-03 is a standing informational caveat (desk-vs-wall), not a testable criterion; D-20/D-21/D-22 (font/color/layout course-corrections) are already implemented and shipped per the 03-01/03-02 decision entries above, just never cited by `D-NN:` string in a plan body. Re-planning already-shipped, already-verified phase 3 work to satisfy a literal-citation check would be scope creep against this session's actual goal (fixing one named render-path gap).
 - [Phase 03.1]: Progress-counter SDK bug (already on file, see the Phase 04-02 entry above) recurred on this plan's `state update-progress` call — it returned `completed_phases: 6`/`completed_plans: 27`/`percent: 86` (internally inconsistent: 27/28 is 96%, not 86%, and Phase 3.1 completing only brings the true completed-phase count to 5, not 6). Corrected by hand to `completed_phases: 5`, `completed_plans: 26` (7+5+3+5+6, per ROADMAP.md's per-phase plan counts), `percent: 93` (26/28). `state advance-plan` also failed outright (`Cannot parse Current Plan or Total Plans in Phase from STATE.md` — this project's STATE.md has never used that literal-field convention, only the frontmatter `progress:` block and prose "Plans: N/M executed" line), so the Current Position section's plan count was also updated by hand.
 - [Phase 03]: 03-04 gap-closure complete: _load_illustration_safely()/_illustration_over_pixel_cap() added to render.py, wired into both D-25/D-26 illustration call sites - a corrupt or oversized vendored PNG now degrades to generic-fallback.png instead of crashing render_panel(); reuses illustrations.ILLUSTRATION_MAX_PIXELS/generic_fallback_path() rather than restating them. Closes 03-VERIFICATION.md's two NOT_WIRED gaps; Phase 3 is now genuinely 4/4, all must-haves verified.
+- [Phase 06]: 06-01 complete - device_config.py/history_db.py persistence layer built (leaf modules, WAL SQLite + atomic JSON side-file); coverage-omit deviation added to pyproject.toml until 06-11 registers the harness; requirements mark-complete deliberately skipped for CFG-01/03/06/08/12 since those IDs recur across most of this phase's other 11 plans
 
 ### Pending Todos
 
@@ -197,10 +199,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T20:15:37.956Z
-Stopped at: Phase 6 UI-SPEC approved
+Last session: 2026-08-27T21:18:33.877Z
+Stopped at: Completed 06-01-PLAN.md
 
-Resume file: .planning/phases/06-companion-configuration-web-interface-visual-settings-view-s/06-UI-SPEC.md
+Resume file: None
 
 **State at end of this session (2026-08-27, ~08:50):**
 
