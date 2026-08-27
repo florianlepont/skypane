@@ -76,3 +76,26 @@ CONFIG_ESP_CONSOLE_UART_DEFAULT=n
 CONFIG_FP_PIN_KEY0=5
 CONFIG_FP_PIN_KEY1=3
 CONFIG_FP_PIN_KEY2=2
+
+# --- Battery sense (Phase 5 / DEVICE-04) ---
+# Sourced from Seeed's own EE0x driver-board cookbook, whose applicability
+# banner covers EE02/EE03/EE04/EE05 while its worked example names EE04
+# specifically (05-RESEARCH.md holds this at MEDIUM-HIGH rather than HIGH
+# confidence for exactly that reason).
+#
+# NOT YET CONFIRMED ON THIS BOARD. Plan 05-03 Task 3's flash-and-observe
+# check (hardware/BRINGUP-LOG.md "ADC Battery-Sense Bring-Up") is the gate
+# that promotes these from an inherited claim to measured hardware fact.
+CONFIG_FP_PIN_BATTERY_ADC=1
+CONFIG_FP_PIN_BATTERY_ADC_EN=6
+
+# --- Bring-up LED (built-in User LED) ---
+# Sourced from web aggregation of Seeed community and board-reference
+# material, per .planning/seeds/bring-up-debug-led-remote-toggle.md - NOT
+# from an official schematic, unlike the panel pins above.
+#
+# NOT YET CONFIRMED ON THIS BOARD. Plan 260827-wo4 Task 4's flash-and-observe
+# check (hardware/BRINGUP-LOG.md "User LED Bring-Up (GPIO21)") is the gate
+# that promotes this from an inherited claim to measured hardware fact.
+CONFIG_FP_PIN_LED=21
+CONFIG_FP_LED_ACTIVE_LOW=y

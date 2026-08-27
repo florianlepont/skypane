@@ -67,6 +67,26 @@ names, response shapes, telemetry printing) is untouched:
    other field in the response are byte-identical to before this change
    for any given scheme.
 
+3. **Added DEVICE-04 `X-Battery-Mv` validation/persistence** (plan 05-02).
+   Upstream's `log_telemetry()` already echoes the `X-Battery-Mv` header to
+   stdout, but never validates or persists it — nothing downstream ever
+   read a real battery reading. This repository adds `parse_battery_mv()`
+   (strict ASCII-digit-only, 1–5 chars, `BATTERY_MV_MIN..BATTERY_MV_MAX`
+   = `1..10000` inclusive — the `"0"` PROTOCOL.md unknown sentinel and
+   every other malformed/hostile value return `None` and are silently
+   ignored, never persisted, never fatal) and `save_battery_state()`
+   (atomic tmp-write-then-`os.replace()`, mirroring `save_state()`'s own
+   pattern) writing a new file, `<state_dir>/battery_state.json`
+   (`{"battery_mv": int, "received_at": float}`). The persistence hook
+   sits in the `do_GET` `/device/v1/display` branch, immediately after
+   `log_telemetry()` and therefore strictly after the pre-existing
+   `bearer_ok()` gate, so an unauthenticated poll can never write it.
+   This file is written **only** by this script — `server/poll_loop.py`
+   reads it and never writes it (single-writer discipline, avoiding a
+   lost-update race between the two independently-scheduled processes).
+   No existing endpoint, response field, status code, or telemetry print
+   statement was touched by this change.
+
 **Everything else is verbatim**, including: the three endpoint
 implementations (`POST /device/v1/setup`, `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`), the `--image`/`--port`/`--secret`/

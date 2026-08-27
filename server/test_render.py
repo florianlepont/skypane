@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 42
+EXPECTED_CHECK_COUNT = 46
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -961,6 +961,167 @@ def main():
         "a route already corrected by enrich.correct_airline_name() renders its current brand name via "
         "_flight_line2_text(), and display_airline_name() is a no-op on the already-corrected string (260827-kih)",
         _corrected_route_renders_current_brand_and_display_alias_is_noop,
+    )
+
+    # --- Task 1 (05-02, DEVICE-04): bottom-left battery-low icon -------------
+
+    BATTERY_ICON_BOX = (64, 1504, 136, 1536)
+
+    def _states_for_battery_checks():
+        """(state, flight, kwargs) triples exercising all three render
+        states - departing/arriving carry a real previous-flight card
+        (TEST_PREVIOUS_FLIGHT/TEST_PREVIOUS_ROUTE), per Task 1 Check B's
+        instruction that a real previous-flight card be on the canvas.
+        """
+        return [
+            ("departing", TEST_FLIGHT, dict(
+                route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                previous_state="arriving",
+            )),
+            ("arriving", TEST_FLIGHT, dict(
+                route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                previous_state="departing",
+            )),
+            ("empty", None, {}),
+        ]
+
+    def _diff_inside_outside(canvas_a, canvas_b, box):
+        """Return (inside, outside) bools: whether canvas_a and canvas_b
+        differ at at least one pixel inside `box` and at at least one pixel
+        outside it. `box` is treated with Pillow's own inclusive-corner
+        rectangle convention (matching draw_frame()'s/draw_battery_icon()'s
+        (left, top, right, bottom) - the drawn footprint spans left..right
+        and top..bottom INCLUSIVE, so containment here is `<=` on both
+        ends, not the exclusive `<` a half-open crop box would use.
+        Row-sliced byte comparison (fast C-level bytes equality per row) so
+        only rows that actually differ ever pay for a per-column Python
+        loop - the 1200x1600 canvas is never scanned pixel-by-pixel in the
+        common (near-identical) case.
+        """
+        left, top, right, bottom = box
+        width, height = canvas_a.size
+        bytes_a = canvas_a.tobytes()
+        bytes_b = canvas_b.tobytes()
+        inside = False
+        outside = False
+        for row in range(height):
+            start = row * width
+            end = start + width
+            row_a = bytes_a[start:end]
+            row_b = bytes_b[start:end]
+            if row_a == row_b:
+                continue
+            in_row_band = top <= row <= bottom
+            for col in range(width):
+                if row_a[col] != row_b[col]:
+                    if in_row_band and left <= col <= right:
+                        inside = True
+                    else:
+                        outside = True
+        return inside, outside
+
+    # 43. Check A - default-off and no regression: no battery kwarg and
+    # battery_low=False produce pixel-identical canvases for all three
+    # states (no pixel anywhere on the 1200x1600 canvas differs).
+    def _battery_default_off_matches_explicit_false():
+        for state, flight, kwargs in _states_for_battery_checks():
+            no_kw = render.build_canvas(flight, state, **kwargs)
+            explicit_false = render.build_canvas(flight, state, battery_low=False, **kwargs)
+            if no_kw.tobytes() != explicit_false.tobytes():
+                return False, "state=%r: build_canvas() with no battery kwarg differs from battery_low=False" % (state,)
+        return True, ""
+    check(
+        "build_canvas() with no battery kwarg is pixel-identical to battery_low=False for departing/arriving/empty (default-off, no regression)",
+        _battery_default_off_matches_explicit_false,
+    )
+
+    # 44. Check B - conditional draw is spatially contained: battery_low=True
+    # vs battery_low=False differ at >=1 pixel inside the icon bbox and 0
+    # pixels outside it, for all three states.
+    def _battery_icon_conditional_draw_is_spatially_contained():
+        for state, flight, kwargs in _states_for_battery_checks():
+            off = render.build_canvas(flight, state, battery_low=False, **kwargs)
+            on = render.build_canvas(flight, state, battery_low=True, **kwargs)
+            inside, outside = _diff_inside_outside(off, on, BATTERY_ICON_BOX)
+            if not inside:
+                return False, "state=%r: battery_low=True produced no pixel difference inside the icon box %r" % (state, BATTERY_ICON_BOX)
+            if outside:
+                return False, "state=%r: battery_low=True changed a pixel outside the icon box %r" % (state, BATTERY_ICON_BOX)
+        return True, ""
+    check(
+        "battery_low=True differs from battery_low=False only inside the icon bounding box (64,1504,136,1536), for "
+        "departing/arriving (with a real previous-flight card on the canvas) and empty",
+        _battery_icon_conditional_draw_is_spatially_contained,
+    )
+
+    # 45. Check C - per-state ink and hollow interior: the body outline
+    # corner, the left-aligned fill interior, and the solid nub all read as
+    # the state's own ink; the body interior right of the fill still reads
+    # as the state's background - the glyph must read as mostly empty.
+    def _battery_icon_ink_and_hollow_interior():
+        expectations = [
+            ("departing", TEST_FLIGHT, dict(route=TEST_ROUTE), render.STATE_INK["departing"], render.STATE_BACKGROUND["departing"]),
+            ("arriving", TEST_FLIGHT, dict(route=TEST_ROUTE), render.STATE_INK["arriving"], render.STATE_BACKGROUND["arriving"]),
+            ("empty", None, {}, render.EMPTY_INK, IDX_WHITE),
+        ]
+        for state, flight, kwargs, ink_idx, bg_idx in expectations:
+            canvas = render.build_canvas(flight, state, battery_low=True, **kwargs)
+            corner = canvas.getpixel((64, 1504))
+            fill_interior = canvas.getpixel((70, 1520))
+            nub = canvas.getpixel((132, 1520))
+            gap = canvas.getpixel((110, 1520))
+            if corner != ink_idx:
+                return False, "state=%r: body outline corner (64,1504) is %r, expected ink %r" % (state, corner, ink_idx)
+            if fill_interior != ink_idx:
+                return False, "state=%r: fill-interior pixel (70,1520) is %r, expected ink %r" % (state, fill_interior, ink_idx)
+            if nub != ink_idx:
+                return False, "state=%r: nub pixel (132,1520) is %r, expected ink %r" % (state, nub, ink_idx)
+            if gap != bg_idx:
+                return False, "state=%r: pixel (110,1520) inside the body outline but right of the fill is %r, expected background %r" % (state, gap, bg_idx)
+        return True, ""
+    check(
+        "with battery_low=True, the body outline corner/fill/nub read as the state's own ink (EMPTY_INK for the "
+        "empty state), while the hollow interior right of the fill still reads as the state's background",
+        _battery_icon_ink_and_hollow_interior,
+    )
+
+    # 46. Check D - geometry derives from the spacing scale, and the nub is
+    # vertically centred with an 8px gap above and below, inside a total
+    # bounding box of exactly (64, 1504, 136, 1536).
+    def _battery_icon_geometry_derives_from_spacing_scale():
+        if render.BATTERY_ICON_BODY_W is not render.SPACE_LG:
+            return False, "BATTERY_ICON_BODY_W is not SPACE_LG"
+        if render.BATTERY_ICON_BODY_H is not render.SPACE_MD:
+            return False, "BATTERY_ICON_BODY_H is not SPACE_MD"
+        if render.BATTERY_ICON_NUB_W is not render.SPACE_XS:
+            return False, "BATTERY_ICON_NUB_W is not SPACE_XS"
+        if render.BATTERY_ICON_NUB_H is not render.SPACE_SM:
+            return False, "BATTERY_ICON_NUB_H is not SPACE_SM"
+        if render.BATTERY_ICON_LEFT is not render.MARGIN:
+            return False, "BATTERY_ICON_LEFT is not MARGIN"
+        if render.BATTERY_ICON_BOTTOM != render.HEIGHT - render.MARGIN:
+            return False, "BATTERY_ICON_BOTTOM != HEIGHT - MARGIN"
+        body_top = render.BATTERY_ICON_BOTTOM - render.BATTERY_ICON_BODY_H
+        nub_top = body_top + (render.BATTERY_ICON_BODY_H - render.BATTERY_ICON_NUB_H) // 2
+        nub_bottom = nub_top + render.BATTERY_ICON_NUB_H
+        gap_above = nub_top - body_top
+        gap_below = render.BATTERY_ICON_BOTTOM - nub_bottom
+        if gap_above != gap_below or gap_above != 8:
+            return False, "nub is not vertically centred: gap_above=%r gap_below=%r, expected both 8" % (gap_above, gap_below)
+        total = (
+            render.BATTERY_ICON_LEFT, body_top,
+            render.BATTERY_ICON_LEFT + render.BATTERY_ICON_BODY_W + render.BATTERY_ICON_NUB_W,
+            render.BATTERY_ICON_BOTTOM,
+        )
+        if total != (64, 1504, 136, 1536):
+            return False, "computed total bounding box %r != (64, 1504, 136, 1536)" % (total,)
+        return True, ""
+    check(
+        "battery icon geometry derives from the existing spacing scale (SPACE_LG/MD/XS/SM, MARGIN) with the nub "
+        "vertically centred (8px gap above and below) and a total bounding box of (64,1504,136,1536)",
+        _battery_icon_geometry_derives_from_spacing_scale,
     )
 
     total = len(results)

@@ -31,7 +31,7 @@ STUB_SERVER_PATH = os.path.join(REPO_ROOT, "stub-server", "byos_server.py")
 IMAGE_BYTES = 960000
 LEGAL_NIBBLES = {0x0, 0x1, 0x2, 0x3, 0x5, 0x6}
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 5
+EXPECTED_CHECK_COUNT = 6
 
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
@@ -255,6 +255,80 @@ def main():
                 return False, "panel.bin changed after an empty-snapshot cycle (violates D-04)"
             return True, ""
         check("run_once(empty fixture) leaves panel.bin byte-identical (D-04)", _empty_leaves_panel_unchanged)
+
+        # 6. Check E (05-02, DEVICE-04): the whole slice, end to end, through
+        # the real protocol. A second byos_server.py subprocess is started
+        # against THIS SAME tmpdir (mirroring the real deployment's shared
+        # SKYPANE_STATE_DIR - byos_server.py writes battery_state.json there,
+        # poll_loop.py both reads it and serves panel.bin from the same
+        # directory), a real authenticated poll carries X-Battery-Mv:3400,
+        # and the next run_once() cycle's served panel.bin must differ from
+        # the pre-battery baseline only inside the icon's byte columns/rows.
+        def _real_battery_poll_changes_only_the_icon_region():
+            battery_harness = BYOSHarness(panel_path, tmpdir)
+            ctx["battery_harness"] = battery_harness
+            try:
+                battery_harness.start()
+                status, _, body = http_request(
+                    battery_harness.base_url() + "/device/v1/setup", method="POST",
+                    json_body={"mac": "aa:bb:cc:dd:ee:03", "hw_rev": "pipeline-e2e-battery"})
+                if status != 200:
+                    return False, "battery-check setup expected 200, got %d" % status
+                token = json.loads(body.decode())["device_token"]
+
+                # Healthy-battery baseline: re-run the multi-aircraft cycle
+                # (same aircraft already on screen - a re-detection, not a
+                # new one) with no battery signal ever reported yet.
+                poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+                with open(panel_path, "rb") as fh:
+                    panel_before = fh.read()
+
+                status, _, _ = http_request(
+                    battery_harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % token, "X-Battery-Mv": "3400"})
+                if status != 200:
+                    return False, "battery-carrying display poll expected 200, got %d" % status
+                time.sleep(1.0)  # allow the child process's write to land
+
+                result_after = poll_loop.run_once(snapshot=multi_snapshot, state_dir=tmpdir, geofence=GEOFENCE_PATH)
+                with open(panel_path, "rb") as fh:
+                    panel_after = fh.read()
+
+                if panel_after == panel_before:
+                    return False, "panel.bin did not change after a real X-Battery-Mv:3400 poll followed by a run_once() cycle"
+
+                row_bytes = 600
+                icon_row_start, icon_row_end = 1504, 1536
+                icon_byte_start, icon_byte_end = 32, 68
+                for row in range(1600):
+                    row_before = panel_before[row * row_bytes:(row + 1) * row_bytes]
+                    row_after = panel_after[row * row_bytes:(row + 1) * row_bytes]
+                    if row_before == row_after:
+                        continue
+                    if not (icon_row_start <= row <= icon_row_end):
+                        return False, "row %d, outside the icon's row range 1504..1536, differs between the two panels" % row
+                    for b in range(row_bytes):
+                        if row_before[b] != row_after[b] and not (icon_byte_start <= b <= icon_byte_end):
+                            return False, "row %d byte %d, outside the icon's byte columns 32..68, differs" % (row, b)
+
+                state = result_after.get("state")
+                expected_nibble = 0x0 if state == "empty" else 0x1
+                sample_byte = panel_after[1520 * row_bytes + 35]
+                actual_nibble = (sample_byte >> 4) & 0xF
+                if actual_nibble != expected_nibble:
+                    return False, (
+                        "packed nibble at row 1520 x=70 (byte 1520*600+35, high nibble) is 0x%x, expected 0x%x "
+                        "for run_once()'s reported state=%r" % (actual_nibble, expected_nibble, state)
+                    )
+                return True, ""
+            finally:
+                battery_harness.stop()
+        check(
+            "a real authenticated poll carrying X-Battery-Mv:3400, followed by a run_once() cycle, changes the "
+            "served panel.bin only inside the icon's byte columns/rows, and the packed ink nibble at (1520,70) "
+            "matches whichever state run_once() actually reported",
+            _real_battery_poll_changes_only_the_icon_region,
+        )
 
     finally:
         harness = ctx.get("harness")
