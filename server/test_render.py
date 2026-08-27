@@ -24,8 +24,10 @@ same files poll_loop.py will actually serve.
 Usage:
     server/.venv/bin/python3 server/test_render.py
 """
+import contextlib
 import os
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -33,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 35
+EXPECTED_CHECK_COUNT = 38
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -139,6 +141,64 @@ class _SelectIllustrationSpy:
     def __exit__(self, exc_type, exc, tb):
         self._render_mod.illustrations.select_illustration = self._orig
         return False
+
+
+def _write_garbage_png():
+    """Create a NamedTemporaryFile with a `.png` suffix that passes
+    os.path.isfile() but carries no valid PNG signature - matching
+    03-VERIFICATION.md's live repro of the crash 03-04-PLAN.md closes: a
+    file that exists on disk but is not decodable image data.
+    """
+    fh = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    fh.write(b"not a real PNG file - just a short run of garbage bytes 0123456789")
+    fh.close()
+    return fh.name
+
+
+def _write_oversized_png():
+    """Build a genuinely valid, decodable PNG whose pixel count exceeds
+    illustrations.ILLUSTRATION_MAX_PIXELS (40,000,000): 7000x6000 =
+    42,000,000 pixels. Single-band mode "L" keeps the in-memory fixture
+    around 42MB rather than the 168MB an RGBA buffer of that size would
+    need, and stays comfortably under Pillow's own Image.MAX_IMAGE_PIXELS
+    so no DecompressionBombWarning fires. compress_level=1 keeps the write
+    fast (about a second) and the on-disk size small (a few tens of KB).
+    Using a genuinely decodable oversized file (not garbage) is what makes
+    the check that consumes this fixture prove a header-only cap exists -
+    a bare try/except around the decode cannot satisfy it, because the
+    decode would succeed and paint a different panel.
+    """
+    from PIL import Image
+
+    img = Image.new("L", (7000, 6000), color=128)
+    fh = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    fh.close()
+    img.save(fh.name, format="PNG", compress_level=1)
+    return fh.name
+
+
+@contextlib.contextmanager
+def _forced_illustration(render_mod, path, fallback_path=None):
+    """Monkeypatch `render_mod.illustrations.select_illustration` to a
+    lambda accepting `(route, aircraft_type=None)` and returning `path` -
+    following `_SelectIllustrationSpy`'s exact monkeypatch-and-restore
+    shape, but overriding the return value instead of recording arguments.
+    When `fallback_path` is given, also monkeypatches
+    `render_mod.illustrations.generic_fallback_path` to return it -
+    letting a caller force both the primary candidate and the fallback
+    candidate to the same (or different) undecodable file. Restores both
+    originals on exit, even if the body raises.
+    """
+    orig_select = render_mod.illustrations.select_illustration
+    orig_fallback = render_mod.illustrations.generic_fallback_path
+    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None: path
+    if fallback_path is not None:
+        render_mod.illustrations.generic_fallback_path = lambda: fallback_path
+    try:
+        yield
+    finally:
+        render_mod.illustrations.select_illustration = orig_select
+        render_mod.illustrations.generic_fallback_path = orig_fallback
 
 
 def main():
@@ -710,6 +770,84 @@ def main():
     check(
         "server/plane/render.py's comment-stripped source contains no stroke_width/stroke_fill text-outline usage",
         _render_source_never_uses_text_outline_arguments,
+    )
+
+    # 36. A corrupt (byte-garbage) illustration file degrades to the
+    # generic fallback instead of raising out of render_panel() -
+    # 03-VERIFICATION.md gap #1 / T-03-04-01.
+    def _corrupt_illustration_degrades_to_generic_fallback():
+        garbage_path = _write_garbage_png()
+        try:
+            with _forced_illustration(render, garbage_path):
+                garbage_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+            with _forced_illustration(render, illustrations.generic_fallback_path()):
+                fallback_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        finally:
+            os.unlink(garbage_path)
+        if len(garbage_buf) != panel_format.IMAGE_BYTES:
+            return False, "corrupt-illustration render is %d bytes, expected %d" % (len(garbage_buf), panel_format.IMAGE_BYTES)
+        if garbage_buf != fallback_buf:
+            return False, "a corrupt illustration file did not degrade to a byte-identical generic-fallback panel"
+        return True, ""
+    check(
+        "a corrupt (byte-garbage) illustration file degrades to the generic fallback instead of raising out of render_panel()",
+        _corrupt_illustration_degrades_to_generic_fallback,
+    )
+
+    # 37. An oversized illustration is rejected on its PNG header, before
+    # any pixel data is decoded - 03-VERIFICATION.md gap #2 / T-03-04-02.
+    def _oversized_illustration_rejected_on_header():
+        oversized_path = _write_oversized_png()
+        try:
+            with Image.open(oversized_path) as probe:
+                pixel_count = probe.size[0] * probe.size[1]
+            if pixel_count <= illustrations.ILLUSTRATION_MAX_PIXELS:
+                return False, (
+                    "fixture pixel count %d does not exceed ILLUSTRATION_MAX_PIXELS %d - "
+                    "fixture is not actually oversized" % (pixel_count, illustrations.ILLUSTRATION_MAX_PIXELS)
+                )
+            with _forced_illustration(render, oversized_path):
+                oversized_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+            with _forced_illustration(render, illustrations.generic_fallback_path()):
+                fallback_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        finally:
+            os.unlink(oversized_path)
+        if len(oversized_buf) != panel_format.IMAGE_BYTES:
+            return False, "oversized-illustration render is %d bytes, expected %d" % (len(oversized_buf), panel_format.IMAGE_BYTES)
+        if oversized_buf != fallback_buf:
+            return False, "an oversized illustration file did not degrade to a byte-identical generic-fallback panel"
+        return True, ""
+    check(
+        "an oversized illustration is rejected on its PNG header, before any pixel data is decoded",
+        _oversized_illustration_rejected_on_header,
+    )
+
+    # 38. When the selected illustration and the generic fallback are both
+    # undecodable, the render skips the illustration entirely and still
+    # returns a valid panel - the tail of the degradation ladder.
+    def _both_illustration_and_fallback_undecodable_still_renders():
+        garbage_path = _write_garbage_png()
+        try:
+            with _forced_illustration(render, garbage_path, fallback_path=garbage_path):
+                both_bad_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+            with _forced_illustration(render, illustrations.generic_fallback_path()):
+                fallback_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        finally:
+            os.unlink(garbage_path)
+        if len(both_bad_buf) != panel_format.IMAGE_BYTES:
+            return False, (
+                "render with both illustration and fallback undecodable is %d bytes, expected %d"
+                % (len(both_bad_buf), panel_format.IMAGE_BYTES)
+            )
+        if both_bad_buf == fallback_buf:
+            return False, (
+                "render with both illustration and fallback undecodable is byte-identical to the "
+                "fallback-forced render - the illustration was not actually skipped"
+            )
+        return True, ""
+    check(
+        "when the selected illustration and the generic fallback are both undecodable, the render skips the illustration and still returns a valid panel",
+        _both_illustration_and_fallback_undecodable_still_renders,
     )
 
     total = len(results)
