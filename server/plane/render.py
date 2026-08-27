@@ -383,9 +383,14 @@ def draw_illustration(canvas, resized_rgba, left, top):
 
 
 def _flight_line1_text(flight, state, route):
-    """`"{callsign} to|from {city}"`, or bare `callsign` on an enrichment
-    miss (no half-resolved route is ever shown - matches the discipline
-    `enrich.lookup_route()`'s own docstring already establishes). D-26:
+    """`"{callsign} to|from {city}"`, or bare `callsign` when `route` has no
+    city for this state. This is not only a full enrichment miss (D-06,
+    quick task 260827-hyy): `route` may legitimately be an airline-only
+    route (`enrich.resolve_route()`'s `"airline_only"` source /
+    `enrich.airline_only_route()`) that carries a real airline name but
+    `None` for every city field - in that case line 1 correctly stays the
+    bare callsign, because the origin/destination really are unknown; it
+    does not fabricate a city from the callsign's ICAO prefix. D-26:
     ordinary lowercase "to"/"from" as sentence text, not the old tracked-
     caps Label-role prefix.
     """
@@ -467,9 +472,17 @@ def _flight_line2_text(route, aircraft_type=None):
     Falls back to the display name alone when `aircraft_type` is missing
     or has no friendly label in `_TYPE_DISPLAY_LABELS` - an unlabelled or
     absent type never fabricates a label and never renders an empty
-    separator. Falls back to `ROUTE_FALLBACK_TEXT` on an enrichment miss
-    (no route, or a route with no airline name), regardless of what type
-    was detected - an enrichment miss is still a miss.
+    separator. Falls back to `ROUTE_FALLBACK_TEXT` only when no route was
+    supplied, or the supplied route has no airline name at all - regardless
+    of what type was detected. Since quick task 260827-hyy (D-06), that
+    condition is strictly narrower than "adsbdb missed": a route may be
+    airline-only (`enrich.resolve_route()`'s `"airline_only"` source /
+    `enrich.airline_only_route()` - adsbdb had nothing, but the callsign's
+    ICAO prefix identified the carrier) and still carry a real
+    `airline_name`, in which case this function composes `"{airline} ·
+    {type label}"` exactly as it would for a full adsbdb hit.
+    `ROUTE_FALLBACK_TEXT` now fires only when *neither* enrichment source
+    produced an airline.
 
     Never raises for a non-dict route, a non-string airline name, or a
     hostile aircraft type.
@@ -676,8 +689,14 @@ def build_canvas(flight, state, route=None, previous_flight=None, previous_route
     which read Image.getcolors() directly - never have to reach into
     private render state.
 
-    `route` is the normalised dict from server.plane.enrich.lookup_route()
-    (or None on an enrichment miss / for the empty state).
+    `route` is the normalised dict produced by either
+    `server.plane.enrich.lookup_route()` (a full route: airline + origin +
+    destination) or, since quick task 260827-hyy,
+    `server.plane.enrich.airline_only_route()` (D-03/D-06: airline name
+    only, the four city/IATA fields `None`) - `poll_loop.py` chooses between
+    them via `server.plane.enrich.resolve_route()`. `route` is `None` on a
+    full enrichment miss (neither source resolved anything) or for the
+    empty state.
 
     `previous_flight`/`previous_route`/`previous_state` (D-25/D-26) are the
     detection immediately preceding `flight`, or all None if none exists
@@ -709,7 +728,9 @@ def render_panel(flight, state, route=None, previous_flight=None, previous_route
     per-state dicts on.
 
     `route`/`previous_flight`/`previous_route`/`previous_state` are passed
-    straight through to build_canvas() (D-25/D-26).
+    straight through to build_canvas() (D-25/D-26) - see build_canvas()'s
+    own docstring for what `route` may now be (a full route or, since quick
+    task 260827-hyy, an airline-only route).
     """
     canvas = build_canvas(
         flight,
@@ -768,6 +789,14 @@ def build_parser():
         help="Manual QA only (02-04): preview the enrichment-miss fallback ('Route unavailable') "
              "instead of the default sample resolved-route preview.",
     )
+    parser.add_argument(
+        "--preview-airline-only",
+        action="store_true",
+        help="Manual QA only (D-06, quick task 260827-hyy): preview the airline-only intermediate "
+             "render state (airline known via the callsign's ICAO prefix, destination genuinely "
+             "unknown - bare callsign on line 1, '{airline} · {type}' on line 2, the airline's own "
+             "illustration). Takes precedence over --no-route when both are given.",
+    )
     return parser
 
 
@@ -780,10 +809,22 @@ def main(argv=None):
     previous_state = None
     if args.state != "empty":
         flight = {"hex": args.hex, "callsign": args.callsign}
-        route = None if args.no_route else _PREVIEW_ROUTE
+        # D-06 preview takes precedence over --no-route when both are given
+        # (documented in --preview-airline-only's own help text above).
+        if args.preview_airline_only:
+            route = enrich.airline_only_route(_PREVIEW_ROUTE["airline_name"])
+        elif args.no_route:
+            route = None
+        else:
+            route = _PREVIEW_ROUTE
         if args.previous_callsign:
             previous_flight = {"hex": args.previous_hex, "callsign": args.previous_callsign}
-            previous_route = None if args.no_route else _PREVIEW_PREVIOUS_ROUTE
+            if args.preview_airline_only:
+                previous_route = enrich.airline_only_route(_PREVIEW_PREVIOUS_ROUTE["airline_name"])
+            elif args.no_route:
+                previous_route = None
+            else:
+                previous_route = _PREVIEW_PREVIOUS_ROUTE
             previous_state = runway_config.STATE_ARRIVING if args.state == runway_config.STATE_DEPARTING else runway_config.STATE_DEPARTING
 
     canvas = build_canvas(
