@@ -144,15 +144,21 @@ def main():
             return True, ""
         check("a third distinct detection shifts again - previous_flight tracks only the immediately-preceding detection (two-deep)", _third_detection_shifts_again_two_deep_only)
 
-        # 5. render.render_panel() was actually called with the shifted
+        # 5. render.build_canvas() was actually called with the shifted
         # previous_flight/previous_route/previous_state (not just recorded
         # in poll_state.json but plumbed through to the render call) - spy
-        # on render.render_panel via the module poll_loop already imported.
+        # on render.build_canvas via the module poll_loop already imported.
+        # (plan 06-10 Task 2 restructured poll_loop.py's render call sites
+        # from render.render_panel() to render.build_canvas() +
+        # panel_format.pack_panel(), so the gallery hook can archive the
+        # pre-pack canvas without a second render pass - this check follows
+        # that restructuring rather than testing a call site that no longer
+        # exists.)
         def _previous_flight_is_plumbed_into_render_panel():
             import server.plane.render as render
 
             captured = {}
-            original = render.render_panel
+            original = render.build_canvas
 
             def _spy(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None, **kwargs):
                 # **kwargs (plan 06-10): forward-compatible with run_once()'s
@@ -163,16 +169,16 @@ def main():
                 captured["previous_state"] = previous_state
                 return original(flight, state, route=route, previous_flight=previous_flight, previous_route=previous_route, previous_state=previous_state, **kwargs)
 
-            poll_loop.render.render_panel = _spy
+            poll_loop.render.build_canvas = _spy
             try:
                 poll_loop.run_once(snapshot=_snapshot("dddddd", "FLIGHT4 ", CLIMB), state_dir=tmpdir, geofence=GEOFENCE_PATH)
             finally:
-                poll_loop.render.render_panel = original
+                poll_loop.render.build_canvas = original
 
             if captured.get("previous_flight", {}).get("hex") != "cccccc":
-                return False, "render_panel() was called with previous_flight=%r, expected hex=cccccc" % (captured.get("previous_flight"),)
+                return False, "build_canvas() was called with previous_flight=%r, expected hex=cccccc" % (captured.get("previous_flight"),)
             return True, ""
-        check("render.render_panel() is actually called with the shifted previous_flight (not just recorded in poll_state.json)", _previous_flight_is_plumbed_into_render_panel)
+        check("render.build_canvas() is actually called with the shifted previous_flight (not just recorded in poll_state.json)", _previous_flight_is_plumbed_into_render_panel)
 
         # NOTE: checks 1-5 above already populate poll_state.json's
         # unresolved_prefixes registry as a harmless side effect - FLIGHT1

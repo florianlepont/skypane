@@ -40,6 +40,7 @@ if _REPO_ROOT not in sys.path:
 
 import server.device_config as device_config
 import server.history_db as history_db
+import server.panel_format as panel_format
 import server.plane.detect as detect
 import server.plane.enrich as enrich
 import server.plane.render as render
@@ -47,6 +48,13 @@ import server.plane.runway_config as runway_config
 
 DEFAULT_STATE_DIR = os.path.join(_HERE, "state")
 POLL_INTERVAL_S = 30
+
+# CFG-11 (06-RESEARCH.md Pattern 5, Open Question 3): each archived PNG is
+# a full 1200x1600 panel image (a few hundred KB) - this cap bounds the
+# gallery directory to single-digit megabytes of disk use regardless of how
+# long the server has been running.
+GALLERY_DIRNAME = "gallery"
+GALLERY_MAX_ENTRIES = 25
 
 
 def _extract_aircraft(snapshot):
@@ -205,13 +213,141 @@ def _last_source_fault(state_dir):
     return value == "True"
 
 
+def _should_record_event(flight, confirmed_state, poll_state):
+    """CFG-06/CFG-08: true only on a real transition - the detected hex
+    differs from the last-recorded one, the confirmed state differs, or the
+    corroboration flag differs - never on an unchanged repeat detection.
+
+    Pitfall 1 (06-RESEARCH.md): the server polls every 30 seconds, roughly
+    2,880 cycles a day. Writing a `runway_events` row on every cycle would
+    produce on the order of a million rows a year - roughly thirty times
+    what D-13's storage estimate assumed. A transition is the only
+    interesting event; that is what CFG-06's flight log and CFG-08's
+    resolution statistics are actually about, so this function - not the
+    per-cycle pipeline-run timestamp, which lives in history.db's
+    fixed-size meta table instead - is the gate.
+
+    Compares against `poll_state["last_recorded_hex"]` /
+    `["last_recorded_confirmed_state"]` / `["last_recorded_corroborated"]` -
+    persisted in `poll_state.json` (via `run_once()`'s existing single
+    `save_poll_state()` call) so the comparison survives this oneshot's
+    process boundary. `flight` is expected non-None; a non-dict `flight`
+    degrades to "no hex/corroboration known" rather than raising.
+    """
+    last_hex = poll_state.get("last_recorded_hex")
+    last_confirmed = poll_state.get("last_recorded_confirmed_state")
+    last_corroborated = poll_state.get("last_recorded_corroborated")
+    hex_ = flight.get("hex") if isinstance(flight, dict) else None
+    corroborated = flight.get("corroborated") if isinstance(flight, dict) else None
+    return hex_ != last_hex or confirmed_state != last_confirmed or corroborated != last_corroborated
+
+
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso):
+    """Write this cycle's durable signals into `history.db`, in one
+    connection, fully contained: a database or filesystem failure here is
+    caught and logged, never allowed to fail the poll cycle or leave the
+    panel unwritten (T-06-10-05) - history is an accessory to the panel,
+    not a dependency of it.
+
+    `record_event` (from `_should_record_event()`) gates the one thing that
+    is NOT written on every cycle: a `runway_events` row, inserted only on
+    a real hex/confirmed_state/corroborated transition. Everything else
+    here - the pipeline-run timestamp, the CFG-05 source-fault flag, and
+    (when `flight` is not None) the last-detection timestamp - is written
+    to the fixed-size `meta` table on every single cycle, transition or
+    not, so those per-cycle freshness signals never grow the database
+    (Pitfall 1).
+    """
+    route = route if isinstance(route, dict) else {}
+    try:
+        with history_db.open_db(state_dir) as conn:
+            if record_event and isinstance(flight, dict):
+                history_db.record_runway_event(
+                    conn,
+                    ts=now_iso,
+                    hex=flight.get("hex"),
+                    callsign=flight.get("callsign"),
+                    aircraft_type=flight.get("aircraft_type"),
+                    confirmed_state=confirmed_state,
+                    corroborated=flight.get("corroborated"),
+                    route_source=route_source,
+                    airline=route.get("airline_name"),
+                    origin=route.get("origin_iata"),
+                    destination=route.get("destination_iata"),
+                    tracked_runway=tracked_runway_id,
+                )
+            history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
+            history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
+            if flight is not None:
+                history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
+    except (sqlite3.Error, OSError) as exc:
+        print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
+
+
+def _gallery_dir(state_dir):
+    return os.path.join(state_dir, GALLERY_DIRNAME)
+
+
+def _prune_gallery(gallery_dir):
+    """Remove the oldest PNGs beyond GALLERY_MAX_ENTRIES, oldest-first by
+    lexical sort order - which is chronological order, thanks to
+    `_save_to_gallery()`'s colon-sanitised ISO-8601 filenames. A missing or
+    unreadable gallery directory, or a failed removal, is silently
+    tolerated - never raises.
+    """
+    try:
+        entries = sorted(
+            name for name in os.listdir(gallery_dir) if name.endswith(".png")
+        )
+    except OSError:
+        return
+    while len(entries) > GALLERY_MAX_ENTRIES:
+        stale = entries.pop(0)
+        try:
+            os.remove(os.path.join(gallery_dir, stale))
+        except OSError:
+            pass
+
+
+def _save_to_gallery(state_dir, canvas, now_iso):
+    """CFG-11: archive `canvas` (the pre-pack render already produced for
+    this cycle - never a second render pass) as a PNG into
+    `<state_dir>/gallery/`, named from a filesystem-safe form of `now_iso`
+    so lexical order is chronological, then prune down to
+    GALLERY_MAX_ENTRIES (=25 - 06-RESEARCH.md Open Question 3; each PNG is
+    a full-size panel image, so the cap bounds gallery disk use to
+    single-digit megabytes).
+
+    The filename is generated server-side from this process's own clock,
+    never from any external input (T-06-10-07); the companion service
+    additionally only ever serves a name matched against a fresh directory
+    listing.
+
+    Called only when `write_panel_atomic()` actually changed the served
+    bytes - an unchanged cycle is not a new render, and archiving one would
+    fill the gallery with visually-identical duplicates. Wrapped in the
+    same catch-and-log containment as `_record_history()` (T-06-10-05): the
+    gallery is an accessory, never allowed to fail a poll cycle - by the
+    time this is called, `panel.bin` has already been written.
+    """
+    try:
+        gallery_dir = _gallery_dir(state_dir)
+        os.makedirs(gallery_dir, exist_ok=True)
+        safe_name = now_iso.replace(":", "-") + ".png"
+        canvas.convert("RGB").save(os.path.join(gallery_dir, safe_name))
+        _prune_gallery(gallery_dir)
+    except Exception as exc:
+        print("poll_loop: gallery archive failed: %s: %s" % (type(exc).__name__, exc))
+
+
 def run_once(snapshot=None, state_dir=None, geofence=None):
     """One poll cycle. `snapshot=None` polls the live aggregators
     (detect.poll_current_aircraft()); a non-None `snapshot` is a raw
     aggregator response dict injected by the test harness so
     test_pipeline_e2e.py is fully hermetic (no live network call).
 
-    Returns a small result dict: {"flight": ..., "state": ..., "panel_changed": ...}.
+    Returns a small result dict: {"flight": ..., "state": ..., "panel_changed": ...,
+    "theme": ..., "tracked_runway": ..., "source_fault": ..., "event_recorded": ...}.
 
     Never logs a bearer token or BYOS setup secret - this module has no
     access to either; only the selected hex/callsign/altitude/state and
@@ -248,6 +384,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
 
     source_fault = _classify_source_fault(diagnostics)
     previous_source_fault = _last_source_fault(state_dir)
+    # Shared by every history/gallery write this cycle makes (runway_events
+    # row, meta table, gallery filename) so they all record the same
+    # instant, not three slightly different clock reads.
+    now_iso = history_db.utc_now_iso()
 
     poll_state = load_poll_state(state_dir)
     last_flight = poll_state.get("last_flight")
@@ -262,6 +402,12 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     # it must be defined here, before any branching, or an ordinary cycle
     # that detects nothing raises UnboundLocalError.
     unknown_prefix = None
+    # CFG-06/CFG-08: whether this cycle actually wrote a runway_events row
+    # (see _should_record_event()) - surfaced in the returned result dict
+    # so the companion service's manual-trigger handler can report it.
+    # Only ever set True in the flight-detected branch's confirmed-state
+    # sub-branch below.
+    event_recorded = False
 
     if flight is not None:
         # D-25 (03-CONTEXT.md): two-deep flight history for the poster's
@@ -294,7 +440,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             render_state = "empty"
             route_source = "n/a"
             route = None
-            rendered = render.render_panel(
+            canvas = render.build_canvas(
                 None, render_state, theme_id=theme_id, runway_id=tracked_runway_id, source_fault=source_fault,
             )
         else:
@@ -334,9 +480,16 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
                 unknown_prefix = enrich.note_unresolved_prefix(flight.get("callsign"), unresolved_prefixes)
             enrich.trim_unresolved_prefixes(unresolved_prefixes)
             poll_state["unresolved_prefixes"] = unresolved_prefixes
+            # CFG-06/CFG-08: a real hex/confirmed_state/corroborated
+            # transition, computed BEFORE poll_state's last_recorded_*
+            # keys are overwritten below with this cycle's own values.
+            event_recorded = _should_record_event(flight, confirmed_state, poll_state)
+            poll_state["last_recorded_hex"] = flight.get("hex")
+            poll_state["last_recorded_confirmed_state"] = confirmed_state
+            poll_state["last_recorded_corroborated"] = flight.get("corroborated")
             # D-25/D-26: the previous flight's own real illustration/text
             # rides along on the same panel as the current detection's.
-            rendered = render.render_panel(
+            canvas = render.build_canvas(
                 flight,
                 render_state,
                 route=route,
@@ -347,7 +500,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
                 runway_id=tracked_runway_id,
                 source_fault=source_fault,
             )
+        rendered = panel_format.pack_panel(canvas)
         panel_changed = write_panel_atomic(state_dir, rendered)
+        if panel_changed:
+            _save_to_gallery(state_dir, canvas, now_iso)
         poll_state["last_flight"] = flight
         poll_state["last_confirmed_state"] = confirmed_state
         poll_state["last_route"] = route
@@ -355,6 +511,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         poll_state["previous_confirmed_state"] = previous_confirmed_state
         poll_state["previous_route"] = previous_route
         save_poll_state(state_dir, poll_state)
+        _record_history(
+            state_dir, flight, confirmed_state, route_source, route,
+            tracked_runway_id, source_fault, event_recorded, now_iso,
+        )
     elif last_flight is not None:
         # D-04: nothing detected this cycle, but a flight was already on
         # screen - do nothing to panel.bin. No waiting state, no expiry.
@@ -375,7 +535,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         # no added information.
         if source_fault != previous_source_fault:
             if confirmed_state is not None:
-                rerendered = render.render_panel(
+                fault_canvas = render.build_canvas(
                     last_flight,
                     render_state,
                     route=last_route,
@@ -387,10 +547,21 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
                     source_fault=source_fault,
                 )
             else:
-                rerendered = render.render_panel(
+                fault_canvas = render.build_canvas(
                     None, "empty", theme_id=theme_id, runway_id=tracked_runway_id, source_fault=source_fault,
                 )
+            rerendered = panel_format.pack_panel(fault_canvas)
             panel_changed = write_panel_atomic(state_dir, rerendered)
+            if panel_changed:
+                _save_to_gallery(state_dir, fault_canvas, now_iso)
+        # T-06-10-05/Pitfall 1: every cycle through this branch, transition
+        # or not, still records the per-cycle pipeline-run + source-fault
+        # meta signals - nothing detected this cycle, so no runway_events
+        # row (record_event=False) and no last-detection timestamp update.
+        _record_history(
+            state_dir, None, None, None, None,
+            tracked_runway_id, source_fault, False, now_iso,
+        )
     else:
         # Nothing detected, and nothing has ever been detected since the
         # state directory was last empty - render the Empty state.
@@ -398,10 +569,17 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         render_state = "empty"
         state_source = "held"
         route_source = "n/a"
-        rendered = render.render_panel(
+        canvas = render.build_canvas(
             None, render_state, theme_id=theme_id, runway_id=tracked_runway_id, source_fault=source_fault,
         )
+        rendered = panel_format.pack_panel(canvas)
         panel_changed = write_panel_atomic(state_dir, rendered)
+        if panel_changed:
+            _save_to_gallery(state_dir, canvas, now_iso)
+        _record_history(
+            state_dir, None, None, None, None,
+            tracked_runway_id, source_fault, False, now_iso,
+        )
 
     # T-02-04-05: log only the callsign, the enrichment outcome
     # (cache_hit / fresh_hit / miss / n/a / held), and the selection's own
@@ -445,6 +623,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         "theme": theme_id,
         "tracked_runway": tracked_runway_id,
         "source_fault": source_fault,
+        "event_recorded": event_recorded,
     }
 
 
