@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 03.1
 current_phase_name: procedural-per-airline-livery-rendering
 status: executing
-stopped_at: 03.1-04 complete (Wave 3, first of two Wave-3 plans)
-last_updated: "2026-08-27T06:16:00.000Z"
+stopped_at: 03.1-05 complete (Wave 3, second of two Wave-3 plans — Phase 3.1 closed, 5/5)
+last_updated: "2026-08-27T07:44:28.818Z"
 last_activity: 2026-08-27
-last_activity_desc: 03.1-04 complete (render.py type-aware _flight_line2_text(), P-01 display alias, per-card illustration threading, poll log aircraft_type field)
+last_activity_desc: 03.1-05 complete (HANDOFF.md rewritten for the full 34-file D-03 target set; 25 of 26 outstanding illustration files delivered, human-confirmed nose-left/type-matched, digest-registered in VENDOR.md; 3 out-of-scope generated files registered under a new _unresolved/ holding directory with explicit non-target rationale; select_illustration() reachability proven live across Tiers 1/2/3; royal-air-maroc-embraer.png named as the sole remaining outstanding target)
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 28
-  completed_plans: 25
-  percent: 89
+  completed_plans: 26
+  percent: 93
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 03.1 (procedural-per-airline-livery-rendering) — EXECUTING
-Plans: 4/5 executed (5 plans, 3 waves — 03.1-01/03.1-02/03.1-03/03.1-04 done, Waves 1-2 complete, Wave 3 in progress; 03.1-05 remaining)
-Status: 03.1-04 (Wave 3, first of two Wave-3 plans) complete; 03.1-05 (illustration hand-off) up next
-Last activity: 2026-08-27 — 03.1-04 complete (render.py type-aware _flight_line2_text(), P-01 display alias, per-card illustration threading, poll log aircraft_type field)
+Phase: 03.1 (procedural-per-airline-livery-rendering) — COMPLETE (5/5 plans)
+Plans: 5/5 executed (5 plans, 3 waves — 03.1-01/03.1-02/03.1-03/03.1-04/03.1-05 all done, all 3 waves complete)
+Status: 03.1-05 (illustration hand-off, provenance, reachability proof) complete. Phase 3.1 closed. Next: Phase 5 (Battery Life & Low-Battery Indicator, in progress) or Phase 6 (Final On-Glass Verification, not started).
+Last activity: 2026-08-27 — 03.1-05 complete (HANDOFF.md rewritten for the full 34-file D-03 target set; 25 of 26 outstanding illustration files delivered, human-confirmed nose-left/type-matched, digest-registered in VENDOR.md; 3 out-of-scope generated files registered under a new _unresolved/ holding directory with explicit non-target rationale; select_illustration() reachability proven live across Tiers 1/2/3; royal-air-maroc-embraer.png named as the sole remaining outstanding target)
 
-Progress: [█████████░] 89% (25/28 plans)
+Progress: [██████████] 93% (26/28 plans)
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Progress: [█████████░] 89% (25/28 plans)
 | Phase 03.1 P02 | ~10min | 2 tasks | 5 files |
 | Phase 03.1 P03 | ~25min | 3 tasks (6 RED/GREEN commits) | 2 files |
 | Phase 03.1 P04 | ~20min | 2 tasks | 3 files |
+| Phase 03.1 PP05 | 35min | 3 tasks | 30 files |
 
 ## Accumulated Context
 
@@ -147,6 +148,8 @@ Recent decisions affecting current work:
 - [Phase 03.1]: 03.1-02 complete (Wave 1, second of two Wave-1 plans - Wave 1 now closed) - `detect.py`'s `select_runway3_aircraft()` now extracts and normalizes `aircraft_type` from the raw aggregator `t` field: non-string/falsy input degrades to `None`, valid strings are stripped/uppercased, and the result is additionally validated against an alphanumeric-only ICAO-designator shape (`_VALID_AIRCRAFT_TYPE_RE`) before leaving the function - a deviation beyond `03.1-PATTERNS.md`'s literal one-liner, required because the plan's own malformed-value battery mandates a path-separator payload also yield `None` (T-03.1-02-01, ASVS V5). Both committed geofence fixtures gained annotated, plausible `t` values (Transavia France B738/A20N, Air France A320) with synthetic no-position/out-of-bbox records left deliberately without a `t` key; `server/fixtures/README.md` documents the phase 03.1 provenance. `test_plane_detection.py` grew from 6 to 10 checks, all passing. Live-verified via a fixture-driven `poll_loop.run_once()` call that `aircraft_type` reaches `poll_state.json` with zero code changes to `poll_loop.py`, confirming `03.1-RESEARCH.md`'s Code-Level Finding #2. Full 9-harness suite + `ruff check .` green, coverage unchanged at 79%.
 - [Phase 03.1]: 03.1-03 complete (Wave 2, sole Wave-2 plan) - `illustrations.py`'s `select_illustration()` turned from a one-key (airline) lookup into a two-key (airline, aircraft-type) lookup with a four-tier D-06/D-07/D-08 fallback: `SHAPE_SLUGS` (the seven D-03 base shapes), `_TYPE_SHAPE_BUCKETS` (a hand-curated ~35-code ICAO-designator table), and `classify_aircraft_type()` (mirrors `normalise_airline_key()`'s never-raises shape exactly, a lookup against a fixed static table only, never a pass-through of its argument - T-03.1-03-01) were added; `select_illustration(route, aircraft_type=None)` was rewritten in place preserving every pre-existing single-argument call site byte-for-byte. `_ILLUSTRATION_TARGETS` (the full 34-file D-03 target set, sourced verbatim from `03.1-LIVE-RESOLUTION.md`, excluding the two `[UNRESOLVED]` airlines), `target_filenames()`, and `outstanding_filenames()` were added alongside a widened `required_filenames()` (P-05: baseline-plus-on-disk-union) and new `--targets`/`--outstanding`/`--strict-targets` CLI flags. Executed as three explicit RED/GREEN task-level TDD cycles (6 commits); `test_illustrations.py` grew from 22 to 42 checks, all passing. One noted (non-blocking) discrepancy: Task 2's acceptance criterion expecting at most 2 direct `os.path.join(ILLUSTRATION_DIR` occurrences was already at 3 before this plan touched anything (a pre-existing occurrence inside `_validate_directory()` the plan's criterion text didn't count) - verified via `git show` against the pre-plan commit; the criterion's actual intent (no new tier constructs a path directly) is fully satisfied. Full 9-harness suite, `ruff check .`, and `scripts/check-attribution.sh` green (78% coverage, above the 75% floor); `git diff --stat` across all six commits touches only `server/plane/illustrations.py`/`server/test_illustrations.py`. Full detail in `03.1-03-SUMMARY.md`.
 - [Phase 03.1]: 03.1-04 complete (Wave 3, first of two Wave-3 plans) - `render.py`'s `_flight_line2_text()` closes D-26's original `{airline} · {aircraft_type}` brief: `_TYPE_DISPLAY_LABELS` (a friendly human-readable label for every designator in `illustrations._TYPE_SHAPE_BUCKETS`, ~35 codes, neo/MAX variants named explicitly per P-02) and `_AIRLINE_DISPLAY_ALIASES`/`display_airline_name()` (the P-01 presentation-only alias, `"CCM Airlines"` -> `"Air Corsica"`, confirmed absent from `illustrations.py` so it can never affect selection) were added; `_flight_line2_text(route, aircraft_type=None)`'s signature changed in place, with both draw-function call sites updated. Both `_build_active_canvas()` `select_illustration()` calls now pass their own flight dict's `aircraft_type` (main and previous card each get their own type, no crossover, proven via a `_SelectIllustrationSpy` monkeypatch); `poll_loop.py`'s log line gained `aircraft_type=%s` right after `callsign=%s`, live-verified via a real (network-blocked, correctly-Empty-falling-back) `--once` run and via `test_pipeline_e2e.py`'s fixture flow showing `aircraft_type=B738`. `test_render.py` grew from 26 to 35 checks (two pre-existing line-2 checks updated in place to build expected strings from fixture data, 9 new checks added). One real bug auto-fixed (Rule 1): the no-label fallback path returned a non-string for a truthy non-string `airline_name`, caught by the plan's own never-raises battery check, fixed with a `"%s" %` coercion. Full 9-harness suite, `ruff check .`, `test_poll_loop.py`, and `test_pipeline_e2e.py` all green (78% coverage). Full detail in `03.1-04-SUMMARY.md`.
+- [Phase 03.1]: 03.1-05 complete (Wave 3, second of two Wave-3 plans — **Phase 3.1 now closed, 5/5**) - Task 1 rewrote `HANDOFF.md` around `illustrations.py --targets`' own output, covering the full 34-file D-03 plan with the CCM Airlines/Europe Airpost/Corsairfly rename-trap documented against `03.1-LIVE-RESOLUTION.md`'s live evidence. Task 2 (the blocking human illustration-generation gate) closed as an explicitly named **partial delivery**: the developer generated and hand-off-delivered 25 of the 26 outstanding target files, human-confirming nose-left orientation and filename-matching aircraft type by eye for every one; `royal-air-maroc-embraer.png` remains genuinely outstanding (not generated), named by filename rather than dropped. Task 3 computed real `shasum -a 256` digests and Pillow-read dimensions for all 25 delivered files (never copied), extended `illustrations/VENDOR.md`'s per-file table (split into airline-primary/secondary-variant/neutral-shape-fallback subsections), added a new "Phase 3.1 coverage" section naming the target/delivered/outstanding counts and both D-03-excluded airlines (Amelia International, La Compagnie), and registered 3 out-of-scope generated files (Amelia International, La Compagnie, an unused Air Caraïbes ATR72 variant) under a new `_unresolved/` holding directory with explicit non-target rationale so `scripts/check-attribution.sh` passes without misrepresenting them as shipped art. Reachability proven live against the real `select_illustration()` code across Tiers 1 (`CCM Airlines`+`AT72` -> `ccm-airlines-atr72.png`), 2 (`CCM Airlines`+`A320` -> `ccm-airlines.png`), and 3 (unrecognized airline+`A321` -> `generic-a320.png`). Full 9-harness suite, `ruff check .`, and `scripts/check-attribution.sh` all green; `test_illustrations.py` unchanged at 42/42 (its whole-set validation automatically covers the newly delivered files via `required_filenames()`'s on-disk union, zero code change needed). Full detail in `03.1-05-SUMMARY.md`.
+- [Phase 03.1]: Progress-counter SDK bug (already on file, see the Phase 04-02 entry above) recurred on this plan's `state update-progress` call — it returned `completed_phases: 6`/`completed_plans: 27`/`percent: 86` (internally inconsistent: 27/28 is 96%, not 86%, and Phase 3.1 completing only brings the true completed-phase count to 5, not 6). Corrected by hand to `completed_phases: 5`, `completed_plans: 26` (7+5+3+5+6, per ROADMAP.md's per-phase plan counts), `percent: 93` (26/28). `state advance-plan` also failed outright (`Cannot parse Current Plan or Total Plans in Phase from STATE.md` — this project's STATE.md has never used that literal-field convention, only the frontmatter `progress:` block and prose "Plans: N/M executed" line), so the Current Position section's plan count was also updated by hand.
 
 ### Pending Todos
 
@@ -181,10 +184,19 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T00:25:00.000Z
-Stopped at: 03.1-02 complete (Wave 1, plan 2 of 2 - Wave 1 done) — continue with 03.1-03 (Wave 2)
+Last session: 2026-08-27T07:44:07.689Z
+Stopped at: 03.1-05 complete (Wave 3, plan 2 of 2 - Wave 3 done, **Phase 3.1 closed, 5/5 plans**)
 
-Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-03-PLAN.md
+Resume file: none — Phase 3.1 is fully executed. Next step: `/gsd-execute-phase 5` (Battery Life & Low-Battery Indicator, in progress — 05-01 Task 1 done, Tasks 2-3 deliberately deferred to end of project) or `/gsd-plan-phase 6` (Final On-Glass Verification, not yet planned), per the developer's own priority call.
+
+**State at end of this session (2026-08-27, ~09:45):**
+
+- Phase 3.1 (procedural-per-airline-livery-rendering) fully closed: all 5 plans executed (03.1-01 through 03.1-05).
+- Illustration coverage: 33 of the full 34-file D-03 target set are vendored and `--validate`-passing (8 Phase-3 baseline + 25 delivered this plan). One file remains genuinely outstanding — `royal-air-maroc-embraer.png` (Royal Air Maroc's minority Embraer E190 secondary variant) — named by filename in `server/assets/icons/illustrations/VENDOR.md`'s "Phase 3.1 coverage" section and in `illustrations.py --outstanding`'s live output. Closing it later needs zero code change: drop the file in under that exact name and re-run `--validate`.
+- Two D-03 airlines (Amelia International, La Compagnie) remain deliberately excluded from the target set pending a future real-callsign re-verification (`03.1-LIVE-RESOLUTION.md` `[UNRESOLVED]`); art was speculatively generated for both but kept out of the selection path under `server/assets/icons/illustrations/_unresolved/`, registered but not reachable by any code path.
+- `select_illustration()`'s two-key, four-tier lookup (D-06/D-07/D-08) is proven reachable end-to-end for real delivered art, not just validated-on-disk — see `03.1-05-SUMMARY.md`'s "Reachability Proof" section for the three live commands and outputs.
+- Full 9-harness test suite, `ruff check .`, and `scripts/check-attribution.sh` all green as of the last commit on this branch.
+- Next step: developer's choice between continuing Phase 5's deferred battery-life run or planning Phase 6's on-glass verification session.
 
 **State at end of this session (2026-08-26, ~09:25):**
 

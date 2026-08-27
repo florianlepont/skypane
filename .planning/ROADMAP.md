@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception on real hardware, with the core wake/poll/backoff loop proven against a stub server (completed 2026-08-26)
 - [x] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display (completed 2026-08-26)
 - [x] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle (completed 2026-08-26 — on-glass visual sign-off moved to Phase 6, not a blocker on this phase)
-- [ ] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Extends Phase 3's externally generated illustration set to real per-flight aircraft-type accuracy, by (a) surfacing the ADS-B ICAO type designator in `server/plane/detect.py`, (b) adding a second selection key plus a four-tier fallback in `server/plane/illustrations.py`, and (c) expanding the externally generated asset set per D-03's verified 24-airline / 7-base-shape table
+- [x] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Extends Phase 3's externally generated illustration set to real per-flight aircraft-type accuracy, by (a) surfacing the ADS-B ICAO type designator in `server/plane/detect.py`, (b) adding a second selection key plus a four-tier fallback in `server/plane/illustrations.py`, and (c) expanding the externally generated asset set per D-03's verified 24-airline / 7-base-shape table (completed 2026-08-27)
 - [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/skypane, CI-block and deploy-gate proven on real infrastructure)
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
 - [ ] **Phase 6: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished
@@ -141,7 +141,7 @@ Plans:
   4. The full automated test suite (`scripts/run-all-tests.sh`) stays green and `server/plane/illustrations.py --validate` passes for every delivered asset. (On-glass legibility sign-off is deliberately **Phase 6's** criterion, not this phase's — Phase 6 already owns the project's single real-hardware verification pass, the same precedent STATE.md records for Phase 3's own on-glass criteria.)
   5. Coverage gracefully degrades (a sensible fallback, not a crash or a blank illustration) for any airline/type combination not yet defined in the livery/shape mapping — mirroring D-08's existing generic-fallback discipline from Phase 3.
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -156,7 +156,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 03.1-04-PLAN.md — `{airline} · {type}` line-2 rendering with friendly labels and a presentation-only brand alias, both illustration call sites threaded, type visible in the poll log
-- [ ] 03.1-05-PLAN.md — expanded illustration hand-off spec, the developer's blocking art-generation gate, and digest-backed provenance for everything delivered
+- [x] 03.1-05-PLAN.md — expanded illustration hand-off spec, the developer's blocking art-generation gate, and digest-backed provenance for everything delivered
 
 ### Phase 4: CI/CD, Documentation & Legal Compliance
 
