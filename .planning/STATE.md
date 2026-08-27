@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 03.1
-current_phase_name: procedural-per-airline-livery-rendering
+current_phase: 03
+current_phase_name: visual-polish-on-real-glass
 status: executing
-stopped_at: 03.1-05 complete (Wave 3, second of two Wave-3 plans — Phase 3.1 closed, 5/5)
-last_updated: "2026-08-27T07:44:28.818Z"
+stopped_at: 03-04 complete (gap-closure — Phase 3 closed, 4/4)
+last_updated: "2026-08-27T08:51:45.697Z"
 last_activity: 2026-08-27
-last_activity_desc: 03.1-05 complete (HANDOFF.md rewritten for the full 34-file D-03 target set; 25 of 26 outstanding illustration files delivered, human-confirmed nose-left/type-matched, digest-registered in VENDOR.md; 3 out-of-scope generated files registered under a new _unresolved/ holding directory with explicit non-target rationale; select_illustration() reachability proven live across Tiers 1/2/3; royal-air-maroc-embraer.png named as the sole remaining outstanding target)
+last_activity_desc: 03-04 complete (render path guarded against corrupt/oversized illustrations)
 progress:
   total_phases: 7
-  completed_phases: 5
-  total_plans: 28
-  completed_plans: 26
-  percent: 93
+  completed_phases: 6
+  total_plans: 29
+  completed_plans: 28
+  percent: 86
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 03.1 — procedural-per-airline-livery-rendering
+**Current focus:** Phase 03 — visual-polish-on-real-glass
 
 ## Current Position
 
-Phase: 03.1 (procedural-per-airline-livery-rendering) — COMPLETE (5/5 plans)
-Plans: 5/5 executed (5 plans, 3 waves — 03.1-01/03.1-02/03.1-03/03.1-04/03.1-05 all done, all 3 waves complete)
-Status: 03.1-05 (illustration hand-off, provenance, reachability proof) complete. Phase 3.1 closed. Next: Phase 5 (Battery Life & Low-Battery Indicator, in progress) or Phase 6 (Final On-Glass Verification, not started).
-Last activity: 2026-08-27 — 03.1-05 complete (HANDOFF.md rewritten for the full 34-file D-03 target set; 25 of 26 outstanding illustration files delivered, human-confirmed nose-left/type-matched, digest-registered in VENDOR.md; 3 out-of-scope generated files registered under a new _unresolved/ holding directory with explicit non-target rationale; select_illustration() reachability proven live across Tiers 1/2/3; royal-air-maroc-embraer.png named as the sole remaining outstanding target)
+Phase: 03 (visual-polish-on-real-glass) — COMPLETE (4/4 plans, gap-closure plan 03-04 done)
+Plans: 4/4 executed (03-01/03-02/03-03/03-04, all done) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) now closed
+Status: Phase 03 closed. Next: Phase 5 (Battery Life & Low-Battery Indicator, in progress) or Phase 6 (Final On-Glass Verification, not yet planned).
+Last activity: 2026-08-27 — 03-04 complete (render path guarded against corrupt/oversized illustrations)
 
-Progress: [██████████] 93% (26/28 plans)
+Progress: [██████████] 93% (27/29 plans)
 
 ## Performance Metrics
 
@@ -80,6 +80,7 @@ Progress: [██████████] 93% (26/28 plans)
 | Phase 03.1 P03 | ~25min | 3 tasks (6 RED/GREEN commits) | 2 files |
 | Phase 03.1 P04 | ~20min | 2 tasks | 3 files |
 | Phase 03.1 PP05 | 35min | 3 tasks | 30 files |
+| Phase 03 P04 | 20min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -151,6 +152,7 @@ Recent decisions affecting current work:
 - [Phase 03.1]: 03.1-05 complete (Wave 3, second of two Wave-3 plans — **Phase 3.1 now closed, 5/5**) - Task 1 rewrote `HANDOFF.md` around `illustrations.py --targets`' own output, covering the full 34-file D-03 plan with the CCM Airlines/Europe Airpost/Corsairfly rename-trap documented against `03.1-LIVE-RESOLUTION.md`'s live evidence. Task 2 (the blocking human illustration-generation gate) closed as an explicitly named **partial delivery**: the developer generated and hand-off-delivered 25 of the 26 outstanding target files, human-confirming nose-left orientation and filename-matching aircraft type by eye for every one; `royal-air-maroc-embraer.png` remains genuinely outstanding (not generated), named by filename rather than dropped. Task 3 computed real `shasum -a 256` digests and Pillow-read dimensions for all 25 delivered files (never copied), extended `illustrations/VENDOR.md`'s per-file table (split into airline-primary/secondary-variant/neutral-shape-fallback subsections), added a new "Phase 3.1 coverage" section naming the target/delivered/outstanding counts and both D-03-excluded airlines (Amelia International, La Compagnie), and registered 3 out-of-scope generated files (Amelia International, La Compagnie, an unused Air Caraïbes ATR72 variant) under a new `_unresolved/` holding directory with explicit non-target rationale so `scripts/check-attribution.sh` passes without misrepresenting them as shipped art. Reachability proven live against the real `select_illustration()` code across Tiers 1 (`CCM Airlines`+`AT72` -> `ccm-airlines-atr72.png`), 2 (`CCM Airlines`+`A320` -> `ccm-airlines.png`), and 3 (unrecognized airline+`A321` -> `generic-a320.png`). Full 9-harness suite, `ruff check .`, and `scripts/check-attribution.sh` all green; `test_illustrations.py` unchanged at 42/42 (its whole-set validation automatically covers the newly delivered files via `required_filenames()`'s on-disk union, zero code change needed). Full detail in `03.1-05-SUMMARY.md`.
 - [Phase 03]: `/gsd-plan-phase 3 --gaps` decision-coverage gate flagged 5 pre-existing uncovered CONTEXT.md decisions (D-02, D-03, D-20, D-21, D-22) — none introduced by the new 03-04 gap-closure plan. Override accepted rather than re-planning: D-02 (departure-threshold on-glass validation) was already relocated to Phase 6's scope in this file's own "Phase 6 added" entry above; D-03 is a standing informational caveat (desk-vs-wall), not a testable criterion; D-20/D-21/D-22 (font/color/layout course-corrections) are already implemented and shipped per the 03-01/03-02 decision entries above, just never cited by `D-NN:` string in a plan body. Re-planning already-shipped, already-verified phase 3 work to satisfy a literal-citation check would be scope creep against this session's actual goal (fixing one named render-path gap).
 - [Phase 03.1]: Progress-counter SDK bug (already on file, see the Phase 04-02 entry above) recurred on this plan's `state update-progress` call — it returned `completed_phases: 6`/`completed_plans: 27`/`percent: 86` (internally inconsistent: 27/28 is 96%, not 86%, and Phase 3.1 completing only brings the true completed-phase count to 5, not 6). Corrected by hand to `completed_phases: 5`, `completed_plans: 26` (7+5+3+5+6, per ROADMAP.md's per-phase plan counts), `percent: 93` (26/28). `state advance-plan` also failed outright (`Cannot parse Current Plan or Total Plans in Phase from STATE.md` — this project's STATE.md has never used that literal-field convention, only the frontmatter `progress:` block and prose "Plans: N/M executed" line), so the Current Position section's plan count was also updated by hand.
+- [Phase 03]: 03-04 gap-closure complete: _load_illustration_safely()/_illustration_over_pixel_cap() added to render.py, wired into both D-25/D-26 illustration call sites - a corrupt or oversized vendored PNG now degrades to generic-fallback.png instead of crashing render_panel(); reuses illustrations.ILLUSTRATION_MAX_PIXELS/generic_fallback_path() rather than restating them. Closes 03-VERIFICATION.md's two NOT_WIRED gaps; Phase 3 is now genuinely 4/4, all must-haves verified.
 
 ### Pending Todos
 
@@ -185,10 +187,18 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T07:44:07.689Z
-Stopped at: 03.1-05 complete (Wave 3, plan 2 of 2 - Wave 3 done, **Phase 3.1 closed, 5/5 plans**)
+Last session: 2026-08-27T08:51:45.651Z
+Stopped at: 03-04 complete (gap-closure — Phase 3 closed, 4/4)
 
-Resume file: none — Phase 3.1 is fully executed. Next step: `/gsd-execute-phase 5` (Battery Life & Low-Battery Indicator, in progress — 05-01 Task 1 done, Tasks 2-3 deliberately deferred to end of project) or `/gsd-plan-phase 6` (Final On-Glass Verification, not yet planned), per the developer's own priority call.
+Resume file: None
+
+**State at end of this session (2026-08-27, ~08:50):**
+
+- Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
+- Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
+- Full 9-harness suite, `server/test_illustrations.py` (unchanged 42/42), and `ruff check .` all green.
+- 03-VERIFICATION.md's two gaps and both `NOT_WIRED` Key Link rows are now closed by inspection - Phase 3 can be re-verified at 8/8 must-haves. ROADMAP.md's Phase 3 row updated to 4/4, plan checkbox `03-04-PLAN.md` checked off.
+- Next: developer's choice between continuing Phase 5's deferred battery-life run or planning Phase 6's on-glass verification session (unchanged from before this plan).
 
 **State at end of this session (2026-08-27, ~09:45):**
 
