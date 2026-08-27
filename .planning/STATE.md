@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: companion-configuration-web-interface-visual-settings-view-s
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-08-27T21:18:33.883Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-08-27T21:33:30.727Z"
 last_activity: 2026-08-27
-last_activity_desc: 06-01-PLAN.md executed (device_config.py/history_db.py persistence layer)
+last_activity_desc: 06-02-PLAN.md executed (detect.py runway parameterisation, CFG-05/CFG-12)
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 41
-  completed_plans: 29
-  percent: 71
+  completed_plans: 30
+  percent: 73
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 06 (companion-configuration-web-interface-visual-settings-view-s) — EXECUTING
-Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 1/12 executed (06-01, Wave 1 of 5 — device_config.py/history_db.py persistence layer).
+Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 2/12 executed (06-01 Wave 1 device_config.py/history_db.py persistence layer; 06-02 Wave 1 detect.py runway-parameterisation + diagnostics signal, CFG-05/CFG-12).
 Status: Executing Phase 06
-Last activity: 2026-08-27 — 06-01-PLAN.md complete
+Last activity: 2026-08-27 — 06-02-PLAN.md complete
 
-Progress: [███████░░░] 71% (29/41 plans)
+Progress: [███████░░░] 73% (30/41 plans)
 
 ## Performance Metrics
 
@@ -83,6 +83,7 @@ Progress: [███████░░░] 71% (29/41 plans)
 | Phase 03.1 PP05 | 35min | 3 tasks | 30 files |
 | Phase 03 P04 | 20min | 2 tasks | 2 files |
 | Phase 06 P01 | 30min | 3 tasks | 4 files |
+| Phase 06 P02 | 15min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -158,6 +159,7 @@ Recent decisions affecting current work:
 - [Phase 03.1]: Progress-counter SDK bug (already on file, see the Phase 04-02 entry above) recurred on this plan's `state update-progress` call — it returned `completed_phases: 6`/`completed_plans: 27`/`percent: 86` (internally inconsistent: 27/28 is 96%, not 86%, and Phase 3.1 completing only brings the true completed-phase count to 5, not 6). Corrected by hand to `completed_phases: 5`, `completed_plans: 26` (7+5+3+5+6, per ROADMAP.md's per-phase plan counts), `percent: 93` (26/28). `state advance-plan` also failed outright (`Cannot parse Current Plan or Total Plans in Phase from STATE.md` — this project's STATE.md has never used that literal-field convention, only the frontmatter `progress:` block and prose "Plans: N/M executed" line), so the Current Position section's plan count was also updated by hand.
 - [Phase 03]: 03-04 gap-closure complete: _load_illustration_safely()/_illustration_over_pixel_cap() added to render.py, wired into both D-25/D-26 illustration call sites - a corrupt or oversized vendored PNG now degrades to generic-fallback.png instead of crashing render_panel(); reuses illustrations.ILLUSTRATION_MAX_PIXELS/generic_fallback_path() rather than restating them. Closes 03-VERIFICATION.md's two NOT_WIRED gaps; Phase 3 is now genuinely 4/4, all must-haves verified.
 - [Phase 06]: 06-01 complete - device_config.py/history_db.py persistence layer built (leaf modules, WAL SQLite + atomic JSON side-file); coverage-omit deviation added to pyproject.toml until 06-11 registers the harness; requirements mark-complete deliberately skipped for CFG-01/03/06/08/12 since those IDs recur across most of this phase's other 11 plans
+- [Phase 06]: 06-02 complete - detect.py generalised to select_aircraft_for_runway(runway_id=...), select_runway3_aircraft() preserved as a byte-compatible thin wrapper (all 28 pre-existing checks pass unmodified); runway3.json gained a runways block (ids 3/06-24/02-20) with 06-24/02-20 corridor thresholds explicitly documented as unvalidated copies pending plan 06-12's live capture (06-RESEARCH.md Assumption A1); poll_current_aircraft() gained a diagnostics dict distinguishing an all-providers-failed poll from a no-aircraft poll (CFG-05); harness grew 28 -> 38 checks
 
 ### Pending Todos
 
@@ -199,8 +201,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T21:18:33.877Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-08-27T21:33:30.721Z
+Stopped at: Completed 06-02-PLAN.md
 
 Resume file: None
 
