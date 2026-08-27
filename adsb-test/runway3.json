@@ -2,7 +2,7 @@
   "center": {
     "lat": 48.7233,
     "lon": 2.3794,
-    "source": "01-RESEARCH.md 'Code Examples' worked example for the Orly-Ville/runway-3 area (48.7233N, 2.3794E), cross-checked against the English Wikipedia 'Orly Airport' infobox coordinate field (48°43'24\"N 02°22'46\"E → 48.7233, 2.3794 decimal). Used as the query center/radius origin, not the runway itself - the bbox below is the actual runway-3 filter. Checked 2026-08-04."
+    "source": "01-RESEARCH.md 'Code Examples' worked example for the Orly-Ville/runway-3 area (48.7233N, 2.3794E), cross-checked against the English Wikipedia 'Orly Airport' infobox coordinate field (48°43'24\"N 02°22'46\"E → 48.7233, 2.3794 decimal). Used as the query center/radius origin, not the runway itself - the corridor below is the actual runway-3 filter. Checked 2026-08-04."
   },
   "radius_nm": 5,
   "bbox": {
@@ -10,7 +10,17 @@
     "lat_max": 48.734,
     "lon_min": 2.325,
     "lon_max": 2.435,
-    "source": "Computed (not looked up) from the confirmed runway-3 threshold coordinates in 'runway' below: extended roughly 2.5km beyond each threshold along the runway's own bearing (magnetic ~074/254) to include the on-approach and rollout segments, plus a small lateral margin. This box is tight enough to exclude the crossing 02/20 runway and most distant taxiway/apron holding areas, but is not perfectly exclusive of the nearby, non-parallel 06/24 runway, whose western end sits close to runway 3's western threshold - a known limitation to keep in mind when reading 'in bbox' counts. Checked 2026-08-04."
+    "source": "Computed (not looked up) from the confirmed runway-3 threshold coordinates in 'runway' below: extended roughly 2.5km beyond each threshold along the runway's own bearing (~074/254 TRUE) to include the on-approach and rollout segments, plus a lateral margin. Values unchanged since 2026-08-04 so that adsb-test/RESULTS.md's recorded Phase 1 sampling geometry stays true; this is now a COARSE PRE-FILTER ONLY - 'corridor' below is what actually decides whether an aircraft is on runway 3. Checked 2026-08-04.",
+    "correction_2026_08_27": "This block previously claimed the box was 'tight enough to exclude the crossing 02/20 runway' and merely 'not perfectly exclusive' of 06/24. Both claims were measured against real published OurAirports LFPO geometry during the runway3-false-positive debug session and are WRONG. This axis-aligned box is 8078m x 2449m = 19.8 km2 around a 3.3 km runway, and it contains 1935m of runway 02/20's 2403m (80.5%, including runway 02's threshold at 48.717499/2.376700) and 2621m of runway 06/24's 3647m (71.9%). Its corners reach 2229m cross-track from runway 3's centreline. Two real aircraft using OTHER Orly runways were caught being selected as 'runway 3' by a 22-poll live capture on 2026-08-27 (a runway-20 departure at 750m off-centreline and a 02/20-aligned arrival at 611m). Do not treat 'in bbox' as 'on runway 3'."
+  },
+  "corridor": {
+    "half_width_m": 500,
+    "extension_m": 2500,
+    "axis_tolerance_deg": 30,
+    "source": "Runway-aligned corridor around the 07/25 centreline defined by the two thresholds in 'runway' below (bearing 74.41 TRUE, length 3315m as computed from those coordinates). An aircraft counts as 'on runway 3' when its along-track position is within [-extension_m, length + extension_m] of threshold 07, its perpendicular (cross-track) offset from the centreline is <= half_width_m, and - when the record carries a numeric `track` - that true track is within axis_tolerance_deg of 074.41 or 254.41.",
+    "threshold_derivation": "Both numbers are read off MEASURED separation between real runway-3 traffic and real wrong-runway traffic, not guessed. half_width_m=500: every real runway-3 aircraft available measures <= 31m cross-track (committed fixtures 39d300 +3.1m, 39dd01 +14.3m, 3985a7 +31.0m; live 2026-08-27 captures 347288 +3.0m and 39cea8 +2..+7m), while every real wrong-runway aircraft observed measures >= 611m (3964e8 -611.3m, 39de4a -750.4m) and runway 06/24's paved surface never comes closer than 887m. 500 therefore sits inside an empty 580m band - 16x above the largest real runway-3 offset and 1.8x below the nearest wrong-runway pavement. axis_tolerance_deg=30: real runway-3 traffic measured 0.0-0.7 deg off axis; real 02/20-aligned traffic measured 56.0-56.7 deg (02/20's axis is 56 deg from runway 3's by construction), so 30 sits inside an empty 55 deg band.",
+    "why_both_gates": "Neither gate alone is sufficient, and this is a property of Orly's real layout rather than a belt-and-braces choice. Runway 06/24 is only 12 deg off runway 3's heading (062/242 vs 074/254), so a track gate CANNOT separate it - but its surface stays >= 887m from runway 3's centreline, so the corridor gate can. Runway 02/20 physically CROSSES runway 3's centreline (minimum cross-track 0m, at 1601m along, i.e. mid-runway), so the corridor gate CANNOT separate it - but it is 56 deg off runway 3's heading, so the track gate can. Each gate is blind to exactly the runway the other one catches.",
+    "known_residuals": "(1) A record carrying no numeric `track` is not disqualified by the alignment gate - it still has to pass the corridor. Measured 21/21 (100%) of live adsb.fi records on 2026-08-27 carried a numeric track, and the pre-existing committed fixtures carry none at all, so this is deliberately permissive rather than a hard reject. (2) An aircraft taxiing on a runway-parallel taxiway (~150-200m offset, runway-aligned track) still passes both gates; tightening half_width_m below ~150m would start rejecting genuine approach traffic, so this residual is documented rather than closed. Checked 2026-08-27."
   },
   "alt_ceiling_ft": 3000,
   "runway": {
@@ -25,6 +35,22 @@
       "lat": 48.727402,
       "lon": 2.402070
     },
-    "source": "OurAirports open aviation data, runways.csv (https://davidmegginson.github.io/ourairports-data/runways.csv), row with airport_ident=LFPO, le_ident=07 / he_ident=25, length_ft=10892 (=3320.0m exactly), le_latitude/le_longitude and he_latitude/he_longitude as recorded above. Cross-checked against the English Wikipedia 'Orly Airport' article infobox (r3_number=07/25, r3_length_m=3,320), which independently corroborates the exact 3320m length for this runway. Note: PROJECT.md's earlier text informally called this runway '08/26' with the same ~3,320m length; the confirmed ICAO heading-pair designator from both sources above is 07/25 (magnetic heading approx. 074deg/254deg). Because the length matches exactly across two independent sources and no other Orly runway has this length, 07/25 is treated as the confirmed identity for 'runway 3' rather than the earlier informal '08/26' label - this correction should be carried into any later document update per D-03. Checked 2026-08-04."
+    "source": "OurAirports open aviation data, runways.csv (https://davidmegginson.github.io/ourairports-data/runways.csv), row with airport_ident=LFPO, le_ident=07 / he_ident=25, length_ft=10892 (=3320.0m exactly), le_latitude/le_longitude and he_latitude/he_longitude as recorded above. Cross-checked against the English Wikipedia 'Orly Airport' article infobox (r3_number=07/25, r3_length_m=3,320), which independently corroborates the exact 3320m length for this runway. Note: PROJECT.md's earlier text informally called this runway '08/26' with the same ~3,320m length; the confirmed ICAO heading-pair designator from both sources above is 07/25. Because the length matches exactly across two independent sources and no other Orly runway has this length, 07/25 is treated as the confirmed identity for 'runway 3' rather than the earlier informal '08/26' label - this correction should be carried into any later document update per D-03. Checked 2026-08-04.",
+    "correction_2026_08_27": "This block previously described the 074/254 heading pair as MAGNETIC. It is not: OurAirports supplies those figures in the le_heading_degT/he_heading_degT columns, i.e. degrees TRUE (074/254 for 07/25, 062/242 for 06/24, 018/198 for 02/20), and the bearing computed directly from the two threshold coordinates above is 74.41 TRUE. The distinction matters because the alignment gate compares against ADS-B's `track` field, which is true track over ground - the same records' `mag_heading` runs ~4 deg lower (249-254 vs a track of 254.2-254.9 for the real runway-25 arrival captured on 2026-08-27), and adsb.fi's `dir` field is not a heading at all but the bearing from the query centre to the aircraft. Verified 2026-08-27.",
+    "neighbouring_runways": {
+      "note": "Recorded here because runway 3 cannot be identified without knowing what it must be distinguished FROM. Same OurAirports LFPO rows, same download (2026-08-27). Used by server/test_plane_detection.py as a geometry regression: these coordinates must never be accepted as runway 3.",
+      "06/24": {
+        "threshold_06": {"lat": 48.720001, "lon": 2.316920},
+        "threshold_24": {"lat": 48.735500, "lon": 2.360680},
+        "length_m": 3650,
+        "heading_deg_true": "062/242"
+      },
+      "02/20": {
+        "threshold_02": {"lat": 48.717499, "lon": 2.376700},
+        "threshold_20": {"lat": 48.737999, "lon": 2.386970},
+        "length_m": 2400,
+        "heading_deg_true": "018/198"
+      }
+    }
   }
 }

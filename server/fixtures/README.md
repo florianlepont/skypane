@@ -34,6 +34,17 @@ fixture, always explicitly noted).
     `test_plane_detection.py`.
   - `hex 000002` / `flight "SYNTH02 "` — synthetic, `lat`/`lon` set to
     `null` on purpose to drive the missing-position negative case.
+- **`t` field (phase 03.1):** `t: "B738"` on `39d300` and `t: "A20N"` on
+  `39dd01` were added synthetically in phase 03.1 for the aircraft-type
+  extraction tests (`server/plane/detect.py`'s `aircraft_type` field,
+  PLANE-01/02). Neither value was present in the original captured
+  payload; both are chosen to be real ICAO type designators plausible for
+  the callsign already on each record — `39d300`/`39dd01` are both
+  Transavia France (`TVF`) callsigns, and Transavia France's real
+  dominant type per `03.1-CONTEXT.md` D-03 is the B737-family (B738 is
+  used here; A20N marks the carrier's parallel A320neo-family fleet).
+  `000001`/`000002` deliberately carry no `t` key at all, driving the
+  missing-type-designator negative case.
 
 ## `geofence_on_ground.json`
 
@@ -49,6 +60,14 @@ fixture, always explicitly noted).
     `geofence_multi_aircraft.json`'s source snapshot.
 - Under D-P2-01 the on-ground aircraft (`3985a7`, effective altitude `0`)
   beats the 800ft airborne aircraft.
+- **`t` field (phase 03.1):** `t: "A320"` on `3985a7` was added
+  synthetically in phase 03.1 for the aircraft-type extraction tests
+  (`server/plane/detect.py`'s `aircraft_type` field, PLANE-01/02). It was
+  not present in the original captured payload; the value is chosen to be
+  a real ICAO type designator plausible for the callsign already on the
+  record — `3985a7` is an `AFR` (Air France) callsign, and A320 is Air
+  France's real Orly type per `03.1-CONTEXT.md` D-03. `39dd01` in this
+  file deliberately carries no `t` key.
 
 ## `geofence_empty.json`
 
@@ -70,6 +89,52 @@ fixture, always explicitly noted).
   that is unambiguously landing) — the fixture 02-02's D-03 deadband test
   asserts against. `lat`/`lon`/`gs`/`seen_pos` are carried through from the
   same source records; `hex`/`flight` (`440cb1` / `EJU84YF`) are real.
+
+## `geofence_wrong_runway_39de4a.json`
+
+- **Source:** live `GET opendata.adsb.fi/api/v2/lat/48.7233/lon/2.3794/dist/5`
+  during the `runway3-false-positive` debug session, captured by a 15-second
+  polling loop over `adsb-test/runway3.json`'s bbox.
+- **UTC timestamp:** `2026-08-27T09:29:46Z`.
+- **Provider:** adsb.fi (hence the `aircraft` array key, not airplanes.live's
+  `ac` — this is the raw shape adsb.fi returned).
+- **Every field is real**, copied verbatim from the captured record. Nothing
+  in this file is synthetic, including the `t`/`track`/`baro_rate` values the
+  tests assert on.
+- **What it is:** `hex 39de4a` / `flight "TVF12ZW "` / `r "F-HSXK"` (Transavia
+  France A320neo) — **a real reproduction of the reported bug**. At this
+  moment the aircraft was **departing Orly runway 20**, not runway 3:
+  `track 197.67` matches runway 20's published true heading (198°) to within
+  0.4°, and `baro_rate 2304` with `alt_baro 1050` caught it just after
+  rotation. Tracked across the following polls it climbed to 4,625 ft while
+  continuing south (lat 48.7156 → 48.6550), confirming a departure rather
+  than an overflight.
+- It sits **750 m from runway 3's centreline** yet **inside** the geofence
+  bbox and **below** the 3,000 ft ceiling — i.e. it satisfied every condition
+  the pre-fix `select_runway3_aircraft()` tested, and was in fact selected and
+  would have been displayed as the runway-3 aircraft, in the "departing"
+  state. This is why the bug also corrupted the departure/arrival inference,
+  not just the callsign.
+- Drives checks 11, 12, 14 in `test_plane_detection.py`.
+
+## `geofence_runway3_arrival_347288.json`
+
+- **Source:** the same live adsb.fi polling run as
+  `geofence_wrong_runway_39de4a.json`, 90 seconds later.
+- **UTC timestamp:** `2026-08-27T09:31:16Z`.
+- **Provider:** adsb.fi.
+- **Every field is real**, copied verbatim. Nothing synthetic.
+- **What it is:** `hex 347288` / `flight "IBE05DP "` / `r "EC-NTP"` (Iberia
+  A320neo) — the **correct counter-example**: a genuine runway-3 arrival, on
+  final to runway 25. `track 254.9` is within 0.5° of runway 3's true axis
+  (254.41°), `baro_rate -576` at `alt_baro 775`, and it measures **+2.9 m**
+  from the centreline. It was tracked down the centreline across six
+  consecutive polls (775 → 550 ft) before touchdown.
+- Its purpose is to prove the fix did not simply tighten the gate until
+  nothing qualifies. Checks 13, 14, 20, 21, 22 fail if genuine runway-3
+  traffic stops being selected.
+- The record's `wd: 235` / `ws: 13` (wind from 235° at 13 kt) independently
+  corroborate that runway 25 was the active arrival runway in that window.
 
 ## `adsbdb_hit_TVF16VB.json`
 

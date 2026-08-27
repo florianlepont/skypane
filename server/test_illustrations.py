@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 22
+EXPECTED_CHECK_COUNT = 43
 
 
 def main():
@@ -88,6 +88,81 @@ def main():
     check(
         "normalise_airline_key('') / (None) / (42) all return None without raising",
         _key_falsy_and_non_string_none,
+    )
+
+    # --- classify_aircraft_type() / SHAPE_SLUGS ------------------------------
+
+    def _classify_all_seven_buckets():
+        designator_to_expected = {
+            "A20N": "a320", "A321": "a320", "A21N": "a320", "A319": "a320", "A318": "a320",
+            "B738": "b737", "B733": "b737", "B38M": "b737",
+            "AT76": "atr72", "AT72": "atr72", "AT43": "atr72",
+            "BE9L": "beechcraft1900d",
+            "E145": "embraer", "E190": "embraer", "E195": "embraer", "E75L": "embraer",
+            "A333": "a330", "A339": "a330",
+            "A359": "a350", "A35K": "a350",
+        }
+        for designator, expected in designator_to_expected.items():
+            got = ill.classify_aircraft_type(designator)
+            if got != expected:
+                return False, "classify_aircraft_type(%r) returned %r, expected %r" % (designator, got, expected)
+        covered = set(designator_to_expected.values())
+        if covered != set(ill.SHAPE_SLUGS):
+            return False, "test table covers %r, missing %r" % (covered, set(ill.SHAPE_SLUGS) - covered)
+        return True, ""
+    check("classify_aircraft_type() maps real designators onto all seven SHAPE_SLUGS", _classify_all_seven_buckets)
+
+    def _classify_normalizes_case_and_whitespace():
+        for value in (" a20n ", "a20n", "A20N", "  A20N", "a20n  "):
+            got = ill.classify_aircraft_type(value)
+            if got != "a320":
+                return False, "classify_aircraft_type(%r) returned %r, expected 'a320'" % (value, got)
+        return True, ""
+    check("classify_aircraft_type() normalizes lowercase and leading/trailing whitespace", _classify_normalizes_case_and_whitespace)
+
+    def _classify_unknown_designator_is_none():
+        for value in ("ZZZZ", "XYZ9", "UNKNOWN"):
+            got = ill.classify_aircraft_type(value)
+            if got is not None:
+                return False, "classify_aircraft_type(%r) returned %r, expected None" % (value, got)
+        return True, ""
+    check("classify_aircraft_type() returns None for an unrecognized designator", _classify_unknown_designator_is_none)
+
+    def _classify_falsy_and_non_string_none():
+        for value in (None, "", 0, 42, [], {}):
+            got = ill.classify_aircraft_type(value)
+            if got is not None:
+                return False, "classify_aircraft_type(%r) returned %r, expected None" % (value, got)
+        return True, ""
+    check(
+        "classify_aircraft_type() returns None for falsy and non-string inputs (None, '', 0, 42, [], {}) without raising",
+        _classify_falsy_and_non_string_none,
+    )
+
+    def _classify_hostile_inputs_never_raise():
+        hostile = ("../../etc/passwd", "..\\..\\windows", "a/b/c", "..", "/etc/passwd")
+        for value in hostile:
+            got = ill.classify_aircraft_type(value)
+            if got is not None:
+                return False, "classify_aircraft_type(%r) returned %r, expected None" % (value, got)
+        return True, ""
+    check(
+        "classify_aircraft_type() returns None (never raises) for hostile path-separator/parent-dir inputs (T-03.1-03-01)",
+        _classify_hostile_inputs_never_raise,
+    )
+
+    def _type_shape_buckets_contract():
+        bad_values = [v for v in ill._TYPE_SHAPE_BUCKETS.values() if v not in ill.SHAPE_SLUGS]
+        if bad_values:
+            return False, "_TYPE_SHAPE_BUCKETS contains values not in SHAPE_SLUGS: %r" % (bad_values,)
+        key_re = re.compile(r"^[A-Z0-9]{3,4}$")
+        bad_keys = [k for k in ill._TYPE_SHAPE_BUCKETS if not key_re.match(k)]
+        if bad_keys:
+            return False, "_TYPE_SHAPE_BUCKETS contains keys not uppercase-ASCII 3-4 chars: %r" % (bad_keys,)
+        return True, ""
+    check(
+        "every _TYPE_SHAPE_BUCKETS value is a member of SHAPE_SLUGS and every key is uppercase ASCII 3-4 chars",
+        _type_shape_buckets_contract,
     )
 
     # --- select_illustration() against the real vendored set ----------------
@@ -175,6 +250,164 @@ def main():
     check(
         "select_illustration() returns None only when even the generic fallback file is absent",
         _select_returns_none_only_when_fallback_missing,
+    )
+
+    # --- select_illustration() four-tier fallback (Task 2, D-06/D-07/D-08) --
+
+    def _make_fixture_png(path):
+        Image.new("RGBA", (1400, 700), (10, 20, 30, 200)).save(path, format="PNG")
+
+    def _tier1_airline_and_shape_match():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air.png"))
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air-a320.png"))
+            path = ill.select_illustration({"airline_name": "Acme Air"}, "A320")
+            if path is None or os.path.basename(path) != "acme-air-a320.png":
+                return False, "Tier 1 returned %r, expected acme-air-a320.png" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check("select_illustration() Tier 1 returns the airline-and-shape file when it exists", _tier1_airline_and_shape_match)
+
+    def _tier2_airline_only_when_shape_absent():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air.png"))
+            path = ill.select_illustration({"airline_name": "Acme Air"}, "A320")
+            if path is None or os.path.basename(path) != "acme-air.png":
+                return False, "Tier 2 (D-06) returned %r, expected acme-air.png" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check("select_illustration() Tier 2 (D-06) returns the airline-only file when the shape file is absent", _tier2_airline_only_when_shape_absent)
+
+    def _tier2_wins_over_tier3():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air.png"))
+            _make_fixture_png(os.path.join(fixture_dir, "generic-a320.png"))
+            path = ill.select_illustration({"airline_name": "Acme Air"}, "A320")
+            if path is None or os.path.basename(path) != "acme-air.png":
+                return False, "Tier 2 should win over Tier 3, got %r" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() Tier 2 wins over Tier 3 when both an airline file and a matching generic-shape file exist",
+        _tier2_wins_over_tier3,
+    )
+
+    def _tier3_neutral_shape_for_unrecognized_airline():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "generic-a320.png"))
+            path = ill.select_illustration({"airline_name": "Unknown Air"}, "A320")
+            if path is None or os.path.basename(path) != "generic-a320.png":
+                return False, "Tier 3 (D-07) returned %r, expected generic-a320.png" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() Tier 3 (D-07) returns the neutral shape file for an unrecognized airline with a known shape",
+        _tier3_neutral_shape_for_unrecognized_airline,
+    )
+
+    def _tier3_applies_when_route_is_none():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "generic-a320.png"))
+            path = ill.select_illustration(None, "A320")
+            if path is None or os.path.basename(path) != "generic-a320.png":
+                return False, "Tier 3 with route=None returned %r, expected generic-a320.png" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check("select_illustration() Tier 3 also applies when route is None but a type is supplied", _tier3_applies_when_route_is_none)
+
+    def _tier4_universal_fallback_when_neither_resolves():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, ill.GENERIC_FALLBACK_FILENAME))
+            path = ill.select_illustration({"airline_name": "Unknown Air"}, "ZZZZ")
+            if path is None or os.path.basename(path) != ill.GENERIC_FALLBACK_FILENAME:
+                return False, "Tier 4 (D-08) returned %r, expected %r" % (path, ill.GENERIC_FALLBACK_FILENAME)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() Tier 4 (D-08) returns the universal fallback when neither key resolves",
+        _tier4_universal_fallback_when_neither_resolves,
+    )
+
+    def _tier4_when_shape_classifies_but_no_generic_file():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, ill.GENERIC_FALLBACK_FILENAME))
+            path = ill.select_illustration({"airline_name": "Unknown Air"}, "A320")
+            if path is None or os.path.basename(path) != ill.GENERIC_FALLBACK_FILENAME:
+                return False, "Tier 4 returned %r, expected the universal fallback (no generic-a320.png present)" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() Tier 4 also returns when the shape classifies but no generic-{shape}.png file exists",
+        _tier4_when_shape_classifies_but_no_generic_file,
+    )
+
+    def _select_illustration_hostile_battery_never_raises_and_stays_confined():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, ill.GENERIC_FALLBACK_FILENAME))
+            hostile_types = (
+                "../../etc/passwd", "..\\..\\windows", "/etc/passwd", "..",
+                "a" * 5000, None, 123, [], {}, object(),
+            )
+            malformed_routes = (
+                None, {}, {"airline_name": None}, {"airline_name": 123}, "not-a-dict",
+                42, ["a", "list"], {"airline_name": "../../etc/passwd"},
+            )
+            fixture_dir_real = os.path.realpath(fixture_dir)
+            for aircraft_type in hostile_types:
+                for route in malformed_routes:
+                    got = ill.select_illustration(route, aircraft_type)  # must not raise
+                    if got is not None:
+                        got_real = os.path.realpath(got)
+                        if os.path.commonpath([got_real, fixture_dir_real]) != fixture_dir_real:
+                            return False, "select_illustration(%r, %r) returned a path outside ILLUSTRATION_DIR: %r" % (
+                                route, aircraft_type, got,
+                            )
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() never raises for a hostile aircraft_type x malformed-route matrix, "
+        "and no returned path escapes ILLUSTRATION_DIR (T-03.1-03-01)",
+        _select_illustration_hostile_battery_never_raises_and_stays_confined,
     )
 
     # --- illustration_path_for_key() boundary --------------------------------
@@ -313,6 +546,126 @@ def main():
     check(
         "every file in required_filenames() exists in the vendored set and passes validate_illustration_file()",
         _all_required_files_pass_validation,
+    )
+
+    # --- target_filenames() / required_filenames() / outstanding_filenames() -
+
+    def _targets_contain_all_generic_shapes_and_fallback():
+        targets = ill.target_filenames()
+        expected_generics = set("generic-%s.png" % shape for shape in ill.SHAPE_SLUGS)
+        expected_generics.add(ill.GENERIC_FALLBACK_FILENAME)
+        missing = expected_generics - set(targets)
+        if missing:
+            return False, "target_filenames() is missing generic entries: %r" % (missing,)
+        pattern = re.compile(r"^[a-z0-9-]+\.png$")
+        bad = [n for n in targets if not pattern.match(n)]
+        if bad:
+            return False, "target_filenames() contains entries not matching ^[a-z0-9-]+\\.png$: %r" % (bad,)
+        return True, ""
+    check(
+        "target_filenames() contains one generic-{shape}.png per SHAPE_SLUGS plus the universal fallback, "
+        "all matching ^[a-z0-9-]+\\.png$",
+        _targets_contain_all_generic_shapes_and_fallback,
+    )
+
+    def _targets_have_no_duplicates():
+        targets = ill.target_filenames()
+        if len(targets) != len(set(targets)):
+            dupes = sorted({n for n in targets if targets.count(n) > 1})
+            return False, "target_filenames() has duplicate entries: %r" % (dupes,)
+        return True, ""
+    check("target_filenames() has no duplicate entries", _targets_have_no_duplicates)
+
+    def _every_vendored_png_is_a_target():
+        targets = set(ill.target_filenames())
+        vendored = [f for f in os.listdir(ill.ILLUSTRATION_DIR) if f.endswith(".png")]
+        orphaned = [f for f in vendored if f not in targets]
+        if orphaned:
+            return False, "vendored .png files not present in target_filenames(): %r" % (orphaned,)
+        return True, ""
+    check(
+        "every currently-vendored .png in ILLUSTRATION_DIR is a member of target_filenames() "
+        "(widening the expected set did not orphan an existing asset)",
+        _every_vendored_png_is_a_target,
+    )
+
+    def _required_is_subset_of_targets_and_keeps_baseline():
+        required = ill.required_filenames()
+        targets = set(ill.target_filenames())
+        not_in_targets = [n for n in required if n not in targets]
+        if not_in_targets:
+            return False, "required_filenames() contains entries missing from target_filenames(): %r" % (not_in_targets,)
+        baseline = set()
+        for _callsign, airline_name in ill._LIVE_RESOLVED_AIRLINES:
+            key = ill.normalise_airline_key(airline_name)
+            if key:
+                baseline.add(key + ".png")
+        baseline.add(ill.GENERIC_FALLBACK_FILENAME)
+        missing_baseline = baseline - set(required)
+        if missing_baseline:
+            return False, "required_filenames() is missing baseline entries: %r" % (missing_baseline,)
+        return True, ""
+    check(
+        "required_filenames() is a subset of target_filenames() and still contains every baseline file",
+        _required_is_subset_of_targets_and_keeps_baseline,
+    )
+
+    def _outstanding_is_targets_minus_on_disk():
+        targets = ill.target_filenames()
+        on_disk = set(f for f in os.listdir(ill.ILLUSTRATION_DIR) if f.endswith(".png"))
+        expected_outstanding = [n for n in targets if n not in on_disk]
+        got = ill.outstanding_filenames()
+        if got != expected_outstanding:
+            return False, "outstanding_filenames() = %r, expected %r" % (got, expected_outstanding)
+        on_disk_in_outstanding = [n for n in got if n in on_disk]
+        if on_disk_in_outstanding:
+            return False, "outstanding_filenames() contains files that exist on disk: %r" % (on_disk_in_outstanding,)
+        return True, ""
+    check(
+        "outstanding_filenames() is exactly target_filenames() minus the on-disk set, in target order",
+        _outstanding_is_targets_minus_on_disk,
+    )
+
+    def _p04_secondary_variants_and_primaries_present():
+        targets = set(ill.target_filenames())
+        expected_pairs = [
+            ("ccm-airlines.png", "ccm-airlines-atr72.png"),
+            ("transavia-france.png", "transavia-france-a320.png"),
+            ("royal-air-maroc.png", "royal-air-maroc-embraer.png"),
+            ("air-caraibes.png", "air-caraibes-a330.png"),
+        ]
+        missing = []
+        for primary, secondary in expected_pairs:
+            if primary not in targets:
+                missing.append(primary)
+            if secondary not in targets:
+                missing.append(secondary)
+        if missing:
+            return False, "target_filenames() is missing P-04 primary/secondary entries: %r" % (missing,)
+        return True, ""
+    check(
+        "the four P-04 secondary variants appear in target_filenames() with the expected exact names, "
+        "alongside their unsuffixed primaries",
+        _p04_secondary_variants_and_primaries_present,
+    )
+
+    # 43 (quick task 260827-hyy). target_airline_names() carries the
+    # resolved (not the current-brand) strings for the three known rename
+    # traps - it's what enrich.py's prefix table is checked against, so a
+    # regression here would silently let a stale-brand mismatch back in.
+    def _target_airline_names_carries_resolved_not_brand_names():
+        names = ill.target_airline_names()
+        for expected in ("Europe Airpost", "Corsairfly", "CCM Airlines"):
+            if expected not in names:
+                return False, "target_airline_names() is missing the resolved name %r: %r" % (expected, names)
+        for stale_brand in ("ASL Airlines France", "Corsair International", "Air Corsica"):
+            if stale_brand in names:
+                return False, "target_airline_names() must not contain the current-brand label %r in place of the resolved name" % (stale_brand,)
+        return True, ""
+    check(
+        "target_airline_names() contains the resolved 'Europe Airpost'/'Corsairfly'/'CCM Airlines' strings, "
+        "not the current-brand labels they replace",
+        _target_airline_names_carries_resolved_not_brand_names,
     )
 
     total = len(results)

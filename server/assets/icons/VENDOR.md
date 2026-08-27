@@ -12,7 +12,7 @@
   background with no ground, sky, vignette, halo, scenery, or extra aircraft.
   The generic fallback additionally prohibits all airline identities, logos,
   and livery colours.
-- **Selected aircraft types:**
+- **Selected aircraft types (Phase 3 baseline, 8 files):**
   - `air-france.png` — Airbus A320
   - `iberia-airlines.png` — Airbus A320
   - `tap-portugal.png` — Airbus A321neo
@@ -21,11 +21,34 @@
   - `vueling-airlines.png` — Airbus A320
   - `transavia-france.png` — Boeing 737-800
   - `generic-fallback.png` — unbranded generic narrow-body jet
-- **Local modifications / validation:** TAP and Air Algérie were regenerated
-  after a visual check identified an opaque vignette in earlier drafts. The
-  final eight files are all native RGBA PNGs, at least 1200px wide, and passed
+- **Local modifications / validation (Phase 3 baseline):** TAP and Air
+  Algérie were regenerated after a visual check identified an opaque
+  vignette in earlier drafts. The final eight files are all native RGBA
+  PNGs, at least 1200px wide, and passed
   `server/plane/illustrations.py --validate`. All source profiles were
   visually confirmed nose-left before hand-off.
+- **Phase 3.1 expansion (D-19 accuracy upgrade, 2026-08-27):** aircraft
+  type is no longer a free "plausible for that carrier" choice — it is now
+  dictated by the filename itself (an unsuffixed `{airline}.png` is the
+  carrier's numerically dominant type; a `{airline}-{shape}.png` file is a
+  named secondary variant). The full per-file type table, including every
+  Phase 3.1 airline primary, secondary-variant, and neutral-shape file, is
+  now maintained in `illustrations/VENDOR.md`'s "Per-file digests" section
+  rather than duplicated here — that file is the authoritative record from
+  this phase forward. This directory-level summary is retained only for
+  the Phase 3 baseline above.
+- **New category — neutral shape fallbacks (D-07, 7 files):**
+  `generic-a320.png`, `generic-b737.png`, `generic-atr72.png`,
+  `generic-beechcraft1900d.png`, `generic-embraer.png`, `generic-a330.png`,
+  `generic-a350.png` — shown when the airline itself is unrecognized but
+  the detected ICAO type classifies to one of the seven D-03 base shapes.
+  These are distinct from `generic-fallback.png` (the pre-existing D-08
+  universal fallback, used only when neither the airline nor the shape
+  resolves): the neutral shape files are a correct-shape-but-no-brand
+  middle tier, `generic-fallback.png` is the last-resort catch-all. None of
+  the seven carry any airline identity, livery colour, tail marking, or
+  logo shape — see `illustrations/VENDOR.md` and `illustrations/HANDOFF.md`
+  for the full requirement.
 
 ## `plane-takeoff.svg` / `plane-takeoff.png`, `plane-landing.svg` / `plane-landing.png`
 

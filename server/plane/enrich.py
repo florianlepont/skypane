@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
 """adsbdb.com flight-route enrichment client with a persistent,
-callsign-keyed hit/miss cache (D-02, D-P2-05).
+callsign-keyed hit/miss cache (D-02, D-P2-05), plus a second, independent
+airline-identity source (quick task 260827-hyy, 2026-08-27).
+
+adsbdb's callsign->route lookup is all-or-nothing: it requires airline +
+origin + destination to all resolve, or the whole result is a miss. For
+carriers with per-tail rotating callsigns (Transavia France measured at
+2/20 = 10% - see `.planning/notes/adsbdb-callsign-lookup-legacy-vs-rotating.md`),
+that threw away the airline identity on ~90% of detections even though it
+never depended on adsbdb in the first place: it is carried directly in the
+callsign's ICAO 3-letter prefix (`TVF` = Transavia France), stable
+standardised reference data. `airline_from_callsign()` resolves that prefix
+against a static, in-repo table (D-01); `resolve_route()` (D-05) layers it
+above an adsbdb miss as a fourth outcome, `"airline_only"` - the caller
+still learns the airline, even when adsbdb has nothing. This adds zero
+network calls, zero new dependencies, and zero cache entries of its own -
+it is a pure lookup, recomputed from the static table on every call.
 
 Live-verified this session (02-RESEARCH.md) against all 38 distinct real
 callsigns observed in Phase 1's Orly-area sample: `api.adsbdb.com/v0/
@@ -252,6 +267,153 @@ def city_for_state(route, state):
     if state == runway_config.STATE_ARRIVING:
         return route.get("origin_city")
     return None
+
+
+# --- ICAO callsign-prefix -> airline-name fallback (D-01/D-02/D-05, quick
+# task 260827-hyy) ------------------------------------------------------------
+#
+# Independent of adsbdb (D-04): the callsign's first three letters are a
+# standardised ICAO airline designator - stable reference data, not a
+# per-flight lookup. Every value below is copied verbatim from the resolved
+# `airline_name` column of `.planning/phases/
+# 03.1-procedural-per-airline-livery-rendering/03.1-LIVE-RESOLUTION.md`'s
+# 24-airline live-resolution table - never retyped from a current public
+# brand name, and never a guess (T-hyy-03). Three entries are the exact
+# stale-brand-name traps `illustrations.py`'s own module docstring already
+# documents: `FPO` resolves to `"Europe Airpost"` (not "ASL Airlines
+# France"), `CRL` resolves to `"Corsairfly"` (not "Corsair International"),
+# and `CCM` resolves to `"CCM Airlines"` (not "Air Corsica") - copy these
+# strings, never retype them from the brand name.
+#
+# Amelia International and La Compagnie are deliberately absent:
+# 03.1-LIVE-RESOLUTION.md marks both `[UNRESOLVED]` (a candidate ICAO code
+# for each turned out to belong to a different real airline), mirroring
+# `illustrations._ILLUSTRATION_TARGETS`'s own exclusion of the same two
+# carriers for the same reason. `test_enrich.py`'s drift guard asserts every
+# value here is a member of `illustrations.target_airline_names()` (D-07) -
+# renaming or dropping an illustration target without mirroring the change
+# here fails that check.
+_ICAO_AIRLINE_PREFIXES = {
+    "AFR": "Air France",  # callsign AFR56XX
+    "CCM": "CCM Airlines",  # callsign CCM21AW
+    "VLG": "Vueling Airlines",  # airline endpoint VLG
+    "IBE": "Iberia Airlines",  # airline endpoint IBE
+    "TAP": "TAP Portugal",  # airline endpoint TAP
+    "TVF": "Transavia France",  # callsign TVF16VB
+    "EZY": "easyJet",  # callsign EZY63GN (UK AOC)
+    # EJU (easyJet Europe, Austrian AOC) is the one entry NOT sourced from
+    # 03.1-LIVE-RESOLUTION.md - D-02's deliberate brand-level exception.
+    # EJU flies the same brand/livery as EZY, this project vendors exactly
+    # one asset for the brand (easyjet.png), and EJU is a confirmed
+    # permanent adsbdb miss (illustrations.py's module docstring,
+    # 03.1-RESEARCH.md P-03) - it can never contradict a live adsbdb hit.
+    "EJU": "easyJet",
+    "WZZ": "Wizz Air",  # cited callsign WZZ8025
+    "VOE": "Volotea",  # cited callsign VOE8KA
+    "ITY": "ITA Airways",  # cited callsign ITY1830
+    "AEA": "Air Europa",  # cited callsign AEA075
+    "DAH": "Air Algerie",  # airline endpoint DAH
+    "FPO": "Europe Airpost",  # callsigns FPO701/FPO458 - stale-brand trap, NOT "ASL Airlines France"
+    "RAM": "Royal Air Maroc",  # cited callsign RAM754
+    "TAR": "Tunisair",  # airline endpoint TAR
+    "PGT": "Pegasus Airlines",  # callsign PGT80PT
+    "LOT": "LOT Polish Airlines",  # cited callsign LOT331
+    "CLG": "Chalair Aviation",  # airline endpoint CLG
+    "TJT": "Twin Jet",  # callsign TJT352A
+    "FWI": "Air Caraïbes",  # cited callsign FWI701
+    "CRL": "Corsairfly",  # airline endpoint CRL - stale-brand trap, NOT "Corsair International"
+    "FBU": "French Bee",  # cited callsign FBU701
+}
+
+# Gate applied before any prefix lookup (mirrors classify_aircraft_type()'s
+# security property exactly, T-hyy-01): the normalised callsign must be
+# alphanumeric-only, at least 4 characters, with its first three characters
+# in A-Z. This rejects a bare 3-letter string with no flight suffix, a
+# path-separator payload, and anything shorter than a real callsign, before
+# `_ICAO_AIRLINE_PREFIXES.get()` is ever called.
+_AIRLINE_PREFIX_SHAPE_RE = re.compile(r"^[A-Z]{3}[A-Z0-9]+$")
+
+
+def airline_from_callsign(callsign):
+    """Return the airline name for `callsign`'s ICAO prefix (its first
+    three letters), or `None` for anything that does not resolve - an
+    unknown prefix, a non-string, an int, an empty string, a bare 3-letter
+    string with no flight suffix, or a callsign containing a path separator
+    or any other non-alphanumeric character. Never raises (T-hyy-02).
+
+    Mirrors `illustrations.classify_aircraft_type()`'s security property
+    exactly (T-hyy-01): the only strings this function can ever return are
+    the fixed `_ICAO_AIRLINE_PREFIXES` table values, or `None` - never
+    anything derived from its argument, so a hostile callsign can never
+    reach `illustrations.py`'s path construction through this seam.
+
+    Pure, no I/O, no network - a lookup against a static, in-repo table
+    (D-01), entirely independent of `lookup_route()`'s adsbdb call (D-04).
+    """
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return None
+    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return None
+    return _ICAO_AIRLINE_PREFIXES.get(normalised[:3])
+
+
+def airline_only_route(airline_name):
+    """Build the D-03 airline-only route dict: `airline_name` set to
+    `airline_name`, and the same four `origin_iata`/`origin_city`/
+    `destination_iata`/`destination_city` keys `_parse_route()` produces,
+    all `None`. This is the sole construction site for that shape - every
+    downstream consumer (`city_for_state()`, `render._flight_line1_text()`,
+    `render._flight_line2_text()`, `illustrations.select_illustration()`)
+    already works unchanged against it, because the shape is identical to a
+    real resolved route's.
+
+    Returns `None` for a falsy or non-string `airline_name`.
+    """
+    if not isinstance(airline_name, str) or not airline_name:
+        return None
+    return {
+        "airline_name": airline_name,
+        "origin_iata": None,
+        "origin_city": None,
+        "destination_iata": None,
+        "destination_city": None,
+    }
+
+
+def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
+    """D-05's single resolution seam: classify `callsign`'s enrichment
+    outcome into one of four sources and return `(route, source)`.
+
+    `source` is one of:
+      - `"fresh_hit"`: adsbdb resolved a full route this cycle (no cache
+        entry existed for this callsign before the call).
+      - `"cache_hit"`: the cache already held a resolved route for this
+        callsign - the request was spared entirely.
+      - `"airline_only"` (new): adsbdb had no route (a fresh or a cached
+        miss), but the callsign's ICAO prefix identified the carrier via
+        `airline_from_callsign()` - a route carrying only the airline name,
+        the other four fields `None`.
+      - `"miss"`: neither adsbdb nor the prefix table resolved anything.
+
+    `was_cached` is computed from the normalised callsign before delegating
+    to `lookup_route()` (D-04: unchanged, not loosened), so the fresh/cache
+    distinction is exactly the one `poll_loop.py` used to compute inline -
+    `"cache_hit"` still means the cache spared a request *and* returned a
+    usable route; a cached miss is still not a cache hit. The prefix
+    resolution itself is never cached - it is recomputed from the static
+    table on every call, since it is cheaper than a dict lookup and adds no
+    state of its own. Never raises (T-hyy-02).
+    """
+    normalised = normalise_callsign(callsign)
+    was_cached = normalised is not None and normalised in cache
+    route = lookup_route(callsign, cache, transport=transport, timeout=timeout)
+    if route is not None:
+        return route, ("cache_hit" if was_cached else "fresh_hit")
+    airline_name = airline_from_callsign(callsign)
+    if airline_name:
+        return airline_only_route(airline_name), "airline_only"
+    return None, "miss"
 
 
 def trim_cache(cache, max_entries=CACHE_MAX_ENTRIES):

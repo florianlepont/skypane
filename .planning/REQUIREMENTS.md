@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **PLANE-01**: User can see flight number, airline, and destination for the next plane departing from Orly runway 3
 - [x] **PLANE-02**: User can see flight number, airline, and origin for the next plane landing on runway 3 (when the runway is in arrival configuration, wind-dependent)
-- [x] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs (adsb.fi) geofenced to the runway's flight path — not a fixed timetable
+- [x] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs (adsb.fi, adsb.lol) geofenced to the runway's flight path — not a fixed timetable
 
 ### Device
 
@@ -67,7 +67,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Additional views beyond plane/RER (weather, other transit lines, etc.) | Stay two-view to preserve focus on the core value |
 | Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions | Anti-features that would make the frame read as a gadget rather than ambient art |
 | Local RTL-SDR ADS-B receiver | Originally the primary plan; Phase 1 plan 01-04 validated the free adsb.fi/airplanes.live aggregators clear the coverage bar (~92min real traffic, 38/37 distinct aircraft, 2/2 on-ground) with no dedicated hardware needed — no RTL-SDR ordered |
-| ADS-B Exchange specifically (as opposed to adsb.fi/airplanes.live) | Considered as a possible aggregator but not the one validated/used — adsb.fi and airplanes.live are the two in production |
+| ADS-B Exchange specifically (as opposed to adsb.fi/adsb.lol) | Considered as a possible aggregator but not the one validated/used — adsb.fi and adsb.lol are the two default providers in production |
 
 ## Traceability
 

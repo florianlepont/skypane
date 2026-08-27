@@ -15,7 +15,7 @@ purpose.
 
 ```
  Public ADS-B aggregators                adsbdb.com
- (adsb.fi, sole default -                (callsign -> airline/route,
+ (adsb.fi + adsb.lol, both default -     (callsign -> airline/route,
   airplanes.live opt-in/unused)           hit+miss cache)
         │                                       │
         │ HTTPS, geofenced query                │ HTTPS, cache-first
@@ -26,7 +26,9 @@ purpose.
  │                    runway 3 right now"                   │
  │    runway_config.py -> departing/arriving from vertical  │
  │                         rate, with a deadband             │
- │    enrich.py   -> airline + route, or a designed miss    │
+ │    enrich.py   -> airline + route, an airline-only         │
+ │                    fallback from the callsign's ICAO      │
+ │                    prefix, or a designed miss              │
  │    render.py   -> two-flight poster, packed to the        │
  │                    960,000-byte panel_format.py wire       │
  │                    format                                  │
@@ -147,12 +149,21 @@ tmp-write-then-`os.replace()` atomic pattern used throughout this
 project.
 
 **Detection.** `server/plane/detect.py` queries a geofenced bounding box
-around runway 3 against `adsb.fi`. There is no automatic fallback provider
-— since 2026-08-27, `adsb.fi` is the sole default (`airplaneslive` remains
-in the code only as an explicit `--provider` opt-in for a feeder operator,
-sponsor, or licensee, never queried automatically); an `adsb.fi` failure
-yields no detection for that cycle, which the pipeline already handles as
-the Empty state. When more than one aircraft is inside the geofence in the
+around runway 3 against both default sources, `adsb.fi` then `adsb.lol`
+(the second added 2026-08-27), and cross-validates their independent
+selections rather than returning on the first hit: when both agree, the
+returned selection is corroborated and carries `adsb.fi`'s own record —
+ordering decides which source's record survives on agreement, since the
+first-queried provider is the one returned. When only one source answers
+(the other unreachable, blocked, or gated behind a future feeder-
+contributed API key), that source's selection is still returned, flagged
+uncorroborated rather than suppressed — this is why an outage at either
+default source does not blank the display. When the two sources name
+different aircraft, the poll returns nothing for that cycle, which the
+pipeline already treats as the between-flights hold rather than an error.
+`airplaneslive` remains in the code only as an explicit `--provider`
+opt-in for a feeder operator, sponsor, or licensee, never queried
+automatically. When more than one aircraft is inside the geofence in the
 same poll,
 `select_runway3_aircraft()` picks exactly one by a deterministic total
 order: lowest effective altitude first (an on-ground aircraft has
@@ -174,12 +185,26 @@ guessing a colour.
 callsign to an airline and route via `adsbdb.com`, through a persistent,
 callsign-keyed cache stored in `poll_state.json` that records **both hits
 and misses** — a callsign already seen, resolved or not, is never
-re-queried. This matters because the fallback is not a rare edge case:
-`adsbdb` resolves only about 52.6% of this airport's real traffic mix
-(strong on legacy/full-service carriers, weak on low-cost carriers that
-rotate callsigns per tail). The **"Route unavailable" caption is therefore
-a first-class, designed render state**, reachable on roughly half of all
-real detections, not an error path bolted on afterward.
+re-queried. The fallback is not a rare edge case: `adsbdb` resolves only
+about 52.6% of this airport's real traffic mix (strong on legacy/full-
+service carriers, weak on low-cost carriers that rotate callsigns per
+tail) — this measurement stands unchanged and the miss path remains a
+first-class, designed render state, not an error path bolted on
+afterward.
+
+What an adsbdb miss now means changed, however: a miss no longer implies
+the panel has to give up on the airline's identity. `enrich.resolve_route()`
+layers a second, independent source above the miss — the callsign's ICAO
+3-letter prefix (e.g. `TVF` = Transavia France) resolved against a static,
+in-repo table, with no additional network call and no additional cache
+entry. The result is a three-outcome table: a full adsbdb hit renders the
+route as before; an adsbdb miss whose prefix resolves renders the airline
+name (and the airline's own illustration) with the destination honestly
+left unknown (the bare callsign, no `to`/`from` clause); only when
+*neither* source resolves anything does the panel fall all the way to the
+**"Route unavailable" caption**, which is correspondingly rarer than the
+52.6% figure alone would suggest, though still a first-class, designed
+state rather than an error path.
 
 **Composition.** `server/plane/render.py` builds a two-flight poster: the
 current detection (large, upper-center) and the immediately-preceding

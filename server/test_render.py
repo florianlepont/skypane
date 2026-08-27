@@ -24,8 +24,10 @@ same files poll_loop.py will actually serve.
 Usage:
     server/.venv/bin/python3 server/test_render.py
 """
+import contextlib
 import os
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -33,15 +35,15 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 26
+EXPECTED_CHECK_COUNT = 41
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
 LEGAL_NIBBLES = {NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN}
 LEGAL_IDX = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN}
 
-TEST_FLIGHT = {"hex": "3985a7", "callsign": "AF1380"}
-TEST_PREVIOUS_FLIGHT = {"hex": "4a1b02", "callsign": "VLG6PD"}
+TEST_FLIGHT = {"hex": "3985a7", "callsign": "AF1380", "aircraft_type": "B738"}
+TEST_PREVIOUS_FLIGHT = {"hex": "4a1b02", "callsign": "VLG6PD", "aircraft_type": "A320"}
 
 # A real resolved route (server/fixtures/adsbdb_hit_TVF16VB.json, already
 # sentence-cased per server.plane.enrich.to_sentence_case_city) - its
@@ -110,6 +112,93 @@ class _TextSpy:
     def __exit__(self, exc_type, exc, tb):
         self._render_mod.ImageDraw.ImageDraw.text = self._orig
         return False
+
+
+class _SelectIllustrationSpy:
+    """Captures every illustrations.select_illustration() call made by
+    render.py's _build_active_canvas() while building one canvas - a list
+    of (route, aircraft_type) argument pairs, in call order. Monkeypatches
+    render.illustrations.select_illustration (the reference render.py
+    itself calls through), following _TextSpy's monkeypatch-and-restore
+    shape.
+    """
+
+    def __init__(self, render_mod):
+        self._render_mod = render_mod
+        self.calls = []
+        self._orig = None
+
+    def __enter__(self):
+        self._orig = self._render_mod.illustrations.select_illustration
+
+        def _spy(route, aircraft_type=None):
+            self.calls.append((route, aircraft_type))
+            return self._orig(route, aircraft_type)
+
+        self._render_mod.illustrations.select_illustration = _spy
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._render_mod.illustrations.select_illustration = self._orig
+        return False
+
+
+def _write_garbage_png():
+    """Create a NamedTemporaryFile with a `.png` suffix that passes
+    os.path.isfile() but carries no valid PNG signature - matching
+    03-VERIFICATION.md's live repro of the crash 03-04-PLAN.md closes: a
+    file that exists on disk but is not decodable image data.
+    """
+    fh = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    fh.write(b"not a real PNG file - just a short run of garbage bytes 0123456789")
+    fh.close()
+    return fh.name
+
+
+def _write_oversized_png():
+    """Build a genuinely valid, decodable PNG whose pixel count exceeds
+    illustrations.ILLUSTRATION_MAX_PIXELS (40,000,000): 7000x6000 =
+    42,000,000 pixels. Single-band mode "L" keeps the in-memory fixture
+    around 42MB rather than the 168MB an RGBA buffer of that size would
+    need, and stays comfortably under Pillow's own Image.MAX_IMAGE_PIXELS
+    so no DecompressionBombWarning fires. compress_level=1 keeps the write
+    fast (about a second) and the on-disk size small (a few tens of KB).
+    Using a genuinely decodable oversized file (not garbage) is what makes
+    the check that consumes this fixture prove a header-only cap exists -
+    a bare try/except around the decode cannot satisfy it, because the
+    decode would succeed and paint a different panel.
+    """
+    from PIL import Image
+
+    img = Image.new("L", (7000, 6000), color=128)
+    fh = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+    fh.close()
+    img.save(fh.name, format="PNG", compress_level=1)
+    return fh.name
+
+
+@contextlib.contextmanager
+def _forced_illustration(render_mod, path, fallback_path=None):
+    """Monkeypatch `render_mod.illustrations.select_illustration` to a
+    lambda accepting `(route, aircraft_type=None)` and returning `path` -
+    following `_SelectIllustrationSpy`'s exact monkeypatch-and-restore
+    shape, but overriding the return value instead of recording arguments.
+    When `fallback_path` is given, also monkeypatches
+    `render_mod.illustrations.generic_fallback_path` to return it -
+    letting a caller force both the primary candidate and the fallback
+    candidate to the same (or different) undecodable file. Restores both
+    originals on exit, even if the body raises.
+    """
+    orig_select = render_mod.illustrations.select_illustration
+    orig_fallback = render_mod.illustrations.generic_fallback_path
+    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None: path
+    if fallback_path is not None:
+        render_mod.illustrations.generic_fallback_path = lambda: fallback_path
+    try:
+        yield
+    finally:
+        render_mod.illustrations.select_illustration = orig_select
+        render_mod.illustrations.generic_fallback_path = orig_fallback
 
 
 def main():
@@ -396,12 +485,14 @@ def main():
             render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
         texts = [t for t, _xy, _anchor in spy.calls]
         expected_line1 = "%s to %s" % (TEST_FLIGHT["callsign"], TEST_ROUTE["destination_city"])
+        type_label = render._TYPE_DISPLAY_LABELS[TEST_FLIGHT["aircraft_type"]]
+        expected_line2 = "%s · %s" % (TEST_ROUTE["airline_name"], type_label)
         if expected_line1 not in texts:
             return False, "expected main line 1 %r among the text draws, got %r" % (expected_line1, texts)
-        if TEST_ROUTE["airline_name"] not in texts:
-            return False, "expected main line 2 (airline name) %r among the text draws, got %r" % (TEST_ROUTE["airline_name"], texts)
+        if expected_line2 not in texts:
+            return False, "expected main line 2 %r among the text draws, got %r" % (expected_line2, texts)
         return True, ""
-    check("departing main flight text is '{callsign} to {destination_city}' / '{airline_name}' (D-26 lowercase sentence text)", _departing_main_text_uses_lowercase_to)
+    check("departing main flight text is '{callsign} to {destination_city}' / '{airline_name} · {type_label}' (D-26/PLANE-04)", _departing_main_text_uses_lowercase_to)
 
     def _arriving_main_text_uses_lowercase_from():
         with _TextSpy(render) as spy:
@@ -434,10 +525,12 @@ def main():
             )
         texts = [t for t, _xy, _anchor in spy.calls]
         expected_line1 = "%s from %s" % (TEST_PREVIOUS_FLIGHT["callsign"], TEST_PREVIOUS_ROUTE["origin_city"])
+        type_label = render._TYPE_DISPLAY_LABELS[TEST_PREVIOUS_FLIGHT["aircraft_type"]]
+        expected_line2 = "%s · %s" % (TEST_PREVIOUS_ROUTE["airline_name"], type_label)
         if expected_line1 not in texts:
             return False, "expected previous-flight line 1 %r among the text draws, got %r" % (expected_line1, texts)
-        if TEST_PREVIOUS_ROUTE["airline_name"] not in texts:
-            return False, "expected previous-flight line 2 (airline name) %r among the text draws, got %r" % (TEST_PREVIOUS_ROUTE["airline_name"], texts)
+        if expected_line2 not in texts:
+            return False, "expected previous-flight line 2 %r among the text draws, got %r" % (expected_line2, texts)
         return True, ""
     check("a supplied previous_flight/previous_route renders its own real two-line text block", _previous_flight_card_renders_its_own_text)
 
@@ -516,7 +609,154 @@ def main():
         _long_name_stress_case_shrinks_without_crashing,
     )
 
-    # 26. No text-outline arguments anywhere in the source (still a real
+    # 26. An unlabelled designator renders the airline name alone.
+    def _unlabelled_type_renders_airline_alone():
+        result = render._flight_line2_text({"airline_name": "Air France"}, "ZZZZ")
+        if result != "Air France":
+            return False, "expected 'Air France' for an unlabelled designator, got %r" % (result,)
+        return True, ""
+    check(
+        "_flight_line2_text() renders the airline name alone for an unlabelled (unrecognized) type designator",
+        _unlabelled_type_renders_airline_alone,
+    )
+
+    # 27. A None type renders the airline name alone.
+    def _none_type_renders_airline_alone():
+        result = render._flight_line2_text({"airline_name": "Air France"}, None)
+        if result != "Air France":
+            return False, "expected 'Air France' for aircraft_type=None, got %r" % (result,)
+        return True, ""
+    check("_flight_line2_text() renders the airline name alone for aircraft_type=None", _none_type_renders_airline_alone)
+
+    # 28. The one-argument call (aircraft_type omitted entirely) renders the
+    # airline name alone.
+    def _one_argument_call_renders_airline_alone():
+        result = render._flight_line2_text({"airline_name": "Air France"})
+        if result != "Air France":
+            return False, "expected 'Air France' for the one-argument call, got %r" % (result,)
+        return True, ""
+    check("_flight_line2_text() renders the airline name alone when aircraft_type is omitted entirely", _one_argument_call_renders_airline_alone)
+
+    # 29. The P-01 display alias: the one carrier with a display alias
+    # renders under its current public brand while a non-aliased airline
+    # is returned unchanged, and the alias never touches selection.
+    def _display_airline_name_applies_the_p01_alias_only_where_defined():
+        if render.display_airline_name("CCM Airlines") != "Air Corsica":
+            return False, "display_airline_name('CCM Airlines') did not return the P-01 alias 'Air Corsica'"
+        if render.display_airline_name("Air France") != "Air France":
+            return False, "display_airline_name('Air France') should return the input unchanged (no alias)"
+        aliased_line2 = render._flight_line2_text({"airline_name": "CCM Airlines"}, "AT72")
+        if "Air Corsica" not in aliased_line2 or "CCM Airlines" in aliased_line2:
+            return False, "_flight_line2_text() with the CCM Airlines route did not render the P-01 alias: %r" % (aliased_line2,)
+        return True, ""
+    check(
+        "the P-01 presentation-only airline alias renders the current brand name; a non-aliased airline is unchanged",
+        _display_airline_name_applies_the_p01_alias_only_where_defined,
+    )
+
+    # 30. Never-raises battery: malformed routes crossed with hostile
+    # aircraft types must never raise, and the result is always a string.
+    def _flight_line2_text_never_raises_for_hostile_inputs():
+        malformed_routes = (None, {}, "not-a-dict", 42, ["a", "list"], {"airline_name": 12345})
+        hostile_types = (None, "", "   ", "../../etc/passwd", "..\\..\\windows", 999, ["x"], "z" * 500)
+        for route in malformed_routes:
+            for aircraft_type in hostile_types:
+                try:
+                    result = render._flight_line2_text(route, aircraft_type)
+                except Exception as exc:
+                    return False, "_flight_line2_text(%r, %r) raised %r" % (route, aircraft_type, exc)
+                if not isinstance(result, str):
+                    return False, "_flight_line2_text(%r, %r) returned non-string %r" % (route, aircraft_type, result)
+        return True, ""
+    check(
+        "_flight_line2_text() never raises across a battery of malformed routes x hostile aircraft types, and always returns a string",
+        _flight_line2_text_never_raises_for_hostile_inputs,
+    )
+
+    # 31. TEST_LONG_ROUTE combined with the longest known type label still
+    # fits without tripping _assert_within_canvas - the composed line 2 is
+    # strictly longer than today's, exercising fit_text_size()'s shrink path.
+    def _long_name_plus_longest_label_fits_within_canvas():
+        longest_type, longest_label = max(render._TYPE_DISPLAY_LABELS.items(), key=lambda kv: len(kv[1]))
+        long_flight = dict(TEST_FLIGHT, aircraft_type=longest_type)
+        try:
+            render.build_canvas(long_flight, "arriving", route=TEST_LONG_ROUTE)
+        except AssertionError as exc:
+            return False, "long airline name + longest type label (%r) raised an assertion: %r" % (longest_label, exc)
+        return True, ""
+    check(
+        "the longest real airline name combined with the longest type label still renders without tripping _assert_within_canvas",
+        _long_name_plus_longest_label_fits_within_canvas,
+    )
+
+    # 32. Rendering a main flight carrying a type calls select_illustration()
+    # with that exact type as the second argument.
+    def _select_illustration_receives_main_flights_type():
+        with _SelectIllustrationSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        if not spy.calls:
+            return False, "no select_illustration() call captured"
+        main_route, main_type = spy.calls[0]
+        if main_type != TEST_FLIGHT["aircraft_type"]:
+            return False, "main-card select_illustration() call got aircraft_type=%r, expected %r" % (main_type, TEST_FLIGHT["aircraft_type"])
+        if main_route != TEST_ROUTE:
+            return False, "main-card select_illustration() call got route=%r, expected TEST_ROUTE" % (main_route,)
+        return True, ""
+    check(
+        "rendering with a main flight carrying a type calls select_illustration() with that exact type",
+        _select_illustration_receives_main_flights_type,
+    )
+
+    # 33. A main + previous flight makes two select_illustration() calls,
+    # each receiving its own flight's type - the previous card must never
+    # receive the main flight's type (the specific bug this threading can
+    # introduce).
+    def _select_illustration_calls_each_receive_their_own_flights_type():
+        with _SelectIllustrationSpy(render) as spy:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+            )
+        if len(spy.calls) != 2:
+            return False, "expected exactly 2 select_illustration() calls (main + previous), got %d: %r" % (len(spy.calls), spy.calls)
+        (main_route, main_type), (prev_route, prev_type) = spy.calls
+        if main_type != TEST_FLIGHT["aircraft_type"]:
+            return False, "main-card call got aircraft_type=%r, expected %r" % (main_type, TEST_FLIGHT["aircraft_type"])
+        if prev_type != TEST_PREVIOUS_FLIGHT["aircraft_type"]:
+            return False, "previous-card call got aircraft_type=%r, expected %r" % (prev_type, TEST_PREVIOUS_FLIGHT["aircraft_type"])
+        if prev_type == main_type and TEST_FLIGHT["aircraft_type"] != TEST_PREVIOUS_FLIGHT["aircraft_type"]:
+            return False, "previous-card call received the main flight's type - card-type crossover bug"
+        if main_route != TEST_ROUTE or prev_route != TEST_PREVIOUS_ROUTE:
+            return False, "select_illustration() calls got the wrong route pairing: %r" % (spy.calls,)
+        return True, ""
+    check(
+        "a main + previous flight makes two select_illustration() calls, each receiving its own flight's type (no crossover)",
+        _select_illustration_calls_each_receive_their_own_flights_type,
+    )
+
+    # 34. previous_flight=None still completes without raising, and the
+    # previous-card lookup (if made at all) never receives a non-None type
+    # derived from a None flight.
+    def _no_previous_flight_never_raises_and_never_crosses_over():
+        try:
+            with _SelectIllustrationSpy(render) as spy:
+                render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, previous_flight=None)
+        except Exception as exc:
+            return False, "build_canvas() with previous_flight=None raised %r" % (exc,)
+        # Only the main-card call is expected (no previous_flight means no
+        # previous card at all, per _build_active_canvas()'s own guard) -
+        # but the real assertion is simply that nothing raised, and that if
+        # a second call somehow occurred, it did not fabricate a type.
+        for _route, aircraft_type in spy.calls[1:]:
+            if aircraft_type not in (None, TEST_FLIGHT["aircraft_type"]):
+                return False, "a previous-card call with no previous_flight got an unexpected aircraft_type=%r" % (aircraft_type,)
+        return True, ""
+    check(
+        "previous_flight=None still completes without raising and never fabricates a type for the omitted previous card",
+        _no_previous_flight_never_raises_and_never_crosses_over,
+    )
+
+    # 35. No text-outline arguments anywhere in the source (still a real
     # regression guard: Pillow's stroke_width/stroke_fill leak illegal
     # anti-aliased indices through blended stroke edges).
     def _render_source_never_uses_text_outline_arguments():
@@ -530,6 +770,158 @@ def main():
     check(
         "server/plane/render.py's comment-stripped source contains no stroke_width/stroke_fill text-outline usage",
         _render_source_never_uses_text_outline_arguments,
+    )
+
+    # 36. A corrupt (byte-garbage) illustration file degrades to the
+    # generic fallback instead of raising out of render_panel() -
+    # 03-VERIFICATION.md gap #1 / T-03-04-01.
+    def _corrupt_illustration_degrades_to_generic_fallback():
+        garbage_path = _write_garbage_png()
+        try:
+            with _forced_illustration(render, garbage_path):
+                garbage_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+            with _forced_illustration(render, illustrations.generic_fallback_path()):
+                fallback_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        finally:
+            os.unlink(garbage_path)
+        if len(garbage_buf) != panel_format.IMAGE_BYTES:
+            return False, "corrupt-illustration render is %d bytes, expected %d" % (len(garbage_buf), panel_format.IMAGE_BYTES)
+        if garbage_buf != fallback_buf:
+            return False, "a corrupt illustration file did not degrade to a byte-identical generic-fallback panel"
+        return True, ""
+    check(
+        "a corrupt (byte-garbage) illustration file degrades to the generic fallback instead of raising out of render_panel()",
+        _corrupt_illustration_degrades_to_generic_fallback,
+    )
+
+    # 37. An oversized illustration is rejected on its PNG header, before
+    # any pixel data is decoded - 03-VERIFICATION.md gap #2 / T-03-04-02.
+    def _oversized_illustration_rejected_on_header():
+        oversized_path = _write_oversized_png()
+        try:
+            with Image.open(oversized_path) as probe:
+                pixel_count = probe.size[0] * probe.size[1]
+            if pixel_count <= illustrations.ILLUSTRATION_MAX_PIXELS:
+                return False, (
+                    "fixture pixel count %d does not exceed ILLUSTRATION_MAX_PIXELS %d - "
+                    "fixture is not actually oversized" % (pixel_count, illustrations.ILLUSTRATION_MAX_PIXELS)
+                )
+            with _forced_illustration(render, oversized_path):
+                oversized_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+            with _forced_illustration(render, illustrations.generic_fallback_path()):
+                fallback_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        finally:
+            os.unlink(oversized_path)
+        if len(oversized_buf) != panel_format.IMAGE_BYTES:
+            return False, "oversized-illustration render is %d bytes, expected %d" % (len(oversized_buf), panel_format.IMAGE_BYTES)
+        if oversized_buf != fallback_buf:
+            return False, "an oversized illustration file did not degrade to a byte-identical generic-fallback panel"
+        return True, ""
+    check(
+        "an oversized illustration is rejected on its PNG header, before any pixel data is decoded",
+        _oversized_illustration_rejected_on_header,
+    )
+
+    # 38. When the selected illustration and the generic fallback are both
+    # undecodable, the render skips the illustration entirely and still
+    # returns a valid panel - the tail of the degradation ladder.
+    def _both_illustration_and_fallback_undecodable_still_renders():
+        garbage_path = _write_garbage_png()
+        try:
+            with _forced_illustration(render, garbage_path, fallback_path=garbage_path):
+                both_bad_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+            with _forced_illustration(render, illustrations.generic_fallback_path()):
+                fallback_buf = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        finally:
+            os.unlink(garbage_path)
+        if len(both_bad_buf) != panel_format.IMAGE_BYTES:
+            return False, (
+                "render with both illustration and fallback undecodable is %d bytes, expected %d"
+                % (len(both_bad_buf), panel_format.IMAGE_BYTES)
+            )
+        if both_bad_buf == fallback_buf:
+            return False, (
+                "render with both illustration and fallback undecodable is byte-identical to the "
+                "fallback-forced render - the illustration was not actually skipped"
+            )
+        return True, ""
+    check(
+        "when the selected illustration and the generic fallback are both undecodable, the render skips the illustration and still returns a valid panel",
+        _both_illustration_and_fallback_undecodable_still_renders,
+    )
+
+    # --- Quick task 260827-hyy: D-06's intermediate render state - an
+    # airline-only route (adsbdb missed, the callsign's ICAO prefix
+    # resolved the carrier) still shows the airline name and the airline's
+    # own illustration; the destination stays genuinely unknown. ------------
+
+    # 39. EJU84YF (a confirmed adsbdb miss, easyJet Europe): line 1 is the
+    # bare callsign (no to/from clause, no city - genuinely unknown), line 2
+    # is the resolved airline name alone (no aircraft_type supplied), and
+    # ROUTE_FALLBACK_TEXT does not appear anywhere - D-06's middle row is
+    # not the same as a full miss.
+    def _airline_only_route_shows_airline_not_fallback_text():
+        import server.plane.enrich as enrich
+
+        airline_only_flight = {"hex": "440cb1", "callsign": "EJU84YF"}
+        airline_only_route = enrich.airline_only_route("easyJet")
+        with _TextSpy(render) as spy:
+            render.build_canvas(airline_only_flight, "departing", route=airline_only_route)
+        texts = [t for t, _xy, _anchor in spy.calls]
+        if "EJU84YF" not in texts:
+            return False, "expected the bare callsign 'EJU84YF' among the text draws, got %r" % (texts,)
+        if "easyJet" not in texts:
+            return False, "expected the resolved airline name 'easyJet' among the text draws, got %r" % (texts,)
+        if render.ROUTE_FALLBACK_TEXT in texts:
+            return False, "ROUTE_FALLBACK_TEXT must not appear when the airline is known (D-06), got %r" % (texts,)
+        return True, ""
+    check(
+        "an airline-only route (adsbdb miss, prefix-resolved 'easyJet') draws the bare callsign and the airline "
+        "name, never ROUTE_FALLBACK_TEXT (D-06 quick task 260827-hyy)",
+        _airline_only_route_shows_airline_not_fallback_text,
+    )
+
+    # 40. Transavia France + B738: line 2 composes exactly like a full hit
+    # ("{airline} · {type label}"), while line 1 stays the bare callsign -
+    # no to/from clause, no city fabricated from the prefix.
+    def _airline_only_route_composes_line2_like_a_full_hit():
+        import server.plane.enrich as enrich
+
+        flight = {"hex": "39de4a", "callsign": "TVF12ZW", "aircraft_type": "B738"}
+        airline_only_route = enrich.airline_only_route("Transavia France")
+        with _TextSpy(render) as spy:
+            render.build_canvas(flight, "departing", route=airline_only_route)
+        texts = [t for t, _xy, _anchor in spy.calls]
+        expected_line2 = "Transavia France · %s" % render._TYPE_DISPLAY_LABELS["B738"]
+        if expected_line2 not in texts:
+            return False, "expected main line 2 %r among the text draws, got %r" % (expected_line2, texts)
+        if "TVF12ZW" not in texts:
+            return False, "expected the bare callsign 'TVF12ZW' (no to/from clause, no city) among the text draws, got %r" % (texts,)
+        for text in texts:
+            if " to " in text or " from " in text:
+                return False, "found a to/from clause %r - the destination must stay genuinely unknown (D-06)" % (text,)
+        return True, ""
+    check(
+        "an airline-only Transavia France + B738 route composes line 2 as '{airline} · {type label}' exactly like a "
+        "full hit, while line 1 stays the bare callsign with no to/from clause or city (D-06)",
+        _airline_only_route_composes_line2_like_a_full_hit,
+    )
+
+    # 41. This is the check that proves the todo's actual goal: the
+    # airline-only route resolves to the airline's own illustration, not the
+    # generic fallback.
+    def _airline_only_route_selects_the_airlines_own_illustration():
+        import server.plane.enrich as enrich
+
+        airline_only_route = enrich.airline_only_route("Transavia France")
+        path = illustrations.select_illustration(airline_only_route, "B738")
+        if path is None or os.path.basename(path) != "transavia-france.png":
+            return False, "expected the airline's own illustration 'transavia-france.png', got %r" % (path,)
+        return True, ""
+    check(
+        "illustrations.select_illustration() on an airline-only Transavia France route resolves to "
+        "'transavia-france.png' - the airline's own art, not the generic fallback",
+        _airline_only_route_selects_the_airlines_own_illustration,
     )
 
     total = len(results)

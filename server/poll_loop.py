@@ -48,9 +48,9 @@ POLL_INTERVAL_S = 30
 def _extract_aircraft(snapshot):
     """A raw aggregator response dict (as injected by tests, or as returned
     by one of detect.PROVIDERS) carries its aircraft array under a
-    provider-specific key ("ac" for airplanes.live, "aircraft" for
-    adsb.fi). Never raises on an unexpected shape - an empty list is the
-    safe default (T-02-01-01's "skip/don't-claim" discipline).
+    provider-specific key ("ac" for airplanes.live and adsb.lol, "aircraft"
+    for adsb.fi). Never raises on an unexpected shape - an empty list is
+    the safe default (T-02-01-01's "skip/don't-claim" discipline).
     """
     if not isinstance(snapshot, dict):
         return []
@@ -213,16 +213,17 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             cache = poll_state.get("enrichment_cache")
             if not isinstance(cache, dict):
                 cache = {}
-            normalised_callsign = enrich.normalise_callsign(flight.get("callsign"))
-            was_cached = normalised_callsign is not None and normalised_callsign in cache
-            route = enrich.lookup_route(flight.get("callsign"), cache)
-            # Three categories only (not four): a cached *miss* is still a
-            # "miss" in this log, not a "cache hit" - "cache hit" means the
-            # cache spared us a request AND returned a usable route.
-            if route is not None:
-                route_source = "cache_hit" if was_cached else "fresh_hit"
-            else:
-                route_source = "miss"
+            # D-05 (quick task 260827-hyy): a single seam now classifies
+            # four categories, not three - "fresh_hit"/"cache_hit" mean
+            # exactly what they always did (a cached *miss* is still a
+            # "miss" here, not a "cache hit" - "cache hit" means the cache
+            # spared us a request AND returned a usable route); the new
+            # fourth category, "airline_only", means adsbdb had no route
+            # this cycle but the callsign's ICAO prefix identified the
+            # carrier from a static in-repo table - no additional network
+            # call, no additional cache entry. Nothing derived from the
+            # adsbdb response body is ever logged, on any of the four paths.
+            route, route_source = enrich.resolve_route(flight.get("callsign"), cache)
             enrich.trim_cache(cache)
             poll_state["enrichment_cache"] = cache
             # D-25/D-26: the previous flight's own real illustration/text
@@ -261,15 +262,19 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         rendered = render.render_panel(None, render_state)
         panel_changed = write_panel_atomic(state_dir, rendered)
 
-    # T-02-04-05: log only the callsign and the enrichment outcome
-    # (cache_hit / fresh_hit / miss / n/a / held) - never the raw adsbdb
-    # response body.
+    # T-02-04-05: log only the callsign, the enrichment outcome
+    # (cache_hit / fresh_hit / miss / n/a / held), and the selection's own
+    # corroboration flag - a three-state provenance signal about this
+    # project's own ADS-B sources, not third-party response content, so it
+    # stays within this rule - never the raw adsbdb response body.
     print(
-        "poll_loop: hex=%s callsign=%s altitude_ft=%s confirmed_state=%s render_state=%s "
-        "state_source=%s route_source=%s panel_changed=%s"
+        "poll_loop: hex=%s callsign=%s aircraft_type=%s corroborated=%s altitude_ft=%s confirmed_state=%s "
+        "render_state=%s state_source=%s route_source=%s panel_changed=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
+            (flight or {}).get("aircraft_type"),
+            (flight or {}).get("corroborated"),
             (flight or {}).get("altitude_ft"),
             confirmed_state,
             render_state,

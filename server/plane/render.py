@@ -265,6 +265,85 @@ def draw_top_labels(canvas, state, ink_idx):
     draw.text((WIDTH - MARGIN, MARGIN), TOP_RIGHT_TAG_TEXT, font=tag_font, fill=ink_idx, anchor="ra")
 
 
+def _illustration_over_pixel_cap(path):
+    """Render-path counterpart of `illustrations.validate_illustration_file()`'s
+    header-first pixel cap (T-03-03-01 / T-03.1-05-01): return `True` when
+    `path`'s PNG header declares more than `illustrations.ILLUSTRATION_MAX_PIXELS`
+    pixels, or when the header cannot even be read (missing, garbage,
+    unreadable) - a file this plan's caller should move past rather than
+    attempt to decode. `Image.open()` is lazy - it parses the header
+    without decoding pixel data - which is the whole point: this check
+    never triggers a full decode.
+
+    Deliberately checks only the pixel count, not
+    `validate_illustration_file()`'s other vendor-time quality rules
+    (minimum width, landscape orientation, alpha presence) - those are
+    hand-off gates for a human reviewing new art, and must never cause a
+    live poll cycle to drop an otherwise-legitimate illustration. Never
+    raises, for any input.
+    """
+    try:
+        with Image.open(path) as img:
+            width, height = img.size
+            return (width * height) > illustrations.ILLUSTRATION_MAX_PIXELS
+    except Exception:
+        return True
+
+
+def _load_illustration_safely(path, target_w):
+    """Return a resized RGBA image loaded from `path`, degrading through an
+    ordered candidate ladder - `path` first, then
+    `illustrations.generic_fallback_path()` - and returning `None` once the
+    ladder is exhausted. Never raises, for any input, including `None`.
+
+    This restores the degradation ladder 03-03-PLAN.md's must-have and
+    threat T-03-03-02 specified, whose original home
+    (`draw_silhouette()`'s enclosing try/except) was removed by the
+    D-25/D-26 two-flight redesign and never replaced (03-VERIFICATION.md).
+    The last resort is no longer a redrawn silhouette but D-08's
+    `generic-fallback.png`, and then "no illustration at all" - matching
+    the already-correct missing-directory degradation.
+
+    `_load_illustration_safely(None, w)` behaves exactly as today's
+    `select_illustration()` returning `None` did end to end: the generic
+    fallback is attempted and, if it is absent, the illustration is
+    skipped.
+    """
+    candidates = []
+    for candidate in (path, illustrations.generic_fallback_path()):
+        if not candidate or not os.path.isfile(candidate) or candidate in candidates:
+            continue
+        candidates.append(candidate)
+
+    for candidate in candidates:
+        if _illustration_over_pixel_cap(candidate):
+            try:
+                with Image.open(candidate) as img:
+                    pixel_count = img.size[0] * img.size[1]
+            except Exception as exc:
+                print(
+                    "render: skipping illustration %s - header unreadable (%s)"
+                    % (candidate, type(exc).__name__),
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "render: skipping illustration %s - %d pixels exceeds the %d-pixel cap"
+                    % (candidate, pixel_count, illustrations.ILLUSTRATION_MAX_PIXELS),
+                    file=sys.stderr,
+                )
+            continue
+        try:
+            return _resize_illustration(candidate, target_w)
+        except Exception as exc:
+            print(
+                "render: skipping illustration %s - %s" % (candidate, type(exc).__name__),
+                file=sys.stderr,
+            )
+            continue
+    return None
+
+
 def _resize_illustration(path, target_w):
     """Load a vendored per-airline illustration PNG (real alpha channel,
     see HANDOFF.md) and resize it to `target_w` px wide, preserving its
@@ -304,9 +383,14 @@ def draw_illustration(canvas, resized_rgba, left, top):
 
 
 def _flight_line1_text(flight, state, route):
-    """`"{callsign} to|from {city}"`, or bare `callsign` on an enrichment
-    miss (no half-resolved route is ever shown - matches the discipline
-    `enrich.lookup_route()`'s own docstring already establishes). D-26:
+    """`"{callsign} to|from {city}"`, or bare `callsign` when `route` has no
+    city for this state. This is not only a full enrichment miss (D-06,
+    quick task 260827-hyy): `route` may legitimately be an airline-only
+    route (`enrich.resolve_route()`'s `"airline_only"` source /
+    `enrich.airline_only_route()`) that carries a real airline name but
+    `None` for every city field - in that case line 1 correctly stays the
+    bare callsign, because the origin/destination really are unknown; it
+    does not fabricate a city from the callsign's ICAO prefix. D-26:
     ordinary lowercase "to"/"from" as sentence text, not the old tracked-
     caps Label-role prefix.
     """
@@ -318,19 +402,103 @@ def _flight_line1_text(flight, state, route):
     return callsign
 
 
-def _flight_line2_text(route):
-    """The airline name, or `ROUTE_FALLBACK_TEXT` on an enrichment miss.
+# Friendly human-readable labels for the ICAO type designators detect.py's
+# aircraft_type field can carry (03.1-02), closing D-26's original
+# `{airline} · {aircraft_type}` brief with a legible label rather than a raw
+# code (P-02: neo/MAX variants are named explicitly, not collapsed to the
+# base family - more informative, cosmetic, and reversible per CONTEXT.md's
+# Claude's Discretion). Covers every designator in
+# illustrations._TYPE_SHAPE_BUCKETS; a designator present in that bucket
+# table but absent here is allowed and simply renders the airline name
+# alone via _flight_line2_text()'s fallback - not every ICAO code needs a
+# friendly label for line 2 to degrade safely.
+_TYPE_DISPLAY_LABELS = {
+    # A320 family - familiar designations, neo variants named.
+    "A318": "A318", "A319": "A319", "A320": "A320", "A321": "A321",
+    "A20N": "A320neo", "A21N": "A321neo",
+    # B737 family - commercial model numbers, MAX variants named.
+    "B731": "737-100", "B732": "737-200", "B733": "737-300", "B734": "737-400",
+    "B735": "737-500", "B736": "737-600", "B737": "737-700", "B738": "737-800",
+    "B739": "737-900", "B37M": "737 MAX 7", "B38M": "737 MAX 8",
+    "B39M": "737 MAX 9", "B3XM": "737 MAX 10",
+    # ATR turboprops.
+    "AT43": "ATR 42", "AT44": "ATR 42-500", "AT45": "ATR 42", "AT46": "ATR 42-600",
+    "AT72": "ATR 72", "AT73": "ATR 72", "AT75": "ATR 72-500", "AT76": "ATR 72-600",
+    # Beechcraft 1900D.
+    "BE9L": "Beechcraft 1900D",
+    # Embraer E-Jet family - keep the E1xx designations.
+    "E135": "E135", "E145": "E145", "E170": "E170", "E75L": "E175",
+    "E75S": "E175", "E190": "E190", "E195": "E195", "E290": "E190-E2",
+    "E295": "E195-E2",
+    # A330 family.
+    "A332": "A330-200", "A333": "A330-300", "A339": "A330-900neo",
+    # A350 family.
+    "A359": "A350-900", "A35K": "A350-1000",
+}
 
-    D-26's brief also asked for `{airline} · {aircraft_type}` - real
-    per-flight aircraft-type data does not exist yet (that is Phase 3.1,
-    deliberately deferred pending ADS-B aircraft-type verification), so
-    this line is the airline name alone rather than a fabricated type.
+# P-01: a presentation-only display alias for the one carrier that
+# rebranded in 2013. `adsbdb` still resolves the literal string "CCM
+# Airlines" (confirmed live, 03.1-LIVE-RESOLUTION.md), and
+# illustrations.py's selection key and vendored filename deliberately keep
+# that literal string - only the panel text shown to a human reads the
+# carrier's current public brand. Adding an entry here can never affect
+# which illustration file is selected, and can never mask a genuine future
+# route-API miss (D-04's real concern is what a human reads on the glass,
+# not the filename).
+_AIRLINE_DISPLAY_ALIASES = {
+    "CCM Airlines": "Air Corsica",
+}
+
+
+def display_airline_name(airline_name):
+    """Return the presentation-only display name for `airline_name` (P-01):
+    the aliased brand name when one exists, otherwise `airline_name`
+    unchanged. Returns `airline_name` unchanged for any non-string or
+    falsy value. Never raises.
     """
-    if route is not None:
-        airline_name = route.get("airline_name")
-        if airline_name:
-            return airline_name
-    return ROUTE_FALLBACK_TEXT
+    if not isinstance(airline_name, str) or not airline_name:
+        return airline_name
+    return _AIRLINE_DISPLAY_ALIASES.get(airline_name, airline_name)
+
+
+def _flight_line2_text(route, aircraft_type=None):
+    """`"{airline} · {friendly type label}"`, closing D-26's original brief
+    now that real per-flight type data exists (detect.py's `aircraft_type`
+    field, 03.1-02) and a type-to-shape classifier exists to size the art
+    (illustrations.classify_aircraft_type(), 03.1-03). The displayed
+    airline name is resolved through `display_airline_name()` (P-01) - a
+    presentation-only alias that never reaches illustration selection.
+
+    Falls back to the display name alone when `aircraft_type` is missing
+    or has no friendly label in `_TYPE_DISPLAY_LABELS` - an unlabelled or
+    absent type never fabricates a label and never renders an empty
+    separator. Falls back to `ROUTE_FALLBACK_TEXT` only when no route was
+    supplied, or the supplied route has no airline name at all - regardless
+    of what type was detected. Since quick task 260827-hyy (D-06), that
+    condition is strictly narrower than "adsbdb missed": a route may be
+    airline-only (`enrich.resolve_route()`'s `"airline_only"` source /
+    `enrich.airline_only_route()` - adsbdb had nothing, but the callsign's
+    ICAO prefix identified the carrier) and still carry a real
+    `airline_name`, in which case this function composes `"{airline} ·
+    {type label}"` exactly as it would for a full adsbdb hit.
+    `ROUTE_FALLBACK_TEXT` now fires only when *neither* enrichment source
+    produced an airline.
+
+    Never raises for a non-dict route, a non-string airline name, or a
+    hostile aircraft type.
+    """
+    try:
+        airline_name = route.get("airline_name") if isinstance(route, dict) else None
+    except Exception:
+        airline_name = None
+    if not airline_name:
+        return ROUTE_FALLBACK_TEXT
+    display_name = display_airline_name(airline_name)
+    type_key = aircraft_type.strip().upper() if isinstance(aircraft_type, str) and aircraft_type else None
+    label = _TYPE_DISPLAY_LABELS.get(type_key) if type_key else None
+    if label:
+        return "%s · %s" % (display_name, label)
+    return "%s" % (display_name,)
 
 
 def draw_main_text_block(canvas, flight, state, route, main_bbox, ink_idx):
@@ -346,7 +514,7 @@ def draw_main_text_block(canvas, flight, state, route, main_bbox, ink_idx):
     safe_width = SAFE_BOX[2] - SAFE_BOX[0]
 
     line1_text = _flight_line1_text(flight, state, route)
-    line2_text = _flight_line2_text(route)
+    line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
 
     line1_font = fit_text_size(PT_SERIF_REGULAR, MAIN_LINE1_FONT[1], line1_text, safe_width, MAIN_LINE1_MIN_SIZE)
     line2_font = fit_text_size(PT_SERIF_REGULAR, MAIN_LINE2_FONT[1], line2_text, safe_width, MAIN_LINE2_MIN_SIZE)
@@ -378,7 +546,7 @@ def draw_previous_text_block(canvas, flight, state, route, prev_bbox, ink_idx):
     available_width = right_x - SAFE_BOX[0]
 
     line1_text = _flight_line1_text(flight, state, route)
-    line2_text = _flight_line2_text(route)
+    line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
     line1_font = fit_text_size(PT_SERIF_REGULAR, PREVIOUS_LINE1_FONT[1], line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE)
     line2_font = fit_text_size(PT_SERIF_REGULAR, PREVIOUS_LINE2_FONT[1], line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE)
@@ -483,10 +651,10 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     main_w = round(inner_width * MAIN_ILLUSTRATION_WIDTH_FRAC)
     main_top = round(HEIGHT * MAIN_ILLUSTRATION_TOP_FRAC)
 
-    main_path = illustrations.select_illustration(route)
+    main_path = illustrations.select_illustration(route, flight.get("aircraft_type"))
     main_bbox = None
-    if main_path is not None:
-        main_resized = _resize_illustration(main_path, main_w)
+    main_resized = _load_illustration_safely(main_path, main_w)
+    if main_resized is not None:
         main_left = (WIDTH - main_resized.size[0]) // 2
         main_bbox = draw_illustration(canvas, main_resized, main_left, main_top)
         _assert_within_canvas(main_bbox, "main aircraft illustration")
@@ -496,10 +664,10 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     # immediately preceding this one (poll_loop.py's two-deep history).
     # Same nose-left convention as the main illustration, no mirroring.
     if previous_flight is not None and main_bbox is not None:
-        prev_path = illustrations.select_illustration(previous_route)
-        if prev_path is not None:
-            prev_w = round((main_bbox[2] - main_bbox[0]) * PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
-            prev_resized = _resize_illustration(prev_path, prev_w)
+        prev_path = illustrations.select_illustration(previous_route, (previous_flight or {}).get("aircraft_type"))
+        prev_w = round((main_bbox[2] - main_bbox[0]) * PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
+        prev_resized = _load_illustration_safely(prev_path, prev_w)
+        if prev_resized is not None:
             prev_h = prev_resized.size[1]
             prev_left = main_bbox[2] - prev_resized.size[0]
             prev_top = round(HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC - prev_h / 2)
@@ -521,8 +689,14 @@ def build_canvas(flight, state, route=None, previous_flight=None, previous_route
     which read Image.getcolors() directly - never have to reach into
     private render state.
 
-    `route` is the normalised dict from server.plane.enrich.lookup_route()
-    (or None on an enrichment miss / for the empty state).
+    `route` is the normalised dict produced by either
+    `server.plane.enrich.lookup_route()` (a full route: airline + origin +
+    destination) or, since quick task 260827-hyy,
+    `server.plane.enrich.airline_only_route()` (D-03/D-06: airline name
+    only, the four city/IATA fields `None`) - `poll_loop.py` chooses between
+    them via `server.plane.enrich.resolve_route()`. `route` is `None` on a
+    full enrichment miss (neither source resolved anything) or for the
+    empty state.
 
     `previous_flight`/`previous_route`/`previous_state` (D-25/D-26) are the
     detection immediately preceding `flight`, or all None if none exists
@@ -554,7 +728,9 @@ def render_panel(flight, state, route=None, previous_flight=None, previous_route
     per-state dicts on.
 
     `route`/`previous_flight`/`previous_route`/`previous_state` are passed
-    straight through to build_canvas() (D-25/D-26).
+    straight through to build_canvas() (D-25/D-26) - see build_canvas()'s
+    own docstring for what `route` may now be (a full route or, since quick
+    task 260827-hyy, an airline-only route).
     """
     canvas = build_canvas(
         flight,
@@ -613,6 +789,14 @@ def build_parser():
         help="Manual QA only (02-04): preview the enrichment-miss fallback ('Route unavailable') "
              "instead of the default sample resolved-route preview.",
     )
+    parser.add_argument(
+        "--preview-airline-only",
+        action="store_true",
+        help="Manual QA only (D-06, quick task 260827-hyy): preview the airline-only intermediate "
+             "render state (airline known via the callsign's ICAO prefix, destination genuinely "
+             "unknown - bare callsign on line 1, '{airline} · {type}' on line 2, the airline's own "
+             "illustration). Takes precedence over --no-route when both are given.",
+    )
     return parser
 
 
@@ -625,10 +809,22 @@ def main(argv=None):
     previous_state = None
     if args.state != "empty":
         flight = {"hex": args.hex, "callsign": args.callsign}
-        route = None if args.no_route else _PREVIEW_ROUTE
+        # D-06 preview takes precedence over --no-route when both are given
+        # (documented in --preview-airline-only's own help text above).
+        if args.preview_airline_only:
+            route = enrich.airline_only_route(_PREVIEW_ROUTE["airline_name"])
+        elif args.no_route:
+            route = None
+        else:
+            route = _PREVIEW_ROUTE
         if args.previous_callsign:
             previous_flight = {"hex": args.previous_hex, "callsign": args.previous_callsign}
-            previous_route = None if args.no_route else _PREVIEW_PREVIOUS_ROUTE
+            if args.preview_airline_only:
+                previous_route = enrich.airline_only_route(_PREVIEW_PREVIOUS_ROUTE["airline_name"])
+            elif args.no_route:
+                previous_route = None
+            else:
+                previous_route = _PREVIEW_PREVIOUS_ROUTE
             previous_state = runway_config.STATE_ARRIVING if args.state == runway_config.STATE_DEPARTING else runway_config.STATE_DEPARTING
 
     canvas = build_canvas(

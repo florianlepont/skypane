@@ -20,7 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception on real hardware, with the core wake/poll/backoff loop proven against a stub server (completed 2026-08-26)
 - [x] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display (completed 2026-08-26)
 - [x] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle (completed 2026-08-26 — on-glass visual sign-off moved to Phase 6, not a blocker on this phase)
-- [ ] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Replace Phase 3's hand-generated, representative-type-per-airline static illustrations with a server-side engine that overlays real per-flight livery colors onto the correct aircraft-type SVG, scaling to any airline/type without manual image generation
+- [x] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Extends Phase 3's externally generated illustration set to real per-flight aircraft-type accuracy, by (a) surfacing the ADS-B ICAO type designator in `server/plane/detect.py`, (b) adding a second selection key plus a four-tier fallback in `server/plane/illustrations.py`, and (c) expanding the externally generated asset set per D-03's verified 24-airline / 7-base-shape table (completed 2026-08-27)
 - [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/skypane, CI-block and deploy-gate proven on real infrastructure)
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
 - [ ] **Phase 6: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished
@@ -104,7 +104,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
   1. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not a flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration as the fallback for uncovered airlines and the "Route unavailable" enrichment-failure state, never mirrored by state (D-24) — the selection and compositing mechanism itself, independent of how it looks on real glass, which is Phase 6's job. Verified by the automated suite (`server/test_illustrations.py`, `server/test_render.py`), not by eye.
 
-**Plans**: 3/3 plans executed — **phase complete**. (On-glass visual sign-off — including this phase's own artwork/typography/composition — is Phase 6's job now, not a blocker on closing this phase.)
+**Plans**: 4/4 plans complete
 
 Plans:
 **Wave 1**
@@ -119,13 +119,19 @@ Plans:
 
 - [x] 03-03-PLAN.md — Per-airline dithered livery illustrations with a dithered generic fallback, gated on the developer's illustration hand-off
 
+**Gap closure** *(added 2026-08-27 from `03-VERIFICATION.md`; independent of the three waves above, which are complete)*
+
+- [x] 03-04-PLAN.md — Guard the live render path against a corrupt or oversized illustration file: a never-raises loader that degrades to `generic-fallback.png` at both D-25/D-26 call sites, plus a header-only `ILLUSTRATION_MAX_PIXELS` pre-check and three regression checks
+
 **UI hint**: yes
 
 ### Phase 03.1: Procedural Per-Airline Livery Rendering (INSERTED)
 
-**Goal:** Replace Phase 3's necessarily-bounded, hand-generated per-airline illustration set (one representative-type static file per airline, per `03-CONTEXT.md` D-19) with a server-side rendering pipeline that composites the real airline's livery colors onto the correct aircraft-type SVG shape for the *actual* detected flight — scaling to any airline and type combination without further manual AI-image-generation work, and without depending on an external image-generation tool at all.
+**Goal:** Each detected flight's illustration and its `{airline} · {type}` caption reflect that flight's real ICAO aircraft type as reported by the ADS-B aggregator, selected from an expanded set of externally generated static illustrations through a four-tier fallback (exact airline+shape, airline-only, neutral-shape, universal fallback), degrading gracefully at every tier.
 
 **Note on origin (2026-08-26):** Raised by the user during Phase 3's discuss/plan work as an alternative architecture to D-09's static-file hand-off (SVG template + programmatic per-airline color overlay, computed server-side at render time, instead of one pre-generated raster image per airline). Deliberately deferred out of Phase 3 rather than decided inline, because it depends on an unverified prerequisite — whether real ADS-B aircraft-type data (the `t`/ICAO-type-designator field, standard in the readsb/tar1090 JSON schema both `airplanes.live` and `adsb.fi` are built on, per `03-RESEARCH.md`) is actually present in this project's live aggregator responses; this project's own `server/plane/detect.py` does not currently extract it, and a live check could not be completed from the development sandbox (network-restricted). Confirming this from a real network connection is this phase's first task before any rendering work.
+
+**Superseding note (2026-08-27, discuss-phase):** The discuss-phase investigation (`03.1-CONTEXT.md` D-02) found no free, license-compatible, correctly-oriented per-type source art (side-profile SVG/line-art shapes) — every real candidate source was either non-redistributable, wrong-angle (top-down plan view), wrong format with unverified per-file licensing, or lacked per-type differentiation. The render-time SVG-shape + livery-color-compositing architecture described above is therefore **shelved, not rejected in principle** — see `03.1-CONTEXT.md`'s Deferred section for the revisit condition (better-licensed source art, or a decision to commission/draw original shape templates). The prerequisite this note originally called unverified is now confirmed (D-01: the `t` field is genuinely present on real in-flight aircraft, re-confirmed live again in `03.1-LIVE-RESOLUTION.md`). The goal and success criterion 3 above were revised accordingly under D-10, to describe the static-but-type-accurate approach actually being built: an expanded set of externally AI-generated static illustrations (same D-09 hand-off discipline as Phase 3), selected via a new two-key (airline + aircraft-type) lookup with a four-tier fallback, rather than a server-side compositing engine.
 
 **Depends on:** Phase 3 (its static-file approach and illustration-zone rendering path, which this phase replaces) and a confirmed source of real aircraft-type data
 
@@ -135,15 +141,26 @@ Plans:
 
   1. Real aircraft-type data (ICAO type designator) is confirmed available and reliably present in this project's live ADS-B aggregator responses — or, if genuinely unavailable, this phase is descoped/re-planned around that finding rather than proceeding on an unverified assumption.
   2. `server/plane/detect.py` extracts and surfaces the aircraft-type field alongside the existing callsign/altitude/vertical-rate fields already captured.
-  3. A server-side rendering step composites the correct airline's livery colors onto the correct aircraft-type SVG shape for the actual detected flight, replacing Phase 3's static per-airline file lookup.
-  4. The result is at least as visually legible on real Spectra 6 glass as Phase 3's static-file approach, verified via the same `checkpoint:human-verify` on-glass pattern established in prior phases.
+  3. An externally generated static illustration is selected for the actual detected flight keyed on both the resolved `airline_name` and the classified aircraft-type shape bucket, through D-06/D-07/D-08's four fallback tiers (exact airline+shape match, known-airline-any-shape, unknown-airline-known-shape neutral fallback, universal fallback) — verified by `server/test_illustrations.py` and `server/test_render.py`, not by eye.
+  4. The full automated test suite (`scripts/run-all-tests.sh`) stays green and `server/plane/illustrations.py --validate` passes for every delivered asset. (On-glass legibility sign-off is deliberately **Phase 6's** criterion, not this phase's — Phase 6 already owns the project's single real-hardware verification pass, the same precedent STATE.md records for Phase 3's own on-glass criteria.)
   5. Coverage gracefully degrades (a sensible fallback, not a crash or a blank illustration) for any airline/type combination not yet defined in the livery/shape mapping — mirroring D-08's existing generic-fallback discipline from Phase 3.
 
-**Plans:** 0 plans
+**Plans:** 4/4 plans complete
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 03.1 to break down)
+- [x] 03.1-01-PLAN.md — ROADMAP D-10 revision pass, plus the live-verified record of every target airline's exact resolved name and the `t` field's presence on both aggregator providers
+- [x] 03.1-02-PLAN.md — `detect.py` extracts and normalises the ICAO aircraft-type designator, with fixture and harness coverage for the present, absent and malformed cases
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 03.1-03-PLAN.md — `classify_aircraft_type()` plus the four-tier (D-06/D-07/D-08) two-key `select_illustration()`, and the enumerable D-03 target file set
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 03.1-04-PLAN.md — `{airline} · {type}` line-2 rendering with friendly labels and a presentation-only brand alias, both illustration call sites threaded, type visible in the poll log
+- [x] 03.1-05-PLAN.md — expanded illustration hand-off spec, the developer's blocking art-generation gate, and digest-backed provenance for everything delivered
 
 ### Phase 4: CI/CD, Documentation & Legal Compliance
 
@@ -202,7 +219,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Foundation — Hardware Bring-up & ADS-B Validation | 7/7 | Complete    | 2026-08-26 |
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
-| 3. Visual Polish on Real Glass | 3/3 | Complete    | 2026-08-26 |
+| 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
 | 6. Final On-Glass Verification | 0/1 | Not Started | - |
