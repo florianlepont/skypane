@@ -18,13 +18,17 @@ now dictated by its filename rather than chosen freely. Quick task
 34 to 36 files. Quick task `260827-kih` (2026-08-27) added Amelia (primary +
 Embraer secondary), taking the plan from 36 to **38 files** — see the Naming
 rules section below for why three already-vendored files were also renamed
-in that same session, with zero effect on the total file count.
+in that same session, with zero effect on the total file count. Quick task
+`260827-lgt` (2026-08-27) added two further carriers with art — HOP! Air
+France (primary + ATR72 secondary) and KlasJet (primary) — plus one carrier
+that deliberately reuses existing art with zero new files (Wizz Air Malta),
+taking the plan from 38 to **41 files**.
 
 Read this file in full before generating anything. Run these two commands at
 any time for the authoritative machine-reported state:
 
 ```
-server/.venv/bin/python3 server/plane/illustrations.py --targets       # the full 38-file plan
+server/.venv/bin/python3 server/plane/illustrations.py --targets       # the full 41-file plan
 server/.venv/bin/python3 server/plane/illustrations.py --outstanding   # what is still missing right now
 ```
 
@@ -35,9 +39,9 @@ exist on disk plus the pre-Phase-3.1 baseline. Nothing in the target set is
 ever silently dropped — whatever remains outstanding when you stop is
 recorded by name in `VENDOR.md`.
 
-## Required files (38 total, 8 already vendored)
+## Required files (41 total, 8 already vendored)
 
-**Airline primary files (25)**
+**Airline primary files (27)**
 
 One unsuffixed file per airline — the carrier's numerically dominant aircraft
 type per `03.1-CONTEXT.md`'s D-03 table. An asterisk `*` marks a file already
@@ -69,9 +73,11 @@ corsair.png                   *  already vendored (renamed from corsairfly.png, 
 km-malta-airlines.png         see Coverage caveat
 tuifly-belgium.png            see Naming rules — this is the one approved current-brand override
 amelia.png                    see Naming rules and Coverage caveat — new target, 260827-kih
+air-france-hop.png            see Coverage caveat — Embraer primary, MEDIUM confidence on the split
+klasjet.png                   see Coverage caveat — lower-confidence entry
 ```
 
-**Airline secondary-variant files (5)**
+**Airline secondary-variant files (6)**
 
 One `{airline-slug}-{shape-slug}.png` file per mixed-fleet airline whose
 minority type is common enough at Orly to warrant its own illustration
@@ -83,6 +89,7 @@ transavia-france-a320.png     Transavia's A320neo/A321neo (fleet-transition seco
 royal-air-maroc-embraer.png   Royal Air Maroc's Embraer E190 (minority alongside the B737 primary)
 air-caraibes-a330.png         Air Caraïbes' A330-300/200 (minority alongside the A350 primary)
 amelia-embraer.png            Amelia's Embraer E145 (minority alongside the A320 primary, 260827-kih)
+air-france-hop-atr72.png      Air France Hop's minority ATR turboprop, alongside the Embraer primary (260827-lgt, MEDIUM-confidence split)
 ```
 
 **Neutral shape fallbacks + universal fallback (8)**
@@ -280,6 +287,53 @@ phase's coverage boundary live:
   `03.1-CONTEXT.md`'s D-03 fleet research) — livery detail is **moderate
   confidence**, flagged in its prompt below for eye-check against a real
   photo before generating.
+- **Air France Hop (`HOP`) is a new target (`air-france-hop.png` primary +
+  `air-france-hop-atr72.png` secondary), added by quick task `260827-lgt`
+  (2026-08-27).** This is the **first** carrier this project has added
+  where `adsbdb`'s own resolution is already correct and current — cite
+  the live evidence: 2026-08-27, `curl https://api.adsbdb.com/v0/callsign/
+  HOP4001` returns a real route (Nantes–Lyon) with `airline_name`
+  `"Air France Hop"`. It consequently needs **no** correction-seam row,
+  unlike Amelia above and unlike the three renamed carriers in the Naming
+  rules section. It does not share `air-france.png`: `select_illustration()`
+  matches keys exactly, so `"Air France Hop"` and `"Air France"` are two
+  independent keys, and the mainline A320 plate does not represent the
+  regional fleet. Livery target: the post-2019 Air France mainline
+  white/blue scheme with small `HOP` titling — **not** the pre-2019
+  standalone brightly-coloured HOP! scheme. The Embraer primary / ATR72
+  secondary split (QT-lgt-D-04) is a **MEDIUM-confidence** judgment on
+  relative fleet size, not a live-verified count; reversing it is a
+  one-token change in `_ILLUSTRATION_TARGETS`, and either way D-06's Tier
+  2 means a HOP flight of the non-primary type still gets HOP-branded art.
+- **Wizz Air Malta (`WMT`) shares `wizz-air.png` with `WZZ` — no separate
+  file is requested**, added by quick task `260827-lgt` (2026-08-27). Place
+  this alongside the existing `EJU`/`EZY` easyJet bullet above — that is
+  the precedent this row follows exactly. `WMT` is a genuinely separate
+  legal entity and AOC (Malta), holding IATA `W4` since its 2022
+  reassignment; its fleet (A320/A321neo) and livery are brand-standard
+  Wizz Air, visually indistinguishable at this project's flat side-profile
+  illustration fidelity, so it gets its own prefix-table row in
+  `enrich.py` and **zero** new artwork. Accepted consequence: the caption
+  renders `Wizz Air`, not `Wizz Air Malta` — the same accepted consequence
+  the `EJU` row already carries. QT-lgt-D-02: **Wizz Air UK (`WUK`) is out
+  of scope, was never researched, and must not be added as tidy-up.** Note
+  in passing: the Paris Aéroport list's `Wizz Air Hungary Ltd / W4`
+  labelling is very likely an airport-side error, since `W4` belongs to
+  the Malta AOC today.
+- **KlasJet (`KLJ`) is a new target (`klasjet.png`), added by quick task
+  `260827-lgt` (2026-08-27), carrying materially lower confidence than
+  every other entry in this document.** This bullet must not be read like
+  the others. The prefix is corroborated by lookup sources but was
+  **never live-confirmed** — roughly 25 `adsbdb` queries across plausible
+  flight-number ranges all returned `"unknown callsign"`, which is
+  *weaker* evidence than KM Malta's confirmed-negative above, not
+  equivalent to it. KlasJet is a Lithuanian ACMI/wet-lease and VIP charter
+  operator, and wet-lease flights typically broadcast the **contracting**
+  airline's callsign rather than the operator's own, so a real
+  `KLJ`-prefixed callsign may rarely or never actually appear in this
+  project's detections at Orly. The developer chose to include it anyway,
+  with that uncertainty in hand. Remediation pointer: re-verify this row
+  first if a `KLJ` flight is ever observed with a surprising caption.
 - **La Compagnie is excluded from this target set.**
   `03.1-LIVE-RESOLUTION.md` also marks it `[UNRESOLVED]`: its real-world
   ICAO code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s
@@ -594,7 +648,42 @@ project's other liveries were, so treat it as a starting point for the
 developer's own judgement at generation time, not a confirmed fact.
 ```
 
-### 26. `air-corsica-atr72.png` (already vendored, renamed from `ccm-airlines-atr72.png` — 260827-kih, secondary variant, Air Corsica's ATR72-600)
+### 26. `air-france-hop.png` (primary — Air France Hop's Embraer E190, 260827-lgt, MEDIUM confidence on primary/secondary split)
+```
+Side-profile editorial illustration of an Embraer E190 in the post-2019
+Air France regional livery — white fuselage, Air France dark-blue tail,
+red/white/blue accents, small `HOP` titling. This is the post-2019 Air
+France mainline scheme with HOP titling — explicitly NOT the pre-2019
+standalone brightly-coloured HOP! livery; do not produce the retired
+brand's art. This file is deliberately distinct from `air-france.png`
+(the mainline A320) and must show the regional jet. nose pointing LEFT.
+Transparent background (PNG with real alpha channel) — no ground, no sky,
+no shadow, nothing behind the aircraft. Clean flat illustration style,
+crisp hard edges, vintage aviation poster plate.
+```
+
+### 27. `klasjet.png` (primary — KlasJet's Boeing 737-800, 260827-lgt, lower-confidence entry)
+```
+Side-profile editorial illustration of a Boeing 737-800 in KlasJet
+livery — white fuselage with an abstract light-blue/yellow tail design.
+nose pointing LEFT. Transparent background (PNG with real alpha channel)
+— no ground, no sky, no shadow, nothing behind the aircraft. Clean flat
+illustration style, crisp hard edges, vintage aviation poster plate.
+
+LIVERY CONFIDENCE NOTE: the white fuselage / abstract light-blue/yellow
+tail description above is LOWER CONFIDENCE than this project's other
+entries — check it against a real photo of a KlasJet aircraft before
+generating.
+
+OPEN QUESTION FOR THE DEVELOPER TO RESOLVE AT GENERATION TIME
+(QT-lgt-D-08): KlasJet's fleet mixes 737-300/500/800 with Boeing Business
+Jets (BBJ). A BBJ/VIP-configured airframe would not visually match a
+standard 737-800 plate. The 737-800 was chosen here as the most
+plausible scheduled-passenger-shaped option, but the developer should
+make the final call before generating.
+```
+
+### 28. `air-corsica-atr72.png` (already vendored, renamed from `ccm-airlines-atr72.png` — 260827-kih, secondary variant, Air Corsica's ATR72-600)
 ```
 Side-profile editorial illustration of an ATR 72-600 turboprop in Air
 Corsica (CCM Airlines) livery — matching `air-corsica.png`'s blue/white
@@ -605,7 +694,7 @@ behind the aircraft. Clean flat illustration style, crisp hard edges,
 vintage aviation poster plate.
 ```
 
-### 27. `transavia-france-a320.png` (secondary variant — Transavia's fleet-transition A320neo, D-05)
+### 29. `transavia-france-a320.png` (secondary variant — Transavia's fleet-transition A320neo, D-05)
 ```
 Side-profile editorial illustration of an Airbus A320neo in Transavia
 France livery — matching `transavia-france.png`'s dark green tail and green
@@ -615,7 +704,7 @@ sky, no shadow, nothing behind the aircraft. Clean flat illustration style,
 crisp hard edges, vintage aviation poster plate.
 ```
 
-### 28. `royal-air-maroc-embraer.png` (secondary variant — Royal Air Maroc's minority Embraer E190)
+### 30. `royal-air-maroc-embraer.png` (secondary variant — Royal Air Maroc's minority Embraer E190)
 ```
 Side-profile editorial illustration of an Embraer E190 in Royal Air Maroc
 livery — matching `royal-air-maroc.png`'s red tail and five-pointed-star
@@ -625,7 +714,7 @@ sky, no shadow, nothing behind the aircraft. Clean flat illustration style,
 crisp hard edges, vintage aviation poster plate.
 ```
 
-### 29. `air-caraibes-a330.png` (secondary variant — Air Caraïbes' minority A330-300)
+### 31. `air-caraibes-a330.png` (secondary variant — Air Caraïbes' minority A330-300)
 ```
 Side-profile editorial illustration of an Airbus A330-300 in Air Caraïbes
 livery — matching `air-caraibes.png`'s tropical-flower tail design, on the
@@ -635,7 +724,7 @@ no shadow, nothing behind the aircraft. Clean flat illustration style,
 crisp hard edges, vintage aviation poster plate.
 ```
 
-### 30. `amelia-embraer.png` (secondary variant — Amelia's minority Embraer E145, 260827-kih)
+### 32. `amelia-embraer.png` (secondary variant — Amelia's minority Embraer E145, 260827-kih)
 ```
 Side-profile editorial illustration of an Embraer E145 in Amelia livery —
 matching `amelia.png`'s white fuselage and blue tail, on the regional-jet
@@ -651,7 +740,17 @@ established practice for unverified livery detail (see `amelia.png`'s
 prompt below for the same note).
 ```
 
-### 31. `generic-a320.png` (D-07 neutral shape fallback — NO airline identity)
+### 33. `air-france-hop-atr72.png` (secondary variant — Air France Hop's minority ATR 72-600, 260827-lgt, MEDIUM confidence on primary/secondary split)
+```
+Side-profile editorial illustration of an ATR 72-600 in the same Air
+France regional livery, matching `air-france-hop.png`'s colours on the
+turboprop airframe instead of the regional jet. nose pointing LEFT.
+Transparent background (PNG with real alpha channel) — no ground, no
+sky, no shadow, nothing behind the aircraft. Clean flat illustration
+style, crisp hard edges, vintage aviation poster plate.
+```
+
+### 34. `generic-a320.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Airbus-A320-family-shaped
 narrow-body commercial jet — NO airline identity, no livery colours, no
@@ -661,7 +760,7 @@ channel) — no ground, no sky, no shadow, nothing behind the aircraft. Clean
 flat illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 32. `generic-b737.png` (D-07 neutral shape fallback — NO airline identity)
+### 35. `generic-b737.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Boeing-737-family-shaped
 narrow-body commercial jet — NO airline identity, no livery colours, no
@@ -671,7 +770,7 @@ channel) — no ground, no sky, no shadow, nothing behind the aircraft. Clean
 flat illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 33. `generic-atr72.png` (D-07 neutral shape fallback — NO airline identity)
+### 36. `generic-atr72.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic ATR-72-shaped turboprop
 airliner — NO airline identity, no livery colours, no tail markings, no
@@ -681,7 +780,7 @@ ground, no sky, no shadow, nothing behind the aircraft. Clean flat
 illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 34. `generic-beechcraft1900d.png` (D-07 neutral shape fallback — NO airline identity)
+### 37. `generic-beechcraft1900d.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Beechcraft-1900D-shaped
 small twin turboprop commuter aircraft — NO airline identity, no livery
@@ -692,7 +791,7 @@ aircraft. Clean flat illustration style, crisp hard edges, vintage aviation
 poster plate.
 ```
 
-### 35. `generic-embraer.png` (D-07 neutral shape fallback — NO airline identity)
+### 38. `generic-embraer.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Embraer-E-Jet-shaped
 regional jet — NO airline identity, no livery colours, no tail markings, no
@@ -702,7 +801,7 @@ ground, no sky, no shadow, nothing behind the aircraft. Clean flat
 illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 36. `generic-a330.png` (D-07 neutral shape fallback — NO airline identity)
+### 39. `generic-a330.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Airbus-A330-family-shaped
 widebody commercial jet — NO airline identity, no livery colours, no tail
@@ -712,7 +811,7 @@ channel) — no ground, no sky, no shadow, nothing behind the aircraft. Clean
 flat illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 37. `generic-a350.png` (D-07 neutral shape fallback — NO airline identity)
+### 40. `generic-a350.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Airbus-A350-family-shaped
 widebody commercial jet — NO airline identity, no livery colours, no tail
@@ -722,7 +821,7 @@ channel) — no ground, no sky, no shadow, nothing behind the aircraft. Clean
 flat illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 38. `generic-fallback.png` (already vendored — D-08 universal fallback, unchanged)
+### 41. `generic-fallback.png` (already vendored — D-08 universal fallback, unchanged)
 ```
 Side-profile editorial illustration of a generic narrow-body commercial jet
 airliner (no specific airline identity) in neutral brushed-metal/grey tones
