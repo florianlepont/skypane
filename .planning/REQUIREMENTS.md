@@ -70,7 +70,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Wall power | Battery-only for v1, to force realistic power-budget decisions early |
 | Freshness timestamp / graceful stale-offline display state | Explicitly deferred by user for v1 despite research flagging it as a common pitfall; revisit if staleness becomes a real problem |
 | Additional views beyond plane/RER (weather, other transit lines, etc.) | Stay two-view to preserve focus on the core value |
-| Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions | Anti-features that would make the frame read as a gadget rather than ambient art |
+| Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions | Anti-features that would make the frame read as a gadget rather than ambient art. Scoped 2026-08-27: this exclusion is about a permanently wall-visible indicator — the module's own built-in User LED, lit only during the multi-second active wake window and physically behind the frame as a bring-up/reflash aid (`firmware/main/led.c`, plan `260827-wo4`), falls outside it. See `.planning/seeds/bring-up-debug-led-remote-toggle.md`. |
 | Local RTL-SDR ADS-B receiver | Originally the primary plan; Phase 1 plan 01-04 validated the free adsb.fi/airplanes.live aggregators clear the coverage bar (~92min real traffic, 38/37 distinct aircraft, 2/2 on-ground) with no dedicated hardware needed — no RTL-SDR ordered |
 | ADS-B Exchange specifically (as opposed to adsb.fi/adsb.lol) | Considered as a possible aggregator but not the one validated/used — adsb.fi and adsb.lol are the two default providers in production |
 
