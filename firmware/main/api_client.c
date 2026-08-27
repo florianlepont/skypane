@@ -15,6 +15,7 @@
 #include "nvs.h"
 #include "sdkconfig.h"
 
+#include "battery.h"
 #include "nvs_schema.h"
 #include "secrets.h"
 #include "wifi.h"
@@ -116,10 +117,11 @@ static void auth_header(esp_http_client_handle_t http)
 /* Every telemetry header PROTOCOL.md §2 names, sent unconditionally on
  * every /display and /log call (upstream sends X-Rssi only when nonzero;
  * this project always sends all four so the stub server's telemetry
- * line - and plan 01-08's battery measurement - never has a gap).
- * X-Battery-Mv has no ADC driver wired up yet this phase (the fuel-gauge
- * read is Phase 4's DEVICE-04), so it reports 0 (unknown) rather than a
- * fabricated value. */
+ * line - and the battery-life measurement - never has a gap).
+ * X-Battery-Mv carries one cached adc_oneshot + adc_cali read per wake,
+ * taken off the EE02 driver board's own factory sense divider
+ * (battery.h, DEVICE-04); zero is reported - PROTOCOL.md §2's unknown
+ * sentinel - if the read fails, never a fabricated value. */
 static void telemetry_headers(esp_http_client_handle_t http,
                               const char *boot_reason)
 {
@@ -128,7 +130,8 @@ static void telemetry_headers(esp_http_client_handle_t http,
     snprintf(buf, sizeof(buf), "%d", rssi);
     esp_http_client_set_header(http, "X-Rssi", buf);
 
-    esp_http_client_set_header(http, "X-Battery-Mv", "0");
+    snprintf(buf, sizeof(buf), "%u", (unsigned)fp_battery_mv());
+    esp_http_client_set_header(http, "X-Battery-Mv", buf);
 
     esp_http_client_set_header(http, "X-Fw-Version",
                                esp_app_get_description()->version);
