@@ -56,6 +56,24 @@ sample of real ICAO type designators), hardcoded rather than fetched at
 runtime. A designator missing from the table is not an error - it degrades
 `classify_aircraft_type()` to `None`, which `select_illustration()` treats
 as "no shape" and falls through to the next fallback tier.
+
+## Filenames mirror the data source, never the current public brand name
+
+Every illustration filename (primary or secondary-variant) is derived from
+the literal `airline_name` string `adsbdb`'s API actually resolves - never
+from the airline's current public brand name, and never hand-typed. This
+matters because `adsbdb`'s crowdsourced database sometimes still resolves
+an airline's pre-rebrand legal/trading name years after a real rebrand:
+`ccm-airlines.png` stays named for "CCM Airlines" even though the real
+airline rebranded to Air Corsica in 2013, and Phase 3.1's own live
+resolution (`03.1-LIVE-RESOLUTION.md`) found two more cases of exactly this
+pattern - ASL Airlines France resolves as `"Europe Airpost"` (its
+pre-2016-rebrand name) and Corsair International resolves as
+`"Corsairfly"` (a genuine prior brand name) - so both are filed under
+those older names, not D-03's current-brand labels. Renaming a file to
+match the "correct" current brand would silently make every real flight of
+that carrier fall through to a lower fallback tier, with no error anywhere
+- see `03.1-LIVE-RESOLUTION.md`'s recorded live-callsign evidence for each.
 """
 import os
 import re
@@ -233,23 +251,63 @@ def generic_fallback_path():
     return os.path.join(ILLUSTRATION_DIR, GENERIC_FALLBACK_FILENAME)
 
 
-def select_illustration(route):
-    """Return the illustration path for `route` (a route dict, or `None`),
-    or `None` if not even the generic fallback file exists. Never raises
-    for any input, including a non-dict `route` or a non-string
-    `airline_name`.
+def select_illustration(route, aircraft_type=None):
+    """Return the illustration path for `route` (a route dict, or `None`)
+    and `aircraft_type` (a raw ICAO type designator string, or `None`),
+    resolved through four fallback tiers, or `None` if not even the
+    generic fallback file exists. Never raises for any input, including a
+    non-dict `route`, a route whose `.get` raises, a non-string
+    `airline_name`, and a hostile `aircraft_type`.
+
+    Omitting `aircraft_type` reproduces this function's pre-03.1 behaviour
+    exactly: Tier 1 and Tier 3 both short-circuit on a `None` shape key,
+    so the call falls straight through to the historical Tier 2 -> Tier 4
+    path every existing caller and test already relies on.
+
+    Tier 1: `{airline}-{shape}.png` - an exact airline+type match.
+    Tier 2 (D-06): `{airline}.png` - the airline's own illustration when
+        no exact-shape file exists. Brand identity wins over exact type
+        precision here - a real flight is still instantly recognisable as
+        "that airline", which matters more on a glanceable frame than
+        showing the technically-correct silhouette.
+    Tier 3 (D-07): `generic-{shape}.png` - a neutral, correct-shape
+        illustration for an airline this module doesn't recognise, rather
+        than the single undifferentiated universal fallback.
+    Tier 4 (D-08): `generic-fallback.png` - the existing universal
+        fallback, unchanged from Phase 3, used when neither the airline
+        nor the shape resolves to anything on disk.
     """
     try:
         airline_name = route.get("airline_name") if isinstance(route, dict) else None
     except Exception:
         airline_name = None
 
-    key = normalise_airline_key(airline_name)
-    if key is not None:
-        path = illustration_path_for_key(key)
-        if path is not None and os.path.isfile(path):
-            return path
+    airline_key = normalise_airline_key(airline_name)
+    shape_key = classify_aircraft_type(aircraft_type)
 
+    # Tier 1: exact airline + shape match.
+    if airline_key and shape_key:
+        exact = illustration_path_for_key("%s-%s" % (airline_key, shape_key))
+        if exact is not None and os.path.isfile(exact):
+            return exact
+
+    # Tier 2 (D-06): known airline, no exact-shape file - brand wins over
+    # type precision; still show that airline's own default illustration.
+    if airline_key:
+        primary = illustration_path_for_key(airline_key)
+        if primary is not None and os.path.isfile(primary):
+            return primary
+
+    # Tier 3 (D-07): unrecognized airline, but a recognized+covered shape
+    # - show the neutral correct-shape illustration instead of jumping
+    # straight to the single universal generic.
+    if shape_key:
+        neutral = illustration_path_for_key("generic-%s" % shape_key)
+        if neutral is not None and os.path.isfile(neutral):
+            return neutral
+
+    # Tier 4 (D-08): neither airline nor shape resolves to anything on
+    # disk - the existing single universal fallback, unchanged.
     fallback = generic_fallback_path()
     if os.path.isfile(fallback):
         return fallback
