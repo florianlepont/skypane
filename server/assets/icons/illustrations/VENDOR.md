@@ -78,10 +78,10 @@ files currently vendored in this directory, `shasum -a 256 <file>`).
 |---|---|---|---|---|
 | `air-france.png` | Air France | Airbus A320 | 2008×783 | `eeeeb53cb687b6f2ab054984fcb7f4910c781be7641e2215ada947ad340a96d4` |
 | `iberia-airlines.png` | Iberia Airlines | Airbus A320 | 2170×725 | `9873a243c6c75b65a5417b77486659fa94b72b8a8d193f3e94a2af4b624c7339` |
-| `tap-portugal.png` | TAP Portugal | Airbus A321neo | 2084×755 | `5eff5068b7f0a40a052f339f0ce4dc0425a42ca1c0e0a5412f7e53393470d7ac` |
+| `tap-portugal.png` | TAP Portugal | Airbus A321neo | 2073×758 | `984fa5682f53b82a35f2f974ce604e07d1b5810bc1cc8cf08c03648293f81164` |
 | `air-algerie.png` | Air Algérie | Boeing 737-800 | 2073×758 | `e3e38c8685dd63cf5c6698178d2264e6a320ccddcb66b897aa72a6327c0de996` |
 | `ccm-airlines.png` | CCM Airlines (Air Corsica) | Airbus A320 | 1735×906 | `21abe6cf667e955f4274b50ab9bbf489d743e5599f1f451ebf3a14547e32d6d4` |
-| `vueling-airlines.png` | Vueling Airlines | Airbus A320 | 2135×736 | `4d590607c5a4b51ff4d1be8b36f0625f3d8ae6cc2bc7c82a29dce793af6e885c` |
+| `vueling-airlines.png` | Vueling Airlines | Airbus A320neo | 1916×821 | `331ed5c7cfa763c48e7209ed3dfa61c989b387f1b12d5fa48470b297fd12322a` |
 | `transavia-france.png` | Transavia France | Boeing 737-800 | 2078×757 | `a793210007eedaeb950e09f42459967e337dbc4c411d9bc41380e4a3c72cc933` |
 | `generic-fallback.png` | *(none — the D-08 uncovered-airline / enrichment-failure fallback)* | unspecified, AI-generated (unbranded generic narrow-body jet, no airline identity per the prompt) | 2054×766 | `1e09d2ce8c251c861d4ec0bff4d76044228ae69b9b718a6fc49ac9f8a63fb11f` |
 
@@ -179,6 +179,23 @@ delivered, `--validate`-passing versions only; no earlier draft is vendored
 or recoverable from this repo. None of the 25 Phase 3.1 files were
 post-processed either — each was delivered, validated, and eye-confirmed
 (nose-left, type-matches-filename) exactly as generated.
+
+**Post-delivery accuracy correction (2026-08-27, same Phase 3.1 session):**
+during interactive review, the developer's image tool had also regenerated
+`tap-portugal.png` and `vueling-airlines.png` unprompted (both already had
+delivered, validated Phase-3-baseline files). Side-by-side comparison found
+both baseline files depicted **outdated liveries** — TAP's old red-cheatline
+scheme (superseded by TAP's current geometric wordmark livery) and
+Vueling's old solid-yellow-fuselage scheme (superseded by Vueling's current
+white-fuselage `vueling.com` livery). The developer confirmed both
+regenerated files as more accurate and approved the swap; the digests table
+above reflects the replacement files. A third regeneration, Air Algérie,
+was compared the same way and found **less** accurate than the existing
+baseline (simplified tail logo, missing the real Algerian flag
+crescent-and-star tail colours) — the developer kept the original
+`air-algerie.png`, unchanged. The superseded TAP and Vueling originals are
+not vendored anywhere in this repo; they exist only in git history at
+commit `e0193e8` and earlier.
 
 ## Coverage note
 
