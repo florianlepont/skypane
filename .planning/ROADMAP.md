@@ -203,10 +203,15 @@ Plans:
   1. The device completes multiple wake/poll/sleep cycles running on battery power alone, producing a measured mAh-per-cycle figure — not an estimate — that supports a realistic wake-interval and battery-life plan.
   2. User can see a low-battery indicator on the frame when the battery is running low.
 
-**Plans**: 0/1+ plans executed (05-01 in progress; a second plan to build the low-battery indicator UI itself is still TBD)
+**Plans**: 0/3 plans executed (05-01 in progress — Task 1 done, Tasks 2-3 parked to end of project; 05-02 and 05-03 planned 2026-08-27 and cover DEVICE-04)
 **Wave 1**
 
 - [ ] 05-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker (Task 1 done), unattended multi-day discharge run and verdict (Tasks 2-3 pending)
+- [ ] 05-02-PLAN.md — Low-battery indicator, server half: strict X-Battery-Mv validation and single-writer persistence, the 3500/3600 mV hysteresis decision, and the bottom-left battery icon drawn onto the served panel
+
+**Wave 2**
+
+- [ ] 05-03-PLAN.md — Low-battery indicator, device half: host-tested divider conversion, a real calibrated ADC1 read replacing the compiled-in unknown sentinel, and the blocking hardware bring-up (pin isolation, multimeter cross-check, icon confirmed on real glass)
 
 **UI hint**: yes
 
@@ -221,13 +226,15 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
-| 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
+| 5. Battery Life & Low-Battery Indicator | 0/3 | In Progress | - |
 | 6. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 6/6 plans complete
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 5 to break down)
+- [ ] 05-01-PLAN.md — Battery-life measurement (DEVICE-05) — Task 1 done, Tasks 2-3 parked to end of project
+- [ ] 05-02-PLAN.md — Low-battery indicator, server half (DEVICE-04) — Wave 1
+- [ ] 05-03-PLAN.md — Low-battery indicator, device half + hardware bring-up (DEVICE-04) — Wave 2
 
 ### Phase 6: Final On-Glass Verification
 
