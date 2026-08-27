@@ -171,10 +171,10 @@ def main():
             captured = {}
             original = render.render_panel
 
-            def _spy(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None):
+            def _spy(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None, battery_low=False):
                 captured["previous_flight"] = previous_flight
                 captured["previous_state"] = previous_state
-                return original(flight, state, route=route, previous_flight=previous_flight, previous_route=previous_route, previous_state=previous_state)
+                return original(flight, state, route=route, previous_flight=previous_flight, previous_route=previous_route, previous_state=previous_state, battery_low=battery_low)
 
             poll_loop.render.render_panel = _spy
             try:
