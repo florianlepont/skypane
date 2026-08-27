@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_phase_name: ci-cd-documentation-legal-compliance-github-actions-ci-tests
-status: complete
-stopped_at: Phase 03.1 context gathered
-last_updated: "2026-08-26T23:02:15.987Z"
-last_activity: 2026-08-26
-last_activity_desc: Quick task 260826-vlq complete (5/5 tasks) - project renamed Ink Frame -> SkyPane end-to-end, including the GitHub repo rename (see Quick Tasks Completed below)
+current_phase: 03.1
+current_phase_name: procedural-per-airline-livery-rendering
+status: executing
+stopped_at: 03.1-01 complete (Wave 1, plan 1 of 2)
+last_updated: "2026-08-27T00:08:58.873Z"
+last_activity: 2026-08-27
+last_activity_desc: 03.1-01 complete (ROADMAP D-10 revision + live airline-name/t-field resolution)
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 23
-  completed_plans: 21
-  percent: 91
+  total_plans: 28
+  completed_plans: 22
+  percent: 79
 ---
 
 # Project State
@@ -24,16 +24,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 03.1 — procedural-per-airline-livery-rendering (context gathered 2026-08-27, ready for planning)
+**Current focus:** Phase 03.1 — procedural-per-airline-livery-rendering
 
 ## Current Position
 
-Phase: 04 (ci-cd-documentation-legal-compliance-github-actions-ci-tests) — COMPLETE
-Plans: 6/6 executed (6 plans, 4 waves - 04-01 through 04-06)
-Status: 04-01 (Wave 1), 04-02 (Wave 2), 04-03 (Wave 3), 04-04 and 04-05 (Wave 4) complete. 04-01: developer selected scrub scope a-b-c (Categories A+B+C) at the checkpoint:decision gate; git-filter-repo rewrote all 154 commits, verified zero occurrences of the approved literals across every ref, backed by a verified bundle outside the repo tree. Repo-root .gitignore (D-06) committed. 04-02: server/requirements-dev.txt pins ruff+coverage (provenance-verified, separate from production deps); repo-root pyproject.toml configures Ruff (E4,E7,E9,F selected, E402 suppressed for 8 documented sys.path bootstraps, green on the untouched codebase) and coverage (server+stub-server scope, parallel mode, fail_under=75 vs a measured 79% baseline); scripts/run-all-tests.sh is the canonical 9-harness runner, gate-failure demonstrated and restored. All 9 test harnesses still pass. 04-03: repo-root MIT LICENSE with an asset-scope note; closed a real OFL 1.1 attribution gap (Inter's licence text was claimed vendored but never existed, even though the TTFs remain shipped post-supersession) by fetching the real text from the same pinned v4.1 release tag; built scripts/check-attribution.sh (bash-3.2-compatible, demonstrated failing on a deliberate rename then passing after revert); created COMPLIANCE.md covering all five real third-party data sources (adsb.fi, airplanes.live, adsbdb.com, PRIM/IDFM, AeroDataBox) with the confirmed adsb.fi attribution requirement met by real citation text and airplanes.live recorded as the one open item (403 on three fetch attempts, route to closure named). Corrected 04-CONTEXT.md's/04-PATTERNS.md's stale claim that illustrations/VENDOR.md doesn't exist — it does, and is complete. 04-04: .github/workflows/ci.yml (blocking test job: lint/9-harness-suite/coverage/attribution + human-gated deploy job wrapping deploy/deploy.sh) and .github/workflows/firmware.yml (path-restricted, wraps firmware/build.sh directly rather than a marketplace action) both actionlint-clean, no host/credential literals; three repository secrets named for plan 04-06 to create (DEPLOY_SSH_PRIVATE_KEY, DEPLOY_HOST_KEY, DEPLOY_SSH_TARGET). Neither workflow observable running on real GitHub infrastructure until 04-06 pushes the repo — carried forward explicitly. 04-05: repo-root README.md (newcomer front door — hardware/server/tests/firmware/deployment sections each pointing at the authoritative doc, honest v1 scope, visible adsb.fi/airplanes.live/adsbdb attribution) and ARCHITECTURE.md (current-state system description written from state_machine.c/backoff.c/poll_loop.py/detect.py/enrich.py/render.py/panel_format.py/byos_server.py, not from the stale research doc; ASCII data-flow diagram; deliberate-constraints section) both created and pass every automated check; .planning/research/ARCHITECTURE.md got an additive status note (zero lines deleted) pointing at the new document. All 9 test harnesses, ruff, and check-attribution.sh still pass. Wave 4's final plan (04-06) remains.
-Last activity: 2026-08-26 — Quick task 260826-vlq complete (5/5 tasks) - project renamed Ink Frame -> SkyPane end-to-end, including the GitHub repo rename (see Quick Tasks Completed below)
+Phase: 03.1 (procedural-per-airline-livery-rendering) — EXECUTING
+Plans: 1/5 executed (5 plans, 3 waves — 03.1-01 done, 03.1-02 through 03.1-05 remaining)
+Status: Wave 1 (03.1-01 complete; 03.1-02 remaining in Wave 1)
+Last activity: 2026-08-27 — 03.1-01 complete (ROADMAP D-10 revision + live airline-name/`t`-field resolution)
 
-Progress: [█████████░] 91% (21/23 plans, Phase 4: 6/6 plans - complete)
+Progress: [████████░░] 79% (22/28 plans)
 
 ## Performance Metrics
 
@@ -140,6 +140,7 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-04 complete - .github/workflows/ci.yml built as a single file with needs:-linked jobs (not the two-file split 04-RESEARCH.md sketched - a job can't depend on a job in a different workflow file); test job blocks on lint/9-harness-suite/coverage/attribution via scripts/run-all-tests.sh and scripts/check-attribution.sh; deploy job gated on test success + push-to-main-only (pull_request cannot reach it) + a named `production` GitHub Environment (04-06 attaches the reviewer), loads the SSH key via webfactory/ssh-agent, writes the host key from a dedicated secret into known_hosts instead of ssh-keyscan (hardening over the research's Pattern 2 skeleton), invokes deploy/deploy.sh unchanged with 3 distinct secrets (DEPLOY_SSH_PRIVATE_KEY, DEPLOY_HOST_KEY, DEPLOY_SSH_TARGET - named for 04-06 to create). .github/workflows/firmware.yml is path-restricted to firmware/** and wraps firmware/build.sh directly rather than the espressif/esp-idf-ci-action marketplace action (resolves 04-RESEARCH.md Open Question 2/Assumption A2 by construction). Both actionlint-clean, no host/credential literals. Neither observable running on real GitHub infrastructure until 04-06 pushes the repo - explicit carried-forward verification gap.
 - [Phase 04]: 04-05 complete - repo-root README.md is the project's front door: honest v1 scope (single plane view; RER + button deferred to v2), a six-directory navigation table, and Hardware/Server/Tests/Firmware/Deployment sections each pointing at the authoritative doc (hardware/BOM.md, server/README.md, scripts/run-all-tests.sh, firmware/build.sh+VENDOR.md, deploy/README.md) rather than duplicating it; Data Sources section credits adsb.fi (live link, satisfying their cite-and-link term), airplanes.live, and adsbdb.com, closing the visible half of D-14. Repo-root ARCHITECTURE.md written directly from the shipped code (state_machine.c, backoff.c, poll_loop.py, detect.py, enrich.py, render.py, panel_format.py, byos_server.py), not the stale research doc - covers the firmware wake/poll/blit/deep-sleep cycle (hash-skip short-circuit, deferred-vs-failed panel-guard distinction, the frozen Log Line Contract, measured ~31.5s full-refresh duration), the server render pipeline (deterministic multi-aircraft selection, vertical-rate deadband, enrich.py's ~52.6%-hit-rate cache documented as a first-class fallback state, the two-flight poster composition), and the OVH deployment topology (Caddy/ufw loopback enforcement, systemd units, bearer-token auth) - plus an ASCII data-flow diagram and a deliberate-constraints section. .planning/research/ARCHITECTURE.md got an additive-only status note (zero lines deleted) pointing at the new document. Every command in the README was executed while writing it (venv install, a manual render, a real poll_loop.py cycle that correctly fell back to the Empty state when the sandboxed environment's live aggregator call returned 403); all 9 test harnesses, ruff, and check-attribution.sh still pass. One self-caught deviation: two literal strings (a no-space `esp_deep_sleep_start()` and literal `127.0.0.1`/`0.0.0.0` addresses) failed the task's own automated verification on first draft and were corrected before commit - documented in 04-05-SUMMARY.md.
 - [Phase 04]: 04-06 complete - Phase 4 fully closed (6/6 plans). Repository published public at `florianlepont/ink-frame` after a second scrub pass (Category D: supplier order numbers + payment note, found beyond Task 1's original review) on top of 04-01's first pass; commit-author email deliberately left unscrubbed at developer's explicit request. `production` GitHub Environment created with `florianlepont` as required reviewer; three secrets (`DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_HOST_KEY`, `DEPLOY_SSH_TARGET`) provisioned from a dedicated CI-only ed25519 keypair, not the developer's personal key. On real GitHub infrastructure: CI went green with all 9 harnesses individually confirmed reporting (`dither: 6/6` ... `poll-cycle: 17/17`) plus lint and attribution; a deliberately lint-breaking throwaway PR failed CI and left the deploy job with zero executed steps and no pending_deployments entry (proof a PR cannot reach deploy credentials); firmware.yml's path restriction confirmed both ways (skipped for the lint-only PR, built successfully for a firmware/** change, corroborated again by a real direct-to-main firmware.yml documentation commit); the production deploy job was observed genuinely paused (`pending_deployments` with `current_user_can_approve: true`), approved via `gh api`, and `deploy/deploy.sh` completed with all documented post-deploy health checks passing (services active, real poll cycle in the journal, TLS+401 auth gate, app port unreachable externally). No secret value found in any run log. A second pending deployment (from a prior dispatch's direct push, 243e233) surfaced mid-session and was deliberately left for the developer's own approval rather than force through the session's auto-mode production-deploy classifier guard - documented in 04-06-SUMMARY.md, not a blocker to Phase 4 closure.
+- [Phase 03.1]: 03.1-01 complete (Wave 1, first of two Wave-1 plans) - ROADMAP.md's Phase 3.1 section rewritten via four scoped `Edit`s (goal, phase-list summary bullet, success criteria 3-4, a dated superseding note appended to the preserved "Note on origin" paragraph) to describe the static-but-type-accurate approach (D-10) instead of the abandoned server-side SVG-shape+livery-color compositing engine; `git diff --numstat` confirmed the edit stayed confined to the Phase 3.1 bullet+section. `03.1-LIVE-RESOLUTION.md` created: calibrated the `adsbdb` airline-endpoint probe against the known `AFR` -> `Air France` answer, re-confirmed the four load-bearing callsigns (CCM Airlines, easyJet, Air France, Transavia France still resolve as expected - P-01 holds), and live-resolved all eight previously-unverified D-03 airlines. Found two more Pitfall-1-style stale-brand-name mismatches beyond the known CCM Airlines/Air Corsica case: ASL Airlines France resolves as `"Europe Airpost"` (confirmed via two real live callsigns, FPO701/FPO458) and Corsair International resolves as `"Corsairfly"` (confirmed via the calibrated airline endpoint + independent Wikipedia corroboration) - both are the real selection keys plan 03.1-03 must use, not D-03's labels. Confirmed the ADS-B `t` field present on 111/125 real aircraft via `opendata.adsb.fi`; `api.airplanes.live` remains network-blocked (HTTP 403), consistent with the existing `COMPLIANCE.md` finding, not schema-absent. Two airlines (Amelia International, La Compagnie) marked `[UNRESOLVED]` with full evidence and excluded from the target set pending a future real-callsign re-verification - both had a candidate ICAO code that turned out to belong to a different real airline in adsbdb. No server code touched (`git status --porcelain server/` empty throughout).
 
 ### Pending Todos
 
@@ -174,10 +175,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-26T23:02:15.976Z
-Stopped at: Phase 03.1 context gathered
+Last session: 2026-08-27T00:08:58.873Z
+Stopped at: 03.1-01 complete (Wave 1, plan 1 of 2) — continue with 03.1-02
 
-Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-CONTEXT.md
+Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-02-PLAN.md
 
 **State at end of this session (2026-08-26, ~09:25):**
 
@@ -248,3 +249,12 @@ Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-
 - New tiered fallback behavior decided (D-06/D-07/D-08): known airline with a type mismatch still shows that airline's illustration (brand wins); an unrecognized airline with a recognized+covered type gets a new neutral-colored correct-shape fallback (~7 new images needed, one per base shape) instead of the single generic; both-unknown keeps Phase 3's existing single universal fallback unchanged.
 - Progress counters were reset by the same documented SDK bug when `state.record-session` was called this session (`completed_phases` bumped to 5, `completed_plans` to 22, `percent` to 71, despite the body text correctly still saying Phase 4/91%/21/23) — corrected by hand back to `completed_phases: 4`, `completed_plans: 21`, `percent: 91`, matching the unchanged body text. `current_focus` line also updated (was still pointing at the completed Phase 3).
 - Next step: `/gsd-plan-phase 03.1` — the planner should read `03.1-CONTEXT.md` in full (especially D-02/D-03/D-10) before drafting tasks, and should draft the ROADMAP.md revision (D-10) as part of planning rather than leaving it stale.
+
+**State at end of this session (2026-08-27) — Phase 3.1 planned, 03.1-01 executed:**
+
+- `/gsd-plan-phase 03.1` ran between the previous session note and this one (not narrated in a session note at the time): produced `03.1-RESEARCH.md`, `03.1-PATTERNS.md`, `03.1-DISCUSSION-LOG.md`, and five `03.1-0N-PLAN.md` files across 3 waves (committed `713b4a4`, with a follow-up formatting fix `ff48735`). This raised `total_plans` from 23 to 28.
+- This session's dirty working tree (a `state.record-session`-style write from that planning session, never committed) again showed the same documented SDK progress-counter bug at session start: `current_phase`/`status`/`stopped_at` correctly said "03.1 / executing / context gathered" but the frontmatter progress block read `completed_phases: 5, total_plans: 28, completed_plans: 22, percent: 71` — `completed_phases: 5` was wrong (Phase 3.1 had zero plans executed at that point, so completed_phases should still be 4; the correct completed_plans at that point was 21, not 22, since the planning step itself completes zero plans).
+- `/gsd-execute-phase 03.1` then ran plan `03.1-01` (Wave 1, first of two Wave-1 plans) — see the `[Phase 03.1]` decisions-log bullet above for the full technical summary. `state.advance-plan` errored on this STATE.md's "Plans: N/M executed" line shape (same known tool limitation already documented for 04-05's session); `state.update-progress` returned `completed: 23, total: 28, percent: 82`, again double-counting rather than reflecting one real plan completion — corrected by hand to `completed_phases: 4` (Phase 3.1 is not complete, only 1/5 of its plans are), `completed_plans: 22` (21 before this plan + 1 for 03.1-01), `percent: 79` (22/28, rounded). `current_position` body text (`Plans: N/M executed`, the progress bar) also hand-corrected to match, following the same by-hand-correction pattern documented in every Phase 4 session note above.
+- Three commits landed for 03.1-01: `cc814ed` (Task 2, `03.1-LIVE-RESOLUTION.md`), `b94cb80` (Task 1, ROADMAP.md revision), `ad9dcd2`/`6724536` (`03.1-01-SUMMARY.md` + its self-check appendix). Task 2 was executed and committed before Task 1 in this session, since Task 2's live findings directly informed Task 1's superseding-note wording — both tasks are independent and non-order-dependent per the plan.
+- This worktree (`skypane/.claude/worktrees/reprise-travail-a8e93d`) has no `server/.venv` (present in the main repo checkout, absent here) and this sandbox's `pip` points at an unreachable internal registry — `scripts/run-all-tests.sh` could not be run as this plan's no-regression check. Not a blocker for 03.1-01 (zero server files touched, `git status --porcelain server/` confirmed empty), but plan 03.1-02 (the first plan in this phase that actually edits `server/plane/detect.py`) will need a working venv in whichever environment executes it.
+- Next step: continue `/gsd-execute-phase 03.1` with plan `03.1-02` (`detect.py` ICAO aircraft-type extraction) — Wave 1's second and final plan.
