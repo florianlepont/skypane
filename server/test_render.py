@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 41
+EXPECTED_CHECK_COUNT = 42
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -922,6 +922,45 @@ def main():
         "illustrations.select_illustration() on an airline-only Transavia France route resolves to "
         "'transavia-france.png' - the airline's own art, not the generic fallback",
         _airline_only_route_selects_the_airlines_own_illustration,
+    )
+
+    # 42 (quick task 260827-kih). A route already corrected by
+    # enrich.correct_airline_name() renders its current brand name in the
+    # caption via _flight_line2_text(), and render.display_airline_name()
+    # is a no-op on that already-corrected string (it has no P-01 alias of
+    # its own to apply - the alias table only ever held "CCM Airlines").
+    def _corrected_route_renders_current_brand_and_display_alias_is_noop():
+        import server.plane.enrich as enrich
+
+        cache = {}
+        body = {
+            "response": {
+                "flightroute": {
+                    "airline": {"name": "CCM Airlines"},
+                    "origin": {"iata_code": "ORY", "municipality": "Paris"},
+                    "destination": {"iata_code": "AJA", "municipality": "Ajaccio"},
+                }
+            }
+        }
+
+        def _transport(_callsign, _timeout=None):
+            return 200, body
+
+        route, _source = enrich.resolve_route("CCM21AW", cache, transport=_transport)
+        if route is None or route.get("airline_name") != "Air Corsica":
+            return False, "setup failure: expected a corrected 'Air Corsica' route, got %r" % (route,)
+        if render.display_airline_name(route["airline_name"]) != "Air Corsica":
+            return False, "display_airline_name() must be a no-op on the already-corrected 'Air Corsica' string"
+        line2 = render._flight_line2_text(route, "A320")
+        if "Air Corsica" not in line2:
+            return False, "_flight_line2_text() on the corrected route did not render the current brand name: %r" % (line2,)
+        if "CCM Airlines" in line2:
+            return False, "_flight_line2_text() on the corrected route must not render the stale upstream string: %r" % (line2,)
+        return True, ""
+    check(
+        "a route already corrected by enrich.correct_airline_name() renders its current brand name via "
+        "_flight_line2_text(), and display_airline_name() is a no-op on the already-corrected string (260827-kih)",
+        _corrected_route_renders_current_brand_and_display_alias_is_noop,
     )
 
     total = len(results)

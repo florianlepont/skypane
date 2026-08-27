@@ -26,7 +26,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 33
+EXPECTED_CHECK_COUNT = 35
 
 
 def load_fixture(name):
@@ -639,6 +639,87 @@ def main():
         "whose .get() raises), and never return a value derived from the arguments other than the unchanged "
         "airline_name (T-kih-01)",
         _correction_seam_never_raises_battery,
+    )
+
+    # --- Quick task 260827-kih Task 2: the three stale-brand corrections
+    # (FPO/CRL/CCM) applied through the same seam. ------------------------
+
+    def _stubbed_hit_body(airline_name):
+        return {
+            "response": {
+                "flightroute": {
+                    "airline": {"name": airline_name},
+                    "origin": {"iata_code": "ORY", "municipality": "Paris"},
+                    "destination": {"iata_code": "XXX", "municipality": "Somewhere"},
+                }
+            }
+        }
+
+    # 34. correct_airline_name() maps each of the three (prefix, upstream
+    #     string) pairs to its real current name.
+    def _correct_airline_name_three_stale_brand_pairs():
+        cases = [
+            ("FPO701", "Europe Airpost", "ASL Airlines France"),
+            ("CRL8025", "Corsairfly", "Corsair"),
+            ("CCM21AW", "CCM Airlines", "Air Corsica"),
+        ]
+        for callsign, stale, expected in cases:
+            got = enrich.correct_airline_name(callsign, stale)
+            if got != expected:
+                return False, "correct_airline_name(%r, %r) = %r, expected %r" % (callsign, stale, got, expected)
+        return True, ""
+    check(
+        "correct_airline_name() maps FPO/Europe Airpost -> ASL Airlines France, CRL/Corsairfly -> Corsair, "
+        "CCM/CCM Airlines -> Air Corsica (260827-kih)",
+        _correct_airline_name_three_stale_brand_pairs,
+    )
+
+    # 35. End-to-end: resolve_route() against a stubbed 200 body carrying
+    #     each upstream string under its own prefix returns the corrected
+    #     name; the same body served under an unrelated prefix returns the
+    #     upstream string untouched (the negative prefix-scoped case).
+    #     select_illustration() on the corrected CCM/Air Corsica route
+    #     resolves to the renamed primary (A320) and secondary (ATR72)
+    #     files - proving the correction lands before illustration
+    #     selection, not just in the caption text.
+    def _resolve_route_and_selection_for_three_stale_brand_carriers():
+        cases = [
+            ("FPO701", "Europe Airpost", "ASL Airlines France"),
+            ("CRL8025", "Corsairfly", "Corsair"),
+            ("CCM21AW", "CCM Airlines", "Air Corsica"),
+        ]
+        for callsign, stale, expected in cases:
+            cache = {}
+            body = _stubbed_hit_body(stale)
+            route, source = enrich.resolve_route(callsign, cache, transport=make_transport(200, body))
+            if route is None or route.get("airline_name") != expected or source != "fresh_hit":
+                return False, "resolve_route(%r, ...) = (%r, %r), expected airline_name %r, source 'fresh_hit'" % (
+                    callsign, route, source, expected,
+                )
+
+        # Negative case: the same upstream string, served under an
+        # UNRELATED prefix, must come back untouched - the correction is
+        # keyed on the (prefix, string) pair, never on the string alone.
+        cache = {}
+        unrelated_body = _stubbed_hit_body("CCM Airlines")
+        route, source = enrich.resolve_route("ZZZ9999", cache, transport=make_transport(200, unrelated_body))
+        if route is None or route.get("airline_name") != "CCM Airlines":
+            return False, "resolve_route('ZZZ9999', ...) with airline_name 'CCM Airlines' under an unrelated " \
+                "prefix must come back untouched, got %r" % (route,)
+
+        ccm_route = enrich.airline_only_route("Air Corsica")
+        primary = illustrations.select_illustration(ccm_route, "A320")
+        if primary is None or os.path.basename(primary) != "air-corsica.png":
+            return False, "select_illustration(Air Corsica route, 'A320') = %r, expected air-corsica.png" % (primary,)
+        secondary = illustrations.select_illustration(ccm_route, "AT72")
+        if secondary is None or os.path.basename(secondary) != "air-corsica-atr72.png":
+            return False, "select_illustration(Air Corsica route, 'AT72') = %r, expected air-corsica-atr72.png" % (secondary,)
+        return True, ""
+    check(
+        "resolve_route() corrects all three stale-brand carriers under their own prefix and leaves the same "
+        "string untouched under an unrelated prefix; the corrected Air Corsica route selects the renamed "
+        "air-corsica.png/air-corsica-atr72.png files (260827-kih)",
+        _resolve_route_and_selection_for_three_stale_brand_carriers,
     )
 
     total = len(results)

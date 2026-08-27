@@ -80,7 +80,7 @@ files currently vendored in this directory, `shasum -a 256 <file>`).
 | `iberia-airlines.png` | Iberia Airlines | Airbus A320 | 2170×725 | `9873a243c6c75b65a5417b77486659fa94b72b8a8d193f3e94a2af4b624c7339` |
 | `tap-portugal.png` | TAP Portugal | Airbus A321neo | 2073×758 | `984fa5682f53b82a35f2f974ce604e07d1b5810bc1cc8cf08c03648293f81164` |
 | `air-algerie.png` | Air Algérie | Boeing 737-800 | 2073×758 | `e3e38c8685dd63cf5c6698178d2264e6a320ccddcb66b897aa72a6327c0de996` |
-| `ccm-airlines.png` | CCM Airlines (Air Corsica) | Airbus A320 | 1735×906 | `21abe6cf667e955f4274b50ab9bbf489d743e5599f1f451ebf3a14547e32d6d4` |
+| `air-corsica.png` (renamed from `ccm-airlines.png`, 260827-kih) | Air Corsica (adsbdb still resolves the pre-2013-rebrand name "CCM Airlines" - see Naming rules) | Airbus A320 | 1735×906 | `21abe6cf667e955f4274b50ab9bbf489d743e5599f1f451ebf3a14547e32d6d4` |
 | `vueling-airlines.png` | Vueling Airlines | Airbus A320neo | 1916×821 | `331ed5c7cfa763c48e7209ed3dfa61c989b387f1b12d5fa48470b297fd12322a` |
 | `transavia-france.png` | Transavia France | Boeing 737-800 | 2078×757 | `a793210007eedaeb950e09f42459967e337dbc4c411d9bc41380e4a3c72cc933` |
 | `generic-fallback.png` | *(none — the D-08 uncovered-airline / enrichment-failure fallback)* | unspecified, AI-generated (unbranded generic narrow-body jet, no airline identity per the prompt) | 2054×766 | `1e09d2ce8c251c861d4ec0bff4d76044228ae69b9b718a6fc49ac9f8a63fb11f` |
@@ -106,18 +106,18 @@ dimensions read via Pillow `Image.open(path).size`).
 | `lot-polish-airlines.png` | LOT Polish Airlines | Embraer E195 | 2172×724 | `7c258442bcab8cd80e3903eccf13d171f06dd8dec6dcfc917ee56c61a6f8b844` |
 | `air-caraibes.png` | Air Caraïbes | Airbus A350-900 | 2172×724 | `fdd7c38784ebd7b73fb8c1412f64fcd123a15290044bb4235ec0db1a39baaef1` |
 | `french-bee.png` | French Bee | Airbus A350-900 | 2048×768 | `30180fb1a3ac75280a12b8263223feb246fe4f53fd5db44e60eb7df322f711a1` |
-| `europe-airpost.png` | Europe Airpost (adsbdb-resolved pre-2016-rebrand name for ASL Airlines France — see Naming rules) | Boeing 737-800 | 1967×799 | `e768d1977d89ed59ad56238e534c267634ebe504c5af55e1cb0c96beeb66eecc` |
+| `asl-airlines-france.png` (renamed from `europe-airpost.png`, 260827-kih) | ASL Airlines France (adsbdb still resolves the pre-2015-rebrand name "Europe Airpost" — see Naming rules) | Boeing 737-800 | 1967×799 | `e768d1977d89ed59ad56238e534c267634ebe504c5af55e1cb0c96beeb66eecc` |
 | `tunisair.png` | Tunisair | Airbus A320neo | 1962×801 | `45da829a1889e11ce9a41878ac779c92278422c9873c0d1a067f51bedb9506a9` |
 | `pegasus-airlines.png` | Pegasus Airlines | Airbus A321neo | 2087×754 | `b1b1172a6dc8e1b379206b9dbecf58564b84b2842f3b55ae5fbf7eacb31e8c33` |
 | `chalair-aviation.png` | Chalair Aviation | ATR 72 | 2068×760 | `7526a7feba31bad21a7016af5b6f2e19d3438cd5f6edd13c1a91e917f42fcfd4` |
 | `twin-jet.png` | Twin Jet | Beechcraft 1900D | 1926×816 | `1cca1686cce71aeec6adce4b5b8cebaa1ddd324af8682f8738b7095cc1ccca70` |
-| `corsairfly.png` | Corsairfly (adsbdb-resolved prior-brand name for Corsair International — see Naming rules) | Airbus A330-900neo | 2172×724 | `80b5fdb68038195611282f8a1612cdd187f88ae506a32fc6d3230b8261dbe68c` |
+| `corsair.png` (renamed from `corsairfly.png`, 260827-kih) | Corsair (adsbdb still resolves the prior-brand name "Corsairfly" — see Naming rules) | Airbus A330-900neo | 2172×724 | `80b5fdb68038195611282f8a1612cdd187f88ae506a32fc6d3230b8261dbe68c` |
 
 **Airline secondary-variant files (3) — mixed-fleet minority types, P-04:**
 
 | Filename | Airline served | Aircraft type | Dimensions (px) | sha256 |
 |---|---|---|---|---|
-| `ccm-airlines-atr72.png` | CCM Airlines (Air Corsica) | ATR 72-600 | 1881×836 | `ee422917de57506d77420b491eee6971a841620a10dc60cf138bc3d6f2fb86e8` |
+| `air-corsica-atr72.png` (renamed from `ccm-airlines-atr72.png`, 260827-kih) | Air Corsica (adsbdb still resolves the pre-2013-rebrand name "CCM Airlines" — see Naming rules) | ATR 72-600 | 1881×836 | `ee422917de57506d77420b491eee6971a841620a10dc60cf138bc3d6f2fb86e8` |
 | `transavia-france-a320.png` | Transavia France | Airbus A320neo | 1774×887 | `bca0bd1f345e9a8f8e223f371765e88eecc4db1fe44af055a32535d28bcc9aa8` |
 | `air-caraibes-a330.png` | Air Caraïbes | Airbus A330-300 | 1991×789 | `71a1e71069599c931421859cdb5c3110274b7d00668d08c0d8c6d9e26b101ffd` |
 

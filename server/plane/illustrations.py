@@ -63,48 +63,74 @@ runtime. A designator missing from the table is not an error - it degrades
 `classify_aircraft_type()` to `None`, which `select_illustration()` treats
 as "no shape" and falls through to the next fallback tier.
 
-## Filenames mirror the data source, never the current public brand name
+## Filenames mirror the carrier's real current name (superseded rule, 260827-kih)
 
-Every illustration filename (primary or secondary-variant) is derived from
-the literal `airline_name` string `adsbdb`'s API actually resolves - never
-from the airline's current public brand name, and never hand-typed. This
-matters because `adsbdb`'s crowdsourced database sometimes still resolves
-an airline's pre-rebrand legal/trading name years after a real rebrand:
-`ccm-airlines.png` stays named for "CCM Airlines" even though the real
-airline rebranded to Air Corsica in 2013, and Phase 3.1's own live
-resolution (`03.1-LIVE-RESOLUTION.md`) found two more cases of exactly this
-pattern - ASL Airlines France resolves as `"Europe Airpost"` (its
-pre-2016-rebrand name) and Corsair International resolves as
-`"Corsairfly"` (a genuine prior brand name) - so both are filed under
-those older names, not D-03's current-brand labels. Renaming a file to
-match the "correct" current brand would silently make every real flight of
-that carrier fall through to a lower fallback tier, with no error anywhere
-- see `03.1-LIVE-RESOLUTION.md`'s recorded live-callsign evidence for each.
+**SUPERSEDED (quick task 260827-kih, 2026-08-27, QT-kih-D-06):** every
+illustration filename is now derived from the carrier's **real current
+name**, run through `normalise_airline_key()` - and where `adsbdb`'s
+crowdsourced database disagrees (because it still resolves a pre-rebrand
+legal/trading name, or because it attributes an ICAO prefix to a
+*different*, defunct carrier that once held it), `enrich.py`'s
+`correct_airline_name()` / `apply_airline_name_correction()` reconcile the
+two before either the selection key or the caption text is computed. This
+is the opposite direction from the rule that governed this file through
+Phase 3.1 and quick task `260827-hyy`.
 
-Quick task `260827-jz6` (2026-08-27) introduced exactly one developer-approved
-override of this rule: `tuifly-belgium.png` is filed under TUIfly Belgium's
-real current brand name even though a real `JAF` callsign resolves live in
-adsbdb to `"Jetairfly"`, the airline's pre-2016 legacy brand
-(QT-jz6-D-02) - see `HANDOFF.md`'s Naming rules section for the full record.
-This is a named, accepted exception, not a defect; the rule above still
-governs every other entry, including the two cited just above and CCM
-Airlines. `km-malta-airlines.png` is not an exception to this rule at all:
-adsbdb has no record of the carrier under any callsign whatsoever
-(`KMM466` -> "unknown callsign", live-verified the same session), so there
-is no stale brand name for the current name to conflict with (QT-jz6-D-01).
+**The rule this supersedes, for the record:** every filename used to be
+derived from the literal `airline_name` string adsbdb's API actually
+resolved - never from the current public brand name, and never
+hand-typed - because no correction mechanism existed and mirroring adsbdb
+verbatim was the only way to keep `select_illustration()`'s lookup working.
+That was correct given the machinery available then: Phase 3.1
+(`03.1-LIVE-RESOLUTION.md`'s Step B/C naming verdicts, P-01/D-04) and
+quick task `260827-hyy`'s D-01 all rested on it. The **hazard the old rule
+warned about is unchanged and still real** - a filename and a selection key
+that drift apart silently lose selection, with no error anywhere, no log
+line, no failing test. What changed is that `enrich.correct_airline_name()`
+is now the mechanism that keeps them from drifting, not manual filename
+discipline alone.
 
-Quick task `260827-kih` (2026-08-27) adds Amelia (`AIA`) as a new target
-precisely because `enrich.correct_airline_name()` now exists: adsbdb's `AIA`
-callsign resolves live to `"Avies"`, a *different, defunct* Estonian
+**Three files were renamed accordingly (`git mv`, history preserved,
+QT-kih-D-04):**
+
+- `ccm-airlines.png` -> `air-corsica.png` - adsbdb's callsign `CCM21AW`
+  still resolves the pre-2013-rebrand string `"CCM Airlines"`.
+- `europe-airpost.png` -> `asl-airlines-france.png` - adsbdb's callsigns
+  `FPO701`/`FPO458` still resolve the pre-2015-rebrand string
+  `"Europe Airpost"`.
+- `corsairfly.png` -> `corsair.png` - adsbdb's `CRL` airline endpoint still
+  resolves the prior-brand string `"Corsairfly"`.
+
+Each rename's corresponding `enrich._AIRLINE_NAME_CORRECTIONS` row and
+`enrich._ICAO_AIRLINE_PREFIXES` value are what make the renamed file
+reachable again through every path (fresh adsbdb hit, cached adsbdb hit,
+and the prefix-only fallback) - see that module for the full live evidence
+behind each correction.
+
+**TUIfly Belgium (`tuifly-belgium.png`, `JAF`) and KM Malta Airlines
+(`km-malta-airlines.png`, `KMM`) are deliberately UNCHANGED and out of
+scope for this correction (QT-kih-D-07).** TUIfly Belgium is the exact same
+failure mode this seam now fixes for the three carriers above - a real
+`JAF` callsign resolves live in adsbdb to the pre-2016 legacy brand
+`"Jetairfly"` (QT-jz6-D-02) - and the new seam could trivially cover it
+too. The developer considered this and explicitly chose NOT to add a
+`JAF` correction row this session. **A future reader must not "complete
+the job" by adding one as tidy-up.** KM Malta Airlines is unaffected for a
+different reason - adsbdb has no record of that carrier under any callsign
+at all (a confirmed permanent miss, QT-jz6-D-01), so there is no stale
+string for a correction to reconcile.
+
+Quick task `260827-kih` also adds Amelia (`AIA`) as a new target -
+precisely because `enrich.correct_airline_name()` now exists: adsbdb's
+`AIA` callsign resolves live to `"Avies"`, a *different, defunct* Estonian
 carrier that happened to hold the same ICAO code (not a stale label for
-the same real airline - an outright wrong carrier attribution). Amelia was
-excluded from the target set through Phase 3.1
-(`03.1-LIVE-RESOLUTION.md` marked it `[UNRESOLVED]` because neither
-candidate ICAO code it tried could be trusted); that exclusion rationale is
-retired by this session's live verification of the real prefix, and the
-carrier is reachable through the same correction seam that also fixes
-`FPO`/`CRL`/`CCM` below (see `enrich._AIRLINE_NAME_CORRECTIONS` for the
-full live evidence and `_ILLUSTRATION_TARGETS`' own Amelia entry).
+the same real airline - an outright wrong carrier attribution, worse than
+the three rename cases above). Amelia was excluded from the target set
+through Phase 3.1 (`03.1-LIVE-RESOLUTION.md` marked it `[UNRESOLVED]`
+because neither candidate ICAO code it tried could be trusted); that
+exclusion rationale is retired by this session's live verification of the
+real prefix. See `enrich._AIRLINE_NAME_CORRECTIONS` for the full live
+evidence and `_ILLUSTRATION_TARGETS`' own Amelia entry.
 """
 import os
 import re
@@ -153,7 +179,14 @@ _LIVE_RESOLVED_AIRLINES = [
     ("IBE05EM", "Iberia Airlines"),
     ("TAP440", "TAP Portugal"),
     ("DAH1008", "Air Algerie"),
-    ("CCM21AW", "CCM Airlines"),
+    # Corrected to "Air Corsica" (260827-kih, QT-kih-D-06). Unlike the
+    # module docstring's historical live-resolution table just above
+    # (which records what adsbdb actually returned on 2026-08-26 and stays
+    # unchanged), this list is a FILENAME source consumed by
+    # required_filenames() to build the on-disk baseline - a stale
+    # "CCM Airlines" value here would demand a ccm-airlines.png file that
+    # no longer exists after this session's git mv rename.
+    ("CCM21AW", "Air Corsica"),
     ("VLG6PD", "Vueling Airlines"),
     ("TVF16VB", "Transavia France"),
 ]
@@ -166,11 +199,11 @@ _COVERAGE_CHECK_AIRLINE_NAME = "Volotea"
 # The full D-03 target set (03.1-LIVE-RESOLUTION.md's "Consequences for the
 # target set" section is the authority for this table's contents). Each
 # entry is `(resolved_airline_name, shape_slug_or_None, note)`:
-#   - `resolved_airline_name` is a live-verified adsbdb-resolved
-#     airline_name string, never a guess and never the airline's current
-#     public brand name where the two differ (see the module docstring's
-#     "Filenames mirror the data source" section for Europe Airpost/
-#     Corsairfly).
+#   - `resolved_airline_name` is a live-verified carrier name, never a
+#     guess - as of 260827-kih, the carrier's real current name for every
+#     entry (see the module docstring's "Filenames mirror the carrier's
+#     real current name" section for the Air Corsica/ASL Airlines France/
+#     Corsair renames and why TUIfly Belgium is deliberately excepted).
 #   - `shape` is `None` for the primary (unsuffixed) file - the numerically
 #     dominant type per P-04 - or a SHAPE_SLUGS member for a secondary
 #     mixed-fleet variant.
@@ -192,7 +225,14 @@ _ILLUSTRATION_TARGETS = [
     ("Iberia Airlines", None, "D-03 baseline; [VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
     ("TAP Portugal", None, "D-03 baseline; [VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
     ("Air Algerie", None, "D-03 baseline; [VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
-    ("CCM Airlines", None, "D-03/D-04 baseline, A320 primary (P-04); [VERIFIED-CALLSIGN]"),
+    (
+        "Air Corsica",
+        None,
+        "D-03/D-04 baseline, A320 primary (P-04); adsbdb's own callsign "
+        "CCM21AW still resolves the pre-2013-rebrand string 'CCM Airlines' "
+        "- corrected on read via enrich.correct_airline_name() (260827-kih, "
+        "QT-kih-D-06); [VERIFIED-CALLSIGN]",
+    ),
     ("Vueling Airlines", None, "D-03 baseline; [VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
     ("Transavia France", None, "D-03/D-05 baseline, B737 primary (P-04, pre-transition majority); [VERIFIED-CALLSIGN]"),
     ("easyJet", None, "D-03 baseline, UK-AOC EZY prefix only (P-03); [VERIFIED-CALLSIGN]"),
@@ -206,18 +246,24 @@ _ILLUSTRATION_TARGETS = [
     ("French Bee", None, "D-03 baseline; [CITED: 03.1-RESEARCH.md]"),
     # --- Step-C airlines newly live-resolved this phase ---
     (
-        "Europe Airpost",
+        "ASL Airlines France",
         None,
-        "D-03 lists this airline as 'ASL Airlines France' - adsbdb resolves the pre-2016-rebrand name; [VERIFIED-CALLSIGN]",
+        "adsbdb's own callsigns FPO701/FPO458 still resolve the "
+        "pre-2015-rebrand string 'Europe Airpost' - corrected on read via "
+        "enrich.correct_airline_name() (260827-kih, QT-kih-D-06); "
+        "[VERIFIED-CALLSIGN]",
     ),
     ("Tunisair", None, "[VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
     ("Pegasus Airlines", None, "[VERIFIED-CALLSIGN]"),
     ("Chalair Aviation", None, "[VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
     ("Twin Jet", None, "[VERIFIED-CALLSIGN]"),
     (
-        "Corsairfly",
+        "Corsair",
         None,
-        "D-03 lists this airline as 'Corsair International' - adsbdb resolves a genuine prior brand name; [VERIFIED-AIRLINE-ENDPOINT-ONLY]",
+        "adsbdb's own CRL airline endpoint still resolves the prior-brand "
+        "string 'Corsairfly' - corrected on read via "
+        "enrich.correct_airline_name() (260827-kih, QT-kih-D-06); "
+        "[VERIFIED-AIRLINE-ENDPOINT-ONLY]",
     ),
     # --- Quick task 260827-jz6 (2026-08-27): two new target airlines ---
     (
@@ -236,10 +282,13 @@ _ILLUSTRATION_TARGETS = [
     (
         "TUIfly Belgium",
         None,
-        "Deliberate, developer-chosen EXCEPTION to the stale-brand-mirroring "
-        "rule that produced the Europe Airpost and Corsairfly entries two "
-        "rows above (QT-jz6-D-02). adsbdb DOES resolve a real JAF callsign - "
-        "live-verified 2026-08-27: `curl https://api.adsbdb.com/v0/callsign/"
+        "Deliberate, developer-chosen EXCEPTION: unlike Air Corsica/ASL "
+        "Airlines France/Corsair above, this carrier's stale-brand-name "
+        "mismatch is NOT corrected by enrich.correct_airline_name() - the "
+        "developer considered and declined to add a JAF correction row "
+        "this session (260827-kih, QT-kih-D-07). adsbdb DOES resolve a "
+        "real JAF callsign - live-verified 2026-08-27: "
+        "`curl https://api.adsbdb.com/v0/callsign/"
         "JAF7521` returns 'Jetairfly', the pre-2016 legacy brand. The "
         "accepted consequence: an adsbdb hit renders 'Jetairfly' and falls "
         "through to a lower illustration tier, while the airline-only "
@@ -269,7 +318,12 @@ _ILLUSTRATION_TARGETS = [
         "[VERIFIED-CALLSIGN]",
     ),
     # --- P-04 secondary-variant files for mixed-fleet airlines ---
-    ("CCM Airlines", "atr72", "D-03/D-04 mixed-fleet secondary (P-04)"),
+    (
+        "Air Corsica",
+        "atr72",
+        "D-03/D-04 mixed-fleet secondary (P-04); renamed from the "
+        "adsbdb-resolved 'CCM Airlines' key (260827-kih, QT-kih-D-06)",
+    ),
     ("Transavia France", "a320", "D-05 fleet-transition secondary (P-04)"),
     ("Royal Air Maroc", "embraer", "D-03 mixed-fleet secondary (P-04)"),
     ("Air Caraïbes", "a330", "D-03 mixed-fleet secondary (P-04)"),
@@ -326,16 +380,18 @@ _TYPE_SHAPE_BUCKETS = {
     # A320 primary)
     "A318": "a320", "A319": "a320", "A320": "a320", "A321": "a320",
     "A20N": "a320", "A21N": "a320",  # A320neo / A321neo
-    # B737 family (D-03: Transavia, Air Europa, Air Algerie, Europe
-    # Airpost/ASL Airlines France, Royal Air Maroc; 260827-jz6: TUIfly
-    # Belgium, 737 MAX 8 primary)
+    # B737 family (D-03: Transavia, Air Europa, Air Algerie, Royal Air
+    # Maroc; 260827-jz6: TUIfly Belgium, 737 MAX 8 primary; 260827-kih:
+    # ASL Airlines France - adsbdb resolves the pre-2015-rebrand name
+    # "Europe Airpost", corrected on read, see enrich.py)
     "B731": "b737", "B732": "b737", "B733": "b737", "B734": "b737",
     "B735": "b737", "B736": "b737", "B737": "b737", "B738": "b737",
     "B739": "b737", "B37M": "b737", "B38M": "b737", "B39M": "b737",
     "B3XM": "b737",  # MAX 7/8/9/10
-    # ATR72 (D-03: CCM Airlines/Air Corsica, Chalair Aviation) - per P-06,
-    # ATR42 designators map here too since D-03's table has no separate
-    # ATR42 shape.
+    # ATR72 (D-03: Air Corsica, Chalair Aviation - 260827-kih renamed the
+    # adsbdb-resolved "CCM Airlines" key to Air Corsica's real current
+    # name, see enrich.py) - per P-06, ATR42 designators map here too
+    # since D-03's table has no separate ATR42 shape.
     "AT43": "atr72", "AT44": "atr72", "AT45": "atr72", "AT46": "atr72",
     "AT72": "atr72", "AT73": "atr72", "AT75": "atr72", "AT76": "atr72",
     # Beechcraft 1900D (D-03: Twin Jet)
@@ -346,7 +402,9 @@ _TYPE_SHAPE_BUCKETS = {
     "E135": "embraer", "E145": "embraer", "E170": "embraer",
     "E75L": "embraer", "E75S": "embraer", "E190": "embraer",
     "E195": "embraer", "E290": "embraer", "E295": "embraer",
-    # A330 family (D-03: Air Caraibes minority, Corsairfly)
+    # A330 family (D-03: Air Caraibes minority; 260827-kih: Corsair -
+    # adsbdb's CRL airline endpoint resolves the prior-brand name
+    # "Corsairfly", corrected on read, see enrich.py)
     "A332": "a330", "A333": "a330", "A339": "a330",
     # A350 family (D-03: Air Caraibes majority, French Bee)
     "A359": "a350", "A35K": "a350",
@@ -359,7 +417,7 @@ def normalise_airline_key(airline_name):
     `normalise_callsign()` never-raises discipline. Pure, no I/O.
 
     `normalise_airline_key("Air Algérie")` -> `"air-algerie"`
-    `normalise_airline_key("CCM Airlines")` -> `"ccm-airlines"`
+    `normalise_airline_key("Air Corsica")` -> `"air-corsica"`
     `normalise_airline_key("")`, `(None)`, `(42)` -> `None`
     """
     if not isinstance(airline_name, str) or not airline_name:

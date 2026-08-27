@@ -243,6 +243,13 @@ _AIRLINE_NAME_CORRECTIONS = {
     # for the recorded response. Worse than a stale-brand mismatch: an
     # actively wrong carrier attribution.
     ("AIA", "Avies"): "Amelia",
+    # The three remaining rows (quick task 260827-kih, 2026-08-27) are the
+    # opposite failure mode from AIA above: not a wrong carrier, but a real
+    # carrier under its pre-rebrand legal/trading name. adsbdb never
+    # updated these three after the real-world rebrand happened.
+    ("FPO", "Europe Airpost"): "ASL Airlines France",  # rebranded 2015
+    ("CRL", "Corsairfly"): "Corsair",  # reverted to "Corsair" ~2012
+    ("CCM", "CCM Airlines"): "Air Corsica",  # rebranded 2013
 }
 
 
@@ -382,24 +389,50 @@ def city_for_state(route, state):
 # `airline_name` column of `.planning/phases/
 # 03.1-procedural-per-airline-livery-rendering/03.1-LIVE-RESOLUTION.md`'s
 # 24-airline live-resolution table - never retyped from a current public
-# brand name, and never a guess (T-hyy-03). Three entries are the exact
-# stale-brand-name traps `illustrations.py`'s own module docstring already
-# documents: `FPO` resolves to `"Europe Airpost"` (not "ASL Airlines
-# France"), `CRL` resolves to `"Corsairfly"` (not "Corsair International"),
-# and `CCM` resolves to `"CCM Airlines"` (not "Air Corsica") - copy these
-# strings, never retype them from the brand name.
+# brand name, and never a guess (T-hyy-03).
 #
-# Amelia International and La Compagnie are deliberately absent:
-# 03.1-LIVE-RESOLUTION.md marks both `[UNRESOLVED]` (a candidate ICAO code
-# for each turned out to belong to a different real airline), mirroring
-# `illustrations._ILLUSTRATION_TARGETS`'s own exclusion of the same two
-# carriers for the same reason. `test_enrich.py`'s drift guard asserts every
-# value here is a member of `illustrations.target_airline_names()` (D-07) -
-# renaming or dropping an illustration target without mirroring the change
-# here fails that check.
+# SUPERSEDED (quick task 260827-kih, 2026-08-27, QT-kih-D-06): this table's
+# values USED TO be a verbatim, uncorrected copy of whatever adsbdb
+# resolved - so `FPO`, `CRL` and `CCM` used to carry adsbdb's stale
+# pre-rebrand names ("Europe Airpost", "Corsairfly", "CCM Airlines")
+# because there was no mechanism to correct them and this table had to
+# mirror the same string illustration selection used. That rule held for
+# Phase 3.1 (P-01/D-04), `03.1-LIVE-RESOLUTION.md`'s Step B/C naming
+# verdicts, and quick task `260827-hyy`'s D-01 - all correct given the
+# machinery available then. Now that `_AIRLINE_NAME_CORRECTIONS` (above)
+# and `apply_airline_name_correction()` exist, this table's three affected
+# values are the CORRECTED current names ("ASL Airlines France", "Corsair",
+# "Air Corsica") instead - the invariant `test_enrich.py` checks (D-kih-03)
+# requires it: for every `_AIRLINE_NAME_CORRECTIONS` row,
+# `_ICAO_AIRLINE_PREFIXES[prefix]` must equal the corrected value, since
+# this table is itself the illustration selection key and cannot mirror a
+# stale string the seam would immediately correct on the adsbdb-hit path.
+# `JAF` (TUIfly Belgium) is deliberately NOT one of these three - the
+# developer considered and declined to extend the correction seam there
+# this session (QT-kih-D-07); a future reader must not add a `JAF`
+# correction row as tidy-up, and must not "helpfully" change this table's
+# `JAF` entry to match.
+#
+# La Compagnie is deliberately absent: 03.1-LIVE-RESOLUTION.md marks it
+# `[UNRESOLVED]` (its candidate ICAO code resolves to a different real
+# airline in adsbdb), mirroring `illustrations._ILLUSTRATION_TARGETS`'s own
+# exclusion for the same reason. Amelia International was excluded for the
+# same reason through Phase 3.1, but is NOT absent anymore: quick task
+# `260827-kih` live-verified the real ICAO prefix (`AIA`) and added it
+# below as `"Amelia"` - reachable via `enrich.correct_airline_name()`
+# rather than via a guessed candidate code. `test_enrich.py`'s drift guard
+# asserts every value here is a member of
+# `illustrations.target_airline_names()` (D-07) - renaming or dropping an
+# illustration target without mirroring the change here fails that check.
 _ICAO_AIRLINE_PREFIXES = {
     "AFR": "Air France",  # callsign AFR56XX
-    "CCM": "CCM Airlines",  # callsign CCM21AW
+    # CCM Airlines rebranded to Air Corsica in 2013. Corrected value
+    # (260827-kih, QT-kih-D-06) - adsbdb's own callsign CCM21AW still
+    # resolves to the pre-rebrand string "CCM Airlines" (unchanged, see
+    # _AIRLINE_NAME_CORRECTIONS' CCM row), corrected on read via
+    # enrich.correct_airline_name(). This value must equal that row's
+    # corrected value (D-kih-03 invariant).
+    "CCM": "Air Corsica",  # callsign CCM21AW (adsbdb resolves "CCM Airlines")
     "VLG": "Vueling Airlines",  # airline endpoint VLG
     "IBE": "Iberia Airlines",  # airline endpoint IBE
     "TAP": "TAP Portugal",  # airline endpoint TAP
@@ -417,7 +450,13 @@ _ICAO_AIRLINE_PREFIXES = {
     "ITY": "ITA Airways",  # cited callsign ITY1830
     "AEA": "Air Europa",  # cited callsign AEA075
     "DAH": "Air Algerie",  # airline endpoint DAH
-    "FPO": "Europe Airpost",  # callsigns FPO701/FPO458 - stale-brand trap, NOT "ASL Airlines France"
+    # ASL Airlines France rebranded from Europe Airpost in 2015. Corrected
+    # value (260827-kih, QT-kih-D-06) - adsbdb's own callsigns FPO701/
+    # FPO458 still resolve to the pre-rebrand string "Europe Airpost"
+    # (unchanged, see _AIRLINE_NAME_CORRECTIONS' FPO row), corrected on
+    # read via enrich.correct_airline_name(). This value must equal that
+    # row's corrected value (D-kih-03 invariant).
+    "FPO": "ASL Airlines France",  # callsigns FPO701/FPO458 (adsbdb resolves "Europe Airpost")
     "RAM": "Royal Air Maroc",  # cited callsign RAM754
     "TAR": "Tunisair",  # airline endpoint TAR
     "PGT": "Pegasus Airlines",  # callsign PGT80PT
@@ -425,7 +464,13 @@ _ICAO_AIRLINE_PREFIXES = {
     "CLG": "Chalair Aviation",  # airline endpoint CLG
     "TJT": "Twin Jet",  # callsign TJT352A
     "FWI": "Air Caraïbes",  # cited callsign FWI701
-    "CRL": "Corsairfly",  # airline endpoint CRL - stale-brand trap, NOT "Corsair International"
+    # Corsair reverted from "Corsairfly" to "Corsair" ~2012. Corrected
+    # value (260827-kih, QT-kih-D-06) - adsbdb's own CRL airline endpoint
+    # still resolves to the prior-brand string "Corsairfly" (unchanged,
+    # see _AIRLINE_NAME_CORRECTIONS' CRL row), corrected on read via
+    # enrich.correct_airline_name(). This value must equal that row's
+    # corrected value (D-kih-03 invariant).
+    "CRL": "Corsair",  # airline endpoint CRL (adsbdb resolves "Corsairfly")
     "FBU": "French Bee",  # cited callsign FBU701
     # KMM (KM Malta Airlines) and JAF (TUIfly Belgium) added by quick task
     # 260827-jz6 (2026-08-27). Neither is sourced from
