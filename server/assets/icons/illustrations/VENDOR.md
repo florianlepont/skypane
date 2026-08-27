@@ -122,8 +122,9 @@ dimensions read via Pillow `Image.open(path).size`).
 | `air-caraibes-a330.png` | Air Caraïbes | Airbus A330-300 | 1991×789 | `71a1e71069599c931421859cdb5c3110274b7d00668d08c0d8c6d9e26b101ffd` |
 
 Note: `royal-air-maroc-embraer.png` (Royal Air Maroc's minority Embraer E190
-variant) is target #25 of this tier and remains **outstanding** — not yet
-generated. See the coverage section below for the exact list delivered.
+variant) is target #28 of this tier (per `--targets`' current numbering)
+and remains **outstanding** — not yet generated. See the coverage section
+below for the exact list delivered.
 
 **Neutral shape fallbacks (7, D-07 tier) — serve no specific carrier:**
 
@@ -153,7 +154,7 @@ shipped, reachable art.
 
 | Filename | Why it is not a target | Dimensions (px) | sha256 |
 |---|---|---|---|
-| `_unresolved/amelia-international.png` | Amelia International has no trustworthy adsbdb-resolved selection-key string. `03.1-LIVE-RESOLUTION.md` Step C marks it `[UNRESOLVED]`: neither the guessed candidate ICAO code (`AMB`, resolves to a German air-ambulance operator) nor the two-independently-sourced candidate (`AEH`, per airhex.com and French Wikipedia) resolves to Amelia in `adsbdb` — a real, live `AEH`-coded flight was confirmed this session to actually belong to Aviaexpress (Hungary). Kept for future reference only; can be promoted to a real target with zero other code change once a real Amelia callsign is caught and cross-checked. | 2135×736 | `e0e4679ddc236206e446669a970d29c527f88687e8a522c05758edf7b921dc98` |
+| `_unresolved/amelia-international.png` | **Status changed by quick task 260827-kih (2026-08-27): Amelia IS now a real selection target** (`amelia.png`/`amelia-embraer.png`, live-verified ICAO prefix `AIA` - see the Naming rules/Coverage caveat sections above and `enrich.py`'s `_AIRLINE_NAME_CORRECTIONS`). This specific file remains a non-selectable holding-directory artifact anyway, for two independent reasons: (1) its filename (`amelia-international.png`) does not match either derived slug (`amelia.png`/`amelia-embraer.png` - the carrier's confirmed name is "Amelia", not "Amelia International"), and (2) its depicted aircraft type was never recorded or eye-verified against either target's requirement (A320 primary / Embraer E145 secondary) at the time it was generated. The developer may promote it to a real target by `git mv`-ing it to the correct filename *after* confirming by eye which type it depicts and that the nose points left, or may simply regenerate fresh art from `HANDOFF.md`'s prompts #25/#30 instead. Original disposition, for the record: generated speculatively under the old, incorrect "Amelia International" name before `03.1-LIVE-RESOLUTION.md` Step C marked that name `[UNRESOLVED]` (neither the guessed candidate ICAO code `AMB`, resolving to a German air-ambulance operator, nor the two-independently-sourced candidate `AEH`, per airhex.com and French Wikipedia, resolved to Amelia in `adsbdb` - a real, live `AEH`-coded flight was confirmed that session to actually belong to Aviaexpress, Hungary). | 2135×736 | `e0e4679ddc236206e446669a970d29c527f88687e8a522c05758edf7b921dc98` |
 | `_unresolved/la-compagnie.png` | Same situation as Amelia International. `03.1-LIVE-RESOLUTION.md` Step C marks La Compagnie `[UNRESOLVED]`: its real-world ICAO code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s own database resolves that exact code to an unrelated US airline ("Denver Jet"), and no real La Compagnie callsign was available this session to determine what a genuine flight actually returns. Kept for future reference only; same remediation path as Amelia. | 2048×768 | `b3acb6f628bae81c29c7cce6796b72880e2b19277cf692b284a3b8487192f4f9` |
 | `_unresolved/air-caraibes-atr72-unused.png` | Air Caraïbes' ATR72 fleet is explicitly documented in `03.1-CONTEXT.md` D-03 as staying in-Caribbean, not Orly-relevant — `_TYPE_SHAPE_BUCKETS`'s atr72 comment in `illustrations.py` does not list Air Caraïbes among that shape's airlines. There is no `("Air Caraïbes", "atr72")` entry in `_ILLUSTRATION_TARGETS` and none can ever be reached by `select_illustration()`. Kept only in case the shape-bucket granularity changes later. | 2172×724 | `f7a682ae42c45a351949797eb2f62cb2eb51537cc2320a2e7189390e1843f8d3` |
 
@@ -243,8 +244,10 @@ Maroc detected as the B737 shape are unaffected (Tier 2, the
 `royal-air-maroc.png` primary file, already covers them); only the rarer
 Embraer-shape secondary variant falls through to Tier 3 (`generic-embraer.png`)
 or Tier 4 until this file is delivered. Nothing else in the Phase 3.1 target
-set is silently dropped. See "Quick task 260827-jz6" immediately below for
-the current project-wide total of 3 outstanding files.
+set is silently dropped. See "Quick task 260827-kih" below for the current
+project-wide total of 5 outstanding files (the "Quick task 260827-jz6"
+subsection immediately below records the intermediate 3-file total as of
+that session).
 
 ### Quick task 260827-jz6 (2026-08-27) — two new targets, both outstanding
 
@@ -286,20 +289,87 @@ developer-side generation batch per D-09.
 **D-03 airlines excluded from the target set (not "outstanding" — excluded
 by design, per `03.1-LIVE-RESOLUTION.md`):**
 
-- **Amelia International** — `[UNRESOLVED]`. No adsbdb code could be
-  trusted this session: the guessed candidate (`AMB`) resolves to a wrong
-  airline, and the two independently-corroborated candidate (`AEH`) was
-  confirmed via a real live flight to actually belong to Aviaexpress
-  (Hungary), not Amelia. See `_unresolved/amelia-international.png` above
-  for the disposition of the art generated for this excluded carrier.
-- **La Compagnie** — `[UNRESOLVED]`. Its real-world ICAO code (`DJT`) is
-  independently confirmed via Wikipedia, but `adsbdb`'s own database
-  resolves that exact code to an unrelated US airline ("Denver Jet"), and
-  no real La Compagnie callsign was available this session to determine
-  what a genuine flight actually returns. See
+- **Amelia International** — `[UNRESOLVED]` **through Phase 3.1 only.**
+  **Status changed by quick task `260827-kih` (2026-08-27): this carrier IS
+  now a real target** (`amelia.png`/`amelia-embraer.png`, filed as
+  "Amelia", not "Amelia International" — see the "Quick task 260827-kih"
+  subsection immediately below for the full live evidence). At the time
+  this exclusion was recorded (Phase 3.1), no adsbdb code could be trusted:
+  the guessed candidate (`AMB`) resolved to a wrong airline, and the two
+  independently-corroborated candidate (`AEH`) was confirmed via a real
+  live flight to actually belong to Aviaexpress (Hungary), not Amelia. See
+  `_unresolved/amelia-international.png` above for the disposition of the
+  art generated under the old, incorrect exclusion.
+- **La Compagnie** — `[UNRESOLVED]`, still excluded. Its real-world ICAO
+  code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s own
+  database resolves that exact code to an unrelated US airline ("Denver
+  Jet"), and no real La Compagnie callsign was available this session to
+  determine what a genuine flight actually returns. See
   `_unresolved/la-compagnie.png` above for the disposition of the art
-  generated for this excluded carrier.
+  generated for this excluded carrier. Can be added to
+  `_ILLUSTRATION_TARGETS` later with zero other code change, once a real
+  callsign confirms the carrier's true selection-key string.
 
-Both exclusions can be added to `_ILLUSTRATION_TARGETS` later with zero
-other code change, once a real callsign confirms each carrier's true
-selection-key string.
+### Quick task 260827-kih (2026-08-27) — Amelia added, three files renamed, correction mechanism introduced
+
+Target count: **36 → 38** (Amelia's primary + Embraer secondary added;
+`server/plane/illustrations.py --targets` now lists 38 lines).
+Outstanding count: **3 → 5** (both new Amelia files await an external
+generation batch per D-09; neither has a sha256/dimensions row yet — added
+only once a real file lands on disk and passes `--validate`). Full current
+outstanding list (5): `km-malta-airlines.png`, `tuifly-belgium.png`,
+`amelia.png`, `royal-air-maroc-embraer.png`, `amelia-embraer.png`.
+
+**Four files renamed with `git mv` (history preserved), digests carried
+over verbatim — the bytes did not change, only the path did (QT-kih-D-04):**
+
+| Old name | New name |
+|---|---|
+| `ccm-airlines.png` | `air-corsica.png` |
+| `ccm-airlines-atr72.png` | `air-corsica-atr72.png` |
+| `europe-airpost.png` | `asl-airlines-france.png` |
+| `corsairfly.png` | `corsair.png` |
+
+**The correction mechanism.** `server/plane/enrich.py` gained a
+prefix-scoped correction seam this session: a module-level
+`_AIRLINE_NAME_CORRECTIONS` dict, keyed on `(ICAO callsign prefix, the
+exact airline_name string adsbdb returns)`, a `correct_airline_name()`
+function that consults it, and `apply_airline_name_correction()`, applied
+at a single seam inside `lookup_route()` — corrects every adsbdb-sourced
+route, fresh or cached, before the caller ever sees it. The cache still
+stores adsbdb's raw payload (correction is applied on read, never on
+write), so an already-deployed `poll_state.json` starts producing corrected
+names on the very next poll, with zero migration. Full detail, including
+the machine-checked cross-table invariant that keeps
+`_ICAO_AIRLINE_PREFIXES` and `_AIRLINE_NAME_CORRECTIONS` from disagreeing,
+lives in `enrich.py` itself and in `test_enrich.py`.
+
+**Live-curl evidence for the new AIA prefix (2026-08-27, this session):**
+
+- `curl https://api.adsbdb.com/v0/callsign/AIA6412` → a populated 200
+  result, `airline.name` = `"Avies"`, `airline.country` = `"Estonia"` —
+  recorded verbatim in `server/fixtures/adsbdb_hit_AIA6412.json`. Avies is
+  a real but *defunct* Estonian carrier (ceased operations 2016) that
+  happened to hold the ICAO prefix `AIA` before ceasing; `adsbdb` was never
+  updated. This is a **worse failure mode** than the three renames above —
+  not a stale label for the same real airline, but an actively wrong
+  carrier attribution. The real ICAO prefix `AIA`/Amelia is independently
+  corroborated by Flightradar24 (live-tracked flight 8R6412 as callsign
+  8R/AIA), Airhex, Wikipedia, ERAA and IATA.
+
+**Two new outstanding targets, both flagged moderate-confidence on
+livery detail (see `HANDOFF.md` prompts #25/#30 for the full note):**
+
+| Filename | Airline | Aircraft type | Livery (moderate confidence) |
+|---|---|---|---|
+| `amelia.png` | Amelia | Airbus A320 | White fuselage, blue tail, lowercase "amelia" wordmark |
+| `amelia-embraer.png` | Amelia | Embraer E145 | Same livery, on the regional-jet airframe (Amelia's real Orly-relevant Pau service type, per `03.1-CONTEXT.md` D-03) |
+
+**KM Malta Airlines and TUIfly Belgium (quick task `260827-jz6`) are
+untouched by this session (QT-kih-D-07) — see the Naming rules section of
+`HANDOFF.md` for why the correction seam was deliberately NOT extended to
+`JAF` this session, even though it could trivially cover the same failure
+mode.**
+
+**No PNG artwork was generated by this task.** Both Amelia files await an
+external developer-side generation batch per D-09.
