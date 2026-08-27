@@ -10,7 +10,10 @@ Stdlib-only. Exits 0 only when every check below passes.
 Usage:
     server/.venv/bin/python3 server/test_config_history.py
 """
+import json
 import os
+import re
+import shutil
 import sys
 import tempfile
 
@@ -20,7 +23,22 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 6
+EXPECTED_CHECK_COUNT = 13
+
+
+def _caddy_log_line(uri, ts, headers):
+    """One Caddy JSON access-log line, per 06-RESEARCH.md Pattern 6's
+    assumed shape: the request's header map nests under `request.headers`,
+    each value a list of strings.
+    """
+    entry = {
+        "ts": ts,
+        "logger": "http.log.access",
+        "msg": "handled request",
+        "request": {"method": "GET", "uri": uri, "headers": headers},
+        "status": 200,
+    }
+    return json.dumps(entry)
 
 
 def main():
@@ -141,6 +159,159 @@ def main():
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("no .tmp file remains in the state directory after a successful save", _no_tmp_survives_a_successful_save)
+
+    # --- history_db.py ------------------------------------------------------
+
+    try:
+        import server.history_db as history_db
+    except ImportError as exc:
+        print("FAIL import server.history_db - %r" % (exc,))
+        passed_so_far = sum(1 for _, ok in results if ok)
+        print("config-history: %d/%d checks pass" % (passed_so_far, EXPECTED_CHECK_COUNT))
+        return 1
+
+    def _connect_creates_db_with_wal_and_tables():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            conn = history_db.connect(tmpdir)
+            try:
+                if not os.path.exists(history_db.history_db_path(tmpdir)):
+                    return False, "history.db was not created"
+                mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+                if str(mode).lower() != "wal":
+                    return False, "journal_mode is %r, expected wal" % (mode,)
+                timeout_ms = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+                if timeout_ms != 5000:
+                    return False, "busy_timeout is %r, expected 5000" % (timeout_ms,)
+                tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+                for expected in ("runway_events", "device_health", "meta"):
+                    if expected not in tables:
+                        return False, "table %r missing, found %r" % (expected, tables)
+            finally:
+                conn.close()
+            conn2 = history_db.connect(tmpdir)  # calling connect() twice must not raise
+            conn2.close()
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check("connect() creates history.db, sets WAL + busy_timeout, creates all three tables, and is idempotent", _connect_creates_db_with_wal_and_tables)
+
+    def _record_and_recent_runway_events():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(conn, ts="2026-08-27T10:00:00+00:00", hex="aaaaaa", callsign="FLIGHT1")
+                history_db.record_runway_event(conn, ts="2026-08-27T10:01:00+00:00", hex="bbbbbb", callsign="FLIGHT2")
+                history_db.record_runway_event(conn, ts="2026-08-27T10:02:00+00:00", hex="cccccc", callsign="FLIGHT3")
+                rows = history_db.recent_runway_events(conn, limit=2)
+            hexes = [row["hex"] for row in rows]
+            if hexes != ["cccccc", "bbbbbb"]:
+                return False, "expected newest-first ['cccccc', 'bbbbbb'], got %r" % (hexes,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check("record_runway_event() inserts one row; recent_runway_events(limit=2) returns the two newest, newest first", _record_and_recent_runway_events)
+
+    def _route_source_counts_buckets_correctly():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                for i, source in enumerate(["fresh_hit", "cache_hit", "cache_hit", "miss"]):
+                    history_db.record_runway_event(conn, ts="2026-08-27T10:0%d:00+00:00" % i, hex="h%d" % i, route_source=source)
+                counts = history_db.route_source_counts(conn, since="2026-08-27T10:00:00+00:00")
+            expected = {"fresh_hit": 1, "cache_hit": 2, "miss": 1}
+            if counts != expected:
+                return False, "expected %r, got %r" % (expected, counts)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check("route_source_counts(since=...) returns fresh_hit/cache_hit/miss with counts 1/2/1", _route_source_counts_buckets_correctly)
+
+    def _corroboration_counts_keeps_none_distinct_from_false():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(conn, ts="2026-08-27T11:00:00+00:00", hex="h0", corroborated=True)
+                history_db.record_runway_event(conn, ts="2026-08-27T11:01:00+00:00", hex="h1", corroborated=None)
+                history_db.record_runway_event(conn, ts="2026-08-27T11:02:00+00:00", hex="h2", corroborated=False)
+                counts = history_db.corroboration_counts(conn, since="2026-08-27T11:00:00+00:00")
+            expected = {"True": 1, "None": 1, "False": 1}
+            if counts != expected:
+                return False, "expected %r, got %r" % (expected, counts)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check("corroboration_counts(since=...) buckets True/None/False separately, never collapsing None into False", _corroboration_counts_keeps_none_distinct_from_false)
+
+    def _meta_get_set_overwrites_not_duplicates():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                if history_db.get_meta(conn, "absent") is not None:
+                    return False, "get_meta() on an absent key did not return None"
+                history_db.set_meta(conn, "k", "v")
+                if history_db.get_meta(conn, "k") != "v":
+                    return False, "get_meta() after set_meta() did not return the stored value"
+                history_db.set_meta(conn, "k", "v2")
+                if history_db.get_meta(conn, "k") != "v2":
+                    return False, "a second set_meta() on the same key did not overwrite"
+                count = conn.execute("SELECT COUNT(*) FROM meta WHERE key = ?", ("k",)).fetchone()[0]
+                if count != 1:
+                    return False, "expected exactly one meta row for key 'k', found %d" % (count,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check("set_meta()/get_meta() round-trip, absent key reads None, a second set_meta() overwrites rather than duplicating", _meta_get_set_overwrites_not_duplicates)
+
+    def _ingest_caddy_battery_log_is_idempotent():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            log_path = os.path.join(tmpdir, "caddy-access.log")
+            lines = [
+                _caddy_log_line("/device/v1/display", 1798000000.0, {"X-Battery-Mv": ["3700"], "X-Fw-Version": ["1.0.0"]}),
+                _caddy_log_line("/device/v1/display", 1798000030.0, {"X-Battery-Mv": ["3690"]}),
+                _caddy_log_line("/img/deadbeef.bin", 1798000010.0, {"X-Battery-Mv": ["9999"]}),
+                "not json at all {",
+            ]
+            with open(log_path, "w") as fh:
+                fh.write("\n".join(lines) + "\n")
+
+            with history_db.open_db(tmpdir) as conn:
+                first_count = history_db.ingest_caddy_battery_log(conn, log_path)
+                rows_after_first = history_db.recent_device_health(conn, limit=10)
+                second_count = history_db.ingest_caddy_battery_log(conn, log_path)
+                rows_after_second = history_db.recent_device_health(conn, limit=10)
+
+            if first_count != 2:
+                return False, "first ingest inserted %d rows, expected 2" % (first_count,)
+            if len(rows_after_first) != 2:
+                return False, "expected 2 device_health rows after first ingest, found %d" % (len(rows_after_first),)
+            if second_count != 0:
+                return False, "second ingest over an unchanged file inserted %d rows, expected 0" % (second_count,)
+            if len(rows_after_second) != 2:
+                return False, "row count changed after a no-op second ingest: %d" % (len(rows_after_second),)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check("ingest_caddy_battery_log() inserts exactly 2 rows from a mixed fixture, and 0 more on an unchanged re-run", _ingest_caddy_battery_log_is_idempotent)
+
+    def _all_sql_uses_placeholders_not_string_formatting():
+        src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
+        with open(src_path) as fh:
+            src = fh.read()
+        if re.search(r'execute\([^)]*%s.*%', src):
+            return False, "found a %-formatted string passed to execute()"
+        if 'execute(f"' in src or "execute(f'" in src:
+            return False, "found an f-string passed to execute()"
+        return True, ""
+
+    check("every history_db.py execute() call uses ? placeholders, never %-formatting or an f-string", _all_sql_uses_placeholders_not_string_formatting)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
