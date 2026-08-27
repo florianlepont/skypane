@@ -133,10 +133,14 @@ this section intentionally doesn't restate any of it.
 ## Data sources
 
 This project uses real-time ADS-B aircraft position data from
-[adsb.fi](https://adsb.fi), the sole aggregator source an automated poll
-queries as of 2026-08-27. Callsign/airline/route enrichment is provided by
-[adsbdb.com](https://www.adsbdb.com), a free, unauthenticated, crowdsourced
-lookup service.
+[adsb.fi](https://adsb.fi), queried first of two default aggregator
+sources by every automated poll as of 2026-08-27. It is joined by
+[adsb.lol](https://adsb.lol) as the second default source — two
+independent feeds can corroborate or contradict a single reading, which
+one feed alone cannot; adsb.lol's data is CC0-licensed and credited here
+by choice, not because its licence requires it. Callsign/airline/route
+enrichment is provided by [adsbdb.com](https://www.adsbdb.com), a free,
+unauthenticated, crowdsourced lookup service.
 
 [airplanes.live](https://airplanes.live) remains present in the code as an
 explicit, opt-in `--provider` choice — for a feeder operator, sponsor, or
