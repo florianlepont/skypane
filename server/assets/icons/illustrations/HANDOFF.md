@@ -13,7 +13,9 @@ simply never be selected by the render pipeline.
 Phase 3 shipped 8 files, one representative type per covered airline. Phase
 3.1 extends that to the full, live-verified 24-airline D-03 table plus 7
 neutral shape fallbacks — 34 target files in total, each one's aircraft type
-now dictated by its filename rather than chosen freely.
+now dictated by its filename rather than chosen freely. Quick task
+`260827-jz6` (2026-08-27) added two further carriers, taking the plan from
+34 to 36 files.
 
 Read this file in full before generating anything. Run these two commands at
 any time for the authoritative machine-reported state:
@@ -30,9 +32,9 @@ exist on disk plus the pre-Phase-3.1 baseline. Nothing in the target set is
 ever silently dropped — whatever remains outstanding when you stop is
 recorded by name in `VENDOR.md`.
 
-## Required files (34 total, 8 already vendored)
+## Required files (36 total, 8 already vendored)
 
-**Airline primary files (22)**
+**Airline primary files (24)**
 
 One unsuffixed file per airline — the carrier's numerically dominant aircraft
 type per `03.1-CONTEXT.md`'s D-03 table. An asterisk `*` marks a file already
@@ -61,6 +63,8 @@ pegasus-airlines.png
 chalair-aviation.png
 twin-jet.png
 corsairfly.png                see Naming rules — this is "Corsair International"
+km-malta-airlines.png         see Coverage caveat
+tuifly-belgium.png            see Naming rules — this is the one approved current-brand override
 ```
 
 **Airline secondary-variant files (4)**
@@ -130,6 +134,31 @@ under older names rather than D-03's current-brand labels:
   genuine prior brand name confirmed via `fr.wikipedia.org`'s own infobox.
   Do not name this file `corsair-international.png`.
 
+### The one approved override (`tuifly-belgium.png`)
+
+Quick task `260827-jz6` (2026-08-27) introduced the **one deliberate
+exception** to the naming rule above — the opposite direction from every
+other entry in this section. The ICAO prefix is `JAF`. A real `JAF7521`
+callsign **does** resolve via `adsbdb`, live-verified this session
+(`curl https://api.adsbdb.com/v0/callsign/JAF7521`), returning the pre-2016
+legacy brand name `"Jetairfly"`. The developer chose the current brand name,
+`"TUIfly Belgium"`, anyway — deliberately, with the tradeoff already in hand
+(QT-jz6-D-02), not as an oversight.
+
+**Accepted consequence, in selection terms:** a real TUIfly Belgium flight
+whose callsign resolves through `adsbdb` renders the legacy string
+`"Jetairfly"`, which has no matching illustration file, and falls to Tier 3
+(`generic-b737.png`). The same real flight resolved through the
+airline-only fallback path (`enrich.airline_from_callsign()`) renders
+`"TUIfly Belgium"` and reaches `tuifly-belgium.png` directly. Both paths
+correctly identify the real carrier — the divergence is only which of two
+correctly-shaped illustrations is shown, never a wrong-carrier claim.
+
+**This is a recorded decision, not an inconsistency for a future reader to
+"fix" by renaming the file.** The naming rule above still governs every
+other entry in this document — Europe Airpost, Corsairfly, and CCM Airlines
+all remain filed under their `adsbdb`-resolved names, unchanged.
+
 **Suffix rule.** An unsuffixed file (`{airline-slug}.png`) is the carrier's
 numerically dominant type — the one most real flights of that airline will
 actually show. A shape-suffixed file (`{airline-slug}-{shape-slug}.png`) is
@@ -164,7 +193,7 @@ concern behind the waived requirement no longer applies. The waiver does
 identity of any kind per the Requirements table row above — that is a
 separate, unwaived constraint.
 
-## Coverage caveat — what remains excluded and why
+## Coverage caveat — what is excluded and why
 
 Illustration selection depends transitively on `adsbdb`'s crowdsourced
 callsign-to-airline coverage. `03.1-LIVE-RESOLUTION.md` re-verified this
@@ -173,11 +202,26 @@ phase's coverage boundary live:
 - **easyJet (`EZY`, UK AOC) resolves and gets a file (`easyjet.png`).** This
   is new since Phase 3 — the UK-AOC prefix was re-confirmed live this
   session (`EZY63GN` → `"easyJet"`).
-- **easyJet Europe (`EJU`, Austrian AOC) remains a confirmed, deliberate
-  miss (P-03)** — `airline_name` is never available for those flights no
-  matter how good an illustration exists, so no file is requested for it.
-- **KM Malta Airlines (`KMM`) remains excluded**, unchanged from Phase 3 —
-  same confirmed-miss status.
+- **easyJet Europe (`EJU`, Austrian AOC) shares `easyjet.png` with `EZY` —
+  no separate file is requested for it**, because `EJU` and `EZY` are the
+  same brand and quick task `260827-hyy`'s
+  `enrich.airline_from_callsign()` resolves `EJU` straight to `"easyJet"`
+  via the ICAO-prefix table, reaching the existing `easyjet.png` with zero
+  new art needed. (Corrected 2026-08-27, quick task `260827-jz6`: the prior
+  wording here said no file was requested because the airline name was
+  never available for `EJU` — that was true before `260827-hyy` shipped and
+  is no longer the reason.)
+- **KM Malta Airlines (`KMM`) is now a target (`km-malta-airlines.png`).**
+  It is still a confirmed permanent `adsbdb` miss — live-verified
+  2026-08-27, `curl https://api.adsbdb.com/v0/callsign/KMM466` returns
+  `"unknown callsign"`. The reason that no longer excludes it: quick task
+  `260827-hyy`'s `enrich.airline_from_callsign()` resolves the carrier
+  straight from the ICAO prefix `KMM`, so an `adsbdb` miss no longer costs
+  the airline identity the way it did in Phase 3.
+- **TUIfly Belgium (`JAF`) is a new target (`tuifly-belgium.png`),
+  added by quick task `260827-jz6`.** Winter Orly↔Morocco charter service.
+  See the Naming rules section's "The one approved override" subsection
+  above for the full record of its deliberate current-brand-name exception.
 - **Amelia International is excluded from this target set.**
   `03.1-LIVE-RESOLUTION.md` marks it `[UNRESOLVED]`: neither the guessed
   candidate ICAO code (`AMB`) nor a code corroborated by two independent
@@ -461,7 +505,30 @@ ground, no sky, no shadow, nothing behind the aircraft. Clean flat
 illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 23. `ccm-airlines-atr72.png` (secondary variant — Air Corsica's ATR72-600)
+### 23. `km-malta-airlines.png` (this is the post-2023 KM Malta Airlines livery — NOT the superseded Air Malta red-tail scheme)
+```
+Side-profile editorial illustration of an Airbus A320neo in KM Malta
+Airlines livery (the current, post-2023 livery — do not produce the
+superseded Air Malta red-tail scheme) — white fuselage, the red two-tone
+Maltese Cross emblem on the tail, blue and red accents. nose pointing LEFT.
+Transparent background (PNG with real alpha channel) — no ground, no sky,
+no shadow, nothing behind the aircraft. Clean flat illustration style,
+crisp hard edges, vintage aviation poster plate.
+```
+
+### 24. `tuifly-belgium.png` (this is the current TUI livery — NOT the superseded Jetairfly scheme; see Naming rules' approved override above)
+```
+Side-profile editorial illustration of a Boeing 737 MAX 8 (identifiable by
+its distinctive split-tip winglets, not the 737-800) in the current TUI
+Group "Dynamic Wave" livery (do not produce the superseded Jetairfly
+scheme) — light blue and white fuselage, a blue wave sweep along the body,
+red TUI fuselage titles, and a red "smile" logo on the tail. nose pointing
+LEFT. Transparent background (PNG with real alpha channel) — no ground, no
+sky, no shadow, nothing behind the aircraft. Clean flat illustration style,
+crisp hard edges, vintage aviation poster plate.
+```
+
+### 25. `ccm-airlines-atr72.png` (secondary variant — Air Corsica's ATR72-600)
 ```
 Side-profile editorial illustration of an ATR 72-600 turboprop in Air
 Corsica (CCM Airlines) livery — matching `ccm-airlines.png`'s blue/white
@@ -472,7 +539,7 @@ behind the aircraft. Clean flat illustration style, crisp hard edges,
 vintage aviation poster plate.
 ```
 
-### 24. `transavia-france-a320.png` (secondary variant — Transavia's fleet-transition A320neo, D-05)
+### 26. `transavia-france-a320.png` (secondary variant — Transavia's fleet-transition A320neo, D-05)
 ```
 Side-profile editorial illustration of an Airbus A320neo in Transavia
 France livery — matching `transavia-france.png`'s dark green tail and green
@@ -482,7 +549,7 @@ sky, no shadow, nothing behind the aircraft. Clean flat illustration style,
 crisp hard edges, vintage aviation poster plate.
 ```
 
-### 25. `royal-air-maroc-embraer.png` (secondary variant — Royal Air Maroc's minority Embraer E190)
+### 27. `royal-air-maroc-embraer.png` (secondary variant — Royal Air Maroc's minority Embraer E190)
 ```
 Side-profile editorial illustration of an Embraer E190 in Royal Air Maroc
 livery — matching `royal-air-maroc.png`'s red tail and five-pointed-star
@@ -492,7 +559,7 @@ sky, no shadow, nothing behind the aircraft. Clean flat illustration style,
 crisp hard edges, vintage aviation poster plate.
 ```
 
-### 26. `air-caraibes-a330.png` (secondary variant — Air Caraïbes' minority A330-300)
+### 28. `air-caraibes-a330.png` (secondary variant — Air Caraïbes' minority A330-300)
 ```
 Side-profile editorial illustration of an Airbus A330-300 in Air Caraïbes
 livery — matching `air-caraibes.png`'s tropical-flower tail design, on the
@@ -502,7 +569,7 @@ no shadow, nothing behind the aircraft. Clean flat illustration style,
 crisp hard edges, vintage aviation poster plate.
 ```
 
-### 27. `generic-a320.png` (D-07 neutral shape fallback — NO airline identity)
+### 29. `generic-a320.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Airbus-A320-family-shaped
 narrow-body commercial jet — NO airline identity, no livery colours, no
@@ -512,7 +579,7 @@ channel) — no ground, no sky, no shadow, nothing behind the aircraft. Clean
 flat illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 28. `generic-b737.png` (D-07 neutral shape fallback — NO airline identity)
+### 30. `generic-b737.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Boeing-737-family-shaped
 narrow-body commercial jet — NO airline identity, no livery colours, no
@@ -522,7 +589,7 @@ channel) — no ground, no sky, no shadow, nothing behind the aircraft. Clean
 flat illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 29. `generic-atr72.png` (D-07 neutral shape fallback — NO airline identity)
+### 31. `generic-atr72.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic ATR-72-shaped turboprop
 airliner — NO airline identity, no livery colours, no tail markings, no
@@ -532,7 +599,7 @@ ground, no sky, no shadow, nothing behind the aircraft. Clean flat
 illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 30. `generic-beechcraft1900d.png` (D-07 neutral shape fallback — NO airline identity)
+### 32. `generic-beechcraft1900d.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Beechcraft-1900D-shaped
 small twin turboprop commuter aircraft — NO airline identity, no livery
@@ -543,7 +610,7 @@ aircraft. Clean flat illustration style, crisp hard edges, vintage aviation
 poster plate.
 ```
 
-### 31. `generic-embraer.png` (D-07 neutral shape fallback — NO airline identity)
+### 33. `generic-embraer.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Embraer-E-Jet-shaped
 regional jet — NO airline identity, no livery colours, no tail markings, no
@@ -553,7 +620,7 @@ ground, no sky, no shadow, nothing behind the aircraft. Clean flat
 illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 32. `generic-a330.png` (D-07 neutral shape fallback — NO airline identity)
+### 34. `generic-a330.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Airbus-A330-family-shaped
 widebody commercial jet — NO airline identity, no livery colours, no tail
@@ -563,7 +630,7 @@ channel) — no ground, no sky, no shadow, nothing behind the aircraft. Clean
 flat illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 33. `generic-a350.png` (D-07 neutral shape fallback — NO airline identity)
+### 35. `generic-a350.png` (D-07 neutral shape fallback — NO airline identity)
 ```
 Side-profile editorial illustration of a generic Airbus-A350-family-shaped
 widebody commercial jet — NO airline identity, no livery colours, no tail
@@ -573,7 +640,7 @@ channel) — no ground, no sky, no shadow, nothing behind the aircraft. Clean
 flat illustration style, crisp hard edges, vintage aviation poster plate.
 ```
 
-### 34. `generic-fallback.png` (already vendored — D-08 universal fallback, unchanged)
+### 36. `generic-fallback.png` (already vendored — D-08 universal fallback, unchanged)
 ```
 Side-profile editorial illustration of a generic narrow-body commercial jet
 airliner (no specific airline identity) in neutral brushed-metal/grey tones
