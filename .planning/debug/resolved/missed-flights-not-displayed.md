@@ -3,6 +3,7 @@ status: resolved
 trigger: "Je viens de rallumer l'écran et il ne se passe absolument rien. Est-ce que tu peux vérifier que la carte a essayé de communiquer avec le VPS ? / [message suivant, même conversation] Ça a l'air que la tablette vient de se, enfin je veux dire l'écran vient de se mettre à jour, mais là typiquement elle a laissé passer deux autres avions sans afficher, donc soit il y a un problème de consistance dans les données, soit elle met trop de temps à vérifier les données. Est-ce que c'est toujours trente secondes ou est-ce que ça a changé ?"
 created: 2026-08-27T00:00:00Z
 updated: 2026-08-28T00:00:00Z
+passes: 3 (A fixed 2026-08-27; B fixed 2026-08-28; C MITIGATED not closed 2026-08-28)
 ---
 
 ## Current Focus
@@ -85,7 +86,13 @@ explicitly approved - the session clock rolled over mid-pass, so the B section b
 while the A record above it stays 08-27. Everything
 above this line is the MECHANISM A record and is deliberately left untouched. The live focus, hypothesis
 and reasoning_checkpoint for the B pass are in the "Mechanism B fix (2026-08-27, second pass)" section at
-the bottom of this file. Mechanism C remains UNAPPROVED and untouched.
+the bottom of this file.
+
+REOPENED AGAIN 2026-08-28 (third pass) for MECHANISM C, now approved by the user as a SERVER-ONLY
+mitigation. The A and B records are again left untouched. C is MITIGATED, NOT CLOSED - see
+"Mechanism C mitigation (2026-08-28, third pass)" at the bottom of this file for the live focus,
+hypothesis, reasoning_checkpoint, evidence and the residual that remains open by design. Nothing under
+firmware/ was touched in any of the three passes; the firmware remains unapproved.
 
 ## Symptoms
 <!-- Written during gathering, then immutable -->
@@ -468,10 +475,21 @@ never appear on the frame:
   What is newly open: runway3.json known_residuals (4) stale records are no longer deprioritised, and
   (5) two feeds carrying the SAME wrong record are still undetectable - the latter being a permanent
   limit of cross-source corroboration rather than anything this pass introduced.
-- MECHANISM C - DEVICE CONSUMPTION RATE (open, and invisible in server logs).
-  CONFIG_FP_MIN_REFRESH_SPACING_S defaults to 60 with no override in any committed sdkconfig, so the
-  floor between two DRAWN images is ~90s against a 30s server render cadence. panel.bin can advance
-  through 2-3 flights per device draw; D-25's current+previous layout absorbs exactly one.
+- MECHANISM C - DEVICE CONSUMPTION RATE. **MITIGATED (NOT CLOSED) 2026-08-28 by the third pass; see
+  "Mechanism C mitigation" below.** As written on 2026-08-27 this read: "(open, and invisible in server
+  logs). CONFIG_FP_MIN_REFRESH_SPACING_S defaults to 60 with no override in any committed sdkconfig, so
+  the floor between two DRAWN images is ~90s against a 30s server render cadence. panel.bin can advance
+  through 2-3 flights per device draw; D-25's current+previous layout absorbs exactly one."
+  That diagnosis was CORRECT and is now reproduced end to end as a committed check: with the pre-fix
+  code, a burst of four distinct aircraft on four consecutive 30s polls leaves one of them that NEVER
+  appears on any frame the device could have fetched. The third pass does not remove the mechanism - it
+  cannot, because its cause is a physical property of the glass and firmware/ is out of scope. It BOUNDS
+  the damage: distinct selections queue instead of overwriting each other, the "current" slot advances
+  at the device's own ~90s floor promoting oldest-first, and anything that would be more than 150s stale
+  by its turn is discarded rather than shown. A burst severe enough to overflow BOTH the 150s staleness
+  bound AND the 5-deep queue cap STILL LOSES FLIGHTS, by design. What changed there is that the loss is
+  no longer silent: the poll line's new `dropped=` field names every hex the queue discarded. The
+  ORIGINAL, worse property - flights lost with no record anywhere that it happened - is closed.
 - OBSERVABILITY (still mostly open, one slice closed 2026-08-28). The mechanism-B pass extracted
   `runway3_candidates()`, so the candidate list now exists as a named thing, and the disagreement stderr
   line prints each feed's FULL candidate set instead of only its winner (pinned by check 37). That makes
@@ -811,12 +829,435 @@ files_changed (B pass):
   ordering them differently; or one feed simply not having received a record yet) no longer reaches it.
 - `journalctl -u skypane-poll | grep poll_loop` -> a constant `hex=` with `panel_changed=False` across
   many consecutive polls -> mechanism A. NOTE a suppressed cycle logs `hex=None ... panel_changed=False`,
-  byte-identical to a genuinely empty sky; only the stderr line above separates the two.
-- `journalctl -u skypane-byos` -> `GET /device/v1/display` timestamps; if panel_changed=True events
-  outpace device fetches, mechanism C.
+  byte-identical to a genuinely empty sky; only the stderr line above separates the two. Since the
+  2026-08-28 mechanism-C pass, `pending=` disambiguates mechanism A from ordinary pacing: A is a
+  constant `hex=` with `pending=0`, whereas a paced hold shows `pending>=1` and a `shown=` that differs
+  from `hex=`. `hex=` deliberately still means THIS CYCLE'S DETECTION so every recipe above still works.
+- `journalctl -u skypane-poll | grep -v "dropped=None"` -> **the direct mechanism-C-residual readout,
+  new 2026-08-28.** Every hex on a `dropped=` field is an aircraft this server detected, queued, and
+  then threw away rather than display - either past the 150s staleness bound or evicted by the 5-deep
+  cap. Frequent hits here mean real traffic is arriving faster than the glass can show it, which is the
+  irreducible part of mechanism C. There is no server-side fix for that: the levers are
+  `MAX_STALENESS_S` (accept staler information) or the firmware's own
+  `CONFIG_FP_MIN_REFRESH_SPACING_S` (which is out of scope and unapproved). NOTE this field is
+  necessarily ABSENT from any journal older than 2026-08-28.
+- `journalctl -u skypane-byos` -> `GET /device/v1/display` timestamps. Before the 2026-08-28 pass, this
+  was the only way to see mechanism C at all: if panel_changed=True events outpaced device fetches,
+  flights were being overwritten unseen. It is still the check that VALIDATES the 90s pacing constant
+  against the real board - if actual fetch-to-fetch spacing is much larger than 90s, the flashed
+  firmware's guard is not the assumed 60s (firmware/sdkconfig is generated at build time and is not
+  committed, so a menuconfig change would be invisible from this repo) and `MIN_ADVANCE_INTERVAL_S`
+  needs re-deriving from what the device actually does.
 - OBSERVABILITY GAP, PARTIALLY CLOSED 2026-08-28. The SUPPRESSED path is now fully diagnosable: the
   disagreement line above prints every candidate each feed saw. The SUCCESSFUL path is not - a normal
   poll still logs only the winner, so "the right aircraft was present and lost the sort" remains
   unprovable from logs. `runway3_candidates()` now exists as a named function, so logging the
   per-provider candidate set (hex, eff_alt, cross_track_m, on_ground) - or just the count and the
   runner-up - on every poll is a small change whenever it is wanted.
+
+## Mechanism C mitigation (2026-08-28, third pass)
+
+Re-opened after the user explicitly approved a SERVER-ONLY mitigation for mechanism C. Scope was
+restricted to it: `firmware/` stays UNAPPROVED and untouched (no Kconfig, no sdkconfig, no panel.c), the
+device-facing protocol (`stub-server/byos_server.py`, `image_hash`/`sleep_s` semantics) is unchanged, and
+mechanisms A and B were NOT revisited - both are fixed and covered by checks proven to fail against the
+pre-fix code. This pass touches only what happens to a SEQUENCE of already-correctly-selected aircraft
+over time.
+
+**READ THIS FIRST: this is a MITIGATION, not a closure.** It REDUCES but does NOT ELIMINATE mechanism C.
+The mechanism's cause is physical - a 13.3" Spectra 6 panel takes ~31.5s to redraw and the firmware
+guards it for 60s afterward - and no change on the server side can make the glass faster. A burst severe
+enough to overflow both the 150s staleness bound and the 5-deep queue cap still loses flights. That is a
+deliberate choice, not an oversight: see the design discussion in `reasoning_checkpoint.fix_rationale`.
+
+### Current focus (C pass)
+
+hypothesis: Mechanism C is a PRODUCER/CONSUMER RATE MISMATCH with a single-slot buffer, and the correct
+  fix shape is a BOUNDED queue - not an unbounded one, and not a faster poll. The server produces a new
+  "current" aircraft as often as every 30s (POLL_INTERVAL_S); the device consumes one roughly every 90s
+  (CONFIG_FP_MIN_REFRESH_SPACING_S=60, re-armed by fp_panel_draw() after every blit, + a measured ~31.5s
+  full refresh). Between two consumptions, the single "current" slot can be overwritten 2-3 times, and
+  D-25's two-deep layout absorbs exactly ONE of those overwrites. The third and later selections inside
+  one device cycle are lost outright, permanently, and - this is what made the mechanism so hard to see -
+  with no record anywhere that it happened. The server's own logs looked completely healthy.
+test: DONE. Modelled computationally against the real firmware/measured constants before any edit
+  (scratch design_sim_c.py, four scenarios plus an explicit device-draw model), then by committed
+  regression checks 9-18 in server/test_poll_loop.py and a full pre-fix restoration run.
+expecting: DONE. Reproduced exactly: with the pre-fix code, a burst of four distinct aircraft on four
+  consecutive 30s polls leaves ONE (the second) that never appears on ANY frame the device could have
+  fetched - the device sits on (d4d4d4, c3c3c3) for the entire run. With the fix, three of the four
+  reach the glass in first-detected order; the fourth is discarded at the 150s bound and NAMED in the
+  log rather than vanishing.
+next_action: DONE. Mitigation applied, committed, self-verified (full suite green 9/9 harnesses / 231
+  checks / 83% coverage, ruff and attribution clean, and the five new REGRESSION checks proven to fail -
+  and ONLY those five - against a faithfully restored pre-fix implementation). Awaiting the user's own
+  confirmation from the frame. STILL OUTSTANDING: the residual loss described above, which is by design;
+  and the fact that MIN_ADVANCE_INTERVAL_S rests on the COMMITTED firmware defaults rather than on what
+  the flashed board actually runs - see blind_spots.
+
+reasoning_checkpoint:
+  hypothesis: |
+    The defect is not in how an aircraft is SELECTED (mechanisms A and B, both closed) but in how a
+    SEQUENCE of correct selections is handed to a consumer that cannot keep up. `poll_loop.run_once()`
+    advanced the "current" slot on EVERY distinct detection - `if last_flight is not None and new_hex !=
+    old_hex: previous_flight = last_flight` - with no notion whatsoever of whether the previous occupant
+    had ever been fetched. That is a single-slot buffer being written by a 30s producer and read by a
+    ~90s consumer, which loses data by construction. It is invisible in the server's logs because from
+    the server's point of view every cycle succeeded: it detected a real aircraft, rendered it, and wrote
+    panel.bin. Nothing failed. The information that a flight was overwritten unseen existed nowhere.
+  confirming_evidence:
+    - "Reproduced end to end against the REAL run_once(), not a model, and committed as check 9 (a
+       PRECONDITION check, which must therefore keep holding pre-fix): four distinct aircraft detected on
+       four consecutive 30s polls, sampling the two display slots at the device's own ~90s redraw floor,
+       leaves aircraft b2b2b2 in NO frame at all. The device's frames read (0,a1a1a1,None) then
+       (90,d4d4d4,c3c3c3) repeated forever. Two aircraft reached the glass out of four - which is
+       numerically the user's own report on 2026-08-27, 'elle a laisse passer deux autres avions sans
+       afficher'."
+    - "Both halves of the rate mismatch are MEASURED numbers already in this repo, not estimates.
+       CONFIG_FP_MIN_REFRESH_SPACING_S=60 in firmware/main/Kconfig.projbuild, verified in the diagnosis
+       pass as NOT overridden in sdkconfig.defaults or sdkconfig.ee02.defaults. The refresh itself is
+       ~31.5s, measured TWICE on the real hardware (hardware/BRINGUP-LOG.md: 'complete logged at
+       t=+43516ms / t=+43013ms respectively - 31.54s and 31.54s'), and ARCHITECTURE.md's firmware section
+       already flags it as a constraint 'any decision about how often it's worth refreshing has to budget
+       for'. 60 + 31.5 = 91.5s against a 30s producer."
+    - "The two-deep history that absorbs one overwrite lives in poll_loop.run_once(), NOT in render.py -
+       verified by grepping every read and write of last_flight/previous_flight across the tree. render.py
+       only ever RECEIVES previous_flight as an argument. So the fix belongs in poll_loop and the poster
+       layout (D-25/D-26) needs no change at all, which is what let this pass leave rendering untouched."
+    - "The unbounded-queue alternative was tested in the same simulation and rejected on evidence, not
+       taste: at a sustained one-distinct-aircraft-per-poll arrival rate against a 90s drain, queue depth
+       and therefore displayed lag grow without limit - by the twelfth aircraft the head of an unbounded
+       queue would be ~15 minutes behind reality. A board showing a 15-minute-old departure is not a
+       real-time departure board, which is this project's stated core value."
+    - "Removing the pacing gate is a faithful restoration of the pre-fix code, not an approximation: with
+       `advance_is_due` forced True a distinct detection is enqueued and popped within the SAME cycle, so
+       the queue never accumulates, pending_flights stays [], and the slot advances on every distinct
+       detection. Confirmed by running the whole harness that way - exactly the five REGRESSION checks
+       fail and nothing else does (13/18)."
+  falsification_test: |
+    The mitigation is refuted if the common case regresses - i.e. if light traffic, which never triggered
+    mechanism C in the first place, starts being delayed by the pacing. Check 14 falsifies that directly
+    and is a GUARD (it must hold in BOTH directions): one distinct aircraft every 120s must never queue,
+    never discard, and must shift current->previous on the very same cycle it is detected. Checks 1-8,
+    the entire pre-existing two-deep-history and prefix-registry suite, are the same falsifier restated -
+    they pass unchanged once their cycles are spaced past the floor.
+    It is refuted in the other direction if the staleness bound is ever silently exceeded: check 11 is a
+    GUARD asserting no aircraft reaches the current slot more than MAX_STALENESS_S after it was first
+    detected. It passes pre-fix trivially (every promotion was instant), so it fails ONLY if a future
+    change lets the queue become a backlog - which is precisely the unbounded-queue failure mode this
+    design exists to prevent.
+    The whole premise is refuted if mechanism C is not reproducible at all - check 9 (PRECONDITION) fails
+    loudly in that case rather than checks 10+ passing for the wrong reason.
+  fix_rationale: |
+    Addresses the root cause (a single-slot buffer between a fast producer and a slow consumer) with the
+    standard remedy for exactly that shape - a queue - rather than the two tempting symptom-level fixes.
+    NOT chosen, deliberately: slowing the server's poll interval, which would fix nothing (the diagnosis
+    pass already eliminated poll cadence as the limiting factor - corridor dwell is 58-110s and the
+    PROVIDERS only refresh every ~36s median, so polling slower just samples the same stale data less
+    often while still overwriting); and deepening the poster to three or four slots, which changes the
+    approved visual design (D-25/D-26) and merely raises the threshold at which the same loss resumes.
+    The queue is BOUNDED IN TWO INDEPENDENT DIMENSIONS because either bound alone is insufficient. Age
+    alone (MAX_STALENESS_S=150) does not bound depth, because expired entries are only skipped at advance
+    time - up to 90s apart - so a pathological arrival rate could pile up entries between two advances.
+    Depth alone does not bound age, because a full queue drained at 90s per entry would still promote its
+    tail four advances (360s) later. Together they bound both, and the two bounds are derived from
+    different things on purpose: the age bound from what a viewer should be willing to believe, the depth
+    cap from the maximum number of aircraft that can physically be enqueued inside one age window
+    (150s / 30s poll = 5, since a poll selects at most one aircraft).
+    Promotion is OLDEST-FIRST rather than newest-first because the queue's whole purpose is that the
+    aircraft which has waited longest gets its turn; newest-first would reproduce the original bug with
+    extra steps, starving the queue's head until it expired.
+    The pacing constant is NAMED and its derivation written where it is defined, with both source numbers
+    cited by file, so a future firmware Kconfig change can be reconciled against it rather than
+    archaeologised. The depth cap is written as a literal rather than as `MAX_STALENESS_S //
+    POLL_INTERVAL_S` specifically so that retuning the poll cadence cannot silently inflate the queue.
+    Draining runs on EVERY cycle including empty ones. This is the one place the design had to go beyond
+    the letter of the approved sketch: a burst followed by a quiet sky is the common real shape, and a
+    queue that only drained on detection cycles would strand its entire contents until they expired,
+    making requirement (a) unachievable. It does not weaken D-04 - the panel is still held on cycles
+    where nothing NEW reaches the display, and what gets promoted was genuinely detected, just deferred.
+  blind_spots:
+    - "MIN_ADVANCE_INTERVAL_S=90 rests on the COMMITTED firmware defaults, not on the flashed board.
+       firmware/sdkconfig is generated at build time and is not committed (the diagnosis pass recorded
+       this same limitation), so a menuconfig change to MIN_REFRESH_SPACING_S would be invisible here and
+       the server would be pacing to the wrong number. The check that would catch it is device fetch
+       spacing in `journalctl -u skypane-byos`, which needs VPS access this session did not have."
+    - "The ~31.5s refresh is from hardware/BRINGUP-LOG.md's bring-up measurements, taken twice but at one
+       ambient temperature on one board. E-ink refresh time is temperature-dependent; a cold room could
+       make the real floor larger than 90s, in which case pacing is still too fast and some loss persists
+       that this pass would wrongly believe it had bounded."
+    - "ENRICHMENT MOVED. Route resolution and the unresolved-ICAO-prefix registry (CFG-04) now run at
+       PROMOTION time rather than at detection time, so an aircraft discarded from the queue is never
+       enriched and its unrecognized prefix is never recorded. This is a real, accepted behaviour change:
+       the registry now counts DISPLAYED cycles rather than detected ones. Arguably more honest (it
+       already counts poll cycles rather than distinct flights, per its own docstring), and it avoids
+       spending a network call on an aircraft that will never be shown - but it does mean prefix coverage
+       data is now very slightly thinner during heavy bursts."
+    - "No live capture of a real mechanism-C event exists. The burst timelines in the checks are
+       CONSTRUCTED from the real 30s poll cadence and the real ~90s device floor; the aircraft records
+       fed through them are the harness's existing synthetic single-aircraft snapshot. The pipeline was
+       separately driven with three REAL committed geofence fixtures to confirm real records queue and
+       persist correctly, but that is not the same as observing the bug on the user's frame."
+    - "Not correlated against live VPS logs - the same constraint the diagnosis, A and B passes all
+       recorded (no VPS access in any of them). The end-to-end claim, that the user stops seeing flights
+       skipped, remains unproven from the frame."
+    - "Two aircraft alternating selection across consecutive polls (possible if their effective altitudes
+       cross) will now ping-pong the current slot at 90s instead of 30s. This is strictly better than
+       pre-fix and every promotion is a genuinely-detected aircraft, but it is a behaviour this pass
+       reasoned about rather than tested."
+
+### Evidence (C pass)
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: C PASS. Where the two-deep history is actually read and written - grepped every occurrence of
+    last_flight / previous_flight / previous_route / previous_confirmed_state / poll_state across
+    server/, stub-server/, deploy/, ARCHITECTURE.md and .planning/.
+  found: |
+    It lives ENTIRELY in server/poll_loop.py's run_once(), lines that load the six keys from
+    poll_state.json and the `if last_flight is not None and new_hex != old_hex:` shift block.
+    server/plane/render.py never reads poll_state.json at all - it only RECEIVES previous_flight /
+    previous_route / previous_state as arguments (render_panel, build_canvas, _build_active_canvas). The
+    only other readers are the harnesses.
+  implication: The fix belongs in poll_loop.py and nowhere else, and the approved constraint "preserve
+    the existing two-slot render layout (D-25) EXACTLY" is satisfied structurally rather than by care -
+    render.py is not touched, and its call signature is unchanged. Confirms the pre-implementation
+    instruction that the history "may not be where you expect": it is not in render.py.
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: C PASS. The design simulated against the real constants BEFORE any code was edited (scratch
+    design_sim_c.py) - pacing, TTL, depth cap, a backwards clock step, and an explicit model of what the
+    DEVICE draws at its own ~90s floor.
+  found: |
+    Burst A@0 B@30 C@60 D@90 then an empty sky, sampled at the device's redraw floor:
+      pre-fix  frames = (0,A,None) (90,D,C) (180,D,C) ... -> ever drawn {A,C,D}, NEVER DRAWN {B}
+      post-fix frames = (0,A,None) (90,B,A) (180,C,B) ... -> ever drawn {A,B,C}, NEVER DRAWN {D}
+    Promotion ages post-fix: B at 60s, C at 120s - both inside the 150s bound. D reached its turn at
+    age 180s and was discarded.
+    Sustained burst, 12 distinct aircraft one per 30s poll: queue depth never exceeded 5; promotions
+    H00,H01,H02,H05,H07,H10 at ages 0/60/120/120/150/150 - the bound is respected exactly and is
+    binding, not slack. Backwards NTP step of one hour: no stall, no crash, the next entry promotes.
+  implication: The bounded design achieves requirement (a) - all of a 3-aircraft burst reaches the glass
+    - and its cost is explicit and bounded rather than hidden. It also shows the mitigation's honest
+    limit in the same run: a FOURTH aircraft inside the same window is lost. That is the residual, and it
+    was visible in the design before a line of production code was written rather than discovered after.
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: C PASS. Whether the mitigation regresses the common case - the light-traffic path that never
+    triggered mechanism C at all.
+  found: |
+    It does not, and the proof is structural rather than incidental: the enqueue happens BEFORE the
+    advance, so when the queue is empty and the pacing floor has already elapsed, this cycle's detection
+    is enqueued and immediately popped in the same cycle. The result is byte-identical to the pre-fix
+    path. Confirmed three ways: the simulation's scenario (c) produces identical output paced and
+    unpaced; committed check 14 asserts it directly; and the eight PRE-EXISTING checks (the whole
+    two-deep-history and prefix-registry suite) pass unchanged once their cycles are spaced past the
+    floor, which is what the real 30s timer does for real 58-110s-dwell traffic anyway.
+  implication: Requirement (c) is met, and the ordering (enqueue-then-advance, never advance-then-enqueue)
+    is load-bearing. Reversing it would defer every single detection by a full 90s even in an empty sky -
+    a severe regression that would not have failed any pre-existing check.
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: C PASS. The real pipeline driven with three REAL committed geofence fixtures
+    (geofence_multi_aircraft.json, geofence_taxiway_masking.json, geofence_on_ground.json) as three
+    consecutive 30s polls, inspecting poll_state.json on disk afterwards.
+  found: |
+    Cycle 1 displayed 39d300/TVF23WV (panel_changed=True). Cycles 2 and 3 detected 347288/IBE05DP and
+    3985a7/AFR56XX and logged `shown=39d300 pending=1` then `shown=39d300 pending=2`, both with
+    panel_changed=False. poll_state.json carries the two new keys alongside the existing ones -
+    `pending_flights` holding both real records verbatim (hex, callsign, aircraft_type, altitude_ft,
+    on_ground, vertical_rate_fpm, lat/lon, gs, seen_pos, along/cross_track_m, track fields) each with its
+    own `first_seen`, and `last_advance_at` at cycle 1's timestamp.
+  implication: The queue holds REAL selection records, round-trips through JSON, and does not disturb
+    enrichment_cache / unresolved_prefixes / the two-deep keys. Also confirms panel.bin is genuinely NOT
+    rewritten on a deferred cycle, which is the entire mechanism of the fix.
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: C PASS. Post-fix verification - full suite, ruff, attribution, a live run against the real
+    aggregator endpoints, and the harness re-run against a faithfully restored pre-fix implementation.
+  found: |
+    Full suite green: 9/9 harnesses, 231 checks (up from 221), coverage 83% (up from 82%, threshold 75).
+    ruff clean. check-attribution.sh PASS. server/test_poll_loop.py 8 -> 18 checks.
+    Against the restored pre-fix implementation (`advance_is_due` forced True): checks 10, 12, 13, 15 and
+    18 FAIL and nothing else does (13/18). The PRECONDITION check 9 and all eight guards hold in both
+    directions, which is exactly their documented role.
+    Live: `server/poll_loop.py --once` ran clean end to end through the rewritten cycle (exit 0, panel.bin
+    written, `pending=0 dropped=None shown=None`).
+  implication: The five checks that assert the fixed behaviour are proven to catch the bug rather than
+    merely to pass alongside it, and the ten that are not supposed to flip are documented as such. Same
+    caveat as the A and B passes on the live run: the sky was empty (Orly curfew at this hour), so it
+    exercised the code path but not the queue.
+
+### Root cause (mechanism C)
+
+A PRODUCER/CONSUMER RATE MISMATCH across a single-slot buffer, with no backpressure and no record of
+loss.
+
+  PRODUCER: `poll_loop.run_once()`, fired every 30s by skypane-poll.timer, advanced the "current"
+  display slot on every distinct detection - unconditionally, immediately, with no notion of whether the
+  outgoing occupant had ever been fetched by anyone.
+
+  CONSUMER: the frame, whose floor between two DRAWN images is ~90s - CONFIG_FP_MIN_REFRESH_SPACING_S=60
+  (firmware/main/Kconfig.projbuild, not overridden in any committed sdkconfig, re-armed by
+  fp_panel_draw() after every blit) plus a ~31.5s full Spectra 6 refresh measured twice on real hardware
+  (hardware/BRINGUP-LOG.md).
+
+  BUFFER: exactly two slots (D-25's current+previous poster), which absorbs exactly ONE overwrite.
+
+So whenever 3+ distinct aircraft were selected between two physical redraws, the middle one(s) were
+overwritten before the device ever fetched them. Unlike mechanisms A and B this leaves NO trace: every
+poll cycle genuinely succeeded, `panel_changed=True` every time, and the lost aircraft appeared nowhere -
+not in poll_state.json, not in the journal, not on the glass. The server looked perfectly healthy while
+flights were never seen, which is why this mechanism was the last of the three to be identified and
+could not be diagnosed from the server logs the user first asked to check.
+
+Note what is NOT the root cause, and was correctly eliminated in the diagnosis pass: the 30s poll
+interval. Corridor dwell is 58-110s for every realistic movement and the PROVIDERS' own data only
+refreshes every ~36s median, so changing the poll cadence in either direction does not touch this.
+
+### Fix (mechanism C)
+
+SCOPE: MECHANISM C, SERVER SIDE ONLY. Nothing under `firmware/` was touched - no Kconfig, no sdkconfig,
+no panel.c - and the firmware remains unapproved exactly as in the A and B passes. The device-facing
+protocol is untouched: `stub-server/byos_server.py` is unmodified and the `image_hash`/`sleep_s`
+semantics are unchanged. `select_runway3_aircraft()` and everything about how ONE poll picks ONE aircraft
+is untouched; mechanisms A and B were not reopened. The two-slot poster layout (D-25/D-26) is unchanged
+and `server/plane/render.py` is not modified at all.
+
+A BOUNDED-AGE FIFO QUEUE, in `server/poll_loop.py`. Distinct selections accumulate in a pending queue
+persisted in `poll_state.json` instead of overwriting the "current" slot, and the slot advances at the
+device's own pace:
+
+  `MIN_ADVANCE_INTERVAL_S = 90` - the minimum interval between two advances of the "current" slot. NOT a
+  preference: 60 (CONFIG_FP_MIN_REFRESH_SPACING_S, re-armed after every blit) + ~31.5 (the measured full
+  refresh) = 91.5s, rounded DOWN to 90 so the server paces slightly ahead of the device rather than
+  behind it. Both source numbers are cited by file where the constant is defined, so a future firmware
+  Kconfig change can be reconciled against it.
+
+  `MAX_STALENESS_S = 150` - the hard staleness bound, chosen by the user at 2m30s after explicit
+  discussion of the tradeoff. An entry whose age at its turn exceeds this is DISCARDED, never displayed;
+  the scan continues past it to the next still-fresh entry rather than stalling behind it. This is what
+  keeps the board real-time: an unbounded queue would let displayed lag grow without limit during any
+  sustained busy period, which is the failure mode the user themselves identified when they reconsidered
+  their initial "never drop a flight" proposal.
+
+  `MAX_PENDING_FLIGHTS = 5` - a depth backstop INDEPENDENT of the age bound, because expired entries are
+  only skipped at advance time (up to 90s apart), so a pathological burst could otherwise pile up between
+  two advances. Derived as the most distinct aircraft that can legitimately be enqueued inside one 150s
+  window: a poll selects AT MOST ONE aircraft and the timer fires every 30s, so 150/30 = 5. Written as a
+  literal rather than a division precisely so retuning POLL_INTERVAL_S cannot silently inflate the queue.
+  Eviction is OLDEST-FIRST.
+
+Per cycle: a detection matching the current slot refreshes it in place (unchanged); a distinct detection
+is ENQUEUED (stamped with the time it was FIRST detected - re-detection refreshes the stored record but
+deliberately never moves `first_seen`, or an aircraft could loiter indefinitely by being re-detected);
+then, if the pacing floor has elapsed, the OLDEST still-fresh entry is promoted, demoting the outgoing
+occupant into the "previous" slot exactly as before. Enqueue happens BEFORE advance, which is what makes
+the light-traffic path byte-identical to pre-fix: an empty queue plus an elapsed floor means this cycle's
+detection is enqueued and popped in the same cycle. The very first detection ever bypasses pacing
+entirely - there is nothing on screen to protect.
+
+Draining runs on EVERY cycle, including cycles that detected nothing. This is the one place the
+implementation went beyond the letter of the approved sketch, and it is necessary rather than
+discretionary: a burst followed by a quiet sky is the common real shape, and a queue that drained only on
+detection cycles would strand its whole contents until they expired. D-04 is not weakened - the panel is
+still held whenever nothing NEW reaches the display, and a promoted aircraft was genuinely detected, just
+deferred.
+
+STATE AND TIME. Two new keys in `poll_state.json`, named in the existing style: `pending_flights` (a list
+of `{"flight": <the selection record verbatim>, "first_seen": <epoch seconds>}`) and `last_advance_at`.
+Both are written through the existing `save_poll_state()`, i.e. the project's tmp-write-then-os.replace()
+atomic convention, and both degrade to empty on anything malformed rather than raising - matching
+`load_poll_state()`'s own never-a-crash discipline. A state file written by the pre-fix code simply has
+neither key, which reads as an empty queue and no recorded advance, so the first new detection after an
+upgrade advances immediately (pre-fix behaviour) and pacing takes over from there. Epoch seconds rather
+than the ISO-8601 strings `unresolved_prefixes` uses, because these are arithmetic operands on every
+cycle rather than a human-readable audit record. Because this script is a systemd oneshot with no
+in-process memory (D-P2-02), ALL pacing and staleness arithmetic is over these persisted timestamps; the
+clock itself is a module-level `now_s()` seam so the harness drives cadence deterministically instead of
+sleeping through real 150s windows.
+
+OBSERVABILITY. Three new fields on the poll line - `shown=` (the hex actually on the panel), `pending=`
+(queue depth) and `dropped=` (every hex discarded this cycle, for either reason). `hex=` deliberately
+still means THIS CYCLE'S DETECTION, so every recipe in "Next occurrence" above keeps working - including
+the documented property that a suppressed cycle logs `hex=None ... panel_changed=False`. This is not
+scope creep: the defining characteristic of mechanism C was that it was INVISIBLE in this server's logs,
+and `dropped=` is the direct readout of the residual the mitigation does not cover.
+
+RESIDUALS - honestly NOT closed:
+  (C1) THE MECHANISM IS MITIGATED, NOT ELIMINATED. A burst that overflows both the 150s bound and the
+       5-deep cap still loses flights. This is by design - the alternative is a board that shows stale
+       information - and it is now VISIBLE (`dropped=`) rather than silent. The remaining levers are
+       raising MAX_STALENESS_S (accept staler information) or lowering the firmware's
+       CONFIG_FP_MIN_REFRESH_SPACING_S, which is out of scope and unapproved.
+  (C2) THE PACING CONSTANT IS UNVALIDATED AGAINST THE FLASHED BOARD. firmware/sdkconfig is generated at
+       build time and not committed, and e-ink refresh time is temperature-dependent. If the real floor
+       is larger than 90s, the server still paces too fast and some loss persists. The check is device
+       fetch spacing in `journalctl -u skypane-byos`; no VPS access this session.
+  (C3) ENRICHMENT MOVED TO PROMOTION TIME. A discarded aircraft is never enriched, so its unrecognized
+       ICAO prefix is never recorded in the CFG-04 registry. Accepted: it avoids a network call for an
+       aircraft that will never be shown, and the registry already counts poll cycles rather than
+       distinct flights - but prefix coverage is now marginally thinner during heavy bursts.
+
+### Verification (mechanism C)
+
+- FULL SUITE GREEN: `bash scripts/run-all-tests.sh` -> "Result: PASS", 9/9 harnesses, 231 checks (up from
+  221), coverage 83% (up from 82%, threshold 75 in pyproject.toml). `server/.venv/bin/ruff check .` ->
+  "All checks passed!". `bash scripts/check-attribution.sh` -> PASS.
+- server/test_poll_loop.py extended 8 -> 18 checks, all passing. Chosen over test_plane_detection.py
+  deliberately: this is the existing harness for poll_loop's cross-cycle history, which is exactly the
+  machinery being changed - nothing in this pass touches detection.
+- REGRESSION CHECKS PROVEN TO CATCH THE BUG, not merely to pass with the fix: restoring the pre-fix
+  implementation at its single seam (`poll_loop.advance_is_due` forced True, which makes every distinct
+  detection enqueue-and-pop within one cycle - structurally identical to the pre-fix "advance on every
+  distinct detection") fails EXACTLY checks 10, 12, 13, 15 and 18 -> 13/18. Check 9 (PRECONDITION) and
+  the eight guards hold in BOTH directions BY DESIGN, and the harness docstring states the three-way
+  regression / precondition / guard distinction explicitly - the same discipline the mechanism-B pass
+  established.
+- CHECKS 15/16 AND 17/18 WERE DELIBERATELY SPLIT for exactly the reason the B pass split its check 36/37:
+  each began as one assertion mixing a guard with a regression (persistence vs malformed-input tolerance;
+  the log-field contract vs a deferral being legible). A guard that also fails pre-fix teaches a later
+  reader nothing about which half broke. The split was made because the pre-fix restoration run surfaced
+  the mixing, not to make anything pass.
+- REQUIREMENT (a) IS ASSERTED AGAINST THE USER'S ACTUAL SYMPTOM, not against an internal: check 10 samples
+  the two display slots at the device's own ~90s redraw floor and asserts every non-discarded aircraft in
+  a 4-aircraft burst appears on some frame the device could have fetched, in first-detected FIFO order.
+  Its pre-fix failure message is the bug verbatim - "aircraft never reached the glass despite never being
+  discarded: ['b2b2b2'], frames=[(0,a1a1a1,None),(90,d4d4d4,c3c3c3),(180,d4d4d4,c3c3c3),...]".
+- REQUIREMENT (b): check 13 drives 12 distinct aircraft on 12 consecutive polls, asserts the queue never
+  exceeds MAX_PENDING_FLIGHTS at ANY cycle, saturates at the cap, never raises, and evicts oldest-first.
+  The oldest-first invariant is asserted PER CYCLE, not across the run - an earlier draft compared the
+  final queue against the whole run's discards and failed for the wrong reason, because two different
+  mechanisms discard here (the depth cap during the burst, the staleness bound long after it) and a
+  late TTL drop is naturally newer than an entry still queued earlier. The check additionally proves the
+  DEPTH CAP specifically fired, so it cannot pass on the TTL alone.
+- REQUIREMENT (c): check 14 asserts light traffic - one distinct aircraft every 120s, each re-detected
+  30s later, the real shape of a 58-110s corridor dwell against a 30s poll - never queues, never
+  discards, and shifts current->previous on the very same cycle. It is a GUARD and passes in both
+  directions, which is the point. The eight pre-existing checks are the same guarantee restated.
+- PRE-IMPLEMENTATION SIMULATION: the whole design was modelled against the real firmware/measured
+  constants before any production code was edited (scratch design_sim_c.py), including an explicit model
+  of what the DEVICE draws - the same discipline the A pass (verify_gate.py) and B pass (design_probe.py,
+  replay.py) used. The unbounded-queue alternative was rejected there on measured lag growth, not taste.
+- REAL-RECORD ROUND TRIP: three real committed geofence fixtures driven through run_once() as consecutive
+  polls confirm real selection records queue, persist to poll_state.json and survive JSON round-trip
+  without disturbing enrichment_cache, unresolved_prefixes or the two-deep keys - and that panel.bin is
+  genuinely not rewritten on a deferred cycle.
+- LIVE END-TO-END: `server/.venv/bin/python3 server/poll_loop.py --once --state-dir <tmp>` ran clean
+  through the rewritten cycle (exit 0, 960000-byte panel.bin written, `shown=None pending=0
+  dropped=None`). CAVEAT, identical to the A and B passes: the sky was empty at this hour (Orly curfew),
+  so the run exercised the code path but NOT the queue.
+- NOT VERIFIED: no live VPS correlation and no capture of a real mechanism-C occurrence - the same
+  constraint all three passes recorded. MIN_ADVANCE_INTERVAL_S is derived from the COMMITTED firmware
+  defaults, not from the flashed board (residual C2). And this does not close the user's original symptom
+  end to end - it bounds one of the three mechanisms behind it, and bounds it rather than removing it.
+
+files_changed (C pass):
+  - server/poll_loop.py (MIN_ADVANCE_INTERVAL_S / MAX_STALENESS_S / MAX_PENDING_FLIGHTS with their
+    derivations; now_s() clock seam; _as_timestamp(), normalise_pending(), advance_is_due(),
+    enqueue_pending(), pop_fresh_pending(); run_once() reworked so the display slot advances on a paced
+    promotion rather than on every distinct detection, with the two new poll_state.json keys persisted
+    atomically; shown=/pending=/dropped= log fields)
+  - server/test_poll_loop.py (8 -> 18 checks: a fake-clock seam driving cadence deterministically, the
+    _drive() device-redraw model, and the regression/precondition/guard docstring section)
+  - ARCHITECTURE.md (new "Display pacing" subsection in the server render pipeline; the Composition
+    paragraph clarified now that "preceding" means the previous slot occupant, not the previous detection)
