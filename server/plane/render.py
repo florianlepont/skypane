@@ -265,6 +265,85 @@ def draw_top_labels(canvas, state, ink_idx):
     draw.text((WIDTH - MARGIN, MARGIN), TOP_RIGHT_TAG_TEXT, font=tag_font, fill=ink_idx, anchor="ra")
 
 
+def _illustration_over_pixel_cap(path):
+    """Render-path counterpart of `illustrations.validate_illustration_file()`'s
+    header-first pixel cap (T-03-03-01 / T-03.1-05-01): return `True` when
+    `path`'s PNG header declares more than `illustrations.ILLUSTRATION_MAX_PIXELS`
+    pixels, or when the header cannot even be read (missing, garbage,
+    unreadable) - a file this plan's caller should move past rather than
+    attempt to decode. `Image.open()` is lazy - it parses the header
+    without decoding pixel data - which is the whole point: this check
+    never triggers a full decode.
+
+    Deliberately checks only the pixel count, not
+    `validate_illustration_file()`'s other vendor-time quality rules
+    (minimum width, landscape orientation, alpha presence) - those are
+    hand-off gates for a human reviewing new art, and must never cause a
+    live poll cycle to drop an otherwise-legitimate illustration. Never
+    raises, for any input.
+    """
+    try:
+        with Image.open(path) as img:
+            width, height = img.size
+            return (width * height) > illustrations.ILLUSTRATION_MAX_PIXELS
+    except Exception:
+        return True
+
+
+def _load_illustration_safely(path, target_w):
+    """Return a resized RGBA image loaded from `path`, degrading through an
+    ordered candidate ladder - `path` first, then
+    `illustrations.generic_fallback_path()` - and returning `None` once the
+    ladder is exhausted. Never raises, for any input, including `None`.
+
+    This restores the degradation ladder 03-03-PLAN.md's must-have and
+    threat T-03-03-02 specified, whose original home
+    (`draw_silhouette()`'s enclosing try/except) was removed by the
+    D-25/D-26 two-flight redesign and never replaced (03-VERIFICATION.md).
+    The last resort is no longer a redrawn silhouette but D-08's
+    `generic-fallback.png`, and then "no illustration at all" - matching
+    the already-correct missing-directory degradation.
+
+    `_load_illustration_safely(None, w)` behaves exactly as today's
+    `select_illustration()` returning `None` did end to end: the generic
+    fallback is attempted and, if it is absent, the illustration is
+    skipped.
+    """
+    candidates = []
+    for candidate in (path, illustrations.generic_fallback_path()):
+        if not candidate or not os.path.isfile(candidate) or candidate in candidates:
+            continue
+        candidates.append(candidate)
+
+    for candidate in candidates:
+        if _illustration_over_pixel_cap(candidate):
+            try:
+                with Image.open(candidate) as img:
+                    pixel_count = img.size[0] * img.size[1]
+            except Exception as exc:
+                print(
+                    "render: skipping illustration %s - header unreadable (%s)"
+                    % (candidate, type(exc).__name__),
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "render: skipping illustration %s - %d pixels exceeds the %d-pixel cap"
+                    % (candidate, pixel_count, illustrations.ILLUSTRATION_MAX_PIXELS),
+                    file=sys.stderr,
+                )
+            continue
+        try:
+            return _resize_illustration(candidate, target_w)
+        except Exception as exc:
+            print(
+                "render: skipping illustration %s - %s" % (candidate, type(exc).__name__),
+                file=sys.stderr,
+            )
+            continue
+    return None
+
+
 def _resize_illustration(path, target_w):
     """Load a vendored per-airline illustration PNG (real alpha channel,
     see HANDOFF.md) and resize it to `target_w` px wide, preserving its
@@ -561,8 +640,8 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
 
     main_path = illustrations.select_illustration(route, flight.get("aircraft_type"))
     main_bbox = None
-    if main_path is not None:
-        main_resized = _resize_illustration(main_path, main_w)
+    main_resized = _load_illustration_safely(main_path, main_w)
+    if main_resized is not None:
         main_left = (WIDTH - main_resized.size[0]) // 2
         main_bbox = draw_illustration(canvas, main_resized, main_left, main_top)
         _assert_within_canvas(main_bbox, "main aircraft illustration")
@@ -573,9 +652,9 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     # Same nose-left convention as the main illustration, no mirroring.
     if previous_flight is not None and main_bbox is not None:
         prev_path = illustrations.select_illustration(previous_route, (previous_flight or {}).get("aircraft_type"))
-        if prev_path is not None:
-            prev_w = round((main_bbox[2] - main_bbox[0]) * PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
-            prev_resized = _resize_illustration(prev_path, prev_w)
+        prev_w = round((main_bbox[2] - main_bbox[0]) * PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
+        prev_resized = _load_illustration_safely(prev_path, prev_w)
+        if prev_resized is not None:
             prev_h = prev_resized.size[1]
             prev_left = main_bbox[2] - prev_resized.size[0]
             prev_top = round(HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC - prev_h / 2)
