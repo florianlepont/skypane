@@ -266,7 +266,7 @@ Caraïbes rather than Amelia; it was removed instead of promoted.
 |---|---|---|---|---|
 | `km-malta-airlines.png` | KM Malta Airlines | Airbus A320neo, post-2023 | 2017×780 | `57317df5cbb460889afd1358be7579f45d5f3742abfb594b222f7715f55bd38f` |
 | `tuifly-belgium.png` | TUIfly Belgium | Boeing 737 MAX 8 | 2001×786 | `71605dfeee854ba4c296b242d31831a3fcee12d86d15d848dacb2b395d7390ea` |
-| `amelia.png` | Amelia | Airbus A320, verified white/dark-green livery | 2172×724 | `50ac98b9ebfc89151aad1102fca3655fd70613c10cdb496a63bfd4475ca1e618` |
+| `amelia.png` | Amelia | Airbus A320, white tail with low emerald fuselage ribbons | 2084×754 | `58598c69094b4a77c79a61f588343c5159d38cce474b59f3fb431e4723f5cdd4` |
 | `amelia-embraer.png` | Amelia | Embraer E145, verified white/dark-green livery | 2067×761 | `284e4947fe2f1b30c51ddd0bc9b6af6489ba3bd92f526800260435f65141aa53` |
 | `air-france-hop.png` | Air France HOP | Embraer E190, post-2019 | 2135×737 | `20eb212ce74e744e7972a248d107a9cacae7b4003652f1d53a783861d8c1c995` |
 | `air-france-hop-atr72.png` | Air France HOP | ATR 72-600, historical HOP! livery | 2056×765 | `6994215f6b85048f084cdf1900a86ad826f38cdecba569a92d9f6f8db69e3121` |
@@ -278,3 +278,11 @@ applied: the accepted files are the generator's native outputs. Each file
 was checked for RGBA mode, transparent corners, non-opaque alpha, minimum
 width, landscape framing, nose-left orientation, horizontal attitude and
 aircraft-type/livery match.
+
+**Amelia A320 correction:** after the first delivery, a user-supplied photo
+of F-HDSJ showed that the initial illustration overextended the green graphic
+onto the vertical tail and enlarged the wordmark. `amelia.png` was regenerated
+with the real aircraft's plain white tail, modest uppercase `AMELIA` title and
+two low emerald ribbons. A first correction draft that painted a checkerboard
+was rejected as opaque RGB and never vendored; the accepted replacement is
+native RGBA with transparent corners.

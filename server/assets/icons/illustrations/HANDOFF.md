@@ -601,8 +601,10 @@ The per-file subject/livery clauses were:
   large red `malta`, red tail with one white Maltese cross.
 - `tuifly-belgium.png` — 737 MAX 8; LEAP nacelles and split-tip winglets;
   white/pale-blue TUI livery, blue tail and red smile emblem.
-- `amelia.png` — A320; verified white and very dark emerald-green Amelia
-  scheme. The originally suggested blue tail was rejected as inaccurate.
+- `amelia.png` — A320; verified almost-white scheme with a plain white tail,
+  modest uppercase `AMELIA` title and two low emerald fuselage ribbons. The
+  originally suggested blue tail and a later oversized tail graphic were
+  rejected as inaccurate.
 - `amelia-embraer.png` — E145 with rear engines and T-tail; the verified
   white/dark-green Amelia sweep adapted to the regional jet.
 - `air-france-hop.png` — E190; post-2019 Air France regional scheme with
