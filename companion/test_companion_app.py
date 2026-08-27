@@ -22,6 +22,7 @@ Usage:
 """
 import hashlib
 import hmac
+import html
 import os
 import sys
 import time
@@ -31,10 +32,10 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth  # noqa: E402
+from companion import auth, layout  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
-EXPECTED_CHECK_COUNT = 9
+EXPECTED_CHECK_COUNT = 16
 
 
 def _sign_with_secret(payload, secret):
@@ -185,6 +186,123 @@ def main():
         check(
             "LoginThrottle allows attempts up to its limit, locks out, then resets on success",
             _login_throttle_allows_locks_and_resets)
+
+        # ==================================================================
+        # Section 2: companion/layout.py
+        # (the route-driven check section arrives with plan 06-05's
+        # companion/app.py)
+        # ==================================================================
+
+        def _escape_html_all_special_chars():
+            hostile = "<script>&\"'</script>"
+            escaped = layout.escape_html(hostile)
+            # '&' legitimately survives *as the start of an entity* (e.g.
+            # "&amp;", "&lt;") - compare against the stdlib's own reference
+            # escaping instead of a naive per-character containment check,
+            # which would false-positive on "&amp;" containing "&".
+            expected = html.escape(hostile, quote=True)
+            if escaped != expected:
+                return False, "escape_html() diverged from html.escape(): %r != %r" % (escaped, expected)
+            for literal_special_char in ("<", ">", '"', "'"):
+                if literal_special_char in escaped:
+                    return False, "unescaped %r survived in %r" % (literal_special_char, escaped)
+            return True, ""
+        check(
+            "escape_html() escapes all five HTML-special characters",
+            _escape_html_all_special_chars)
+
+        def _escape_html_non_string_inputs():
+            if layout.escape_html(None) != "":
+                return False, "expected escape_html(None) == ''"
+            if layout.escape_html(42) != "42":
+                return False, "expected escape_html(42) == '42'"
+            return True, ""
+        check(
+            "escape_html() coerces None to an empty string and non-strings to their string form",
+            _escape_html_non_string_inputs)
+
+        def _page_shell_document_shape():
+            rendered = layout.page_shell(title="Health", active="health", body="<p>x</p>")
+            if rendered.count("<html") != 1:
+                return False, "expected exactly one <html occurrence, got %d" % rendered.count("<html")
+            if 'lang="en"' not in rendered:
+                return False, "expected a lang=\"en\" attribute"
+            if "width=device-width" not in rendered:
+                return False, "expected a viewport meta tag"
+            if "/static/style.css" not in rendered:
+                return False, "expected a stylesheet link"
+            if layout.SITE_TITLE not in rendered:
+                return False, "expected the site title to appear"
+            missing = [
+                route for route, _ in layout.NAV_TABS
+                if ('href="%s"' % route) not in rendered]
+            if missing:
+                return False, "missing nav link hrefs: %r" % (missing,)
+            return True, ""
+        check(
+            "page_shell() renders one document with lang/viewport/stylesheet/title/five nav links",
+            _page_shell_document_shape)
+
+        def _page_shell_marks_only_the_active_nav_tab():
+            rendered = layout.page_shell(title="Health", active="health", body="")
+            for route, _ in layout.NAV_TABS:
+                slug = route.lstrip("/")
+                href_needle = 'href="%s"' % route
+                href_index = rendered.find(href_needle)
+                if href_index == -1:
+                    return False, "missing nav link for %r" % route
+                tag_start = rendered.rfind("<a", 0, href_index)
+                tag_end = rendered.find(">", href_index)
+                tag = rendered[tag_start:tag_end]
+                is_active_class_present = "nav-tab--active" in tag
+                if slug == "health" and not is_active_class_present:
+                    return False, "expected the active tab (%r) to carry the active class" % route
+                if slug != "health" and is_active_class_present:
+                    return False, "expected a non-active tab (%r) to not carry the active class" % route
+            return True, ""
+        check(
+            "the nav link matching `active` carries a distinguishing class, the others do not",
+            _page_shell_marks_only_the_active_nav_tab)
+
+        def _theme_resolution():
+            rendered = layout.page_shell(title="Health", active="health", body="", ui_theme="dark")
+            if 'data-ui-theme="dark"' not in rendered:
+                return False, "expected data-ui-theme=\"dark\" in the rendered document"
+            if layout.ui_theme_from_cookie({}) != "auto":
+                return False, "expected ui_theme_from_cookie({}) == 'auto' for a missing cookie"
+            unrecognised = {layout.UI_THEME_COOKIE_NAME: "not-a-real-theme"}
+            if layout.ui_theme_from_cookie(unrecognised) != "auto":
+                return False, "expected an unrecognised theme cookie to fall back to 'auto'"
+            return True, ""
+        check(
+            "page_shell() reflects the supplied UI theme; ui_theme_from_cookie() falls back to auto",
+            _theme_resolution)
+
+        def _status_dot_states():
+            ok_markup = layout.status_dot("ok", "All good")
+            if "dot--ok" not in ok_markup or "All good" not in ok_markup:
+                return False, "expected the ok-state class and the escaped label"
+            unknown_markup = layout.status_dot("not-a-real-state", "<b>hi</b>")
+            if "dot--warn" not in unknown_markup:
+                return False, "expected an unrecognised state to fall back to the warn class"
+            if "<b>" in unknown_markup:
+                return False, "expected the label to be escaped"
+            return True, ""
+        check(
+            "status_dot() encodes the state as a fixed class, escapes the label, falls back to warn",
+            _status_dot_states)
+
+        def _data_table_escapes_and_empty_state():
+            table_markup = layout.data_table(["Name", "<x>"], [["<b>a</b>", "1"]])
+            if "<b>a</b>" in table_markup or "<x>" in table_markup:
+                return False, "expected header and cell values to be escaped"
+            empty_markup = layout.data_table(["Name"], [])
+            if "<table" in empty_markup:
+                return False, "expected the empty-state block instead of a <table> for zero rows"
+            return True, ""
+        check(
+            "data_table() escapes every header/cell and emits the empty-state block for zero rows",
+            _data_table_escapes_and_empty_state)
 
     finally:
         if previous_password is not None:
