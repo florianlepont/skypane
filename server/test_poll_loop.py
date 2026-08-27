@@ -30,6 +30,7 @@ Usage:
 """
 import contextlib
 import io
+import json
 import os
 import shutil
 import sys
@@ -42,7 +43,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 8
+EXPECTED_CHECK_COUNT = 12
 
 
 def _snapshot(hex_code, callsign, baro_rate):
@@ -64,6 +65,22 @@ def _snapshot(hex_code, callsign, baro_rate):
             }
         ]
     }
+
+
+def _empty_snapshot():
+    """No aircraft detected this cycle - exercises the D-04 hold branch
+    (`elif last_flight is not None:`) when a flight is already on screen.
+    """
+    return {"ac": []}
+
+
+def _write_battery_state(state_dir, mv):
+    """Hand-write battery_state.json the way stub-server/byos_server.py's
+    save_battery_state() would (this harness never runs that process - it
+    only needs the file server/poll_loop.py's load_battery_state() reads).
+    """
+    with open(os.path.join(state_dir, "battery_state.json"), "w") as fh:
+        json.dump({"battery_mv": mv, "received_at": 1.0}, fh)
 
 
 def main():
@@ -283,6 +300,164 @@ def main():
             "the poll_loop: line's unknown_prefix= field names the recorded prefix on a miss cycle, reads None on "
             "a covered cycle, and every pre-existing field is still present (260827-oz9)",
             _journal_line_names_unknown_prefix,
+        )
+
+        # --- Task 3 (05-02, DEVICE-04): battery hysteresis, degrade-never- --
+        # --- raise persistence, and the guarded hold-branch re-render. -----
+
+        # 9. Check A - the hysteresis truth table (Pitfall 5: a reading
+        # between the two constants must NOT clear an armed warning).
+        def _hysteresis_truth_table():
+            f = poll_loop.apply_battery_hysteresis
+            cases = [
+                # (battery_mv, was_active, expected)
+                (3499, False, True), (3500, False, True), (3501, False, False),
+                (3599, False, False), (3600, False, False),
+                (3400, True, True), (3500, True, True), (3550, True, True),
+                (3599, True, True), (3600, True, False), (3700, True, False),
+            ]
+            for mv, was_active, expected in cases:
+                result = f(mv, was_active)
+                if result != expected:
+                    return False, "apply_battery_hysteresis(%r, was_active=%r) = %r, expected %r" % (mv, was_active, result, expected)
+            return True, ""
+        check(
+            "apply_battery_hysteresis()'s truth table: threshold-inclusive disarm (<=3500 sets True), "
+            "clear-inclusive re-arm (>=3600 clears True) - a reading strictly between the two constants "
+            "holds the previous decision in both directions (Pitfall 5)",
+            _hysteresis_truth_table,
+        )
+
+        # 10. Check B - a never-reported/unreadable reading holds, never
+        # guesses.
+        def _never_reported_reading_holds():
+            if poll_loop.apply_battery_hysteresis(None, False) is not False:
+                return False, "apply_battery_hysteresis(None, False) is not False"
+            if poll_loop.apply_battery_hysteresis(None, True) is not True:
+                return False, "apply_battery_hysteresis(None, True) is not True"
+            return True, ""
+        check(
+            "apply_battery_hysteresis(None, was_active) holds was_active unchanged - a device that has never "
+            "reported must not spuriously show the icon, and an unreadable file must not spuriously clear a "
+            "real warning",
+            _never_reported_reading_holds,
+        )
+
+        # 11. Check C - load_battery_state() degrades, never raises.
+        def _load_battery_state_degrades_never_raises():
+            d = tempfile.mkdtemp(prefix="skypane-poll-loop-battery-state-")
+            try:
+                path = os.path.join(d, "battery_state.json")
+
+                def _write_raw(text):
+                    with open(path, "w") as fh:
+                        fh.write(text)
+
+                def _write_json(obj):
+                    with open(path, "w") as fh:
+                        json.dump(obj, fh)
+
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "missing file: expected None"
+                _write_raw("{not valid json")
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "invalid JSON: expected None"
+                _write_json([1, 2, 3])
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "a JSON list (non-dict payload): expected None"
+                _write_json({"other": 1})
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "a dict with no battery_mv key: expected None"
+                _write_json({"battery_mv": "3400"})
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "a string battery_mv: expected None"
+                _write_json({"battery_mv": True})
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "a bool battery_mv: expected None"
+                _write_json({"battery_mv": 3400.5})
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "a float battery_mv: expected None"
+                _write_json({"battery_mv": -1})
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "a negative int battery_mv: expected None"
+                _write_json({"battery_mv": 0})
+                if poll_loop.load_battery_state(d) is not None:
+                    return False, "battery_mv=0: expected None"
+                _write_json({"battery_mv": 3400, "received_at": 1.0})
+                if poll_loop.load_battery_state(d) != 3400:
+                    return False, "a well-formed state: expected 3400, got %r" % (poll_loop.load_battery_state(d),)
+                return True, ""
+            finally:
+                shutil.rmtree(d, ignore_errors=True)
+        check(
+            "load_battery_state() returns None for a missing file, invalid JSON, a JSON list, a dict with no "
+            "battery_mv key, and a battery_mv that is a string/bool/float/negative/zero - and the int for a "
+            "well-formed state",
+            _load_battery_state_degrades_never_raises,
+        )
+
+        # 12. Check D - cross-cycle persistence and the hold-branch
+        # re-render: the battery decision survives run_once()'s process
+        # boundary in poll_state.json, and a hold cycle (no new detection)
+        # re-renders panel.bin exactly when the battery decision genuinely
+        # flips - not on every hold cycle.
+        def _cross_cycle_persistence_and_hold_branch_rerender():
+            original_transport = enrich.default_transport
+            enrich.default_transport = lambda callsign, timeout=None: (404, None)
+            try:
+                d = tempfile.mkdtemp(prefix="skypane-poll-loop-battery-d-")
+                try:
+                    panel_path = os.path.join(d, "panel.bin")
+
+                    # (1) A detection cycle with a low reading already on
+                    # disk: battery_low_active flips True and the log line
+                    # says so.
+                    _write_battery_state(d, 3400)
+                    poll_loop.run_once(snapshot=_snapshot("eeeeee", "FLIGHT5 ", CLIMB), state_dir=d, geofence=GEOFENCE_PATH)
+                    state1 = poll_loop.load_poll_state(d)
+                    if state1.get("battery_low_active") is not True:
+                        return False, "after a detection cycle with battery_mv=3400, battery_low_active = %r, expected True" % (state1.get("battery_low_active"),)
+                    with open(panel_path, "rb") as fh:
+                        panel_after_detection = fh.read()
+
+                    # (2) A hold cycle (empty snapshot, a flight already on
+                    # screen) with the reading flipped to a clearing value:
+                    # panel_changed is True, panel.bin's bytes changed, and
+                    # battery_low_active flips False - the warning can clear
+                    # on a cycle with no detection at all.
+                    _write_battery_state(d, 3700)
+                    result2 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=d, geofence=GEOFENCE_PATH)
+                    state2 = poll_loop.load_poll_state(d)
+                    if state2.get("battery_low_active") is not False:
+                        return False, "after a battery flip to 3700 on a hold cycle, battery_low_active = %r, expected False" % (state2.get("battery_low_active"),)
+                    if result2.get("panel_changed") is not True:
+                        return False, "hold-cycle re-render on a genuine battery flip: panel_changed = %r, expected True" % (result2.get("panel_changed"),)
+                    with open(panel_path, "rb") as fh:
+                        panel_after_flip = fh.read()
+                    if panel_after_flip == panel_after_detection:
+                        return False, "panel.bin bytes did not change after the battery-flip hold-cycle re-render"
+
+                    # (3) Another hold cycle, same 3700 reading (no flip):
+                    # panel_changed is False and panel.bin is byte-identical
+                    # - the re-render fires only on a genuine flip, not
+                    # every hold cycle.
+                    result3 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=d, geofence=GEOFENCE_PATH)
+                    if result3.get("panel_changed") is not False:
+                        return False, "hold-cycle with an unchanged battery reading: panel_changed = %r, expected False" % (result3.get("panel_changed"),)
+                    with open(panel_path, "rb") as fh:
+                        panel_after_repeat = fh.read()
+                    if panel_after_repeat != panel_after_flip:
+                        return False, "panel.bin changed on a hold-cycle with no genuine battery flip"
+                    return True, ""
+                finally:
+                    shutil.rmtree(d, ignore_errors=True)
+            finally:
+                enrich.default_transport = original_transport
+        check(
+            "the battery decision survives run_once()'s process boundary in poll_state.json, and the D-04 hold "
+            "branch re-renders panel.bin exactly when the battery decision genuinely flips (not on every hold "
+            "cycle, and even with no aircraft detected at all)",
+            _cross_cycle_persistence_and_hold_branch_rerender,
         )
 
     finally:
