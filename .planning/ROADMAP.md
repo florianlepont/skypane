@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
-| 6. Companion Configuration Web Interface | 5/12 | In Progress|  |
+| 6. Companion Configuration Web Interface | 6/12 | In Progress|  |
 | 7. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 0 plans
 
@@ -242,7 +242,7 @@ Plans:
 **Goal:** A user can reach a password-protected companion web page — a new, separate service on its own nip.io subdomain, not touching the vendored device-protocol server — to choose a validated display theme, select which Orly runway is tracked, monitor the device's health and the ADS-B sources' reliability over time, browse recent flight/render history, see airline-coverage gaps, and debug the render pipeline directly, all without SSH access to the VPS.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-05, CFG-06, CFG-07, CFG-08, CFG-09, CFG-10, CFG-11, CFG-12
 **Depends on:** Phase 5
-**Plans:** 5/12 plans executed
+**Plans:** 6/12 plans executed
 
 Plans:
 **Wave 1**
@@ -255,7 +255,7 @@ Plans:
 **Wave 2**
 
 - [x] 06-05-PLAN.md — Companion HTTP service and router (complete route table, whole-site auth gate, preview/gallery routes, manual poll trigger, five page stubs)
-- [ ] 06-06-PLAN.md — Render pipeline: theme-aware colours, runway-aware labels, CFG-05 source-fault badge
+- [x] 06-06-PLAN.md — Render pipeline: theme-aware colours, runway-aware labels, CFG-05 source-fault badge
 
 **Wave 3**
 

@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: companion-configuration-web-interface-visual-settings-view-s
 status: executing
-stopped_at: Completed 06-05-PLAN.md
-last_updated: "2026-08-27T22:21:15.726Z"
+stopped_at: Completed 06-06-PLAN.md
+last_updated: "2026-08-27T22:43:42.040Z"
 last_activity: 2026-08-28
-last_activity_desc: 06-05-PLAN.md executed (companion/app.py — ThreadingHTTPServer, route table, D-02 auth gate; five companion/pages/ stubs; CFG-07/CFG-09 live end-to-end)
+last_activity_desc: 06-06-PLAN.md executed (server/plane/render.py — theme-aware colours via device_config.THEMES, runway-aware tag/heading via device_config.RUNWAYS, CFG-05 source-fault alert badge; test_render.py 42->60 checks)
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 41
-  completed_plans: 33
-  percent: 80
+  completed_plans: 34
+  percent: 83
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 06 (companion-configuration-web-interface-visual-settings-view-s) — EXECUTING
-Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 5/12 executed (06-01 Wave 1 device_config.py/history_db.py persistence layer; 06-02 Wave 1 detect.py runway-parameterisation + diagnostics signal, CFG-05/CFG-12; 06-03 Wave 1 server/panel_preview.py — unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), CFG-10; 06-04 Wave 1 companion/auth.py (stateless HMAC session cookies, constant-time password gate, fail-closed AuthNotConfigured, process-global LoginThrottle) + companion/layout.py/static/style.css (single-call-site escape_html(), full page shell, 06-UI-SPEC.md design system), CFG-09; 06-05 Wave 2 companion/app.py — stdlib ThreadingHTTPServer, flat route dispatch, D-02 auth gate enforced route-by-route on all nine authenticated routes, five companion/pages/ contract-complete stubs, CFG-07's manual poll trigger and CFG-09's theme toggle now genuinely live end-to-end).
+Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 6/12 executed (06-01 Wave 1 device_config.py/history_db.py persistence layer; 06-02 Wave 1 detect.py runway-parameterisation + diagnostics signal, CFG-05/CFG-12; 06-03 Wave 1 server/panel_preview.py — unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), CFG-10; 06-04 Wave 1 companion/auth.py (stateless HMAC session cookies, constant-time password gate, fail-closed AuthNotConfigured, process-global LoginThrottle) + companion/layout.py/static/style.css (single-call-site escape_html(), full page shell, 06-UI-SPEC.md design system), CFG-09; 06-05 Wave 2 companion/app.py — stdlib ThreadingHTTPServer, flat route dispatch, D-02 auth gate enforced route-by-route on all nine authenticated routes, five companion/pages/ contract-complete stubs, CFG-07's manual poll trigger and CFG-09's theme toggle now genuinely live end-to-end; 06-06 Wave 2 server/plane/render.py — theme-aware DEPARTING/ARRIVING colours and runway-aware tag/heading via server/device_config.py's THEMES/RUNWAYS registries (CFG-01/CFG-12), plus draw_source_fault_badge() (CFG-05) drawn only when poll_loop.py's future all-providers-failed signal fires, never on an empty selection; test_render.py grew 42->60 checks).
 Status: Executing Phase 06
-Last activity: 2026-08-28 — 06-05-PLAN.md complete
+Last activity: 2026-08-28 — 06-06-PLAN.md complete
 
-Progress: [████████░░] 80% (33/41 plans)
+Progress: [████████░░] 83% (34/41 plans)
 
 ## Performance Metrics
 
@@ -87,6 +87,7 @@ Progress: [████████░░] 80% (33/41 plans)
 | Phase 06 P03 | 15min | 2 tasks | 3 files |
 | Phase 06 P04 | 35min | 3 tasks | 5 files |
 | Phase 06 P05 | ~50min | 3 tasks | 8 files |
+| Phase 06 P06 | ~40min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -166,6 +167,7 @@ Recent decisions affecting current work:
 - [Phase 06]: 06-03 complete - server/panel_preview.py added as unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), NIBBLE_TO_INDEX derived by inverting INDEX_TO_NIBBLE (never hand-typed); PanelDecodeError raised on wrong-length/illegal-nibble input; test_panel_preview.py proves the round trip over all six palette indices plus a mixed nibble pair, a production render_panel(None,'empty') round trip, and a live-demonstrated (then reverted) nibble-transposition regression; pyproject.toml coverage-omit extended for the new module following 06-01's precedent, pending removal in 06-11
 - [Phase 06]: 06-04 complete - companion/auth.py (stateless HMAC session cookies, constant-time password gate, fail-closed AuthNotConfigured, process-global LoginThrottle) and companion/layout.py/static/style.css (single-call-site escape_html(), full page shell, 06-UI-SPEC.md design system) built and tested via real RED->GREEN TDD pairs matching 06-01's precedent; harness grew to 20/20 checks; CFG-09 requirements-completed deliberately left unchecked since the HTTP route to receive the theme POST arrives in plan 06-05
 - [Phase 06]: 06-05 complete - companion/app.py (stdlib ThreadingHTTPServer, flat route dispatch, D-02 auth gate on all nine authenticated routes) and five companion/pages/ stubs built; CFG-07 (manual poll trigger, in-process run_once(), server-global cooldown) and CFG-09 (theme toggle) are now genuinely live end-to-end and marked complete; CFG-10's preview route and CFG-11's gallery-file route are wired safely (directory-listing validated, never path-joined); harness grew 20 -> 49 checks; fixed a real stdout-buffering bug (sys.stdout.reconfigure) found while smoke-testing
+- [Phase 06]: 06-06 complete - render.py's DEPARTING/ARRIVING colours and top-right runway tag/empty-state heading now resolve through device_config.py's THEMES/RUNWAYS registries via theme_id/runway_id keywords (unrecognised id degrades to default, unrecognised state still raises); draw_source_fault_badge() adds a small palette-safe CFG-05 alert badge (source_fault=False default) documented as driven only by poll_loop.py's future all-providers-failed classification, never an empty selection; test_render.py grew 42->60 checks via a genuine RED/GREEN pair for Task 3
 
 ### Pending Todos
 
@@ -207,8 +209,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T22:21:15.601Z
-Stopped at: Completed 06-05-PLAN.md
+Last session: 2026-08-27T22:43:42.034Z
+Stopped at: Completed 06-06-PLAN.md
 
 Resume file: None
 
