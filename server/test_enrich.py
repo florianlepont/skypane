@@ -26,7 +26,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 35
+EXPECTED_CHECK_COUNT = 39
 
 
 def load_fixture(name):
@@ -720,6 +720,61 @@ def main():
         "string untouched under an unrelated prefix; the corrected Air Corsica route selects the renamed "
         "air-corsica.png/air-corsica-atr72.png files (260827-kih)",
         _resolve_route_and_selection_for_three_stale_brand_carriers,
+    )
+
+    # --- Quick task 260827-lgt: HOP! Air France, Wizz Air Malta, KlasJet -
+    # three new prefix-table rows, cross-checked against the official
+    # Paris Aeroport Orly airline list. ------------------------------------
+
+    # 36. HOP resolves from the real callsign this session curled
+    #     (HOP4001) - adsbdb resolves the exact same string live, so both
+    #     the adsbdb-hit path and this prefix-only fallback path agree by
+    #     construction (QT-lgt-D-03).
+    def _airline_from_callsign_hop_air_france():
+        got = enrich.airline_from_callsign("HOP4001")
+        if got != "Air France Hop":
+            return False, "airline_from_callsign('HOP4001') = %r, expected 'Air France Hop'" % (got,)
+        return True, ""
+    check("airline_from_callsign('HOP4001') returns 'Air France Hop' (260827-lgt, real curled callsign)", _airline_from_callsign_hop_air_france)
+
+    # 37. WMT resolves to the parent brand name "Wizz Air", deliberately
+    #     (QT-lgt-D-01) - real callsign WMT3001 curled live this session
+    #     resolves via adsbdb to the more-specific "Wizz Air Malta", but
+    #     this prefix-only fallback path intentionally returns the parent
+    #     brand instead, the same EJU -> easyJet consolidation precedent.
+    def _airline_from_callsign_wizz_air_malta():
+        got = enrich.airline_from_callsign("WMT3001")
+        if got != "Wizz Air":
+            return False, "airline_from_callsign('WMT3001') = %r, expected 'Wizz Air'" % (got,)
+        return True, ""
+    check("airline_from_callsign('WMT3001') returns 'Wizz Air' (260827-lgt, real curled callsign WMT3001; adsbdb itself resolves 'Wizz Air Malta', QT-lgt-D-01 deliberate brand consolidation)", _airline_from_callsign_wizz_air_malta)
+
+    # 38. KLJ resolves to "KlasJet" from a synthetic, shape-valid callsign
+    #     only - no real KLJ callsign could be confirmed live this session
+    #     (QT-lgt-D-06, ~25 adsbdb probes all missed). This check proves
+    #     only that the table row is wired correctly, not that the prefix
+    #     assignment itself is correct.
+    def _airline_from_callsign_klasjet():
+        got = enrich.airline_from_callsign("KLJ123")
+        if got != "KlasJet":
+            return False, "airline_from_callsign('KLJ123') = %r, expected 'KlasJet'" % (got,)
+        return True, ""
+    check("airline_from_callsign('KLJ123') returns 'KlasJet' (260827-lgt, KLJ123 is a SYNTHETIC shape-valid callsign - no real KLJ callsign was ever live-confirmed, QT-lgt-D-06)", _airline_from_callsign_klasjet)
+
+    # 39. QT-lgt-D-07 guard: none of HOP/WMT/KLJ needs a correction row -
+    #     HOP because adsbdb is already correct, WMT because a
+    #     more-specific adsbdb answer is an accepted divergence not a
+    #     misattribution, and KLJ because nothing resolves at all. This
+    #     keeps a future reader from "completing the job" by adding
+    #     correction rows none of these three actually needs.
+    def _no_correction_row_for_new_lgt_prefixes():
+        bad = [k for k in enrich._AIRLINE_NAME_CORRECTIONS if k[0] in ("HOP", "WMT", "KLJ")]
+        if bad:
+            return False, "unexpected _AIRLINE_NAME_CORRECTIONS row(s) for HOP/WMT/KLJ: %r" % (bad,)
+        return True, ""
+    check(
+        "no _AIRLINE_NAME_CORRECTIONS row exists whose prefix element is HOP, WMT or KLJ (QT-lgt-D-07 guard)",
+        _no_correction_row_for_new_lgt_prefixes,
     )
 
     total = len(results)

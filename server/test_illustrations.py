@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 46
+EXPECTED_CHECK_COUNT = 47
 
 
 def main():
@@ -694,23 +694,25 @@ def main():
         _km_malta_and_tuifly_belgium_targets_present,
     )
 
-    # 45 (quick task 260827-kih). Amelia's two new target filenames are
-    # present in target_filenames() (still outstanding on disk, no artwork
-    # exists yet), and the full target plan now totals 38 entries.
-    def _amelia_targets_present_and_total_is_38():
+    # 45 (quick task 260827-kih, total updated by 260827-lgt). Amelia's two
+    # new target filenames are present in target_filenames() (still
+    # outstanding on disk, no artwork exists yet), and the full target
+    # plan now totals 41 entries (38 -> 41, quick task 260827-lgt added
+    # three: air-france-hop.png, air-france-hop-atr72.png, klasjet.png).
+    def _amelia_targets_present_and_total_is_41():
         targets = ill.target_filenames()
         for expected_file in ("amelia.png", "amelia-embraer.png"):
             if expected_file not in targets:
                 return False, "target_filenames() is missing %r: not present" % (expected_file,)
             if os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
                 return False, "%r already exists on disk - expected it to still be outstanding" % (expected_file,)
-        if len(targets) != 38:
-            return False, "target_filenames() has %d entries, expected 38" % (len(targets),)
+        if len(targets) != 41:
+            return False, "target_filenames() has %d entries, expected 41" % (len(targets),)
         return True, ""
     check(
         "target_filenames() contains 'amelia.png'/'amelia-embraer.png' (still outstanding on disk) and totals "
-        "38 entries (260827-kih)",
-        _amelia_targets_present_and_total_is_38,
+        "41 entries (260827-kih baseline, total updated by 260827-lgt)",
+        _amelia_targets_present_and_total_is_41,
     )
 
     # 46 (quick task 260827-kih). The four renamed files exist on disk
@@ -729,6 +731,46 @@ def main():
         "the four renamed illustration files (air-corsica/air-corsica-atr72/asl-airlines-france/corsair) exist "
         "on disk; the four superseded filenames they replace do not (260827-kih)",
         _renamed_files_exist_superseded_names_do_not,
+    )
+
+    # 47 (quick task 260827-lgt). "Air France Hop"/"KlasJet" are present as
+    # distinct target airline names (alongside "Air France"/"Wizz Air",
+    # which must remain present too - the exact-match guard for
+    # QT-lgt-D-04's separate-key claim); their three derived filenames are
+    # present in target_filenames() and none of them exists on disk yet;
+    # and the QT-lgt-D-01 reuse guard holds - no Malta-specific Wizz
+    # variant crept into either list, "Wizz Air"/wizz-air.png remain the
+    # sole Wizz Air Malta-brand-token entries.
+    def _lgt_targets_present_and_wizz_reuse_guard_holds():
+        names = ill.target_airline_names()
+        for expected in ("Air France Hop", "KlasJet", "Air France", "Wizz Air"):
+            if expected not in names:
+                return False, "target_airline_names() is missing %r: %r" % (expected, names)
+
+        filenames = ill.target_filenames()
+        new_files = ("air-france-hop.png", "air-france-hop-atr72.png", "klasjet.png")
+        for expected_file in new_files:
+            if expected_file not in filenames:
+                return False, "target_filenames() is missing %r: not present" % (expected_file,)
+            if os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
+                return False, "%r already exists on disk - expected it to still be outstanding" % (expected_file,)
+
+        # QT-lgt-D-01 reuse guard: no member of either list, other than the
+        # exact "Wizz Air" name / wizz-air.png filename, may start with the
+        # Wizz brand token - this is what makes a future accidental
+        # "Wizz Air Malta" name or "wizz-air-malta.png" filename fail here.
+        wizz_names = [n for n in names if n.lower().startswith("wizz")]
+        if wizz_names != ["Wizz Air"]:
+            return False, "target_airline_names() must contain exactly one Wizz-brand entry, 'Wizz Air': got %r" % (wizz_names,)
+        wizz_files = [f for f in filenames if f.startswith("wizz")]
+        if wizz_files != ["wizz-air.png"]:
+            return False, "target_filenames() must contain exactly one Wizz-brand entry, 'wizz-air.png': got %r" % (wizz_files,)
+        return True, ""
+    check(
+        "target_airline_names()/target_filenames() carry 'Air France Hop'/'KlasJet' (with 'Air France'/'Wizz Air' "
+        "still present as distinct names) and the three new filenames (none yet on disk); the QT-lgt-D-01 Wizz "
+        "Air Malta reuse guard holds - no Malta-specific Wizz entry exists in either list (260827-lgt)",
+        _lgt_targets_present_and_wizz_reuse_guard_holds,
     )
 
     total = len(results)

@@ -513,6 +513,56 @@ _ICAO_AIRLINE_PREFIXES = {
     # tables agree by construction, an agreement `test_enrich.py`'s check
     # 32 asserts as a machine-checked invariant rather than assumes.
     "AIA": "Amelia",
+    # HOP, WMT, KLJ added by quick task 260827-lgt (2026-08-27), all three
+    # cross-checked against the official Paris Aeroport Orly airline list.
+    #
+    # HOP: this session ran `curl https://api.adsbdb.com/v0/callsign/
+    # HOP4001` (2026-08-27) and got back a real resolved route
+    # (Nantes-Lyon) with airline.name "Air France Hop". This is the FIRST
+    # row in this table whose value agrees with adsbdb's live answer
+    # BECAUSE adsbdb is already right - not because it was corrected (like
+    # FPO/CRL/CCM above) and not because adsbdb is silent (like KMM/EJU).
+    # That is precisely why NO _AIRLINE_NAME_CORRECTIONS row exists for
+    # HOP, and none should be added (QT-lgt-D-07) - a future reader must
+    # not "complete the job" here, there is nothing to correct. The ADS-B
+    # callsign field really is HOP+number regardless of the "Airfrans"
+    # radio callsign air traffic control actually uses - radio phraseology
+    # is irrelevant to this project, which matches on the ADS-B callsign
+    # field only.
+    "HOP": "Air France Hop",
+    # WMT: Wizz Air Malta is a separate legal entity and AOC (Malta) from
+    # WZZ (main Wizz Air, IATA W6, already in this table above), holding
+    # IATA W4 since its 2022 reassignment to the Malta AOC. It is mapped
+    # here to the PARENT brand's name deliberately (QT-lgt-D-01): its
+    # fleet (A320/A321neo) and livery are brand-standard Wizz Air, visually
+    # indistinguishable at this project's flat side-profile illustration
+    # fidelity - the identical rationale as the EJU row above, which this
+    # comment names explicitly as the precedent. Accepted consequence: the
+    # caption for a real Wizz Air Malta flight renders "Wizz Air", not
+    # "Wizz Air Malta" (illustrations.py adds zero new target/artwork for
+    # this row - see that module's docstring). QT-lgt-D-02: Wizz Air UK
+    # (WUK, IATA W9) is explicitly OUT OF SCOPE and must not be added as
+    # tidy-up - it was never researched this session and no decision exists
+    # for it. Note in passing: the Paris Aeroport list's "Wizz Air Hungary
+    # Ltd / W4" labelling is very likely an airport-side error, since W4
+    # belongs to the Malta AOC today, not Hungary.
+    "WMT": "Wizz Air",
+    # KLJ: KlasJet. CARRIES MATERIALLY LOWER CONFIDENCE THAN EVERY ROW
+    # ABOVE - this row must not be presented with the same confidence as
+    # the rest of this table. The prefix is corroborated by lookup sources
+    # but was NEVER LIVE-CONFIRMED (QT-lgt-D-06): approximately 25 adsbdb
+    # queries across plausible flight-number ranges all returned "unknown
+    # callsign" - zero live confirmation, materially weaker than KMM's
+    # confirmed-negative above (a specific curl of a specific real callsign
+    # that definitively missed). KlasJet is a Lithuanian ACMI/wet-lease and
+    # VIP charter operator, and wet-lease flights typically broadcast the
+    # CONTRACTING airline's callsign rather than the operator's own, so a
+    # real KLJ-prefixed callsign may rarely or never appear at Orly. The
+    # developer chose to include it anyway, with this uncertainty in hand.
+    # Remediation pointer: if a real KLJ callsign is ever observed and
+    # resolves to a different carrier, this row is the first thing to
+    # re-verify.
+    "KLJ": "KlasJet",
 }
 
 
