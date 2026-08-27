@@ -48,9 +48,9 @@ POLL_INTERVAL_S = 30
 def _extract_aircraft(snapshot):
     """A raw aggregator response dict (as injected by tests, or as returned
     by one of detect.PROVIDERS) carries its aircraft array under a
-    provider-specific key ("ac" for airplanes.live, "aircraft" for
-    adsb.fi). Never raises on an unexpected shape - an empty list is the
-    safe default (T-02-01-01's "skip/don't-claim" discipline).
+    provider-specific key ("ac" for airplanes.live and adsb.lol, "aircraft"
+    for adsb.fi). Never raises on an unexpected shape - an empty list is
+    the safe default (T-02-01-01's "skip/don't-claim" discipline).
     """
     if not isinstance(snapshot, dict):
         return []
@@ -261,16 +261,19 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         rendered = render.render_panel(None, render_state)
         panel_changed = write_panel_atomic(state_dir, rendered)
 
-    # T-02-04-05: log only the callsign and the enrichment outcome
-    # (cache_hit / fresh_hit / miss / n/a / held) - never the raw adsbdb
-    # response body.
+    # T-02-04-05: log only the callsign, the enrichment outcome
+    # (cache_hit / fresh_hit / miss / n/a / held), and the selection's own
+    # corroboration flag - a three-state provenance signal about this
+    # project's own ADS-B sources, not third-party response content, so it
+    # stays within this rule - never the raw adsbdb response body.
     print(
-        "poll_loop: hex=%s callsign=%s aircraft_type=%s altitude_ft=%s confirmed_state=%s render_state=%s "
-        "state_source=%s route_source=%s panel_changed=%s"
+        "poll_loop: hex=%s callsign=%s aircraft_type=%s corroborated=%s altitude_ft=%s confirmed_state=%s "
+        "render_state=%s state_source=%s route_source=%s panel_changed=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
             (flight or {}).get("aircraft_type"),
+            (flight or {}).get("corroborated"),
             (flight or {}).get("altitude_ft"),
             confirmed_state,
             render_state,
