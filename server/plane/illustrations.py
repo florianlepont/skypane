@@ -132,6 +132,69 @@ _LIVE_RESOLVED_AIRLINES = [
 _COVERAGE_CHECK_CALLSIGN = "VOE8KA"
 _COVERAGE_CHECK_AIRLINE_NAME = "Volotea"
 
+# The full D-03 target set (03.1-LIVE-RESOLUTION.md's "Consequences for the
+# target set" section is the authority for this table's contents). Each
+# entry is `(resolved_airline_name, shape_slug_or_None, note)`:
+#   - `resolved_airline_name` is a live-verified adsbdb-resolved
+#     airline_name string, never a guess and never the airline's current
+#     public brand name where the two differ (see the module docstring's
+#     "Filenames mirror the data source" section for Europe Airpost/
+#     Corsairfly).
+#   - `shape` is `None` for the primary (unsuffixed) file - the numerically
+#     dominant type per P-04 - or a SHAPE_SLUGS member for a secondary
+#     mixed-fleet variant.
+#   - `note` carries the D-reference / verdict token so HANDOFF.md (plan
+#     03.1-05) can be generated from this table rather than hand-written.
+#
+# easyJet is included on the strength of its UK-AOC `EZY` prefix, which
+# resolves live as `"easyJet"` - the Austrian-AOC `EJU` prefix (easyJet
+# Europe) remains a confirmed non-resolving carrier for which no file is
+# requested, unchanged from Phase 3 (P-03).
+#
+# Amelia International and La Compagnie are deliberately absent -
+# 03.1-LIVE-RESOLUTION.md marks both `[UNRESOLVED]` (no adsbdb code could
+# be trusted this session for either). Add them here with zero other code
+# change once a real callsign confirms their resolved name.
+_ILLUSTRATION_TARGETS = [
+    # --- Baseline: already-confirmed resolutions, primary files ---
+    ("Air France", None, "D-03 baseline; [VERIFIED-CALLSIGN]"),
+    ("Iberia Airlines", None, "D-03 baseline; [VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
+    ("TAP Portugal", None, "D-03 baseline; [VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
+    ("Air Algerie", None, "D-03 baseline; [VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
+    ("CCM Airlines", None, "D-03/D-04 baseline, A320 primary (P-04); [VERIFIED-CALLSIGN]"),
+    ("Vueling Airlines", None, "D-03 baseline; [VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
+    ("Transavia France", None, "D-03/D-05 baseline, B737 primary (P-04, pre-transition majority); [VERIFIED-CALLSIGN]"),
+    ("easyJet", None, "D-03 baseline, UK-AOC EZY prefix only (P-03); [VERIFIED-CALLSIGN]"),
+    ("Wizz Air", None, "D-03 baseline; [CITED: 03.1-RESEARCH.md]"),
+    ("Volotea", None, "D-03 baseline; [CITED: 03.1-RESEARCH.md]"),
+    ("ITA Airways", None, "D-03 baseline; [CITED: 03.1-RESEARCH.md]"),
+    ("Air Europa", None, "D-03 baseline; [CITED: 03.1-RESEARCH.md]"),
+    ("Royal Air Maroc", None, "D-03 baseline, B737 primary (P-04); [CITED: 03.1-RESEARCH.md]"),
+    ("LOT Polish Airlines", None, "D-03 baseline; [CITED: 03.1-RESEARCH.md]"),
+    ("Air Caraïbes", None, "D-03 baseline, A350 primary (P-04); [CITED: 03.1-RESEARCH.md]"),
+    ("French Bee", None, "D-03 baseline; [CITED: 03.1-RESEARCH.md]"),
+    # --- Step-C airlines newly live-resolved this phase ---
+    (
+        "Europe Airpost",
+        None,
+        "D-03 lists this airline as 'ASL Airlines France' - adsbdb resolves the pre-2016-rebrand name; [VERIFIED-CALLSIGN]",
+    ),
+    ("Tunisair", None, "[VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
+    ("Pegasus Airlines", None, "[VERIFIED-CALLSIGN]"),
+    ("Chalair Aviation", None, "[VERIFIED-AIRLINE-ENDPOINT-ONLY]"),
+    ("Twin Jet", None, "[VERIFIED-CALLSIGN]"),
+    (
+        "Corsairfly",
+        None,
+        "D-03 lists this airline as 'Corsair International' - adsbdb resolves a genuine prior brand name; [VERIFIED-AIRLINE-ENDPOINT-ONLY]",
+    ),
+    # --- P-04 secondary-variant files for mixed-fleet airlines ---
+    ("CCM Airlines", "atr72", "D-03/D-04 mixed-fleet secondary (P-04)"),
+    ("Transavia France", "a320", "D-05 fleet-transition secondary (P-04)"),
+    ("Royal Air Maroc", "embraer", "D-03 mixed-fleet secondary (P-04)"),
+    ("Air Caraïbes", "a330", "D-03 mixed-fleet secondary (P-04)"),
+]
+
 # A key must reduce to this shape after normalise_airline_key() - defensive
 # boundary check independent of normalise_airline_key()'s own guarantee
 # (T-03-03-03: a hostile/malformed airline_name must never escape the
@@ -365,26 +428,78 @@ def validate_illustration_file(path):
     return problems
 
 
+def target_filenames():
+    """Return the full D-03 plan: one filename per `_ILLUSTRATION_TARGETS`
+    entry - derived through `normalise_airline_key()`, never hand-typed -
+    then one `generic-{shape}.png` per `SHAPE_SLUGS` entry (in `SHAPE_SLUGS`
+    order), then the universal fallback. Order-preserving and de-duplicated.
+    Skips (does not crash on) any airline whose slug comes back `None`.
+
+    This is "the full plan" (P-05) - what should eventually exist once
+    plan 03.1-05's hand-off is complete. See `required_filenames()` for
+    "what must exist and validate right now".
+    """
+    names = []
+    for airline_name, shape, _note in _ILLUSTRATION_TARGETS:
+        key = normalise_airline_key(airline_name)
+        if not key:
+            continue
+        filename = ("%s-%s.png" % (key, shape)) if shape else ("%s.png" % key)
+        if filename not in names:
+            names.append(filename)
+    for shape in SHAPE_SLUGS:
+        filename = "generic-%s.png" % shape
+        if filename not in names:
+            names.append(filename)
+    if GENERIC_FALLBACK_FILENAME not in names:
+        names.append(GENERIC_FALLBACK_FILENAME)
+    return names
+
+
 def required_filenames():
-    """Return the ordered list of filenames the hand-off must deliver: one
-    per live-resolved covered airline (see the module docstring's table),
-    plus the generic fallback. Single source of truth for HANDOFF.md,
-    Task 2's validation, and this module's own --validate.
+    """Return the immovable baseline - the pre-03.1 set (one filename per
+    live-resolved covered airline in `_LIVE_RESOLVED_AIRLINES`, plus the
+    generic fallback) - unioned with every `target_filenames()` entry that
+    already exists on disk, de-duplicated and order-preserving.
+
+    P-05: this function means "must exist and validate right now" -
+    a newly delivered file becomes enforced automatically the moment it
+    lands on disk, and deleting an already-vendored file still fails this
+    contract. `target_filenames()` means "the full plan". The split exists
+    so this harness and CI stay green while plan 03.1-05's illustration
+    hand-off proceeds, without any target ever being silently dropped.
     """
     names = []
     for _callsign, airline_name in _LIVE_RESOLVED_AIRLINES:
         key = normalise_airline_key(airline_name)
         if key:
             names.append(key + ".png")
-    names.append(GENERIC_FALLBACK_FILENAME)
+    if GENERIC_FALLBACK_FILENAME not in names:
+        names.append(GENERIC_FALLBACK_FILENAME)
+    for name in target_filenames():
+        if name not in names and os.path.isfile(os.path.join(ILLUSTRATION_DIR, name)):
+            names.append(name)
     return names
 
 
-def _validate_directory():
+def outstanding_filenames():
+    """Return `target_filenames()` minus the files already present on
+    disk, in target order - the machine-reportable remainder of plan
+    03.1-05's hand-off (T-03.1-03-04).
+    """
+    return [name for name in target_filenames() if not os.path.isfile(os.path.join(ILLUSTRATION_DIR, name))]
+
+
+def _validate_directory(strict_targets=False):
     """Validate every required file plus flag any unexpected .png in
-    ILLUSTRATION_DIR. Returns True if everything passes.
+    ILLUSTRATION_DIR - checked against the full `target_filenames()` set,
+    so a delivered-but-not-yet-baseline file is never reported as
+    unexpected. Prints one informational line per outstanding target and a
+    final count. Returns True if everything passes; when `strict_targets`
+    is True, a non-empty outstanding list also fails the run.
     """
     required = required_filenames()
+    targets = set(target_filenames())
     ok = True
 
     for name in required:
@@ -399,14 +514,20 @@ def _validate_directory():
             print("PASS %s" % name)
 
     if os.path.isdir(ILLUSTRATION_DIR):
-        required_set = set(required)
         for entry in sorted(os.listdir(ILLUSTRATION_DIR)):
-            if entry.endswith(".png") and entry not in required_set:
+            if entry.endswith(".png") and entry not in targets:
                 ok = False
-                print("FAIL unexpected file not in the required set: %s" % entry)
+                print("FAIL unexpected file not in the target set: %s" % entry)
     else:
         ok = False
         print("FAIL illustration directory does not exist: %s" % ILLUSTRATION_DIR)
+
+    outstanding = outstanding_filenames()
+    for name in outstanding:
+        print("OUTSTANDING %s" % name)
+    print("%d outstanding target file(s)" % len(outstanding))
+    if strict_targets and outstanding:
+        ok = False
 
     return ok
 
@@ -418,7 +539,18 @@ def main(argv=None):
     parser.add_argument(
         "--validate", action="store_true", help="Validate every required file in the illustration directory; exit non-zero on any problem."
     )
-    parser.add_argument("--required", action="store_true", help="Print required_filenames(), one per line.")
+    parser.add_argument(
+        "--required", action="store_true", help="Print required_filenames() (must exist and validate now), one per line."
+    )
+    parser.add_argument("--targets", action="store_true", help="Print target_filenames() (the full D-03 hand-off plan), one per line.")
+    parser.add_argument(
+        "--outstanding", action="store_true", help="Print outstanding_filenames() (target files not yet on disk), one per line."
+    )
+    parser.add_argument(
+        "--strict-targets",
+        action="store_true",
+        help="With --validate, also fail (non-zero exit) if any target file is outstanding.",
+    )
     args = parser.parse_args(argv)
 
     if args.required:
@@ -426,8 +558,18 @@ def main(argv=None):
             print(name)
         return 0
 
+    if args.targets:
+        for name in target_filenames():
+            print(name)
+        return 0
+
+    if args.outstanding:
+        for name in outstanding_filenames():
+            print(name)
+        return 0
+
     if args.validate:
-        ok = _validate_directory()
+        ok = _validate_directory(strict_targets=args.strict_targets)
         return 0 if ok else 1
 
     parser.print_help()
