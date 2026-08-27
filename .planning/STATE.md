@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 05
 current_phase_name: Battery Life & Low-Battery Indicator
 status: planning
-stopped_at: Phase 05 (low-battery-indicator plan) context gathered
-last_updated: "2026-08-27T18:27:43.881Z"
+stopped_at: Phase 05 UI-SPEC approved
+last_updated: "2026-08-27T18:36:55.531Z"
 last_activity: 2026-08-27
 last_activity_desc: Phase 04 complete, transitioned to Phase 05
 progress:
@@ -196,10 +196,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T18:27:43.870Z
-Stopped at: Phase 05 (low-battery-indicator plan) context gathered
+Last session: 2026-08-27T18:36:55.520Z
+Stopped at: Phase 05 UI-SPEC approved
 
-Resume file: .planning/phases/05-low-battery-indicator/05-CONTEXT.md
+Resume file: .planning/phases/05-low-battery-indicator/05-UI-SPEC.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
