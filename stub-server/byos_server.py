@@ -222,6 +222,16 @@ class Handler(BaseHTTPRequestHandler):
                 "sleep_s": self.args.sleep,
                 "firmware": None,
                 "reset": False,
+                # DEVICE-05 bring-up LED toggle: a hardcoded constant, not
+                # a per-device setting - there is no store, no endpoint
+                # and no web control behind it yet. It ships now anyway
+                # because the firmware half of this toggle can only be
+                # changed by physically reflashing the board, while this
+                # server-side half can be redeployed any afternoon - so
+                # putting the field on the wire today makes the eventual
+                # real per-device setting (CFG-01..CFG-04) a server-only
+                # change with no reflash required.
+                "led_enabled": True,
             })
         if self.path.startswith("/img/"):
             try:

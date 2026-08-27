@@ -304,6 +304,10 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     const cJSON *hash = cJSON_GetObjectItem(json, "image_hash");
     const cJSON *sleep_s = cJSON_GetObjectItem(json, "sleep_s");
     const cJSON *reset = cJSON_GetObjectItem(json, "reset");
+    /* DEVICE-05 bring-up LED toggle - deliberately fetched here, outside
+     * the rejection block below, and resolved after it. See its resolve
+     * expression further down for why. */
+    const cJSON *led = cJSON_GetObjectItem(json, "led_enabled");
 
     /* sleep_s: an exact integer within 1..4294967295 (PROTOCOL.md §2).
      * Zero, fractional values and anything above UINT32_MAX are
@@ -328,6 +332,18 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     strlcpy(parsed.image_hash, hash->valuestring, sizeof(parsed.image_hash));
     parsed.sleep_s = (uint32_t)sleep_s->valuedouble;
     parsed.reset = cJSON_IsTrue(reset);
+    /* Permissive by design: a missing key yields NULL, and cJSON's type
+     * predicates are NULL-safe and answer false, so an absent field
+     * resolves to enabled; a null, string or number value is likewise
+     * not a boolean, so a malformed value also resolves to enabled; only
+     * an explicit JSON `false` yields disabled. Consequence: a server
+     * that predates this field, or one with a future bug in it,
+     * degrades to the LED behaving exactly as it always did, rather
+     * than to a rejected poll and an exponential backoff - trading the
+     * device's actual function for a debug LED's preference would be
+     * the wrong failure direction, which is why this field is not
+     * validated the way image_url/sleep_s/reset are above. */
+    parsed.led_enabled = !cJSON_IsBool(led) || cJSON_IsTrue(led);
 
     /* `firmware` is null in Phase 1 (OTA is out of scope); no field of
      * it is read or stored regardless of what the server sends. */

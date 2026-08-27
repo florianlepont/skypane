@@ -60,6 +60,11 @@ def validate_display_response(obj):
     responses (PROTOCOL.md section 2): image_hash is "sha256:" plus 64
     lowercase hex chars, sleep_s is an integer in 1..4294967295, reset
     is a JSON boolean, and image_url is a non-empty http/https string.
+
+    The DEVICE-05 bring-up LED toggle (`led_enabled`) is deliberately
+    *not* validated here: the firmware treats it as optional (absent,
+    null or wrong-typed all resolve to enabled), and a mirror stricter
+    than the thing it mirrors would be worse than no mirror at all.
     """
     if not isinstance(obj, dict):
         return False
@@ -287,10 +292,12 @@ def main():
                 return False, "response failed validate_display_response: %r" % (obj,)
             if obj.get("firmware") is not None:
                 return False, "expected firmware:null in Phase 1, got %r" % (obj.get("firmware"),)
+            if obj.get("led_enabled") is not True:
+                return False, "expected led_enabled:true, got %r" % (obj.get("led_enabled"),)
             ctx["image_hash_full"] = obj["image_hash"]
             ctx["image_url"] = obj["image_url"]
             return True, ""
-        check("display poll returns a valid response shape (incl. firmware:null)", _display_shape)
+        check("display poll returns a valid response shape (incl. firmware:null and led_enabled:true)", _display_shape)
 
         # 6. Download: the image URL yields exactly 960000 bytes matching the hash.
         def _download():

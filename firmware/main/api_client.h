@@ -40,6 +40,12 @@ typedef struct {
     char image_hash[80];   /* "sha256:<64 hex>" */
     uint32_t sleep_s;
     bool reset;
+    /* DEVICE-05 bring-up LED toggle. The struct's one *optional* field,
+     * unlike the four above it: those four are hard-required and a bad
+     * value in any of them rejects the whole response, while this one
+     * defaults to true whenever it is absent, null or the wrong JSON
+     * type. See fp_api_get_display()'s doc comment below. */
+    bool led_enabled;
 } fp_display_t;
 
 /* True once POST /device/v1/setup has stored a bearer token in NVS. */
@@ -53,7 +59,9 @@ esp_err_t fp_api_setup(const char *provision_secret);
 /* GET /device/v1/display. Sends the Authorization bearer header and all
  * four telemetry headers on every call. Rejects the whole response
  * before copying any field if image_hash, sleep_s, reset or image_url
- * fails its PROTOCOL.md §2 validation rule. */
+ * fails its PROTOCOL.md §2 validation rule. `led_enabled` is deliberately
+ * outside that list: it is optional, and no value it can take rejects
+ * the response. */
 esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out);
 
 /* Stream image_url into buf (FP_IMAGE_BYTES). Returns ESP_OK only when

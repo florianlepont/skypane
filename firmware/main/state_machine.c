@@ -9,6 +9,7 @@
 #include "nvs.h"
 
 #include "api_client.h"
+#include "led.h"
 #include "nvs_schema.h"
 #include "panel.h"
 #include "secrets.h"
@@ -48,6 +49,21 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
         return FP_POLL_FAILED;
     }
     *sleep_s_out = disp.sleep_s;
+
+    /* DEVICE-05 bring-up LED toggle: this is the first instruction at
+     * which a server answer exists, and it precedes every downstream
+     * exit (the unchanged-hash early return, the download, the blit,
+     * the deferred-draw return and every failure return below) - so
+     * placing it here is what makes all of those inherit the decision
+     * from one branch. Doing this after the blit instead would leave
+     * the LED lit through the longest part of the wake, which is
+     * exactly the part a server wanting to suppress it would want
+     * suppressed. This call can only ever extinguish the LED earlier
+     * than the unconditional pre-sleep call in app_main.c would - it is
+     * not, and must not become, a substitute for that call. */
+    if (!disp.led_enabled) {
+        fp_led_off();
+    }
 
     /* Hash-skip: if the returned image_hash equals the NVS copy, do not
      * download at all — PROTOCOL.md §2. */
