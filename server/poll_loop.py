@@ -265,11 +265,12 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     # (cache_hit / fresh_hit / miss / n/a / held) - never the raw adsbdb
     # response body.
     print(
-        "poll_loop: hex=%s callsign=%s altitude_ft=%s confirmed_state=%s render_state=%s "
+        "poll_loop: hex=%s callsign=%s aircraft_type=%s altitude_ft=%s confirmed_state=%s render_state=%s "
         "state_source=%s route_source=%s panel_changed=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
+            (flight or {}).get("aircraft_type"),
             (flight or {}).get("altitude_ft"),
             confirmed_state,
             render_state,

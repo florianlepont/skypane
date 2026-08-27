@@ -33,7 +33,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 32
+EXPECTED_CHECK_COUNT = 35
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -109,6 +109,35 @@ class _TextSpy:
 
     def __exit__(self, exc_type, exc, tb):
         self._render_mod.ImageDraw.ImageDraw.text = self._orig
+        return False
+
+
+class _SelectIllustrationSpy:
+    """Captures every illustrations.select_illustration() call made by
+    render.py's _build_active_canvas() while building one canvas - a list
+    of (route, aircraft_type) argument pairs, in call order. Monkeypatches
+    render.illustrations.select_illustration (the reference render.py
+    itself calls through), following _TextSpy's monkeypatch-and-restore
+    shape.
+    """
+
+    def __init__(self, render_mod):
+        self._render_mod = render_mod
+        self.calls = []
+        self._orig = None
+
+    def __enter__(self):
+        self._orig = self._render_mod.illustrations.select_illustration
+
+        def _spy(route, aircraft_type=None):
+            self.calls.append((route, aircraft_type))
+            return self._orig(route, aircraft_type)
+
+        self._render_mod.illustrations.select_illustration = _spy
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._render_mod.illustrations.select_illustration = self._orig
         return False
 
 
@@ -600,7 +629,74 @@ def main():
         _long_name_plus_longest_label_fits_within_canvas,
     )
 
-    # 32. No text-outline arguments anywhere in the source (still a real
+    # 32. Rendering a main flight carrying a type calls select_illustration()
+    # with that exact type as the second argument.
+    def _select_illustration_receives_main_flights_type():
+        with _SelectIllustrationSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        if not spy.calls:
+            return False, "no select_illustration() call captured"
+        main_route, main_type = spy.calls[0]
+        if main_type != TEST_FLIGHT["aircraft_type"]:
+            return False, "main-card select_illustration() call got aircraft_type=%r, expected %r" % (main_type, TEST_FLIGHT["aircraft_type"])
+        if main_route != TEST_ROUTE:
+            return False, "main-card select_illustration() call got route=%r, expected TEST_ROUTE" % (main_route,)
+        return True, ""
+    check(
+        "rendering with a main flight carrying a type calls select_illustration() with that exact type",
+        _select_illustration_receives_main_flights_type,
+    )
+
+    # 33. A main + previous flight makes two select_illustration() calls,
+    # each receiving its own flight's type - the previous card must never
+    # receive the main flight's type (the specific bug this threading can
+    # introduce).
+    def _select_illustration_calls_each_receive_their_own_flights_type():
+        with _SelectIllustrationSpy(render) as spy:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+            )
+        if len(spy.calls) != 2:
+            return False, "expected exactly 2 select_illustration() calls (main + previous), got %d: %r" % (len(spy.calls), spy.calls)
+        (main_route, main_type), (prev_route, prev_type) = spy.calls
+        if main_type != TEST_FLIGHT["aircraft_type"]:
+            return False, "main-card call got aircraft_type=%r, expected %r" % (main_type, TEST_FLIGHT["aircraft_type"])
+        if prev_type != TEST_PREVIOUS_FLIGHT["aircraft_type"]:
+            return False, "previous-card call got aircraft_type=%r, expected %r" % (prev_type, TEST_PREVIOUS_FLIGHT["aircraft_type"])
+        if prev_type == main_type and TEST_FLIGHT["aircraft_type"] != TEST_PREVIOUS_FLIGHT["aircraft_type"]:
+            return False, "previous-card call received the main flight's type - card-type crossover bug"
+        if main_route != TEST_ROUTE or prev_route != TEST_PREVIOUS_ROUTE:
+            return False, "select_illustration() calls got the wrong route pairing: %r" % (spy.calls,)
+        return True, ""
+    check(
+        "a main + previous flight makes two select_illustration() calls, each receiving its own flight's type (no crossover)",
+        _select_illustration_calls_each_receive_their_own_flights_type,
+    )
+
+    # 34. previous_flight=None still completes without raising, and the
+    # previous-card lookup (if made at all) never receives a non-None type
+    # derived from a None flight.
+    def _no_previous_flight_never_raises_and_never_crosses_over():
+        try:
+            with _SelectIllustrationSpy(render) as spy:
+                render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, previous_flight=None)
+        except Exception as exc:
+            return False, "build_canvas() with previous_flight=None raised %r" % (exc,)
+        # Only the main-card call is expected (no previous_flight means no
+        # previous card at all, per _build_active_canvas()'s own guard) -
+        # but the real assertion is simply that nothing raised, and that if
+        # a second call somehow occurred, it did not fabricate a type.
+        for _route, aircraft_type in spy.calls[1:]:
+            if aircraft_type not in (None, TEST_FLIGHT["aircraft_type"]):
+                return False, "a previous-card call with no previous_flight got an unexpected aircraft_type=%r" % (aircraft_type,)
+        return True, ""
+    check(
+        "previous_flight=None still completes without raising and never fabricates a type for the omitted previous card",
+        _no_previous_flight_never_raises_and_never_crosses_over,
+    )
+
+    # 35. No text-outline arguments anywhere in the source (still a real
     # regression guard: Pillow's stroke_width/stroke_fill leak illegal
     # anti-aliased indices through blended stroke edges).
     def _render_source_never_uses_text_outline_arguments():

@@ -559,7 +559,7 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     main_w = round(inner_width * MAIN_ILLUSTRATION_WIDTH_FRAC)
     main_top = round(HEIGHT * MAIN_ILLUSTRATION_TOP_FRAC)
 
-    main_path = illustrations.select_illustration(route)
+    main_path = illustrations.select_illustration(route, flight.get("aircraft_type"))
     main_bbox = None
     if main_path is not None:
         main_resized = _resize_illustration(main_path, main_w)
@@ -572,7 +572,7 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     # immediately preceding this one (poll_loop.py's two-deep history).
     # Same nose-left convention as the main illustration, no mirroring.
     if previous_flight is not None and main_bbox is not None:
-        prev_path = illustrations.select_illustration(previous_route)
+        prev_path = illustrations.select_illustration(previous_route, (previous_flight or {}).get("aircraft_type"))
         if prev_path is not None:
             prev_w = round((main_bbox[2] - main_bbox[0]) * PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
             prev_resized = _resize_illustration(prev_path, prev_w)
