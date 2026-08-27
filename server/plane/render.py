@@ -132,6 +132,14 @@ MAIN_LINE1_MIN_SIZE = 28
 MAIN_LINE2_MIN_SIZE = 16
 PREVIOUS_LINE1_MIN_SIZE = 18
 PREVIOUS_LINE2_MIN_SIZE = 12
+# CFG-12: the empty-state heading is now runway-dependent
+# (empty_heading_text()) and therefore not a fixed, pre-measured string -
+# it gets the same fit_text_size() shrink treatment as the long
+# route/airline text above, floored well above illegibility. All three
+# registry headings ("Watching Runway 3" / "06-24" / "02-20") are
+# deliberately short, so this floor is not expected to bind in practice -
+# it exists only as a guard rail should a longer heading ever be added.
+EMPTY_HEADING_MIN_SIZE = 48
 _FIT_STEP_PX = 2
 
 # --- Colour section (state-scoped, unchanged since 02-UI-SPEC.md Revision
@@ -193,9 +201,33 @@ def state_ink_index(state, theme_id=device_config.DEFAULT_THEME_ID):
     return device_config.theme_ink_index(theme_id)
 
 
-EMPTY_HEADING_TEXT = "Watching Runway 3"
+def runway_tag_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
+    """Return the CFG-12 top-right tag string for `runway_id`, normalised
+    through `device_config.normalise_runway_id()` first so an unrecognised,
+    hostile, or stale runway id silently degrades to the default runway's
+    tag rather than raising (T-06-06-01) - matching
+    state_background_index()'s "unrecognised registry id is forgiving"
+    contract.
+    """
+    runway_id = device_config.normalise_runway_id(runway_id)
+    return device_config.runway_tag_text(runway_id)
+
+
+def empty_heading_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
+    """Same contract as runway_tag_text(), for the empty-state heading."""
+    runway_id = device_config.normalise_runway_id(runway_id)
+    return device_config.runway_empty_heading(runway_id)
+
+
+# CFG-12 (06-CONTEXT.md): EMPTY_HEADING_TEXT/TOP_RIGHT_TAG_TEXT are
+# retained below as module-level constants, redefined from the default
+# runway's own device_config.py registry entry, ONLY because
+# server/test_render.py's pre-existing checks read them directly. New code
+# must never read these two constants directly - call
+# empty_heading_text()/runway_tag_text() instead.
+EMPTY_HEADING_TEXT = empty_heading_text(device_config.DEFAULT_RUNWAY_ID)
 EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment one is."
-TOP_RIGHT_TAG_TEXT = "ORY · RWY 3"
+TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
 
 # --- D-26 frame + layout geometry -------------------------------------------
@@ -294,16 +326,17 @@ def draw_frame(canvas, ink_idx):
     return box
 
 
-def draw_top_labels(canvas, state, ink_idx):
-    """D-26 top row: the state label (top-left) and the static
-    `TOP_RIGHT_TAG_TEXT` (top-right), both PT Serif Regular at the small
-    sizes D-26 confirmed, both at the existing `MARGIN` inset (inside the
-    frame, not on it) - no icon glyph, no letter-spacing/tracking (that was
-    the old, larger zone-1 treatment; superseded).
+def draw_top_labels(canvas, state, ink_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
+    """D-26 top row: the state label (top-left) and the CFG-12 runway tag
+    (top-right, `runway_tag_text(runway_id)`), both PT Serif Regular at the
+    small sizes D-26 confirmed, both at the existing `MARGIN` inset (inside
+    the frame, not on it) - no icon glyph, no letter-spacing/tracking (that
+    was the old, larger zone-1 treatment; superseded).
     """
     draw = ImageDraw.Draw(canvas)
     label_font = _font(STATE_LABEL_FONT)
     tag_font = _font(TOP_TAG_FONT)
+    tag_text = runway_tag_text(runway_id)
 
     # _assert_within_canvas(), not the strict _assert_in_safe_box(): real
     # font glyph metrics can carry a 1-2px negative left/right bearing at
@@ -316,9 +349,9 @@ def draw_top_labels(canvas, state, ink_idx):
     _assert_within_canvas(label_bbox, "state label")
     draw.text((MARGIN, MARGIN), label_text, font=label_font, fill=ink_idx, anchor="la")
 
-    tag_bbox = draw.textbbox((WIDTH - MARGIN, MARGIN), TOP_RIGHT_TAG_TEXT, font=tag_font, anchor="ra")
+    tag_bbox = draw.textbbox((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, anchor="ra")
     _assert_within_canvas(tag_bbox, "top-right tag")
-    draw.text((WIDTH - MARGIN, MARGIN), TOP_RIGHT_TAG_TEXT, font=tag_font, fill=ink_idx, anchor="ra")
+    draw.text((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, fill=ink_idx, anchor="ra")
 
 
 def _illustration_over_pixel_cap(path):
@@ -626,13 +659,20 @@ def draw_previous_text_block(canvas, flight, state, route, prev_bbox, ink_idx):
     return line1_bbox, line2_bbox
 
 
-def _build_empty_canvas():
+def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID):
     canvas = pf.new_canvas(IDX_WHITE)
     draw = ImageDraw.Draw(canvas)
-    heading_font = _font(EMPTY_HEADING_FONT)
+    heading_text = empty_heading_text(runway_id)
     body_font = _font(EMPTY_BODY_FONT)
     center_x = WIDTH // 2
     safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+
+    # CFG-12: the heading is now runway-dependent and not a fixed,
+    # pre-measured string - it gets fit_text_size()'s shrink treatment
+    # (the same one long route/airline text already receives) rather than
+    # a bare _font() lookup, so a longer runway label shrinks instead of
+    # tripping the safe-box assertion below.
+    heading_font = fit_text_size(PT_SERIF_BOLD, EMPTY_HEADING_FONT[1], heading_text, safe_width, EMPTY_HEADING_MIN_SIZE)
 
     heading_ascent, heading_descent = heading_font.getmetrics()
     heading_height = heading_ascent + heading_descent
@@ -644,9 +684,9 @@ def _build_empty_canvas():
     total_height = heading_height + SPACE_SM + len(body_lines) * body_line_height
     start_y = (HEIGHT - total_height) // 2
 
-    heading_bbox = draw.textbbox((center_x, start_y), EMPTY_HEADING_TEXT, font=heading_font, anchor="ma")
+    heading_bbox = draw.textbbox((center_x, start_y), heading_text, font=heading_font, anchor="ma")
     _assert_in_safe_box(heading_bbox, "empty-state heading")
-    draw.text((center_x, start_y), EMPTY_HEADING_TEXT, font=heading_font, fill=IDX_BLACK, anchor="ma")
+    draw.text((center_x, start_y), heading_text, font=heading_font, fill=IDX_BLACK, anchor="ma")
 
     y = start_y + heading_height + SPACE_SM
     for line in body_lines:
@@ -693,7 +733,7 @@ def _assert_legal_palette(canvas, bg_idx):
 
 def _build_active_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
 ):
     if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
@@ -706,9 +746,9 @@ def _build_active_canvas(
     # D-26: thin frame, inset ~2.5% of canvas width from every edge.
     draw_frame(canvas, fg_idx)
 
-    # D-26 top row: state label top-left, static tag top-right, both at the
-    # existing MARGIN inset (inside the frame, not on it).
-    draw_top_labels(canvas, state, fg_idx)
+    # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
+    # at the existing MARGIN inset (inside the frame, not on it).
+    draw_top_labels(canvas, state, fg_idx, runway_id=runway_id)
 
     # D-25/D-26 main flight: the current detection's real per-airline
     # illustration, always nose-left (D-24 - no mirroring).
@@ -749,7 +789,7 @@ def _build_active_canvas(
 
 def build_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
 ):
     """Return the pre-pack "P"-mode canvas for `flight` in `state`
     ("departing" / "arriving" / "empty"). Public (not `_build_canvas`) so
@@ -776,9 +816,13 @@ def build_canvas(
     colours from `server/device_config.py`'s `THEMES` registry; an
     unrecognised id degrades to the default theme rather than raising.
     Ignored for the empty state, which is always White/Black.
+
+    `runway_id` (CFG-12) selects the top-right tag and (for the empty
+    state) the heading text from `device_config`'s `RUNWAYS` registry; an
+    unrecognised id degrades to the default runway rather than raising.
     """
     if flight is None or state == "empty":
-        return _build_empty_canvas()
+        return _build_empty_canvas(runway_id=runway_id)
     return _build_active_canvas(
         flight,
         state,
@@ -787,12 +831,13 @@ def build_canvas(
         previous_route=previous_route,
         previous_state=previous_state,
         theme_id=theme_id,
+        runway_id=runway_id,
     )
 
 
 def render_panel(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
 ):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
@@ -804,9 +849,10 @@ def render_panel(
     "departing"/"arriving" this function and build_canvas() key their
     per-state dicts on.
 
-    `route`/`previous_flight`/`previous_route`/`previous_state`/`theme_id`
-    are passed straight through to build_canvas() (D-25/D-26, CFG-01) - see
-    build_canvas()'s own docstring for the full contract of each.
+    `route`/`previous_flight`/`previous_route`/`previous_state`/`theme_id`/
+    `runway_id` are passed straight through to build_canvas() (D-25/D-26,
+    CFG-01, CFG-12) - see build_canvas()'s own docstring for the full
+    contract of each.
     """
     canvas = build_canvas(
         flight,
@@ -816,6 +862,7 @@ def render_panel(
         previous_route=previous_route,
         previous_state=previous_state,
         theme_id=theme_id,
+        runway_id=runway_id,
     )
     return pf.pack_panel(canvas)
 
@@ -878,6 +925,10 @@ def build_parser():
         "--theme", choices=device_config.THEME_IDS, default=device_config.DEFAULT_THEME_ID,
         help="CFG-01: theme id from server/device_config.py's THEMES registry.",
     )
+    parser.add_argument(
+        "--runway", choices=device_config.RUNWAY_IDS, default=device_config.DEFAULT_RUNWAY_ID,
+        help="CFG-12: tracked-runway id from server/device_config.py's RUNWAYS registry.",
+    )
     return parser
 
 
@@ -916,6 +967,7 @@ def main(argv=None):
         previous_route=previous_route,
         previous_state=previous_state,
         theme_id=args.theme,
+        runway_id=args.runway,
     )
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:
