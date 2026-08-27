@@ -323,6 +323,30 @@ _ICAO_AIRLINE_PREFIXES = {
     "FWI": "Air Caraïbes",  # cited callsign FWI701
     "CRL": "Corsairfly",  # airline endpoint CRL - stale-brand trap, NOT "Corsair International"
     "FBU": "French Bee",  # cited callsign FBU701
+    # KMM (KM Malta Airlines) and JAF (TUIfly Belgium) added by quick task
+    # 260827-jz6 (2026-08-27). Neither is sourced from
+    # 03.1-LIVE-RESOLUTION.md - both are new carriers this session verified
+    # live, directly against adsbdb, rather than retyped from a candidate
+    # ICAO code or a training-knowledge guess.
+    #
+    # KMM: this session ran `curl https://api.adsbdb.com/v0/callsign/
+    # KMM466` (2026-08-27) and got back "unknown callsign" - a confirmed
+    # permanent miss. KM Malta Airlines replaced Air Malta (ICAO AMC, ceased
+    # operations March 2024) and adsbdb was never updated for the 2023
+    # rebrand. Exactly like EJU above, this value can never be contradicted
+    # by a live adsbdb hit, because adsbdb has nothing to say about this
+    # carrier at all.
+    "KMM": "KM Malta Airlines",
+    # JAF: this session ran `curl https://api.adsbdb.com/v0/callsign/
+    # JAF7521` (2026-08-27) and it DOES resolve, returning the pre-2016
+    # legacy brand name "Jetairfly". QT-jz6-D-02: the developer chose the
+    # current brand name "TUIfly Belgium" anyway, deliberately - a named
+    # exception to the FPO/CRL/CCM stale-brand-mirroring precedent directly
+    # above, not an oversight. Accepted consequence: a real TUIfly Belgium
+    # flight whose callsign hits adsbdb renders "Jetairfly" and drops to a
+    # lower illustration tier, while the airline-only fallback path (this
+    # table) renders "TUIfly Belgium" and reaches its own dedicated art.
+    "JAF": "TUIfly Belgium",
 }
 
 # Gate applied before any prefix lookup (mirrors classify_aircraft_type()'s

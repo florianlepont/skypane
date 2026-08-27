@@ -26,7 +26,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 25
+EXPECTED_CHECK_COUNT = 27
 
 
 def load_fixture(name):
@@ -477,6 +477,28 @@ def main():
             return False, "prefix table has key(s) that are not exactly 3 uppercase A-Z letters: %r" % (bad,)
         return True, ""
     check("every key of enrich._ICAO_AIRLINE_PREFIXES is exactly 3 uppercase A-Z characters", _prefix_table_keys_are_three_uppercase_letters)
+
+    # 26. Quick task 260827-jz6: KM Malta Airlines resolves from the real
+    #     callsign this session actually curled (KMM466) against the live
+    #     adsbdb endpoint, which returned "unknown callsign" - a confirmed
+    #     permanent miss, resolved with zero network call here.
+    def _airline_from_callsign_km_malta():
+        got = enrich.airline_from_callsign("KMM466")
+        if got != "KM Malta Airlines":
+            return False, "airline_from_callsign('KMM466') = %r, expected 'KM Malta Airlines'" % (got,)
+        return True, ""
+    check("airline_from_callsign('KMM466') returns 'KM Malta Airlines' (260827-jz6, real curled callsign)", _airline_from_callsign_km_malta)
+
+    # 27. Quick task 260827-jz6: TUIfly Belgium resolves from the real
+    #     callsign this session actually curled (JAF7521) - adsbdb itself
+    #     resolves that exact callsign to "Jetairfly" (QT-jz6-D-02), but the
+    #     prefix table deliberately carries the current brand name instead.
+    def _airline_from_callsign_tuifly_belgium():
+        got = enrich.airline_from_callsign("JAF7521")
+        if got != "TUIfly Belgium":
+            return False, "airline_from_callsign('JAF7521') = %r, expected 'TUIfly Belgium'" % (got,)
+        return True, ""
+    check("airline_from_callsign('JAF7521') returns 'TUIfly Belgium' (260827-jz6, real curled callsign, QT-jz6-D-02 override)", _airline_from_callsign_tuifly_belgium)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
