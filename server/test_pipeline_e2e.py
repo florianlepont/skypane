@@ -297,20 +297,29 @@ def main():
                 if panel_after == panel_before:
                     return False, "panel.bin did not change after a real X-Battery-Mv:3400 poll followed by a run_once() cycle"
 
+                # 260828-0qo: icon shrunk to 70% linear size, anchor unchanged.
+                # Row range is body_top..BATTERY_ICON_BOTTOM (1514..1536); byte
+                # columns are the icon's x-range (64..115) halved, since the
+                # packed panel is 4bpp (2px/byte): 64//2=32 .. 115//2=57.
                 row_bytes = 600
-                icon_row_start, icon_row_end = 1504, 1536
-                icon_byte_start, icon_byte_end = 32, 68
+                icon_row_start, icon_row_end = 1514, 1536
+                icon_byte_start, icon_byte_end = 32, 57
                 for row in range(1600):
                     row_before = panel_before[row * row_bytes:(row + 1) * row_bytes]
                     row_after = panel_after[row * row_bytes:(row + 1) * row_bytes]
                     if row_before == row_after:
                         continue
                     if not (icon_row_start <= row <= icon_row_end):
-                        return False, "row %d, outside the icon's row range 1504..1536, differs between the two panels" % row
+                        return False, "row %d, outside the icon's row range %d..%d, differs between the two panels" % (
+                            row, icon_row_start, icon_row_end)
                     for b in range(row_bytes):
                         if row_before[b] != row_after[b] and not (icon_byte_start <= b <= icon_byte_end):
-                            return False, "row %d byte %d, outside the icon's byte columns 32..68, differs" % (row, b)
+                            return False, "row %d byte %d, outside the icon's byte columns %d..%d, differs" % (
+                                row, b, icon_byte_start, icon_byte_end)
 
+                # Sample pixel (70, 1520) - byte offset 35, high nibble - still
+                # lands inside the new fill rectangle (66, 1516, 75, 1534), so
+                # this probe stays valid unchanged after the resize.
                 state = result_after.get("state")
                 expected_nibble = 0x0 if state == "empty" else 0x1
                 sample_byte = panel_after[1520 * row_bytes + 35]
