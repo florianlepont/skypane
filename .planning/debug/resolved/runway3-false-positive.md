@@ -1,5 +1,5 @@
 ---
-status: awaiting_human_verify
+status: resolved
 trigger: "Incohérences dans les données de détection avion sur la piste 3 (runway 3) : l'utilisateur a observé des cas où l'appareil détecté/affiché ne correspond pas réellement à runway 3 - possiblement dû à une divergence entre les deux sources ADS-B agrégées (airplanes.live primaire, adsb.fi secondaire) dans server/plane/detect.py, ou à un problème dans la logique de géofencing/sélection (select_runway3_aircraft()) ou l'inférence d'état départ/arrivée dans server/plane/runway_config.py. Objectif : investiguer la cause racine de ces incohérences avant de consolider/fiabiliser les sources de données, en amont de l'exécution de la Phase 5."
 created: 2026-08-27T00:00:00Z
 updated: 2026-08-27T00:00:00Z
@@ -285,6 +285,22 @@ files_changed:
   - server/fixtures/geofence_runway3_arrival_347288.json (NEW - real captured counter-example)
   - server/fixtures/README.md (provenance for both new fixtures)
 
+## Post-resolution: branch reconciliation (2026-08-27)
+
+This fix was built on a worktree branch that had forked before a separate, already-completed
+fix on `origin/main` (quick task 260827-1i6, PR #3): airplanes.live withdrew free API access
+2026-08-27 (confirmed via an email reply to the developer), so `adsb.fi` became the sole
+`DEFAULT_PROVIDER_ORDER` entry, with `airplaneslive` retained only as an explicit `--provider`
+opt-in. Merging `origin/main` into this branch surfaced a real conflict in `poll_current_aircraft()`'s
+docstring (resolved by combining both: default behaviour queries `DEFAULT_PROVIDER_ORDER` alone,
+cross-validation only activates when an explicit multi-provider list is passed) and in
+`server/test_plane_detection.py`'s check numbering (merged to 24 checks: 6 base + 4 aircraft-type
++ 9 runway-gate + 2 provider-default-order + 3 cross-source-validation; the three cross-source
+checks were updated to pass an explicit `providers=["airplaneslive", "adsbfi"]` argument, since a
+bare call now only queries the single default provider and would no longer exercise the
+two-provider comparison path). Full suite re-verified green post-merge (24/24, 9/9 harnesses,
+81% coverage, ruff clean, check-attribution.sh clean).
+
 ## Follow-ups (out of this fix's scope, flagged for the user)
 
 - `.planning/phases/02-plane-view-end-to-end-slice/02-VALIDATION.md` still carries the row
@@ -292,10 +308,17 @@ files_changed:
   watched for, not fixed", and 02-RESEARCH.md's Pitfall 5 says the same. Both are now out of date,
   and both understate the original overlap. Left untouched because they are completed-phase
   historical artifacts and outside this fix's stated scope.
-- api.airplanes.live returns 403 to this project's User-Agent and asks to be contacted at
-  contact@airplanes.live. The configured PRIMARY provider is therefore dead in production right
-  now and every poll silently runs single-source. Separate issue from this bug, but worth its own
-  ticket - the cross-validation added here cannot corroborate anything until it is resolved.
+- ~~api.airplanes.live returns 403...~~ RESOLVED by the branch merge above, not a new issue: the
+  user had already had this out with airplanes.live by email and a fix demoting it to opt-in-only
+  was already merged on `origin/main` before this debug session even started - this branch's
+  worktree simply forked before that fix existed. A genuine gap remains, raised separately by the
+  user in this same conversation: there is currently no second *live* default ADS-B source at all
+  for the new cross-validation path to corroborate against. Research into a replacement second
+  source (adsb.lol looks viable - CC0, drop-in-compatible endpoint, verified live - but shares the
+  same volunteer-feeder sustainability risk that just took out airplanes.live; OpenSky Network is
+  contractually excluded for this automated-polling use case per its Terms of Use even though its
+  state-vector data itself would fit; ADS-B Exchange no longer has a free tier) is being reported
+  back to the user separately.
 - Residual, documented in runway3.json's `corridor.known_residuals`: an aircraft taxiing on a
   runway-parallel taxiway (~150-200 m offset, runway-aligned track) still passes both gates.
 - `runway_config.CLIMB_THRESHOLD_FPM` is still, per its own docstring, never validated against a
