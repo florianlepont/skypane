@@ -22,6 +22,12 @@ Every page module in this package exposes:
           added by plan 06-07 so config_page can render the CFG-07
           trigger button's enabled/disabled state without importing
           companion/app.py itself (that would be a cycle)
+        - gallery_entries: the newest gallery filenames
+          (companion/app.py's own gallery_entries() listing helper's
+          return value) — added by plan 06-09 so preview_page can build
+          gallery tile URLs without importing companion/app.py itself
+          (that would also be a cycle); every gallery URL preview_page
+          builds is constructed only from a name in this list
         - now: a UTC ISO-8601 timestamp string for this request
 
     handle_post(form, ctx) -> str
