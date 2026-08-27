@@ -36,6 +36,7 @@ derivation of every threshold.
 Usage:
     server/.venv/bin/python3 server/plane/detect.py
     server/.venv/bin/python3 server/plane/detect.py --provider adsbfi --json
+    server/.venv/bin/python3 server/plane/detect.py --provider all --json
 """
 import argparse
 import json
@@ -66,17 +67,45 @@ USER_AGENT = (
 # free API access, gating it behind running a feeder, a paid sponsorship,
 # or a commercial licence. The same day, a live GET against the exact
 # production endpoint template below returned HTTP 403 for airplanes.live
-# and HTTP 200 for adsb.fi. adsb.fi is therefore now the sole default
-# provider (see DEFAULT_PROVIDER_ORDER below) - a single default provider
-# means there is no automatic fallback, so an adsb.fi outage renders the
-# Empty state for that poll cycle instead of silently switching sources.
-# The airplaneslive entry is retained here only for explicit `--provider`
-# use - by a feeder operator, sponsor, or licensee - and is never queried
-# automatically. See COMPLIANCE.md for the full record.
+# and HTTP 200 for adsb.fi. adsb.fi became the first entry in
+# DEFAULT_PROVIDER_ORDER as a result - for the rest of that day this
+# project ran with exactly one default provider, meaning no automatic
+# fallback and no second selection for the cross-validation this module
+# implements (see poll_current_aircraft()) to ever actually corroborate
+# against in production. The airplaneslive entry is retained here only for
+# explicit `--provider` use - by a feeder operator, sponsor, or licensee -
+# and is never queried automatically. See COMPLIANCE.md for the full
+# record.
+#
+# 2026-08-27 (same day, later): adsb.lol added as the second default
+# provider, live-verified, CC0-licensed, no API key required today. Its
+# aircraft array arrives under the key "ac" - NOT the "aircraft" key
+# adsb.fi uses - the one mismatch in this file that fails completely
+# silently if ever confused (query_provider()'s `data.get(key) or []`
+# just returns an empty list on a wrong key: no exception, no log line, no
+# other failing test - see check 28 in server/test_plane_detection.py,
+# which proves both keys are read correctly through a stubbed transport
+# rather than trusting a dict literal). adsb.lol's own upstream
+# documentation pre-announces a possible future feeder-contributed API key
+# requirement, which places it in the same volunteer-sustainability risk
+# class as the provider that withdrew above - COMPLIANCE.md records this
+# as a known-temporary second source, not a permanent guarantee. The point
+# of a second default entry: poll_current_aircraft()'s cross-validation -
+# built by the runway3-false-positive debug session but never exercised by
+# a bare production call until now - actually runs on every production
+# poll instead of always taking the single-source branch. Ordering is
+# load-bearing, not cosmetic: poll_current_aircraft() returns the FIRST
+# queried provider's record when sources agree, so listing adsb.fi first
+# means its altitude/track/position values are what reach the renderer on
+# agreement.
 PROVIDERS = {
     "adsbfi": {
         "url_template": "https://opendata.adsb.fi/api/v2/lat/{lat}/lon/{lon}/dist/{dist}",
         "aircraft_key": "aircraft",
+    },
+    "adsblol": {
+        "url_template": "https://api.adsb.lol/v2/point/{lat}/{lon}/{dist}",
+        "aircraft_key": "ac",
     },
     "airplaneslive": {
         "url_template": "https://api.airplanes.live/v2/point/{lat}/{lon}/{dist}",
@@ -88,7 +117,7 @@ PROVIDERS = {
 # `providers` argument is passed. `server/poll_loop.py`'s production call
 # to `poll_current_aircraft()` passes no providers argument, so this
 # constant is what production actually uses.
-DEFAULT_PROVIDER_ORDER = ("adsbfi",)
+DEFAULT_PROVIDER_ORDER = ("adsbfi", "adsblol")
 
 # Both providers document a 1 request/second limit (02-RESEARCH.md Code
 # Examples, inherited from 01-RESEARCH.md). Sleeping longer than the strict
@@ -456,11 +485,10 @@ def select_runway3_aircraft(aircraft, geofence):
 
 def poll_current_aircraft(geofence, timeout=10.0, providers=None):
     """Query provider(s) in order - by default just DEFAULT_PROVIDER_ORDER
-    (adsb.fi alone), not every registered provider - sleeping
-    MIN_SECONDS_BETWEEN_CALLS between calls whenever an explicit
-    multi-provider sequence is passed, catching (requests.RequestException,
-    ValueError) per provider so one aggregator being down never aborts the
-    poll (T-02-01-02).
+    (adsb.fi then adsb.lol), not every registered provider - sleeping
+    MIN_SECONDS_BETWEEN_CALLS between successive calls in that sequence,
+    catching (requests.RequestException, ValueError) per provider so one
+    aggregator being down never aborts the poll (T-02-01-02).
 
     When more than one provider is actually queried (an explicit multi-
     provider `providers` argument, e.g. `--provider both`, or a future
@@ -483,13 +511,25 @@ def poll_current_aircraft(geofence, timeout=10.0, providers=None):
     means at most one of them is right, and a stale-but-real panel beats a
     coin-flip between them.
 
-    Today DEFAULT_PROVIDER_ORDER has exactly one entry (adsb.fi) -
-    airplanes.live withdrew free API access 2026-08-27 (see the PROVIDERS
-    comment above and COMPLIANCE.md) - so a default poll never has a second
-    selection to cross-validate against; `corroborated` is always None in
-    production until a second live default source exists. The cross-
-    validation path only exercises today via an explicit multi-provider
-    `providers` argument (`--provider both`, or a test double).
+    Today DEFAULT_PROVIDER_ORDER has two entries - adsb.fi first, then
+    adsb.lol (added 2026-08-27 as a second default source, see the
+    PROVIDERS comment above and COMPLIANCE.md) - so a default production
+    poll now reaches all three outcomes above on every real cycle, not
+    only through an explicit `providers` argument or a test double: two
+    agreeing feeds return a corroborated selection carrying adsb.fi's own
+    record (ordering is load-bearing - see the return-on-agreement branch
+    above); one feed unreachable - an adsb.lol outage, a block, or the
+    future feeder-contributed API key requirement its own upstream
+    documentation pre-announces, or an ordinary adsb.fi hiccup - degrades
+    to a single-source, uncorroborated selection rather than blanking the
+    display; and the two feeds naming different aircraft returns None
+    entirely, a genuinely reachable branch in production for the first
+    time (`server/poll_loop.py`'s log line, extended by this same change,
+    is what makes that outcome observable rather than silent). The
+    cross-validation path remains reachable through an explicit
+    multi-provider `providers` argument too (`--provider all` reaches
+    every registered provider including the opt-in one, or a test
+    double).
 
     The returned dict carries two extra keys - `sources` (provider names
     that independently selected this aircraft) and `corroborated` - so the
@@ -544,11 +584,15 @@ def build_parser():
     )
     parser.add_argument(
         "--provider",
-        choices=sorted(PROVIDERS) + ["both"],
-        default="adsbfi",
-        help="Which aggregator(s) to try, in order (default: adsbfi only - "
-             "the other choices are explicit opt-ins, e.g. for a feeder "
-             "operator, sponsor, or licensee of airplanes.live).",
+        choices=sorted(PROVIDERS) + ["default", "all"],
+        default="default",
+        help="Which aggregator(s) to query. Omitting this flag (the "
+             "default) queries the production default order - currently "
+             "adsb.fi then adsb.lol. Naming a single provider (adsbfi, "
+             "adsblol, airplaneslive) restricts the poll to that one "
+             "source. 'all' additionally reaches airplaneslive, the "
+             "opt-in-only provider - expected to fail for anyone without "
+             "feeder, sponsor, or licensee access.",
     )
     parser.add_argument(
         "--geofence",
@@ -573,7 +617,15 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv)
     geofence = load_geofence(args.geofence)
-    providers = list(PROVIDERS) if args.provider == "both" else [args.provider]
+    if args.provider == "default":
+        # No explicit providers argument at all, so poll_current_aircraft()
+        # reads its own DEFAULT_PROVIDER_ORDER - there is exactly one
+        # definition of "the production default order" in this codebase.
+        providers = None
+    elif args.provider == "all":
+        providers = list(PROVIDERS)
+    else:
+        providers = [args.provider]
     selection = poll_current_aircraft(geofence, timeout=args.timeout, providers=providers)
 
     if args.as_json:

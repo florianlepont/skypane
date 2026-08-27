@@ -10,7 +10,14 @@ plus the real published OurAirports coordinates of Orly's OTHER two
 runways, which the gate must never accept as runway 3. Checks 20-21 pin
 the separate 2026-08-27 change that demoted airplanes.live out of the
 default provider order (see server/plane/detect.py's DEFAULT_PROVIDER_ORDER
-and COMPLIANCE.md) after it withdrew free API access the same day.
+and COMPLIANCE.md) after it withdrew free API access the same day. Checks
+25-28 pin the later 2026-08-27 change that registered adsb.lol as the
+second default provider behind adsb.fi: 25-27 prove all three cross-
+validation outcomes (agreement, disagreement, single-source degradation)
+now actually run through the default no-argument call production uses,
+not only through an explicit providers list; 28 proves adsb.fi's and
+adsb.lol's different response-array keys are never interchanged, through
+a stubbed transport rather than a trusted dict literal.
 
 Stdlib-only, plus the module under test (server.plane.detect). Exits 0 only
 when every check below passes; any failure (or exception - none is ever
@@ -32,7 +39,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 24
+EXPECTED_CHECK_COUNT = 28
 
 
 def load_fixture(name):
@@ -411,10 +418,11 @@ def main():
     # ---------------------------------------------------------------
 
     # 20. Default poll (no providers argument - exactly how
-    #     server/poll_loop.py:165 calls it in production) queries adsb.fi
-    #     only. Pins the 2026-08-27 default-provider demotion so this
-    #     regression cannot silently reopen.
-    def _default_poll_queries_adsbfi_only():
+    #     server/poll_loop.py's run_once() calls it in production) queries
+    #     adsb.fi then adsb.lol, in that order. Pins the 2026-08-27
+    #     default-provider-order change (adsb.lol added as the second
+    #     entry) so this regression cannot silently reopen.
+    def _default_poll_queries_adsbfi_then_adsblol():
         recorded = []
 
         def recording_query_provider(name, lat, lon, radius_nm, timeout=10.0):
@@ -422,16 +430,24 @@ def main():
             return []
 
         original_query_provider = detect.query_provider
+        # poll_current_aircraft() sleeps MIN_SECONDS_BETWEEN_CALLS before
+        # every call after the first - now true on every default-order
+        # poll, since the default order itself has two entries. The shared
+        # _with_stubbed_providers helper that normally zeroes this is
+        # defined further down this file, not yet in scope here.
+        original_sleep = detect.MIN_SECONDS_BETWEEN_CALLS
         detect.query_provider = recording_query_provider
+        detect.MIN_SECONDS_BETWEEN_CALLS = 0
         try:
             detect.poll_current_aircraft(geofence)
         finally:
             detect.query_provider = original_query_provider
+            detect.MIN_SECONDS_BETWEEN_CALLS = original_sleep
 
-        if recorded != ["adsbfi"]:
-            return False, "expected default poll to query exactly ['adsbfi'], got %r" % (recorded,)
+        if recorded != ["adsbfi", "adsblol"]:
+            return False, "expected default poll to query exactly ['adsbfi', 'adsblol'], got %r" % (recorded,)
         return True, ""
-    check("default poll (no providers arg) queries adsb.fi only", _default_poll_queries_adsbfi_only)
+    check("default poll (no providers arg) queries adsb.fi then adsb.lol", _default_poll_queries_adsbfi_then_adsblol)
 
     # 21. The airplanes.live opt-in path survives the demotion: still
     #     selectable via --provider, but no longer in the default order.
@@ -537,6 +553,132 @@ def main():
         return True, ""
     check("poll_current_aircraft: an unreachable provider is not scored as disagreement",
           _single_reachable_provider_is_uncorroborated_not_suppressed)
+
+    # ---------------------------------------------------------------
+    # adsb.lol as the second default provider (2026-08-27, later)
+    # ---------------------------------------------------------------
+
+    # 25. The default order (adsb.fi then adsb.lol, no explicit providers
+    #     argument) corroborates when both feeds agree - proving fix 2's
+    #     cross-validation actually runs through the path production uses,
+    #     not only through an explicit providers argument (checks 22-24).
+    def _default_order_corroborates():
+        adsblol_copy = dict(_runway3_record()[0])
+        adsblol_copy["alt_baro"] = 600  # still on the runway, still below
+                                        # the ceiling - a different but
+                                        # still-legitimate altitude reading
+        responses = {"adsbfi": _runway3_record(), "adsblol": [adsblol_copy]}
+        result = _with_stubbed_providers(
+            responses, lambda: detect.poll_current_aircraft(geofence))
+        if result is None:
+            return False, "two agreeing default-order providers produced no selection"
+        if result["hex"] != "347288":
+            return False, "expected 347288, got %r" % (result["hex"],)
+        if result.get("corroborated") is not True:
+            return False, "expected corroborated True, got %r" % (result.get("corroborated"),)
+        if sorted(result.get("sources") or []) != ["adsbfi", "adsblol"]:
+            return False, "expected both default providers in sources, got %r" % (result.get("sources"),)
+        if result.get("altitude_ft") != 775.0:
+            return False, ("expected the returned altitude to be adsb.fi's (the first-listed "
+                            "provider), got %r" % (result.get("altitude_ft"),))
+        return True, ""
+    check("poll_current_aircraft (default order): adsb.fi and adsb.lol agreeing yields "
+          "corroborated=True with adsb.fi's record", _default_order_corroborates)
+
+    # 26. Mirrors check 23 but reached through the production default order
+    #     (no providers argument) rather than an explicit providers list -
+    #     adsb.fi and adsb.lol naming two different aircraft as "the one on
+    #     runway 3" is doubt, not information; D-04 says leave the panel
+    #     alone.
+    def _default_order_disagreement_yields_nothing():
+        other = dict(_runway3_record()[0])
+        other["hex"] = "3985a7"
+        other["flight"] = "AFR56XX "
+        other["lat"] = 48.719398   # real threshold 07, the far end of runway 3
+        other["lon"] = 2.358590
+        other["track"] = 74.41
+        if detect.select_runway3_aircraft([other], geofence) is None:
+            return False, "premise broken: the stand-in aircraft is not itself on runway 3"
+        responses = {"adsbfi": _runway3_record(), "adsblol": [other]}
+        result = _with_stubbed_providers(
+            responses, lambda: detect.poll_current_aircraft(geofence))
+        if result is not None:
+            return False, "expected None on default-order provider disagreement, got %r" % (result["hex"],)
+        return True, ""
+    check("poll_current_aircraft (default order): adsb.fi and adsb.lol disagreeing select nothing",
+          _default_order_disagreement_yields_nothing)
+
+    # 27. adsb.lol unreachable (an outage, a block, or the future feeder-
+    #     contributed API key its own upstream documentation pre-announces)
+    #     must not take the display down - the default order degrades to
+    #     single-source, uncorroborated, exactly like check 24's
+    #     explicit-provider equivalent.
+    def _default_order_degrades_to_single_source():
+        import requests
+        responses = {
+            "adsbfi": _runway3_record(),
+            "adsblol": requests.RequestException("simulated adsb.lol outage"),
+        }
+        result = _with_stubbed_providers(
+            responses, lambda: detect.poll_current_aircraft(geofence))
+        if result is None:
+            return False, "a single reachable default provider was suppressed as if it were a disagreement"
+        if result["hex"] != "347288":
+            return False, "expected 347288, got %r" % (result["hex"],)
+        if result.get("corroborated") is not None:
+            return False, "expected corroborated None (no corroboration available), got %r" % (
+                result.get("corroborated"),)
+        if result.get("sources") != ["adsbfi"]:
+            return False, "expected sources ['adsbfi'], got %r" % (result.get("sources"),)
+        return True, ""
+    check("poll_current_aircraft (default order): adsb.lol unreachable degrades to single-source, "
+          "not suppressed", _default_order_degrades_to_single_source)
+
+    # 28. THE HIGHEST-CONSEQUENCE CHECK IN THIS FILE. adsb.fi and adsb.lol
+    #     do not share a response key ("aircraft" vs "ac"); query_provider()
+    #     reads `data.get(key) or []`, so a wrong key returns an empty list
+    #     with no exception, no log line, and no other failing test - the
+    #     provider would be silently scored as "saw nothing on runway 3"
+    #     forever, and corroboration would never occur. This proves the
+    #     mapping through the actual transport call, against a payload
+    #     carrying BOTH keys, rather than trusting a dict literal in
+    #     detect.PROVIDERS.
+    def _provider_keys_are_not_interchanged():
+        aircraft_record = {"hex": "AAAAAA", "flight": "FROM_AIRCRAFT_KEY"}
+        ac_record = {"hex": "BBBBBB", "flight": "FROM_AC_KEY"}
+        payload = {"aircraft": [aircraft_record], "ac": [ac_record]}
+        captured_urls = []
+
+        class _FakeResponse:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return payload
+
+        def fake_get(url, headers=None, timeout=None):
+            captured_urls.append(url)
+            return _FakeResponse()
+
+        original_get = detect.requests.get
+        detect.requests.get = fake_get
+        try:
+            lol_result = detect.query_provider("adsblol", 48.1, 2.2, 5)
+            fi_result = detect.query_provider("adsbfi", 48.1, 2.2, 5)
+        finally:
+            detect.requests.get = original_get
+
+        if lol_result != [ac_record]:
+            return False, "adsb.lol should read the 'ac' key, got %r" % (lol_result,)
+        if fi_result != [aircraft_record]:
+            return False, "adsb.fi should read the 'aircraft' key, got %r" % (fi_result,)
+        if not captured_urls[0].startswith("https://api.adsb.lol/v2/point/"):
+            return False, "expected the adsb.lol host to be requested first, got %r" % (captured_urls[0],)
+        if not captured_urls[0].endswith("/48.1/2.2/5"):
+            return False, "expected lat/lon/dist substituted into the URL, got %r" % (captured_urls[0],)
+        return True, ""
+    check("query_provider: adsb.fi and adsb.lol response keys are never interchanged "
+          "(proven through the transport)", _provider_keys_are_not_interchanged)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

@@ -15,7 +15,7 @@ purpose.
 
 ```
  Public ADS-B aggregators                adsbdb.com
- (adsb.fi, sole default -                (callsign -> airline/route,
+ (adsb.fi + adsb.lol, both default -     (callsign -> airline/route,
   airplanes.live opt-in/unused)           hit+miss cache)
         │                                       │
         │ HTTPS, geofenced query                │ HTTPS, cache-first
@@ -149,12 +149,21 @@ tmp-write-then-`os.replace()` atomic pattern used throughout this
 project.
 
 **Detection.** `server/plane/detect.py` queries a geofenced bounding box
-around runway 3 against `adsb.fi`. There is no automatic fallback provider
-— since 2026-08-27, `adsb.fi` is the sole default (`airplaneslive` remains
-in the code only as an explicit `--provider` opt-in for a feeder operator,
-sponsor, or licensee, never queried automatically); an `adsb.fi` failure
-yields no detection for that cycle, which the pipeline already handles as
-the Empty state. When more than one aircraft is inside the geofence in the
+around runway 3 against both default sources, `adsb.fi` then `adsb.lol`
+(the second added 2026-08-27), and cross-validates their independent
+selections rather than returning on the first hit: when both agree, the
+returned selection is corroborated and carries `adsb.fi`'s own record —
+ordering decides which source's record survives on agreement, since the
+first-queried provider is the one returned. When only one source answers
+(the other unreachable, blocked, or gated behind a future feeder-
+contributed API key), that source's selection is still returned, flagged
+uncorroborated rather than suppressed — this is why an outage at either
+default source does not blank the display. When the two sources name
+different aircraft, the poll returns nothing for that cycle, which the
+pipeline already treats as the between-flights hold rather than an error.
+`airplaneslive` remains in the code only as an explicit `--provider`
+opt-in for a feeder operator, sponsor, or licensee, never queried
+automatically. When more than one aircraft is inside the geofence in the
 same poll,
 `select_runway3_aircraft()` picks exactly one by a deterministic total
 order: lowest effective altitude first (an on-ground aircraft has
