@@ -230,6 +230,16 @@ EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment o
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
 
+# CFG-05 (D-06 seed .planning/seeds/on-device-fault-icon.md): the source-
+# fault alert badge's caption - short, English (D-23), and pointing at the
+# companion page, which is where an all-sources-down outage is actually
+# diagnosed (06-UI-SPEC.md). SOURCE_FAULT_GLYPH_PX is deliberately small -
+# see draw_source_fault_badge()'s own docstring for why the badge's area
+# must stay small enough that _assert_legal_palette()'s background-
+# dominance assertion still holds.
+SOURCE_FAULT_TEXT = "ADS-B source unavailable — check the companion page"
+SOURCE_FAULT_GLYPH_PX = 28
+
 # --- D-26 frame + layout geometry -------------------------------------------
 FRAME_INSET_FRAC = 0.025  # ~2.5% of canvas WIDTH, inset from every edge
 FRAME_STROKE_PX = 2
@@ -324,6 +334,76 @@ def draw_frame(canvas, ink_idx):
     box = (inset, inset, WIDTH - inset, HEIGHT - inset)
     ImageDraw.Draw(canvas).rectangle(box, outline=ink_idx, width=FRAME_STROKE_PX)
     return box
+
+
+def draw_source_fault_badge(canvas, ink_idx):
+    """CFG-05: draw a small triangular alert glyph (outline + exclamation
+    stroke) with `SOURCE_FAULT_TEXT` beside it, bottom-centre inside the
+    frame `draw_frame()` returns. Uses `ink_idx` only - `ImageDraw.polygon()`
+    and `ImageDraw.line()` calls, never a new palette index - so the badge
+    can never introduce an illegal index regardless of the active theme.
+    The badge's combined bounding box (glyph + caption) is deliberately
+    small, so `_assert_legal_palette()`'s "bg_idx is the single most common
+    index" dominance assertion still holds for every state and theme; a
+    later enlargement of this badge is a conscious decision, not an
+    accident inherited from this implementation.
+
+    Driven only by `poll_loop.py`'s all-providers-failed classification
+    (derived from `detect.poll_current_aircraft()`'s diagnostics dict) -
+    see `render_panel()`'s own docstring for the rule that makes this
+    requirement correct rather than a false-alarm trap (T-06-06-02,
+    `.planning/seeds/on-device-fault-icon.md`).
+    """
+    draw = ImageDraw.Draw(canvas)
+    frame_inset = round(WIDTH * FRAME_INSET_FRAC)
+    frame_bottom = HEIGHT - frame_inset
+
+    caption_font = _font(TOP_TAG_FONT)
+    glyph_size = SOURCE_FAULT_GLYPH_PX
+    gap = SPACE_XS
+
+    bottom = frame_bottom - MARGIN // 2
+    top = bottom - glyph_size
+    mid_y = (top + bottom) // 2
+
+    # Measure the caption at (0, mid_y) first purely to get its rendered
+    # width - the real, final draw position (below) depends on that width
+    # to stay horizontally centred.
+    probe_bbox = draw.textbbox((0, mid_y), SOURCE_FAULT_TEXT, font=caption_font, anchor="lm")
+    caption_w = probe_bbox[2] - probe_bbox[0]
+
+    total_w = glyph_size + gap + caption_w
+    left = (WIDTH - total_w) // 2
+    text_left = left + glyph_size + gap
+
+    triangle = [
+        (left + glyph_size / 2, top),
+        (left, bottom),
+        (left + glyph_size, bottom),
+    ]
+
+    caption_bbox = draw.textbbox((text_left, mid_y), SOURCE_FAULT_TEXT, font=caption_font, anchor="lm")
+    combined_bbox = (
+        left,
+        min(top, caption_bbox[1]),
+        caption_bbox[2],
+        max(bottom, caption_bbox[3]),
+    )
+    _assert_within_canvas(combined_bbox, "source-fault badge")
+
+    draw.polygon(triangle, outline=ink_idx)
+    stroke_x = left + glyph_size / 2
+    draw.line(
+        [(stroke_x, top + glyph_size * 0.3), (stroke_x, top + glyph_size * 0.65)],
+        fill=ink_idx, width=2,
+    )
+    draw.line(
+        [(stroke_x, top + glyph_size * 0.8), (stroke_x, top + glyph_size * 0.8)],
+        fill=ink_idx, width=2,
+    )
+    draw.text((text_left, mid_y), SOURCE_FAULT_TEXT, font=caption_font, fill=ink_idx, anchor="lm")
+
+    return combined_bbox
 
 
 def draw_top_labels(canvas, state, ink_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
@@ -659,7 +739,7 @@ def draw_previous_text_block(canvas, flight, state, route, prev_bbox, ink_idx):
     return line1_bbox, line2_bbox
 
 
-def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID):
+def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False):
     canvas = pf.new_canvas(IDX_WHITE)
     draw = ImageDraw.Draw(canvas)
     heading_text = empty_heading_text(runway_id)
@@ -694,6 +774,12 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID):
         _assert_in_safe_box(line_bbox, "empty-state body line")
         draw.text((center_x, y), line, font=body_font, fill=IDX_BLACK, anchor="ma")
         y += body_line_height
+
+    # CFG-05: the source-fault badge is visible whichever state the panel
+    # is in, including the empty state - the empty canvas uses IDX_BLACK,
+    # matching every other element it already draws.
+    if source_fault:
+        draw_source_fault_badge(canvas, IDX_BLACK)
 
     return canvas
 
@@ -733,7 +819,7 @@ def _assert_legal_palette(canvas, bg_idx):
 
 def _build_active_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False,
 ):
     if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
@@ -780,6 +866,11 @@ def _build_active_canvas(
             _assert_within_canvas(prev_bbox, "previous aircraft illustration")
             draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_bbox, fg_idx)
 
+    # CFG-05: the source-fault badge, drawn last so it sits on top of
+    # everything else, using the state's own resolved ink index.
+    if source_fault:
+        draw_source_fault_badge(canvas, fg_idx)
+
     # Guard rail: every index on the panel is legal, and the flat
     # background field is provably dominant.
     _assert_legal_palette(canvas, bg_idx)
@@ -789,7 +880,7 @@ def _build_active_canvas(
 
 def build_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False,
 ):
     """Return the pre-pack "P"-mode canvas for `flight` in `state`
     ("departing" / "arriving" / "empty"). Public (not `_build_canvas`) so
@@ -820,9 +911,17 @@ def build_canvas(
     `runway_id` (CFG-12) selects the top-right tag and (for the empty
     state) the heading text from `device_config`'s `RUNWAYS` registry; an
     unrecognised id degrades to the default runway rather than raising.
+
+    `source_fault` (CFG-05) draws a small alert badge pointing at the
+    companion page when true. It must be set only when every ADS-B source
+    the server queries has failed (`poll_loop.py`'s classification of
+    `detect.poll_current_aircraft()`'s diagnostics dict) - never merely
+    because no aircraft was selected, which is Orly's ordinary quiet state
+    and firing on it is exactly the false-alarm trap
+    `.planning/seeds/on-device-fault-icon.md` rejects.
     """
     if flight is None or state == "empty":
-        return _build_empty_canvas(runway_id=runway_id)
+        return _build_empty_canvas(runway_id=runway_id, source_fault=source_fault)
     return _build_active_canvas(
         flight,
         state,
@@ -832,12 +931,13 @@ def build_canvas(
         previous_state=previous_state,
         theme_id=theme_id,
         runway_id=runway_id,
+        source_fault=source_fault,
     )
 
 
 def render_panel(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False,
 ):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
@@ -850,9 +950,9 @@ def render_panel(
     per-state dicts on.
 
     `route`/`previous_flight`/`previous_route`/`previous_state`/`theme_id`/
-    `runway_id` are passed straight through to build_canvas() (D-25/D-26,
-    CFG-01, CFG-12) - see build_canvas()'s own docstring for the full
-    contract of each.
+    `runway_id`/`source_fault` are passed straight through to
+    build_canvas() (D-25/D-26, CFG-01, CFG-12, CFG-05) - see
+    build_canvas()'s own docstring for the full contract of each.
     """
     canvas = build_canvas(
         flight,
@@ -863,6 +963,7 @@ def render_panel(
         previous_state=previous_state,
         theme_id=theme_id,
         runway_id=runway_id,
+        source_fault=source_fault,
     )
     return pf.pack_panel(canvas)
 
@@ -929,6 +1030,11 @@ def build_parser():
         "--runway", choices=device_config.RUNWAY_IDS, default=device_config.DEFAULT_RUNWAY_ID,
         help="CFG-12: tracked-runway id from server/device_config.py's RUNWAYS registry.",
     )
+    parser.add_argument(
+        "--source-fault", action="store_true",
+        help="Manual QA only (CFG-05): preview the source-fault alert badge, as if every ADS-B "
+             "provider had failed.",
+    )
     return parser
 
 
@@ -968,6 +1074,7 @@ def main(argv=None):
         previous_state=previous_state,
         theme_id=args.theme,
         runway_id=args.runway,
+        source_fault=args.source_fault,
     )
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:
