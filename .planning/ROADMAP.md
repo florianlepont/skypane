@@ -211,7 +211,7 @@ Plans:
 
 **Wave 2**
 
-- [ ] 05-03-PLAN.md — Low-battery indicator, device half: host-tested divider conversion, a real calibrated ADC1 read replacing the compiled-in unknown sentinel, and the blocking hardware bring-up (pin isolation, multimeter cross-check, icon confirmed on real glass)
+- [ ] 05-03-PLAN.md — Low-battery indicator, device half: host-tested divider conversion, a real calibrated ADC1 read off the EE02 board's existing factory battery-sense divider (A0/GPIO1, enabled via D5/GPIO6) replacing the compiled-in unknown sentinel, and the blocking hardware bring-up (flash-and-observe confirmation of the sense circuit, icon confirmed on real glass) — firmware and configuration only, no soldering and no added components
 
 **UI hint**: yes
 
