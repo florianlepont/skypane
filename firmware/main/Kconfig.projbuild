@@ -85,6 +85,39 @@ menu "FlightPortrait"
               minimise draw.
     endmenu
 
+    menu "Bring-up LED (built-in User LED, bring-up/reflash aid only)"
+        config FP_PIN_LED
+            int "Built-in User LED GPIO"
+            range 0 48
+            default 21
+            help
+              (a) This is the XIAO ESP32-S3 module's built-in "User LED",
+              distinct from the module's separate charge-status LED - it
+              is driven by firmware, not hardware charge logic.
+              (b) The value is sourced from web aggregation of Seeed
+              community and board-reference material, and is explicitly
+              NOT from an official schematic - unlike the panel pins,
+              which came from a vendor header. See
+              .planning/seeds/bring-up-debug-led-remote-toggle.md for the
+              full provenance trail and the flash-and-observe check that
+              promotes this from a claim to measured hardware fact.
+              (c) This pin must never collide with a panel, key or
+              battery-sense GPIO: driving a panel line mid-refresh
+              corrupts the image rather than failing cleanly, which is a
+              far worse failure than a debug LED simply not lighting.
+        config FP_LED_ACTIVE_LOW
+            bool "Built-in User LED is active-low"
+            default y
+            help
+              Configurable rather than hardcoded because getting this
+              wrong is the one outcome that actually costs battery: if
+              the real polarity turns out inverted, the LED would be dark
+              during the active wake window and lit through deep sleep -
+              precisely the failure this design exists to prevent. Making
+              this a Kconfig bool means the correction is a reflash, not
+              a code change.
+    endmenu
+
     menu "Panel"
         config FP_MIN_REFRESH_SPACING_S
             int "Minimum seconds between panel refreshes"

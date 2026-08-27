@@ -88,3 +88,14 @@ CONFIG_FP_PIN_KEY2=2
 # that promotes these from an inherited claim to measured hardware fact.
 CONFIG_FP_PIN_BATTERY_ADC=1
 CONFIG_FP_PIN_BATTERY_ADC_EN=6
+
+# --- Bring-up LED (built-in User LED) ---
+# Sourced from web aggregation of Seeed community and board-reference
+# material, per .planning/seeds/bring-up-debug-led-remote-toggle.md - NOT
+# from an official schematic, unlike the panel pins above.
+#
+# NOT YET CONFIRMED ON THIS BOARD. Plan 260827-wo4 Task 4's flash-and-observe
+# check (hardware/BRINGUP-LOG.md "User LED Bring-Up (GPIO21)") is the gate
+# that promotes this from an inherited claim to measured hardware fact.
+CONFIG_FP_PIN_LED=21
+CONFIG_FP_LED_ACTIVE_LOW=y
