@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 05
 current_phase_name: in progress
 status: executing
-stopped_at: Phase 6 context gathered
-last_updated: "2026-08-27T19:51:34.912Z"
+stopped_at: Phase 6 UI-SPEC approved
+last_updated: "2026-08-27T20:15:37.963Z"
 last_activity: 2026-08-27
 last_activity_desc: "Completed quick task 260827-oz9: production logging of unrecognized ADS-B callsign ICAO prefixes (bounded registry in poll_state.json + unknown_prefix= log field + runbook recipe) — 212/212 checks pass across all 9 harnesses"
 progress:
@@ -197,10 +197,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T19:51:34.906Z
-Stopped at: Phase 6 context gathered
+Last session: 2026-08-27T20:15:37.956Z
+Stopped at: Phase 6 UI-SPEC approved
 
-Resume file: .planning/phases/06-companion-configuration-web-interface-visual-settings-view-s/06-CONTEXT.md
+Resume file: .planning/phases/06-companion-configuration-web-interface-visual-settings-view-s/06-UI-SPEC.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
