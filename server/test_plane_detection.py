@@ -17,7 +17,15 @@ validation outcomes (agreement, disagreement, single-source degradation)
 now actually run through the default no-argument call production uses,
 not only through an explicit providers list; 28 proves adsb.fi's and
 adsb.lol's different response-array keys are never interchanged, through
-a stubbed transport rather than a trusted dict literal.
+a stubbed transport rather than a trusted dict literal. Checks 29-31 are
+the missed-flights-not-displayed session's regression coverage for the
+on-ground pavement gate (2026-08-27): a taxiing or holding aircraft that
+is inside the airborne corridor but not on runway 3's pavement scored
+effective altitude 0.0 and masked real runway-3 traffic, freezing the
+panel. 29 proves the fixture reproduces the pre-fix precondition, 30 is
+the regression itself, 31 pins the empty measured band the gate's
+threshold sits in so it cannot be tightened into rejecting genuine
+runway-3 ground traffic.
 
 Stdlib-only, plus the module under test (server.plane.detect). Exits 0 only
 when every check below passes; any failure (or exception - none is ever
@@ -39,7 +47,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 28
+EXPECTED_CHECK_COUNT = 31
 
 
 def load_fixture(name):
@@ -679,6 +687,115 @@ def main():
         return True, ""
     check("query_provider: adsb.fi and adsb.lol response keys are never interchanged "
           "(proven through the transport)", _provider_keys_are_not_interchanged)
+
+    # ---------------------------------------------------------------
+    # On-ground pavement gate (missed-flights-not-displayed, 2026-08-27)
+    # ---------------------------------------------------------------
+
+    def _masking_snapshot():
+        return load_fixture("geofence_taxiway_masking.json")["aircraft"]
+
+    # 29. The masking fixture must genuinely reproduce the pre-fix
+    #     precondition, and - critically - must not be rejectable by any
+    #     gate that already existed. At +180m cross-track the taxiing
+    #     record is INSIDE the airborne corridor (half_width_m 500,
+    #     deliberately unchanged by this fix) and passes the track gate
+    #     outright, and its effective altitude 0.0 outranks the real
+    #     arrival's 775ft. Without this check, check 30 could pass because
+    #     the record fell outside the bbox, or was caught by the track
+    #     gate, or was never a candidate at all - i.e. for a reason that
+    #     has nothing to do with the bug.
+    def _masking_fixture_reproduces_the_precondition():
+        tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(_masking_snapshot(), geofence)}
+        if set(tagged) != {"3985a7", "347288"}:
+            return False, "expected both records in-bbox, got %r" % (sorted(tagged),)
+        masker = tagged["3985a7"]
+        if not masker.get("on_ground") or not masker.get("in_bbox") or not masker.get("below_ceiling"):
+            return False, "the masking record must be on-ground, in-bbox and below-ceiling, got %r" % (
+                {k: masker.get(k) for k in ("on_ground", "in_bbox", "below_ceiling")},)
+        if not masker.get("track_aligned"):
+            return False, ("the track gate rejected the masking record, so check 30 would no longer "
+                           "prove the lateral ground gate is what catches it")
+        half_width_m, _, _, ground_half_width_m = detect.corridor_params(geofence)
+        cross = abs(masker["cross_track_m"])
+        if not (ground_half_width_m < cross <= half_width_m):
+            return False, ("the masking record must sit inside the AIRBORNE corridor but outside the "
+                           "ground gate to isolate the fix; got |cross|=%.1f with ground=%r air=%r"
+                           % (cross, ground_half_width_m, half_width_m))
+        if detect.effective_altitude_ft(masker) >= detect.effective_altitude_ft(tagged["347288"]):
+            return False, ("premise broken: the masking record no longer outranks the real arrival on "
+                           "the D-P2-01 sort key, so there is nothing left to mask")
+        return True, ""
+    check("the taxiing masking record is in-bbox, track-aligned, inside the airborne corridor and "
+          "outranks the real arrival (the pre-fix accept condition)",
+          _masking_fixture_reproduces_the_precondition)
+
+    # 30. THE REGRESSION. A stationary/taxiing aircraft 180m off runway 3's
+    #     centreline used to win selection over a real runway-3 arrival,
+    #     purely because effective_altitude_ft() scores every on-ground
+    #     record at exactly 0.0. Its hex never changed, so the rendered
+    #     panel bytes never changed either and the display froze while real
+    #     traffic passed unseen. It must now fail the ground gate and the
+    #     genuine arrival must win.
+    def _taxiing_aircraft_no_longer_masks_real_runway3_traffic():
+        snapshot = _masking_snapshot()
+        tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(snapshot, geofence)}
+        if tagged["3985a7"].get("in_corridor"):
+            return False, ("the taxiing aircraft at 180m offset is still inside the corridor that "
+                           "applies to an on-ground record")
+        if tagged["3985a7"].get("on_runway3"):
+            return False, "the taxiing aircraft at 180m offset was still tagged on_runway3"
+        if not tagged["347288"].get("on_runway3"):
+            return False, "the real runway-3 arrival stopped being tagged on_runway3"
+        winner = detect.select_runway3_aircraft(snapshot, geofence)
+        if winner is None:
+            return False, "expected the real runway-3 arrival to be selected, got None"
+        if winner["hex"] != "347288":
+            return False, ("the taxiing aircraft still masked the real runway-3 arrival: selected %r "
+                           "(alt %r) instead of 347288" % (winner["hex"], winner.get("altitude_ft")))
+        return True, ""
+    check("select_runway3_aircraft: a taxiing aircraft off the pavement no longer masks a real "
+          "runway-3 movement", _taxiing_aircraft_no_longer_masks_real_runway3_traffic)
+
+    # 31. The ground gate must not have been tightened into rejecting
+    #     genuine runway-3 ground traffic - the mirror of check 13 for the
+    #     on-ground case. This pins the empty measured band the threshold
+    #     sits in: the real on-ground runway-3 capture measures +31.1m and
+    #     must qualify, while the near edge of the documented off-runway
+    #     residual band (150m) must not. Runway 3's own published paved
+    #     half-width is 22.6m (OurAirports width_ft=148), so the accepted
+    #     record is ~8.5m of position error beyond the pavement edge.
+    def _ground_gate_keeps_real_runway3_ground_traffic():
+        fixture = load_fixture("geofence_on_ground.json")
+        tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(fixture["ac"], geofence)}
+        real_ground = tagged["3985a7"]
+        if not real_ground.get("on_ground"):
+            return False, "premise broken: fixture 3985a7 is no longer an on-ground record"
+        cross = abs(real_ground["cross_track_m"])
+        if not (30.0 <= cross <= 32.0):
+            return False, ("premise broken: the real on-ground runway-3 record no longer measures "
+                           "~31m cross-track, got %.1f" % cross)
+        if not real_ground.get("on_runway3"):
+            return False, ("the ground gate rejected the real on-ground runway-3 record at %.1fm - "
+                           "over-tightened" % cross)
+        # ...and the near edge of the documented ~150-200m residual band
+        # must be rejected, so the empty band between them stays empty.
+        axis = detect.runway_axis(geofence)
+        residual = dict(next(ac for ac in fixture["ac"] if ac["hex"] == "3985a7"))
+        along, _ = detect.along_cross_track_m(residual["lat"], residual["lon"], geofence)
+        dx = along * axis["ux"] - 150.0 * axis["uy"]
+        dy = along * axis["uy"] + 150.0 * axis["ux"]
+        residual["lat"] = axis["lat0"] + dy / detect._M_PER_DEG_LAT
+        residual["lon"] = axis["lon0"] + dx / axis["lon_scale"]
+        moved = detect.filter_in_geofence([residual], geofence)
+        if not moved:
+            return False, "the 150m test point fell outside the bbox; check premise broken"
+        if moved[0].get("on_runway3"):
+            return False, ("an on-ground aircraft 150m off the centreline - the near edge of the "
+                           "documented residual band - still qualified as runway 3")
+        return True, ""
+    check("the on-ground gate keeps the real runway-3 ground record (+31m) and rejects the "
+          "documented 150m residual", _ground_gate_keeps_real_runway3_ground_traffic)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

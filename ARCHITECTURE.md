@@ -163,8 +163,15 @@ different aircraft, the poll returns nothing for that cycle, which the
 pipeline already treats as the between-flights hold rather than an error.
 `airplaneslive` remains in the code only as an explicit `--provider`
 opt-in for a feeder operator, sponsor, or licensee, never queried
-automatically. When more than one aircraft is inside the geofence in the
-same poll,
+automatically. The bounding box is only a coarse pre-filter — it contains
+most of Orly's two *other* runways — so a record becomes a candidate only
+once it also passes a geometric gate derived from runway 3's own published
+threshold coordinates: laterally inside a runway-aligned corridor, and
+pointing along the runway's axis. An aircraft reporting itself **on the
+ground** is held to a tighter version of that corridor, runway 3's actual
+pavement, because every on-ground record scores effective altitude 0 below
+and would otherwise let a taxiing aircraft outrank real runway-3 traffic
+indefinitely. Among whatever survives that gate in the same poll,
 `select_runway3_aircraft()` picks exactly one by a deterministic total
 order: lowest effective altitude first (an on-ground aircraft has
 effective altitude 0), then the freshest position report, then

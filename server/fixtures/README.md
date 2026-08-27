@@ -136,6 +136,56 @@ fixture, always explicitly noted).
 - The record's `wd: 235` / `ws: 13` (wind from 235° at 13 kt) independently
   corroborate that runway 25 was the active arrival runway in that window.
 
+## `geofence_taxiway_masking.json`
+
+- **Source:** the `missed-flights-not-displayed` debug session (2026-08-27).
+  **Partly derived — read the split below carefully.** This is the only
+  fixture in this directory that is not either wholly captured or wholly
+  synthetic, and this section exists so nobody has to guess which half is
+  which.
+- **Provider shape:** adsb.fi (`aircraft` array key), matching the real
+  record it is built around.
+- **What it is:** a two-aircraft snapshot reproducing the **masking**
+  mechanism — an aircraft that is on the ground but *not on runway 3*
+  outranking a real runway-3 movement, because
+  `effective_altitude_ft()` scores every on-ground record at exactly `0.0`.
+- **Record `347288` / `IBE05DP` — 100% real, verbatim.** Copied field for
+  field from `geofence_runway3_arrival_347288.json` (live adsb.fi capture,
+  `2026-08-27T09:31:16Z`): a genuine runway-3 arrival on final to runway
+  25, `alt_baro 775`, `track 254.9`, **+2.9 m** from the centreline. This
+  is the aircraft that must be displayed and was not.
+- **Record `3985a7` / `AFR56XX` — real fields, DERIVED position.**
+  - **Real (verbatim from `geofence_on_ground.json`'s live capture,
+    `2026-08-04T20:18:08Z`):** `hex`, `flight`, `alt_baro "ground"`,
+    `gs 12.0`, `baro_rate 0`, `seen_pos 3.4`, `t "A320"`.
+  - **Derived:** `lat 48.724957` / `lon 2.379671`. Computed from
+    `adsb-test/runway3.json`'s own published threshold coordinates —
+    along-track **1657.5 m** (exactly half runway 3's 3315 m derived
+    centreline length, i.e. abreast of the runway's midpoint) and
+    cross-track **+180.0 m**. This is the same construction the debug
+    session's E2 experiment used.
+  - **Derived:** `track 74.41` — runway 3's exact axis bearing, so the
+    record passes the track gate outright. The fixture has to isolate the
+    *lateral* gate; a record rejected by the track gate would prove
+    nothing about the bug.
+  - **Why 180 m, and why it is honest:** no live capture of an actual
+    masking event exists, so this position could not be captured. 180 m is
+    the midpoint of the **~150–200 m** runway-parallel ground offset that
+    `runway3.json`'s own `corridor.known_residuals` had *already
+    documented* (before this session) as passing both pre-existing gates —
+    it is this project's own recorded measurement, not a number invented
+    to make a test pass. The ICAO Annex 14 runway-to-parallel-taxiway
+    separation standard would have grounded it in a published figure, but
+    a search during the fix **did not confirm that value**, so it is
+    deliberately not cited. The sign of the offset is not load-bearing:
+    the gate tests `|cross_track_m|`.
+- **What it proves:** at +180 m the masking record is still **inside** the
+  airborne corridor (`half_width_m` 500, unchanged by this fix) and still
+  passes the track gate — so it is the *new on-ground pavement gate*, and
+  nothing pre-existing, that rejects it. Check 29 asserts exactly that, so
+  check 30 cannot pass for the wrong reason.
+- Drives checks 29, 30 in `test_plane_detection.py`.
+
 ## `adsbdb_hit_TVF16VB.json`
 
 - **Source:** live `GET api.adsbdb.com/v0/callsign/TVF16VB` response,

@@ -33,6 +33,24 @@ centreline, while 02/20 crosses that centreline outright but sits 56 deg
 off its heading. runway3.json's `corridor` block carries the measured
 derivation of every threshold.
 
+On-ground pavement gate (added 2026-08-27, debug session
+.planning/debug/missed-flights-not-displayed.md). The corridor above was
+calibrated entirely on AIRBORNE separation - every measurement behind
+half_width_m=500 and extension_m=2500 is an approach or departure track.
+Applied to a record that is already on the ground it is physically
+meaningless: a +/-500m x 8315m box around a 3315m runway also contains
+taxiways, holding points and apron positions, which is the residual
+runway3.json's own `corridor.known_residuals` admitted. That mattered
+because effective_altitude_ft() scores EVERY on-ground record at exactly
+0.0, so one taxiing aircraft inside that box outranked every real
+airborne runway-3 movement in select_runway3_aircraft()'s sort - and
+since its hex never changed, the rendered panel bytes stayed identical
+and the display froze while real traffic passed unseen. An on-ground
+record is therefore now required to be on the runway's PAVEMENT: within
+`corridor.ground_half_width_m` of the paved rectangle. The sort itself is
+deliberately unchanged - an aircraft genuinely on runway 3's pavement
+SHOULD outrank one 900ft above it, which is exactly what D-P2-01 says.
+
 Usage:
     server/.venv/bin/python3 server/plane/detect.py
     server/.venv/bin/python3 server/plane/detect.py --provider adsbfi --json
@@ -152,6 +170,13 @@ _M_PER_DEG_LAT = 111320.0
 DEFAULT_CORRIDOR_HALF_WIDTH_M = 500.0
 DEFAULT_CORRIDOR_EXTENSION_M = 2500.0
 DEFAULT_AXIS_TOLERANCE_DEG = 30.0
+# The on-ground pavement gate's single number. Runway 3's own published
+# paved half-width is 22.6m (OurAirports width_ft=148 = 45.1m), the only
+# real on-ground runway-3 record in server/fixtures measures 31.1m
+# cross-track, and the off-runway ground traffic this excludes starts at
+# ~150m - so 75 sits inside an empty measured band. See runway3.json's
+# `corridor.ground_gate_derivation` for the full derivation.
+DEFAULT_GROUND_HALF_WIDTH_M = 75.0
 
 
 def load_geofence(path=None):
@@ -206,10 +231,17 @@ def runway_axis(geofence):
 
 
 def corridor_params(geofence):
-    """The corridor gate's three numbers, from geofence['corridor'] when
+    """The corridor gate's four numbers, from geofence['corridor'] when
     present, else the module defaults. Non-numeric or non-positive entries
     fall back rather than raising - a malformed config must not be able to
     silently widen the gate to infinity.
+
+    Returns (half_width_m, extension_m, axis_tolerance_deg,
+    ground_half_width_m). The first three describe the AIRBORNE corridor;
+    the fourth is the on-ground pavement gate, used as both the lateral
+    half-width and the along-track margin beyond each threshold (one
+    concept - "within X of runway 3's paved rectangle" - rather than two
+    tunables).
     """
     block = geofence.get("corridor")
     if not isinstance(block, dict):
@@ -225,6 +257,7 @@ def corridor_params(geofence):
         _positive("half_width_m", DEFAULT_CORRIDOR_HALF_WIDTH_M),
         _positive("extension_m", DEFAULT_CORRIDOR_EXTENSION_M),
         _positive("axis_tolerance_deg", DEFAULT_AXIS_TOLERANCE_DEG),
+        _positive("ground_half_width_m", DEFAULT_GROUND_HALF_WIDTH_M),
     )
 
 
@@ -310,6 +343,10 @@ def filter_in_geofence(aircraft, geofence):
       track_deg / track_deviation_deg  the record's true track and how far
                                      off runway 3's axis it points
       in_corridor                    within the runway-aligned corridor
+                                     that applies to THIS record - the wide
+                                     approach/departure corridor when
+                                     airborne, the tight pavement rectangle
+                                     when on_ground (see below)
       track_aligned                  within the axis tolerance, OR carrying
                                      no usable track at all (see below)
       on_runway3                     in_corridor AND track_aligned - the
@@ -330,11 +367,25 @@ def filter_in_geofence(aircraft, geofence):
     whenever a feed omits the field. Measured 21/21 live adsb.fi records
     carried a numeric track; the pre-existing committed fixtures carry
     none. runway3.json's `corridor.known_residuals` records the exposure.
+
+    ON-GROUND RECORDS GET A TIGHTER CORRIDOR (2026-08-27,
+    missed-flights-not-displayed). `half_width_m`/`extension_m` describe
+    where an aircraft IN THE AIR on approach to or departure from runway 3
+    may legitimately be; every measurement they were derived from is an
+    airborne track. A record already on the ground is instead required to
+    be on runway 3's own pavement - within `ground_half_width_m` of the
+    paved rectangle, laterally AND along-track. Without that, any taxiing
+    or holding aircraft within 500m of the centreline scored effective
+    altitude 0.0 and masked every real airborne runway-3 movement, freezing
+    the panel on an aircraft that was not going anywhere. The pavement
+    figure is calibrated against runway 3's published 45.1m width and the
+    real on-ground fixture's measured 31.1m offset; see runway3.json's
+    `corridor.ground_gate_derivation`.
     """
     bbox = geofence["bbox"]
     ceiling_ft = geofence["alt_ceiling_ft"]
     axis = runway_axis(geofence)
-    half_width_m, extension_m, axis_tolerance_deg = corridor_params(geofence)
+    half_width_m, extension_m, axis_tolerance_deg, ground_half_width_m = corridor_params(geofence)
     matched = []
     for ac in aircraft:
         lat = ac.get("lat")
@@ -361,9 +412,21 @@ def filter_in_geofence(aircraft, geofence):
             in_corridor = True
             track_aligned = True
         else:
+            # An on-ground record is held to runway 3's PAVEMENT, not to
+            # the approach/departure corridor: the same figure bounds the
+            # lateral offset and the along-track margin beyond each
+            # threshold, so the test reads "within ground_half_width_m of
+            # the paved rectangle". An aircraft 500m to the side of the
+            # runway, or 2.5km past a threshold, is on a taxiway or an
+            # apron - not on runway 3 - and admitting it let it mask real
+            # runway-3 traffic at effective altitude 0.0.
+            if on_ground:
+                lateral_m, margin_m = ground_half_width_m, ground_half_width_m
+            else:
+                lateral_m, margin_m = half_width_m, extension_m
             in_corridor = (
-                -extension_m <= along_m <= axis["length_m"] + extension_m
-                and abs(cross_m) <= half_width_m
+                -margin_m <= along_m <= axis["length_m"] + margin_m
+                and abs(cross_m) <= lateral_m
             )
             track_aligned = deviation_deg is None or deviation_deg <= axis_tolerance_deg
 
@@ -387,6 +450,15 @@ def effective_altitude_ft(ac):
     only by select_runway3_aircraft's D-P2-01 sort key - an on-ground
     aircraft is, by definition, the lowest possible "altitude" an aircraft
     inside the geofence can have.
+
+    That collapse to a single value is only safe because filter_in_geofence()
+    admits an on-ground record ONLY when it is on runway 3's own pavement.
+    Before that gate existed, any taxiing or parked aircraft within 500m of
+    the centreline also scored 0.0 here and therefore outranked every real
+    airborne runway-3 movement - freezing the panel on a stationary aircraft
+    while real traffic went unseen (2026-08-27,
+    .planning/debug/missed-flights-not-displayed.md). If the ground gate is
+    ever widened, this function stops discriminating again.
     """
     if ac.get("on_ground"):
         return 0.0
@@ -426,6 +498,20 @@ def select_runway3_aircraft(aircraft, geofence):
     was never the problem; the absence of any lateral or directional test
     was. See runway3.json's `corridor` block for the gate's thresholds and
     why both a corridor and a track check are needed.
+
+    The same conclusion held a second time, for a different symptom
+    (2026-08-27, .planning/debug/missed-flights-not-displayed.md: real
+    flights passing without ever being displayed). A taxiing aircraft was
+    masking real runway-3 movements because effective_altitude_ft() scores
+    every on-ground record at 0.0 and the corridor was wide enough to
+    contain non-runway ground traffic. The temptation is to fix that in
+    the sort - it would be wrong. An aircraft physically on runway 3's
+    pavement genuinely IS the aircraft using runway 3, and demoting it
+    below an airborne one would break D-P2-01 for the correct case. The
+    defect was again the gate, not the ranking: the corridor was
+    calibrated on airborne separation and was being applied to ground
+    records. filter_in_geofence() now holds on-ground records to the
+    runway's pavement instead. The sort below is unchanged.
 
     Returns a normalised dict (hex, callsign, aircraft_type, altitude_ft,
     on_ground, vertical_rate_fpm, lat, lon, gs, seen_pos, plus the
