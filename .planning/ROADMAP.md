@@ -104,7 +104,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
   1. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not a flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration as the fallback for uncovered airlines and the "Route unavailable" enrichment-failure state, never mirrored by state (D-24) — the selection and compositing mechanism itself, independent of how it looks on real glass, which is Phase 6's job. Verified by the automated suite (`server/test_illustrations.py`, `server/test_render.py`), not by eye.
 
-**Plans**: 3/3 plans executed — **phase complete**. (On-glass visual sign-off — including this phase's own artwork/typography/composition — is Phase 6's job now, not a blocker on closing this phase.)
+**Plans**: 4 plans — 3/3 original plans executed, plus 1 gap-closure plan added 2026-08-27 after goal-backward verification scored the phase 7/8 (see `03-VERIFICATION.md`). (On-glass visual sign-off — including this phase's own artwork/typography/composition — is Phase 6's job now, not a blocker on closing this phase.)
 
 Plans:
 **Wave 1**
@@ -118,6 +118,10 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 03-03-PLAN.md — Per-airline dithered livery illustrations with a dithered generic fallback, gated on the developer's illustration hand-off
+
+**Gap closure** *(added 2026-08-27 from `03-VERIFICATION.md`; independent of the three waves above, which are complete)*
+
+- [ ] 03-04-PLAN.md — Guard the live render path against a corrupt or oversized illustration file: a never-raises loader that degrades to `generic-fallback.png` at both D-25/D-26 call sites, plus a header-only `ILLUSTRATION_MAX_PIXELS` pre-check and three regression checks
 
 **UI hint**: yes
 
