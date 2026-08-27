@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle (completed 2026-08-26 — on-glass visual sign-off moved to Phase 6, not a blocker on this phase)
 - [x] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Extends Phase 3's externally generated illustration set to real per-flight aircraft-type accuracy, by (a) surfacing the ADS-B ICAO type designator in `server/plane/detect.py`, (b) adding a second selection key plus a four-tier fallback in `server/plane/illustrations.py`, and (c) expanding the externally generated asset set per D-03's verified 24-airline / 7-base-shape table (completed 2026-08-27)
 - [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/skypane, CI-block and deploy-gate proven on real infrastructure)
-- [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
+- [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 fully closed and confirmed on real glass; 05-01's actual multi-day discharge run — success criterion 1, DEVICE-05 — still deliberately deferred to end of project)
 - [ ] **Phase 6: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished
 
 ## Phase Details
@@ -203,15 +203,15 @@ Plans:
   1. The device completes multiple wake/poll/sleep cycles running on battery power alone, producing a measured mAh-per-cycle figure — not an estimate — that supports a realistic wake-interval and battery-life plan.
   2. User can see a low-battery indicator on the frame when the battery is running low.
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed, but the phase is NOT complete — 05-01's Tasks 2-3 (success criterion 1, DEVICE-05) are deliberately parked until the end of the project; only DEVICE-04 (criterion 2, 05-02+05-03) is actually closed.
 **Wave 1**
 
-- [x] 05-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker (Task 1 done), unattended multi-day discharge run and verdict (Tasks 2-3 pending)
+- [ ] 05-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker (Task 1 done), unattended multi-day discharge run and verdict (Tasks 2-3 pending, deliberately deferred)
 - [x] 05-02-PLAN.md — Low-battery indicator, server half: strict X-Battery-Mv validation and single-writer persistence, the 3500/3600 mV hysteresis decision, and the bottom-left battery icon drawn onto the served panel
 
 **Wave 2**
 
-- [ ] 05-03-PLAN.md — Low-battery indicator, device half: host-tested divider conversion, a real calibrated ADC1 read off the EE02 board's existing factory battery-sense divider (A0/GPIO1, enabled via D5/GPIO6) replacing the compiled-in unknown sentinel, and the blocking hardware bring-up (flash-and-observe confirmation of the sense circuit, icon confirmed on real glass) — firmware and configuration only, no soldering and no added components
+- [x] 05-03-PLAN.md — Low-battery indicator, device half: host-tested divider conversion, a real calibrated ADC1 read off the EE02 board's existing factory battery-sense divider (A0/GPIO1, enabled via D5/GPIO6) replacing the compiled-in unknown sentinel, and the blocking hardware bring-up (flash-and-observe confirmation of the sense circuit, icon confirmed on real glass) — firmware and configuration only, no soldering and no added components
 
 **UI hint**: yes
 
@@ -226,14 +226,14 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
-| 5. Battery Life & Low-Battery Indicator | 2/3 | In Progress | - |
+| 5. Battery Life & Low-Battery Indicator | 3/3 executed | In Progress (DEVICE-04 done, DEVICE-05 pending) | - |
 | 6. Final On-Glass Verification | 0/1 | Not Started | - |
-**Plans:** 6/6 plans complete
+**Plans:** 5/6 phases complete
 
 Plans:
 
-- [ ] 05-01-PLAN.md — Battery-life measurement (DEVICE-05) — Task 1 done, Tasks 2-3 parked to end of project
-- [ ] 05-02-PLAN.md — Low-battery indicator, server half (DEVICE-04) — Wave 1
+- [x] 05-01-PLAN.md — Battery-life measurement (DEVICE-05) — Task 1 done, Tasks 2-3 parked to end of project
+- [x] 05-02-PLAN.md — Low-battery indicator, server half (DEVICE-04) — Wave 1
 - [ ] 05-03-PLAN.md — Low-battery indicator, device half + hardware bring-up (DEVICE-04) — Wave 2
 
 ### Phase 6: Final On-Glass Verification

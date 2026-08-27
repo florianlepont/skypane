@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 05
 current_phase_name: Battery Life & Low-Battery Indicator
-status: executing
-stopped_at: "Phase 05 executing: Wave 2 (05-03) Tasks 1-2 complete (host-tested divider math + real ESP-IDF ADC read wired into telemetry); Task 3 is a blocking checkpoint:human-verify hardware task (flash-and-observe on the real EE02 board) awaiting the developer"
-last_updated: "2026-08-27T20:36:16.000Z"
-last_activity: 2026-08-27
-last_activity_desc: "05-03 Tasks 1-2 executed (device half of DEVICE-04: battery_math_apply_divider() host-tested via TDD RED/GREEN, fp_battery_mv() ESP-IDF ADC module enabling the EE02's factory sense divider, telemetry_headers() now sends the real reading) — Task 3 (real hardware bring-up) reached and is a blocking checkpoint, not executed this session"
+status: blocked
+stopped_at: "Phase 05: DEVICE-04 fully closed (05-02+05-03 both complete, confirmed live on real hardware — real ADC circuit, LED, icon appear/disappear, all on real glass). DEVICE-05 (05-01 Tasks 2-3, the multi-day discharge run) remains deliberately parked until end of project — that's the only work left in Phase 5."
+last_updated: "2026-08-27T23:10:00.000Z"
+last_activity: 2026-08-28
+last_activity_desc: "05-03 Task 3 checkpoint resolved live: developer delegated the physical flash/monitor/deploy to the orchestrator (board connected to the same machine). Real EE02 battery-sense circuit confirmed on first try (battery mv=4156 pin_mv=2078, exact 2:1 ratio, zero code changes needed). Pushed 05-02+05-03+LED quick task to production via the CI/CD pipeline (PR #8, auto-deployed). Forced the low-battery icon live on the real panel via a direct server-side injection - developer saw it, found it too large, a same-session quick task (260828-0qo) shrank it 30% and redeployed (PR #10, rebased onto a concurrent session's PR #9 mid-flight per developer's request) - developer confirmed the new size live on glass (\"c'est parfait\"). DEVICE-04 marked complete in REQUIREMENTS.md."
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 31
-  completed_plans: 29
-  percent: 94
+  completed_plans: 30
+  percent: 97
 ---
 
 # Project State
