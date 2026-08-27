@@ -262,9 +262,49 @@ live-verify it against adsbdb and add a row to the static table under that
 table's own sourcing discipline — never to infer an airline name from the
 three letters.
 
+**Display pacing.** Detecting an aircraft and *showing* it are no longer the
+same event (2026-08-28). The server re-renders every 30 seconds, but the
+frame's own floor between two drawn images is roughly **90 seconds** — the
+firmware's 60-second inter-refresh guard, re-armed after every blit, plus the
+measured ~31.5s full refresh above. Advancing the "current" slot on every
+distinct detection therefore overwrote `panel.bin` two or three times per
+device redraw, and any aircraft whose turn fell entirely between two redraws
+was never fetched, never drawn, and left no trace anywhere — the server's own
+logs looked perfectly healthy throughout.
+
+So `poll_loop.py` keeps a small **bounded-age FIFO queue** of distinct
+selections in `poll_state.json` (`pending_flights`, each entry stamped with
+the time it was *first* detected, plus a `last_advance_at` timestamp). The
+"current" slot advances no more often than `MIN_ADVANCE_INTERVAL_S` (90s,
+derived from the two firmware numbers above), and when it does it promotes
+the **oldest still-fresh** entry rather than whatever was detected most
+recently — so aircraft reach the glass in the order they actually flew.
+Draining runs on every cycle including empty ones, since a burst followed by
+a quiet sky is the common shape.
+
+Two bounds keep this from becoming a backlog, which is the failure mode an
+unbounded "never drop a flight" queue would have had: an entry more than
+`MAX_STALENESS_S` (**150s**) old when its turn arrives is **discarded rather
+than displayed**, and the queue is capped at `MAX_PENDING_FLIGHTS` (5 — the
+most distinct aircraft that can legitimately be enqueued inside one 150s
+window at a 30s poll cadence), evicting oldest-first. This is a **mitigation,
+not a cure**: a burst severe enough to overflow both bounds still loses
+flights, deliberately, because showing a two-minute-old departure as if it
+were current would defeat the point of a real-time board. Those losses are at
+least no longer silent — the poll line's `dropped=` field names every hex the
+queue discarded, alongside `shown=` (what is actually on the panel, which on
+a paced cycle differs from `hex=`, this cycle's detection) and `pending=`.
+
+Because the pipeline is a systemd oneshot with no in-process memory, every
+pacing and staleness decision is arithmetic over timestamps persisted in
+`poll_state.json`; the clock itself is a module-level seam (`now_s()`) so the
+harness can drive cadence deterministically instead of sleeping.
+
 **Composition.** `server/plane/render.py` builds a two-flight poster: the
-current detection (large, upper-center) and the immediately-preceding
-detection from `poll_state.json`'s two-deep history (smaller, lower-right)
+current detection (large, upper-center) and the immediately-preceding one
+from `poll_state.json`'s two-deep history (smaller, lower-right) — since the
+pacing change above, "preceding" means the aircraft that previously occupied
+the current slot, which is not always the previous *detection*
 — both share one canvas. Each flight card uses its own real per-airline
 illustration (`server/plane/illustrations.py`, keyed off the resolved
 airline name, falling back to a generic silhouette when no per-airline art
