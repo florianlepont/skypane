@@ -2,7 +2,7 @@
 status: resolved
 trigger: "Je viens de rallumer l'écran et il ne se passe absolument rien. Est-ce que tu peux vérifier que la carte a essayé de communiquer avec le VPS ? / [message suivant, même conversation] Ça a l'air que la tablette vient de se, enfin je veux dire l'écran vient de se mettre à jour, mais là typiquement elle a laissé passer deux autres avions sans afficher, donc soit il y a un problème de consistance dans les données, soit elle met trop de temps à vérifier les données. Est-ce que c'est toujours trente secondes ou est-ce que ça a changé ?"
 created: 2026-08-27T00:00:00Z
-updated: 2026-08-27T00:00:00Z
+updated: 2026-08-28T00:00:00Z
 ---
 
 ## Current Focus
@@ -79,6 +79,13 @@ reasoning_checkpoint:
     - "Not correlated against live VPS logs for the two aircraft observed on 2026-08-27 - no VPS access
        in this session, same constraint the diagnosis pass recorded."
 tdd_checkpoint: null
+
+REOPENED late 2026-08-27, landed 2026-08-28 (second pass) for MECHANISM B, which the user has now
+explicitly approved - the session clock rolled over mid-pass, so the B section below is dated 08-28
+while the A record above it stays 08-27. Everything
+above this line is the MECHANISM A record and is deliberately left untouched. The live focus, hypothesis
+and reasoning_checkpoint for the B pass are in the "Mechanism B fix (2026-08-27, second pass)" section at
+the bottom of this file. Mechanism C remains UNAPPROVED and untouched.
 
 ## Symptoms
 <!-- Written during gathering, then immutable -->
@@ -438,30 +445,47 @@ files_changed:
     record fields at a position derived from the published thresholds)
   - server/fixtures/README.md (provenance, with the real/derived split spelled out field by field)
 
-## Still open after the mechanism-A fix (2026-08-27)
+## Still open after the mechanism-A fix (2026-08-27, statuses updated 2026-08-28)
 
 This session is filed as resolved because the fix it was scoped to is applied and verified. It is NOT
 a claim that the user's original symptom is gone. Two of the three reproduced mechanisms were left
 untouched by the user's explicit scoping, and either is independently sufficient to make a real flight
 never appear on the frame:
 
-- MECHANISM B - DISAGREEMENT SUPPRESSION (open). `poll_current_aircraft()` returns None for the whole
-  cycle when adsb.fi and adsb.lol name different aircraft, and when candidates tie on effective
+- MECHANISM B - DISAGREEMENT SUPPRESSION. **FIXED 2026-08-28 by the second pass; see "Mechanism B fix"
+  below.** As written on 2026-08-27 this read: "(open). `poll_current_aircraft()` returns None for the
+  whole cycle when adsb.fi and adsb.lol name different aircraft, and when candidates tie on effective
   altitude the arbiter is `seen_pos`, a per-provider staleness value measured in adsb-test/RESULTS.md
   as differing by tens of seconds between feeds. The mechanism-A fix REDUCES how often that tie occurs
   (far fewer on-ground candidates now qualify) but does not remove it - runway3.json's new
-  known_residuals item (3) records the surviving case of two aircraft both genuinely on the pavement.
+  known_residuals item (3) records the surviving case of two aircraft both genuinely on the pavement."
+  That diagnosis was correct as far as it went but INCOMPLETE: the second pass found the seen_pos
+  tie-break was only half of B. The other half was that corroboration compared each feed's final PICK
+  rather than its candidate SET, so the two feeds could disagree - and suppress the cycle - even under a
+  perfectly stable tie-break, simply because one had not received an aircraft the other had. Fixing only
+  the tie-break would have reduced the symptom's frequency while leaving it open and looking closed.
+  Both halves are now fixed. What did NOT change: genuine disagreement still suppresses (D-04 intact).
+  What is newly open: runway3.json known_residuals (4) stale records are no longer deprioritised, and
+  (5) two feeds carrying the SAME wrong record are still undetectable - the latter being a permanent
+  limit of cross-source corroboration rather than anything this pass introduced.
 - MECHANISM C - DEVICE CONSUMPTION RATE (open, and invisible in server logs).
   CONFIG_FP_MIN_REFRESH_SPACING_S defaults to 60 with no override in any committed sdkconfig, so the
   floor between two DRAWN images is ~90s against a 30s server render cadence. panel.bin can advance
   through 2-3 flights per device draw; D-25's current+previous layout absorbs exactly one.
-- OBSERVABILITY (open). `select_runway3_aircraft()` still discards the candidate list, so "the right
-  aircraft was present and lost the sort" remains unprovable from logs. Worth closing before the next
-  occurrence - see "Next occurrence" below, which is unchanged and still applies.
+- OBSERVABILITY (still mostly open, one slice closed 2026-08-28). The mechanism-B pass extracted
+  `runway3_candidates()`, so the candidate list now exists as a named thing, and the disagreement stderr
+  line prints each feed's FULL candidate set instead of only its winner (pinned by check 37). That makes
+  a suppressed cycle fully diagnosable. But the SUCCESSFUL path still logs only the winner: on a normal
+  poll the losing candidates are still discarded, so "the right aircraft was present and lost the sort"
+  remains unprovable from logs. Deliberately not extended further this pass - it is a separate change
+  from mechanism B and was not part of what the user approved.
 
-Recommended next step if the user still sees flights skipped: do NOT re-investigate A. Read
-`journalctl -u skypane-poll | grep "providers disagree"` first - that line names both hexes and
-separates B immediately.
+Recommended next step if the user still sees flights skipped: do NOT re-investigate A or B; both are
+fixed and covered by regression checks that are proven to fail against the pre-fix code. Read
+`journalctl -u skypane-poll | grep "providers disagree"` first. If that line appears at all now, it is
+a GENUINE cross-source disagreement (each feed's full candidate set is printed on it), not the
+manufactured kind - and the remaining live suspect is mechanism C, which is invisible in the server
+logs and needs `journalctl -u skypane-byos` device-fetch timestamps instead.
 
 ## Unconfirmed without live data
 
@@ -474,15 +498,325 @@ separates B immediately.
   not committed, so a menuconfig change to MIN_REFRESH_SPACING_S would not be visible in this repo.
 - The real e-ink blit duration on this hardware (assumed "tens of seconds" from panel.c's comments).
 
+## Mechanism B fix (2026-08-28, second pass)
+
+Re-opened after the user explicitly approved fixing mechanism B. Scope was restricted to B: mechanism C
+(firmware refresh cadence) stays UNAPPROVED and untouched, and mechanism A was not revisited.
+
+### Current focus (B pass)
+
+hypothesis: Mechanism B is TWO independent defects that both end in the same D-04 suppression branch, and
+  a fix for either one alone leaves the other able to freeze the panel on its own.
+  B1 - UNSTABLE SORT INPUT. `select_runway3_aircraft()`'s tie-break is `seen_pos`, which is not a property
+  of the aircraft at all: it is "seconds since THIS feeder network last got a position report", i.e. a
+  property of the provider. Two providers ranking the same two real aircraft by it get different answers.
+  B2 - SET-BLIND COMPARISON. `poll_current_aircraft()` compares only the two providers' FINAL PICKS. It
+  never asks whether the other provider also SAW the winner. So when the two feeds hold
+  overlapping-but-unequal candidate sets - routine, because they are independent feeder networks - the
+  picks can differ even under a perfectly deterministic sort, and the cycle is suppressed anyway.
+test: DONE. Design verified computationally against the real code and the real config before any edit
+  (scratch design_probe.py + replay.py), then by the committed regression checks 32-36 and a full
+  pre-fix restoration run.
+expecting: DONE. B1 reproduced (adsb.fi picks 000003, adsb.lol picks 3985a7 from the same two real
+  pavement positions, differing only in seen_pos). B2 reproduced (with the stable key in place, an
+  asymmetric candidate set STILL produces different picks - proving determinism alone is insufficient).
+next_action: DONE. Both fixed, 5 new checks committed, 3 of them proven to fail against a restored
+  pre-fix implementation. Awaiting the user's own confirmation from the frame.
+
+reasoning_checkpoint:
+  hypothesis: |
+    The seen_pos tie-break and the pick-only comparison are BOTH defects, and they fail independently.
+    B1: seen_pos is the only field in the sort key that is a property of the OBSERVER rather than the
+    observed. effective_altitude_ft is a property of the aircraft; hex is a property of the aircraft;
+    seen_pos is a property of the feeder network that happened to report it. Ranking a shared reality by
+    an observer-local value cannot yield a shared answer, so the two feeds manufacture a disagreement out
+    of nothing and D-04 suppresses the cycle.
+    B2: even with a provider-independent sort key, `poll_current_aircraft()` still only compares final
+    picks. If adsb.fi's candidate set is {X, Y} and adsb.lol's is {Y} - because adsb.lol has not received
+    X yet - then a deterministic sort makes adsb.fi pick X and adsb.lol pick Y, and the cycle is
+    suppressed even though both feeds agree Y is real and on runway 3, and neither ever asserted X was
+    absent. The corroboration question being asked ("did you pick the same aircraft?") is the wrong one;
+    the right one is "did you SEE the aircraft I picked?".
+  confirming_evidence:
+    - "B1 reproduced against the real code this pass (scratch design_probe.py), using the real 3985a7
+       on-ground capture at its real captured position plus a second pavement position derived from
+       runway3.json's own published thresholds: with seen_pos as the arbiter adsb.fi selects 000003 and
+       adsb.lol selects 3985a7 from the SAME two aircraft at the SAME positions; with the tie-break
+       falling straight to hex, both select 000003. This is E3 from the diagnosis pass, re-run against
+       real positions instead of scratch ones."
+    - "seen_pos's instability is MEASURED, not assumed: adsb-test/RESULTS.md reconstructs per-provider
+       position-update gaps of 36.2s median / 56.7s max (adsb.fi) and 22.4s / 69.8s (airplanes.live),
+       all derived from this very field. The two feeds are also read >=1.1s apart
+       (MIN_SECONDS_BETWEEN_CALLS). An arbiter with tens of seconds of provider-local spread is deciding
+       between aircraft that tie exactly."
+    - "B2's premise - that the two feeds hold unequal candidate sets - is measured in the same file:
+       over the ~92-minute combined window, 37 hex were seen by both providers, 1 by adsb.fi only, 0 by
+       airplanes.live only. That is a real, recorded set asymmetry between two feeds at THIS geofence.
+       The instantaneous asymmetry is necessarily larger than that aggregate, because a 36.2s median
+       position-update gap means a newly-appeared aircraft is in one feed before the other by
+       construction."
+    - "Removing seen_pos from the sort key is proven to be a no-op on every piece of real data this
+       repo holds. Replayed all 6 committed geofence fixtures plus test_poll_loop.py's synthetic
+       snapshot through both the pre-fix and post-fix keys (scratch replay.py): ZERO selections changed,
+       and no committed fixture contains an effective-altitude tie at all - i.e. the seen_pos tie-break
+       has never once been reached by real captured data. It was pure downside."
+    - "Altitude ties are not hypothetical beyond the on-ground 0.0 collapse: every alt_baro in every
+       committed fixture is a multiple of 25 (450, 425, 550, 600, 775, 800, 1050), so two airborne
+       aircraft sharing a quantised altitude is an ordinary occurrence, and pre-fix it too fell through
+       to seen_pos."
+  falsification_test: |
+    B1 is refuted if the two providers' picks still diverge when the candidate sets are identical and
+    only seen_pos differs - check 33/34 assert exactly that, and both FAIL against a restored pre-fix
+    implementation, so the mechanism is real and the fix addresses it.
+    B2 is refuted if a stable tie-break alone were sufficient. Check 35 falsifies that directly and is
+    the reason this pass did not stop at the sort key: it asserts, on the post-fix code, that adsb.fi's
+    and adsb.lol's own deterministic per-provider picks STILL differ when the sets are asymmetric
+    (000003 vs 3985a7) - and would therefore still have been suppressed by a pick-only comparison. If
+    that assertion ever stops holding, check 35 fails loudly rather than passing for the wrong reason.
+    The fix is refuted in the other direction if genuinely disjoint candidate sets stop suppressing -
+    check 36 (plus pre-existing checks 23 and 26) fails if D-04 is gutted.
+  fix_rationale: |
+    B1: the tie-break falls straight to `hex`. This is not "pick a different arbitrary field" - hex is
+    the ICAO 24-bit address, the one identifier in the record that is a property of the AIRCRAFT, is
+    identical across every feed that sees it, and does not change between polls. It therefore delivers
+    the exact property the D-P2-01 docstring already claimed the tie-breaks were for ("the same snapshot
+    always yields the same flight and the display never flickers"), which seen_pos never could, since it
+    changes on every poll by definition.
+    B2: corroboration moves from comparing final PICKS to intersecting the two providers' CANDIDATE
+    SETS, then selecting once, deterministically, from the first provider's records restricted to that
+    intersection. This deliberately does NOT weaken D-04 - it strengthens what corroboration means. The
+    safety property on what reaches the panel is unchanged in both directions: pre-fix, a corroborated
+    display required the winner to be in both providers' sets (that is what equal picks implies);
+    post-fix, the winner is drawn from the intersection, so it is still in both sets. What narrows is
+    only the SUPPRESSION trigger - from "the picks differ" to "no aircraft at all is common to every
+    answering source". A feed carrying a phantom the other lacks now yields the corroborated real
+    aircraft instead of a blank panel, because the phantom is excluded from the intersection rather
+    than merely losing a comparison. Unanimity is preserved exactly: the intersection is taken across
+    ALL answering providers, so the existing 3-provider "2 agree, 1 dissents -> suppress" outcome is
+    unchanged. The first-listed provider's record still reaches the renderer (ARCHITECTURE.md's
+    load-bearing ordering claim, pinned by check 25).
+  blind_spots:
+    - "The second pavement aircraft's IDENTITY is synthetic, not captured. Only ONE real on-ground
+       runway-3 record exists in this repo (3985a7), so a two-aircraft-on-the-pavement snapshot cannot
+       be assembled from real captures alone. Its position is derived from runway3.json's own published
+       thresholds and its state fields are the real 3985a7 capture's, but hex 000003 / SYNTH03 is an
+       invented label following this repo's existing 000001/000002 synthetic convention - and the hex is
+       LOAD-BEARING here, since it is the tie-break under test. A real second capture could not change
+       the mechanism, but it would make the fixture stronger."
+    - "Dropping seen_pos from the sort means a genuinely STALE record (an aircraft that has already
+       vacated the runway, still being reported) can now win a tie against a fresher one. This is a real
+       trade, not a free win. It is accepted because (a) the old behaviour was not reliably better -
+       it was unstable, so it would oscillate rather than consistently prefer the fresher aircraft, and
+       (b) the correct remedy is a staleness FILTER, which RESULTS.md's measured 36.2s median / 56.7s max
+       update gaps make dangerous to add without more data: any threshold tight enough to catch a vacated
+       aircraft would also drop genuine traffic. Deliberately NOT attempted this pass; recorded as an
+       open residual instead."
+    - "The intersection is keyed on hex with the same `or ''` normalisation the pre-fix comparison used,
+       so two DIFFERENT hex-less records from two feeds would still be treated as the same aircraft.
+       This is pre-existing behaviour, not opened by this change, and no real aggregator record lacks a
+       hex - but it is not fixed here either."
+    - "Not verified against live VPS logs or a live two-aircraft-on-the-pavement event. No capture of a
+       real mechanism-B occurrence exists; the same constraint the diagnosis and the A pass both
+       recorded (no VPS access in any of these sessions). The end-to-end claim remains unproven from the
+       user's frame."
+    - "Mechanism C is untouched and can still swallow a flight on its own, so closing B does not close
+       the user's original symptom."
+
+### Evidence (B pass)
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: B PASS. Derived the second on-pavement position from runway3.json's published thresholds and
+    ran the real detect.py over both records (scratch design_probe.py).
+  found: |
+    The real 3985a7 capture measures along=55.2m, cross=+31.1m - i.e. 55.2m past threshold 07, which is
+    physically "lining up on 07". Mirroring that same real measured distance about the runway midpoint,
+    on the published centreline, gives along=3259.8m / cross=0.0m -> lat 48.727269, lon 2.401346, which
+    is 55.2m short of threshold 25, i.e. "rolling out toward 25". Both records tag on_ground=True,
+    in_corridor=True, track_aligned=True, on_runway3=True, below_ceiling=True, and both score effective
+    altitude exactly 0.0. This is runway3.json's known_residuals item (3) constructed from the runway's
+    own geometry.
+  implication: The surviving mechanism-A residual is reproducible from real geometry, and the two
+    aircraft are genuinely tied - so the tie-break, whatever it is, decides the whole cycle.
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: B PASS. Replayed all 6 committed geofence fixtures plus test_poll_loop.py's synthetic
+    snapshot through the pre-fix (alt, seen_pos, hex) key and the proposed post-fix (alt, hex) key, and
+    scanned every fixture for an effective-altitude tie (scratch replay.py).
+  found: |
+    ZERO selections changed. Additionally, NO committed fixture contains two candidates tied on
+    effective altitude at all - meaning the seen_pos tie-break has never been reached by any real
+    captured data in this repo. Its only observable effect was in the manufactured-disagreement path.
+  implication: Removing seen_pos from the sort key is a no-op on all existing real data. The change
+    cannot silently alter any previously-verified selection; it can only affect the tie case, which is
+    exactly the case it is meant to fix.
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: B PASS. Whether a stable tie-break ALONE closes mechanism B, tested explicitly rather than
+    assumed (this became committed check 35).
+  found: |
+    It does not. With the stable (alt, hex) key in place, adsb.fi holding {000003, 3985a7} selects
+    000003 while adsb.lol holding only {3985a7} selects 3985a7 - the picks still differ, and a pick-only
+    comparison still suppresses the cycle. The divergence comes from the SETS, which determinism cannot
+    reconcile. RESULTS.md measures this asymmetry as real at this geofence (37 hex seen by both, 1 by
+    adsb.fi only, 0 by airplanes.live only, over ~92 minutes).
+  implication: Both halves of the fix are load-bearing. Had this pass stopped at the sort key it would
+    have reduced the frequency of manufactured suppression without closing it, and the residual would
+    have been invisible - the code would have looked deterministic and correct.
+
+- timestamp: 2026-08-28T00:00:00Z
+  checked: B PASS. Post-fix verification - full suite, ruff, attribution, and the harness re-run against
+    a faithfully restored pre-fix implementation (both seams patched back: selection_sort_key and
+    poll_current_aircraft).
+  found: |
+    Full suite green: 9/9 harnesses, 221 checks, coverage 82% (threshold 75). ruff clean.
+    check-attribution.sh PASS. server/test_plane_detection.py 31 -> 37 checks.
+    Against the restored pre-fix implementation: checks 33, 34, 35 and 37 FAIL and nothing else does
+    (33/37, exit 1). Checks 32 and 36 pass in both directions BY DESIGN - 32 is the precondition check
+    (it asserts the pre-fix behaviour is genuinely reproducible, so it MUST hold pre-fix, exactly like
+    checks 11 and 29) and 36 is the D-04 guard (it must hold in both directions, or the fix has gutted
+    the safety net). 36 was deliberately SPLIT during this pass: it originally also asserted the
+    disagreement log line's new content, which made it fail pre-fix and blurred the line between a guard
+    and a regression - that assertion is now check 37.
+  implication: The three checks that assert the fixed behaviour are proven to catch the bug rather than
+    merely to pass alongside it, and the two that are not supposed to flip are documented as such.
+
+### Root cause (mechanism B)
+
+Two independent defects funnelling into the same D-04 suppression branch:
+
+  B1. `select_runway3_aircraft()`'s sort key was `(effective_altitude_ft, seen_pos, hex)`. `seen_pos` is
+      the only element of that key that is a property of the OBSERVER rather than the observed - it is
+      "seconds since this feeder network last received a position report". adsb.fi and adsb.lol are
+      independent feeder networks, queried >=1.1s apart, whose spread on this field is measured in
+      adsb-test/RESULTS.md at tens of seconds. So when two records tie on effective altitude - which the
+      mechanism-A fix made rarer but explicitly did not remove (runway3.json known_residuals item 3: two
+      aircraft both genuinely on the pavement, one lining up on 07 while another rolls out toward 25) -
+      each feed ranked the same two real aircraft differently, purely from staleness noise.
+
+  B2. `poll_current_aircraft()` compared only the two providers' FINAL PICKS. It never asked whether the
+      other provider had also SEEN the winner. Because the two feeds hold overlapping-but-unequal
+      candidate sets as a matter of routine (RESULTS.md: 37 hex common, 1 adsb.fi-only, over ~92
+      minutes; and a 36.2s median position-update gap guarantees a new aircraft reaches one feed before
+      the other), the picks can differ even under a perfectly deterministic sort.
+
+Either defect alone reaches `return None` for the entire cycle, which poll_loop treats as the D-04
+"leave the panel alone" hold - indistinguishable, from the user's chair, from an empty sky.
+
+### Fix (mechanism B)
+
+SCOPE: MECHANISM B ONLY. Mechanism C (device refresh cadence, CONFIG_FP_MIN_REFRESH_SPACING_S, anything
+under firmware/) is UNAPPROVED and was not touched. Mechanism A was not revisited.
+
+B1 - STABLE, PROVIDER-INDEPENDENT TIE-BREAK. The sort key is now `(effective_altitude_ft, hex)`,
+extracted into a module-level `selection_sort_key()` so it is one named thing that can be reasoned about
+and monkeypatched. `hex` is the ICAO 24-bit address: a property of the aircraft, identical across every
+feed that sees it, and constant between polls. It delivers precisely the property D-P2-01's docstring
+already claimed the tie-breaks provided - "the same snapshot always yields the same flight and the
+display never flickers between two simultaneous aircraft" - which `seen_pos` structurally could not,
+because it changes on every poll by definition. `seen_pos` is still carried in the returned dict for
+diagnostics; it is only removed from the ORDERING.
+
+B2 - CORROBORATE THE CANDIDATE SET, NOT THE PICK. `select_runway3_aircraft()` was split (no behaviour
+change) into `runway3_candidates()` - the gated candidate list - and the selection over it, so
+`poll_current_aircraft()` can now see each provider's whole candidate set rather than just its winner.
+Corroboration is now the INTERSECTION of the answering providers' candidate hex sets; the winner is then
+selected once, deterministically, from the FIRST provider's records restricted to that intersection.
+
+  both/all sources share >=1 aircraft -> select from the intersection, corroborated=True
+  exactly one source answered          -> its own pick, corroborated=None (unchanged)
+  no aircraft common to every source   -> log both candidate sets, return None (D-04, unchanged)
+
+WHY THIS DOES NOT WEAKEN D-04. The safety property on what reaches the panel is unchanged: pre-fix, a
+corroborated display required the winner to be in both providers' sets (that is what equal picks
+implies); post-fix, the winner is drawn from the intersection, so it is still in every answering
+provider's set. What narrows is only the SUPPRESSION TRIGGER - from "the picks differ" to "no aircraft
+at all is common to every answering source". The genuine-doubt case the net exists for still suppresses
+(checks 23, 26, 36). A feed carrying a phantom or stale record the other lacks now yields the
+corroborated REAL aircraft rather than a blank panel, because the uncorroborated record is excluded from
+selection rather than merely losing a comparison - so corroboration became more effective, not less.
+Unanimity is preserved exactly as before: the intersection is taken across ALL answering providers, so
+the 3-provider "two agree, one dissents" case still suppresses. Ordering stays load-bearing - the
+first-listed provider's record is still what reaches the renderer (ARCHITECTURE.md; check 25).
+
+The disagreement log line keeps the literal string "providers disagree", so the triage recipe in "Next
+occurrence" below stays valid, but now prints each provider's FULL candidate set instead of just its
+pick - which is what is actually being compared.
+
+RESIDUALS - recorded in runway3.json known_residuals as items (4) and (5), and honestly NOT closed:
+  (4) STALE RECORDS ARE NO LONGER DEPRIORITISED. Dropping seen_pos from the ordering means an aircraft
+      that has already vacated the runway but is still being reported can win a tie against a fresher
+      record. The old behaviour was not reliably better (being unstable, it oscillated rather than
+      consistently preferring the fresher aircraft), and the correct remedy is a staleness FILTER, which
+      RESULTS.md's 36.2s median / 56.7s max update gaps make unsafe to add without more data. Not
+      attempted.
+  (5) A SHARED WRONG ANSWER IS STILL UNDETECTABLE. If both feeds carry the same bad record - the same
+      phantom, or the same stale position - it is in the intersection and will be displayed with
+      corroborated=True. Cross-source corroboration can only catch a disagreement between sources; it
+      has never been able to catch two sources being wrong in the same way, and this change does not
+      alter that.
+
+### Verification (mechanism B)
+
+- FULL SUITE GREEN: `bash scripts/run-all-tests.sh` -> "Result: PASS", 9/9 harnesses, 221 checks,
+  coverage 82% (threshold 75 in pyproject.toml). `server/.venv/bin/ruff check .` -> "All checks
+  passed!". `bash scripts/check-attribution.sh` -> PASS.
+- server/test_plane_detection.py extended 31 -> 37 checks, all passing.
+- REGRESSION CHECKS PROVEN TO CATCH THE BUG, not merely to pass with the fix: restoring the pre-fix
+  implementation at both seams (`selection_sort_key` back to (alt, seen_pos, hex), and
+  `poll_current_aircraft` back to the pick-comparison body, lifted verbatim from commit d9ec8f8) fails
+  EXACTLY checks 33, 34, 35 and 37 -> 33/37, exit 1. Checks 32 and 36 hold in both directions BY DESIGN
+  and this is deliberate: 32 is the precondition check (it asserts the pre-fix ordering really does
+  diverge, so it must hold pre-fix - the same role checks 11 and 29 play for the earlier fixes), and 36
+  is the D-04 guard (it must hold before AND after, or the safety net has been gutted). The harness
+  docstring now states this three-way distinction - regression / precondition / guard - explicitly, so a
+  later reader cannot mistake a guard for a regression and quietly relax it.
+- BEFORE/AFTER REPLAY over every committed fixture plus test_poll_loop.py's synthetic snapshot: ZERO
+  selections changed, and no committed fixture contains an effective-altitude tie at all - the seen_pos
+  tie-break was never reached by any real captured data in this repo.
+- DETERMINISM-ALONE FALSIFIER IS COMMITTED, NOT JUST ARGUED: check 35 asserts on the POST-fix code that
+  the two providers' own per-provider deterministic picks still differ under asymmetric candidate sets,
+  so the claim "a stable tie-break would not have been enough" is enforced by a test rather than left as
+  prose.
+- D-04 GUARDED FROM THREE ANGLES: pre-existing checks 23 and 26 (disjoint single-candidate sets, via
+  explicit providers and via the production default order) plus new check 36 (disjoint MULTI-candidate
+  sets, the case where set-comparison and pick-comparison could have diverged), which also asserts the
+  stderr line still contains the literal "providers disagree" that the triage runbook greps for.
+- LIVE END-TO-END: `server/plane/detect.py` and `--json` both ran clean against the real endpoints
+  through the rewritten corroboration path (exit 0, no stderr, "no aircraft in the runway-3 geofence" /
+  `null`). CAVEAT, same as the mechanism-A pass: both adsb.fi and adsb.lol returned 0 raw records at
+  that moment - Orly is under curfew at this hour - so the run exercised the code path but NOT the
+  corroboration logic. There is no live capture of the fixed comparison accepting real traffic.
+- NOT VERIFIED: no live VPS correlation and no capture of a real mechanism-B occurrence - the same
+  constraint the diagnosis and mechanism-A passes both recorded. The fixture's second pavement aircraft
+  has a synthetic identity (see blind_spots). Mechanism C is untouched, so this does not close the
+  user's original symptom end to end.
+
+files_changed (B pass):
+  - server/plane/detect.py (selection_sort_key() extracted, seen_pos removed from the ordering;
+    runway3_candidates() split out of select_runway3_aircraft(); poll_current_aircraft() corroborates
+    by candidate-set intersection; docstrings recording why)
+  - server/test_plane_detection.py (31 -> 37 checks, plus a docstring section distinguishing
+    regression checks from precondition checks and guards)
+  - server/fixtures/geofence_pavement_pair.json (NEW)
+  - server/fixtures/README.md (provenance, real/derived/synthetic split field by field)
+  - adsb-test/runway3.json (known_residuals item 3 marked CLOSED; items 4 and 5 opened)
+  - ARCHITECTURE.md (detection paragraph updated to describe set-level corroboration)
+
 ## Next occurrence - how to tell the mechanisms apart
 
-- `journalctl -u skypane-poll | grep "providers disagree"` -> mechanism B, names both hexes.
+- `journalctl -u skypane-poll | grep "providers disagree"` -> a cross-source disagreement. Since the
+  2026-08-28 mechanism-B fix this line prints each feed's FULL candidate set, not just its winner, and
+  it now fires ONLY when no aircraft at all is common to the two feeds. A hit here is therefore a
+  GENUINE disagreement worth investigating on its merits - the manufactured kind (same aircraft, feeds
+  ordering them differently; or one feed simply not having received a record yet) no longer reaches it.
 - `journalctl -u skypane-poll | grep poll_loop` -> a constant `hex=` with `panel_changed=False` across
   many consecutive polls -> mechanism A. NOTE a suppressed cycle logs `hex=None ... panel_changed=False`,
   byte-identical to a genuinely empty sky; only the stderr line above separates the two.
 - `journalctl -u skypane-byos` -> `GET /device/v1/display` timestamps; if panel_changed=True events
   outpace device fetches, mechanism C.
-- OBSERVABILITY GAP worth closing first: select_runway3_aircraft() discards the candidate list, so
-  "the right aircraft was present and lost the sort" is currently unprovable from logs. Logging the
+- OBSERVABILITY GAP, PARTIALLY CLOSED 2026-08-28. The SUPPRESSED path is now fully diagnosable: the
+  disagreement line above prints every candidate each feed saw. The SUCCESSFUL path is not - a normal
+  poll still logs only the winner, so "the right aircraft was present and lost the sort" remains
+  unprovable from logs. `runway3_candidates()` now exists as a named function, so logging the
   per-provider candidate set (hex, eff_alt, cross_track_m, on_ground) - or just the count and the
-  runner-up - would make A and B unambiguous next time without anyone having to be watching the sky.
+  runner-up - on every poll is a small change whenever it is wanted.
