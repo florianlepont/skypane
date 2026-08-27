@@ -271,6 +271,7 @@ class Handler(BaseHTTPRequestHandler):
             "ui_theme": self._resolved_ui_theme(),
             "device_config": device_config.load_device_config(state_dir),
             "flash": _resolve_flash_text(flash_key, state_dir),
+            "poll_cooldown_remaining": poll_cooldown_remaining(state_dir),
             "now": history_db.utc_now_iso(),
         }
 

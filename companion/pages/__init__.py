@@ -17,6 +17,11 @@ Every page module in this package exposes:
           already-normalised {"theme": ..., "tracked_runway": ...} dict
         - flash: the resolved flash-banner text (already looked up
           through app.py's own fixed flash-key dictionary), or None
+        - poll_cooldown_remaining: seconds remaining before another
+          POST /poll-now is allowed (0 when the cooldown has elapsed) —
+          added by plan 06-07 so config_page can render the CFG-07
+          trigger button's enabled/disabled state without importing
+          companion/app.py itself (that would be a cycle)
         - now: a UTC ISO-8601 timestamp string for this request
 
     handle_post(form, ctx) -> str
