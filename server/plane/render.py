@@ -318,19 +318,95 @@ def _flight_line1_text(flight, state, route):
     return callsign
 
 
-def _flight_line2_text(route):
-    """The airline name, or `ROUTE_FALLBACK_TEXT` on an enrichment miss.
+# Friendly human-readable labels for the ICAO type designators detect.py's
+# aircraft_type field can carry (03.1-02), closing D-26's original
+# `{airline} · {aircraft_type}` brief with a legible label rather than a raw
+# code (P-02: neo/MAX variants are named explicitly, not collapsed to the
+# base family - more informative, cosmetic, and reversible per CONTEXT.md's
+# Claude's Discretion). Covers every designator in
+# illustrations._TYPE_SHAPE_BUCKETS; a designator present in that bucket
+# table but absent here is allowed and simply renders the airline name
+# alone via _flight_line2_text()'s fallback - not every ICAO code needs a
+# friendly label for line 2 to degrade safely.
+_TYPE_DISPLAY_LABELS = {
+    # A320 family - familiar designations, neo variants named.
+    "A318": "A318", "A319": "A319", "A320": "A320", "A321": "A321",
+    "A20N": "A320neo", "A21N": "A321neo",
+    # B737 family - commercial model numbers, MAX variants named.
+    "B731": "737-100", "B732": "737-200", "B733": "737-300", "B734": "737-400",
+    "B735": "737-500", "B736": "737-600", "B737": "737-700", "B738": "737-800",
+    "B739": "737-900", "B37M": "737 MAX 7", "B38M": "737 MAX 8",
+    "B39M": "737 MAX 9", "B3XM": "737 MAX 10",
+    # ATR turboprops.
+    "AT43": "ATR 42", "AT44": "ATR 42-500", "AT45": "ATR 42", "AT46": "ATR 42-600",
+    "AT72": "ATR 72", "AT73": "ATR 72", "AT75": "ATR 72-500", "AT76": "ATR 72-600",
+    # Beechcraft 1900D.
+    "BE9L": "Beechcraft 1900D",
+    # Embraer E-Jet family - keep the E1xx designations.
+    "E135": "E135", "E145": "E145", "E170": "E170", "E75L": "E175",
+    "E75S": "E175", "E190": "E190", "E195": "E195", "E290": "E190-E2",
+    "E295": "E195-E2",
+    # A330 family.
+    "A332": "A330-200", "A333": "A330-300", "A339": "A330-900neo",
+    # A350 family.
+    "A359": "A350-900", "A35K": "A350-1000",
+}
 
-    D-26's brief also asked for `{airline} · {aircraft_type}` - real
-    per-flight aircraft-type data does not exist yet (that is Phase 3.1,
-    deliberately deferred pending ADS-B aircraft-type verification), so
-    this line is the airline name alone rather than a fabricated type.
+# P-01: a presentation-only display alias for the one carrier that
+# rebranded in 2013. `adsbdb` still resolves the literal string "CCM
+# Airlines" (confirmed live, 03.1-LIVE-RESOLUTION.md), and
+# illustrations.py's selection key and vendored filename deliberately keep
+# that literal string - only the panel text shown to a human reads the
+# carrier's current public brand. Adding an entry here can never affect
+# which illustration file is selected, and can never mask a genuine future
+# route-API miss (D-04's real concern is what a human reads on the glass,
+# not the filename).
+_AIRLINE_DISPLAY_ALIASES = {
+    "CCM Airlines": "Air Corsica",
+}
+
+
+def display_airline_name(airline_name):
+    """Return the presentation-only display name for `airline_name` (P-01):
+    the aliased brand name when one exists, otherwise `airline_name`
+    unchanged. Returns `airline_name` unchanged for any non-string or
+    falsy value. Never raises.
     """
-    if route is not None:
-        airline_name = route.get("airline_name")
-        if airline_name:
-            return airline_name
-    return ROUTE_FALLBACK_TEXT
+    if not isinstance(airline_name, str) or not airline_name:
+        return airline_name
+    return _AIRLINE_DISPLAY_ALIASES.get(airline_name, airline_name)
+
+
+def _flight_line2_text(route, aircraft_type=None):
+    """`"{airline} · {friendly type label}"`, closing D-26's original brief
+    now that real per-flight type data exists (detect.py's `aircraft_type`
+    field, 03.1-02) and a type-to-shape classifier exists to size the art
+    (illustrations.classify_aircraft_type(), 03.1-03). The displayed
+    airline name is resolved through `display_airline_name()` (P-01) - a
+    presentation-only alias that never reaches illustration selection.
+
+    Falls back to the display name alone when `aircraft_type` is missing
+    or has no friendly label in `_TYPE_DISPLAY_LABELS` - an unlabelled or
+    absent type never fabricates a label and never renders an empty
+    separator. Falls back to `ROUTE_FALLBACK_TEXT` on an enrichment miss
+    (no route, or a route with no airline name), regardless of what type
+    was detected - an enrichment miss is still a miss.
+
+    Never raises for a non-dict route, a non-string airline name, or a
+    hostile aircraft type.
+    """
+    try:
+        airline_name = route.get("airline_name") if isinstance(route, dict) else None
+    except Exception:
+        airline_name = None
+    if not airline_name:
+        return ROUTE_FALLBACK_TEXT
+    display_name = display_airline_name(airline_name)
+    type_key = aircraft_type.strip().upper() if isinstance(aircraft_type, str) and aircraft_type else None
+    label = _TYPE_DISPLAY_LABELS.get(type_key) if type_key else None
+    if label:
+        return "%s · %s" % (display_name, label)
+    return "%s" % (display_name,)
 
 
 def draw_main_text_block(canvas, flight, state, route, main_bbox, ink_idx):
@@ -346,7 +422,7 @@ def draw_main_text_block(canvas, flight, state, route, main_bbox, ink_idx):
     safe_width = SAFE_BOX[2] - SAFE_BOX[0]
 
     line1_text = _flight_line1_text(flight, state, route)
-    line2_text = _flight_line2_text(route)
+    line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
 
     line1_font = fit_text_size(PT_SERIF_REGULAR, MAIN_LINE1_FONT[1], line1_text, safe_width, MAIN_LINE1_MIN_SIZE)
     line2_font = fit_text_size(PT_SERIF_REGULAR, MAIN_LINE2_FONT[1], line2_text, safe_width, MAIN_LINE2_MIN_SIZE)
@@ -378,7 +454,7 @@ def draw_previous_text_block(canvas, flight, state, route, prev_bbox, ink_idx):
     available_width = right_x - SAFE_BOX[0]
 
     line1_text = _flight_line1_text(flight, state, route)
-    line2_text = _flight_line2_text(route)
+    line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
     line1_font = fit_text_size(PT_SERIF_REGULAR, PREVIOUS_LINE1_FONT[1], line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE)
     line2_font = fit_text_size(PT_SERIF_REGULAR, PREVIOUS_LINE2_FONT[1], line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE)

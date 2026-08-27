@@ -33,15 +33,15 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 26
+EXPECTED_CHECK_COUNT = 32
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
 LEGAL_NIBBLES = {NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN}
 LEGAL_IDX = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN}
 
-TEST_FLIGHT = {"hex": "3985a7", "callsign": "AF1380"}
-TEST_PREVIOUS_FLIGHT = {"hex": "4a1b02", "callsign": "VLG6PD"}
+TEST_FLIGHT = {"hex": "3985a7", "callsign": "AF1380", "aircraft_type": "B738"}
+TEST_PREVIOUS_FLIGHT = {"hex": "4a1b02", "callsign": "VLG6PD", "aircraft_type": "A320"}
 
 # A real resolved route (server/fixtures/adsbdb_hit_TVF16VB.json, already
 # sentence-cased per server.plane.enrich.to_sentence_case_city) - its
@@ -396,12 +396,14 @@ def main():
             render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
         texts = [t for t, _xy, _anchor in spy.calls]
         expected_line1 = "%s to %s" % (TEST_FLIGHT["callsign"], TEST_ROUTE["destination_city"])
+        type_label = render._TYPE_DISPLAY_LABELS[TEST_FLIGHT["aircraft_type"]]
+        expected_line2 = "%s · %s" % (TEST_ROUTE["airline_name"], type_label)
         if expected_line1 not in texts:
             return False, "expected main line 1 %r among the text draws, got %r" % (expected_line1, texts)
-        if TEST_ROUTE["airline_name"] not in texts:
-            return False, "expected main line 2 (airline name) %r among the text draws, got %r" % (TEST_ROUTE["airline_name"], texts)
+        if expected_line2 not in texts:
+            return False, "expected main line 2 %r among the text draws, got %r" % (expected_line2, texts)
         return True, ""
-    check("departing main flight text is '{callsign} to {destination_city}' / '{airline_name}' (D-26 lowercase sentence text)", _departing_main_text_uses_lowercase_to)
+    check("departing main flight text is '{callsign} to {destination_city}' / '{airline_name} · {type_label}' (D-26/PLANE-04)", _departing_main_text_uses_lowercase_to)
 
     def _arriving_main_text_uses_lowercase_from():
         with _TextSpy(render) as spy:
@@ -434,10 +436,12 @@ def main():
             )
         texts = [t for t, _xy, _anchor in spy.calls]
         expected_line1 = "%s from %s" % (TEST_PREVIOUS_FLIGHT["callsign"], TEST_PREVIOUS_ROUTE["origin_city"])
+        type_label = render._TYPE_DISPLAY_LABELS[TEST_PREVIOUS_FLIGHT["aircraft_type"]]
+        expected_line2 = "%s · %s" % (TEST_PREVIOUS_ROUTE["airline_name"], type_label)
         if expected_line1 not in texts:
             return False, "expected previous-flight line 1 %r among the text draws, got %r" % (expected_line1, texts)
-        if TEST_PREVIOUS_ROUTE["airline_name"] not in texts:
-            return False, "expected previous-flight line 2 (airline name) %r among the text draws, got %r" % (TEST_PREVIOUS_ROUTE["airline_name"], texts)
+        if expected_line2 not in texts:
+            return False, "expected previous-flight line 2 %r among the text draws, got %r" % (expected_line2, texts)
         return True, ""
     check("a supplied previous_flight/previous_route renders its own real two-line text block", _previous_flight_card_renders_its_own_text)
 
@@ -516,7 +520,87 @@ def main():
         _long_name_stress_case_shrinks_without_crashing,
     )
 
-    # 26. No text-outline arguments anywhere in the source (still a real
+    # 26. An unlabelled designator renders the airline name alone.
+    def _unlabelled_type_renders_airline_alone():
+        result = render._flight_line2_text({"airline_name": "Air France"}, "ZZZZ")
+        if result != "Air France":
+            return False, "expected 'Air France' for an unlabelled designator, got %r" % (result,)
+        return True, ""
+    check(
+        "_flight_line2_text() renders the airline name alone for an unlabelled (unrecognized) type designator",
+        _unlabelled_type_renders_airline_alone,
+    )
+
+    # 27. A None type renders the airline name alone.
+    def _none_type_renders_airline_alone():
+        result = render._flight_line2_text({"airline_name": "Air France"}, None)
+        if result != "Air France":
+            return False, "expected 'Air France' for aircraft_type=None, got %r" % (result,)
+        return True, ""
+    check("_flight_line2_text() renders the airline name alone for aircraft_type=None", _none_type_renders_airline_alone)
+
+    # 28. The one-argument call (aircraft_type omitted entirely) renders the
+    # airline name alone.
+    def _one_argument_call_renders_airline_alone():
+        result = render._flight_line2_text({"airline_name": "Air France"})
+        if result != "Air France":
+            return False, "expected 'Air France' for the one-argument call, got %r" % (result,)
+        return True, ""
+    check("_flight_line2_text() renders the airline name alone when aircraft_type is omitted entirely", _one_argument_call_renders_airline_alone)
+
+    # 29. The P-01 display alias: the one carrier with a display alias
+    # renders under its current public brand while a non-aliased airline
+    # is returned unchanged, and the alias never touches selection.
+    def _display_airline_name_applies_the_p01_alias_only_where_defined():
+        if render.display_airline_name("CCM Airlines") != "Air Corsica":
+            return False, "display_airline_name('CCM Airlines') did not return the P-01 alias 'Air Corsica'"
+        if render.display_airline_name("Air France") != "Air France":
+            return False, "display_airline_name('Air France') should return the input unchanged (no alias)"
+        aliased_line2 = render._flight_line2_text({"airline_name": "CCM Airlines"}, "AT72")
+        if "Air Corsica" not in aliased_line2 or "CCM Airlines" in aliased_line2:
+            return False, "_flight_line2_text() with the CCM Airlines route did not render the P-01 alias: %r" % (aliased_line2,)
+        return True, ""
+    check(
+        "the P-01 presentation-only airline alias renders the current brand name; a non-aliased airline is unchanged",
+        _display_airline_name_applies_the_p01_alias_only_where_defined,
+    )
+
+    # 30. Never-raises battery: malformed routes crossed with hostile
+    # aircraft types must never raise, and the result is always a string.
+    def _flight_line2_text_never_raises_for_hostile_inputs():
+        malformed_routes = (None, {}, "not-a-dict", 42, ["a", "list"], {"airline_name": 12345})
+        hostile_types = (None, "", "   ", "../../etc/passwd", "..\\..\\windows", 999, ["x"], "z" * 500)
+        for route in malformed_routes:
+            for aircraft_type in hostile_types:
+                try:
+                    result = render._flight_line2_text(route, aircraft_type)
+                except Exception as exc:
+                    return False, "_flight_line2_text(%r, %r) raised %r" % (route, aircraft_type, exc)
+                if not isinstance(result, str):
+                    return False, "_flight_line2_text(%r, %r) returned non-string %r" % (route, aircraft_type, result)
+        return True, ""
+    check(
+        "_flight_line2_text() never raises across a battery of malformed routes x hostile aircraft types, and always returns a string",
+        _flight_line2_text_never_raises_for_hostile_inputs,
+    )
+
+    # 31. TEST_LONG_ROUTE combined with the longest known type label still
+    # fits without tripping _assert_within_canvas - the composed line 2 is
+    # strictly longer than today's, exercising fit_text_size()'s shrink path.
+    def _long_name_plus_longest_label_fits_within_canvas():
+        longest_type, longest_label = max(render._TYPE_DISPLAY_LABELS.items(), key=lambda kv: len(kv[1]))
+        long_flight = dict(TEST_FLIGHT, aircraft_type=longest_type)
+        try:
+            render.build_canvas(long_flight, "arriving", route=TEST_LONG_ROUTE)
+        except AssertionError as exc:
+            return False, "long airline name + longest type label (%r) raised an assertion: %r" % (longest_label, exc)
+        return True, ""
+    check(
+        "the longest real airline name combined with the longest type label still renders without tripping _assert_within_canvas",
+        _long_name_plus_longest_label_fits_within_canvas,
+    )
+
+    # 32. No text-outline arguments anywhere in the source (still a real
     # regression guard: Pillow's stroke_width/stroke_fill leak illegal
     # anti-aliased indices through blended stroke edges).
     def _render_source_never_uses_text_outline_arguments():
