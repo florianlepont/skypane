@@ -12,12 +12,18 @@ this plan (02-RESEARCH.md's Don't Hand-Roll table).
 
 Cross-cycle state (D-P2-02): this script has no in-process memory between
 invocations, so the last detected flight, last chosen state, the pending
-display queue (see "Display pacing" below), and the unrecognized-ICAO-prefix
+display queue (see "Display pacing" below), the unrecognized-ICAO-prefix
 registry (quick task 260827-oz9 - journald rotates, the coverage question
-does not) all live in `<state_dir>/poll_state.json`, written with the same
+does not), and (05-02, DEVICE-04) the hysteretic battery_low_active decision
+all live in `<state_dir>/poll_state.json`, written with the same
 tmp-write-then-os.replace() pattern stub-server/byos_server.py's
 save_state() uses. An unreadable or malformed state file is treated as empty
 state, never as a crash.
+`<state_dir>/battery_state.json` is a second, read-only input this module
+never writes - it is owned and written exclusively by
+stub-server/byos_server.py's save_battery_state() (05-RESEARCH.md
+Pitfall 4: two processes read-modify-writing one JSON file is a real
+lost-update race, and neither unit takes a lock).
 
 Display pacing (mechanism-C mitigation, 2026-08-28 - see
 .planning/debug/resolved/missed-flights-not-displayed.md): this server
@@ -240,6 +246,21 @@ def pop_fresh_pending(pending, now, max_staleness_s=None):
     return None, dropped
 
 
+# DEVICE-04 battery-low hysteresis thresholds, raw millivolts (D-02: never a
+# derived percentage/state-of-charge estimate - no real discharge curve
+# exists for this pack yet, so a percentage would be fabricated precision;
+# raw mV is how hardware/logtools.py's check-battery already reasons about
+# it). BATTERY_LOW_THRESHOLD_MV = 3500 is 05-CONTEXT.md D-01's reasoned
+# estimate, chosen to sit with real margin above hardware/logtools.py's
+# --cutoff-mv 3400 "genuinely depleted" convention so the warning fires with
+# days of runway left - to be retuned once plan 05-01's Tasks 2-3 produce a
+# real discharge curve for this pack (a one-line constant change, not a
+# replan). BATTERY_LOW_CLEAR_MV = 3600 is 05-UI-SPEC.md's 100 mV re-arm
+# buffer resolving D-01's hysteresis discretion item.
+BATTERY_LOW_THRESHOLD_MV = 3500
+BATTERY_LOW_CLEAR_MV = 3600
+
+
 def _extract_aircraft(snapshot):
     """A raw aggregator response dict (as injected by tests, or as returned
     by one of detect.PROVIDERS) carries its aircraft array under a
@@ -287,6 +308,53 @@ def load_poll_state(state_dir):
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def load_battery_state(state_dir):
+    """Read-only: `<state_dir>/battery_state.json` is owned and written
+    exclusively by stub-server/byos_server.py's save_battery_state() (05-02
+    Task 2) - this function never writes it (05-RESEARCH.md Pitfall 4).
+
+    Returns the int `battery_mv` reading, or None on: a missing file,
+    invalid JSON, a non-dict payload, a missing `battery_mv` key, or a
+    `battery_mv` that is a bool, not an int, or not strictly positive.
+    Degrades, never raises - matching load_poll_state()'s own shape.
+    """
+    try:
+        with open(os.path.join(state_dir, "battery_state.json")) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    mv = data.get("battery_mv")
+    if isinstance(mv, bool) or not isinstance(mv, int) or mv <= 0:
+        return None
+    return mv
+
+
+def apply_battery_hysteresis(battery_mv, was_active):
+    """Pure function: the D-04/D-06 battery-low decision, with hysteresis
+    between BATTERY_LOW_THRESHOLD_MV (3500) and BATTERY_LOW_CLEAR_MV (3600).
+
+    `battery_mv=None` (never reported, or load_battery_state() degraded on
+    an unreadable/malformed file) returns `was_active` unchanged - a device
+    that has never reported must not spuriously show the icon, and a
+    temporarily unreadable file must not spuriously clear a real warning.
+
+    Otherwise: when `was_active` is truthy (already showing the warning),
+    it clears only once the reading is strictly below BATTERY_LOW_CLEAR_MV
+    - `battery_mv < BATTERY_LOW_CLEAR_MV`. When not already active, it sets
+    the warning at the threshold, inclusive - `battery_mv <=
+    BATTERY_LOW_THRESHOLD_MV`. A reading strictly between the two constants
+    deliberately holds the previous decision in BOTH directions (Pitfall
+    5): it can neither newly arm nor newly clear the warning.
+    """
+    if battery_mv is None:
+        return was_active
+    if was_active:
+        return battery_mv < BATTERY_LOW_CLEAR_MV
+    return battery_mv <= BATTERY_LOW_THRESHOLD_MV
 
 
 def save_poll_state(state_dir, state):
@@ -381,6 +449,15 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     # that detects nothing raises UnboundLocalError.
     unknown_prefix = None
 
+    # 05-02 (DEVICE-04): the battery-low decision, computed before any
+    # branching for the same reason - every branch (including both
+    # no-detection branches) needs it, either to thread into a render call
+    # or to decide whether a hold-cycle re-render is warranted.
+    was_battery_low = bool(poll_state.get("battery_low_active", False))
+    battery_low = apply_battery_hysteresis(load_battery_state(state_dir), was_battery_low)
+    battery_changed = battery_low != was_battery_low
+    poll_state["battery_low_active"] = battery_low
+
     # --- Display pacing: which detection occupies the "current" slot -------
     #
     # Mechanism-C mitigation. `flight` is what this poll DETECTED; it is not
@@ -388,7 +465,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     # the pending queue, and the "current" slot advances no faster than
     # MIN_ADVANCE_INTERVAL_S so the device gets a real chance to fetch and
     # blit each one. Nothing about the selection that produced `flight`, and
-    # nothing about the two-slot poster layout (D-25/D-26), changes here.
+    # nothing about the two-slot poster layout (D-25/D-26), changes here - the
+    # actual current/previous shift happens once, below, at the point a
+    # queued aircraft is promoted (whether that promotion is immediate, on
+    # the very first detection, or delayed via the pending queue).
     promoted = None       # the aircraft that BECAME "current" on this cycle
     refreshed = False     # the same aircraft as "current", re-observed
     dropped = []          # hexes this cycle discarded - the residual loss
@@ -459,7 +539,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             render_state = "empty"
             route_source = "n/a"
             route = None
-            rendered = render.render_panel(None, render_state)
+            rendered = render.render_panel(None, render_state, battery_low=battery_low)
         else:
             render_state = confirmed_state
             # D-02/D-P2-05: resolve the airline + route for zones 7/9 via a
@@ -506,6 +586,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
                 previous_flight=previous_flight,
                 previous_route=previous_route,
                 previous_state=previous_confirmed_state,
+                battery_low=battery_low,
             )
         panel_changed = write_panel_atomic(state_dir, rendered)
         poll_state["last_flight"] = current_flight
@@ -530,6 +611,27 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         state_source = "held"
         route_source = "held"
         panel_changed = False
+        # 05-02 (DEVICE-04): the only OTHER thing that can have changed here
+        # is the battery decision, so this guarded re-render is D-04-
+        # compatible - it does not invent a waiting state, expire the held
+        # flight, or alter any flight-derived pixel. A frame that sits in
+        # this branch all night would otherwise never show a battery warning
+        # that arose during it, defeating DEVICE-04 in exactly the situation
+        # the icon exists for.
+        if battery_changed:
+            if confirmed_state is not None:
+                rendered = render.render_panel(
+                    current_flight,
+                    confirmed_state,
+                    route=current_route,
+                    previous_flight=previous_flight,
+                    previous_route=previous_route,
+                    previous_state=previous_confirmed_state,
+                    battery_low=battery_low,
+                )
+            else:
+                rendered = render.render_panel(None, "empty", battery_low=battery_low)
+            panel_changed = write_panel_atomic(state_dir, rendered)
         if queue_dirty:
             # Nothing displayed changed, but the QUEUE did, and this script
             # has no memory across invocations (D-P2-02) - an unpersisted
@@ -537,6 +639,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             # would silently disable the whole mitigation.
             poll_state["pending_flights"] = pending
             poll_state["last_advance_at"] = last_advance_at
+        if battery_changed or queue_dirty:
             save_poll_state(state_dir, poll_state)
     else:
         # Nothing detected, and nothing has ever been detected since the
@@ -545,8 +648,14 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         render_state = "empty"
         state_source = "held"
         route_source = "n/a"
-        rendered = render.render_panel(None, render_state)
+        rendered = render.render_panel(None, render_state, battery_low=battery_low)
         panel_changed = write_panel_atomic(state_dir, rendered)
+        # 05-02 (DEVICE-04): the flight-detected branch above always calls
+        # save_poll_state() unconditionally; this branch otherwise never
+        # does, so the hysteresis memory would not survive this oneshot's
+        # process boundary on a frame that has never seen an aircraft.
+        if battery_changed:
+            save_poll_state(state_dir, poll_state)
 
     # T-02-04-05: log only the callsign, the enrichment outcome
     # (cache_hit / fresh_hit / miss / n/a / held), and the selection's own
@@ -571,12 +680,17 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     #            flights this mitigation still cannot show. It exists because
     #            the whole reason mechanism C went undiagnosed for so long is
     #            that it was invisible in this server's own logs.
-    # All three are derived from this project's own selected-aircraft records,
-    # never from a third-party response body (T-02-04-05).
+    # 05-02 (DEVICE-04): battery_low is likewise this project's own device
+    # telemetry-derived boolean, never third-party response content, so it
+    # also stays within the T-02-04-05 logging rule - the raw millivolt
+    # value itself is deliberately never logged.
+    # All fields above are derived from this project's own selected-aircraft
+    # records or device telemetry, never from a third-party response body
+    # (T-02-04-05).
     print(
         "poll_loop: hex=%s callsign=%s aircraft_type=%s corroborated=%s altitude_ft=%s confirmed_state=%s "
         "render_state=%s state_source=%s route_source=%s unknown_prefix=%s shown=%s pending=%d dropped=%s "
-        "panel_changed=%s"
+        "battery_low=%s panel_changed=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
@@ -591,6 +705,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             (current_flight or {}).get("hex"),
             len(pending),
             ",".join(str(h) for h in dropped) if dropped else None,
+            battery_low,
             panel_changed,
         )
     )

@@ -19,27 +19,39 @@ Subcommands:
                  check plus a summary line, and exits 0 only when every
                  check passed.
 
-  check-battery  Read one or more captured stub-server stdout logs
-                 (concatenated in the order given) and decide whether
-                 they show a valid unattended battery discharge run, as
-                 opposed to a run interrupted by a sleeping host or a
-                 pack that was never actually off USB power. Also
-                 computes the D-07 mAh-per-cycle figure and a two-ended
-                 projection band for candidate wake intervals. In gated
-                 mode (the default) prints one PASS/FAIL line per check
-                 plus a summary line and exits 0 only when every check
-                 passed. In --status mode, prints the same derived
-                 figures with no gating at all and always exits 0 — the
-                 daily check-in command, which must never fail a
-                 developer's routine glance just because the run has
-                 not finished yet.
+  from-journal   Convert journalctl -o short-iso output into the
+                 bracketed [ISO-8601] shape check-battery already
+                 parses, reading from the given file paths (concatenated
+                 in order) or from stdin when none are given. Writes
+                 converted lines to stdout only; journal markers and
+                 lines that fail conversion are dropped, with a single
+                 dropped-line count written to stderr. Bridges the
+                 production server's journald record onto the exact
+                 checker that was written for a locally captured pipe.
+
+  check-battery  Read one or more captured server stdout logs — stamped
+                 locally by `stamp`, or converted from journald by
+                 `from-journal` — (concatenated in the order given) and
+                 decide whether they show a valid unattended battery
+                 discharge run, as opposed to a run interrupted by a
+                 sleeping host or a pack that was never actually off USB
+                 power. Also computes the D-07 mAh-per-cycle figure and
+                 a two-ended projection band for candidate wake
+                 intervals. In gated mode (the default) prints one
+                 PASS/FAIL line per check plus a summary line and exits
+                 0 only when every check passed. In --status mode,
+                 prints the same derived figures with no gating at all
+                 and always exits 0 — the daily check-in command, which
+                 must never fail a developer's routine glance just
+                 because the run has not finished yet.
 
   selftest       Run check-backoff against the three fixtures under
-                 hardware/fixtures/, and check-battery against three
-                 more, each with the flags it is meant to be judged
-                 under, and assert the good ones are accepted while the
-                 bad ones are rejected. A checker that has never been
-                 shown a bad log has not been tested.
+                 hardware/fixtures/, and check-battery against four
+                 more (including a from-journal-converted one), each
+                 with the flags it is meant to be judged under, and
+                 assert the good ones are accepted while the bad ones
+                 are rejected. A checker that has never been shown a
+                 bad log has not been tested.
 
 Only argparse, datetime, os, re, subprocess and sys are imported — no pip
 install, matching this phase's zero-external-install property.
@@ -84,6 +96,22 @@ def curve_seconds(n):
 # text, so every pattern below is applied with .search(), not .match().
 
 TS_RE = re.compile(r"^\[([^\]]+)\]")
+
+# journalctl -o short-iso line shape (see `from-journal` below):
+#   2026-08-01T00:00:00+0200 hostname python3[1234]:   telemetry: ...
+# Group 1 is the timestamp (offset may be Z, +HHMM or +HH:MM); the
+# hostname and syslog identifier (with an optional bracketed pid) are
+# matched but not captured, since the identifier is derived from the
+# interpreter binary journald ran (e.g. "python3"), not any fixed
+# script name, and must not be pinned to a particular value. Group 2 is
+# the rest of the line, i.e. whatever the unit actually printed to
+# stdout, preserved exactly including its own leading whitespace.
+JOURNAL_RE = re.compile(
+    r"^([0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:?[0-9]{2})?)"
+    r"\s+\S+\s+[^\s:]+(?:\[\d+\])?:\s?(.*)$"
+)
+
 WAKE_RE = re.compile(r"wake reason=([\w-]+) boot_count=(\d+)")
 POLL_OK_RE = re.compile(r"poll ok sleep_s=(\d+) hash_skip=([01])")
 POLL_FAIL_RE = re.compile(r"poll fail step=(\w+) backoff_n=(\d+) sleep_s=(\d+)")
@@ -120,6 +148,27 @@ def parse_timestamp(line):
         return datetime.datetime.fromisoformat(m.group(1))
     except ValueError:
         return None
+
+
+def normalize_journal_timestamp(raw):
+    """Normalize a journalctl short-iso timestamp so it satisfies
+    datetime.datetime.fromisoformat() the same way on every Python
+    release this project might run under. Two changes only, nothing
+    else: a trailing "Z" becomes "+00:00", and a four-digit offset
+    written without a colon (e.g. "+0200") gains one ("+02:00").
+    fromisoformat() before Python 3.11 rejects both of those raw forms;
+    normalizing them here removes the whole question of which minor
+    version the developer's machine or the VPS happens to run. No
+    timezone conversion and no fractional-second truncation happen
+    here - the instant in time is left exactly as journald recorded it.
+    """
+    if raw.endswith("Z"):
+        return raw[:-1] + "+00:00"
+    m = re.search(r"[+-][0-9]{2}[0-9]{2}$", raw)
+    if m:
+        offset = m.group(0)
+        return raw[:m.start()] + offset[:3] + ":" + offset[3:]
+    return raw
 
 
 def parse_line(line):
@@ -320,7 +369,9 @@ def load_battery_polls(paths):
     a timestamp; polls is the list of BatteryPoll for the lines that
     carry both. The distinction lets check_timestamps_and_min_polls tell
     "no battery telemetry at all" apart from "battery telemetry present,
-    but the stamp filter was left out of the capture pipeline".
+    but the stamp filter (for a local capture) or the from-journal
+    conversion step (for a server-side capture) was left out of the
+    pipeline".
     """
     all_matches = 0
     polls = []
@@ -400,12 +451,22 @@ def check_timestamps_and_min_polls(all_matches, polls):
     if not polls:
         return CheckResult(name, "FAIL",
             "battery telemetry is present but no line carries a timestamp "
-            "- the stamp filter was left out of the capture pipeline, "
-            "destroying the elapsed-time evidence")
+            "- the stamp filter (local capture) or the from-journal "
+            "conversion step (server-side capture) was left out of the "
+            "pipeline, destroying the elapsed-time evidence")
     if len(polls) < 2:
         return CheckResult(name, "FAIL",
             "only %d timestamped battery poll(s) found, need at least 2" %
             len(polls))
+    aware = sum(1 for p in polls if p.ts.tzinfo is not None)
+    if 0 < aware < len(polls):
+        return CheckResult(name, "FAIL",
+            "%d of %d timestamped polls carry timezone-offset information "
+            "and %d do not - this is almost always a stamp-produced log "
+            "(no offset) concatenated with a from-journal-converted one "
+            "(carries an offset); analyse them as what they are rather "
+            "than as one consistent series" %
+            (aware, len(polls), len(polls) - aware))
     return CheckResult(name, "PASS")
 
 
@@ -424,8 +485,10 @@ def check_coverage(stats, min_coverage):
     if stats["coverage"] >= min_coverage:
         return CheckResult(name, "PASS")
     return CheckResult(name, "FAIL",
-        "coverage is %.3f (observed=%d, nominal=%.1f), below %.2f - a "
-        "sleeping host or a moved DHCP lease is the likely cause" %
+        "coverage is %.3f (observed=%d, nominal=%.1f), below %.2f - the "
+        "frame losing home Wi-Fi or internet, the server unit restarting, "
+        "or journald having rotated the earliest entries out of the "
+        "window being converted are the likely causes" %
         (stats["coverage"], stats["observed"], stats["nominal"], min_coverage))
 
 
@@ -523,6 +586,47 @@ def cmd_stamp(_args):
         sys.stdout.flush()
 
 
+def cmd_from_journal(args):
+    """Convert journalctl -o short-iso lines into the bracketed
+    [ISO-8601] shape check-battery already parses, reading from the
+    given file paths (concatenated in order) or from stdin when none
+    are given, and writing converted lines to stdout only. Any input
+    line that does not match the journal shape, or whose assembled
+    output fails parse_timestamp(), is dropped rather than passed
+    through - the durable record must never contain a line this script
+    itself cannot vouch for. A single "from-journal: dropped N" summary
+    is written to stderr so a redirect of stdout into the run log stays
+    clean, and a silently truncated conversion still reads as visible.
+    """
+    def iter_lines():
+        if args.logs:
+            for path in args.logs:
+                with open(path, "r", errors="replace") as fh:
+                    for raw_line in fh:
+                        yield raw_line
+        else:
+            for raw_line in sys.stdin:
+                yield raw_line
+
+    dropped = 0
+    for raw_line in iter_lines():
+        line = raw_line.rstrip("\n")
+        m = JOURNAL_RE.match(line)
+        if not m:
+            dropped += 1
+            continue
+        ts_norm = normalize_journal_timestamp(m.group(1))
+        message = m.group(2)
+        out = "[%s] %s" % (ts_norm, message)
+        if parse_timestamp(out) is None:
+            dropped += 1
+            continue
+        sys.stdout.write(out + "\n")
+    sys.stdout.flush()
+    sys.stderr.write("from-journal: dropped %d line(s)\n" % dropped)
+    return 0
+
+
 def cmd_check_backoff(args):
     events = load_events(args.logs)
     results = [
@@ -563,7 +667,14 @@ def cmd_check_battery(args):
         stats = compute_battery_stats(polls, args.interval_s, args.capacity_mah,
                                        args.boot_start, args.boot_end)
         print_battery_derived(stats, args.interval_s)
-        age_s = (datetime.datetime.now() - polls[-1].ts).total_seconds()
+        last_ts = polls[-1].ts
+        # Converted (from-journal) timestamps carry a timezone offset;
+        # stamp-produced ones do not. Subtracting an offset-carrying
+        # timestamp from a naive "now" raises, and the daily check-in is
+        # precisely the command that must never fail a routine glance.
+        now = datetime.datetime.now(last_ts.tzinfo) if last_ts.tzinfo is not None \
+            else datetime.datetime.now()
+        age_s = (now - last_ts).total_seconds()
         print("age of last poll: %.0f s" % age_s)
         return 0
 
@@ -598,12 +709,33 @@ def cmd_check_battery(args):
     return 0 if ok else 1
 
 
+def _telemetry_messages(path):
+    """Read a bracketed-timestamp log and return the stripped message
+    text (everything after "] ") of every line carrying X-Battery-Mv,
+    in file order. Used only by cmd_selftest's battery-journal case to
+    compare a from-journal-converted fixture against battery-good.log.
+    """
+    out = []
+    with open(path, "r", errors="replace") as fh:
+        for line in fh:
+            if not line.startswith("["):
+                continue
+            if "] " not in line:
+                continue
+            msg = line.split("] ", 1)[1].rstrip("\n")
+            if "X-Battery-Mv" in msg:
+                out.append(msg.strip())
+    return out
+
+
 def cmd_selftest(_args):
     """Run check-backoff and check-battery, each as a subprocess of this
     same script, against the fixtures under hardware/fixtures/ with the
     flags each one is meant to be judged under. Asserts every good
     fixture is accepted (exit 0) and every negative fixture is rejected
-    (non-zero exit).
+    (non-zero exit). Also converts battery-journal.log through
+    from-journal and asserts the result is accepted and its telemetry
+    messages are byte-identical (stripped) to battery-good.log's.
     """
     script_path = os.path.abspath(__file__)
     battery_common = ["--interval-s", "3600", "--min-days", "1",
@@ -634,6 +766,45 @@ def cmd_selftest(_args):
             all_ok = False
             print("FAIL %s (expected to be %s, actual exit code %d)" %
                   (fixture, requirement, proc.returncode))
+
+    # battery-journal: convert via from-journal, then run check-battery
+    # over the converted output exactly as a daily check-in would, and
+    # additionally require its telemetry messages equal battery-good.log's
+    # - proving the bridge is lossless for content the checker already
+    # accepts, not merely that some output happened to pass.
+    journal_path = os.path.join(FIXTURES_DIR, "battery-journal.log")
+    tmp_path = os.path.join(
+        os.environ.get("TMPDIR", "/tmp") or "/tmp",
+        "logtools-selftest-battery-journal-%d.log" % os.getpid())
+    conv = subprocess.run(
+        [sys.executable, script_path, "from-journal", journal_path],
+        capture_output=True, text=True)
+    with open(tmp_path, "w") as fh:
+        fh.write(conv.stdout)
+    check_proc = subprocess.run(
+        [sys.executable, script_path, "check-battery", tmp_path] +
+        battery_common + ["--expect-depleted"],
+        capture_output=True, text=True)
+    journal_accepted = (check_proc.returncode == 0)
+    converted_msgs = _telemetry_messages(tmp_path)
+    good_msgs = _telemetry_messages(os.path.join(FIXTURES_DIR, "battery-good.log"))
+    messages_match = (converted_msgs == good_msgs)
+    os.remove(tmp_path)
+
+    if journal_accepted and messages_match:
+        print("PASS battery-journal.log (accepted via from-journal, "
+              "telemetry messages match battery-good.log)")
+    else:
+        all_ok = False
+        reasons = []
+        if not journal_accepted:
+            reasons.append("check-battery exit code %d" % check_proc.returncode)
+        if not messages_match:
+            reasons.append("converted telemetry messages differ from "
+                            "battery-good.log (%d vs %d)" %
+                            (len(converted_msgs), len(good_msgs)))
+        print("FAIL battery-journal.log (%s)" % "; ".join(reasons))
+
     return 0 if all_ok else 1
 
 
@@ -650,6 +821,13 @@ def build_parser():
     sub.add_parser("stamp",
         help="prefix stdin lines with a wall-clock ISO-8601 timestamp, flushed per line")
 
+    fj = sub.add_parser("from-journal",
+        help="convert journalctl -o short-iso lines into the bracketed "
+             "[ISO-8601] shape check-battery parses")
+    fj.add_argument("logs", nargs="*",
+        help="log file path(s), read and concatenated in the order given; "
+             "reads stdin when none are given")
+
     cb = sub.add_parser("check-backoff",
         help="check captured log(s) for a real exponential backoff curve")
     cb.add_argument("logs", nargs="+",
@@ -664,7 +842,8 @@ def build_parser():
         help="require a success to reset the counter back to 0 / 300s")
 
     bat = sub.add_parser("check-battery",
-        help="check captured stub-server stdout for a valid unattended "
+        help="check captured server stdout - stamped locally or converted "
+             "from journald via from-journal - for a valid unattended "
              "battery discharge run and compute the D-07 mAh/cycle figure")
     bat.add_argument("logs", nargs="+",
         help="log file path(s), read and concatenated in the order given")
@@ -709,6 +888,8 @@ def main(argv=None):
     if args.command == "stamp":
         cmd_stamp(args)
         return 0
+    if args.command == "from-journal":
+        return cmd_from_journal(args)
     if args.command == "check-backoff":
         return cmd_check_backoff(args)
     if args.command == "check-battery":

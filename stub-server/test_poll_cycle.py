@@ -37,7 +37,7 @@ SERVER_PATH = os.path.join(HERE, "byos_server.py")
 MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 17
+EXPECTED_CHECK_COUNT = 20
 
 
 def verify_panel_bytes(buf, expected_hash):
@@ -60,6 +60,11 @@ def validate_display_response(obj):
     responses (PROTOCOL.md section 2): image_hash is "sha256:" plus 64
     lowercase hex chars, sleep_s is an integer in 1..4294967295, reset
     is a JSON boolean, and image_url is a non-empty http/https string.
+
+    The DEVICE-05 bring-up LED toggle (`led_enabled`) is deliberately
+    *not* validated here: the firmware treats it as optional (absent,
+    null or wrong-typed all resolve to enabled), and a mirror stricter
+    than the thing it mirrors would be worse than no mirror at all.
     """
     if not isinstance(obj, dict):
         return False
@@ -287,10 +292,12 @@ def main():
                 return False, "response failed validate_display_response: %r" % (obj,)
             if obj.get("firmware") is not None:
                 return False, "expected firmware:null in Phase 1, got %r" % (obj.get("firmware"),)
+            if obj.get("led_enabled") is not True:
+                return False, "expected led_enabled:true, got %r" % (obj.get("led_enabled"),)
             ctx["image_hash_full"] = obj["image_hash"]
             ctx["image_url"] = obj["image_url"]
             return True, ""
-        check("display poll returns a valid response shape (incl. firmware:null)", _display_shape)
+        check("display poll returns a valid response shape (incl. firmware:null and led_enabled:true)", _display_shape)
 
         # 6. Download: the image URL yields exactly 960000 bytes matching the hash.
         def _download():
@@ -489,7 +496,116 @@ def main():
                 https_harness.cleanup()
         check("--image-url-scheme https serves image_url with https:// and an unchanged host/path/digest", _image_url_scheme_https)
 
-        # 17. Failure classification: with the server stopped, a display poll
+        # --- Task 2 (05-02, DEVICE-04): X-Battery-Mv validation/persistence ---
+
+        def _battery_state_path():
+            return os.path.join(harness.tmpdir, "battery_state.json")
+
+        def _read_battery_state():
+            try:
+                with open(_battery_state_path()) as fh:
+                    return json.load(fh)
+            except (OSError, ValueError):
+                return None
+
+        # 17. Check A - happy path: an authenticated poll carrying a
+        # plausible X-Battery-Mv still returns 200, and battery_state.json
+        # appears with {"battery_mv": <int>, "received_at": <float>}. A
+        # second poll with a different value overwrites it.
+        def _battery_happy_path_persists_and_overwrites():
+            status, _, _ = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": "3487"})
+            if status != 200:
+                return False, "expected 200 on a battery-carrying poll, got %d" % status
+            time.sleep(1.0)  # allow the child process's write to land
+            state = _read_battery_state()
+            if not isinstance(state, dict) or state.get("battery_mv") != 3487:
+                return False, "battery_state.json after the first poll = %r, expected battery_mv=3487" % (state,)
+            if not isinstance(state.get("received_at"), float):
+                return False, "battery_state.json's received_at is %r, expected a float" % (state.get("received_at"),)
+
+            status, _, _ = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": "3402"})
+            if status != 200:
+                return False, "expected 200 on the second battery-carrying poll, got %d" % status
+            time.sleep(1.0)
+            state2 = _read_battery_state()
+            if not isinstance(state2, dict) or state2.get("battery_mv") != 3402:
+                return False, "battery_state.json after the second poll = %r, expected battery_mv=3402 (overwrite)" % (state2,)
+            return True, ""
+        check(
+            "an authenticated poll carrying a plausible X-Battery-Mv persists {battery_mv, received_at} to "
+            "battery_state.json, and a second poll with a different value overwrites it",
+            _battery_happy_path_persists_and_overwrites,
+        )
+
+        # 18. Check B - hostile and malformed values are ignored, never
+        # persisted, never fatal: every one of these returns 200, and after
+        # all of them the previously persisted value (3402, from Check A) is
+        # still exactly what it was - no rewrite, no new file, no 5xx, no
+        # traceback in the server's stdout.
+        def _battery_hostile_values_never_persisted():
+            hostile_values = [
+                "abc", "-1", "3500.5", "  3500  ", "3500; rm -rf /", "99999", "0", "",
+                "3" * 400,
+                "٣٥٠٠",  # Arabic-Indic "3500"
+            ]
+            before = _read_battery_state()
+            if not isinstance(before, dict) or before.get("battery_mv") != 3402:
+                return False, "setup failure: expected battery_mv=3402 persisted from Check A, got %r" % (before,)
+            for raw in hostile_values:
+                # http.client's putheader() latin-1-encodes a str header
+                # value and raises UnicodeEncodeError for the Arabic-Indic
+                # case - not a server-side rejection, a client-side encode
+                # error that would never let the hostile poll reach the
+                # server at all. Send pre-encoded UTF-8 bytes instead: bytes
+                # header values pass through putheader() unmodified, so the
+                # server actually receives (and must reject) the raw hostile
+                # bytes, exactly as a hostile device would send them.
+                status, _, _ = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": raw.encode("utf-8")})
+                if status != 200:
+                    return False, "hostile X-Battery-Mv=%r: expected 200, got %d" % (raw, status)
+            time.sleep(0.5)
+            log_text = harness.read_stdout()
+            if "Traceback" in log_text:
+                return False, "server stdout contains a traceback after a hostile-value battery poll"
+            after = _read_battery_state()
+            if after != before:
+                return False, "battery_state.json changed after a battery of hostile values: %r -> %r" % (before, after)
+            return True, ""
+        check(
+            "10 hostile/malformed X-Battery-Mv values (non-digit, negative, float, whitespace, injection, "
+            "out-of-range, the '0' unknown sentinel, empty, oversized, non-ASCII digits) all return 200 and "
+            "persist nothing - the previously persisted value survives byte-identical",
+            _battery_hostile_values_never_persisted,
+        )
+
+        # 19. Check C - the write barrier sits behind auth: a poll with a
+        # bogus bearer token and a plausible X-Battery-Mv returns 401 and
+        # leaves battery_state.json unchanged (T-05-02-05).
+        def _battery_write_barrier_sits_behind_auth():
+            before = _read_battery_state()
+            status, _, _ = http_request(
+                harness.base_url() + "/device/v1/display", method="GET",
+                headers={"Authorization": "Bearer " + "f" * 64, "X-Battery-Mv": "3400"})
+            if status != 401:
+                return False, "expected 401 for a bogus bearer token, got %d" % status
+            time.sleep(0.5)
+            after = _read_battery_state()
+            if after != before:
+                return False, "battery_state.json changed after an unauthenticated poll: %r -> %r" % (before, after)
+            return True, ""
+        check(
+            "a display poll with a bogus bearer token returns 401 and never writes battery_state.json "
+            "(the write barrier sits strictly behind bearer_ok())",
+            _battery_write_barrier_sits_behind_auth,
+        )
+
+        # 20. Failure classification: with the server stopped, a display poll
         #     raises a connection error that the harness classifies as a
         #     failed wake rather than crashing.
         def _failure_classification():

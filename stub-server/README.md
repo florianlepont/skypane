@@ -51,6 +51,9 @@ obeys on its next `esp_deep_sleep_start()`. A smaller value means shorter,
 more frequent wake cycles, which is exactly what a repeatability or battery
 test needs to see many cycles quickly.
 
+The DEVICE-05 discharge run itself is now served by `skypane-byos.service`
+on the VPS rather than by a locally-run stub — see `deploy/README.md`.
+
 ## Point the device at it
 
 Print the laptop's LAN IPv4 address on macOS:
@@ -103,7 +106,10 @@ long-lived server from the section above is still up on its own port.
 Every poll to `GET /device/v1/display` and `POST /device/v1/log` prints the
 device's `X-Battery-Mv`, `X-Rssi`, `X-Fw-Version` and `X-Boot-Reason`
 telemetry headers to stdout. Plan 01-07 consumes this stdout stream as its
-battery measurement channel. For any long run, redirect the server's output
+battery measurement channel. The same telemetry reaches journald when this
+file runs under systemd (`deploy/skypane-byos.service`), and
+`hardware/logtools.py from-journal` converts that journald record into the
+format `check-battery` reads. For any long run, redirect the server's output
 to a file so that record isn't lost when the terminal closes:
 
 ```bash

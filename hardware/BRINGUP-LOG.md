@@ -357,9 +357,55 @@ artifacts of this investigation are the two tooling fixes above and this
 written record, so a future session does not have to re-discover that
 "appears then disappears" is expected deep-sleep behavior.
 
+## User LED Bring-Up (GPIO21)
+
+**Status: NOT YET CONFIRMED ON THIS BOARD**
+
+**The claim.** The XIAO ESP32-S3 module carries a built-in "User LED" on
+**GPIO21**, active-low, distinct from the module's separate charge-status
+LED. GPIO21 is unclaimed by this project's thirteen-entry pin map (SCK=7,
+MOSI=9, CS_M=44, CS_S=41, DC=10, RST=38, BUSY=4, EN=43, KEY0=5, KEY1=3,
+KEY2=2, BATTERY_ADC=1, BATTERY_ADC_EN=6).
+
+**Provenance.** Web aggregation of Seeed community and board-reference
+sources, per `.planning/seeds/bring-up-debug-led-remote-toggle.md` —
+explicitly **not** an official schematic for this exact board combination,
+unlike the panel pins, which came from a vendor header. This is the same
+confidence posture the battery-sense pins (`CONFIG_FP_PIN_BATTERY_ADC`)
+started from above, and it gets the same cheap resolution: flash and look.
+
+**Procedure.** Flash, then watch the board through one full wake cycle and
+into deep sleep. No tool, no soldering, no purchase.
+
+| Observation | Expected | Result |
+|---|---|---|
+| LED lit within a second of reset/power-on | lit | |
+| LED lit continuously through the poll and any panel refresh | lit | |
+| LED dark for the whole deep-sleep interval | dark | |
+| Panel still renders correctly with no new artefact | correct, no artefact | |
+
+**What each failure outcome means, decided before the flash rather than
+after:**
+
+- **Nothing lights either way** — the GPIO21 claim is wrong. The firmware
+  is harmless as-is: GPIO21 is unclaimed, so at worst an unconnected pad
+  toggles once per wake. Re-source the pin later; no urgency.
+- **Dark while awake, lit while asleep** — polarity is inverted, which is
+  the one outcome that actually costs battery (an LED left lit through
+  deep sleep would cost DEVICE-05 an order of magnitude of battery life).
+  Set `CONFIG_FP_LED_ACTIVE_LOW=n` in `firmware/sdkconfig.ee02.defaults`
+  and reflash. Outcome 3 above is the one that matters most and must be
+  treated as a defect fixed before any DEVICE-05 discharge run.
+- **A panel artefact appears** — the pin is claimed by something on the
+  EE02 driver board after all. Change `CONFIG_FP_PIN_LED` to an
+  unclaimed value, or drop the feature; do not leave it driving a shared
+  line.
+
 ---
 *Log opened: 2026-08-25, Task 1 of plan 01-06. Task 2 flash+verify
 recorded 2026-08-25 21:38 UTC; first-boot capture diagnosed and resolved
 2026-08-25 22:1x UTC (see `## First-Boot Capture: Diagnosis (resolved)`
 above) — root cause was the device's own correct deep-sleep USB
-power-off, not a fault.*
+power-off, not a fault. User LED Bring-Up section (GPIO21) opened
+2026-08-27, plan `260827-wo4` Task 4, pre-registered before the board is
+flashed for this feature.*

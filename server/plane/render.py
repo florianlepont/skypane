@@ -137,6 +137,14 @@ STATE_LABEL_TEXT = {
     runway_config.STATE_ARRIVING: "ARRIVING",
 }
 
+# The empty state's own already-established ink (its heading and body copy
+# both already used the bare IDX_BLACK literal) - named so the battery icon
+# can share "each state's own ink" structurally, not by comment (05-UI-SPEC.md
+# resolved discretion item: battery icon renders in all three states,
+# including empty, since a low-battery reading is a device-health fact
+# independent of whether an aircraft is currently detected).
+EMPTY_INK = IDX_BLACK
+
 EMPTY_HEADING_TEXT = "Watching Runway 3"
 EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment one is."
 TOP_RIGHT_TAG_TEXT = "ORY · RWY 3"
@@ -155,6 +163,21 @@ PREVIOUS_ILLUSTRATION_WIDTH_FRAC = 0.57  # of the MAIN illustration's own render
 PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC = 0.76  # of canvas height
 PREVIOUS_TEXT_GAP_PX = 22  # gap below the previous illustration's bottom edge
 PREVIOUS_LINE_GAP_PX = 34  # line 2's top below line 1's own TOP (not bottom)
+
+# --- D-04/D-06/D-07 battery-low icon geometry (05-UI-SPEC.md, 05-02-PLAN.md)
+# Every dimension derives from the existing spacing scale (SPACE_*/MARGIN) -
+# no ad hoc magic numbers - except the two bespoke constants below, each
+# commented with its own rationale. Total bounding box:
+# (64, 1504, 136, 1536) - see draw_battery_icon()'s docstring for the full
+# geometry derivation.
+BATTERY_ICON_LEFT = MARGIN  # 64 - same left inset as the top-row labels
+BATTERY_ICON_BOTTOM = HEIGHT - MARGIN  # 1536 - same bottom inset, mirrored
+BATTERY_ICON_BODY_W = SPACE_LG  # 64
+BATTERY_ICON_BODY_H = SPACE_MD  # 32
+BATTERY_ICON_NUB_W = SPACE_XS  # 8
+BATTERY_ICON_NUB_H = SPACE_SM  # 16 - 05-02-PLAN.md's resolved discretion item (was 14, changed for grid alignment)
+BATTERY_ICON_STROKE_PX = 3  # bespoke: legibility at e-ink resolution (05-UI-SPEC.md)
+BATTERY_ICON_FILL_FRAC = 0.22  # bespoke: a fixed "low" glyph, not a live gauge (05-UI-SPEC.md)
 
 _font_cache = {}
 
@@ -236,6 +259,55 @@ def draw_frame(canvas, ink_idx):
     box = (inset, inset, WIDTH - inset, HEIGHT - inset)
     ImageDraw.Draw(canvas).rectangle(box, outline=ink_idx, width=FRAME_STROKE_PX)
     return box
+
+
+def draw_battery_icon(canvas, draw, ink_idx):
+    """D-04/D-06: a bottom-left battery glyph - a hollow outlined body with a
+    small solid terminal nub and a left-aligned solid partial fill,
+    signalling a fixed "low" reading rather than a live gauge. Own dedicated
+    bottom-left zone (D-05) - the one area of the locked two-flight layout
+    with no existing element, and the visual counterweight to the
+    bottom-right previous-flight card; never reuses, displaces, or resizes
+    the top-left state label or the top-right ORY - RWY 3 tag.
+
+    All geometry derives from the BATTERY_ICON_* module constants (in turn
+    derived from the existing spacing scale) - no ad hoc magic numbers.
+    Draws three flat integer-palette-index rectangles: the body as a
+    BATTERY_ICON_STROKE_PX-wide outline, the nub filled solid, and the fill
+    box filled solid - square corners, no rounded-rectangle primitive, no
+    antialiasing parameters. These box tuples are Pillow's inclusive corner
+    coordinates, matching draw_frame()'s own convention: the rendered
+    footprint is therefore 73x33px for a nominal 72x32 box, intentionally.
+
+    Returns the icon's total bounding box (left, top, right, bottom) -
+    (64, 1504, 136, 1536).
+    """
+    body_top = BATTERY_ICON_BOTTOM - BATTERY_ICON_BODY_H
+    body_right = BATTERY_ICON_LEFT + BATTERY_ICON_BODY_W
+    body = (BATTERY_ICON_LEFT, body_top, body_right, BATTERY_ICON_BOTTOM)
+
+    nub_top = body_top + (BATTERY_ICON_BODY_H - BATTERY_ICON_NUB_H) // 2
+    nub_bottom = nub_top + BATTERY_ICON_NUB_H
+    nub_right = body_right + BATTERY_ICON_NUB_W
+    nub = (body_right, nub_top, nub_right, nub_bottom)
+
+    interior_left = BATTERY_ICON_LEFT + BATTERY_ICON_STROKE_PX
+    interior_top = body_top + BATTERY_ICON_STROKE_PX
+    interior_right = body_right - BATTERY_ICON_STROKE_PX
+    interior_bottom = BATTERY_ICON_BOTTOM - BATTERY_ICON_STROKE_PX
+    fill_w = round((interior_right - interior_left) * BATTERY_ICON_FILL_FRAC)
+    fill = (interior_left, interior_top, interior_left + fill_w, interior_bottom)
+
+    total = (BATTERY_ICON_LEFT, body_top, nub_right, BATTERY_ICON_BOTTOM)
+    # Looser canvas guard, not the strict safe-box guard (05-UI-SPEC.md): this
+    # element sits inside the old 64px band's bottom-left corner
+    # deliberately, exactly like the frame and both illustrations already do.
+    _assert_within_canvas(total, "battery icon")
+
+    draw.rectangle(body, outline=ink_idx, width=BATTERY_ICON_STROKE_PX)
+    draw.rectangle(nub, fill=ink_idx)
+    draw.rectangle(fill, fill=ink_idx)
+    return total
 
 
 def draw_top_labels(canvas, state, ink_idx):
@@ -570,7 +642,12 @@ def draw_previous_text_block(canvas, flight, state, route, prev_bbox, ink_idx):
     return line1_bbox, line2_bbox
 
 
-def _build_empty_canvas():
+def _build_empty_canvas(battery_low=False):
+    """Build the "Watching Runway 3" empty-state canvas. `battery_low`
+    (D-04/D-06): when True, draws the bottom-left battery-low icon in
+    EMPTY_INK - a low-battery reading is a device-health fact independent of
+    whether an aircraft is currently detected, so the icon renders here too.
+    """
     canvas = pf.new_canvas(IDX_WHITE)
     draw = ImageDraw.Draw(canvas)
     heading_font = _font(EMPTY_HEADING_FONT)
@@ -590,14 +667,17 @@ def _build_empty_canvas():
 
     heading_bbox = draw.textbbox((center_x, start_y), EMPTY_HEADING_TEXT, font=heading_font, anchor="ma")
     _assert_in_safe_box(heading_bbox, "empty-state heading")
-    draw.text((center_x, start_y), EMPTY_HEADING_TEXT, font=heading_font, fill=IDX_BLACK, anchor="ma")
+    draw.text((center_x, start_y), EMPTY_HEADING_TEXT, font=heading_font, fill=EMPTY_INK, anchor="ma")
 
     y = start_y + heading_height + SPACE_SM
     for line in body_lines:
         line_bbox = draw.textbbox((center_x, y), line, font=body_font, anchor="ma")
         _assert_in_safe_box(line_bbox, "empty-state body line")
-        draw.text((center_x, y), line, font=body_font, fill=IDX_BLACK, anchor="ma")
+        draw.text((center_x, y), line, font=body_font, fill=EMPTY_INK, anchor="ma")
         y += body_line_height
+
+    if battery_low:
+        draw_battery_icon(canvas, draw, EMPTY_INK)
 
     return canvas
 
@@ -635,7 +715,12 @@ def _assert_legal_palette(canvas, bg_idx):
     )
 
 
-def _build_active_canvas(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None):
+def _build_active_canvas(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None, battery_low=False):
+    """Build the departing/arriving two-flight poster canvas. `battery_low`
+    (D-04/D-06): when True, draws the bottom-left battery-low icon in the
+    state's own ink after the previous-flight card, before the closing
+    palette guard rail.
+    """
     if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
     bg_idx = STATE_BACKGROUND[state]
@@ -681,6 +766,9 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
             _assert_within_canvas(prev_bbox, "previous aircraft illustration")
             draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_bbox, fg_idx)
 
+    if battery_low:
+        draw_battery_icon(canvas, ImageDraw.Draw(canvas), fg_idx)
+
     # Guard rail: every index on the panel is legal, and the flat
     # background field is provably dominant.
     _assert_legal_palette(canvas, bg_idx)
@@ -688,7 +776,7 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     return canvas
 
 
-def build_canvas(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None):
+def build_canvas(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None, battery_low=False):
     """Return the pre-pack "P"-mode canvas for `flight` in `state`
     ("departing" / "arriving" / "empty"). Public (not `_build_canvas`) so
     callers - notably server/test_render.py's anti-aliasing assertions,
@@ -709,9 +797,12 @@ def build_canvas(flight, state, route=None, previous_flight=None, previous_route
     yet (e.g. the very first detection since the state directory was last
     empty) - the previous flight card is simply omitted in that case.
     Ignored for the empty state, which has no flight to enrich.
+
+    `battery_low` (D-04/D-06): when True, draws the bottom-left
+    battery-low icon - in every one of the three states, including empty.
     """
     if flight is None or state == "empty":
-        return _build_empty_canvas()
+        return _build_empty_canvas(battery_low=battery_low)
     return _build_active_canvas(
         flight,
         state,
@@ -719,10 +810,11 @@ def build_canvas(flight, state, route=None, previous_flight=None, previous_route
         previous_flight=previous_flight,
         previous_route=previous_route,
         previous_state=previous_state,
+        battery_low=battery_low,
     )
 
 
-def render_panel(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None):
+def render_panel(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None, battery_low=False):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
     ("departing" / "arriving" / "empty").
@@ -733,10 +825,11 @@ def render_panel(flight, state, route=None, previous_flight=None, previous_route
     "departing"/"arriving" this function and build_canvas() key their
     per-state dicts on.
 
-    `route`/`previous_flight`/`previous_route`/`previous_state` are passed
-    straight through to build_canvas() (D-25/D-26) - see build_canvas()'s
-    own docstring for what `route` may now be (a full route or, since quick
-    task 260827-hyy, an airline-only route).
+    `route`/`previous_flight`/`previous_route`/`previous_state`/
+    `battery_low` are passed straight through to build_canvas() (D-25/D-26,
+    D-04/D-06) - see build_canvas()'s own docstring for what `route` may now
+    be (a full route or, since quick task 260827-hyy, an airline-only
+    route) and for `battery_low`'s per-state behaviour.
     """
     canvas = build_canvas(
         flight,
@@ -745,6 +838,7 @@ def render_panel(flight, state, route=None, previous_flight=None, previous_route
         previous_flight=previous_flight,
         previous_route=previous_route,
         previous_state=previous_state,
+        battery_low=battery_low,
     )
     return pf.pack_panel(canvas)
 
@@ -803,6 +897,11 @@ def build_parser():
              "unknown - bare callsign on line 1, '{airline} · {type}' on line 2, the airline's own "
              "illustration). Takes precedence over --no-route when both are given.",
     )
+    parser.add_argument(
+        "--battery-low",
+        action="store_true",
+        help="Manual QA only (D-04/D-06): preview the low-battery icon in the panel's bottom-left corner.",
+    )
     return parser
 
 
@@ -840,6 +939,7 @@ def main(argv=None):
         previous_flight=previous_flight,
         previous_route=previous_route,
         previous_state=previous_state,
+        battery_low=args.battery_low,
     )
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:
