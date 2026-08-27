@@ -186,3 +186,7 @@ None - no external service configuration required. (Plan 06-11 later adds the `S
 ---
 *Phase: 06-companion-configuration-web-interface-visual-settings-view-s*
 *Completed: 2026-08-27*
+
+## Self-Check: PASSED
+
+All 5 created files verified present on disk (`companion/__init__.py`, `companion/auth.py`, `companion/layout.py`, `companion/static/style.css`, `companion/test_companion_app.py`); all 6 commit hashes (`731a121`, `d9bd8fd`, `2fe27a7`, `314eae4`, `5284997`, `8af9802`) verified present in `git log --oneline --all`.
