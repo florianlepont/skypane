@@ -90,6 +90,52 @@ fixture, always explicitly noted).
   asserts against. `lat`/`lon`/`gs`/`seen_pos` are carried through from the
   same source records; `hex`/`flight` (`440cb1` / `EJU84YF`) are real.
 
+## `geofence_wrong_runway_39de4a.json`
+
+- **Source:** live `GET opendata.adsb.fi/api/v2/lat/48.7233/lon/2.3794/dist/5`
+  during the `runway3-false-positive` debug session, captured by a 15-second
+  polling loop over `adsb-test/runway3.json`'s bbox.
+- **UTC timestamp:** `2026-08-27T09:29:46Z`.
+- **Provider:** adsb.fi (hence the `aircraft` array key, not airplanes.live's
+  `ac` — this is the raw shape adsb.fi returned).
+- **Every field is real**, copied verbatim from the captured record. Nothing
+  in this file is synthetic, including the `t`/`track`/`baro_rate` values the
+  tests assert on.
+- **What it is:** `hex 39de4a` / `flight "TVF12ZW "` / `r "F-HSXK"` (Transavia
+  France A320neo) — **a real reproduction of the reported bug**. At this
+  moment the aircraft was **departing Orly runway 20**, not runway 3:
+  `track 197.67` matches runway 20's published true heading (198°) to within
+  0.4°, and `baro_rate 2304` with `alt_baro 1050` caught it just after
+  rotation. Tracked across the following polls it climbed to 4,625 ft while
+  continuing south (lat 48.7156 → 48.6550), confirming a departure rather
+  than an overflight.
+- It sits **750 m from runway 3's centreline** yet **inside** the geofence
+  bbox and **below** the 3,000 ft ceiling — i.e. it satisfied every condition
+  the pre-fix `select_runway3_aircraft()` tested, and was in fact selected and
+  would have been displayed as the runway-3 aircraft, in the "departing"
+  state. This is why the bug also corrupted the departure/arrival inference,
+  not just the callsign.
+- Drives checks 11, 12, 14 in `test_plane_detection.py`.
+
+## `geofence_runway3_arrival_347288.json`
+
+- **Source:** the same live adsb.fi polling run as
+  `geofence_wrong_runway_39de4a.json`, 90 seconds later.
+- **UTC timestamp:** `2026-08-27T09:31:16Z`.
+- **Provider:** adsb.fi.
+- **Every field is real**, copied verbatim. Nothing synthetic.
+- **What it is:** `hex 347288` / `flight "IBE05DP "` / `r "EC-NTP"` (Iberia
+  A320neo) — the **correct counter-example**: a genuine runway-3 arrival, on
+  final to runway 25. `track 254.9` is within 0.5° of runway 3's true axis
+  (254.41°), `baro_rate -576` at `alt_baro 775`, and it measures **+2.9 m**
+  from the centreline. It was tracked down the centreline across six
+  consecutive polls (775 → 550 ft) before touchdown.
+- Its purpose is to prove the fix did not simply tighten the gate until
+  nothing qualifies. Checks 13, 14, 20, 21, 22 fail if genuine runway-3
+  traffic stops being selected.
+- The record's `wd: 235` / `ws: 13` (wind from 235° at 13 kt) independently
+  corroborate that runway 25 was the active arrival runway in that window.
+
 ## `adsbdb_hit_TVF16VB.json`
 
 - **Source:** live `GET api.adsbdb.com/v0/callsign/TVF16VB` response,
