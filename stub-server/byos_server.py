@@ -26,11 +26,16 @@ for hand-set targets), no rate limiting, one image for every frame.
 SkyPane local modifications: added --state-dir so a throwaway harness
 run (stub-server/test_poll_cycle.py) can isolate its own token state
 from the long-running instance the hardware bring-up plans keep alive;
-and added --image-url-scheme (default: http) so the served image_url
-can advertise https when this process runs behind a TLS-terminating
+added --image-url-scheme (default: http) so the served image_url can
+advertise https when this process runs behind a TLS-terminating
 reverse proxy (Phase 2's Caddy-fronted deployment), instead of always
-hardcoding http. See stub-server/VENDOR.md for the full list of local
-changes.
+hardcoding http; and added DEVICE-04 X-Battery-Mv validation/persistence
+(parse_battery_mv() / save_battery_state()) - an authenticated
+/device/v1/display poll carrying a plausible reading writes
+battery_state.json ({"battery_mv": int, "received_at": float}) in
+--state-dir, the single writer of that file anywhere in this repo (see
+stub-server/VENDOR.md). See stub-server/VENDOR.md for the full list of
+local changes.
 """
 import argparse
 import hashlib
@@ -38,9 +43,17 @@ import json
 import os
 import secrets
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 IMAGE_BYTES = 960000
+# DEVICE-04 X-Battery-Mv sanity bounds. BATTERY_MV_MIN = 1: PROTOCOL.md §2
+# defines "0" as the *unknown* sentinel, so zero must be rejected rather than
+# persisted as a real reading. BATTERY_MV_MAX = 10000: a sanity ceiling far
+# above any single-cell LiPo (4200 mV full charge), per 05-RESEARCH.md's V5
+# Input Validation row.
+BATTERY_MV_MIN = 1
+BATTERY_MV_MAX = 10000
 
 
 def state_path(state_dir):
@@ -60,6 +73,52 @@ def save_state(state_dir, state):
     with open(tmp, "w") as fh:
         json.dump(state, fh, indent=1)
     os.replace(tmp, state_path(state_dir))
+
+
+def battery_state_path(state_dir):
+    return os.path.join(state_dir, "battery_state.json")
+
+
+def parse_battery_mv(raw):
+    """Parse a raw X-Battery-Mv header value into a plausible millivolt
+    reading, or None. Never raises, never logs the raw value.
+
+    Rejects anything that is not a string; a string whose length is not
+    between 1 and 5 characters; and any string containing a character
+    outside the literal ASCII digit set below - checked explicitly against
+    that set, not via a general digit-classification predicate, which
+    would accept non-ASCII decimal digits that int() then either misparses
+    or raises on. No whitespace, no sign character - a well-formed device
+    sends bare digits and nothing else. Only after those checks does this
+    convert to int and reject anything outside BATTERY_MV_MIN..BATTERY_MV_MAX
+    inclusive (T-05-02-01).
+    """
+    if not isinstance(raw, str):
+        return None
+    if not (1 <= len(raw) <= 5):
+        return None
+    if any(c not in "0123456789" for c in raw):
+        return None
+    mv = int(raw)
+    if not (BATTERY_MV_MIN <= mv <= BATTERY_MV_MAX):
+        return None
+    return mv
+
+
+def save_battery_state(state_dir, mv):
+    """Persist {"battery_mv": mv, "received_at": time.time()} to
+    battery_state.json in state_dir, atomically (tmp-write then
+    os.replace(), mirroring save_state()'s pattern). This function - and
+    this process - are the ONLY writer of that file anywhere in the repo;
+    server/poll_loop.py only ever reads it (05-RESEARCH.md Pitfall 4: two
+    processes doing read-modify-write on one JSON file is a real
+    lost-update race, and neither unit takes a lock).
+    """
+    path = battery_state_path(state_dir)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump({"battery_mv": mv, "received_at": time.time()}, fh, indent=1)
+    os.replace(tmp, path)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -133,6 +192,20 @@ class Handler(BaseHTTPRequestHandler):
             if not self.bearer_ok():
                 return self.send_json(401, {"detail": "unknown token"})
             self.log_telemetry()
+            # DEVICE-04: strictly after the bearer_ok() gate above, so an
+            # unauthenticated/wrong-token caller can never pin a victim
+            # frame's panel into a permanent low-battery warning
+            # (T-05-02-04). A telemetry side-effect must never turn a
+            # healthy panel poll into a 500 - a full or read-only state
+            # directory degrades to "no battery signal", which
+            # poll_loop.py already treats as legitimate (single-writer
+            # rule: this is the only place battery_state.json is written).
+            battery_mv = parse_battery_mv(self.headers.get("X-Battery-Mv"))
+            if battery_mv is not None:
+                try:
+                    save_battery_state(self.args.state_dir, battery_mv)
+                except OSError:
+                    pass
             try:
                 with open(self.args.image, "rb") as fh:
                     image = fh.read()

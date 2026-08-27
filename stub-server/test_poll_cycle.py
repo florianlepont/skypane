@@ -549,9 +549,17 @@ def main():
             if not isinstance(before, dict) or before.get("battery_mv") != 3402:
                 return False, "setup failure: expected battery_mv=3402 persisted from Check A, got %r" % (before,)
             for raw in hostile_values:
+                # http.client's putheader() latin-1-encodes a str header
+                # value and raises UnicodeEncodeError for the Arabic-Indic
+                # case - not a server-side rejection, a client-side encode
+                # error that would never let the hostile poll reach the
+                # server at all. Send pre-encoded UTF-8 bytes instead: bytes
+                # header values pass through putheader() unmodified, so the
+                # server actually receives (and must reject) the raw hostile
+                # bytes, exactly as a hostile device would send them.
                 status, _, _ = http_request(
                     harness.base_url() + "/device/v1/display", method="GET",
-                    headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": raw})
+                    headers={"Authorization": "Bearer %s" % ctx["token"], "X-Battery-Mv": raw.encode("utf-8")})
                 if status != 200:
                     return False, "hostile X-Battery-Mv=%r: expected 200, got %d" % (raw, status)
             time.sleep(0.5)
