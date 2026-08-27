@@ -150,26 +150,59 @@ project.
 
 **Detection.** `server/plane/detect.py` queries a geofenced bounding box
 around runway 3 against both default sources, `adsb.fi` then `adsb.lol`
-(the second added 2026-08-27), and cross-validates their independent
-selections rather than returning on the first hit: when both agree, the
-returned selection is corroborated and carries `adsb.fi`'s own record —
-ordering decides which source's record survives on agreement, since the
-first-queried provider is the one returned. When only one source answers
-(the other unreachable, blocked, or gated behind a future feeder-
-contributed API key), that source's selection is still returned, flagged
-uncorroborated rather than suppressed — this is why an outage at either
-default source does not blank the display. When the two sources name
-different aircraft, the poll returns nothing for that cycle, which the
+(the second added 2026-08-27), and cross-validates them rather than
+returning on the first hit. **Corroboration is on each source's whole
+candidate set, not on its final pick** (2026-08-28): the poll intersects
+the sets of aircraft each source independently judged to be on runway 3,
+and selects one from that common set. When at least one aircraft is common,
+the returned selection is corroborated and carries `adsb.fi`'s own record —
+ordering decides which source's record survives, since the first-queried
+provider is the one selected from. When only one source answers (the other
+unreachable, blocked, or gated behind a future feeder-contributed API key),
+that source's selection is still returned, flagged uncorroborated rather
+than suppressed — this is why an outage at either default source does not
+blank the display. Only when **no aircraft at all is common to every
+answering source** does the poll return nothing for that cycle, which the
 pipeline already treats as the between-flights hold rather than an error.
+
+Comparing sets rather than picks matters because the two feeds are
+independent feeder networks that routinely hold overlapping-but-unequal
+views: one has received an aircraft the other has not yet. Comparing only
+the winners turned that into a fabricated disagreement and discarded the
+cycle, freezing the panel while real traffic passed — and it did so all the
+more often because the selection's tie-break used to be `seen_pos`, a
+per-provider staleness value, which let two sources rank one identical
+reality differently. The safety property is unchanged in both directions:
+the displayed aircraft was always, and is still, one that every answering
+source independently saw on runway 3. What narrowed is only the
+suppression trigger. A source carrying a phantom the other lacks now yields
+the corroborated real aircraft instead of a blank panel, because the
+uncorroborated record is excluded from selection rather than merely losing
+a comparison. What this still cannot detect is both sources being wrong the
+same way — a shared phantom is in the intersection and is displayed as
+corroborated.
 `airplaneslive` remains in the code only as an explicit `--provider`
 opt-in for a feeder operator, sponsor, or licensee, never queried
-automatically. When more than one aircraft is inside the geofence in the
-same poll,
+automatically. The bounding box is only a coarse pre-filter — it contains
+most of Orly's two *other* runways — so a record becomes a candidate only
+once it also passes a geometric gate derived from runway 3's own published
+threshold coordinates: laterally inside a runway-aligned corridor, and
+pointing along the runway's axis. An aircraft reporting itself **on the
+ground** is held to a tighter version of that corridor, runway 3's actual
+pavement, because every on-ground record scores effective altitude 0 below
+and would otherwise let a taxiing aircraft outrank real runway-3 traffic
+indefinitely. Among whatever survives that gate in the same poll,
 `select_runway3_aircraft()` picks exactly one by a deterministic total
 order: lowest effective altitude first (an on-ground aircraft has
-effective altitude 0), then the freshest position report, then
-lexicographically smallest ICAO hex as a final tie-break — this is what
-keeps the display from flickering between two simultaneous aircraft.
+effective altitude 0), then lexicographically smallest ICAO hex as the
+tie-break. Both terms are properties of the *aircraft*, which is what keeps
+the display from flickering between two simultaneous aircraft and makes the
+pick identical no matter which source answered. The rule used to tie-break
+on the freshest position report first; that field (`seen_pos`) is a
+property of the *feeder network* rather than of the aircraft, so it changed
+the answer depending on who was asked and when — see the detection
+paragraph above. It is still carried on the selection for diagnostics, just
+no longer used to order anything.
 
 **Departing vs. arriving.** `server/plane/runway_config.py` infers the
 runway's current configuration directly from the selected aircraft's
@@ -229,9 +262,49 @@ live-verify it against adsbdb and add a row to the static table under that
 table's own sourcing discipline — never to infer an airline name from the
 three letters.
 
+**Display pacing.** Detecting an aircraft and *showing* it are no longer the
+same event (2026-08-28). The server re-renders every 30 seconds, but the
+frame's own floor between two drawn images is roughly **90 seconds** — the
+firmware's 60-second inter-refresh guard, re-armed after every blit, plus the
+measured ~31.5s full refresh above. Advancing the "current" slot on every
+distinct detection therefore overwrote `panel.bin` two or three times per
+device redraw, and any aircraft whose turn fell entirely between two redraws
+was never fetched, never drawn, and left no trace anywhere — the server's own
+logs looked perfectly healthy throughout.
+
+So `poll_loop.py` keeps a small **bounded-age FIFO queue** of distinct
+selections in `poll_state.json` (`pending_flights`, each entry stamped with
+the time it was *first* detected, plus a `last_advance_at` timestamp). The
+"current" slot advances no more often than `MIN_ADVANCE_INTERVAL_S` (90s,
+derived from the two firmware numbers above), and when it does it promotes
+the **oldest still-fresh** entry rather than whatever was detected most
+recently — so aircraft reach the glass in the order they actually flew.
+Draining runs on every cycle including empty ones, since a burst followed by
+a quiet sky is the common shape.
+
+Two bounds keep this from becoming a backlog, which is the failure mode an
+unbounded "never drop a flight" queue would have had: an entry more than
+`MAX_STALENESS_S` (**150s**) old when its turn arrives is **discarded rather
+than displayed**, and the queue is capped at `MAX_PENDING_FLIGHTS` (5 — the
+most distinct aircraft that can legitimately be enqueued inside one 150s
+window at a 30s poll cadence), evicting oldest-first. This is a **mitigation,
+not a cure**: a burst severe enough to overflow both bounds still loses
+flights, deliberately, because showing a two-minute-old departure as if it
+were current would defeat the point of a real-time board. Those losses are at
+least no longer silent — the poll line's `dropped=` field names every hex the
+queue discarded, alongside `shown=` (what is actually on the panel, which on
+a paced cycle differs from `hex=`, this cycle's detection) and `pending=`.
+
+Because the pipeline is a systemd oneshot with no in-process memory, every
+pacing and staleness decision is arithmetic over timestamps persisted in
+`poll_state.json`; the clock itself is a module-level seam (`now_s()`) so the
+harness can drive cadence deterministically instead of sleeping.
+
 **Composition.** `server/plane/render.py` builds a two-flight poster: the
-current detection (large, upper-center) and the immediately-preceding
-detection from `poll_state.json`'s two-deep history (smaller, lower-right)
+current detection (large, upper-center) and the immediately-preceding one
+from `poll_state.json`'s two-deep history (smaller, lower-right) — since the
+pacing change above, "preceding" means the aircraft that previously occupied
+the current slot, which is not always the previous *detection*
 — both share one canvas. Each flight card uses its own real per-airline
 illustration (`server/plane/illustrations.py`, keyed off the resolved
 airline name, falling back to a generic silhouette when no per-airline art

@@ -33,6 +33,24 @@ centreline, while 02/20 crosses that centreline outright but sits 56 deg
 off its heading. runway3.json's `corridor` block carries the measured
 derivation of every threshold.
 
+On-ground pavement gate (added 2026-08-27, debug session
+.planning/debug/missed-flights-not-displayed.md). The corridor above was
+calibrated entirely on AIRBORNE separation - every measurement behind
+half_width_m=500 and extension_m=2500 is an approach or departure track.
+Applied to a record that is already on the ground it is physically
+meaningless: a +/-500m x 8315m box around a 3315m runway also contains
+taxiways, holding points and apron positions, which is the residual
+runway3.json's own `corridor.known_residuals` admitted. That mattered
+because effective_altitude_ft() scores EVERY on-ground record at exactly
+0.0, so one taxiing aircraft inside that box outranked every real
+airborne runway-3 movement in select_runway3_aircraft()'s sort - and
+since its hex never changed, the rendered panel bytes stayed identical
+and the display froze while real traffic passed unseen. An on-ground
+record is therefore now required to be on the runway's PAVEMENT: within
+`corridor.ground_half_width_m` of the paved rectangle. The sort itself is
+deliberately unchanged - an aircraft genuinely on runway 3's pavement
+SHOULD outrank one 900ft above it, which is exactly what D-P2-01 says.
+
 Usage:
     server/.venv/bin/python3 server/plane/detect.py
     server/.venv/bin/python3 server/plane/detect.py --provider adsbfi --json
@@ -152,6 +170,13 @@ _M_PER_DEG_LAT = 111320.0
 DEFAULT_CORRIDOR_HALF_WIDTH_M = 500.0
 DEFAULT_CORRIDOR_EXTENSION_M = 2500.0
 DEFAULT_AXIS_TOLERANCE_DEG = 30.0
+# The on-ground pavement gate's single number. Runway 3's own published
+# paved half-width is 22.6m (OurAirports width_ft=148 = 45.1m), the only
+# real on-ground runway-3 record in server/fixtures measures 31.1m
+# cross-track, and the off-runway ground traffic this excludes starts at
+# ~150m - so 75 sits inside an empty measured band. See runway3.json's
+# `corridor.ground_gate_derivation` for the full derivation.
+DEFAULT_GROUND_HALF_WIDTH_M = 75.0
 
 
 def load_geofence(path=None):
@@ -206,10 +231,17 @@ def runway_axis(geofence):
 
 
 def corridor_params(geofence):
-    """The corridor gate's three numbers, from geofence['corridor'] when
+    """The corridor gate's four numbers, from geofence['corridor'] when
     present, else the module defaults. Non-numeric or non-positive entries
     fall back rather than raising - a malformed config must not be able to
     silently widen the gate to infinity.
+
+    Returns (half_width_m, extension_m, axis_tolerance_deg,
+    ground_half_width_m). The first three describe the AIRBORNE corridor;
+    the fourth is the on-ground pavement gate, used as both the lateral
+    half-width and the along-track margin beyond each threshold (one
+    concept - "within X of runway 3's paved rectangle" - rather than two
+    tunables).
     """
     block = geofence.get("corridor")
     if not isinstance(block, dict):
@@ -225,6 +257,7 @@ def corridor_params(geofence):
         _positive("half_width_m", DEFAULT_CORRIDOR_HALF_WIDTH_M),
         _positive("extension_m", DEFAULT_CORRIDOR_EXTENSION_M),
         _positive("axis_tolerance_deg", DEFAULT_AXIS_TOLERANCE_DEG),
+        _positive("ground_half_width_m", DEFAULT_GROUND_HALF_WIDTH_M),
     )
 
 
@@ -310,6 +343,10 @@ def filter_in_geofence(aircraft, geofence):
       track_deg / track_deviation_deg  the record's true track and how far
                                      off runway 3's axis it points
       in_corridor                    within the runway-aligned corridor
+                                     that applies to THIS record - the wide
+                                     approach/departure corridor when
+                                     airborne, the tight pavement rectangle
+                                     when on_ground (see below)
       track_aligned                  within the axis tolerance, OR carrying
                                      no usable track at all (see below)
       on_runway3                     in_corridor AND track_aligned - the
@@ -330,11 +367,25 @@ def filter_in_geofence(aircraft, geofence):
     whenever a feed omits the field. Measured 21/21 live adsb.fi records
     carried a numeric track; the pre-existing committed fixtures carry
     none. runway3.json's `corridor.known_residuals` records the exposure.
+
+    ON-GROUND RECORDS GET A TIGHTER CORRIDOR (2026-08-27,
+    missed-flights-not-displayed). `half_width_m`/`extension_m` describe
+    where an aircraft IN THE AIR on approach to or departure from runway 3
+    may legitimately be; every measurement they were derived from is an
+    airborne track. A record already on the ground is instead required to
+    be on runway 3's own pavement - within `ground_half_width_m` of the
+    paved rectangle, laterally AND along-track. Without that, any taxiing
+    or holding aircraft within 500m of the centreline scored effective
+    altitude 0.0 and masked every real airborne runway-3 movement, freezing
+    the panel on an aircraft that was not going anywhere. The pavement
+    figure is calibrated against runway 3's published 45.1m width and the
+    real on-ground fixture's measured 31.1m offset; see runway3.json's
+    `corridor.ground_gate_derivation`.
     """
     bbox = geofence["bbox"]
     ceiling_ft = geofence["alt_ceiling_ft"]
     axis = runway_axis(geofence)
-    half_width_m, extension_m, axis_tolerance_deg = corridor_params(geofence)
+    half_width_m, extension_m, axis_tolerance_deg, ground_half_width_m = corridor_params(geofence)
     matched = []
     for ac in aircraft:
         lat = ac.get("lat")
@@ -361,9 +412,21 @@ def filter_in_geofence(aircraft, geofence):
             in_corridor = True
             track_aligned = True
         else:
+            # An on-ground record is held to runway 3's PAVEMENT, not to
+            # the approach/departure corridor: the same figure bounds the
+            # lateral offset and the along-track margin beyond each
+            # threshold, so the test reads "within ground_half_width_m of
+            # the paved rectangle". An aircraft 500m to the side of the
+            # runway, or 2.5km past a threshold, is on a taxiway or an
+            # apron - not on runway 3 - and admitting it let it mask real
+            # runway-3 traffic at effective altitude 0.0.
+            if on_ground:
+                lateral_m, margin_m = ground_half_width_m, ground_half_width_m
+            else:
+                lateral_m, margin_m = half_width_m, extension_m
             in_corridor = (
-                -extension_m <= along_m <= axis["length_m"] + extension_m
-                and abs(cross_m) <= half_width_m
+                -margin_m <= along_m <= axis["length_m"] + margin_m
+                and abs(cross_m) <= lateral_m
             )
             track_aligned = deviation_deg is None or deviation_deg <= axis_tolerance_deg
 
@@ -387,6 +450,15 @@ def effective_altitude_ft(ac):
     only by select_runway3_aircraft's D-P2-01 sort key - an on-ground
     aircraft is, by definition, the lowest possible "altitude" an aircraft
     inside the geofence can have.
+
+    That collapse to a single value is only safe because filter_in_geofence()
+    admits an on-ground record ONLY when it is on runway 3's own pavement.
+    Before that gate existed, any taxiing or parked aircraft within 500m of
+    the centreline also scored 0.0 here and therefore outranked every real
+    airborne runway-3 movement - freezing the panel on a stationary aircraft
+    while real traffic went unseen (2026-08-27,
+    .planning/debug/missed-flights-not-displayed.md). If the ground gate is
+    ever widened, this function stops discriminating again.
     """
     if ac.get("on_ground"):
         return 0.0
@@ -396,64 +468,87 @@ def effective_altitude_ft(ac):
     return 0.0
 
 
-def select_runway3_aircraft(aircraft, geofence):
-    """D-P2-01 (locked, 02-01-PLAN.md): when more than one aircraft is
-    inside the runway-3 geofence in the same poll, select by a total
-    order:
+def selection_sort_key(ac):
+    """The D-P2-01 total order, as one named thing:
 
       1. lowest effective altitude (an on-ground aircraft has effective
          altitude 0 - see effective_altitude_ft);
-      2. tie-break on smallest seen_pos (freshest position report);
-      3. tie-break on lexicographically smallest hex.
+      2. tie-break on lexicographically smallest hex.
 
-    Rationale: lowest-and-closest-to-the-ground is the aircraft actually
-    committed to the runway right now, which is what "the plane using
-    runway 3" means to a person looking at the frame; the two tie-breaks
-    make the pick independent of the aggregator's own array ordering, so
-    the same snapshot always yields the same flight and the display never
-    flickers between two simultaneous aircraft.
+    WHY `seen_pos` IS NOT IN HERE (removed 2026-08-28, debug session
+    .planning/debug/missed-flights-not-displayed.md, mechanism B). This key
+    used to be `(effective_altitude_ft, seen_pos, hex)`. `seen_pos` is the
+    only value ever placed in it that is a property of the OBSERVER rather
+    than the observed: it means "seconds since THIS feeder network last
+    received a position report". adsb.fi and adsb.lol are independent
+    feeder networks, queried at least MIN_SECONDS_BETWEEN_CALLS apart, and
+    adsb-test/RESULTS.md measures their spread on this very field at tens
+    of seconds (36.2s median / 56.7s max reconstructed update gap for
+    adsb.fi; 22.4s / 69.8s for airplanes.live). Ranking a shared reality by
+    an observer-local value cannot produce a shared answer - so whenever
+    two records tied on effective altitude, the two feeds ordered the same
+    two real aircraft differently, poll_current_aircraft() saw two
+    different hexes, and the D-04 disagreement branch threw the whole cycle
+    away. The panel froze while real traffic passed, which is exactly the
+    symptom that session was opened for.
 
-    Candidates are gated on `on_runway3` (see filter_in_geofence), not on
-    bbox containment. That gate replaces the "known limitation (accepted
-    for v1)" this docstring used to carry, which understated the problem
-    badly: measured against real published OurAirports LFPO geometry the
-    bbox contains 71.9% of runway 06/24 AND 80.5% of runway 02/20
-    (including runway 02's threshold), and a 22-poll live capture on
-    2026-08-27 caught two real aircraft using those other runways winning
-    this selection - a runway-20 departure climbing at +2304 ft/min 750m
-    off runway 3's centreline (which would also have flipped the panel to
-    "departing"), and a 02/20-aligned arrival 611m off it. The sort below
-    was never the problem; the absence of any lateral or directional test
-    was. See runway3.json's `corridor` block for the gate's thresholds and
-    why both a corridor and a track check are needed.
+    `hex` is the ICAO 24-bit address: a property of the AIRCRAFT, identical
+    across every feed that sees it, and unchanged between polls. It is
+    therefore the only tie-break that actually delivers what this rule's
+    own rationale has always claimed - "the same snapshot always yields the
+    same flight and the display never flickers between two simultaneous
+    aircraft". `seen_pos` structurally could not deliver that, because it
+    changes on every poll by definition; it made the pick unstable across
+    consecutive polls as well as across providers.
 
-    Returns a normalised dict (hex, callsign, aircraft_type, altitude_ft,
-    on_ground, vertical_rate_fpm, lat, lon, gs, seen_pos, plus the
-    along_track_m / cross_track_m / track_deg / track_deviation_deg
-    geometry the gate accepted it on, so a questionable pick is diagnosable
-    from the logged selection alone) for the winner, or None if no
-    candidate is on runway 3 and below the ceiling. aircraft_type is
-    the ICAO type designator as reported by the aggregator (B738, A20N,
-    AT76), uppercased, or None when the record carries none, carries an
-    empty/whitespace-only value, carries a non-string value, or carries a
-    string that isn't shaped like a real ICAO type designator (alphanumeric
-    only - see _VALID_AIRCRAFT_TYPE_RE) - a missing designator is an
-    ordinary, expected case, not an error.
+    Ties are not rare enough to ignore. effective_altitude_ft() collapses
+    every on-ground record to exactly 0.0 (see runway3.json's
+    known_residuals item 3: one aircraft lining up on 07 while another
+    rolls out toward 25 are both genuinely on runway 3 and both score 0.0),
+    and airborne alt_baro is quantised - every altitude in every committed
+    fixture is a multiple of 25ft - so two airborne aircraft sharing a
+    reported altitude is ordinary too.
+
+    TRADE-OFF, recorded honestly rather than hidden: dropping seen_pos
+    means a genuinely stale record (an aircraft that has already vacated
+    the runway but is still being reported) can now win a tie against a
+    fresher one. The old behaviour was not reliably better - being
+    unstable, it oscillated rather than consistently preferring the fresher
+    aircraft - and the correct remedy is a staleness FILTER, which
+    RESULTS.md's measured update gaps make unsafe to add without more data:
+    any threshold tight enough to catch a vacated aircraft would also drop
+    genuine traffic. Tracked as runway3.json known_residuals item (4).
+    `seen_pos` is still carried in the returned selection for diagnostics;
+    only its role in the ORDERING was removed.
     """
-    candidates = [
+    return (effective_altitude_ft(ac), ac.get("hex") or "")
+
+
+def runway3_candidates(aircraft, geofence):
+    """Every record in `aircraft` that is on runway 3 and below the ceiling
+    - the candidate set select_runway3_aircraft() then picks one from.
+
+    Split out of select_runway3_aircraft() (2026-08-28, mechanism B of the
+    missed-flights-not-displayed debug session) with no behaviour change,
+    so poll_current_aircraft() can cross-validate the two providers' whole
+    candidate SETS instead of only their final picks. Comparing picks alone
+    manufactured disagreements: two independent feeder networks routinely
+    hold overlapping-but-unequal sets, so their winners can differ even
+    when both agree about the aircraft that is actually there. See
+    poll_current_aircraft() for why that mattered.
+    """
+    return [
         ac for ac in filter_in_geofence(aircraft, geofence)
         if ac.get("below_ceiling") and ac.get("on_runway3")
     ]
-    if not candidates:
-        return None
 
-    def sort_key(ac):
-        seen_pos = ac.get("seen_pos")
-        seen_pos_key = seen_pos if isinstance(seen_pos, (int, float)) else float("inf")
-        return (effective_altitude_ft(ac), seen_pos_key, ac.get("hex") or "")
 
-    winner = min(candidates, key=sort_key)
-
+def _normalise_selection(winner):
+    """Shape one gated candidate record into the selection dict described
+    by select_runway3_aircraft()'s docstring. Shared by that function and
+    by poll_current_aircraft()'s corroborated branch, so there is exactly
+    one definition of what a selection looks like.
+    """
     callsign = (winner.get("flight") or "").strip() or None
     raw_type = winner.get("t")
     if isinstance(raw_type, str):
@@ -483,6 +578,68 @@ def select_runway3_aircraft(aircraft, geofence):
     }
 
 
+def select_runway3_aircraft(aircraft, geofence):
+    """D-P2-01 (locked, 02-01-PLAN.md): when more than one aircraft is
+    inside the runway-3 geofence in the same poll, select exactly one by
+    the total order in selection_sort_key() - lowest effective altitude,
+    then lexicographically smallest hex.
+
+    Rationale: lowest-and-closest-to-the-ground is the aircraft actually
+    committed to the runway right now, which is what "the plane using
+    runway 3" means to a person looking at the frame; the hex tie-break
+    makes the pick independent of the aggregator's own array ordering, of
+    which aggregator is answering, and of when the poll happened - so the
+    same snapshot always yields the same flight and the display never
+    flickers between two simultaneous aircraft. See selection_sort_key()
+    for why the former `seen_pos` tie-break was removed on 2026-08-28.
+
+    Candidates are gated on `on_runway3` (see filter_in_geofence), not on
+    bbox containment. That gate replaces the "known limitation (accepted
+    for v1)" this docstring used to carry, which understated the problem
+    badly: measured against real published OurAirports LFPO geometry the
+    bbox contains 71.9% of runway 06/24 AND 80.5% of runway 02/20
+    (including runway 02's threshold), and a 22-poll live capture on
+    2026-08-27 caught two real aircraft using those other runways winning
+    this selection - a runway-20 departure climbing at +2304 ft/min 750m
+    off runway 3's centreline (which would also have flipped the panel to
+    "departing"), and a 02/20-aligned arrival 611m off it. The sort below
+    was never the problem; the absence of any lateral or directional test
+    was. See runway3.json's `corridor` block for the gate's thresholds and
+    why both a corridor and a track check are needed.
+
+    The same conclusion held a second time, for a different symptom
+    (2026-08-27, .planning/debug/missed-flights-not-displayed.md: real
+    flights passing without ever being displayed). A taxiing aircraft was
+    masking real runway-3 movements because effective_altitude_ft() scores
+    every on-ground record at 0.0 and the corridor was wide enough to
+    contain non-runway ground traffic. The temptation is to fix that in
+    the sort - it would be wrong. An aircraft physically on runway 3's
+    pavement genuinely IS the aircraft using runway 3, and demoting it
+    below an airborne one would break D-P2-01 for the correct case. The
+    defect was again the gate, not the ranking: the corridor was
+    calibrated on airborne separation and was being applied to ground
+    records. filter_in_geofence() now holds on-ground records to the
+    runway's pavement instead. The sort below is unchanged.
+
+    Returns a normalised dict (hex, callsign, aircraft_type, altitude_ft,
+    on_ground, vertical_rate_fpm, lat, lon, gs, seen_pos, plus the
+    along_track_m / cross_track_m / track_deg / track_deviation_deg
+    geometry the gate accepted it on, so a questionable pick is diagnosable
+    from the logged selection alone) for the winner, or None if no
+    candidate is on runway 3 and below the ceiling. aircraft_type is
+    the ICAO type designator as reported by the aggregator (B738, A20N,
+    AT76), uppercased, or None when the record carries none, carries an
+    empty/whitespace-only value, carries a non-string value, or carries a
+    string that isn't shaped like a real ICAO type designator (alphanumeric
+    only - see _VALID_AIRCRAFT_TYPE_RE) - a missing designator is an
+    ordinary, expected case, not an error.
+    """
+    candidates = runway3_candidates(aircraft, geofence)
+    if not candidates:
+        return None
+    return _normalise_selection(min(candidates, key=selection_sort_key))
+
+
 def poll_current_aircraft(geofence, timeout=10.0, providers=None):
     """Query provider(s) in order - by default just DEFAULT_PROVIDER_ORDER
     (adsb.fi then adsb.lol), not every registered provider - sleeping
@@ -498,18 +655,68 @@ def poll_current_aircraft(geofence, timeout=10.0, providers=None):
     confidently *wrong* (see the runway3-false-positive debug session:
     the bug there was a bad selection, not a missing one):
 
-      both agree on hex   -> return it, corroborated=True
-      only one selected   -> return it, corroborated=None (single source;
-                             the other errored or saw nothing on runway 3 -
-                             no corroboration was available, which is NOT
-                             the same as disagreement)
-      they disagree       -> log both and return None
+      >=1 aircraft common to every answering source
+                          -> select one from that common set, corroborated=True
+      only one answered   -> return its pick, corroborated=None (single
+                             source; the other errored or saw nothing on
+                             runway 3 - no corroboration was available,
+                             which is NOT the same as disagreement)
+      nothing in common   -> log every source's candidate set, return None
 
     Returning None on disagreement is deliberately the same outcome as
     "nothing detected", which D-04 already defines as "leave the panel
     alone". Two feeds naming two different aircraft as the one on runway 3
     means at most one of them is right, and a stale-but-real panel beats a
     coin-flip between them.
+
+    CORROBORATION IS ON CANDIDATE SETS, NOT ON FINAL PICKS (changed
+    2026-08-28, debug session
+    .planning/debug/missed-flights-not-displayed.md, mechanism B). This
+    function used to compare only each provider's winner. That asked the
+    wrong question - "did you pick the same aircraft?" instead of "did you
+    SEE the aircraft I picked?" - and it manufactured disagreements out of
+    nothing in two distinct ways:
+
+      * via an unstable ranking. The old sort key tie-broke on `seen_pos`,
+        a per-provider staleness value, so two feeds ranked the same two
+        real aircraft differently and the cycle was suppressed. That half
+        is fixed in selection_sort_key(), which no longer reads it.
+      * via unequal candidate SETS, which no amount of determinism can
+        reconcile. adsb.fi and adsb.lol are independent feeder networks:
+        one routinely holds a record the other has not received yet
+        (adsb-test/RESULTS.md, ~92 minutes at this geofence: 37 hex seen by
+        both, 1 by adsb.fi only - and instantaneously the gap is wider than
+        that aggregate, because a 36.2s median position-update gap means a
+        newly-appeared aircraft reaches one feed before the other by
+        construction). With sets {X, Y} and {Y}, even a perfectly
+        deterministic sort picks X and Y - two different hexes, suppressed
+        cycle - although both feeds agree Y is real and on runway 3, and
+        neither ever asserted X was absent.
+
+    So corroboration is now the INTERSECTION of the answering providers'
+    candidate hex sets, and the winner is selected once, deterministically,
+    from the first provider's records restricted to that intersection.
+
+    THIS DOES NOT WEAKEN D-04, and the distinction matters. The safety
+    property on what reaches the panel is unchanged: before, a corroborated
+    display required the winner to be in both providers' sets (that is what
+    equal picks implies); now the winner is drawn from the intersection, so
+    it is still in every answering provider's set. What narrows is only the
+    SUPPRESSION TRIGGER - from "the picks differ" to "no aircraft at all is
+    common to every answering source". Genuine doubt still suppresses. And
+    a feed carrying a phantom or stale record the other lacks now yields
+    the corroborated REAL aircraft instead of a blank panel, because the
+    uncorroborated record is excluded from selection rather than merely
+    losing a comparison - corroboration became more effective, not less.
+    Unanimity is preserved exactly: the intersection is taken across ALL
+    answering providers, so a three-source poll where two agree and one
+    dissents still suppresses, as it did before.
+
+    What corroboration still cannot catch, unchanged by this: both feeds
+    carrying the SAME bad record. A shared phantom or a shared stale
+    position is in the intersection and will be displayed as corroborated.
+    Cross-source agreement has never been able to detect two sources being
+    wrong in the same way (runway3.json known_residuals item 5).
 
     Today DEFAULT_PROVIDER_ORDER has two entries - adsb.fi first, then
     adsb.lol (added 2026-08-27 as a second default source, see the
@@ -531,16 +738,21 @@ def poll_current_aircraft(geofence, timeout=10.0, providers=None):
     every registered provider including the opt-in one, or a test
     double).
 
-    The returned dict carries two extra keys - `sources` (provider names
-    that independently selected this aircraft) and `corroborated` - so the
-    caller and the logs can tell a two-source agreement from a lone
-    unverified reading.
+    The returned dict carries two extra keys - `sources` (the provider
+    names whose own runway-3 candidate set contained this aircraft) and
+    `corroborated` - so the caller and the logs can tell a two-source
+    agreement from a lone unverified reading.
     """
     provider_names = providers if providers is not None else list(DEFAULT_PROVIDER_ORDER)
     center = geofence["center"]
     radius_nm = geofence["radius_nm"]
 
-    selections = []  # [(provider_name, selection)] in provider order
+    # [(provider_name, candidate_records)] in provider order, for the
+    # providers that both answered AND saw at least one aircraft on runway
+    # 3. A provider that answered but saw nothing on runway 3 is not a
+    # dissenting vote - it simply has nothing to corroborate with, exactly
+    # as it was before this function compared sets rather than picks.
+    polled = []
     for i, name in enumerate(provider_names):
         if i > 0:
             time.sleep(MIN_SECONDS_BETWEEN_CALLS)
@@ -549,32 +761,50 @@ def poll_current_aircraft(geofence, timeout=10.0, providers=None):
         except (requests.RequestException, ValueError) as exc:
             print("detect: %s query failed: %s: %s" % (name, type(exc).__name__, exc), file=sys.stderr)
             continue
-        selection = select_runway3_aircraft(aircraft, geofence)
-        if selection is not None:
-            selections.append((name, selection))
+        candidates = runway3_candidates(aircraft, geofence)
+        if candidates:
+            polled.append((name, candidates))
 
-    if not selections:
+    if not polled:
         return None
 
-    winner = selections[0][1]
-    agreeing = [name for name, sel in selections if sel.get("hex") == winner.get("hex")]
+    if len(polled) == 1:
+        name, candidates = polled[0]
+        result = _normalise_selection(min(candidates, key=selection_sort_key))
+        result["sources"] = [name]
+        result["corroborated"] = None
+        return result
 
-    if len(selections) == 1:
-        corroborated = None
-    elif len(agreeing) == len(selections):
-        corroborated = True
-    else:
+    # Two or more sources each saw runway-3 traffic. `hex` is normalised
+    # the same way selection_sort_key() normalises it, so this comparison
+    # cannot disagree with the ordering that follows. (A record carrying no
+    # hex at all therefore still compares equal to another record carrying
+    # none - pre-existing behaviour, deliberately not changed here; no real
+    # aggregator record omits the field.)
+    common = set.intersection(*[{ac.get("hex") or "" for ac in c} for _, c in polled])
+
+    if not common:
         print(
-            "detect: providers disagree on the runway-3 aircraft (%s) - "
-            "treating as doubt, selecting nothing this poll"
-            % ", ".join("%s=%s" % (name, sel.get("hex")) for name, sel in selections),
+            "detect: providers disagree on the runway-3 aircraft (%s) - no aircraft common to "
+            "every source, treating as doubt, selecting nothing this poll"
+            % "; ".join(
+                "%s=[%s]" % (name, ",".join(sorted(ac.get("hex") or "?" for ac in c)))
+                for name, c in polled
+            ),
             file=sys.stderr,
         )
         return None
 
-    result = dict(winner)
-    result["sources"] = agreeing
-    result["corroborated"] = corroborated
+    # Ordering is load-bearing (see the PROVIDERS comment and
+    # ARCHITECTURE.md): the winner is picked from the FIRST-queried
+    # provider's own records, so its altitude/track/position values are
+    # what reach the renderer, exactly as when this function returned the
+    # first provider's selection on agreement.
+    first_candidates = polled[0][1]
+    corroborated_records = [ac for ac in first_candidates if (ac.get("hex") or "") in common]
+    result = _normalise_selection(min(corroborated_records, key=selection_sort_key))
+    result["sources"] = [name for name, _ in polled]
+    result["corroborated"] = True
     return result
 
 
