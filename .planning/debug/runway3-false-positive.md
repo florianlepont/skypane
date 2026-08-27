@@ -262,12 +262,15 @@ verification: |
   - REGRESSION TEST PROVEN TO CATCH THE BUG: temporarily restoring the pre-fix candidate gate
     (`below_ceiling` only) makes check 12 fail with the exact real false positive
     (39de4a, cross=-750 m, dev=56.7 deg); restoring the fix returns 22/22.
-  - BEFORE/AFTER REPLAY ON REAL DATA: replaying all 53 captured live polls through both the
-    pre-fix and post-fix selection logic ->
-      pre-fix : 24 selections, 1 of them not on runway 3
-      post-fix: 23 selections, 0 of them not on runway 3
-      genuine runway-3 detections retained: 23/23 (100%) - the ONLY suppressed selection is the
-      wrong-runway one. No false negatives introduced.
+  - BEFORE/AFTER REPLAY ON REAL DATA: replaying the complete 60-poll live capture
+    (adsb.fi over the real bbox, 2026-08-27 ~11:45-12:00 CEST) through both the pre-fix and
+    post-fix selection logic ->
+      pre-fix : 26 polls selected an aircraft, 6 distinct hex, 1 poll selected a NON-runway-3
+                aircraft (poll 3: 39de4a TVF12ZW, cross -750 m, axis deviation 56.7 deg)
+      post-fix: 25 polls selected an aircraft, 5 distinct hex, 0 non-runway-3 selections
+      false-positive rate 3.8% -> 0.0%; genuine runway-3 detections retained 25/25 (100%).
+      Exactly one poll was suppressed and it is exactly the wrong-runway one. The distinct-hex
+      sets differ by precisely 39de4a. No false negatives introduced.
   - LIVE END-TO-END with the fixed code: `server/plane/detect.py` selected 392ae6 (AFR25EA) at
     525 ft, cross=+5 m, track 253.59, dev 0.8 deg, reporting `sources=adsbfi corroborated=None`
     and correctly degrading past airplanes.live's 403 rather than suppressing.
