@@ -92,6 +92,19 @@ Airlines. `km-malta-airlines.png` is not an exception to this rule at all:
 adsbdb has no record of the carrier under any callsign whatsoever
 (`KMM466` -> "unknown callsign", live-verified the same session), so there
 is no stale brand name for the current name to conflict with (QT-jz6-D-01).
+
+Quick task `260827-kih` (2026-08-27) adds Amelia (`AIA`) as a new target
+precisely because `enrich.correct_airline_name()` now exists: adsbdb's `AIA`
+callsign resolves live to `"Avies"`, a *different, defunct* Estonian
+carrier that happened to hold the same ICAO code (not a stale label for
+the same real airline - an outright wrong carrier attribution). Amelia was
+excluded from the target set through Phase 3.1
+(`03.1-LIVE-RESOLUTION.md` marked it `[UNRESOLVED]` because neither
+candidate ICAO code it tried could be trusted); that exclusion rationale is
+retired by this session's live verification of the real prefix, and the
+carrier is reachable through the same correction seam that also fixes
+`FPO`/`CRL`/`CCM` below (see `enrich._AIRLINE_NAME_CORRECTIONS` for the
+full live evidence and `_ILLUSTRATION_TARGETS`' own Amelia entry).
 """
 import os
 import re
@@ -234,11 +247,42 @@ _ILLUSTRATION_TARGETS = [
         "See HANDOFF.md's Naming rules section for the full record. "
         "[VERIFIED-CALLSIGN-STALE-NAME-OVERRIDDEN]",
     ),
+    # --- Quick task 260827-kih (2026-08-27): Amelia, reachable now that
+    # enrich.correct_airline_name() exists ---
+    (
+        "Amelia",
+        None,
+        "Live-verified 2026-08-27: `curl https://api.adsbdb.com/v0/callsign/"
+        "AIA6412` returns a populated result attributing the AIA prefix to "
+        "'Avies', a different, defunct Estonian carrier (ceased operations "
+        "2016) that happened to hold the same ICAO code - not merely a "
+        "stale label for the same real airline, an actively wrong carrier "
+        "attribution. The ICAO prefix AIA/Amelia itself is independently "
+        "corroborated (Flightradar24 live-tracked flight 8R6412 as "
+        "callsign 8R/AIA, plus Airhex, Wikipedia, ERAA and IATA). Reachable "
+        "precisely because enrich.correct_airline_name() now reconciles "
+        "the adsbdb-hit path with the corrected name before selection; the "
+        "prior exclusion rationale (an untrustworthy candidate ICAO code, "
+        "03.1-LIVE-RESOLUTION.md) is retired by this session's live "
+        "verification of the real one. Primary file, Airbus A320 "
+        "(A320-family; A319 shares the file per the suffix rule). "
+        "[VERIFIED-CALLSIGN]",
+    ),
     # --- P-04 secondary-variant files for mixed-fleet airlines ---
     ("CCM Airlines", "atr72", "D-03/D-04 mixed-fleet secondary (P-04)"),
     ("Transavia France", "a320", "D-05 fleet-transition secondary (P-04)"),
     ("Royal Air Maroc", "embraer", "D-03 mixed-fleet secondary (P-04)"),
     ("Air Caraïbes", "a330", "D-03 mixed-fleet secondary (P-04)"),
+    (
+        "Amelia",
+        "embraer",
+        "Quick task 260827-kih secondary variant - Embraer E145 (E190 "
+        "shares the file per the suffix rule), chosen over the E190 "
+        "because the E145 is the type on Amelia's real Orly-relevant Pau "
+        "service (recorded in Phase 3.1's own fleet research, "
+        "03.1-CONTEXT.md D-03). Cross-references the same AIA correction "
+        "row as the primary entry above.",
+    ),
 ]
 
 # A key must reduce to this shape after normalise_airline_key() - defensive
@@ -278,7 +322,8 @@ _TYPE_SHAPE_BUCKETS = {
     # A320 family (D-03: Air France, Vueling, Iberia, TAP, Transavia,
     # easyJet, Wizz Air, Volotea, ITA Airways, Tunisair, Pegasus, La
     # Compagnie [excluded from the target set pending re-verification];
-    # 260827-jz6: KM Malta Airlines, A320neo primary)
+    # 260827-jz6: KM Malta Airlines, A320neo primary; 260827-kih: Amelia,
+    # A320 primary)
     "A318": "a320", "A319": "a320", "A320": "a320", "A321": "a320",
     "A20N": "a320", "A21N": "a320",  # A320neo / A321neo
     # B737 family (D-03: Transavia, Air Europa, Air Algerie, Europe
@@ -295,9 +340,9 @@ _TYPE_SHAPE_BUCKETS = {
     "AT72": "atr72", "AT73": "atr72", "AT75": "atr72", "AT76": "atr72",
     # Beechcraft 1900D (D-03: Twin Jet)
     "BE9L": "beechcraft1900d",
-    # Embraer E-Jet family (D-03: LOT Polish Airlines, Amelia International
-    # [excluded from the target set pending re-verification], Royal Air
-    # Maroc minority)
+    # Embraer E-Jet family (D-03: LOT Polish Airlines, Royal Air Maroc
+    # minority; 260827-kih: Amelia's E145 secondary variant - see the
+    # "Amelia"/"embraer" row in _ILLUSTRATION_TARGETS)
     "E135": "embraer", "E145": "embraer", "E170": "embraer",
     "E75L": "embraer", "E75S": "embraer", "E190": "embraer",
     "E195": "embraer", "E290": "embraer", "E295": "embraer",

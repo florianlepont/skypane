@@ -155,3 +155,25 @@ fixture, always explicitly noted).
   miss.
 - The fixture additionally records the real HTTP status (`404`) alongside
   the body so `test_enrich.py` (a later plan) can replay both.
+
+## `adsbdb_hit_AIA6412.json`
+
+- **Source:** live `GET https://api.adsbdb.com/v0/callsign/AIA6412`,
+  captured verbatim during quick task `260827-kih`'s Task 1 execution.
+- **Retrieval date:** 2026-08-27.
+- **Every field is real** — this is a genuine 200 response, not a
+  hand-built/synthetic body. The live response still attributes the `AIA`
+  prefix to the defunct Estonian carrier the plan expected: `airline.name`
+  is `"Avies"` (ICAO `AIA`, IATA `U3`, country Estonia) — a real airline
+  that ceased operations in 2016, whose ICAO code was never retired
+  upstream. `origin`/`destination` both resolve to Paris-Orly (`ORY`/
+  `LFPO`) — adsbdb's own answer for this callsign, copied verbatim, not
+  edited to look like a more plausible route. This is exactly the
+  wrong-carrier-attribution failure mode `enrich.correct_airline_name()`
+  (quick task `260827-kih`) exists to fix: `AIA6412` is a real Amelia
+  flight (Airbus A320, France), not an Avies flight, but adsbdb's
+  crowdsourced database has never been corrected for the fact that a
+  different, defunct carrier once held the same ICAO code.
+- Follows the same wrapper convention as `adsbdb_miss_EJU84YF.json` (a
+  top-level object carrying `http_status` alongside `body`) so
+  `test_enrich.py` can replay both the status and the body.

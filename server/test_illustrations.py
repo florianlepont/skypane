@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 44
+EXPECTED_CHECK_COUNT = 45
 
 
 def main():
@@ -690,6 +690,25 @@ def main():
         "target_airline_names()/target_filenames() carry 'KM Malta Airlines'/'TUIfly Belgium' and their derived "
         "filenames, and never 'Air Malta' or 'Jetairfly' (260827-jz6, QT-jz6-D-02 drift guard)",
         _km_malta_and_tuifly_belgium_targets_present,
+    )
+
+    # 45 (quick task 260827-kih). Amelia's two new target filenames are
+    # present in target_filenames() (still outstanding on disk, no artwork
+    # exists yet), and the full target plan now totals 38 entries.
+    def _amelia_targets_present_and_total_is_38():
+        targets = ill.target_filenames()
+        for expected_file in ("amelia.png", "amelia-embraer.png"):
+            if expected_file not in targets:
+                return False, "target_filenames() is missing %r: not present" % (expected_file,)
+            if os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
+                return False, "%r already exists on disk - expected it to still be outstanding" % (expected_file,)
+        if len(targets) != 38:
+            return False, "target_filenames() has %d entries, expected 38" % (len(targets),)
+        return True, ""
+    check(
+        "target_filenames() contains 'amelia.png'/'amelia-embraer.png' (still outstanding on disk) and totals "
+        "38 entries (260827-kih)",
+        _amelia_targets_present_and_total_is_38,
     )
 
     total = len(results)

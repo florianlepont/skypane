@@ -81,6 +81,18 @@ CACHE_MAX_ENTRIES = 300
 # callsign field can never inject a path segment or query parameter.
 _CALLSIGN_SAFE_RE = re.compile(r"^[A-Z0-9]+$")
 
+# Gate applied before any prefix lookup (mirrors classify_aircraft_type()'s
+# security property exactly, T-hyy-01): the normalised callsign must be
+# alphanumeric-only, at least 4 characters, with its first three characters
+# in A-Z. This rejects a bare 3-letter string with no flight suffix, a
+# path-separator payload, and anything shorter than a real callsign, before
+# `_ICAO_AIRLINE_PREFIXES.get()` or `_AIRLINE_NAME_CORRECTIONS.get()` is ever
+# called. Moved up here (quick task 260827-kih) from beside
+# `_ICAO_AIRLINE_PREFIXES` so the correction seam below can be defined ahead
+# of its call site (`lookup_route()`) without a forward reference - this is
+# a pure move, same pattern, same comment, no behaviour change.
+_AIRLINE_PREFIX_SHAPE_RE = re.compile(r"^[A-Z]{3}[A-Z0-9]+$")
+
 # adsbdb returns municipality names in title case (e.g. "Palma De
 # Mallorca"); UI-SPEC's Body role calls for sentence case. These interior
 # connective particles are lower-cased unless they are the first word.
@@ -204,6 +216,81 @@ def _route_from_entry(entry):
     }
 
 
+# --- adsbdb-resolved-name correction seam (quick task 260827-kih) ------------
+#
+# `adsbdb`'s crowdsourced database sometimes resolves a callsign's ICAO
+# prefix to a name that is stale (a real airline's pre-rebrand legal name)
+# or, worse, outright wrong (a *different*, defunct carrier that once held
+# the same ICAO code). Prior sessions (Phase 3.1, quick task 260827-hyy)
+# worked around this by filing illustration/selection keys under whatever
+# string adsbdb happened to return - correct for the machinery that existed
+# then, but it meant the panel could show a real airline under another
+# company's name. This seam fixes that at the source, once, instead of
+# leaving every caller to work around it.
+#
+# QT-kih-D-01: every correction lives in this ONE table, keyed on the PAIR
+# `(three-letter ICAO callsign prefix, the exact airline_name string the
+# upstream API returned)` - never on the string alone. This is deliberately
+# not a global string replace: a hypothetical unrelated carrier legitimately
+# named by a corrected-away string, arriving under a different prefix, is
+# never rewritten (T-kih-02, proven by test_enrich.py checks 29/35's
+# negative case).
+_AIRLINE_NAME_CORRECTIONS = {
+    # AIA6412 (a real Amelia flight) resolves live via adsbdb to "Avies", a
+    # *different*, defunct Estonian carrier (ceased operations 2016) that
+    # happened to hold the same ICAO prefix - see the AIA row above for the
+    # full live-evidence citation and server/fixtures/adsbdb_hit_AIA6412.json
+    # for the recorded response. Worse than a stale-brand mismatch: an
+    # actively wrong carrier attribution.
+    ("AIA", "Avies"): "Amelia",
+}
+
+
+def correct_airline_name(callsign, airline_name):
+    """Return the corrected current name for `airline_name` as resolved
+    under `callsign`'s ICAO prefix, or `airline_name` unchanged when no
+    correction applies. Gates `callsign` through `normalise_callsign()` and
+    `_AIRLINE_PREFIX_SHAPE_RE` before deriving any prefix - exactly like
+    `airline_from_callsign()` - so the only strings this function can ever
+    return are a fixed `_AIRLINE_NAME_CORRECTIONS` table value or the
+    `airline_name` argument it was handed, never a value derived from the
+    callsign itself (T-kih-01). Returns any non-string or falsy
+    `airline_name` unchanged without ever consulting the table. Never
+    raises.
+    """
+    if not isinstance(airline_name, str) or not airline_name:
+        return airline_name
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return airline_name
+    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return airline_name
+    prefix = normalised[:3]
+    return _AIRLINE_NAME_CORRECTIONS.get((prefix, airline_name), airline_name)
+
+
+def apply_airline_name_correction(callsign, route):
+    """Return `route` unchanged when `correct_airline_name()` finds nothing
+    to correct, otherwise a shallow copy of `route` with a corrected
+    `airline_name`. Returns any non-dict `route` unchanged, and returns
+    `route` unchanged (rather than raising) if `route.get()` itself raises
+    - mirroring `illustrations.select_illustration()`'s same defensive
+    shape. Never raises.
+    """
+    if not isinstance(route, dict):
+        return route
+    try:
+        airline_name = route.get("airline_name")
+    except Exception:
+        return route
+    corrected = correct_airline_name(callsign, airline_name)
+    if corrected == airline_name:
+        return route
+    corrected_route = dict(route)
+    corrected_route["airline_name"] = corrected
+    return corrected_route
+
+
 def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     """Resolve `callsign` to a normalised route dict
     (`airline_name`/`origin_iata`/`origin_city`/`destination_iata`/
@@ -217,6 +304,20 @@ def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     `{"found": True, <route fields>}` or `{"found": False}`. Both hits and
     misses are cached, and a cached callsign - hit or miss - is never
     re-queried.
+
+    QT-kih-D-01/D-02/D-03: both success paths (a fresh 200 and a cached
+    hit) converge on the single `apply_airline_name_correction()` call at
+    the end of this function - the one seam every adsbdb-sourced route
+    leaves through, fresh or cached. The cache deliberately stores the raw,
+    uncorrected upstream payload (the correction is applied on read, never
+    on write): a server whose `poll_state.json` predates this correction
+    seam starts producing corrected names on its very next poll, with zero
+    cache migration or purge, and the cache remains a faithful record of
+    what adsbdb actually returned. The prefix-only fallback path
+    (`airline_from_callsign()` below) needs no call into this seam at all,
+    because `_ICAO_AIRLINE_PREFIXES` already holds corrected values by
+    construction - an agreement `test_enrich.py`'s check 32 asserts as a
+    machine-checked invariant across both tables, rather than assumes.
     """
     normalised = normalise_callsign(callsign)
     if normalised is None:
@@ -226,32 +327,35 @@ def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
 
     entry, present = _cache_get(cache, normalised)
     if present:
-        if entry.get("found"):
-            return _route_from_entry(entry)
-        return None
+        if not entry.get("found"):
+            return None
+        route = _route_from_entry(entry)
+    else:
+        fetch = transport or default_transport
+        try:
+            status_code, body = fetch(normalised, timeout)
+        except Exception:
+            cache[normalised] = {"found": False}
+            return None
 
-    fetch = transport or default_transport
-    try:
-        status_code, body = fetch(normalised, timeout)
-    except Exception:
-        cache[normalised] = {"found": False}
-        return None
+        if not (200 <= status_code < 300):
+            # Covers the 404 "unknown callsign" definitive-miss case and
+            # every other non-2xx response uniformly.
+            cache[normalised] = {"found": False}
+            return None
 
-    if not (200 <= status_code < 300):
-        # Covers the 404 "unknown callsign" definitive-miss case and every
-        # other non-2xx response uniformly.
-        cache[normalised] = {"found": False}
-        return None
+        route = _parse_route(body)
+        if route is None:
+            cache[normalised] = {"found": False}
+            return None
 
-    route = _parse_route(body)
-    if route is None:
-        cache[normalised] = {"found": False}
-        return None
+        # The cache holds the raw, uncorrected payload (QT-kih-D-02) -
+        # correction happens on read, in the return statement below.
+        cache_entry = dict(route)
+        cache_entry["found"] = True
+        cache[normalised] = cache_entry
 
-    cache_entry = dict(route)
-    cache_entry["found"] = True
-    cache[normalised] = cache_entry
-    return route
+    return apply_airline_name_correction(normalised, route)
 
 
 def city_for_state(route, state):
@@ -347,15 +451,24 @@ _ICAO_AIRLINE_PREFIXES = {
     # lower illustration tier, while the airline-only fallback path (this
     # table) renders "TUIfly Belgium" and reaches its own dedicated art.
     "JAF": "TUIfly Belgium",
+    # AIA (Amelia) added by quick task 260827-kih (2026-08-27) - a worse
+    # failure mode than every entry above. This is not a stale label for
+    # the same real airline (like KMM/JAF); adsbdb's AIA callsign resolves
+    # live to "Avies", a *different, defunct* Estonian carrier (ICAO AIA,
+    # IATA U3, ceased operations 2016) that happened to hold the same ICAO
+    # prefix before ceasing, and whose code was never retired upstream.
+    # Live-verified this session: `curl https://api.adsbdb.com/v0/
+    # callsign/AIA6412` (2026-08-27) returns a populated result -
+    # airline.name "Avies", airline.country "Estonia" - recorded verbatim
+    # in server/fixtures/adsbdb_hit_AIA6412.json. The real ICAO prefix
+    # AIA/Amelia is independently corroborated by Flightradar24
+    # (live-tracked flight 8R6412 as callsign 8R/AIA), Airhex, Wikipedia,
+    # ERAA and IATA. This value is also the corrected value
+    # `_AIRLINE_NAME_CORRECTIONS` maps ("AIA", "Avies") to below - the two
+    # tables agree by construction, an agreement `test_enrich.py`'s check
+    # 32 asserts as a machine-checked invariant rather than assumes.
+    "AIA": "Amelia",
 }
-
-# Gate applied before any prefix lookup (mirrors classify_aircraft_type()'s
-# security property exactly, T-hyy-01): the normalised callsign must be
-# alphanumeric-only, at least 4 characters, with its first three characters
-# in A-Z. This rejects a bare 3-letter string with no flight suffix, a
-# path-separator payload, and anything shorter than a real callsign, before
-# `_ICAO_AIRLINE_PREFIXES.get()` is ever called.
-_AIRLINE_PREFIX_SHAPE_RE = re.compile(r"^[A-Z]{3}[A-Z0-9]+$")
 
 
 def airline_from_callsign(callsign):

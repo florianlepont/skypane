@@ -26,7 +26,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 27
+EXPECTED_CHECK_COUNT = 33
 
 
 def load_fixture(name):
@@ -499,6 +499,147 @@ def main():
             return False, "airline_from_callsign('JAF7521') = %r, expected 'TUIfly Belgium'" % (got,)
         return True, ""
     check("airline_from_callsign('JAF7521') returns 'TUIfly Belgium' (260827-jz6, real curled callsign, QT-jz6-D-02 override)", _airline_from_callsign_tuifly_belgium)
+
+    # --- Quick task 260827-kih: enrich.correct_airline_name() /
+    # apply_airline_name_correction() - the single prefix-scoped correction
+    # seam applied inside lookup_route(). ---------------------------------
+
+    aia_hit_body = load_fixture("adsbdb_hit_AIA6412.json")["body"]
+
+    # 28. The headline case: adsbdb's real recorded AIA6412 response
+    #     attributes the AIA prefix to "Avies" (a different, defunct
+    #     Estonian carrier) - correct_airline_name() corrects it to "Amelia".
+    def _correct_airline_name_aia_to_amelia():
+        got = enrich.correct_airline_name("AIA6412", "Avies")
+        if got != "Amelia":
+            return False, "correct_airline_name('AIA6412', 'Avies') = %r, expected 'Amelia'" % (got,)
+        return True, ""
+    check("correct_airline_name('AIA6412', 'Avies') returns 'Amelia' (260827-kih)", _correct_airline_name_aia_to_amelia)
+
+    # 29. The corrected-away string arriving under a DIFFERENT prefix is
+    #     never rewritten - the correction is keyed on the (prefix, string)
+    #     pair, never on the string alone (QT-kih-D-01).
+    def _correct_airline_name_is_prefix_scoped():
+        got = enrich.correct_airline_name("ZZZ1234", "Avies")
+        if got != "Avies":
+            return False, "correct_airline_name('ZZZ1234', 'Avies') = %r, expected 'Avies' unchanged (prefix-scoped, not a global replace)" % (got,)
+        return True, ""
+    check(
+        "correct_airline_name('ZZZ1234', 'Avies') returns 'Avies' unchanged - a different prefix carrying the "
+        "same string is never rewritten (QT-kih-D-01)",
+        _correct_airline_name_is_prefix_scoped,
+    )
+
+    # 30. End to end through resolve_route(): a fresh 200 hit that
+    #     misattributes AIA6412 to Avies is corrected to "Amelia" (source
+    #     "fresh_hit"); a second call against the same cache is corrected
+    #     identically (source "cache_hit"), with exactly one transport call
+    #     across both - and the cache entry ITSELF still holds the raw
+    #     upstream string "Avies", proving the correction is applied on
+    #     read, never on write (QT-kih-D-02).
+    def _resolve_route_corrects_aia_fresh_then_cached():
+        cache = {}
+        calls = []
+        transport = make_transport(200, aia_hit_body, calls=calls)
+        route1, source1 = enrich.resolve_route("AIA6412", cache, transport=transport)
+        if route1 is None or route1.get("airline_name") != "Amelia" or source1 != "fresh_hit":
+            return False, "expected a fresh_hit route with airline_name 'Amelia', got (%r, %r)" % (route1, source1)
+        route2, source2 = enrich.resolve_route("AIA6412", cache, transport=transport)
+        if route2 is None or route2.get("airline_name") != "Amelia" or source2 != "cache_hit":
+            return False, "expected a cache_hit route with airline_name 'Amelia', got (%r, %r)" % (route2, source2)
+        if len(calls) != 1:
+            return False, "expected exactly 1 transport call across both resolve_route() calls, got %d" % len(calls)
+        cached_entry = cache.get("AIA6412")
+        if not isinstance(cached_entry, dict) or cached_entry.get("airline_name") != "Avies":
+            return False, "the cache entry itself must still hold the raw upstream string 'Avies', got %r" % (cached_entry,)
+        return True, ""
+    check(
+        "resolve_route('AIA6412', ...) corrects the real recorded AIA/Avies misattribution to 'Amelia' on both a "
+        "fresh_hit and a cache_hit, while the cache entry itself keeps the raw upstream string (QT-kih-D-02)",
+        _resolve_route_corrects_aia_fresh_then_cached,
+    )
+
+    # 31. airline_from_callsign('AIA6412') resolves 'Amelia' with zero
+    #     network call - the prefix-only fallback path already carries the
+    #     corrected value by construction (QT-kih-D-03).
+    def _airline_from_callsign_aia_amelia():
+        got = enrich.airline_from_callsign("AIA6412")
+        if got != "Amelia":
+            return False, "airline_from_callsign('AIA6412') = %r, expected 'Amelia'" % (got,)
+        return True, ""
+    check("airline_from_callsign('AIA6412') returns 'Amelia' (260827-kih, zero network call)", _airline_from_callsign_aia_amelia)
+
+    # 32. The cross-table invariant (QT-kih-D-03): for every
+    #     (prefix, stale) -> corrected row in _AIRLINE_NAME_CORRECTIONS,
+    #     _ICAO_AIRLINE_PREFIXES[prefix] equals the corrected value, and the
+    #     corrected value is a member of illustrations.target_airline_names().
+    #     Iterates the real table rather than restating its contents, so a
+    #     future correction row that forgets to mirror the prefix table
+    #     fails this check instead of silently drifting.
+    def _correction_table_agrees_with_prefix_table_and_targets():
+        target_names = set(illustrations.target_airline_names())
+        for (prefix, _stale), corrected in enrich._AIRLINE_NAME_CORRECTIONS.items():
+            prefix_value = enrich._ICAO_AIRLINE_PREFIXES.get(prefix)
+            if prefix_value != corrected:
+                return False, (
+                    "_AIRLINE_NAME_CORRECTIONS[(%r, ...)] = %r but _ICAO_AIRLINE_PREFIXES[%r] = %r - the two "
+                    "tables must agree" % (prefix, corrected, prefix, prefix_value)
+                )
+            if corrected not in target_names:
+                return False, "corrected value %r is not a member of illustrations.target_airline_names()" % (corrected,)
+        return True, ""
+    check(
+        "every _AIRLINE_NAME_CORRECTIONS row agrees with _ICAO_AIRLINE_PREFIXES and its corrected value is a "
+        "target_airline_names() member (QT-kih-D-03 cross-table invariant)",
+        _correction_table_agrees_with_prefix_table_and_targets,
+    )
+
+    # 33. Never-raises battery for both new functions: None, an int, an
+    #     empty string, a bare 3-letter callsign, a path-separator payload,
+    #     a non-dict route, and a route whose .get() raises - and neither
+    #     function ever returns a value derived from its arguments other
+    #     than the unchanged airline_name it was handed (T-kih-01).
+    def _correction_seam_never_raises_battery():
+        # Hostile/malformed callsigns: None, an int, an empty string, a bare
+        # 3-letter string with no flight suffix, and a path-separator
+        # payload - none of these can ever reach _AIRLINE_NAME_CORRECTIONS,
+        # so correct_airline_name() must return airline_name unchanged for
+        # every one of them, and never raise.
+        hostile_callsigns = (None, 42, "", "AIA", "AIA/6412")
+        for callsign in hostile_callsigns:
+            for airline_name in (None, 42, "", "Avies"):
+                try:
+                    got = enrich.correct_airline_name(callsign, airline_name)
+                except Exception as exc:
+                    return False, "correct_airline_name(%r, %r) raised %r" % (callsign, airline_name, exc)
+                if got is not airline_name:
+                    return False, (
+                        "correct_airline_name(%r, %r) = %r - a hostile/malformed callsign must never change the "
+                        "airline_name it was handed" % (callsign, airline_name, got)
+                    )
+
+        class _ExplodingRoute(dict):
+            def get(self, *_args, **_kwargs):
+                raise RuntimeError("simulated .get() failure")
+
+        malformed_routes = (None, {}, "not-a-dict", 42, ["a", "list"], _ExplodingRoute())
+        for callsign in hostile_callsigns:
+            for route in malformed_routes:
+                try:
+                    got = enrich.apply_airline_name_correction(callsign, route)
+                except Exception as exc:
+                    return False, "apply_airline_name_correction(%r, %r) raised %r" % (callsign, route, exc)
+                if not isinstance(route, dict) or isinstance(route, _ExplodingRoute):
+                    if got is not route:
+                        return False, "apply_airline_name_correction(%r, %r) should return the non-dict route unchanged, got %r" % (callsign, route, got)
+        return True, ""
+    check(
+        "correct_airline_name()/apply_airline_name_correction() never raise for a hostile callsign x airline_name/"
+        "route battery (None, int, empty string, bare prefix, path-separator payload, non-dict route, a route "
+        "whose .get() raises), and never return a value derived from the arguments other than the unchanged "
+        "airline_name (T-kih-01)",
+        _correction_seam_never_raises_battery,
+    )
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
