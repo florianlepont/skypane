@@ -102,17 +102,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEVICE-03 | Phase 1 | Complete |
 | DEVICE-04 | Phase 5 | Pending |
 | DEVICE-05 | Phase 5 | In Progress (05-01 Task 1 of 3 done) |
-| CFG-01 | Phase 6 | Pending (not yet planned) |
+| CFG-01 | Phase 6 | Complete (06-07) |
 | CFG-03 | Phase 6 | Pending (not yet planned) |
 | CFG-04 | Phase 6 | Pending (not yet planned) |
 | CFG-05 | Phase 6 | Pending (not yet planned) |
 | CFG-06 | Phase 6 | Pending (not yet planned) |
-| CFG-07 | Phase 6 | Pending (not yet planned) |
+| CFG-07 | Phase 6 | Complete (06-07) |
 | CFG-08 | Phase 6 | Pending (not yet planned) |
 | CFG-09 | Phase 6 | Pending (not yet planned) |
 | CFG-10 | Phase 6 | Pending (not yet planned) |
 | CFG-11 | Phase 6 | Pending (not yet planned) |
-| CFG-12 | Phase 6 | Pending (not yet planned) |
+| CFG-12 | Phase 6 | Complete (06-07) |
 
 RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 
