@@ -80,6 +80,18 @@ those older names, not D-03's current-brand labels. Renaming a file to
 match the "correct" current brand would silently make every real flight of
 that carrier fall through to a lower fallback tier, with no error anywhere
 - see `03.1-LIVE-RESOLUTION.md`'s recorded live-callsign evidence for each.
+
+Quick task `260827-jz6` (2026-08-27) introduced exactly one developer-approved
+override of this rule: `tuifly-belgium.png` is filed under TUIfly Belgium's
+real current brand name even though a real `JAF` callsign resolves live in
+adsbdb to `"Jetairfly"`, the airline's pre-2016 legacy brand
+(QT-jz6-D-02) - see `HANDOFF.md`'s Naming rules section for the full record.
+This is a named, accepted exception, not a defect; the rule above still
+governs every other entry, including the two cited just above and CCM
+Airlines. `km-malta-airlines.png` is not an exception to this rule at all:
+adsbdb has no record of the carrier under any callsign whatsoever
+(`KMM466` -> "unknown callsign", live-verified the same session), so there
+is no stale brand name for the current name to conflict with (QT-jz6-D-01).
 """
 import os
 import re
@@ -194,6 +206,34 @@ _ILLUSTRATION_TARGETS = [
         None,
         "D-03 lists this airline as 'Corsair International' - adsbdb resolves a genuine prior brand name; [VERIFIED-AIRLINE-ENDPOINT-ONLY]",
     ),
+    # --- Quick task 260827-jz6 (2026-08-27): two new target airlines ---
+    (
+        "KM Malta Airlines",
+        None,
+        "Confirmed permanent adsbdb miss - live-verified 2026-08-27: "
+        "`curl https://api.adsbdb.com/v0/callsign/KMM466` returns "
+        "'unknown callsign'. adsbdb was never updated for the 2023 Air "
+        "Malta -> KM Malta Airlines rebrand, so this airline is reachable "
+        "only via enrich.airline_from_callsign()'s ICAO-prefix path (quick "
+        "task 260827-hyy), never via an adsbdb hit. The real current brand "
+        "name is correct here precisely because no adsbdb string exists to "
+        "mirror (QT-jz6-D-01) - same class as the existing EJU exception "
+        "above. [VERIFIED-CALLSIGN-MISS]",
+    ),
+    (
+        "TUIfly Belgium",
+        None,
+        "Deliberate, developer-chosen EXCEPTION to the stale-brand-mirroring "
+        "rule that produced the Europe Airpost and Corsairfly entries two "
+        "rows above (QT-jz6-D-02). adsbdb DOES resolve a real JAF callsign - "
+        "live-verified 2026-08-27: `curl https://api.adsbdb.com/v0/callsign/"
+        "JAF7521` returns 'Jetairfly', the pre-2016 legacy brand. The "
+        "accepted consequence: an adsbdb hit renders 'Jetairfly' and falls "
+        "through to a lower illustration tier, while the airline-only "
+        "fallback renders 'TUIfly Belgium' and reaches tuifly-belgium.png. "
+        "See HANDOFF.md's Naming rules section for the full record. "
+        "[VERIFIED-CALLSIGN-STALE-NAME-OVERRIDDEN]",
+    ),
     # --- P-04 secondary-variant files for mixed-fleet airlines ---
     ("CCM Airlines", "atr72", "D-03/D-04 mixed-fleet secondary (P-04)"),
     ("Transavia France", "a320", "D-05 fleet-transition secondary (P-04)"),
@@ -237,11 +277,13 @@ SHAPE_SLUGS = (
 _TYPE_SHAPE_BUCKETS = {
     # A320 family (D-03: Air France, Vueling, Iberia, TAP, Transavia,
     # easyJet, Wizz Air, Volotea, ITA Airways, Tunisair, Pegasus, La
-    # Compagnie [excluded from the target set pending re-verification])
+    # Compagnie [excluded from the target set pending re-verification];
+    # 260827-jz6: KM Malta Airlines, A320neo primary)
     "A318": "a320", "A319": "a320", "A320": "a320", "A321": "a320",
     "A20N": "a320", "A21N": "a320",  # A320neo / A321neo
     # B737 family (D-03: Transavia, Air Europa, Air Algerie, Europe
-    # Airpost/ASL Airlines France, Royal Air Maroc)
+    # Airpost/ASL Airlines France, Royal Air Maroc; 260827-jz6: TUIfly
+    # Belgium, 737 MAX 8 primary)
     "B731": "b737", "B732": "b737", "B733": "b737", "B734": "b737",
     "B735": "b737", "B736": "b737", "B737": "b737", "B738": "b737",
     "B739": "b737", "B37M": "b737", "B38M": "b737", "B39M": "b737",

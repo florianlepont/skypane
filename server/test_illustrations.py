@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 43
+EXPECTED_CHECK_COUNT = 44
 
 
 def main():
@@ -666,6 +666,30 @@ def main():
         "target_airline_names() contains the resolved 'Europe Airpost'/'Corsairfly'/'CCM Airlines' strings, "
         "not the current-brand labels they replace",
         _target_airline_names_carries_resolved_not_brand_names,
+    )
+
+    # 44 (quick task 260827-jz6). Both new target airlines' names and
+    # filenames are present, and the two stale/superseded strings they must
+    # never be confused with are absent - the guard that keeps QT-jz6-D-02's
+    # deliberate TUIfly Belgium override from silently being "corrected"
+    # later by someone applying the stale-brand rule mechanically.
+    def _km_malta_and_tuifly_belgium_targets_present():
+        names = ill.target_airline_names()
+        for expected in ("KM Malta Airlines", "TUIfly Belgium"):
+            if expected not in names:
+                return False, "target_airline_names() is missing %r: %r" % (expected, names)
+        for stale in ("Air Malta", "Jetairfly"):
+            if stale in names:
+                return False, "target_airline_names() must not contain %r" % (stale,)
+        filenames = ill.target_filenames()
+        for expected_file in ("km-malta-airlines.png", "tuifly-belgium.png"):
+            if expected_file not in filenames:
+                return False, "target_filenames() is missing %r: not present" % (expected_file,)
+        return True, ""
+    check(
+        "target_airline_names()/target_filenames() carry 'KM Malta Airlines'/'TUIfly Belgium' and their derived "
+        "filenames, and never 'Air Malta' or 'Jetairfly' (260827-jz6, QT-jz6-D-02 drift guard)",
+        _km_malta_and_tuifly_belgium_targets_present,
     )
 
     total = len(results)
