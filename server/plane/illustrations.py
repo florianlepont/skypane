@@ -3,14 +3,20 @@
 PLANE-01/PLANE-02).
 
 Selection keys off `route["airline_name"]`, which `enrich.lookup_route()`
-already returns - no new enrichment call (D-06). Coverage is transitively
-limited by that lookup's real-world hit rate: `adsbdb` resolved only 52.6%
-of this airport's traffic in Phase 2's live test
-(`server/plane/enrich.py`'s module docstring). `EJU` (easyJet Europe) and
-`KMM` (KM Malta Airlines) are confirmed misses and will ALWAYS render the
-generic fallback no matter what art exists for them; `TVF` (Transavia
-France, the numerically dominant prefix in raw traffic) resolves only 2 of
-20 and therefore still often falls to the fallback.
+already returns - no new enrichment call (D-06). Coverage was originally
+transitively limited by that lookup's real-world hit rate: `adsbdb`
+resolved only 52.6% of this airport's traffic in Phase 2's live test
+(`server/plane/enrich.py`'s module docstring). **Since quick task
+260827-hyy, a confirmed adsbdb route miss no longer implies a lost airline
+identity** - `enrich.airline_from_callsign()` resolves the airline directly
+from the callsign's ICAO prefix as an independent fallback source, so `EJU`
+(easyJet Europe) and every other rotating-callsign prefix in
+`enrich._ICAO_AIRLINE_PREFIXES` reach their own illustration via this
+module's normal Tier 1/2 selection even when adsbdb has nothing. The
+historical hit-rate measurements above (52.6% overall, `TVF` at 2 of 20)
+remain true and are preserved as-is - they describe adsbdb's own coverage,
+not the panel's final airline-identification rate, which this second
+source now improves.
 
 This module makes no network call of its own - the live lookups below were
 performed once, out of band, during this plan's Task 1 execution, purely to
@@ -426,6 +432,25 @@ def validate_illustration_file(path):
         problems.append("failed to open/parse image: %r" % (exc,))
 
     return problems
+
+
+def target_airline_names():
+    """Return the distinct `resolved_airline_name` values of
+    `_ILLUSTRATION_TARGETS`, order-preserving and de-duplicated.
+
+    This is the drift guard quick task 260827-hyy's design decision D-07
+    requires: `enrich.py`'s static ICAO-prefix-to-airline-name table is
+    checked against this function's output, so renaming or dropping an
+    illustration target without mirroring the change in the prefix table
+    fails the suite instead of silently producing a callsign-prefix
+    resolution that can never reach any art. Derived from
+    `_ILLUSTRATION_TARGETS` directly - never a second hardcoded list.
+    """
+    names = []
+    for airline_name, _shape, _note in _ILLUSTRATION_TARGETS:
+        if airline_name not in names:
+            names.append(airline_name)
+    return names
 
 
 def target_filenames():

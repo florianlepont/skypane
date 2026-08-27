@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 42
+EXPECTED_CHECK_COUNT = 43
 
 
 def main():
@@ -647,6 +647,25 @@ def main():
         "the four P-04 secondary variants appear in target_filenames() with the expected exact names, "
         "alongside their unsuffixed primaries",
         _p04_secondary_variants_and_primaries_present,
+    )
+
+    # 43 (quick task 260827-hyy). target_airline_names() carries the
+    # resolved (not the current-brand) strings for the three known rename
+    # traps - it's what enrich.py's prefix table is checked against, so a
+    # regression here would silently let a stale-brand mismatch back in.
+    def _target_airline_names_carries_resolved_not_brand_names():
+        names = ill.target_airline_names()
+        for expected in ("Europe Airpost", "Corsairfly", "CCM Airlines"):
+            if expected not in names:
+                return False, "target_airline_names() is missing the resolved name %r: %r" % (expected, names)
+        for stale_brand in ("ASL Airlines France", "Corsair International", "Air Corsica"):
+            if stale_brand in names:
+                return False, "target_airline_names() must not contain the current-brand label %r in place of the resolved name" % (stale_brand,)
+        return True, ""
+    check(
+        "target_airline_names() contains the resolved 'Europe Airpost'/'Corsairfly'/'CCM Airlines' strings, "
+        "not the current-brand labels they replace",
+        _target_airline_names_carries_resolved_not_brand_names,
     )
 
     total = len(results)

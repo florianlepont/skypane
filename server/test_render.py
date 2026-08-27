@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 38
+EXPECTED_CHECK_COUNT = 41
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -848,6 +848,80 @@ def main():
     check(
         "when the selected illustration and the generic fallback are both undecodable, the render skips the illustration and still returns a valid panel",
         _both_illustration_and_fallback_undecodable_still_renders,
+    )
+
+    # --- Quick task 260827-hyy: D-06's intermediate render state - an
+    # airline-only route (adsbdb missed, the callsign's ICAO prefix
+    # resolved the carrier) still shows the airline name and the airline's
+    # own illustration; the destination stays genuinely unknown. ------------
+
+    # 39. EJU84YF (a confirmed adsbdb miss, easyJet Europe): line 1 is the
+    # bare callsign (no to/from clause, no city - genuinely unknown), line 2
+    # is the resolved airline name alone (no aircraft_type supplied), and
+    # ROUTE_FALLBACK_TEXT does not appear anywhere - D-06's middle row is
+    # not the same as a full miss.
+    def _airline_only_route_shows_airline_not_fallback_text():
+        import server.plane.enrich as enrich
+
+        airline_only_flight = {"hex": "440cb1", "callsign": "EJU84YF"}
+        airline_only_route = enrich.airline_only_route("easyJet")
+        with _TextSpy(render) as spy:
+            render.build_canvas(airline_only_flight, "departing", route=airline_only_route)
+        texts = [t for t, _xy, _anchor in spy.calls]
+        if "EJU84YF" not in texts:
+            return False, "expected the bare callsign 'EJU84YF' among the text draws, got %r" % (texts,)
+        if "easyJet" not in texts:
+            return False, "expected the resolved airline name 'easyJet' among the text draws, got %r" % (texts,)
+        if render.ROUTE_FALLBACK_TEXT in texts:
+            return False, "ROUTE_FALLBACK_TEXT must not appear when the airline is known (D-06), got %r" % (texts,)
+        return True, ""
+    check(
+        "an airline-only route (adsbdb miss, prefix-resolved 'easyJet') draws the bare callsign and the airline "
+        "name, never ROUTE_FALLBACK_TEXT (D-06 quick task 260827-hyy)",
+        _airline_only_route_shows_airline_not_fallback_text,
+    )
+
+    # 40. Transavia France + B738: line 2 composes exactly like a full hit
+    # ("{airline} · {type label}"), while line 1 stays the bare callsign -
+    # no to/from clause, no city fabricated from the prefix.
+    def _airline_only_route_composes_line2_like_a_full_hit():
+        import server.plane.enrich as enrich
+
+        flight = {"hex": "39de4a", "callsign": "TVF12ZW", "aircraft_type": "B738"}
+        airline_only_route = enrich.airline_only_route("Transavia France")
+        with _TextSpy(render) as spy:
+            render.build_canvas(flight, "departing", route=airline_only_route)
+        texts = [t for t, _xy, _anchor in spy.calls]
+        expected_line2 = "Transavia France · %s" % render._TYPE_DISPLAY_LABELS["B738"]
+        if expected_line2 not in texts:
+            return False, "expected main line 2 %r among the text draws, got %r" % (expected_line2, texts)
+        if "TVF12ZW" not in texts:
+            return False, "expected the bare callsign 'TVF12ZW' (no to/from clause, no city) among the text draws, got %r" % (texts,)
+        for text in texts:
+            if " to " in text or " from " in text:
+                return False, "found a to/from clause %r - the destination must stay genuinely unknown (D-06)" % (text,)
+        return True, ""
+    check(
+        "an airline-only Transavia France + B738 route composes line 2 as '{airline} · {type label}' exactly like a "
+        "full hit, while line 1 stays the bare callsign with no to/from clause or city (D-06)",
+        _airline_only_route_composes_line2_like_a_full_hit,
+    )
+
+    # 41. This is the check that proves the todo's actual goal: the
+    # airline-only route resolves to the airline's own illustration, not the
+    # generic fallback.
+    def _airline_only_route_selects_the_airlines_own_illustration():
+        import server.plane.enrich as enrich
+
+        airline_only_route = enrich.airline_only_route("Transavia France")
+        path = illustrations.select_illustration(airline_only_route, "B738")
+        if path is None or os.path.basename(path) != "transavia-france.png":
+            return False, "expected the airline's own illustration 'transavia-france.png', got %r" % (path,)
+        return True, ""
+    check(
+        "illustrations.select_illustration() on an airline-only Transavia France route resolves to "
+        "'transavia-france.png' - the airline's own art, not the generic fallback",
+        _airline_only_route_selects_the_airlines_own_illustration,
     )
 
     total = len(results)
