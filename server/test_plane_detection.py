@@ -39,7 +39,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 28
+EXPECTED_CHECK_COUNT = 38
 
 
 def load_fixture(name):
@@ -679,6 +679,228 @@ def main():
         return True, ""
     check("query_provider: adsb.fi and adsb.lol response keys are never interchanged "
           "(proven through the transport)", _provider_keys_are_not_interchanged)
+
+    # ---------------------------------------------------------------
+    # CFG-12 (2026-08-27, plan 06-02): runway-parameterised detection,
+    # positive tracking on all three Orly runways
+    # ---------------------------------------------------------------
+    #
+    # Every synthetic coordinate below is derived arithmetically from
+    # coordinates already present in adsb-test/runway3.json - either read
+    # straight off the file (checks 29/31) or produced by walking one of
+    # detect.py's own runway axes (the _on_axis_record() helper, used by
+    # check 34) - never a hand-guessed latitude/longitude literal.
+
+    def _on_axis_record(geofence, runway_id, fraction, hex_id):
+        """A synthetic on-ground record sitting exactly `fraction` of the
+        way along `runway_id`'s real centreline (0.0 = the first
+        threshold, 1.0 = the second), with its track set to that runway's
+        own bearing - i.e. a record that should positively track
+        `runway_id` and no other runway. Built by walking
+        detect.runway_axis()'s own local-metres frame in reverse; the
+        underlying lat/lon numbers all trace back to runway3.json's
+        published thresholds, not a literal pasted into this file.
+        """
+        axis = detect.runway_axis(geofence, runway_id=runway_id)
+        along_m = axis["length_m"] * fraction
+        dx = along_m * axis["ux"]
+        dy = along_m * axis["uy"]
+        lat = axis["lat0"] + dy / detect._M_PER_DEG_LAT
+        lon = axis["lon0"] + dx / axis["lon_scale"]
+        return {
+            "hex": hex_id,
+            "flight": "TEST001 ",
+            "lat": lat,
+            "lon": lon,
+            "alt_baro": "ground",
+            "track": axis["bearing_deg"],
+        }
+
+    # 29. Task 1's deliberate duplication drift guard: runways["3"]'s
+    #     runway/corridor sub-blocks must equal the legacy flat
+    #     runway/corridor pair exactly.
+    def _runways_3_matches_legacy_blocks():
+        entry = geofence["runways"]["3"]
+        expected_thresholds = [geofence["runway"]["threshold_07"], geofence["runway"]["threshold_25"]]
+        if entry["runway"]["thresholds"] != expected_thresholds:
+            return False, "runways['3'].runway.thresholds does not match [threshold_07, threshold_25]"
+        expected_corridor = {k: geofence["corridor"][k] for k in ("half_width_m", "extension_m", "axis_tolerance_deg")}
+        if entry["corridor"] != expected_corridor:
+            return False, "runways['3'].corridor does not match the legacy corridor block"
+        return True, ""
+    check("runways['3'] duplicates the legacy runway/corridor blocks exactly (drift guard)",
+          _runways_3_matches_legacy_blocks)
+
+    # 30. runway_axis() with no runway_id and with the explicit default id
+    #     must return identical dicts - the new-shape runways['3'] entry is
+    #     provably interchangeable with omitting runway_id entirely.
+    def _default_runway_id_matches_explicit_default():
+        if detect.runway_axis(geofence) != detect.runway_axis(geofence, runway_id="3"):
+            return False, "runway_axis(geofence) != runway_axis(geofence, runway_id='3')"
+        return True, ""
+    check("runway_axis(geofence) matches runway_axis(geofence, runway_id='3')",
+          _default_runway_id_matches_explicit_default)
+
+    # 31. The computed axes for 06/24 and 02/20 cross-check against the
+    #     published true headings already recorded in runway3.json.
+    def _neighbouring_runway_bearings_match_published_headings():
+        bearing_0624 = detect.runway_axis(geofence, runway_id="06-24")["bearing_deg"]
+        if abs(bearing_0624 - 62.0) > 1.0:
+            return False, "expected 06-24 bearing within 1.0 deg of 62, got %r" % (bearing_0624,)
+        bearing_0220 = detect.runway_axis(geofence, runway_id="02-20")["bearing_deg"]
+        if abs(bearing_0220 - 18.0) > 1.0:
+            return False, "expected 02-20 bearing within 1.0 deg of 18, got %r" % (bearing_0220,)
+        return True, ""
+    check("runway_axis: 06-24/02-20 computed bearings match their published true headings",
+          _neighbouring_runway_bearings_match_published_headings)
+
+    # 32. T-06-02-01: an unrecognised runway_id lands on the default
+    #     runway's geometry - never None, never an exception, never a
+    #     different (widened) gate.
+    def _unknown_runway_id_falls_back_to_default_axis():
+        default_axis = detect.runway_axis(geofence)
+        unknown_axis = detect.runway_axis(geofence, runway_id="totally-unknown")
+        if unknown_axis != default_axis:
+            return False, "runway_axis(runway_id='totally-unknown') != the default axis"
+        return True, ""
+    check("runway_axis(runway_id='totally-unknown') falls back to the default runway's axis (T-06-02-01)",
+          _unknown_runway_id_falls_back_to_default_axis)
+
+    # 33. corridor_params() for a real neighbouring runway returns its own
+    #     numbers; a hand-mutated negative entry falls back to the module
+    #     default rather than accepting it (T-06-02-01).
+    def _corridor_params_for_02_20_and_malformed_fallback():
+        half_width, extension, tolerance = detect.corridor_params(geofence, runway_id="02-20")
+        expected = geofence["runways"]["02-20"]["corridor"]
+        if (half_width, extension, tolerance) != (
+            expected["half_width_m"], expected["extension_m"], expected["axis_tolerance_deg"]
+        ):
+            return False, "corridor_params(runway_id='02-20') did not match runway3.json's own numbers"
+        mutated = json.loads(json.dumps(geofence))  # deep copy without a new import
+        mutated["runways"]["02-20"]["corridor"]["half_width_m"] = -5
+        fallback_half_width, _, _ = detect.corridor_params(mutated, runway_id="02-20")
+        if fallback_half_width != detect.DEFAULT_CORRIDOR_HALF_WIDTH_M:
+            return False, "a negative half_width_m was not rejected, got %r" % (fallback_half_width,)
+        return True, ""
+    check("corridor_params(runway_id='02-20') matches the file, negative entries fall back to the default",
+          _corridor_params_for_02_20_and_malformed_fallback)
+
+    # 34. Positive tracking on both neighbouring runways: a synthetic
+    #     record on 06/24's (resp. 02/20's) own centreline, aligned with
+    #     its own track, is selected when tracking that runway and
+    #     rejected by the runway-3 default gate - and vice versa is
+    #     covered by check 35 below.
+    def _positive_tracking_on_neighbouring_runways():
+        for runway_id in ("06-24", "02-20"):
+            record = _on_axis_record(geofence, runway_id, 0.5, "TEST%s" % runway_id.replace("-", ""))
+            own_selection = detect.select_aircraft_for_runway([record], geofence, runway_id=runway_id)
+            if own_selection is None:
+                return False, "%s: a record on its own centreline, on-axis, was not selected" % runway_id
+            if own_selection.get("selected_runway") != runway_id:
+                return False, "%s: selected_runway was %r" % (runway_id, own_selection.get("selected_runway"))
+            default_selection = detect.select_runway3_aircraft([record], geofence)
+            if default_selection is not None:
+                return False, "%s: the same record was also selected as runway 3" % runway_id
+        return True, ""
+    check("select_aircraft_for_runway positively tracks 06-24 and 02-20 on their own centrelines",
+          _positive_tracking_on_neighbouring_runways)
+
+    # 35. Reverse direction: the real committed runway-3 fixture is still
+    #     selected with the default id and is NOT selected with
+    #     runway_id="06-24" - the gate is exclusive both ways, not merely
+    #     permissive.
+    def _real_runway3_fixture_excluded_from_06_24():
+        record = _runway3_record()
+        if detect.select_runway3_aircraft(record, geofence) is None:
+            return False, "premise broken: the real runway-3 fixture is no longer selected by default"
+        if detect.select_aircraft_for_runway(record, geofence, runway_id="06-24") is not None:
+            return False, "the real runway-3 fixture was also selected as runway 06-24"
+        return True, ""
+    check("the real runway-3 fixture is excluded from runway 06-24's gate (exclusive both ways)",
+          _real_runway3_fixture_excluded_from_06_24)
+
+    # 36. selected_runway carries the requested id when recognised, and the
+    #     default id (the one it actually fell back to) when not.
+    def _selected_runway_key_reports_effective_id():
+        record = _on_axis_record(geofence, "02-20", 0.5, "TESTSR01")
+        selection = detect.select_aircraft_for_runway([record], geofence, runway_id="02-20")
+        if selection is None or selection.get("selected_runway") != "02-20":
+            return False, "expected selected_runway '02-20', got %r" % (selection and selection.get("selected_runway"),)
+        fallback_record = _on_axis_record(geofence, "3", 0.5, "TESTSR02")
+        fallback_selection = detect.select_aircraft_for_runway([fallback_record], geofence, runway_id="not-a-runway")
+        if fallback_selection is None or fallback_selection.get("selected_runway") != detect.DEFAULT_RUNWAY_ID:
+            return False, "expected selected_runway to fall back to %r, got %r" % (
+                detect.DEFAULT_RUNWAY_ID, fallback_selection and fallback_selection.get("selected_runway"))
+        return True, ""
+    check("selected_runway equals the requested id, or the default id on an unrecognised request",
+          _selected_runway_key_reports_effective_id)
+
+    # 37. filter_in_geofence() tags carry both on_runway (the real gate
+    #     result for the requested runway_id) and the deprecated
+    #     on_runway3 alias, which is False whenever a non-default runway
+    #     was requested.
+    def _on_runway_and_deprecated_alias_tags():
+        record = _on_axis_record(geofence, "06-24", 0.5, "TESTALIAS")
+        tagged_default = detect.filter_in_geofence([record], geofence)[0]
+        if tagged_default.get("on_runway") != tagged_default.get("on_runway3"):
+            return False, "on_runway3 should equal on_runway for the default runway_id"
+        tagged_0624 = detect.filter_in_geofence([record], geofence, runway_id="06-24")[0]
+        if not tagged_0624.get("on_runway"):
+            return False, "expected on_runway True when gated on its own runway (06-24)"
+        if tagged_0624.get("on_runway3") is not False:
+            return False, "expected the deprecated on_runway3 alias to be False for a non-default runway_id"
+        return True, ""
+    check("filter_in_geofence tags carry on_runway and the deprecated on_runway3 alias correctly",
+          _on_runway_and_deprecated_alias_tags)
+
+    # 38. poll_current_aircraft()'s diagnostics dict is the sole signal
+    #     that tells "every source errored" apart from "nothing on the
+    #     runway" - both currently return None. Driven entirely by
+    #     monkeypatching detect.query_provider, so no real network call is
+    #     ever made.
+    def _diagnostics_distinguishes_all_failed_from_no_selection():
+        import requests
+
+        network_called = []
+
+        def _all_raise(name, lat, lon, radius_nm, timeout=10.0):
+            network_called.append(name)
+            raise requests.RequestException("simulated outage: %s" % name)
+
+        original_query, original_sleep = detect.query_provider, detect.MIN_SECONDS_BETWEEN_CALLS
+        detect.query_provider = _all_raise
+        detect.MIN_SECONDS_BETWEEN_CALLS = 0
+        try:
+            diagnostics = {}
+            result = detect.poll_current_aircraft(geofence, diagnostics=diagnostics)
+        finally:
+            detect.query_provider = original_query
+            detect.MIN_SECONDS_BETWEEN_CALLS = original_sleep
+
+        if result is not None:
+            return False, "expected None when every provider raised, got %r" % (result,)
+        if sorted(diagnostics.get("queried") or []) != sorted(diagnostics.get("failed") or []):
+            return False, "expected diagnostics['queried'] == diagnostics['failed'], got %r vs %r" % (
+                diagnostics.get("queried"), diagnostics.get("failed"))
+        if not network_called:
+            return False, "expected the stubbed query function to have been called at least once"
+
+        # Second variant: one provider raises, the other returns a real
+        # selection - failed has exactly one entry, corroborated is the
+        # single-source "unknown" value (None), not suppressed.
+        responses = {"adsbfi": _runway3_record(), "adsblol": requests.RequestException("simulated outage")}
+        diagnostics2 = {}
+        result2 = _with_stubbed_providers(
+            responses, lambda: detect.poll_current_aircraft(geofence, diagnostics=diagnostics2))
+        if result2 is None:
+            return False, "expected a selection when one of two providers succeeded"
+        if result2.get("corroborated") is not None:
+            return False, "expected corroborated None (single source), got %r" % (result2.get("corroborated"),)
+        if diagnostics2.get("failed") != ["adsblol"]:
+            return False, "expected diagnostics2['failed'] == ['adsblol'], got %r" % (diagnostics2.get("failed"),)
+        return True, ""
+    check("poll_current_aircraft diagnostics distinguishes all-providers-failed from a real selection",
+          _diagnostics_distinguishes_all_failed_from_no_selection)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
