@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 22
+EXPECTED_CHECK_COUNT = 28
 
 
 def main():
@@ -88,6 +88,81 @@ def main():
     check(
         "normalise_airline_key('') / (None) / (42) all return None without raising",
         _key_falsy_and_non_string_none,
+    )
+
+    # --- classify_aircraft_type() / SHAPE_SLUGS ------------------------------
+
+    def _classify_all_seven_buckets():
+        designator_to_expected = {
+            "A20N": "a320", "A321": "a320", "A21N": "a320", "A319": "a320", "A318": "a320",
+            "B738": "b737", "B733": "b737", "B38M": "b737",
+            "AT76": "atr72", "AT72": "atr72", "AT43": "atr72",
+            "BE9L": "beechcraft1900d",
+            "E145": "embraer", "E190": "embraer", "E195": "embraer", "E75L": "embraer",
+            "A333": "a330", "A339": "a330",
+            "A359": "a350", "A35K": "a350",
+        }
+        for designator, expected in designator_to_expected.items():
+            got = ill.classify_aircraft_type(designator)
+            if got != expected:
+                return False, "classify_aircraft_type(%r) returned %r, expected %r" % (designator, got, expected)
+        covered = set(designator_to_expected.values())
+        if covered != set(ill.SHAPE_SLUGS):
+            return False, "test table covers %r, missing %r" % (covered, set(ill.SHAPE_SLUGS) - covered)
+        return True, ""
+    check("classify_aircraft_type() maps real designators onto all seven SHAPE_SLUGS", _classify_all_seven_buckets)
+
+    def _classify_normalizes_case_and_whitespace():
+        for value in (" a20n ", "a20n", "A20N", "  A20N", "a20n  "):
+            got = ill.classify_aircraft_type(value)
+            if got != "a320":
+                return False, "classify_aircraft_type(%r) returned %r, expected 'a320'" % (value, got)
+        return True, ""
+    check("classify_aircraft_type() normalizes lowercase and leading/trailing whitespace", _classify_normalizes_case_and_whitespace)
+
+    def _classify_unknown_designator_is_none():
+        for value in ("ZZZZ", "XYZ9", "UNKNOWN"):
+            got = ill.classify_aircraft_type(value)
+            if got is not None:
+                return False, "classify_aircraft_type(%r) returned %r, expected None" % (value, got)
+        return True, ""
+    check("classify_aircraft_type() returns None for an unrecognized designator", _classify_unknown_designator_is_none)
+
+    def _classify_falsy_and_non_string_none():
+        for value in (None, "", 0, 42, [], {}):
+            got = ill.classify_aircraft_type(value)
+            if got is not None:
+                return False, "classify_aircraft_type(%r) returned %r, expected None" % (value, got)
+        return True, ""
+    check(
+        "classify_aircraft_type() returns None for falsy and non-string inputs (None, '', 0, 42, [], {}) without raising",
+        _classify_falsy_and_non_string_none,
+    )
+
+    def _classify_hostile_inputs_never_raise():
+        hostile = ("../../etc/passwd", "..\\..\\windows", "a/b/c", "..", "/etc/passwd")
+        for value in hostile:
+            got = ill.classify_aircraft_type(value)
+            if got is not None:
+                return False, "classify_aircraft_type(%r) returned %r, expected None" % (value, got)
+        return True, ""
+    check(
+        "classify_aircraft_type() returns None (never raises) for hostile path-separator/parent-dir inputs (T-03.1-03-01)",
+        _classify_hostile_inputs_never_raise,
+    )
+
+    def _type_shape_buckets_contract():
+        bad_values = [v for v in ill._TYPE_SHAPE_BUCKETS.values() if v not in ill.SHAPE_SLUGS]
+        if bad_values:
+            return False, "_TYPE_SHAPE_BUCKETS contains values not in SHAPE_SLUGS: %r" % (bad_values,)
+        key_re = re.compile(r"^[A-Z0-9]{3,4}$")
+        bad_keys = [k for k in ill._TYPE_SHAPE_BUCKETS if not key_re.match(k)]
+        if bad_keys:
+            return False, "_TYPE_SHAPE_BUCKETS contains keys not uppercase-ASCII 3-4 chars: %r" % (bad_keys,)
+        return True, ""
+    check(
+        "every _TYPE_SHAPE_BUCKETS value is a member of SHAPE_SLUGS and every key is uppercase ASCII 3-4 chars",
+        _type_shape_buckets_contract,
     )
 
     # --- select_illustration() against the real vendored set ----------------
