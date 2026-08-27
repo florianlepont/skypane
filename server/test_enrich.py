@@ -26,7 +26,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 16
+EXPECTED_CHECK_COUNT = 25
 
 
 def load_fixture(name):
@@ -71,6 +71,17 @@ def main():
         # Ordering note: this harness is written and run now, before this
         # slice's enrich.py exists. It must fail - Task 2 turns it green.
         print("FAIL import server.plane.enrich - %r" % (exc,))
+        print("enrich: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
+        return 1
+
+    # Quick task 260827-hyy's drift guard (checks 24) needs illustrations.py's
+    # target_airline_names() - imported here, not at module scope, so a
+    # Pillow-import failure is reported the same way as an enrich.py import
+    # failure rather than crashing the whole harness before check() exists.
+    try:
+        import server.plane.illustrations as illustrations
+    except ImportError as exc:
+        print("FAIL import server.plane.illustrations - %r" % (exc,))
         print("enrich: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
         return 1
 
@@ -316,6 +327,156 @@ def main():
             return False, "expected None for a non-string input"
         return True, ""
     check("normalise_callsign strips and upper-cases, returning None for anything empty or non-string", _normalise_callsign_edge_cases)
+
+    # --- Quick task 260827-hyy: airline_from_callsign() / airline_only_route()
+    # / resolve_route() - the ICAO-prefix fallback layered above the adsbdb
+    # miss (D-01/D-02/D-03/D-04/D-05). ---------------------------------------
+
+    # 17. TVF is the plan's headline case: Transavia France's stable ICAO
+    #     prefix, resolved with zero network call.
+    def _airline_from_callsign_tvf():
+        got = enrich.airline_from_callsign("TVF16VB")
+        if got != "Transavia France":
+            return False, "airline_from_callsign('TVF16VB') = %r, expected 'Transavia France'" % (got,)
+        return True, ""
+    check("airline_from_callsign('TVF16VB') returns 'Transavia France'", _airline_from_callsign_tvf)
+
+    # 18. Normalisation goes through the existing normalise_callsign() -
+    #     whitespace/case must not change the result.
+    def _airline_from_callsign_normalises():
+        got = enrich.airline_from_callsign(" tvf16vb ")
+        if got != "Transavia France":
+            return False, "airline_from_callsign(' tvf16vb ') = %r, expected 'Transavia France'" % (got,)
+        return True, ""
+    check("airline_from_callsign(' tvf16vb ') normalises through normalise_callsign() before the prefix lookup", _airline_from_callsign_normalises)
+
+    # 19. The full never-raises battery: an unknown prefix, a bare 3-letter
+    #     string with no flight suffix, empty string, None, an int, and a
+    #     callsign containing a path separator all yield None and none of
+    #     them raise (T-hyy-01/T-hyy-02).
+    def _airline_from_callsign_never_raises_battery():
+        cases = ["ZZZ1234", "TVF", "", None, 42, "TVF/16VB"]
+        for case in cases:
+            try:
+                got = enrich.airline_from_callsign(case)
+            except Exception as exc:
+                return False, "airline_from_callsign(%r) raised %r instead of returning None" % (case, exc)
+            if got is not None:
+                return False, "airline_from_callsign(%r) = %r, expected None" % (case, got)
+        return True, ""
+    check(
+        "airline_from_callsign() returns None (never raises) for an unknown prefix, a bare 3-letter string, "
+        "empty string, None, an int, and a path-separator payload",
+        _airline_from_callsign_never_raises_battery,
+    )
+
+    # 20. airline_only_route() produces the exact D-03 shape: the same key
+    #     set _parse_route() produces on the real hit fixture, airline_name
+    #     set and the other four keys None. airline_only_route(None) is None.
+    def _airline_only_route_shape_and_none_handling():
+        cache = {}
+        full_route = enrich.lookup_route("TVF16VB", cache, transport=make_transport(200, hit_body))
+        if full_route is None:
+            return False, "setup failure: expected the real hit fixture to resolve a full route"
+        expected_keys = set(full_route.keys())
+        got = enrich.airline_only_route("Transavia France")
+        if got is None:
+            return False, "airline_only_route('Transavia France') returned None, expected a dict"
+        if set(got.keys()) != expected_keys:
+            return False, "airline_only_route() key set %r != _parse_route()'s real key set %r" % (set(got.keys()), expected_keys)
+        if got.get("airline_name") != "Transavia France":
+            return False, "airline_only_route() airline_name = %r, expected 'Transavia France'" % (got.get("airline_name"),)
+        for key in expected_keys - {"airline_name"}:
+            if got.get(key) is not None:
+                return False, "airline_only_route() key %r = %r, expected None" % (key, got.get(key))
+        if enrich.airline_only_route(None) is not None:
+            return False, "airline_only_route(None) should return None"
+        return True, ""
+    check(
+        "airline_only_route('Transavia France') carries _parse_route()'s exact key set, airline_name set and the "
+        "other four keys None; airline_only_route(None) returns None",
+        _airline_only_route_shape_and_none_handling,
+    )
+
+    # 21. resolve_route() on a real recorded miss (EJU84YF, a genuine 404)
+    #     falls to the prefix table: airline_only route, source "airline_only".
+    #     A second call with the same cache returns the same route/source and
+    #     the fake transport is invoked exactly once - the miss is cached, the
+    #     prefix resolution is recomputed from the static table each time, not
+    #     re-queried.
+    def _resolve_route_airline_only_on_real_miss():
+        cache = {}
+        calls = []
+        transport = make_transport(miss_fixture["http_status"], miss_fixture["body"], calls=calls)
+        route1, source1 = enrich.resolve_route("EJU84YF", cache, transport=transport)
+        route2, source2 = enrich.resolve_route("EJU84YF", cache, transport=transport)
+        if source1 != "airline_only" or source2 != "airline_only":
+            return False, "expected source 'airline_only' on both calls, got %r then %r" % (source1, source2)
+        if route1 is None or route1.get("airline_name") != "easyJet":
+            return False, "expected an airline-only route with airline_name 'easyJet', got %r" % (route1,)
+        if route2 != route1:
+            return False, "second resolve_route() call returned a different route than the first: %r vs %r" % (route2, route1)
+        if len(calls) != 1:
+            return False, "expected the transport to be invoked exactly once (the miss is cached), got %d calls" % len(calls)
+        return True, ""
+    check(
+        "resolve_route('EJU84YF', ...) on the real recorded adsbdb miss yields an 'easyJet' airline-only route with "
+        "source 'airline_only', identically on a second call, with exactly one transport invocation",
+        _resolve_route_airline_only_on_real_miss,
+    )
+
+    # 22. resolve_route() on a real hit classifies fresh_hit then cache_hit -
+    #     the pre-existing three-way classification, unchanged in meaning.
+    def _resolve_route_fresh_then_cache_hit():
+        cache = {}
+        route1, source1 = enrich.resolve_route("TVF16VB", cache, transport=make_transport(200, hit_body))
+        if source1 != "fresh_hit":
+            return False, "expected source 'fresh_hit' on the first call, got %r" % (source1,)
+        route2, source2 = enrich.resolve_route("TVF16VB", cache, transport=make_transport(200, hit_body))
+        if source2 != "cache_hit":
+            return False, "expected source 'cache_hit' on the second call, got %r" % (source2,)
+        if route1 != route2:
+            return False, "fresh_hit and cache_hit calls returned different routes: %r vs %r" % (route1, route2)
+        return True, ""
+    check("resolve_route('TVF16VB', ...) classifies fresh_hit on the first call and cache_hit on the second", _resolve_route_fresh_then_cache_hit)
+
+    # 23. A miss whose callsign prefix is not in the static table at all
+    #     returns (None, "miss") - the fourth (and final) fallback rung.
+    def _resolve_route_unknown_prefix_is_miss():
+        cache = {}
+        route, source = enrich.resolve_route(
+            "ZZZ1234", cache, transport=make_transport(404, {"response": "unknown callsign"}),
+        )
+        if route is not None or source != "miss":
+            return False, "expected (None, 'miss') for an unknown-prefix miss, got (%r, %r)" % (route, source)
+        return True, ""
+    check("resolve_route() on a miss whose callsign prefix is absent from the table returns (None, 'miss')", _resolve_route_unknown_prefix_is_miss)
+
+    # 24. Drift guard (D-07): every airline name the static prefix table can
+    #     ever produce must already be one of illustrations.py's own target
+    #     airline names - a rename/removal there that is not mirrored here
+    #     must fail this suite, not degrade silently to a lost illustration.
+    def _prefix_table_values_are_a_subset_of_illustration_targets():
+        prefix_values = set(enrich._ICAO_AIRLINE_PREFIXES.values())
+        target_names = set(illustrations.target_airline_names())
+        missing = prefix_values - target_names
+        if missing:
+            return False, "prefix table produces airline name(s) with no illustration target: %r" % (sorted(missing),)
+        return True, ""
+    check(
+        "every value in enrich._ICAO_AIRLINE_PREFIXES is a member of illustrations.target_airline_names() (D-07 drift guard)",
+        _prefix_table_values_are_a_subset_of_illustration_targets,
+    )
+
+    # 25. Shape guard: every key of the prefix table is exactly 3 uppercase
+    #     A-Z characters - the same shape airline_from_callsign() itself
+    #     requires of a prefix before it will ever look one up.
+    def _prefix_table_keys_are_three_uppercase_letters():
+        bad = [k for k in enrich._ICAO_AIRLINE_PREFIXES if not (isinstance(k, str) and len(k) == 3 and k.isalpha() and k == k.upper())]
+        if bad:
+            return False, "prefix table has key(s) that are not exactly 3 uppercase A-Z letters: %r" % (bad,)
+        return True, ""
+    check("every key of enrich._ICAO_AIRLINE_PREFIXES is exactly 3 uppercase A-Z characters", _prefix_table_keys_are_three_uppercase_letters)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
