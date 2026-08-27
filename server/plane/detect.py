@@ -156,9 +156,13 @@ def select_runway3_aircraft(aircraft, geofence):
     sourcing note): the bbox is not perfectly exclusive of the nearby 06/24
     runway, so an occasional wrong-runway aircraft can win this selection.
 
-    Returns a normalised dict (hex, callsign, altitude_ft, on_ground,
-    vertical_rate_fpm, lat, lon, gs, seen_pos) for the winner, or None if
-    no candidate is both in-bbox and below-ceiling.
+    Returns a normalised dict (hex, callsign, aircraft_type, altitude_ft,
+    on_ground, vertical_rate_fpm, lat, lon, gs, seen_pos) for the winner, or
+    None if no candidate is both in-bbox and below-ceiling. aircraft_type is
+    the ICAO type designator as reported by the aggregator (B738, A20N,
+    AT76), uppercased, or None when the record carries none, carries an
+    empty/whitespace-only value, or carries a non-string value - a missing
+    designator is an ordinary, expected case, not an error.
     """
     candidates = [
         ac for ac in filter_in_geofence(aircraft, geofence)
@@ -175,6 +179,8 @@ def select_runway3_aircraft(aircraft, geofence):
     winner = min(candidates, key=sort_key)
 
     callsign = (winner.get("flight") or "").strip() or None
+    raw_type = winner.get("t")
+    aircraft_type = (raw_type if isinstance(raw_type, str) else "").strip().upper() or None
     vertical_rate_fpm = winner.get("baro_rate")
     if vertical_rate_fpm is None:
         vertical_rate_fpm = winner.get("geom_rate")
@@ -182,6 +188,7 @@ def select_runway3_aircraft(aircraft, geofence):
     return {
         "hex": winner.get("hex"),
         "callsign": callsign,
+        "aircraft_type": aircraft_type,
         "altitude_ft": effective_altitude_ft(winner),
         "on_ground": bool(winner.get("on_ground")),
         "vertical_rate_fpm": vertical_rate_fpm,
