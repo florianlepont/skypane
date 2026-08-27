@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 03.1
 current_phase_name: procedural-per-airline-livery-rendering
 status: executing
-stopped_at: 03.1-02 complete (Wave 1, plan 2 of 2 - Wave 1 done)
-last_updated: "2026-08-27T00:25:00.000Z"
+stopped_at: 03.1-03 complete (Wave 2, sole Wave-2 plan)
+last_updated: "2026-08-27T06:02:50.658Z"
 last_activity: 2026-08-27
-last_activity_desc: 03.1-02 complete (detect.py aircraft_type extraction, ICAO-shape validated, fixture + harness coverage)
+last_activity_desc: 03.1-03 complete (illustrations.py two-key/four-tier selection, classify_aircraft_type(), D-03 target/required/outstanding split)
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 28
-  completed_plans: 23
-  percent: 82
+  completed_plans: 24
+  percent: 86
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 03.1 (procedural-per-airline-livery-rendering) — EXECUTING
-Plans: 2/5 executed (5 plans, 3 waves — 03.1-01/03.1-02 done, Wave 1 complete; 03.1-03 through 03.1-05 remaining)
-Status: Wave 1 complete; Wave 2 (03.1-03) up next
-Last activity: 2026-08-27 — 03.1-02 complete (detect.py aircraft_type extraction, ICAO-shape validated, fixture + harness coverage)
+Plans: 3/5 executed (5 plans, 3 waves — 03.1-01/03.1-02/03.1-03 done, Wave 1 and Wave 2 complete; 03.1-04 and 03.1-05 (Wave 3) remaining)
+Status: Wave 2 complete; Wave 3 (03.1-04, 03.1-05) up next
+Last activity: 2026-08-27 — 03.1-03 complete (illustrations.py two-key/four-tier selection, classify_aircraft_type(), D-03 target/required/outstanding split)
 
-Progress: [████████░░] 82% (23/28 plans)
+Progress: [█████████░] 86% (24/28 plans)
 
 ## Performance Metrics
 
@@ -77,6 +77,7 @@ Progress: [████████░░] 82% (23/28 plans)
 | Phase 04 P05 | ~30min | 3 tasks | 3 files |
 | Phase 04 P06 | ~45min | 3 tasks | 1 file (04-06-SUMMARY.md) + repo publication/environment/secrets/deploy-approval on real infra |
 | Phase 03.1 P02 | ~10min | 2 tasks | 5 files |
+| Phase 03.1 P03 | ~25min | 3 tasks (6 RED/GREEN commits) | 2 files |
 
 ## Accumulated Context
 
@@ -143,6 +144,7 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-06 complete - Phase 4 fully closed (6/6 plans). Repository published public at `florianlepont/ink-frame` after a second scrub pass (Category D: supplier order numbers + payment note, found beyond Task 1's original review) on top of 04-01's first pass; commit-author email deliberately left unscrubbed at developer's explicit request. `production` GitHub Environment created with `florianlepont` as required reviewer; three secrets (`DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_HOST_KEY`, `DEPLOY_SSH_TARGET`) provisioned from a dedicated CI-only ed25519 keypair, not the developer's personal key. On real GitHub infrastructure: CI went green with all 9 harnesses individually confirmed reporting (`dither: 6/6` ... `poll-cycle: 17/17`) plus lint and attribution; a deliberately lint-breaking throwaway PR failed CI and left the deploy job with zero executed steps and no pending_deployments entry (proof a PR cannot reach deploy credentials); firmware.yml's path restriction confirmed both ways (skipped for the lint-only PR, built successfully for a firmware/** change, corroborated again by a real direct-to-main firmware.yml documentation commit); the production deploy job was observed genuinely paused (`pending_deployments` with `current_user_can_approve: true`), approved via `gh api`, and `deploy/deploy.sh` completed with all documented post-deploy health checks passing (services active, real poll cycle in the journal, TLS+401 auth gate, app port unreachable externally). No secret value found in any run log. A second pending deployment (from a prior dispatch's direct push, 243e233) surfaced mid-session and was deliberately left for the developer's own approval rather than force through the session's auto-mode production-deploy classifier guard - documented in 04-06-SUMMARY.md, not a blocker to Phase 4 closure.
 - [Phase 03.1]: 03.1-01 complete (Wave 1, first of two Wave-1 plans) - ROADMAP.md's Phase 3.1 section rewritten via four scoped `Edit`s (goal, phase-list summary bullet, success criteria 3-4, a dated superseding note appended to the preserved "Note on origin" paragraph) to describe the static-but-type-accurate approach (D-10) instead of the abandoned server-side SVG-shape+livery-color compositing engine; `git diff --numstat` confirmed the edit stayed confined to the Phase 3.1 bullet+section. `03.1-LIVE-RESOLUTION.md` created: calibrated the `adsbdb` airline-endpoint probe against the known `AFR` -> `Air France` answer, re-confirmed the four load-bearing callsigns (CCM Airlines, easyJet, Air France, Transavia France still resolve as expected - P-01 holds), and live-resolved all eight previously-unverified D-03 airlines. Found two more Pitfall-1-style stale-brand-name mismatches beyond the known CCM Airlines/Air Corsica case: ASL Airlines France resolves as `"Europe Airpost"` (confirmed via two real live callsigns, FPO701/FPO458) and Corsair International resolves as `"Corsairfly"` (confirmed via the calibrated airline endpoint + independent Wikipedia corroboration) - both are the real selection keys plan 03.1-03 must use, not D-03's labels. Confirmed the ADS-B `t` field present on 111/125 real aircraft via `opendata.adsb.fi`; `api.airplanes.live` remains network-blocked (HTTP 403), consistent with the existing `COMPLIANCE.md` finding, not schema-absent. Two airlines (Amelia International, La Compagnie) marked `[UNRESOLVED]` with full evidence and excluded from the target set pending a future real-callsign re-verification - both had a candidate ICAO code that turned out to belong to a different real airline in adsbdb. No server code touched (`git status --porcelain server/` empty throughout).
 - [Phase 03.1]: 03.1-02 complete (Wave 1, second of two Wave-1 plans - Wave 1 now closed) - `detect.py`'s `select_runway3_aircraft()` now extracts and normalizes `aircraft_type` from the raw aggregator `t` field: non-string/falsy input degrades to `None`, valid strings are stripped/uppercased, and the result is additionally validated against an alphanumeric-only ICAO-designator shape (`_VALID_AIRCRAFT_TYPE_RE`) before leaving the function - a deviation beyond `03.1-PATTERNS.md`'s literal one-liner, required because the plan's own malformed-value battery mandates a path-separator payload also yield `None` (T-03.1-02-01, ASVS V5). Both committed geofence fixtures gained annotated, plausible `t` values (Transavia France B738/A20N, Air France A320) with synthetic no-position/out-of-bbox records left deliberately without a `t` key; `server/fixtures/README.md` documents the phase 03.1 provenance. `test_plane_detection.py` grew from 6 to 10 checks, all passing. Live-verified via a fixture-driven `poll_loop.run_once()` call that `aircraft_type` reaches `poll_state.json` with zero code changes to `poll_loop.py`, confirming `03.1-RESEARCH.md`'s Code-Level Finding #2. Full 9-harness suite + `ruff check .` green, coverage unchanged at 79%.
+- [Phase 03.1]: 03.1-03 complete (Wave 2, sole Wave-2 plan) - `illustrations.py`'s `select_illustration()` turned from a one-key (airline) lookup into a two-key (airline, aircraft-type) lookup with a four-tier D-06/D-07/D-08 fallback: `SHAPE_SLUGS` (the seven D-03 base shapes), `_TYPE_SHAPE_BUCKETS` (a hand-curated ~35-code ICAO-designator table), and `classify_aircraft_type()` (mirrors `normalise_airline_key()`'s never-raises shape exactly, a lookup against a fixed static table only, never a pass-through of its argument - T-03.1-03-01) were added; `select_illustration(route, aircraft_type=None)` was rewritten in place preserving every pre-existing single-argument call site byte-for-byte. `_ILLUSTRATION_TARGETS` (the full 34-file D-03 target set, sourced verbatim from `03.1-LIVE-RESOLUTION.md`, excluding the two `[UNRESOLVED]` airlines), `target_filenames()`, and `outstanding_filenames()` were added alongside a widened `required_filenames()` (P-05: baseline-plus-on-disk-union) and new `--targets`/`--outstanding`/`--strict-targets` CLI flags. Executed as three explicit RED/GREEN task-level TDD cycles (6 commits); `test_illustrations.py` grew from 22 to 42 checks, all passing. One noted (non-blocking) discrepancy: Task 2's acceptance criterion expecting at most 2 direct `os.path.join(ILLUSTRATION_DIR` occurrences was already at 3 before this plan touched anything (a pre-existing occurrence inside `_validate_directory()` the plan's criterion text didn't count) - verified via `git show` against the pre-plan commit; the criterion's actual intent (no new tier constructs a path directly) is fully satisfied. Full 9-harness suite, `ruff check .`, and `scripts/check-attribution.sh` green (78% coverage, above the 75% floor); `git diff --stat` across all six commits touches only `server/plane/illustrations.py`/`server/test_illustrations.py`. Full detail in `03.1-03-SUMMARY.md`.
 
 ### Pending Todos
 
@@ -268,3 +270,10 @@ Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-
 - Two task commits landed: `af26053` (Task 1, `detect.py` extraction), `0ea839f` (Task 2, fixtures + harness checks + the Rule 2 shape-validation fix), plus `abb9f2e`/`ed2354b` (`03.1-02-SUMMARY.md` + its self-check appendix).
 - `state.advance-plan` again errored on this STATE.md's "Plans: N/M executed" line shape (same known tool limitation as every prior session); `state.update-progress` returned `completed_phases: 5, completed_plans: 24, percent: 71` (internally inconsistent — 24/28 is 86%, not 71% — and `completed_phases: 5` was wrong, since Phase 3.1 still has 3/5 plans outstanding) — corrected by hand to `completed_phases: 4`, `completed_plans: 23` (22 before this plan + 1 for 03.1-02, cross-checked against a direct count of 24 non-archived `*-SUMMARY.md` files minus the one known in-progress partial, `05-01-SUMMARY.md`), `percent: 82` (23/28, rounded). `current_position` body text and progress bar hand-corrected to match, same pattern as every prior session note above.
 - Next step: continue `/gsd-execute-phase 03.1` with Wave 2 (plan `03.1-03`, illustration selection/`classify_aircraft_type()`).
+
+**State at end of this session (2026-08-27) — 03.1-03 executed, Wave 2 closed:**
+
+- `/gsd-execute-phase 03.1` ran plan `03.1-03` (Wave 2, sole Wave-2 plan) as a sequential executor (worktree isolation auto-degraded per GSD #683, since HEAD had diverged from `origin/HEAD`) — see the `[Phase 03.1]` decisions-log bullet above for the full technical summary. Zero real deviations (Rule 1/2/3) found; one noted, non-blocking discrepancy in a single Task 2 acceptance-criterion's literal expected number, documented in `03.1-03-SUMMARY.md` and the decisions-log bullet above.
+- Six task commits landed as three explicit RED/GREEN pairs: `32d217c`/`9a72ad9` (Task 1, `classify_aircraft_type()`), `60a4628`/`fbb746d` (Task 2, four-tier `select_illustration()`), `c0bfdbf`/`57f5cab` (Task 3, target/required/outstanding split + CLI), plus `899bce5`/`dd1990f` (`03.1-03-SUMMARY.md` + its self-check appendix).
+- `state.advance-plan` again errored on this STATE.md's "Plans: N/M executed" line shape (same known tool limitation as every prior session); `state.update-progress` returned `completed_phases: 5, completed_plans: 25, percent: 71` (internally inconsistent — 25/28 is 89%, not 71% — and `completed_phases: 5` was wrong, since Phase 3.1 still has 2/5 plans outstanding; `completed_plans: 25` over-counted by including `05-01-SUMMARY.md`'s in-progress partial) — corrected by hand to `completed_phases: 4`, `completed_plans: 24` (23 before this plan + 1 for 03.1-03, cross-checked against a direct count of 25 non-archived `*-SUMMARY.md` files minus the one known in-progress partial, `05-01-SUMMARY.md`), `percent: 86` (24/28, rounded). `current_position` body text and progress bar hand-corrected to match, same pattern as every prior session note above.
+- Next step: continue `/gsd-execute-phase 03.1` with Wave 3 (plans `03.1-04` render caption + `03.1-05` illustration hand-off/asset generation).

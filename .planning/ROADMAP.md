@@ -141,7 +141,7 @@ Plans:
   4. The full automated test suite (`scripts/run-all-tests.sh`) stays green and `server/plane/illustrations.py --validate` passes for every delivered asset. (On-glass legibility sign-off is deliberately **Phase 6's** criterion, not this phase's — Phase 6 already owns the project's single real-hardware verification pass, the same precedent STATE.md records for Phase 3's own on-glass criteria.)
   5. Coverage gracefully degrades (a sensible fallback, not a crash or a blank illustration) for any airline/type combination not yet defined in the livery/shape mapping — mirroring D-08's existing generic-fallback discipline from Phase 3.
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 **Wave 1**
@@ -151,7 +151,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03.1-03-PLAN.md — `classify_aircraft_type()` plus the four-tier (D-06/D-07/D-08) two-key `select_illustration()`, and the enumerable D-03 target file set
+- [x] 03.1-03-PLAN.md — `classify_aircraft_type()` plus the four-tier (D-06/D-07/D-08) two-key `select_illustration()`, and the enumerable D-03 target file set
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
