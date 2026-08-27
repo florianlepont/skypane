@@ -161,3 +161,7 @@ No soldering, no external component, and no hardware modification is required â€
 ---
 *Phase: 05-low-battery-indicator*
 *Completed: 2026-08-27 (Tasks 1-2 only â€” plan not yet closed)*
+
+## Self-Check: PASSED
+
+All created files confirmed present on disk (`battery_math.h`/`.c`, `test_battery_math.c`, `battery.h`/`.c`, this SUMMARY) and all four commit hashes (`3b834be`, `fae05dc`, `499a0cb`, `175b068`) confirmed present in `git log --oneline --all`.
