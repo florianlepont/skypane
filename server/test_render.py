@@ -964,8 +964,18 @@ def main():
     )
 
     # --- Task 1 (05-02, DEVICE-04): bottom-left battery-low icon -------------
+    # BATTERY_ICON_BOX is computed from render's own constants (not restated
+    # as a hand-written literal) exactly the way draw_battery_icon() derives
+    # its own total bounding box - so this containment window can never go
+    # stale relative to the BATTERY_ICON_* constants again. Check D below is
+    # the one place that still pins the literal geometry values.
 
-    BATTERY_ICON_BOX = (64, 1504, 136, 1536)
+    BATTERY_ICON_BOX = (
+        render.BATTERY_ICON_LEFT,
+        render.BATTERY_ICON_BOTTOM - render.BATTERY_ICON_BODY_H,
+        render.BATTERY_ICON_LEFT + render.BATTERY_ICON_BODY_W + render.BATTERY_ICON_NUB_W,
+        render.BATTERY_ICON_BOTTOM,
+    )
 
     def _states_for_battery_checks():
         """(state, flight, kwargs) triples exercising all three render
@@ -1051,7 +1061,7 @@ def main():
                 return False, "state=%r: battery_low=True changed a pixel outside the icon box %r" % (state, BATTERY_ICON_BOX)
         return True, ""
     check(
-        "battery_low=True differs from battery_low=False only inside the icon bounding box (64,1504,136,1536), for "
+        "battery_low=True differs from battery_low=False only inside the icon bounding box (64,1514,115,1536), for "
         "departing/arriving (with a real previous-flight card on the canvas) and empty",
         _battery_icon_conditional_draw_is_spatially_contained,
     )
@@ -1068,18 +1078,18 @@ def main():
         ]
         for state, flight, kwargs, ink_idx, bg_idx in expectations:
             canvas = render.build_canvas(flight, state, battery_low=True, **kwargs)
-            corner = canvas.getpixel((64, 1504))
-            fill_interior = canvas.getpixel((70, 1520))
-            nub = canvas.getpixel((132, 1520))
-            gap = canvas.getpixel((110, 1520))
+            corner = canvas.getpixel((64, 1514))
+            fill_interior = canvas.getpixel((70, 1525))
+            nub = canvas.getpixel((112, 1524))
+            gap = canvas.getpixel((95, 1525))
             if corner != ink_idx:
-                return False, "state=%r: body outline corner (64,1504) is %r, expected ink %r" % (state, corner, ink_idx)
+                return False, "state=%r: body outline corner (64,1514) is %r, expected ink %r" % (state, corner, ink_idx)
             if fill_interior != ink_idx:
-                return False, "state=%r: fill-interior pixel (70,1520) is %r, expected ink %r" % (state, fill_interior, ink_idx)
+                return False, "state=%r: fill-interior pixel (70,1525) is %r, expected ink %r" % (state, fill_interior, ink_idx)
             if nub != ink_idx:
-                return False, "state=%r: nub pixel (132,1520) is %r, expected ink %r" % (state, nub, ink_idx)
+                return False, "state=%r: nub pixel (112,1524) is %r, expected ink %r" % (state, nub, ink_idx)
             if gap != bg_idx:
-                return False, "state=%r: pixel (110,1520) inside the body outline but right of the fill is %r, expected background %r" % (state, gap, bg_idx)
+                return False, "state=%r: pixel (95,1525) inside the body outline but right of the fill is %r, expected background %r" % (state, gap, bg_idx)
         return True, ""
     check(
         "with battery_low=True, the body outline corner/fill/nub read as the state's own ink (EMPTY_INK for the "
@@ -1087,18 +1097,25 @@ def main():
         _battery_icon_ink_and_hollow_interior,
     )
 
-    # 46. Check D - geometry derives from the spacing scale, and the nub is
-    # vertically centred with an 8px gap above and below, inside a total
-    # bounding box of exactly (64, 1504, 136, 1536).
+    # 46. Check D - size constants derive from a uniform 0.7 reduction of the
+    # spacing scale (260828-0qo, live on-glass correction), the two position
+    # constants are unchanged, the stroke never drops below the frame's own
+    # weight, the nub is centred to within one pixel (the odd BODY_H-NUB_H
+    # leftover puts it one pixel low, not a defect), and the total bounding
+    # box is exactly (64, 1514, 115, 1536).
     def _battery_icon_geometry_derives_from_spacing_scale():
-        if render.BATTERY_ICON_BODY_W is not render.SPACE_LG:
-            return False, "BATTERY_ICON_BODY_W is not SPACE_LG"
-        if render.BATTERY_ICON_BODY_H is not render.SPACE_MD:
-            return False, "BATTERY_ICON_BODY_H is not SPACE_MD"
-        if render.BATTERY_ICON_NUB_W is not render.SPACE_XS:
-            return False, "BATTERY_ICON_NUB_W is not SPACE_XS"
-        if render.BATTERY_ICON_NUB_H is not render.SPACE_SM:
-            return False, "BATTERY_ICON_NUB_H is not SPACE_SM"
+        if render.BATTERY_ICON_BODY_W != round(render.SPACE_LG * 0.7):
+            return False, "BATTERY_ICON_BODY_W is not round(SPACE_LG * 0.7)"
+        if render.BATTERY_ICON_BODY_H != round(render.SPACE_MD * 0.7):
+            return False, "BATTERY_ICON_BODY_H is not round(SPACE_MD * 0.7)"
+        if render.BATTERY_ICON_NUB_W != round(render.SPACE_XS * 0.7):
+            return False, "BATTERY_ICON_NUB_W is not round(SPACE_XS * 0.7)"
+        if render.BATTERY_ICON_NUB_H != round(render.SPACE_SM * 0.7):
+            return False, "BATTERY_ICON_NUB_H is not round(SPACE_SM * 0.7)"
+        if render.BATTERY_ICON_STROKE_PX != 2:
+            return False, "BATTERY_ICON_STROKE_PX != 2"
+        if render.BATTERY_ICON_STROKE_PX < render.FRAME_STROKE_PX:
+            return False, "BATTERY_ICON_STROKE_PX dropped below FRAME_STROKE_PX, the legibility floor"
         if render.BATTERY_ICON_LEFT is not render.MARGIN:
             return False, "BATTERY_ICON_LEFT is not MARGIN"
         if render.BATTERY_ICON_BOTTOM != render.HEIGHT - render.MARGIN:
@@ -1108,19 +1125,21 @@ def main():
         nub_bottom = nub_top + render.BATTERY_ICON_NUB_H
         gap_above = nub_top - body_top
         gap_below = render.BATTERY_ICON_BOTTOM - nub_bottom
-        if gap_above != gap_below or gap_above != 8:
-            return False, "nub is not vertically centred: gap_above=%r gap_below=%r, expected both 8" % (gap_above, gap_below)
+        if gap_above < 0 or gap_below < 0 or (gap_below - gap_above) not in (0, 1):
+            return False, "nub is not centred to within one pixel: gap_above=%r gap_below=%r" % (gap_above, gap_below)
         total = (
             render.BATTERY_ICON_LEFT, body_top,
             render.BATTERY_ICON_LEFT + render.BATTERY_ICON_BODY_W + render.BATTERY_ICON_NUB_W,
             render.BATTERY_ICON_BOTTOM,
         )
-        if total != (64, 1504, 136, 1536):
-            return False, "computed total bounding box %r != (64, 1504, 136, 1536)" % (total,)
+        if total != (64, 1514, 115, 1536):
+            return False, "computed total bounding box %r != (64, 1514, 115, 1536)" % (total,)
         return True, ""
     check(
-        "battery icon geometry derives from the existing spacing scale (SPACE_LG/MD/XS/SM, MARGIN) with the nub "
-        "vertically centred (8px gap above and below) and a total bounding box of (64,1504,136,1536)",
+        "battery icon size constants are a uniform round(original * 0.7) reduction of the former spacing-scale "
+        "values (260828-0qo on-glass correction) with the stroke never dropping below FRAME_STROKE_PX, position "
+        "constants (BATTERY_ICON_LEFT/BOTTOM) unchanged, the nub centred to within one pixel, and a total "
+        "bounding box of (64,1514,115,1536)",
         _battery_icon_geometry_derives_from_spacing_scale,
     )
 

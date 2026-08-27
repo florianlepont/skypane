@@ -165,19 +165,25 @@ PREVIOUS_TEXT_GAP_PX = 22  # gap below the previous illustration's bottom edge
 PREVIOUS_LINE_GAP_PX = 34  # line 2's top below line 1's own TOP (not bottom)
 
 # --- D-04/D-06/D-07 battery-low icon geometry (05-UI-SPEC.md, 05-02-PLAN.md)
-# Every dimension derives from the existing spacing scale (SPACE_*/MARGIN) -
-# no ad hoc magic numbers - except the two bespoke constants below, each
-# commented with its own rationale. Total bounding box:
-# (64, 1504, 136, 1536) - see draw_battery_icon()'s docstring for the full
-# geometry derivation.
+# The two POSITION constants (LEFT/BOTTOM) still derive from MARGIN, unchanged
+# since 05-02. The four SIZE constants are a uniform round(original * 0.7)
+# reduction of their former spacing-scale values - a live on-glass correction
+# (260828-0qo, quick task) applied after the developer saw the original
+# (72x32-nominal) glyph on the real Spectra 6 panel and judged it too large.
+# Total bounding box is now (64, 1514, 115, 1536) - see draw_battery_icon()'s
+# docstring for the full geometry derivation.
 BATTERY_ICON_LEFT = MARGIN  # 64 - same left inset as the top-row labels
 BATTERY_ICON_BOTTOM = HEIGHT - MARGIN  # 1536 - same bottom inset, mirrored
-BATTERY_ICON_BODY_W = SPACE_LG  # 64
-BATTERY_ICON_BODY_H = SPACE_MD  # 32
-BATTERY_ICON_NUB_W = SPACE_XS  # 8
-BATTERY_ICON_NUB_H = SPACE_SM  # 16 - 05-02-PLAN.md's resolved discretion item (was 14, changed for grid alignment)
-BATTERY_ICON_STROKE_PX = 3  # bespoke: legibility at e-ink resolution (05-UI-SPEC.md)
-BATTERY_ICON_FILL_FRAC = 0.22  # bespoke: a fixed "low" glyph, not a live gauge (05-UI-SPEC.md)
+BATTERY_ICON_BODY_W = 45  # round(SPACE_LG * 0.7) = round(64 * 0.7) = round(44.8)
+BATTERY_ICON_BODY_H = 22  # round(SPACE_MD * 0.7) = round(32 * 0.7) = round(22.4)
+BATTERY_ICON_NUB_W = 6  # round(SPACE_XS * 0.7) = round(8 * 0.7) = round(5.6)
+BATTERY_ICON_NUB_H = 11  # round(SPACE_SM * 0.7) = round(16 * 0.7) = round(11.2) - the odd
+# BODY_H - NUB_H leftover (11) puts the nub's vertical centring one pixel low
+# (5px gap above, 6px below) rather than exactly symmetric.
+BATTERY_ICON_STROKE_PX = 2  # round(3 * 0.7) = round(2.1); now equal to FRAME_STROKE_PX,
+# held there as the e-ink legibility floor - the reduction stops here rather
+# than continuing toward an illegible 1px hairline.
+BATTERY_ICON_FILL_FRAC = 0.22  # bespoke: a fixed "low" glyph, not a live gauge (05-UI-SPEC.md) - unchanged, a ratio not a pixel size
 
 _font_cache = {}
 
@@ -270,17 +276,19 @@ def draw_battery_icon(canvas, draw, ink_idx):
     bottom-right previous-flight card; never reuses, displaces, or resizes
     the top-left state label or the top-right ORY - RWY 3 tag.
 
-    All geometry derives from the BATTERY_ICON_* module constants (in turn
-    derived from the existing spacing scale) - no ad hoc magic numbers.
-    Draws three flat integer-palette-index rectangles: the body as a
-    BATTERY_ICON_STROKE_PX-wide outline, the nub filled solid, and the fill
-    box filled solid - square corners, no rounded-rectangle primitive, no
-    antialiasing parameters. These box tuples are Pillow's inclusive corner
-    coordinates, matching draw_frame()'s own convention: the rendered
-    footprint is therefore 73x33px for a nominal 72x32 box, intentionally.
+    All geometry derives from the BATTERY_ICON_* module constants (the two
+    position constants from MARGIN, the four size constants from a uniform
+    0.7 reduction of their former spacing-scale values - 260828-0qo) - no ad
+    hoc magic numbers. Draws three flat integer-palette-index rectangles: the
+    body as a BATTERY_ICON_STROKE_PX-wide outline, the nub filled solid, and
+    the fill box filled solid - square corners, no rounded-rectangle
+    primitive, no antialiasing parameters. These box tuples are Pillow's
+    inclusive corner coordinates, matching draw_frame()'s own convention: the
+    rendered footprint is therefore 52x23px for a nominal 51x22 box,
+    intentionally.
 
     Returns the icon's total bounding box (left, top, right, bottom) -
-    (64, 1504, 136, 1536).
+    (64, 1514, 115, 1536).
     """
     body_top = BATTERY_ICON_BOTTOM - BATTERY_ICON_BODY_H
     body_right = BATTERY_ICON_LEFT + BATTERY_ICON_BODY_W
