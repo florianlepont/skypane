@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 03.1
-current_phase_name: Procedural Per-Airline Livery Rendering
+current_phase: "05"
+current_phase_name: Battery Life & Low-Battery Indicator
 status: executing
-stopped_at: 03-04 complete (gap-closure — Phase 3 closed, 4/4)
+stopped_at: 05-01 in progress (Task 1 done; Tasks 2-3 — multi-day discharge run and verdict — pending)
 last_updated: "2026-08-27T09:06:37.860Z"
 last_activity: 2026-08-27
-last_activity_desc: Phase 03 complete, transitioned to Phase 03.1
+last_activity_desc: Merged origin/main (Phase 04 completion + adsb.fi-sole-provider quick task) after resolving the runway3-false-positive debug fix on this branch
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 5
   total_plans: 29
-  completed_plans: 28
-  percent: 86
+  completed_plans: 27
+  percent: 93
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 03.1 — Procedural Per-Airline Livery Rendering
-Plans: 4/4 executed (03-01/03-02/03-03/03-04, all done) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) now closed
-Status: Phase 03 closed. Next: Phase 5 (Battery Life & Low-Battery Indicator, in progress) or Phase 6 (Final On-Glass Verification, not yet planned).
-Last activity: 2026-08-27 — Phase 03 complete, transitioned to Phase 03.1
+Phase: 05 — Battery Life & Low-Battery Indicator (in progress)
+Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending).
+Status: Two branch-lines merged 2026-08-27: this branch's Phase 03 gap-closure + runway3-false-positive debug fix, and origin/main's Phase 04 completion + quick task 260827-1i6. 04-01: developer selected scrub scope a-b-c (Categories A+B+C) at the checkpoint:decision gate; git-filter-repo rewrote all 154 commits, verified zero occurrences of the approved literals across every ref, backed by a verified bundle outside the repo tree. Repo-root .gitignore (D-06) committed. 04-02: server/requirements-dev.txt pins ruff+coverage (provenance-verified, separate from production deps); repo-root pyproject.toml configures Ruff (E4,E7,E9,F selected, E402 suppressed for 8 documented sys.path bootstraps, green on the untouched codebase) and coverage (server+stub-server scope, parallel mode, fail_under=75 vs a measured 79% baseline); scripts/run-all-tests.sh is the canonical 9-harness runner, gate-failure demonstrated and restored. All 9 test harnesses still pass. 04-03: repo-root MIT LICENSE with an asset-scope note; closed a real OFL 1.1 attribution gap (Inter's licence text was claimed vendored but never existed, even though the TTFs remain shipped post-supersession) by fetching the real text from the same pinned v4.1 release tag; built scripts/check-attribution.sh (bash-3.2-compatible, demonstrated failing on a deliberate rename then passing after revert); created COMPLIANCE.md covering all five real third-party data sources (adsb.fi, airplanes.live, adsbdb.com, PRIM/IDFM, AeroDataBox) with the confirmed adsb.fi attribution requirement met by real citation text and airplanes.live recorded as the one open item at the time (403 on three fetch attempts) — since closed by quick task 260827-1i6 below. Corrected 04-CONTEXT.md's/04-PATTERNS.md's stale claim that illustrations/VENDOR.md doesn't exist — it does, and is complete. 04-04: .github/workflows/ci.yml (blocking test job: lint/9-harness-suite/coverage/attribution + human-gated deploy job wrapping deploy/deploy.sh) and .github/workflows/firmware.yml (path-restricted, wraps firmware/build.sh directly rather than a marketplace action) both actionlint-clean, no host/credential literals; three repository secrets named for plan 04-06 to create (DEPLOY_SSH_PRIVATE_KEY, DEPLOY_HOST_KEY, DEPLOY_SSH_TARGET). 04-05: repo-root README.md (newcomer front door — hardware/server/tests/firmware/deployment sections each pointing at the authoritative doc, honest v1 scope, visible adsb.fi/airplanes.live/adsbdb attribution) and ARCHITECTURE.md (current-state system description written from state_machine.c/backoff.c/poll_loop.py/detect.py/enrich.py/render.py/panel_format.py/byos_server.py, not from the stale research doc; ASCII data-flow diagram; deliberate-constraints section) both created and pass every automated check; .planning/research/ARCHITECTURE.md got an additive status note (zero lines deleted) pointing at the new document. 04-06: repo published on real GitHub infrastructure, deploy secrets/environment configured, human-gated deploy job proven on real infra (1 file, 04-06-SUMMARY.md). All 9 test harnesses, ruff, and check-attribution.sh pass throughout. Quick task 260827-1i6 (2026-08-27, on origin/main): adsb.fi promoted to sole default plane-detection provider (`DEFAULT_PROVIDER_ORDER`) after airplanes.live shut down its free API tier that same day (confirmed live 403 vs adsb.fi's 200); airplanes.live retained as an explicit `--provider` opt-in only; COMPLIANCE.md's one OPEN item closed. Debug session runway3-false-positive (2026-08-27, this branch, resolved): `select_runway3_aircraft()`'s bbox-only gate let aircraft on Orly's neighbouring runways 06/24 and 02/20 win selection as "runway 3" (reproduced live — a real runway-20 departure and a runway-02/20-aligned arrival, one of which also corrupted the departing/arriving state); fixed with a runway-aligned corridor gate + track-alignment gate derived from real published LFPO geometry, plus per-poll cross-source validation (single-source and multi-source paths both covered) layered on top since the two fixes address different failure modes. Both branch lines' `server/plane/detect.py`/`server/test_plane_detection.py` changes merged (test count 6 base + 4 aircraft-type + 9 runway-gate + 2 provider-default + 3 cross-source = 24/24).
+Last activity: 2026-08-27 — merged origin/main (Phase 04 completion + adsb.fi-sole-provider quick task) into this branch after resolving the runway3-false-positive debug fix
 
 Progress: [██████████] 93% (27/29 plans)
 
@@ -177,6 +177,7 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 260826-p7a | Reconcile Phase 3 planning docs (03-UI-SPEC.md, 03-RESEARCH.md, 03-03/03-04-PLAN.md) with the two-flight poster layout actually implemented and committed (D-21/D-24/D-25/D-26/D-27) | 2026-08-26 | 9bce44e | [260826-p7a-reconcile-phase-3-planning-docs-03-ui-sp](./quick/260826-p7a-reconcile-phase-3-planning-docs-03-ui-sp/) |
 | 260826-vlq | Rename project Ink Frame -> SkyPane: docs/cosmetic identifiers, firmware (CMake/log-tag/NVS/macro prefix), deploy artifacts, live OVH VPS cutover (systemd units + application root, bearer token survived), and GitHub repo rename (florianlepont/ink-frame -> florianlepont/skypane, old URL redirect confirmed, production environment + 3 deploy secrets survived, two stale pending deployments rejected, new one left for developer approval) | 2026-08-26 | f3e9a72 | [260826-vlq-renommer-le-projet-de-ink-frame-vers-sky](./quick/260826-vlq-renommer-le-projet-de-ink-frame-vers-sky/) |
+| 260827-1i6 | airplanes.live free API shut down (sponsorship/commercial license now required, confirmed by email reply 2026-08-27 and live-verified HTTP 403 on the production endpoint) — adsb.fi promoted to sole default provider in `server/plane/detect.py` (airplanes.live kept selectable via `--provider`, no longer called automatically), OPEN compliance item in COMPLIANCE.md closed, README/ARCHITECTURE/PROJECT.md/REQUIREMENTS.md corrected to match | 2026-08-27 | 2a108b8 | [260827-1i6-airplanes-live-free-api-shut-down-sponso](./quick/260827-1i6-airplanes-live-free-api-shut-down-sponso/) |
 
 ## Deferred Items
 

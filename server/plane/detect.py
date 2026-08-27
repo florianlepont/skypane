@@ -35,7 +35,7 @@ derivation of every threshold.
 
 Usage:
     server/.venv/bin/python3 server/plane/detect.py
-    server/.venv/bin/python3 server/plane/detect.py --provider airplaneslive --json
+    server/.venv/bin/python3 server/plane/detect.py --provider adsbfi --json
 """
 import argparse
 import json
@@ -57,21 +57,38 @@ USER_AGENT = (
 )
 
 # Each provider's endpoint shape and the JSON key its response array lives
-# under. Provider order puts airplaneslive first per the Phase 1 decision
-# recorded in STATE.md (tighter median update gap - 22.4s vs 36.2s - and
-# zero sample errors vs adsbfi's one, over the ~92-minute validation
-# window); adsbfi is retained second given the near-total 37/38 hex overlap
-# observed in that same window.
+# under.
+#
+# The Phase 1 decision to use free public ADS-B aggregators at all - over a
+# paid schedule API or a local RTL-SDR receiver - still stands (see
+# .planning/PROJECT.md Key Decisions). What changed, 2026-08-27: the
+# *ordering* half of that decision reversed when airplanes.live withdrew
+# free API access, gating it behind running a feeder, a paid sponsorship,
+# or a commercial licence. The same day, a live GET against the exact
+# production endpoint template below returned HTTP 403 for airplanes.live
+# and HTTP 200 for adsb.fi. adsb.fi is therefore now the sole default
+# provider (see DEFAULT_PROVIDER_ORDER below) - a single default provider
+# means there is no automatic fallback, so an adsb.fi outage renders the
+# Empty state for that poll cycle instead of silently switching sources.
+# The airplaneslive entry is retained here only for explicit `--provider`
+# use - by a feeder operator, sponsor, or licensee - and is never queried
+# automatically. See COMPLIANCE.md for the full record.
 PROVIDERS = {
-    "airplaneslive": {
-        "url_template": "https://api.airplanes.live/v2/point/{lat}/{lon}/{dist}",
-        "aircraft_key": "ac",
-    },
     "adsbfi": {
         "url_template": "https://opendata.adsb.fi/api/v2/lat/{lat}/lon/{lon}/dist/{dist}",
         "aircraft_key": "aircraft",
     },
+    "airplaneslive": {
+        "url_template": "https://api.airplanes.live/v2/point/{lat}/{lon}/{dist}",
+        "aircraft_key": "ac",
+    },
 }
+
+# The only provider(s) an automatic poll queries when no explicit
+# `providers` argument is passed. `server/poll_loop.py`'s production call
+# to `poll_current_aircraft()` passes no providers argument, so this
+# constant is what production actually uses.
+DEFAULT_PROVIDER_ORDER = ("adsbfi",)
 
 # Both providers document a 1 request/second limit (02-RESEARCH.md Code
 # Examples, inherited from 01-RESEARCH.md). Sleeping longer than the strict
@@ -438,16 +455,20 @@ def select_runway3_aircraft(aircraft, geofence):
 
 
 def poll_current_aircraft(geofence, timeout=10.0, providers=None):
-    """Query EVERY provider each poll and cross-validate their selections,
-    sleeping MIN_SECONDS_BETWEEN_CALLS between calls and catching
-    (requests.RequestException, ValueError) per provider so one aggregator
-    being down never aborts the poll (T-02-01-02).
+    """Query provider(s) in order - by default just DEFAULT_PROVIDER_ORDER
+    (adsb.fi alone), not every registered provider - sleeping
+    MIN_SECONDS_BETWEEN_CALLS between calls whenever an explicit
+    multi-provider sequence is passed, catching (requests.RequestException,
+    ValueError) per provider so one aggregator being down never aborts the
+    poll (T-02-01-02).
 
-    This used to stop at the first provider that returned a selection -
-    pure failover for source *availability*, which cannot catch a source
-    being confidently *wrong*. Both aggregators are now polled every cycle
-    and their independent selections compared, so a disagreement becomes an
-    observable signal rather than something the early return hid:
+    When more than one provider is actually queried (an explicit multi-
+    provider `providers` argument, e.g. `--provider both`, or a future
+    second entry in DEFAULT_PROVIDER_ORDER), their independent selections
+    are cross-validated instead of returning on the first hit - pure
+    failover for source *availability* cannot catch a source being
+    confidently *wrong* (see the runway3-false-positive debug session:
+    the bug there was a bad selection, not a missing one):
 
       both agree on hex   -> return it, corroborated=True
       only one selected   -> return it, corroborated=None (single source;
@@ -462,17 +483,20 @@ def poll_current_aircraft(geofence, timeout=10.0, providers=None):
     means at most one of them is right, and a stale-but-real panel beats a
     coin-flip between them.
 
-    Note (2026-08-27): api.airplanes.live currently answers 403 to this
-    project's User-Agent while adsb.fi answers 200, so in practice the
-    single-source branch is the live one today. That is exactly why an
-    unreachable provider must not be scored as disagreement.
+    Today DEFAULT_PROVIDER_ORDER has exactly one entry (adsb.fi) -
+    airplanes.live withdrew free API access 2026-08-27 (see the PROVIDERS
+    comment above and COMPLIANCE.md) - so a default poll never has a second
+    selection to cross-validate against; `corroborated` is always None in
+    production until a second live default source exists. The cross-
+    validation path only exercises today via an explicit multi-provider
+    `providers` argument (`--provider both`, or a test double).
 
     The returned dict carries two extra keys - `sources` (provider names
     that independently selected this aircraft) and `corroborated` - so the
     caller and the logs can tell a two-source agreement from a lone
     unverified reading.
     """
-    provider_names = providers if providers is not None else list(PROVIDERS.keys())
+    provider_names = providers if providers is not None else list(DEFAULT_PROVIDER_ORDER)
     center = geofence["center"]
     radius_nm = geofence["radius_nm"]
 
@@ -521,8 +545,10 @@ def build_parser():
     parser.add_argument(
         "--provider",
         choices=sorted(PROVIDERS) + ["both"],
-        default="both",
-        help="Which aggregator(s) to try, in order (default: both, airplaneslive first).",
+        default="adsbfi",
+        help="Which aggregator(s) to try, in order (default: adsbfi only - "
+             "the other choices are explicit opt-ins, e.g. for a feeder "
+             "operator, sponsor, or licensee of airplanes.live).",
     )
     parser.add_argument(
         "--geofence",
@@ -547,7 +573,7 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv)
     geofence = load_geofence(args.geofence)
-    providers = None if args.provider == "both" else [args.provider]
+    providers = list(PROVIDERS) if args.provider == "both" else [args.provider]
     selection = poll_current_aircraft(geofence, timeout=args.timeout, providers=providers)
 
     if args.as_json:

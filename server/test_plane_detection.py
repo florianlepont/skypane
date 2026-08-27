@@ -3,11 +3,14 @@
 D-P2-01 multi-aircraft selection rule, and the runway-3 identification
 gate added by the runway3-false-positive debug session (2026-08-27).
 
-Checks 11-22 are that session's regression coverage. They are built on two
-newly committed fixtures that are real live captures of the actual bug and
-its correct counter-example (see server/fixtures/README.md), plus the real
-published OurAirports coordinates of Orly's OTHER two runways, which the
-gate must never accept as runway 3.
+Checks 11-19 and 22-24 are that session's regression coverage. They are
+built on two newly committed fixtures that are real live captures of the
+actual bug and its correct counter-example (see server/fixtures/README.md),
+plus the real published OurAirports coordinates of Orly's OTHER two
+runways, which the gate must never accept as runway 3. Checks 20-21 pin
+the separate 2026-08-27 change that demoted airplanes.live out of the
+default provider order (see server/plane/detect.py's DEFAULT_PROVIDER_ORDER
+and COMPLIANCE.md) after it withdrew free API access the same day.
 
 Stdlib-only, plus the module under test (server.plane.detect). Exits 0 only
 when every check below passes; any failure (or exception - none is ever
@@ -29,7 +32,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 22
+EXPECTED_CHECK_COUNT = 24
 
 
 def load_fixture(name):
@@ -404,6 +407,43 @@ def main():
           _missing_track_does_not_disqualify)
 
     # ---------------------------------------------------------------
+    # Provider default order (2026-08-27 airplanes.live free-tier withdrawal)
+    # ---------------------------------------------------------------
+
+    # 20. Default poll (no providers argument - exactly how
+    #     server/poll_loop.py:165 calls it in production) queries adsb.fi
+    #     only. Pins the 2026-08-27 default-provider demotion so this
+    #     regression cannot silently reopen.
+    def _default_poll_queries_adsbfi_only():
+        recorded = []
+
+        def recording_query_provider(name, lat, lon, radius_nm, timeout=10.0):
+            recorded.append(name)
+            return []
+
+        original_query_provider = detect.query_provider
+        detect.query_provider = recording_query_provider
+        try:
+            detect.poll_current_aircraft(geofence)
+        finally:
+            detect.query_provider = original_query_provider
+
+        if recorded != ["adsbfi"]:
+            return False, "expected default poll to query exactly ['adsbfi'], got %r" % (recorded,)
+        return True, ""
+    check("default poll (no providers arg) queries adsb.fi only", _default_poll_queries_adsbfi_only)
+
+    # 21. The airplanes.live opt-in path survives the demotion: still
+    #     selectable via --provider, but no longer in the default order.
+    def _airplaneslive_still_opt_in():
+        if "airplaneslive" not in detect.PROVIDERS:
+            return False, "airplaneslive was removed from PROVIDERS - the opt-in path must be retained"
+        if "airplaneslive" in detect.DEFAULT_PROVIDER_ORDER:
+            return False, "airplaneslive is still in DEFAULT_PROVIDER_ORDER - it must be opt-in only"
+        return True, ""
+    check("airplaneslive remains a selectable opt-in, absent from the default order", _airplaneslive_still_opt_in)
+
+    # ---------------------------------------------------------------
     # Per-poll cross-source validation (fix 2)
     # ---------------------------------------------------------------
 
@@ -428,12 +468,15 @@ def main():
             detect.query_provider = real_query
             detect.MIN_SECONDS_BETWEEN_CALLS = real_sleep
 
-    # 20. Both providers independently select the same aircraft -> the
-    #     selection is returned and marked corroborated by both.
+    # 22. Both providers independently select the same aircraft -> the
+    #     selection is returned and marked corroborated by both. Uses an
+    #     explicit multi-provider call - the default order (check 20) only
+    #     has adsb.fi, so this exercises the cross-validation path a
+    #     production poll cannot reach until a second default source exists.
     def _agreeing_providers_are_corroborated():
         both = {"airplaneslive": _runway3_record(), "adsbfi": _runway3_record()}
         result = _with_stubbed_providers(
-            both, lambda: detect.poll_current_aircraft(geofence))
+            both, lambda: detect.poll_current_aircraft(geofence, providers=["airplaneslive", "adsbfi"]))
         if result is None:
             return False, "two agreeing providers produced no selection"
         if result["hex"] != "347288":
@@ -446,7 +489,7 @@ def main():
     check("poll_current_aircraft: two agreeing providers yield corroborated=True",
           _agreeing_providers_are_corroborated)
 
-    # 21. The providers name two different aircraft as "the one on runway
+    # 23. The providers name two different aircraft as "the one on runway
     #     3" - at most one can be right, so the poll selects nothing and
     #     D-04 leaves the panel alone. Built from the real arrival record
     #     plus a copy relocated to the other end of the real runway, so
@@ -463,14 +506,14 @@ def main():
             return False, "premise broken: the stand-in aircraft is not itself on runway 3"
         responses = {"airplaneslive": _runway3_record(), "adsbfi": [other]}
         result = _with_stubbed_providers(
-            responses, lambda: detect.poll_current_aircraft(geofence))
+            responses, lambda: detect.poll_current_aircraft(geofence, providers=["airplaneslive", "adsbfi"]))
         if result is not None:
             return False, "expected None on provider disagreement, got %r" % (result["hex"],)
         return True, ""
     check("poll_current_aircraft: disagreeing providers select nothing (doubt -> D-04 hold)",
           _disagreeing_providers_yield_nothing)
 
-    # 22. One provider unreachable (the live 2026-08-27 reality:
+    # 24. One provider unreachable (the live 2026-08-27 reality:
     #     api.airplanes.live answers 403) must NOT be scored as
     #     disagreement - the reachable provider's selection is returned,
     #     flagged as uncorroborated rather than suppressed.
@@ -481,7 +524,7 @@ def main():
             "adsbfi": _runway3_record(),
         }
         result = _with_stubbed_providers(
-            responses, lambda: detect.poll_current_aircraft(geofence))
+            responses, lambda: detect.poll_current_aircraft(geofence, providers=["airplaneslive", "adsbfi"]))
         if result is None:
             return False, "a single reachable provider was suppressed as if it were a disagreement"
         if result["hex"] != "347288":

@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **PLANE-01**: User can see flight number, airline, and destination for the next plane departing from Orly runway 3
 - [x] **PLANE-02**: User can see flight number, airline, and origin for the next plane landing on runway 3 (when the runway is in arrival configuration, wind-dependent)
-- [x] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs (airplanes.live primary, adsb.fi secondary) geofenced to the runway's flight path — not a fixed timetable
+- [x] **PLANE-03**: Plane view updates one flight at a time, as real aircraft use runway 3, detected via free public ADS-B aggregator APIs (adsb.fi) geofenced to the runway's flight path — not a fixed timetable
 
 ### Device
 
