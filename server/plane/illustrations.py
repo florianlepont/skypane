@@ -131,6 +131,24 @@ because neither candidate ICAO code it tried could be trusted); that
 exclusion rationale is retired by this session's live verification of the
 real prefix. See `enrich._AIRLINE_NAME_CORRECTIONS` for the full live
 evidence and `_ILLUSTRATION_TARGETS`' own Amelia entry.
+
+## Quick task `260827-lgt` (2026-08-27): HOP! Air France, Wizz Air Malta, KlasJet
+
+Three more carriers cross-checked against the official Paris Aéroport Orly
+airline list. HOP! Air France (`"Air France Hop"`, primary Embraer +
+secondary ATR72) introduces a new evidence class for this project: the
+first target where `adsbdb`'s own resolution is already correct and
+current, not stale, not wrong, and not absent - so it needs **no**
+`enrich._AIRLINE_NAME_CORRECTIONS` row, the first new carrier added since
+the correction seam existed that genuinely doesn't need one. KlasJet
+(`"KlasJet"`, primary B737-800) carries materially lower confidence than
+every other row in this table - its `KLJ` prefix was never live-confirmed,
+only corroborated by reference sources - and is flagged as such everywhere
+it appears. **Wizz Air Malta is deliberately absent from this table
+entirely**: it maps to the existing `"Wizz Air"` selection key rather than
+getting a target of its own, the same brand-consolidation precedent the
+shipped `EJU` -> `"easyJet"` row already establishes - see
+`enrich._ICAO_AIRLINE_PREFIXES`'s `WMT` row for the full rationale.
 """
 import os
 import re
@@ -317,6 +335,75 @@ _ILLUSTRATION_TARGETS = [
         "(A320-family; A319 shares the file per the suffix rule). "
         "[VERIFIED-CALLSIGN]",
     ),
+    # --- Quick task 260827-lgt (2026-08-27): three new target carriers,
+    # cross-checked against the official Paris Aéroport Orly airline list.
+    # HOP! Air France and KlasJet are new primaries below; Wizz Air Malta
+    # is deliberately NOT a new target here - see enrich._ICAO_AIRLINE_
+    # PREFIXES' WMT row and this module's docstring for why (QT-lgt-D-01):
+    # it reuses the already-vendored "Wizz Air" key, exactly the shipped
+    # EJU -> easyJet brand-consolidation precedent, so it costs zero new
+    # artwork and needs no entry in this table at all. ---
+    (
+        "Air France Hop",
+        None,
+        "New target (QT-lgt-D-03/D-04). This is the FIRST carrier this "
+        "project has added where adsbdb's own resolution is already "
+        "correct and current - not stale (unlike FPO/CRL/CCM), not a "
+        "wrong carrier (unlike AIA), and not absent (unlike KMM). "
+        "Live-verified 2026-08-27: `curl https://api.adsbdb.com/v0/"
+        "callsign/HOP4001` returns a real route (Nantes-Lyon) with "
+        "airline_name 'Air France Hop'. Because the resolved string and "
+        "this table's prefix-table value are the same string, the "
+        "adsbdb-hit path and the prefix-only fallback path produce an "
+        "identical selection key by construction, and NO "
+        "enrich._AIRLINE_NAME_CORRECTIONS row exists or is needed "
+        "(QT-lgt-D-07) - a future reader must not add one as tidy-up. "
+        "The real ADS-B callsign field genuinely is HOP+number even "
+        "though the spoken ATC radio callsign is 'Airfrans' - radio "
+        "phraseology is irrelevant here, this project matches on the "
+        "ADS-B callsign field, never the radio callsign. This key is "
+        "deliberately DISTINCT from 'Air France' and reaches its own "
+        "file: select_illustration() matches keys exactly, never by "
+        "prefix, and the mainline air-france.png (an A320) does not "
+        "represent the regional fleet. Livery target: the post-2019 Air "
+        "France mainline white/blue scheme with small HOP titling - NOT "
+        "the pre-2019 standalone brightly-coloured HOP! livery. Primary "
+        "airframe: Embraer E-Jet (E170/E175/E190), the structurally "
+        "permanent and numerically dominant regional type since the "
+        "2019-2021 fold-in of HOP! into Air France's regional operation "
+        "(P-04 mixed-fleet split, MEDIUM confidence on relative fleet "
+        "size - see the secondary entry below and HANDOFF.md's coverage "
+        "caveat). [VERIFIED-CALLSIGN]",
+    ),
+    (
+        "KlasJet",
+        None,
+        "New target (QT-lgt-D-05/D-06). Filed under the carrier's real "
+        "camel-case trading style 'KlasJet' - normalise_airline_key() "
+        "slugs 'KlasJet' and 'Klasjet' identically to 'klasjet', so this "
+        "casing choice affects only the rendered caption, never the "
+        "filename. CARRIES MATERIALLY LOWER CONFIDENCE THAN EVERY OTHER "
+        "ROW IN THIS TABLE - do not read this entry with the same "
+        "confidence as the rows around it. The KLJ prefix is corroborated "
+        "by lookup sources but was NEVER LIVE-CONFIRMED: approximately 25 "
+        "adsbdb probes across plausible flight-number ranges all returned "
+        "'unknown callsign' - zero live confirmation, which is WEAKER "
+        "evidence than KMM's confirmed-negative above (a specific curl of "
+        "a specific real callsign that definitively missed). KlasJet is a "
+        "Lithuanian ACMI/wet-lease and VIP charter operator, and wet-lease "
+        "flights typically broadcast the CONTRACTING airline's callsign "
+        "rather than the operator's own, so a real KLJ-prefixed callsign "
+        "may rarely or never appear in this project's detections at "
+        "Orly. The developer chose to include it anyway, with this "
+        "uncertainty in hand. Remediation pointer: if a real KLJ callsign "
+        "is ever observed and resolves to a different carrier, this row "
+        "is the first thing to re-verify. Primary airframe: Boeing "
+        "737-800 - the most plausible scheduled-passenger-shaped choice "
+        "among KlasJet's fleet (737-300/500/800 plus Boeing Business "
+        "Jets); which exact airframe is right remains an open question "
+        "for the developer at generation time (QT-lgt-D-08), not resolved "
+        "here. [UNCONFIRMED-PREFIX]",
+    ),
     # --- P-04 secondary-variant files for mixed-fleet airlines ---
     (
         "Air Corsica",
@@ -336,6 +423,20 @@ _ILLUSTRATION_TARGETS = [
         "service (recorded in Phase 3.1's own fleet research, "
         "03.1-CONTEXT.md D-03). Cross-references the same AIA correction "
         "row as the primary entry above.",
+    ),
+    (
+        "Air France Hop",
+        "atr72",
+        "Quick task 260827-lgt P-04 mixed-fleet secondary. The ATR42/ATR72 "
+        "turboprop fleet is the minority type alongside the Embraer "
+        "primary above - see that entry for the full evidence, not "
+        "repeated here. QT-lgt-D-04's primary/secondary split (Embraer "
+        "primary, ATR72 secondary) is a MEDIUM-confidence judgment on "
+        "relative fleet size, not a live-verified count; reversing it is "
+        "a one-token change (move the 'atr72' shape slug onto the "
+        "'Air France Hop' primary row and give this row 'embraer' "
+        "instead), and D-06's Tier 2 fallback means a HOP flight of the "
+        "non-primary type still gets HOP-branded art either way.",
     ),
 ]
 
@@ -383,14 +484,18 @@ _TYPE_SHAPE_BUCKETS = {
     # B737 family (D-03: Transavia, Air Europa, Air Algerie, Royal Air
     # Maroc; 260827-jz6: TUIfly Belgium, 737 MAX 8 primary; 260827-kih:
     # ASL Airlines France - adsbdb resolves the pre-2015-rebrand name
-    # "Europe Airpost", corrected on read, see enrich.py)
+    # "Europe Airpost", corrected on read, see enrich.py; 260827-lgt:
+    # KlasJet 737-800 primary, MEDIUM-lower-confidence entry - see
+    # enrich.py's KLJ row)
     "B731": "b737", "B732": "b737", "B733": "b737", "B734": "b737",
     "B735": "b737", "B736": "b737", "B737": "b737", "B738": "b737",
     "B739": "b737", "B37M": "b737", "B38M": "b737", "B39M": "b737",
     "B3XM": "b737",  # MAX 7/8/9/10
     # ATR72 (D-03: Air Corsica, Chalair Aviation - 260827-kih renamed the
     # adsbdb-resolved "CCM Airlines" key to Air Corsica's real current
-    # name, see enrich.py) - per P-06, ATR42 designators map here too
+    # name, see enrich.py; 260827-lgt: Air France Hop ATR72 secondary,
+    # MEDIUM-confidence P-04 split, see the "Air France Hop"/"atr72" row
+    # in _ILLUSTRATION_TARGETS) - per P-06, ATR42 designators map here too
     # since D-03's table has no separate ATR42 shape.
     "AT43": "atr72", "AT44": "atr72", "AT45": "atr72", "AT46": "atr72",
     "AT72": "atr72", "AT73": "atr72", "AT75": "atr72", "AT76": "atr72",
@@ -398,7 +503,10 @@ _TYPE_SHAPE_BUCKETS = {
     "BE9L": "beechcraft1900d",
     # Embraer E-Jet family (D-03: LOT Polish Airlines, Royal Air Maroc
     # minority; 260827-kih: Amelia's E145 secondary variant - see the
-    # "Amelia"/"embraer" row in _ILLUSTRATION_TARGETS)
+    # "Amelia"/"embraer" row in _ILLUSTRATION_TARGETS; 260827-lgt: Air
+    # France Hop primary, E170/E175/E190, the numerically dominant
+    # regional type since HOP!'s fold-in - MEDIUM-confidence P-04 split,
+    # see the "Air France Hop" primary entry)
     "E135": "embraer", "E145": "embraer", "E170": "embraer",
     "E75L": "embraer", "E75S": "embraer", "E190": "embraer",
     "E195": "embraer", "E290": "embraer", "E295": "embraer",
