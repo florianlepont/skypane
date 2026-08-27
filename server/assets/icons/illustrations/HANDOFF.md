@@ -11,15 +11,16 @@ simply never be selected by the render pipeline.
 
 **Phase 3.1 scaled this hand-off for real per-flight aircraft-type accuracy.**
 Phase 3 shipped 8 files, one representative type per covered airline. Phase
-3.1 extends that to the full, live-verified 24-airline D-03 table plus 7
-neutral shape fallbacks — 34 target files in total, each one's aircraft type
-now dictated by its filename rather than chosen freely.
+3.1 extended that to the live-verified 24-airline D-03 table plus 7 neutral
+shape fallbacks. The 2026-08-27 extension at the end of this document brings
+the current registry to 43 target files; each aircraft type is dictated by
+its filename rather than chosen freely.
 
 Read this file in full before generating anything. Run these two commands at
 any time for the authoritative machine-reported state:
 
 ```
-server/.venv/bin/python3 server/plane/illustrations.py --targets       # the full 34-file plan
+server/.venv/bin/python3 server/plane/illustrations.py --targets       # the current 43-file plan
 server/.venv/bin/python3 server/plane/illustrations.py --outstanding   # what is still missing right now
 ```
 
@@ -30,7 +31,7 @@ exist on disk plus the pre-Phase-3.1 baseline. Nothing in the target set is
 ever silently dropped — whatever remains outstanding when you stop is
 recorded by name in `VENDOR.md`.
 
-## Required files (34 total, 8 already vendored)
+## Original Phase 3.1 required files (34; current extension below)
 
 **Airline primary files (22)**
 
@@ -176,8 +177,9 @@ phase's coverage boundary live:
 - **easyJet Europe (`EJU`, Austrian AOC) remains a confirmed, deliberate
   miss (P-03)** — `airline_name` is never available for those flights no
   matter how good an illustration exists, so no file is requested for it.
-- **KM Malta Airlines (`KMM`) remains excluded**, unchanged from Phase 3 —
-  same confirmed-miss status.
+- **KM Malta Airlines (`KMM`) was excluded from the original live-resolution
+  snapshot**, but now has explicit user-requested art coverage; live route
+  resolution remains a separate enrichment concern.
 - **Amelia International is excluded from this target set.**
   `03.1-LIVE-RESOLUTION.md` marks it `[UNRESOLVED]`: neither the guessed
   candidate ICAO code (`AMB`) nor a code corroborated by two independent
@@ -583,3 +585,36 @@ alpha channel) — no ground, no sky, no shadow, nothing behind the aircraft.
 Clean flat illustration style, crisp hard edges, vintage aviation poster
 plate.
 ```
+
+## 2026-08-27 user-requested extension
+
+Eight additional native-RGBA assets were generated with OpenAI's built-in
+image-generation mode. Every prompt reused the set-wide geometry contract:
+exact nose-left side profile, horizontal fuselage/window row, zero pitch,
+roll and yaw, only a narrow near-wing sliver, retracted landing gear,
+landscape framing of at least 1200px, crisp editorial illustration and true
+alpha with no backdrop or cast shadow.
+
+The per-file subject/livery clauses were:
+
+- `km-malta-airlines.png` — A320neo; current post-2023 white/red scheme,
+  large red `malta`, red tail with one white Maltese cross.
+- `tuifly-belgium.png` — 737 MAX 8; LEAP nacelles and split-tip winglets;
+  white/pale-blue TUI livery, blue tail and red smile emblem.
+- `amelia.png` — A320; verified white and very dark emerald-green Amelia
+  scheme. The originally suggested blue tail was rejected as inaccurate.
+- `amelia-embraer.png` — E145 with rear engines and T-tail; the verified
+  white/dark-green Amelia sweep adapted to the regional jet.
+- `air-france-hop.png` — E190; post-2019 Air France regional scheme with
+  `AIRFRANCE`, restrained red `HOP!` and the contemporary striped tail.
+- `air-france-hop-atr72.png` — ATR 72-600; explicitly historical HOP!
+  scheme with large red forward wordmark, rear red disc and Air France tail.
+- `klasjet.png` — 737-800 NG with blended winglets; verified minimalist
+  all-white ACMI appearance, not the unconfirmed blue/yellow tail and not
+  the black/gold VIP scheme.
+- `royal-air-maroc-embraer.png` — E190; white/red/green Royal Air Maroc
+  scheme, red tail with a green five-point Moroccan star.
+
+Before this extension, `_unresolved/amelia-international.png` was inspected
+and rejected: it depicted an Air Caraïbes aircraft rather than Amelia. It
+has been removed and was not used as a visual reference.

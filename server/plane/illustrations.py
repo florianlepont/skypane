@@ -157,10 +157,11 @@ _COVERAGE_CHECK_AIRLINE_NAME = "Volotea"
 # Europe) remains a confirmed non-resolving carrier for which no file is
 # requested, unchanged from Phase 3 (P-03).
 #
-# Amelia International and La Compagnie are deliberately absent -
-# 03.1-LIVE-RESOLUTION.md marks both `[UNRESOLVED]` (no adsbdb code could
-# be trusted this session for either). Add them here with zero other code
-# change once a real callsign confirms their resolved name.
+# La Compagnie remains deliberately absent: 03.1-LIVE-RESOLUTION.md marks
+# it `[UNRESOLVED]`.  The additional airline assets below are explicit
+# product coverage requested on 2026-08-27; the table is also the canonical
+# filename registry, even where adsbdb still needs a future resolution-key
+# audit before the art can be selected from live traffic.
 _ILLUSTRATION_TARGETS = [
     # --- Baseline: already-confirmed resolutions, primary files ---
     ("Air France", None, "D-03 baseline; [VERIFIED-CALLSIGN]"),
@@ -199,6 +200,17 @@ _ILLUSTRATION_TARGETS = [
     ("Transavia France", "a320", "D-05 fleet-transition secondary (P-04)"),
     ("Royal Air Maroc", "embraer", "D-03 mixed-fleet secondary (P-04)"),
     ("Air Caraïbes", "a330", "D-03 mixed-fleet secondary (P-04)"),
+    # --- User-requested airline/type coverage (2026-08-27) ---
+    ("KM Malta Airlines", None, "A320neo primary; current post-2023 livery"),
+    ("TUIfly Belgium", None, "Boeing 737 MAX 8 primary"),
+    ("Amelia", None, "Airbus A320 primary"),
+    ("Amelia", "embraer", "Embraer E145 secondary"),
+    ("Air France Hop", None, "Embraer E190 primary; post-2019 regional livery"),
+    ("Air France Hop", "atr72", "ATR 72-600 historical secondary"),
+    ("KlasJet", None, "Boeing 737-800 ACMI primary"),
+    # Exact variants already delivered during the preceding livery audit.
+    ("Air Caraïbes", "a350-1000", "Airbus A350-1000 long-haul variant"),
+    ("Air Caraïbes", "atr72", "ATR 72-600 regional variant"),
 ]
 
 # A key must reduce to this shape after normalise_airline_key() - defensive
