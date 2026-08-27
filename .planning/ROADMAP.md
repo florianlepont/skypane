@@ -304,3 +304,27 @@ Plans:
 - [ ] 07-01-PLAN.md — On-glass verification battery (RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) and the 02-UI-SPEC.md Colour addendum (moved from 03-04)
 
 **UI hint**: no
+
+## Backlog
+
+### Phase 999.1: Battery status on companion web interface (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Surface the device's battery status and power consumption on the companion configuration web interface (built in Phase 6). Raised by the user mid-Phase-6-execution as a follow-up idea, not part of Phase 6's scope. Device firmware already reports battery voltage via the `X-Battery-Mv` poll header (see PROJECT.md firmware stack) — this would need a history/trend view added to the companion app, likely alongside or extending the CFG-03 health page's device-health section.
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.2: LED enable/disable toggle (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Allow the board's LEDs to be enabled/disabled from the companion web interface. Raised by the user mid-Phase-6-execution as a follow-up idea, not part of Phase 6's scope. Needs a device-side control path (new poll-response field or command) plus a companion UI toggle — likely lands on the config page (CFG-01/CFG-12's sibling) once a device command channel exists.
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
