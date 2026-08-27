@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06
 current_phase_name: companion-configuration-web-interface-visual-settings-view-s
 status: executing
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-08-27T21:44:09.339Z"
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-08-27T21:59:21.759Z"
 last_activity: 2026-08-27
-last_activity_desc: 06-03-PLAN.md executed (server/panel_preview.py — unpack_panel()/panel_png_bytes(), CFG-10)
+last_activity_desc: 06-04-PLAN.md executed (companion/auth.py + companion/layout.py/static/style.css — HMAC session cookies, escape_html() single-call-site, full design system, CFG-09)
 progress:
   total_phases: 8
   completed_phases: 6
   total_plans: 41
-  completed_plans: 31
-  percent: 75
+  completed_plans: 32
+  percent: 78
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 06 (companion-configuration-web-interface-visual-settings-view-s) — EXECUTING
-Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 3/12 executed (06-01 Wave 1 device_config.py/history_db.py persistence layer; 06-02 Wave 1 detect.py runway-parameterisation + diagnostics signal, CFG-05/CFG-12; 06-03 Wave 1 server/panel_preview.py — unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), CFG-10).
+Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03-01/03-02/03-03/03-04) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) closed by 03-04, re-verified 8/8. Phase 04: 6/6 executed across 4 waves (04-01 through 04-06) — see below for detail. Phase 05: 05-01 in progress (Task 1 done, Tasks 2-3 — the unattended multi-day discharge run and its verdict — pending). Phase 06: 4/12 executed (06-01 Wave 1 device_config.py/history_db.py persistence layer; 06-02 Wave 1 detect.py runway-parameterisation + diagnostics signal, CFG-05/CFG-12; 06-03 Wave 1 server/panel_preview.py — unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), CFG-10; 06-04 Wave 1 companion/auth.py (stateless HMAC session cookies, constant-time password gate, fail-closed AuthNotConfigured, process-global LoginThrottle) + companion/layout.py/static/style.css (single-call-site escape_html(), full page shell, 06-UI-SPEC.md design system), CFG-09).
 Status: Executing Phase 06
-Last activity: 2026-08-27 — 06-03-PLAN.md complete
+Last activity: 2026-08-27 — 06-04-PLAN.md complete
 
-Progress: [████████░░] 76% (31/41 plans)
+Progress: [████████░░] 78% (32/41 plans)
 
 ## Performance Metrics
 
@@ -85,6 +85,7 @@ Progress: [████████░░] 76% (31/41 plans)
 | Phase 06 P01 | 30min | 3 tasks | 4 files |
 | Phase 06 P02 | 15min | 3 tasks | 3 files |
 | Phase 06 P03 | 15min | 2 tasks | 3 files |
+| Phase 06 P04 | 35min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -162,6 +163,7 @@ Recent decisions affecting current work:
 - [Phase 06]: 06-01 complete - device_config.py/history_db.py persistence layer built (leaf modules, WAL SQLite + atomic JSON side-file); coverage-omit deviation added to pyproject.toml until 06-11 registers the harness; requirements mark-complete deliberately skipped for CFG-01/03/06/08/12 since those IDs recur across most of this phase's other 11 plans
 - [Phase 06]: 06-02 complete - detect.py generalised to select_aircraft_for_runway(runway_id=...), select_runway3_aircraft() preserved as a byte-compatible thin wrapper (all 28 pre-existing checks pass unmodified); runway3.json gained a runways block (ids 3/06-24/02-20) with 06-24/02-20 corridor thresholds explicitly documented as unvalidated copies pending plan 06-12's live capture (06-RESEARCH.md Assumption A1); poll_current_aircraft() gained a diagnostics dict distinguishing an all-providers-failed poll from a no-aircraft poll (CFG-05); harness grew 28 -> 38 checks
 - [Phase 06]: 06-03 complete - server/panel_preview.py added as unpack_panel()/panel_png_bytes() exact inverse of pack_panel(), NIBBLE_TO_INDEX derived by inverting INDEX_TO_NIBBLE (never hand-typed); PanelDecodeError raised on wrong-length/illegal-nibble input; test_panel_preview.py proves the round trip over all six palette indices plus a mixed nibble pair, a production render_panel(None,'empty') round trip, and a live-demonstrated (then reverted) nibble-transposition regression; pyproject.toml coverage-omit extended for the new module following 06-01's precedent, pending removal in 06-11
+- [Phase 06]: 06-04 complete - companion/auth.py (stateless HMAC session cookies, constant-time password gate, fail-closed AuthNotConfigured, process-global LoginThrottle) and companion/layout.py/static/style.css (single-call-site escape_html(), full page shell, 06-UI-SPEC.md design system) built and tested via real RED->GREEN TDD pairs matching 06-01's precedent; harness grew to 20/20 checks; CFG-09 requirements-completed deliberately left unchecked since the HTTP route to receive the theme POST arrives in plan 06-05
 
 ### Pending Todos
 
@@ -203,7 +205,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T21:44:09.332Z
+Last session: 2026-08-27T21:58:29.908Z
 Stopped at: Completed 06-03-PLAN.md
 
 Resume file: None

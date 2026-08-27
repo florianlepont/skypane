@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
-| 6. Companion Configuration Web Interface | 3/12 | In Progress|  |
+| 6. Companion Configuration Web Interface | 4/12 | In Progress|  |
 | 7. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 0 plans
 
@@ -242,7 +242,7 @@ Plans:
 **Goal:** A user can reach a password-protected companion web page — a new, separate service on its own nip.io subdomain, not touching the vendored device-protocol server — to choose a validated display theme, select which Orly runway is tracked, monitor the device's health and the ADS-B sources' reliability over time, browse recent flight/render history, see airline-coverage gaps, and debug the render pipeline directly, all without SSH access to the VPS.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-05, CFG-06, CFG-07, CFG-08, CFG-09, CFG-10, CFG-11, CFG-12
 **Depends on:** Phase 5
-**Plans:** 3/12 plans executed
+**Plans:** 4/12 plans executed
 
 Plans:
 **Wave 1**
@@ -250,7 +250,7 @@ Plans:
 - [x] 06-01-PLAN.md — Config and history persistence foundation (`server/device_config.py` theme/runway registries, `server/history_db.py` SQLite store + Caddy battery-log tailer)
 - [x] 06-02-PLAN.md — Runway parameterization of the detection pipeline (CFG-12: `runways` block in the geofence, `select_aircraft_for_runway()`, all-providers-failed diagnostics)
 - [x] 06-03-PLAN.md — Panel unpack for the live preview (`unpack_panel()`, the inverse of `pack_panel()`, plus PNG encoding)
-- [ ] 06-04-PLAN.md — Companion auth, layout shell and stylesheet (HMAC session cookie, single escaping helper, full UI-SPEC design system with dark/light and mobile)
+- [x] 06-04-PLAN.md — Companion auth, layout shell and stylesheet (HMAC session cookie, single escaping helper, full UI-SPEC design system with dark/light and mobile)
 
 **Wave 2**
 
