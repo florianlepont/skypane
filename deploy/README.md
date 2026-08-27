@@ -162,7 +162,27 @@ ssh root@<vps-ip> journalctl -u caddy -n 20
 ssh root@<vps-ip> journalctl -u skypane-poll -f     # follow the poll cycle live
 ssh root@<vps-ip> journalctl -u skypane-byos -f     # follow device requests live
 ssh root@<vps-ip> journalctl -u caddy -f             # follow TLS/proxy activity live
+
+# Which ICAO prefixes has the panel failed to name recently, and how often
+# (within journald's retention window)?
+ssh root@<vps-ip> journalctl -u skypane-poll | grep -o 'unknown_prefix=[A-Z]\{3\}' | sort | uniq -c | sort -rn
+
+# The same question, answered from the durable record instead - survives
+# past journald's retention window (quick task 260827-oz9). Streams
+# poll_state.json off the VPS and reads its unresolved_prefixes key,
+# sorted by count (most-recurring first); count is per poll cycle, not per
+# distinct flight. Uses python3, not jq - the VPS is provisioned with a
+# Python interpreter because it runs the poll loop, and jq is not in
+# provision.sh's install list.
+ssh root@<vps-ip> cat /opt/skypane/state/poll_state.json | python3 -c "import json, sys; reg = json.load(sys.stdin).get('unresolved_prefixes', {}); [print(prefix, e.get('count'), e.get('first_seen'), e.get('last_seen'), e.get('example_callsign')) for prefix, e in sorted(reg.items(), key=lambda kv: -kv[1].get('count', 0))]"
 ```
+
+A prefix appearing repeatedly is a carrier serving this airport the panel
+cannot yet name; the fix is to confirm it against a real callsign via
+adsbdb and add a row to the airline-prefix table in `server/plane/enrich.py`,
+following that table's existing sourcing discipline. Remember the count is
+poll cycles, not distinct flights — an aircraft held on the runway across
+several cycles inflates the number for that one arrival.
 
 ## Known vendored behaviour: byos_server.py binds 0.0.0.0
 

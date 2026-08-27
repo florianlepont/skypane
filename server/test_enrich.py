@@ -17,6 +17,7 @@ Usage:
 import copy
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -26,7 +27,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 39
+EXPECTED_CHECK_COUNT = 45
 
 
 def load_fixture(name):
@@ -775,6 +776,166 @@ def main():
     check(
         "no _AIRLINE_NAME_CORRECTIONS row exists whose prefix element is HOP, WMT or KLJ (QT-lgt-D-07 guard)",
         _no_correction_row_for_new_lgt_prefixes,
+    )
+
+    # --- Quick task 260827-oz9: note_unresolved_prefix()/
+    # trim_unresolved_prefixes() - a pure, bounded, hostile-input-proof
+    # unrecognized-ICAO-prefix recorder layered on top of resolve_route()'s
+    # existing "miss" classification. -------------------------------------
+
+    # 40. A first sighting records a well-formed entry.
+    def _note_unresolved_prefix_first_sighting():
+        reg = {}
+        prefix = enrich.note_unresolved_prefix("ZZQ1234", reg, now="T1")
+        if prefix != "ZZQ":
+            return False, "note_unresolved_prefix('ZZQ1234', {}, now='T1') = %r, expected 'ZZQ'" % (prefix,)
+        if list(reg) != ["ZZQ"]:
+            return False, "expected exactly one registry key 'ZZQ', got %r" % (list(reg),)
+        entry = reg["ZZQ"]
+        if entry.get("count") != 1:
+            return False, "first-sighting count = %r, expected 1" % (entry.get("count"),)
+        if entry.get("first_seen") != "T1" or entry.get("last_seen") != "T1":
+            return False, "first-sighting timestamps = %r, expected both 'T1'" % (entry,)
+        if entry.get("example_callsign") != "ZZQ1234":
+            return False, "first-sighting example_callsign = %r, expected 'ZZQ1234'" % (entry.get("example_callsign"),)
+        return True, ""
+    check("note_unresolved_prefix() on a first sighting records a well-formed entry (count 1, both timestamps set)", _note_unresolved_prefix_first_sighting)
+
+    # 41. A second sighting updates one entry, and first-seen never moves.
+    def _note_unresolved_prefix_second_sighting_updates_in_place():
+        reg = {}
+        enrich.note_unresolved_prefix("ZZQ1234", reg, now="T1")
+        prefix = enrich.note_unresolved_prefix("ZZQ5678", reg, now="T2")
+        if prefix != "ZZQ":
+            return False, "second sighting returned %r, expected 'ZZQ'" % (prefix,)
+        if list(reg) != ["ZZQ"]:
+            return False, "expected still exactly one registry key 'ZZQ', got %r" % (list(reg),)
+        entry = reg["ZZQ"]
+        if entry.get("count") != 2:
+            return False, "second-sighting count = %r, expected 2" % (entry.get("count"),)
+        if entry.get("first_seen") != "T1":
+            return False, "first_seen moved on the second sighting: %r, expected still 'T1'" % (entry.get("first_seen"),)
+        if entry.get("last_seen") != "T2":
+            return False, "last_seen = %r, expected 'T2'" % (entry.get("last_seen"),)
+        if entry.get("example_callsign") != "ZZQ5678":
+            return False, "example_callsign = %r, expected the second callsign 'ZZQ5678' (QT-oz9-D-05)" % (entry.get("example_callsign"),)
+        return True, ""
+    check(
+        "note_unresolved_prefix() on a second sighting increments count, updates last_seen/example_callsign, "
+        "and never moves first_seen",
+        _note_unresolved_prefix_second_sighting_updates_in_place,
+    )
+
+    # 42. The full-table invariant: no prefix already in
+    #     _ICAO_AIRLINE_PREFIXES can ever be recorded - asserted across the
+    #     entire table, not sampled (ground-truth item 4).
+    def _note_unresolved_prefix_never_records_a_covered_prefix():
+        reg = {}
+        for prefix in enrich._ICAO_AIRLINE_PREFIXES:
+            got = enrich.note_unresolved_prefix(prefix + "1234", reg, now="T")
+            if got is not None:
+                return False, "note_unresolved_prefix() recorded a prefix already covered by _ICAO_AIRLINE_PREFIXES: %r -> %r" % (prefix, got)
+        if reg:
+            return False, "registry should still be empty after every covered prefix, got %r" % (reg,)
+        return True, ""
+    check(
+        "note_unresolved_prefix() returns None and records nothing for every single prefix already present in "
+        "_ICAO_AIRLINE_PREFIXES (full-table invariant, not sampled)",
+        _note_unresolved_prefix_never_records_a_covered_prefix,
+    )
+
+    # 43. Hostile and malformed input is never recorded and never raises;
+    #     an over-long but shape-valid callsign IS recorded, with its
+    #     example callsign and key both bounded.
+    def _note_unresolved_prefix_hostile_input_battery():
+        reg = {}
+        hostile = (None, 123, "", "   ", "ZZQ", "zzq", "ZZQ/../x", "ZZ11234", True, [], {})
+        for bad in hostile:
+            try:
+                got = enrich.note_unresolved_prefix(bad, reg, now="T")
+            except Exception as exc:
+                return False, "note_unresolved_prefix(%r, ...) raised %r instead of returning None" % (bad, exc)
+            if got is not None:
+                return False, "note_unresolved_prefix(%r, ...) = %r, expected None" % (bad, got)
+        if reg:
+            return False, "hostile input reached the registry: %r" % (reg,)
+
+        try:
+            got = enrich.note_unresolved_prefix("ZZQ1234", "not-a-dict", now="T")
+        except Exception as exc:
+            return False, "a non-dict registry must be refused, not raise: %r" % (exc,)
+        if got is not None:
+            return False, "note_unresolved_prefix(..., 'not-a-dict', ...) = %r, expected None" % (got,)
+
+        rebuilt = enrich.note_unresolved_prefix("ZZQ1234", {"ZZQ": "corrupt"}, now="T")
+        if rebuilt != "ZZQ":
+            return False, "a malformed pre-existing entry must be rebuilt fresh, not raise; got %r" % (rebuilt,)
+
+        long_callsign = "ZZQ" + "A" * 900
+        got = enrich.note_unresolved_prefix(long_callsign, reg, now="T")
+        if got != "ZZQ":
+            return False, "a legitimate-shape 900-character callsign should be recorded, got %r" % (got,)
+        (key,) = reg
+        if not re.match(r"^[A-Z]{3}$", key):
+            return False, "stored key is not a bare 3-letter prefix: %r" % (key,)
+        example = reg[key]["example_callsign"]
+        if len(example) > enrich.UNRESOLVED_EXAMPLE_MAX_LEN:
+            return False, "example_callsign is unbounded (%d chars) for a spoofed long callsign" % len(example)
+        return True, ""
+    check(
+        "note_unresolved_prefix() never records and never raises for None/int/empty/whitespace/bare-prefix/"
+        "lowercase/path-separator/dot-dot/digit-in-prefix/non-dict-registry input, rebuilds a malformed "
+        "pre-existing entry, and bounds the stored example for a 900-character legitimate-shape callsign",
+        _note_unresolved_prefix_hostile_input_battery,
+    )
+
+    # 44. Eviction favours recurrence over recency of arrival - the
+    #     opposite policy from trim_cache()'s insertion-order eviction.
+    def _trim_unresolved_prefixes_favours_recurrence():
+        reg = {}
+        for _ in range(5):
+            enrich.note_unresolved_prefix("AAA1", reg, now="2020-01-01T00:00:00+00:00")
+        enrich.note_unresolved_prefix("BBB1", reg, now="2026-01-01T00:00:00+00:00")
+        enrich.note_unresolved_prefix("CCC1", reg, now="2025-01-01T00:00:00+00:00")
+        enrich.trim_unresolved_prefixes(reg, max_entries=2)
+        if len(reg) != 2:
+            return False, "expected registry length 2 after trim, got %d: %r" % (len(reg), reg)
+        if "AAA" not in reg:
+            return False, "the recurring entry (AAA, count 5) was evicted - insertion-order eviction destroys exactly what this feature is for (QT-oz9-D-04)"
+        if "BBB" not in reg or "CCC" in reg:
+            return False, "tie-break among count-1 entries must keep the newer last_seen (BBB), got %r" % (sorted(reg),)
+        return True, ""
+    check(
+        "trim_unresolved_prefixes() evicts lowest-count-then-oldest-last-seen, so a recurring prefix survives a "
+        "flood of one-off arrivals and the newer one-off wins the tie-break (QT-oz9-D-04)",
+        _trim_unresolved_prefixes_favours_recurrence,
+    )
+
+    # 45. The recorder agrees with resolve_route() by construction: a
+    #     "miss" is recorded, an "airline_only" is not - tying both seams
+    #     to the same real production condition.
+    def _note_unresolved_prefix_agrees_with_resolve_route():
+        transport_404 = make_transport(404, {"response": "unknown callsign"})
+        cache = {}
+        reg = {}
+        route1, source1 = enrich.resolve_route("ZZQ1234", cache, transport=transport_404)
+        if source1 != "miss" or route1 is not None:
+            return False, "expected ('miss', None) for an uncovered prefix, got (%r, %r)" % (route1, source1)
+        if enrich.note_unresolved_prefix("ZZQ1234", reg, now="T") != "ZZQ":
+            return False, "the recorder must record the callsign resolve_route() classified 'miss'"
+
+        route2, source2 = enrich.resolve_route("AFR1234", cache, transport=transport_404)
+        if source2 != "airline_only":
+            return False, "expected 'airline_only' for a covered prefix under an adsbdb miss, got %r" % (source2,)
+        if enrich.note_unresolved_prefix("AFR1234", reg, now="T") is not None:
+            return False, "the recorder must not record a callsign resolve_route() classified 'airline_only'"
+        if list(reg) != ["ZZQ"]:
+            return False, "expected only 'ZZQ' in the registry, got %r" % (list(reg),)
+        return True, ""
+    check(
+        "note_unresolved_prefix() records exactly the callsigns resolve_route() classifies 'miss' and none it "
+        "classifies 'airline_only', on the same real production condition (an adsbdb 404)",
+        _note_unresolved_prefix_agrees_with_resolve_route,
     )
 
     total = len(results)
