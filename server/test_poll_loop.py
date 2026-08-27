@@ -154,10 +154,14 @@ def main():
             captured = {}
             original = render.render_panel
 
-            def _spy(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None):
+            def _spy(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None, **kwargs):
+                # **kwargs (plan 06-10): forward-compatible with run_once()'s
+                # new theme_id/runway_id/source_fault keyword arguments -
+                # this check only cares about previous_flight/previous_state,
+                # so it passes anything else straight through unexamined.
                 captured["previous_flight"] = previous_flight
                 captured["previous_state"] = previous_state
-                return original(flight, state, route=route, previous_flight=previous_flight, previous_route=previous_route, previous_state=previous_state)
+                return original(flight, state, route=route, previous_flight=previous_flight, previous_route=previous_route, previous_state=previous_state, **kwargs)
 
             poll_loop.render.render_panel = _spy
             try:

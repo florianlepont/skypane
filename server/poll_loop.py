@@ -26,6 +26,7 @@ import argparse
 import hashlib
 import json
 import os
+import sqlite3
 import sys
 
 # Allow both `import server.poll_loop` (package import) and direct script
@@ -37,6 +38,8 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+import server.device_config as device_config
+import server.history_db as history_db
 import server.plane.detect as detect
 import server.plane.enrich as enrich
 import server.plane.render as render
@@ -143,6 +146,65 @@ def write_panel_atomic(state_dir, rendered):
     return True
 
 
+def _classify_source_fault(diagnostics):
+    """CFG-05: true only when every ADS-B provider this cycle actually
+    queried failed outright - never merely because providers were queried
+    successfully and simply found nothing on the tracked runway.
+
+    Both of those cases return the same thing from
+    `detect.poll_current_aircraft()` - a `None` selection - so this
+    function is the *only* place that tells "every source is down" apart
+    from "nothing is on the runway right now". Collapsing that distinction
+    would fire the alert through every one of Orly's ordinary quiet
+    periods, training the user to ignore it - exactly the false-alarm trap
+    `.planning/seeds/on-device-fault-icon.md`'s CFG-05 scoping section
+    rejects, and destroys the signal CFG-05 exists to provide.
+
+    `diagnostics` is the dict `detect.poll_current_aircraft()` populates in
+    place - `queried`/`failed`/`selected`/`disagreement`/`runway_id` - only
+    when a live poll passes one in. The injected-snapshot test branch never
+    queries any provider at all, so it never passes `diagnostics` (it stays
+    `None`), which this function correctly classifies as "no fault" - not
+    "unknown", since nothing was ever attempted that could have failed.
+    """
+    if not isinstance(diagnostics, dict):
+        return False
+    queried = diagnostics.get("queried")
+    failed = diagnostics.get("failed")
+    if not isinstance(queried, list) or not queried:
+        return False
+    if not isinstance(failed, list):
+        return False
+    return set(failed) == set(queried)
+
+
+def _last_source_fault(state_dir):
+    """Best-effort read of the previously-persisted CFG-05 fault flag from
+    `history.db`'s fixed-size meta table (`history_db.META_SOURCE_FAULT`) -
+    the durable, cross-process comparison point the fault-transition
+    re-render below needs. Deliberately NOT stored in `poll_state.json`:
+    this script is a systemd oneshot with no in-process memory between
+    invocations, and `poll_state.json` already has exactly one function
+    that persists it, called from exactly one place in `run_once()` -
+    adding a second write path here would reopen the two-writer race this
+    project has already been careful to avoid elsewhere
+    (`server/device_config.py`'s own module docstring). `history.db` is a
+    separate file with its own concurrency discipline (WAL + busy_timeout),
+    so it is the correct home for a per-cycle signal like this one.
+
+    A missing database, a never-yet-set key, or any read failure all
+    resolve to `False` (no known prior fault) rather than raising - a read
+    failure here must never abort a poll cycle (T-06-10-05).
+    """
+    try:
+        with history_db.open_db(state_dir) as conn:
+            value = history_db.get_meta(conn, history_db.META_SOURCE_FAULT)
+    except (sqlite3.Error, OSError) as exc:
+        print("poll_loop: could not read source_fault meta: %s: %s" % (type(exc).__name__, exc))
+        return False
+    return value == "True"
+
+
 def run_once(snapshot=None, state_dir=None, geofence=None):
     """One poll cycle. `snapshot=None` polls the live aggregators
     (detect.poll_current_aircraft()); a non-None `snapshot` is a raw
@@ -157,13 +219,35 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     """
     state_dir = state_dir or DEFAULT_STATE_DIR
     os.makedirs(state_dir, exist_ok=True)
+
+    # CFG-01/CFG-12: read the user's saved theme + tracked runway ONCE per
+    # cycle, not once per call site - a mid-cycle save landing between two
+    # separate reads is exactly how a panel could end up rendered half in
+    # one theme/runway and half in another. The loader never raises and
+    # always returns registry-member values, so no validation is needed
+    # here.
+    device_cfg = device_config.load_device_config(state_dir)
+    theme_id = device_cfg["theme"]
+    tracked_runway_id = device_cfg["tracked_runway"]
+
     geofence_data = detect.load_geofence(geofence)
 
+    # CFG-05: `diagnostics`, when populated, is the only signal that tells
+    # "every ADS-B source is down" apart from "nothing is on the runway
+    # right now" - both otherwise return the same None selection. The
+    # injected-snapshot branch never queries any provider, so it never
+    # gets a diagnostics dict at all (stays None), which _classify_source_fault()
+    # correctly reads as "no fault" rather than "unknown".
+    diagnostics = None
     if snapshot is not None:
         aircraft = _extract_aircraft(snapshot)
-        flight = detect.select_runway3_aircraft(aircraft, geofence_data)
+        flight = detect.select_aircraft_for_runway(aircraft, geofence_data, runway_id=tracked_runway_id)
     else:
-        flight = detect.poll_current_aircraft(geofence_data)
+        diagnostics = {}
+        flight = detect.poll_current_aircraft(geofence_data, runway_id=tracked_runway_id, diagnostics=diagnostics)
+
+    source_fault = _classify_source_fault(diagnostics)
+    previous_source_fault = _last_source_fault(state_dir)
 
     poll_state = load_poll_state(state_dir)
     last_flight = poll_state.get("last_flight")
@@ -210,7 +294,9 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             render_state = "empty"
             route_source = "n/a"
             route = None
-            rendered = render.render_panel(None, render_state)
+            rendered = render.render_panel(
+                None, render_state, theme_id=theme_id, runway_id=tracked_runway_id, source_fault=source_fault,
+            )
         else:
             render_state = confirmed_state
             # D-02/D-P2-05: resolve the airline + route for zones 7/9 via a
@@ -257,6 +343,9 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
                 previous_flight=previous_flight,
                 previous_route=previous_route,
                 previous_state=previous_confirmed_state,
+                theme_id=theme_id,
+                runway_id=tracked_runway_id,
+                source_fault=source_fault,
             )
         panel_changed = write_panel_atomic(state_dir, rendered)
         poll_state["last_flight"] = flight
@@ -274,6 +363,34 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         state_source = "held"
         route_source = "held"
         panel_changed = False
+        # T-06-10-04: the ONE new condition added to this deliberate no-op
+        # branch - when the CFG-05 fault flag differs from the persisted
+        # one, re-render the currently-held flight (or the Empty state, if
+        # no confirmed direction was ever established) with only the badge
+        # changed. Gated strictly on the *transition*, never on the flag's
+        # value, so a persistent outage does not force a full-panel refresh
+        # every 30-second cycle - a full e-ink refresh measures ~31.5s on
+        # this panel (Phase 1), so refreshing every cycle during an outage
+        # would keep the display in permanent refresh and burn battery for
+        # no added information.
+        if source_fault != previous_source_fault:
+            if confirmed_state is not None:
+                rerendered = render.render_panel(
+                    last_flight,
+                    render_state,
+                    route=last_route,
+                    previous_flight=previous_flight,
+                    previous_route=previous_route,
+                    previous_state=previous_confirmed_state,
+                    theme_id=theme_id,
+                    runway_id=tracked_runway_id,
+                    source_fault=source_fault,
+                )
+            else:
+                rerendered = render.render_panel(
+                    None, "empty", theme_id=theme_id, runway_id=tracked_runway_id, source_fault=source_fault,
+                )
+            panel_changed = write_panel_atomic(state_dir, rerendered)
     else:
         # Nothing detected, and nothing has ever been detected since the
         # state directory was last empty - render the Empty state.
@@ -281,7 +398,9 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         render_state = "empty"
         state_source = "held"
         route_source = "n/a"
-        rendered = render.render_panel(None, render_state)
+        rendered = render.render_panel(
+            None, render_state, theme_id=theme_id, runway_id=tracked_runway_id, source_fault=source_fault,
+        )
         panel_changed = write_panel_atomic(state_dir, rendered)
 
     # T-02-04-05: log only the callsign, the enrichment outcome
@@ -293,9 +412,14 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     # of the callsign this same line already prints in full, derived from
     # this project's own selected-aircraft record - not from any
     # third-party response body - so it stays within the rule above too.
+    # Plan 06-10: theme/tracked_runway/source_fault are this project's own
+    # saved configuration and its own inference about its own ADS-B
+    # sources - none is third-party response content - so they stay within
+    # the same rule.
     print(
         "poll_loop: hex=%s callsign=%s aircraft_type=%s corroborated=%s altitude_ft=%s confirmed_state=%s "
-        "render_state=%s state_source=%s route_source=%s unknown_prefix=%s panel_changed=%s"
+        "render_state=%s state_source=%s route_source=%s unknown_prefix=%s panel_changed=%s theme=%s "
+        "tracked_runway=%s source_fault=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
@@ -308,10 +432,20 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             route_source,
             unknown_prefix,
             panel_changed,
+            theme_id,
+            tracked_runway_id,
+            source_fault,
         )
     )
 
-    return {"flight": flight, "state": render_state, "panel_changed": panel_changed}
+    return {
+        "flight": flight,
+        "state": render_state,
+        "panel_changed": panel_changed,
+        "theme": theme_id,
+        "tracked_runway": tracked_runway_id,
+        "source_fault": source_fault,
+    }
 
 
 def build_parser():
