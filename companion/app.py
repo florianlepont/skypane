@@ -73,10 +73,15 @@ LOGOUT_ROUTE = "/logout"
 PREVIEW_IMAGE_ROUTE = "/preview.png"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 
-FLASH_KEY_SAVED = "saved"
-FLASH_KEY_SAVE_FAILED = "save_failed"
-FLASH_KEY_POLL_TRIGGERED = "poll_triggered"
-FLASH_KEY_POLL_COOLDOWN = "poll_cooldown"
+# The four flash-key string literals are defined exactly once, in
+# companion/pages/config_page.py (plan 06-07's Task 2) — imported here
+# under their historical FLASH_KEY_* names so every existing call site in
+# this file (and companion/test_companion_app.py's own assertions against
+# the literal query-string values) stays unchanged.
+FLASH_KEY_SAVED = config_page.FLASH_SAVED
+FLASH_KEY_SAVE_FAILED = config_page.FLASH_SAVE_FAILED
+FLASH_KEY_POLL_TRIGGERED = config_page.FLASH_POLL_TRIGGERED
+FLASH_KEY_POLL_COOLDOWN = config_page.FLASH_POLL_COOLDOWN
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query

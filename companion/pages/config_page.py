@@ -1,11 +1,11 @@
 """companion/pages/config_page.py — CFG-01 (theme picker), CFG-12 (runway
 picker), and CFG-07's "Trigger Poll Now" control (06-CONTEXT.md).
 
-This plan (06-07) replaces plan 06-05's contract-complete stub. `render()`
-is real and live as of this task: the Theme and Runway fieldsets render
-from `server.device_config`'s own registries with the current values
-pre-selected. `handle_post()` is still a stub here — Task 2 replaces it
-with the real server-side-validated save path. The "Trigger Poll Now"
+Both `render()` and `handle_post()` are real and live as of this plan
+(06-07): the Theme and Runway fieldsets render from `server.device_config`'s
+own registries with the current values pre-selected, and a POST validates
+both fields against those same registries — server-side — before ever
+calling `device_config.save_device_config()`. The "Trigger Poll Now"
 control below is unrelated plumbing owned by companion/app.py (plan
 06-05): its POST /poll-now target, cooldown gate, and in-process
 server.poll_loop.run_once() call all live there, not here — this module
@@ -31,12 +31,17 @@ RUNWAY_HELPER_TEXT = (
 # module).
 POLL_COOLDOWN_HELPER_TEXT = "Poll triggered recently — try again in {n}s."
 
-# Returned by handle_post() below — matches companion/app.py's
-# FLASH_KEY_SAVE_FAILED string exactly (a plain string contract, not a
-# shared import, so this module never has to import companion/app.py).
-# Task 2 replaces this stub with the real save path and the module's
-# full four-constant FLASH_* allowlist.
-SAVE_FAILED_FLASH_KEY = "save_failed"
+# The four flash keys this module's handle_post() can return, defined
+# here — the single source of truth companion/app.py's own flash-key
+# constants and FLASH_MESSAGES dict reference, per this plan's Task 2
+# ("the key strings exist in exactly one place"). Values match
+# companion/app.py's pre-existing FLASH_KEY_* string literals exactly, so
+# a redirect's ?flash= query parameter round-trips through
+# app.py's FLASH_MESSAGES lookup unchanged.
+FLASH_SAVED = "saved"
+FLASH_SAVE_FAILED = "save_failed"
+FLASH_POLL_TRIGGERED = "poll_triggered"
+FLASH_POLL_COOLDOWN = "poll_cooldown"
 
 
 def theme_fieldset(current_theme_id):
@@ -140,9 +145,48 @@ def render(ctx):
 
 
 def handle_post(form, ctx):
-    """Not yet wired (Task 2 replaces this) — always reports the
-    save-failure flash key without validating `form` or writing
-    device_config.json. `ctx` is accepted for contract-signature parity
-    with Task 2's real implementation but is unused here.
+    """Validate the submitted theme/runway against `device_config`'s own
+    registries — server-side, before either value is used anywhere — and
+    persist a valid pair.
+
+    Deliberately does NOT call either of `device_config`'s two read-path
+    normalising helpers (the ones an unrecognised on-disk value silently
+    degrades through to the default): those implement the *read* path's
+    forgiving behaviour, whereas a *write* of an unrecognised value is a
+    real client error that must be reported back to the user, not
+    silently coerced — the asymmetry is deliberate (06-CONTEXT.md
+    D-06/D-07, 06-RESEARCH.md's V5 threat control). Instead, each
+    submitted field is checked with an explicit membership test against
+    `device_config.THEME_IDS` / `RUNWAY_IDS` before it is ever used as a
+    dict key or passed onward.
+
+    A field absent from `form` means "leave unchanged" and is passed as
+    `None`, which `save_device_config()` carries forward from the current
+    on-disk value. A field that IS present but fails the membership test
+    rejects the *entire* submission (never a partial save) — applying
+    only the valid half would leave the on-disk state out of sync with
+    what the page would redisplay on the very next load.
+
+    On success, the frame's next scheduled poll cycle (server/poll_loop.py,
+    D-06/D-28) is the first place either the new theme or the new runway
+    actually take effect — no push mechanism exists, and none is added
+    here. The caller (companion/app.py) redirects back to /config, whose
+    banner then renders the D-07 confirmation copy the FLASH_SAVED key
+    maps to, telling the user their change was saved but has not yet
+    reached the physical frame.
     """
-    return SAVE_FAILED_FLASH_KEY
+    state_dir = ctx["state_dir"]
+    submitted_theme = form.get("theme")
+    submitted_runway = form.get("tracked_runway")
+
+    if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
+        return FLASH_SAVE_FAILED
+    if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
+        return FLASH_SAVE_FAILED
+
+    try:
+        device_config.save_device_config(
+            state_dir, theme=submitted_theme, tracked_runway=submitted_runway)
+    except (ValueError, OSError):
+        return FLASH_SAVE_FAILED
+    return FLASH_SAVED
