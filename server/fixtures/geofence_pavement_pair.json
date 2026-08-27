@@ -1,0 +1,65 @@
+{
+  "_provenance": "Two aircraft BOTH genuinely on runway 3's pavement in the same poll, seen by both default providers - runway3.json corridor.known_residuals item (3), which the mechanism-A ground-gate fix explicitly left open. Read server/fixtures/README.md for the real/derived/synthetic split field by field before trusting any value in here. The two provider payloads below carry the SAME two aircraft at the SAME positions and differ ONLY in seen_pos: that is the whole point of the fixture. Drives checks 32-36 in server/test_plane_detection.py (missed-flights-not-displayed, mechanism B, 2026-08-28).",
+  "adsbfi": {
+    "_note": "adsb.fi's response shape - the aircraft array arrives under the 'aircraft' key.",
+    "aircraft": [
+      {
+        "hex": "000003",
+        "flight": "SYNTH03 ",
+        "lat": 48.727269,
+        "lon": 2.401346,
+        "alt_baro": "ground",
+        "gs": 12.0,
+        "baro_rate": 0,
+        "seen_pos": 0.94,
+        "t": "A320",
+        "track": 74.41,
+        "_synthetic_note": "SYNTHETIC IDENTITY, DERIVED POSITION, REAL STATE FIELDS - see server/fixtures/README.md. hex/flight are invented labels following this directory's existing 000001/000002 synthetic convention, because only ONE real on-ground runway-3 record exists in this repo (3985a7) and a two-aircraft-on-the-pavement snapshot cannot be assembled from real captures alone. The hex value is LOAD-BEARING: it is the tie-break under test, and it is chosen to sort before 3985a7. Position derived from adsb-test/runway3.json's own published thresholds: along-track 3259.8m / cross-track 0.0m, i.e. the real 3985a7 capture's own measured 55.2m distance-from-threshold mirrored about the runway midpoint onto the published centreline - 55.2m short of threshold 25, an aircraft rolling out toward 25. track 74.41 is runway 3's exact axis bearing so the record passes the track gate outright; the fixture must isolate the tie-break, not be rejected for an unrelated reason. alt_baro/gs/baro_rate/t are the verbatim real values of the on-ground capture in geofence_on_ground.json. seen_pos 0.94 is a real captured value (39dd01, geofence_multi_aircraft.json).",
+        "_seen_pos_note": "REAL value 0.94 (captured on 39dd01). Fresher than this provider's other record, so the PRE-FIX (effective_altitude_ft, seen_pos, hex) key selected THIS aircraft for adsb.fi."
+      },
+      {
+        "hex": "3985a7",
+        "flight": "AFR56XX ",
+        "lat": 48.719800,
+        "lon": 2.359200,
+        "alt_baro": "ground",
+        "gs": 12.0,
+        "baro_rate": 0,
+        "seen_pos": 56.972,
+        "t": "A320",
+        "_real_note": "100% REAL apart from seen_pos - copied field for field from geofence_on_ground.json's live airplanes.live capture (2026-08-04T20:18:08Z). Its REAL captured position measures along-track 55.2m / cross-track +31.1m, i.e. 55.2m past threshold 07 - physically an aircraft lining up on 07. No position derivation was needed for this record. It carries no `track` field, exactly as captured; the documented unknown-track rule keeps it corridor-gated rather than rejected.",
+        "_seen_pos_note": "REAL value 56.972 (captured on 39d300, geofence_multi_aircraft.json), substituted for this record's own real 3.4 to give this provider the staleness ordering. The 56.0s spread against the paired 0.94 is inside adsb-test/RESULTS.md's measured maximum reconstructed update gap (56.7s adsb.fi / 69.8s airplanes.live) and well above both medians (36.2s / 22.4s) - the spread is calibrated to measured behaviour, not invented."
+      }
+    ]
+  },
+  "adsblol": {
+    "_note": "adsb.lol's response shape - the aircraft array arrives under the 'ac' key, NOT 'aircraft'. Same two aircraft, same positions, same everything EXCEPT seen_pos, which is swapped so this feed's staleness ordering is the opposite of adsb.fi's. Nothing about the real world differs between these two payloads.",
+    "ac": [
+      {
+        "hex": "000003",
+        "flight": "SYNTH03 ",
+        "lat": 48.727269,
+        "lon": 2.401346,
+        "alt_baro": "ground",
+        "gs": 12.0,
+        "baro_rate": 0,
+        "seen_pos": 56.972,
+        "t": "A320",
+        "track": 74.41,
+        "_seen_pos_note": "REAL value 56.972 (captured on 39d300). Staler than this provider's other record - the mirror of the adsbfi payload above."
+      },
+      {
+        "hex": "3985a7",
+        "flight": "AFR56XX ",
+        "lat": 48.719800,
+        "lon": 2.359200,
+        "alt_baro": "ground",
+        "gs": 12.0,
+        "baro_rate": 0,
+        "seen_pos": 3.4,
+        "t": "A320",
+        "_seen_pos_note": "This record's OWN real captured seen_pos, 3.4, verbatim from geofence_on_ground.json. Fresher than this provider's other record, so the PRE-FIX key selected 3985a7 for adsb.lol while selecting 000003 for adsb.fi - two different hexes from one identical reality, which is the manufactured disagreement mechanism B is."
+      }
+    ]
+  }
+}

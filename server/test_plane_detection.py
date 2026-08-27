@@ -27,6 +27,28 @@ the regression itself, 31 pins the empty measured band the gate's
 threshold sits in so it cannot be tightened into rejecting genuine
 runway-3 ground traffic.
 
+Checks 32-37 are the same session's second pass (2026-08-28, mechanism B):
+two ADS-B feeds were being manufactured into a disagreement and the whole
+poll cycle discarded, which freezes the panel exactly as mechanism A did.
+Two defects, fixed together because each survives a fix for the other -
+`select_runway3_aircraft()` tie-broke on `seen_pos`, a per-provider
+staleness value, and `poll_current_aircraft()` compared only each feed's
+final PICK rather than asking whether the other feed had SEEN it. 32 is
+the precondition; 33-35 are the regressions; 37 pins the disagreement log
+line's content, which had to change because the code now compares
+candidate sets rather than winners.
+
+NOT EVERY CHECK IN A GROUP IS SUPPOSED TO FAIL AGAINST THE OLD CODE, and
+conflating the two kinds is how a suite starts lying about what it proves.
+The regressions (33, 34, 35, 37, alongside 12, 30) fail when the pre-fix
+implementation is restored - that is what makes them evidence. The
+precondition checks (32, alongside 11, 29) assert the OLD behaviour is
+genuinely reproducible, so they must hold in BOTH directions or the
+fixture is not reproducing the bug at all. The guards (36, alongside 13,
+31) assert something that must be true before AND after - 36 is the D-04
+cross-source safety net, deliberately kept to that single question so it
+can never be mistaken for a regression check and quietly relaxed.
+
 Stdlib-only, plus the module under test (server.plane.detect). Exits 0 only
 when every check below passes; any failure (or exception - none is ever
 swallowed into a pass) exits 1.
@@ -34,6 +56,8 @@ swallowed into a pass) exits 1.
 Usage:
     server/.venv/bin/python3 server/test_plane_detection.py
 """
+import contextlib
+import io
 import json
 import os
 import random
@@ -47,7 +71,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 31
+EXPECTED_CHECK_COUNT = 37
 
 
 def load_fixture(name):
@@ -796,6 +820,244 @@ def main():
         return True, ""
     check("the on-ground gate keeps the real runway-3 ground record (+31m) and rejects the "
           "documented 150m residual", _ground_gate_keeps_real_runway3_ground_traffic)
+
+    # ---------------------------------------------------------------
+    # Cross-source corroboration (missed-flights-not-displayed,
+    # mechanism B, 2026-08-28)
+    # ---------------------------------------------------------------
+
+    def _pavement(provider):
+        """The pavement-pair fixture's payload for one provider, in that
+        provider's own response shape (adsb.fi's 'aircraft' key vs
+        adsb.lol's 'ac' key - see check 28 for why that distinction is
+        never assumed anywhere in this file).
+        """
+        block = load_fixture("geofence_pavement_pair.json")[provider]
+        return block["aircraft"] if provider == "adsbfi" else block["ac"]
+
+    def _prefix_sort_key(ac):
+        """The PRE-FIX D-P2-01 key, written out here rather than imported,
+        so this file still describes the old behaviour after detect.py
+        stopped implementing it: (effective altitude, seen_pos, hex).
+        """
+        seen_pos = ac.get("seen_pos")
+        seen_pos_key = seen_pos if isinstance(seen_pos, (int, float)) else float("inf")
+        return (detect.effective_altitude_ft(ac), seen_pos_key, ac.get("hex") or "")
+
+    def _strip_volatile(record):
+        return {k: v for k, v in record.items()
+                if k != "seen_pos" and not k.startswith("_")}
+
+    # 32. PRECONDITION - and, like checks 11 and 29 before it, this one is
+    #     meant to hold BOTH before and after the fix. It proves the
+    #     fixture reproduces the bug's setup rather than proving the fix:
+    #     two aircraft both genuinely on runway 3's pavement, tied at
+    #     effective altitude exactly 0.0, present in both feeds at
+    #     identical positions, with the payloads differing in NOTHING but
+    #     seen_pos - and the pre-fix sort key nevertheless ordering them
+    #     differently for each feed. Without this, checks 33-34 could pass
+    #     for reasons unrelated to the tie-break.
+    def _pavement_pair_reproduces_the_precondition():
+        picks = {}
+        for provider in ("adsbfi", "adsblol"):
+            records = _pavement(provider)
+            tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(records, geofence)}
+            if set(tagged) != {"000003", "3985a7"}:
+                return False, "%s: expected both records in-bbox, got %r" % (provider, sorted(tagged))
+            for h, ac in tagged.items():
+                if not (ac.get("on_ground") and ac.get("below_ceiling") and ac.get("on_runway3")):
+                    return False, ("%s/%s must be an on-ground, below-ceiling, on-runway-3 record "
+                                   "(runway3.json known_residuals item 3), got %r"
+                                   % (provider, h, {k: ac.get(k) for k in
+                                      ("on_ground", "below_ceiling", "on_runway3", "cross_track_m")}))
+                if detect.effective_altitude_ft(ac) != 0.0:
+                    return False, "%s/%s should score effective altitude exactly 0.0" % (provider, h)
+            picks[provider] = min(tagged.values(), key=_prefix_sort_key)["hex"]
+
+        fi = sorted((_strip_volatile(r) for r in _pavement("adsbfi")), key=lambda r: r["hex"])
+        lol = sorted((_strip_volatile(r) for r in _pavement("adsblol")), key=lambda r: r["hex"])
+        if fi != lol:
+            return False, ("the two payloads must describe an IDENTICAL reality and differ only in "
+                           "seen_pos, otherwise the disagreement is not manufactured; they differ in "
+                           "more than that")
+        if picks["adsbfi"] == picks["adsblol"]:
+            return False, ("premise broken: the pre-fix (altitude, seen_pos, hex) key no longer orders "
+                           "these two feeds differently, so there is no manufactured disagreement left "
+                           "to reproduce (both picked %r)" % (picks["adsbfi"],))
+        return True, ""
+    check("the pavement pair ties at effective altitude 0.0, is identical across both feeds except "
+          "seen_pos, and the pre-fix key still splits them (the manufactured-disagreement precondition)",
+          _pavement_pair_reproduces_the_precondition)
+
+    # 33. THE REGRESSION, part 1 - the tie-break itself. Two feeds handed
+    #     the same two real aircraft at the same positions must select the
+    #     same one. Pre-fix the arbiter was `seen_pos`, a per-provider
+    #     staleness value whose spread between these two feeds is measured
+    #     in adsb-test/RESULTS.md at tens of seconds - so the feeds picked
+    #     different hexes purely from staleness noise.
+    def _selection_is_provider_independent():
+        fi = detect.select_runway3_aircraft(_pavement("adsbfi"), geofence)
+        lol = detect.select_runway3_aircraft(_pavement("adsblol"), geofence)
+        if fi is None or lol is None:
+            return False, "expected both feeds to select an aircraft, got %r / %r" % (fi, lol)
+        if fi["hex"] != lol["hex"]:
+            return False, ("the same two aircraft at the same positions selected differently per feed "
+                           "(%s vs %s) - the sort key is still reading a provider-local field"
+                           % (fi["hex"], lol["hex"]))
+        if fi["hex"] != "000003":
+            return False, ("expected the lexicographically smallest hex 000003 to win the altitude "
+                           "tie, got %r" % (fi["hex"],))
+        return True, ""
+    check("select_runway3_aircraft: two feeds differing only in seen_pos select the SAME aircraft",
+          _selection_is_provider_independent)
+
+    # 34. THE REGRESSION, part 2 - the cycle must no longer be thrown away.
+    #     Reached through the production default order (no providers
+    #     argument). Pre-fix this returned None and poll_loop took the D-04
+    #     "leave the panel alone" branch, which is indistinguishable from an
+    #     empty sky: the panel froze while real runway-3 traffic passed.
+    def _identical_sets_are_not_manufactured_into_disagreement():
+        responses = {"adsbfi": _pavement("adsbfi"), "adsblol": _pavement("adsblol")}
+        result = _with_stubbed_providers(
+            responses, lambda: detect.poll_current_aircraft(geofence))
+        if result is None:
+            return False, ("two feeds that agree completely about which aircraft are on runway 3 were "
+                           "still scored as a disagreement and the whole cycle was suppressed")
+        if result["hex"] != "000003":
+            return False, "expected 000003, got %r" % (result["hex"],)
+        if result.get("corroborated") is not True:
+            return False, "expected corroborated True, got %r" % (result.get("corroborated"),)
+        if sorted(result.get("sources") or []) != ["adsbfi", "adsblol"]:
+            return False, "expected both default providers in sources, got %r" % (result.get("sources"),)
+        return True, ""
+    check("poll_current_aircraft (default order): two feeds differing only in seen_pos are corroborated, "
+          "not suppressed", _identical_sets_are_not_manufactured_into_disagreement)
+
+    # 35. THE REGRESSION, part 3 - and the check that proves a stable
+    #     tie-break ALONE would not have been enough, which is the whole
+    #     reason this fix also changed what corroboration compares.
+    #     adsb.lol has not received the second aircraft yet: the feeds hold
+    #     overlapping-but-unequal candidate SETS, which no amount of
+    #     determinism can reconcile (adsb-test/RESULTS.md measures exactly
+    #     this asymmetry - 37 hex seen by both feeds, 1 by adsb.fi only,
+    #     over ~92 minutes). Assertion (a) below pins that explicitly: even
+    #     under detect.py's own CURRENT deterministic key, the two feeds'
+    #     per-provider picks still differ, so a pick-only comparison would
+    #     still have suppressed this cycle. Neither feed ever claimed the
+    #     other's extra aircraft was absent.
+    def _asymmetric_sets_corroborate_the_common_aircraft():
+        fi_records = _pavement("adsbfi")
+        lol_records = [r for r in _pavement("adsblol") if r["hex"] != "000003"]
+
+        # (a) determinism alone is provably insufficient here.
+        fi_pick = detect.select_runway3_aircraft(fi_records, geofence)
+        lol_pick = detect.select_runway3_aircraft(lol_records, geofence)
+        if fi_pick is None or lol_pick is None:
+            return False, "premise broken: both feeds must still select something"
+        if fi_pick["hex"] == lol_pick["hex"]:
+            return False, ("premise broken: the two feeds' own deterministic picks now agree, so this "
+                           "check no longer proves that a stable tie-break alone would have left the "
+                           "cycle suppressed")
+
+        responses = {"adsbfi": fi_records, "adsblol": lol_records}
+        result = _with_stubbed_providers(
+            responses, lambda: detect.poll_current_aircraft(geofence))
+        if result is None:
+            return False, ("one feed simply not having received an aircraft yet was scored as a "
+                           "disagreement and suppressed the whole cycle")
+        if result["hex"] != "3985a7":
+            return False, ("expected the aircraft BOTH feeds saw (3985a7) to be selected, got %r - an "
+                           "aircraft only one feed carries must never be displayed as corroborated"
+                           % (result["hex"],))
+        if result.get("corroborated") is not True:
+            return False, "expected corroborated True, got %r" % (result.get("corroborated"),)
+        if sorted(result.get("sources") or []) != ["adsbfi", "adsblol"]:
+            return False, "expected both providers in sources, got %r" % (result.get("sources"),)
+        # Ordering stays load-bearing: the record returned must be the
+        # FIRST-listed provider's (ARCHITECTURE.md), which for 3985a7 is
+        # adsb.fi's seen_pos 56.972 - not adsb.lol's 3.4.
+        if result.get("seen_pos") != 56.972:
+            return False, ("expected adsb.fi's own record for the corroborated aircraft (seen_pos "
+                           "56.972), got %r" % (result.get("seen_pos"),))
+        return True, ""
+    check("poll_current_aircraft (default order): unequal candidate sets corroborate the common "
+          "aircraft instead of suppressing (a stable tie-break alone would not have)",
+          _asymmetric_sets_corroborate_the_common_aircraft)
+
+    def _disjoint_snapshot():
+        """Two feeds whose runway-3 candidate sets have NOTHING in common,
+        each holding more than one candidate. adsb.fi gets the pavement
+        pair; adsb.lol gets two real captured aircraft (the runway-25
+        arrival and the multi-aircraft fixture's winner).
+        """
+        return (
+            _pavement("adsbfi"),
+            _runway3_record() + [
+                ac for ac in load_fixture("geofence_multi_aircraft.json")["ac"]
+                if ac["hex"] == "39d300"
+            ],
+        )
+
+    def _disjoint_poll():
+        fi_records, lol_records = _disjoint_snapshot()
+        fi_hexes = {ac.get("hex") for ac in detect.runway3_candidates(fi_records, geofence)}
+        lol_hexes = {ac.get("hex") for ac in detect.runway3_candidates(lol_records, geofence)}
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            result = _with_stubbed_providers(
+                {"adsbfi": fi_records, "adsblol": lol_records},
+                lambda: detect.poll_current_aircraft(geofence))
+        return fi_hexes, lol_hexes, result, captured.getvalue()
+
+    # 36. D-04 MUST SURVIVE - and like check 32, this one is meant to hold
+    #     both BEFORE and AFTER the fix. Its job is to fail if the fix ever
+    #     guts the cross-source safety net, not to fail pre-fix; it is
+    #     deliberately kept to that single question, with the separate
+    #     observability property split out into check 37 so this guard
+    #     cannot be confused for a regression check. Checks 23 and 26
+    #     already cover disjoint SINGLE-candidate sets; this covers the
+    #     multi-candidate case, which is precisely where comparing SETS
+    #     could have diverged from comparing PICKS. Two feeds naming
+    #     entirely different aircraft still means at most one is right, so
+    #     nothing is selected and the panel is left alone.
+    def _genuinely_disjoint_sets_still_suppress():
+        fi_hexes, lol_hexes, result, logged = _disjoint_poll()
+        if len(fi_hexes) < 2 or len(lol_hexes) < 2:
+            return False, ("premise broken: this check must exercise the MULTI-candidate disjoint case, "
+                           "got %r / %r" % (sorted(fi_hexes), sorted(lol_hexes)))
+        if fi_hexes & lol_hexes:
+            return False, "premise broken: the two candidate sets must be disjoint, got overlap %r" % (
+                fi_hexes & lol_hexes,)
+        if result is not None:
+            return False, ("D-04 was gutted: two feeds with no aircraft in common still produced a "
+                           "selection (%r)" % (result["hex"],))
+        if "providers disagree" not in logged:
+            return False, ("the suppression is now silent to the documented triage recipe - "
+                           "`journalctl -u skypane-poll | grep \"providers disagree\"` no longer "
+                           "matches; got %r" % (logged,))
+        return True, ""
+    check("poll_current_aircraft: genuinely disjoint candidate sets still suppress the cycle (D-04 "
+          "intact)", _genuinely_disjoint_sets_still_suppress)
+
+    # 37. The disagreement line must name every CANDIDATE, not just each
+    #     feed's winner. This is not cosmetic: corroboration now compares
+    #     candidate sets, so a log line that still printed only the two
+    #     winners would be describing something the code no longer does -
+    #     and the debug session's whole triage recipe for telling mechanism
+    #     B apart from an empty sky rests on this one stderr line. Pre-fix
+    #     the line named only the winners, so this check fails against the
+    #     old implementation.
+    def _disagreement_line_names_every_candidate():
+        fi_hexes, lol_hexes, result, logged = _disjoint_poll()
+        if result is not None:
+            return False, "premise broken: this snapshot must suppress"
+        for expected in sorted(fi_hexes | lol_hexes):
+            if expected not in logged:
+                return False, ("the disagreement line must name every candidate both feeds saw, not "
+                               "just the two winners; %r missing from %r" % (expected, logged))
+        return True, ""
+    check("poll_current_aircraft: the disagreement line names every candidate each feed saw, not just "
+          "the winners", _disagreement_line_names_every_candidate)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

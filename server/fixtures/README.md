@@ -186,6 +186,83 @@ fixture, always explicitly noted).
   check 30 cannot pass for the wrong reason.
 - Drives checks 29, 30 in `test_plane_detection.py`.
 
+## `geofence_pavement_pair.json`
+
+- **Source:** the `missed-flights-not-displayed` debug session, second pass
+  (2026-08-28, mechanism B). **Mixed provenance — real, derived and
+  synthetic all appear in this file.** Read the split below before trusting
+  any value in it. Like `geofence_taxiway_masking.json`, this section exists
+  so nobody has to guess which half is which.
+- **Shape:** unlike every other fixture here, this file carries **two**
+  provider payloads side by side (`adsbfi` → `aircraft` key, `adsblol` →
+  `ac` key), because the bug it reproduces only exists *between* two
+  sources and cannot be expressed in a single snapshot.
+- **What it is:** the case `adsb-test/runway3.json`'s own
+  `corridor.known_residuals` item (3) had already documented as left open by
+  the mechanism-A ground-gate fix — **two aircraft both genuinely on runway
+  3's pavement in the same poll**, one lining up on 07 while the other rolls
+  out toward 25. Both score effective altitude exactly `0.0`, so the
+  selection falls to the tie-break.
+- **The two payloads are identical except `seen_pos`.** Same aircraft, same
+  positions, same everything else. Check 32 asserts that structurally, so
+  the fixture cannot silently drift into encoding a *real* difference
+  between the feeds — the entire point is that nothing about the world
+  differs, only each feed's own staleness bookkeeping.
+- **Record `3985a7` / `AFR56XX` — real, verbatim, including its position.**
+  Copied field for field from `geofence_on_ground.json`'s live
+  airplanes.live capture (`2026-08-04T20:18:08Z`): `hex`, `flight`,
+  `alt_baro "ground"`, `gs 12.0`, `baro_rate 0`, `t "A320"`, and its real
+  `lat 48.719800` / `lon 2.359200`, which measure **along-track 55.2 m,
+  cross-track +31.1 m** — 55.2 m past threshold 07, i.e. physically an
+  aircraft lining up on 07. **No position derivation was needed for this
+  record.** It carries no `track` field, exactly as captured; the documented
+  unknown-track rule keeps it corridor-gated rather than rejected.
+- **Record `000003` / `SYNTH03` — synthetic identity, derived position, real
+  state fields.**
+  - **Synthetic:** `hex 000003` / `flight "SYNTH03 "`, following this
+    directory's existing `000001`/`000002` convention for a record with no
+    real counterpart, and marked `_synthetic_note` in the JSON itself. Only
+    **one** real on-ground runway-3 record exists in this repo (`3985a7`),
+    so a two-aircraft-on-the-pavement snapshot cannot be assembled from real
+    captures alone. **The `hex` value here is load-bearing** — it *is* the
+    tie-break under test, and it is chosen to sort before `3985a7`. That is
+    called out rather than buried: a reader must not mistake this for a
+    captured aircraft.
+  - **Derived:** `lat 48.727269` / `lon 2.401346`. Computed from
+    `adsb-test/runway3.json`'s own published threshold coordinates —
+    along-track **3259.8 m**, cross-track **0.0 m** (the published
+    centreline). That is the *real* `3985a7` record's own measured 55.2 m
+    distance-from-threshold, mirrored about the runway midpoint: 55.2 m
+    short of threshold 25, an aircraft rolling out toward 25. No new
+    distance was invented — the one real on-ground measurement this project
+    holds is reused at the other end of the runway.
+  - **Derived:** `track 74.41` — runway 3's exact axis bearing, so the
+    record passes the track gate outright. The fixture has to isolate the
+    *tie-break*; a record rejected for an unrelated reason would prove
+    nothing.
+  - **Real:** `alt_baro "ground"`, `gs 12.0`, `baro_rate 0`, `t "A320"` —
+    the verbatim values of the `3985a7` on-ground capture above.
+- **`seen_pos` values are all real captures, arranged to produce opposite
+  orderings.** `adsb.fi` gets `000003 = 0.94` / `3985a7 = 56.972`;
+  `adsb.lol` gets `000003 = 56.972` / `3985a7 = 3.4`. Every one of those
+  three numbers is a real captured value from this directory — `0.94` from
+  `39dd01`, `56.972` from `39d300` (both `geofence_multi_aircraft.json`),
+  and `3.4` is `3985a7`'s **own** real value. The resulting **56.0 s spread**
+  is inside `adsb-test/RESULTS.md`'s measured maximum reconstructed
+  position-update gap (56.7 s adsb.fi / 69.8 s airplanes.live) and well
+  above both medians (36.2 s / 22.4 s) — the spread is calibrated to
+  measured feed behaviour, not invented to make a test fail.
+- **What it proves:** pre-fix, adsb.fi selected `000003` and adsb.lol
+  selected `3985a7` from *one identical reality*, `poll_current_aircraft()`
+  saw two different hexes, and the D-04 disagreement branch threw the entire
+  cycle away — the panel froze while real runway-3 traffic passed. Check 32
+  asserts that divergence is genuinely reproducible; 33-35 assert it no
+  longer happens.
+- Drives checks 32–37 in `test_plane_detection.py`. Checks 35 and 36
+  additionally *derive* asymmetric and disjoint candidate sets from this
+  fixture inline (dropping a record, or pairing it against real captures),
+  rather than committing near-duplicate fixture files for each.
+
 ## `adsbdb_hit_TVF16VB.json`
 
 - **Source:** live `GET api.adsbdb.com/v0/callsign/TVF16VB` response,
