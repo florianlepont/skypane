@@ -990,10 +990,15 @@ def main():
     def _diff_inside_outside(canvas_a, canvas_b, box):
         """Return (inside, outside) bools: whether canvas_a and canvas_b
         differ at at least one pixel inside `box` and at at least one pixel
-        outside it. Row-sliced byte comparison (fast C-level bytes equality
-        per row) so only rows that actually differ ever pay for a per-column
-        Python loop - the 1200x1600 canvas is never scanned pixel-by-pixel
-        in the common (near-identical) case.
+        outside it. `box` is treated with Pillow's own inclusive-corner
+        rectangle convention (matching draw_frame()'s/draw_battery_icon()'s
+        (left, top, right, bottom) - the drawn footprint spans left..right
+        and top..bottom INCLUSIVE, so containment here is `<=` on both
+        ends, not the exclusive `<` a half-open crop box would use.
+        Row-sliced byte comparison (fast C-level bytes equality per row) so
+        only rows that actually differ ever pay for a per-column Python
+        loop - the 1200x1600 canvas is never scanned pixel-by-pixel in the
+        common (near-identical) case.
         """
         left, top, right, bottom = box
         width, height = canvas_a.size
@@ -1008,10 +1013,10 @@ def main():
             row_b = bytes_b[start:end]
             if row_a == row_b:
                 continue
-            in_row_band = top <= row < bottom
+            in_row_band = top <= row <= bottom
             for col in range(width):
                 if row_a[col] != row_b[col]:
-                    if in_row_band and left <= col < right:
+                    if in_row_band and left <= col <= right:
                         inside = True
                     else:
                         outside = True
