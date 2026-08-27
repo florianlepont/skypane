@@ -40,6 +40,18 @@ silhouette, Zilla Slab):
   verified on real glass (see `server/assets/fonts/VENDOR.md`'s "Known
   risk" note; Wave 4's on-glass checkpoint must re-check this).
 
+**Colour and CFG-01 (D-09/D-10/D-11, 06-CONTEXT.md)**: the panel's
+DEPARTING/ARRIVING background and ink colours have never been calibrated
+against real glass - they are the same on-screen-only-confirmed values
+D-21 recorded (`server/panel_format.py`'s "confirmed against on-screen
+previews only" note). Phase 7's on-glass session is the first place that
+calibration actually happens. CFG-01 therefore ships a theme picker whose
+registry (`server/device_config.py`'s `THEMES`) currently holds exactly
+one entry, `"sky"`. Adding Phase 7's real, hardware-validated theme
+variants is a single `THEMES` dict entry in `server/device_config.py` -
+see that module's own docstring for the extension procedure - with no
+change to this module at all.
+
 The old 64px "inviolable" SAFE_BOX margin (Phase 2) is still enforced for
 the top-row labels, which D-26 explicitly pins to that same MARGIN inset.
 It is deliberately **not** enforced for the frame, the illustrations, or
@@ -73,6 +85,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from server import device_config
 from server import panel_format as pf
 from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW, WIDTH, HEIGHT
 from server.plane import dither, enrich, illustrations, runway_config
@@ -124,18 +137,61 @@ _FIT_STEP_PX = 2
 # --- Colour section (state-scoped, unchanged since 02-UI-SPEC.md Revision
 # 2) - keyed by runway_config's STATE_* constants (not bare string
 # literals) so the two modules cannot drift apart. --------------------------
+#
+# CFG-01 (06-CONTEXT.md D-09/D-10/D-11): STATE_BACKGROUND/STATE_INK are
+# retained below as module-level constants, redefined from the default
+# theme's own server/device_config.py registry entry, ONLY because
+# server/test_render.py's pre-existing checks read them directly. New code
+# must never read these two dicts directly - call
+# state_background_index()/state_ink_index() instead, which resolve
+# through device_config.THEMES, the single registry the companion Config
+# page's picker also reads. Do not delete these constants and do not
+# change their values - the default ("sky") theme's colours are exactly
+# the pre-Phase-6 values.
 STATE_BACKGROUND = {
-    runway_config.STATE_DEPARTING: IDX_BLUE,
-    runway_config.STATE_ARRIVING: IDX_GREEN,
+    runway_config.STATE_DEPARTING: device_config.theme_background_index(
+        runway_config.STATE_DEPARTING, device_config.DEFAULT_THEME_ID
+    ),
+    runway_config.STATE_ARRIVING: device_config.theme_background_index(
+        runway_config.STATE_ARRIVING, device_config.DEFAULT_THEME_ID
+    ),
 }
 STATE_INK = {
-    runway_config.STATE_DEPARTING: IDX_WHITE,
-    runway_config.STATE_ARRIVING: IDX_WHITE,
+    runway_config.STATE_DEPARTING: device_config.theme_ink_index(device_config.DEFAULT_THEME_ID),
+    runway_config.STATE_ARRIVING: device_config.theme_ink_index(device_config.DEFAULT_THEME_ID),
 }
 STATE_LABEL_TEXT = {
     runway_config.STATE_DEPARTING: "DEPARTING",
     runway_config.STATE_ARRIVING: "ARRIVING",
 }
+
+
+def state_background_index(state, theme_id=device_config.DEFAULT_THEME_ID):
+    """Return the background palette index for `state` ("departing" or
+    "arriving") under `theme_id`, the CFG-01 theme registry key. `theme_id`
+    is normalised through `device_config.normalise_theme_id()` first, so an
+    unrecognised, hostile, or stale theme id silently degrades to the
+    default theme (T-06-06-01) rather than ever reaching a dict lookup - an
+    unrecognised *theme* is forgiving. `state` is intentionally NOT
+    normalised the same way: an unknown state is a real caller-bug detector
+    and must stay loud - every caller in this module only ever reaches this
+    function after `_build_active_canvas()`'s own `state not in
+    STATE_BACKGROUND` guard has already validated it.
+    """
+    theme_id = device_config.normalise_theme_id(theme_id)
+    return device_config.theme_background_index(state, theme_id)
+
+
+def state_ink_index(state, theme_id=device_config.DEFAULT_THEME_ID):
+    """Same contract as state_background_index(), for the ink (foreground)
+    index. `state` is accepted so both functions share one call shape at
+    every call site, even though today's single theme's ink colour does
+    not vary by state - a future theme entry could add a per-state ink
+    split without changing this signature.
+    """
+    theme_id = device_config.normalise_theme_id(theme_id)
+    return device_config.theme_ink_index(theme_id)
+
 
 EMPTY_HEADING_TEXT = "Watching Runway 3"
 EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment one is."
@@ -635,11 +691,14 @@ def _assert_legal_palette(canvas, bg_idx):
     )
 
 
-def _build_active_canvas(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None):
+def _build_active_canvas(
+    flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
+    theme_id=device_config.DEFAULT_THEME_ID,
+):
     if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
-    bg_idx = STATE_BACKGROUND[state]
-    fg_idx = STATE_INK[state]
+    bg_idx = state_background_index(state, theme_id=theme_id)
+    fg_idx = state_ink_index(state, theme_id=theme_id)
 
     # D-21: flat single-color background field - no dithered mood gradient.
     canvas = pf.new_canvas(bg_idx)
@@ -688,7 +747,10 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     return canvas
 
 
-def build_canvas(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None):
+def build_canvas(
+    flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
+    theme_id=device_config.DEFAULT_THEME_ID,
+):
     """Return the pre-pack "P"-mode canvas for `flight` in `state`
     ("departing" / "arriving" / "empty"). Public (not `_build_canvas`) so
     callers - notably server/test_render.py's anti-aliasing assertions,
@@ -709,6 +771,11 @@ def build_canvas(flight, state, route=None, previous_flight=None, previous_route
     yet (e.g. the very first detection since the state directory was last
     empty) - the previous flight card is simply omitted in that case.
     Ignored for the empty state, which has no flight to enrich.
+
+    `theme_id` (CFG-01) selects the DEPARTING/ARRIVING background and ink
+    colours from `server/device_config.py`'s `THEMES` registry; an
+    unrecognised id degrades to the default theme rather than raising.
+    Ignored for the empty state, which is always White/Black.
     """
     if flight is None or state == "empty":
         return _build_empty_canvas()
@@ -719,10 +786,14 @@ def build_canvas(flight, state, route=None, previous_flight=None, previous_route
         previous_flight=previous_flight,
         previous_route=previous_route,
         previous_state=previous_state,
+        theme_id=theme_id,
     )
 
 
-def render_panel(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None):
+def render_panel(
+    flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
+    theme_id=device_config.DEFAULT_THEME_ID,
+):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
     ("departing" / "arriving" / "empty").
@@ -733,10 +804,9 @@ def render_panel(flight, state, route=None, previous_flight=None, previous_route
     "departing"/"arriving" this function and build_canvas() key their
     per-state dicts on.
 
-    `route`/`previous_flight`/`previous_route`/`previous_state` are passed
-    straight through to build_canvas() (D-25/D-26) - see build_canvas()'s
-    own docstring for what `route` may now be (a full route or, since quick
-    task 260827-hyy, an airline-only route).
+    `route`/`previous_flight`/`previous_route`/`previous_state`/`theme_id`
+    are passed straight through to build_canvas() (D-25/D-26, CFG-01) - see
+    build_canvas()'s own docstring for the full contract of each.
     """
     canvas = build_canvas(
         flight,
@@ -745,6 +815,7 @@ def render_panel(flight, state, route=None, previous_flight=None, previous_route
         previous_flight=previous_flight,
         previous_route=previous_route,
         previous_state=previous_state,
+        theme_id=theme_id,
     )
     return pf.pack_panel(canvas)
 
@@ -803,6 +874,10 @@ def build_parser():
              "unknown - bare callsign on line 1, '{airline} · {type}' on line 2, the airline's own "
              "illustration). Takes precedence over --no-route when both are given.",
     )
+    parser.add_argument(
+        "--theme", choices=device_config.THEME_IDS, default=device_config.DEFAULT_THEME_ID,
+        help="CFG-01: theme id from server/device_config.py's THEMES registry.",
+    )
     return parser
 
 
@@ -840,6 +915,7 @@ def main(argv=None):
         previous_flight=previous_flight,
         previous_route=previous_route,
         previous_state=previous_state,
+        theme_id=args.theme,
     )
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:
