@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 43
+EXPECTED_CHECK_COUNT = 47
 
 
 def main():
@@ -72,12 +72,12 @@ def main():
         return True, ""
     check("normalise_airline_key('Air Algérie') == 'air-algerie'", _key_air_algerie)
 
-    def _key_ccm_airlines():
-        got = ill.normalise_airline_key("CCM Airlines")
-        if got != "ccm-airlines":
-            return False, "got %r, expected 'ccm-airlines'" % (got,)
+    def _key_air_corsica():
+        got = ill.normalise_airline_key("Air Corsica")
+        if got != "air-corsica":
+            return False, "got %r, expected 'air-corsica'" % (got,)
         return True, ""
-    check("normalise_airline_key('CCM Airlines') == 'ccm-airlines'", _key_ccm_airlines)
+    check("normalise_airline_key('Air Corsica') == 'air-corsica' (260827-kih)", _key_air_corsica)
 
     def _key_falsy_and_non_string_none():
         for value in ("", None, 42):
@@ -629,7 +629,7 @@ def main():
     def _p04_secondary_variants_and_primaries_present():
         targets = set(ill.target_filenames())
         expected_pairs = [
-            ("ccm-airlines.png", "ccm-airlines-atr72.png"),
+            ("air-corsica.png", "air-corsica-atr72.png"),
             ("transavia-france.png", "transavia-france-a320.png"),
             ("royal-air-maroc.png", "royal-air-maroc-embraer.png"),
             ("air-caraibes.png", "air-caraibes-a330.png"),
@@ -649,23 +649,134 @@ def main():
         _p04_secondary_variants_and_primaries_present,
     )
 
-    # 43 (quick task 260827-hyy). target_airline_names() carries the
-    # resolved (not the current-brand) strings for the three known rename
-    # traps - it's what enrich.py's prefix table is checked against, so a
-    # regression here would silently let a stale-brand mismatch back in.
-    def _target_airline_names_carries_resolved_not_brand_names():
+    # 43 (superseded, quick task 260827-kih, 2026-08-27, QT-kih-D-06). The
+    # shape this check asserts is now INVERTED from its original
+    # 260827-hyy form: target_airline_names() must carry the three
+    # carriers' CURRENT brand names (the correction seam's job is exactly
+    # to make this true everywhere), and must never contain the stale
+    # adsbdb-resolved strings they replace.
+    def _target_airline_names_carries_current_brand_not_stale_names():
         names = ill.target_airline_names()
-        for expected in ("Europe Airpost", "Corsairfly", "CCM Airlines"):
+        for expected in ("ASL Airlines France", "Corsair", "Air Corsica"):
             if expected not in names:
-                return False, "target_airline_names() is missing the resolved name %r: %r" % (expected, names)
-        for stale_brand in ("ASL Airlines France", "Corsair International", "Air Corsica"):
-            if stale_brand in names:
-                return False, "target_airline_names() must not contain the current-brand label %r in place of the resolved name" % (stale_brand,)
+                return False, "target_airline_names() is missing the current-brand name %r: %r" % (expected, names)
+        for stale in ("Europe Airpost", "Corsairfly", "CCM Airlines"):
+            if stale in names:
+                return False, "target_airline_names() must not contain the stale adsbdb-resolved string %r in place of the current-brand name" % (stale,)
         return True, ""
     check(
-        "target_airline_names() contains the resolved 'Europe Airpost'/'Corsairfly'/'CCM Airlines' strings, "
-        "not the current-brand labels they replace",
-        _target_airline_names_carries_resolved_not_brand_names,
+        "target_airline_names() contains the current-brand 'ASL Airlines France'/'Corsair'/'Air Corsica' strings, "
+        "not the stale adsbdb-resolved names they replace (260827-kih, inverted from the 260827-hyy check)",
+        _target_airline_names_carries_current_brand_not_stale_names,
+    )
+
+    # 44 (quick task 260827-jz6). Both new target airlines' names and
+    # filenames are present, and the two stale/superseded strings they must
+    # never be confused with are absent - the guard that keeps QT-jz6-D-02's
+    # deliberate TUIfly Belgium override from silently being "corrected"
+    # later by someone applying the stale-brand rule mechanically.
+    def _km_malta_and_tuifly_belgium_targets_present():
+        names = ill.target_airline_names()
+        for expected in ("KM Malta Airlines", "TUIfly Belgium"):
+            if expected not in names:
+                return False, "target_airline_names() is missing %r: %r" % (expected, names)
+        for stale in ("Air Malta", "Jetairfly"):
+            if stale in names:
+                return False, "target_airline_names() must not contain %r" % (stale,)
+        filenames = ill.target_filenames()
+        for expected_file in ("km-malta-airlines.png", "tuifly-belgium.png"):
+            if expected_file not in filenames:
+                return False, "target_filenames() is missing %r: not present" % (expected_file,)
+        return True, ""
+    check(
+        "target_airline_names()/target_filenames() carry 'KM Malta Airlines'/'TUIfly Belgium' and their derived "
+        "filenames, and never 'Air Malta' or 'Jetairfly' (260827-jz6, QT-jz6-D-02 drift guard)",
+        _km_malta_and_tuifly_belgium_targets_present,
+    )
+
+    # 45 (quick task 260827-kih, total updated by 260827-lgt and by a
+    # parallel 2026-08-27 livery-audit session that delivered real artwork
+    # for every outstanding target plus two further Air Caraïbes secondary
+    # variants). Amelia's two new target filenames are present in
+    # target_filenames() and now exist on disk (delivered, not merely
+    # planned - see VENDOR.md's "Amelia A320 correction" note for the
+    # livery-fix record), and the full target plan now totals 43 entries
+    # (38 -> 41 via 260827-lgt, 41 -> 43 via the parallel session's two
+    # Air Caraïbes additions: air-caraibes-a350-1000.png, air-caraibes-atr72.png).
+    def _amelia_targets_present_and_total_is_43():
+        targets = ill.target_filenames()
+        for expected_file in ("amelia.png", "amelia-embraer.png"):
+            if expected_file not in targets:
+                return False, "target_filenames() is missing %r: not present" % (expected_file,)
+            if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
+                return False, "%r is a target but missing on disk - expected it to be delivered" % (expected_file,)
+        if len(targets) != 43:
+            return False, "target_filenames() has %d entries, expected 43" % (len(targets),)
+        return True, ""
+    check(
+        "target_filenames() contains 'amelia.png'/'amelia-embraer.png' (delivered on disk) and totals "
+        "43 entries (260827-kih baseline, updated by 260827-lgt and a parallel Air Caraïbes livery-audit session)",
+        _amelia_targets_present_and_total_is_43,
+    )
+
+    # 46 (quick task 260827-kih). The four renamed files exist on disk
+    # under their new names; the four superseded filenames do not.
+    def _renamed_files_exist_superseded_names_do_not():
+        renamed = ("air-corsica.png", "air-corsica-atr72.png", "asl-airlines-france.png", "corsair.png")
+        superseded = ("ccm-airlines.png", "ccm-airlines-atr72.png", "europe-airpost.png", "corsairfly.png")
+        missing = [f for f in renamed if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, f))]
+        if missing:
+            return False, "renamed file(s) missing on disk: %r" % (missing,)
+        still_present = [f for f in superseded if os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, f))]
+        if still_present:
+            return False, "superseded filename(s) still present on disk: %r" % (still_present,)
+        return True, ""
+    check(
+        "the four renamed illustration files (air-corsica/air-corsica-atr72/asl-airlines-france/corsair) exist "
+        "on disk; the four superseded filenames they replace do not (260827-kih)",
+        _renamed_files_exist_superseded_names_do_not,
+    )
+
+    # 47 (quick task 260827-lgt, delivery status updated by a parallel
+    # 2026-08-27 livery-audit session). "Air France Hop"/"KlasJet" are
+    # present as distinct target airline names (alongside "Air
+    # France"/"Wizz Air", which must remain present too - the exact-match
+    # guard for QT-lgt-D-04's separate-key claim); their three derived
+    # filenames are present in target_filenames() and all now exist on
+    # disk (delivered by the parallel session, not merely planned); and
+    # the QT-lgt-D-01 reuse guard holds - no Malta-specific Wizz variant
+    # crept into either list, "Wizz Air"/wizz-air.png remain the sole Wizz
+    # Air Malta-brand-token entries.
+    def _lgt_targets_present_and_wizz_reuse_guard_holds():
+        names = ill.target_airline_names()
+        for expected in ("Air France Hop", "KlasJet", "Air France", "Wizz Air"):
+            if expected not in names:
+                return False, "target_airline_names() is missing %r: %r" % (expected, names)
+
+        filenames = ill.target_filenames()
+        new_files = ("air-france-hop.png", "air-france-hop-atr72.png", "klasjet.png")
+        for expected_file in new_files:
+            if expected_file not in filenames:
+                return False, "target_filenames() is missing %r: not present" % (expected_file,)
+            if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
+                return False, "%r is a target but missing on disk - expected it to be delivered" % (expected_file,)
+
+        # QT-lgt-D-01 reuse guard: no member of either list, other than the
+        # exact "Wizz Air" name / wizz-air.png filename, may start with the
+        # Wizz brand token - this is what makes a future accidental
+        # "Wizz Air Malta" name or "wizz-air-malta.png" filename fail here.
+        wizz_names = [n for n in names if n.lower().startswith("wizz")]
+        if wizz_names != ["Wizz Air"]:
+            return False, "target_airline_names() must contain exactly one Wizz-brand entry, 'Wizz Air': got %r" % (wizz_names,)
+        wizz_files = [f for f in filenames if f.startswith("wizz")]
+        if wizz_files != ["wizz-air.png"]:
+            return False, "target_filenames() must contain exactly one Wizz-brand entry, 'wizz-air.png': got %r" % (wizz_files,)
+        return True, ""
+    check(
+        "target_airline_names()/target_filenames() carry 'Air France Hop'/'KlasJet' (with 'Air France'/'Wizz Air' "
+        "still present as distinct names) and the three new filenames (delivered on disk); the QT-lgt-D-01 Wizz "
+        "Air Malta reuse guard holds - no Malta-specific Wizz entry exists in either list (260827-lgt)",
+        _lgt_targets_present_and_wizz_reuse_guard_holds,
     )
 
     total = len(results)

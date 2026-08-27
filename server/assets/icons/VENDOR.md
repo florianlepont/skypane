@@ -17,7 +17,7 @@
   - `iberia-airlines.png` — Airbus A320
   - `tap-portugal.png` — Airbus A321neo
   - `air-algerie.png` — Boeing 737-800
-  - `ccm-airlines.png` — Airbus A320 (Air Corsica / CCM Airlines)
+  - `air-corsica.png` (renamed from `ccm-airlines.png`, 260827-kih) — Airbus A320 (Air Corsica; adsbdb still resolves the pre-2013-rebrand name "CCM Airlines")
   - `vueling-airlines.png` — Airbus A320
   - `transavia-france.png` — Boeing 737-800
   - `generic-fallback.png` — unbranded generic narrow-body jet

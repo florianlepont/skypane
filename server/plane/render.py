@@ -437,14 +437,20 @@ _TYPE_DISPLAY_LABELS = {
 }
 
 # P-01: a presentation-only display alias for the one carrier that
-# rebranded in 2013. `adsbdb` still resolves the literal string "CCM
-# Airlines" (confirmed live, 03.1-LIVE-RESOLUTION.md), and
-# illustrations.py's selection key and vendored filename deliberately keep
-# that literal string - only the panel text shown to a human reads the
-# carrier's current public brand. Adding an entry here can never affect
-# which illustration file is selected, and can never mask a genuine future
-# route-API miss (D-04's real concern is what a human reads on the glass,
-# not the filename).
+# rebranded in 2013.
+#
+# SUPERSEDED (quick task 260827-kih, 2026-08-27, QT-kih-D-08): this entry
+# is retained unchanged as a defensive no-op, not as the live presentation
+# path. `enrich.correct_airline_name()` now corrects this carrier's
+# `airline_name` upstream, inside `lookup_route()`'s single seam - every
+# route that reaches `_flight_line2_text()` through the normal
+# `enrich.resolve_route()` path already carries the corrected string "Air
+# Corsica", so the alias below can no longer be triggered by a live route.
+# It stays only for a hand-built route dict (e.g. a test fixture, or a
+# future caller that bypasses `enrich.py` entirely) that still carries the
+# literal upstream string "CCM Airlines" - display_airline_name() still
+# resolves that correctly. No rendering logic, table value, or existing
+# check was altered by this session.
 _AIRLINE_DISPLAY_ALIASES = {
     "CCM Airlines": "Air Corsica",
 }

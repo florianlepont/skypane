@@ -81,6 +81,18 @@ CACHE_MAX_ENTRIES = 300
 # callsign field can never inject a path segment or query parameter.
 _CALLSIGN_SAFE_RE = re.compile(r"^[A-Z0-9]+$")
 
+# Gate applied before any prefix lookup (mirrors classify_aircraft_type()'s
+# security property exactly, T-hyy-01): the normalised callsign must be
+# alphanumeric-only, at least 4 characters, with its first three characters
+# in A-Z. This rejects a bare 3-letter string with no flight suffix, a
+# path-separator payload, and anything shorter than a real callsign, before
+# `_ICAO_AIRLINE_PREFIXES.get()` or `_AIRLINE_NAME_CORRECTIONS.get()` is ever
+# called. Moved up here (quick task 260827-kih) from beside
+# `_ICAO_AIRLINE_PREFIXES` so the correction seam below can be defined ahead
+# of its call site (`lookup_route()`) without a forward reference - this is
+# a pure move, same pattern, same comment, no behaviour change.
+_AIRLINE_PREFIX_SHAPE_RE = re.compile(r"^[A-Z]{3}[A-Z0-9]+$")
+
 # adsbdb returns municipality names in title case (e.g. "Palma De
 # Mallorca"); UI-SPEC's Body role calls for sentence case. These interior
 # connective particles are lower-cased unless they are the first word.
@@ -204,6 +216,88 @@ def _route_from_entry(entry):
     }
 
 
+# --- adsbdb-resolved-name correction seam (quick task 260827-kih) ------------
+#
+# `adsbdb`'s crowdsourced database sometimes resolves a callsign's ICAO
+# prefix to a name that is stale (a real airline's pre-rebrand legal name)
+# or, worse, outright wrong (a *different*, defunct carrier that once held
+# the same ICAO code). Prior sessions (Phase 3.1, quick task 260827-hyy)
+# worked around this by filing illustration/selection keys under whatever
+# string adsbdb happened to return - correct for the machinery that existed
+# then, but it meant the panel could show a real airline under another
+# company's name. This seam fixes that at the source, once, instead of
+# leaving every caller to work around it.
+#
+# QT-kih-D-01: every correction lives in this ONE table, keyed on the PAIR
+# `(three-letter ICAO callsign prefix, the exact airline_name string the
+# upstream API returned)` - never on the string alone. This is deliberately
+# not a global string replace: a hypothetical unrelated carrier legitimately
+# named by a corrected-away string, arriving under a different prefix, is
+# never rewritten (T-kih-02, proven by test_enrich.py checks 29/35's
+# negative case).
+_AIRLINE_NAME_CORRECTIONS = {
+    # AIA6412 (a real Amelia flight) resolves live via adsbdb to "Avies", a
+    # *different*, defunct Estonian carrier (ceased operations 2016) that
+    # happened to hold the same ICAO prefix - see the AIA row above for the
+    # full live-evidence citation and server/fixtures/adsbdb_hit_AIA6412.json
+    # for the recorded response. Worse than a stale-brand mismatch: an
+    # actively wrong carrier attribution.
+    ("AIA", "Avies"): "Amelia",
+    # The three remaining rows (quick task 260827-kih, 2026-08-27) are the
+    # opposite failure mode from AIA above: not a wrong carrier, but a real
+    # carrier under its pre-rebrand legal/trading name. adsbdb never
+    # updated these three after the real-world rebrand happened.
+    ("FPO", "Europe Airpost"): "ASL Airlines France",  # rebranded 2015
+    ("CRL", "Corsairfly"): "Corsair",  # reverted to "Corsair" ~2012
+    ("CCM", "CCM Airlines"): "Air Corsica",  # rebranded 2013
+}
+
+
+def correct_airline_name(callsign, airline_name):
+    """Return the corrected current name for `airline_name` as resolved
+    under `callsign`'s ICAO prefix, or `airline_name` unchanged when no
+    correction applies. Gates `callsign` through `normalise_callsign()` and
+    `_AIRLINE_PREFIX_SHAPE_RE` before deriving any prefix - exactly like
+    `airline_from_callsign()` - so the only strings this function can ever
+    return are a fixed `_AIRLINE_NAME_CORRECTIONS` table value or the
+    `airline_name` argument it was handed, never a value derived from the
+    callsign itself (T-kih-01). Returns any non-string or falsy
+    `airline_name` unchanged without ever consulting the table. Never
+    raises.
+    """
+    if not isinstance(airline_name, str) or not airline_name:
+        return airline_name
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return airline_name
+    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return airline_name
+    prefix = normalised[:3]
+    return _AIRLINE_NAME_CORRECTIONS.get((prefix, airline_name), airline_name)
+
+
+def apply_airline_name_correction(callsign, route):
+    """Return `route` unchanged when `correct_airline_name()` finds nothing
+    to correct, otherwise a shallow copy of `route` with a corrected
+    `airline_name`. Returns any non-dict `route` unchanged, and returns
+    `route` unchanged (rather than raising) if `route.get()` itself raises
+    - mirroring `illustrations.select_illustration()`'s same defensive
+    shape. Never raises.
+    """
+    if not isinstance(route, dict):
+        return route
+    try:
+        airline_name = route.get("airline_name")
+    except Exception:
+        return route
+    corrected = correct_airline_name(callsign, airline_name)
+    if corrected == airline_name:
+        return route
+    corrected_route = dict(route)
+    corrected_route["airline_name"] = corrected
+    return corrected_route
+
+
 def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     """Resolve `callsign` to a normalised route dict
     (`airline_name`/`origin_iata`/`origin_city`/`destination_iata`/
@@ -217,6 +311,20 @@ def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     `{"found": True, <route fields>}` or `{"found": False}`. Both hits and
     misses are cached, and a cached callsign - hit or miss - is never
     re-queried.
+
+    QT-kih-D-01/D-02/D-03: both success paths (a fresh 200 and a cached
+    hit) converge on the single `apply_airline_name_correction()` call at
+    the end of this function - the one seam every adsbdb-sourced route
+    leaves through, fresh or cached. The cache deliberately stores the raw,
+    uncorrected upstream payload (the correction is applied on read, never
+    on write): a server whose `poll_state.json` predates this correction
+    seam starts producing corrected names on its very next poll, with zero
+    cache migration or purge, and the cache remains a faithful record of
+    what adsbdb actually returned. The prefix-only fallback path
+    (`airline_from_callsign()` below) needs no call into this seam at all,
+    because `_ICAO_AIRLINE_PREFIXES` already holds corrected values by
+    construction - an agreement `test_enrich.py`'s check 32 asserts as a
+    machine-checked invariant across both tables, rather than assumes.
     """
     normalised = normalise_callsign(callsign)
     if normalised is None:
@@ -226,32 +334,35 @@ def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
 
     entry, present = _cache_get(cache, normalised)
     if present:
-        if entry.get("found"):
-            return _route_from_entry(entry)
-        return None
+        if not entry.get("found"):
+            return None
+        route = _route_from_entry(entry)
+    else:
+        fetch = transport or default_transport
+        try:
+            status_code, body = fetch(normalised, timeout)
+        except Exception:
+            cache[normalised] = {"found": False}
+            return None
 
-    fetch = transport or default_transport
-    try:
-        status_code, body = fetch(normalised, timeout)
-    except Exception:
-        cache[normalised] = {"found": False}
-        return None
+        if not (200 <= status_code < 300):
+            # Covers the 404 "unknown callsign" definitive-miss case and
+            # every other non-2xx response uniformly.
+            cache[normalised] = {"found": False}
+            return None
 
-    if not (200 <= status_code < 300):
-        # Covers the 404 "unknown callsign" definitive-miss case and every
-        # other non-2xx response uniformly.
-        cache[normalised] = {"found": False}
-        return None
+        route = _parse_route(body)
+        if route is None:
+            cache[normalised] = {"found": False}
+            return None
 
-    route = _parse_route(body)
-    if route is None:
-        cache[normalised] = {"found": False}
-        return None
+        # The cache holds the raw, uncorrected payload (QT-kih-D-02) -
+        # correction happens on read, in the return statement below.
+        cache_entry = dict(route)
+        cache_entry["found"] = True
+        cache[normalised] = cache_entry
 
-    cache_entry = dict(route)
-    cache_entry["found"] = True
-    cache[normalised] = cache_entry
-    return route
+    return apply_airline_name_correction(normalised, route)
 
 
 def city_for_state(route, state):
@@ -278,24 +389,50 @@ def city_for_state(route, state):
 # `airline_name` column of `.planning/phases/
 # 03.1-procedural-per-airline-livery-rendering/03.1-LIVE-RESOLUTION.md`'s
 # 24-airline live-resolution table - never retyped from a current public
-# brand name, and never a guess (T-hyy-03). Three entries are the exact
-# stale-brand-name traps `illustrations.py`'s own module docstring already
-# documents: `FPO` resolves to `"Europe Airpost"` (not "ASL Airlines
-# France"), `CRL` resolves to `"Corsairfly"` (not "Corsair International"),
-# and `CCM` resolves to `"CCM Airlines"` (not "Air Corsica") - copy these
-# strings, never retype them from the brand name.
+# brand name, and never a guess (T-hyy-03).
 #
-# Amelia International and La Compagnie are deliberately absent:
-# 03.1-LIVE-RESOLUTION.md marks both `[UNRESOLVED]` (a candidate ICAO code
-# for each turned out to belong to a different real airline), mirroring
-# `illustrations._ILLUSTRATION_TARGETS`'s own exclusion of the same two
-# carriers for the same reason. `test_enrich.py`'s drift guard asserts every
-# value here is a member of `illustrations.target_airline_names()` (D-07) -
-# renaming or dropping an illustration target without mirroring the change
-# here fails that check.
+# SUPERSEDED (quick task 260827-kih, 2026-08-27, QT-kih-D-06): this table's
+# values USED TO be a verbatim, uncorrected copy of whatever adsbdb
+# resolved - so `FPO`, `CRL` and `CCM` used to carry adsbdb's stale
+# pre-rebrand names ("Europe Airpost", "Corsairfly", "CCM Airlines")
+# because there was no mechanism to correct them and this table had to
+# mirror the same string illustration selection used. That rule held for
+# Phase 3.1 (P-01/D-04), `03.1-LIVE-RESOLUTION.md`'s Step B/C naming
+# verdicts, and quick task `260827-hyy`'s D-01 - all correct given the
+# machinery available then. Now that `_AIRLINE_NAME_CORRECTIONS` (above)
+# and `apply_airline_name_correction()` exist, this table's three affected
+# values are the CORRECTED current names ("ASL Airlines France", "Corsair",
+# "Air Corsica") instead - the invariant `test_enrich.py` checks (D-kih-03)
+# requires it: for every `_AIRLINE_NAME_CORRECTIONS` row,
+# `_ICAO_AIRLINE_PREFIXES[prefix]` must equal the corrected value, since
+# this table is itself the illustration selection key and cannot mirror a
+# stale string the seam would immediately correct on the adsbdb-hit path.
+# `JAF` (TUIfly Belgium) is deliberately NOT one of these three - the
+# developer considered and declined to extend the correction seam there
+# this session (QT-kih-D-07); a future reader must not add a `JAF`
+# correction row as tidy-up, and must not "helpfully" change this table's
+# `JAF` entry to match.
+#
+# La Compagnie is deliberately absent: 03.1-LIVE-RESOLUTION.md marks it
+# `[UNRESOLVED]` (its candidate ICAO code resolves to a different real
+# airline in adsbdb), mirroring `illustrations._ILLUSTRATION_TARGETS`'s own
+# exclusion for the same reason. Amelia International was excluded for the
+# same reason through Phase 3.1, but is NOT absent anymore: quick task
+# `260827-kih` live-verified the real ICAO prefix (`AIA`) and added it
+# below as `"Amelia"` - reachable via `enrich.correct_airline_name()`
+# rather than via a guessed candidate code. `test_enrich.py`'s drift guard
+# asserts every value here is a member of
+# `illustrations.target_airline_names()` (D-07) - renaming or dropping an
+# illustration target without mirroring the change here fails that check.
 _ICAO_AIRLINE_PREFIXES = {
     "AFR": "Air France",  # callsign AFR56XX
-    "CCM": "CCM Airlines",  # callsign CCM21AW
+    # CCM Airlines rebranded to Air Corsica in 2013. Corrected value
+    # (260827-kih, QT-kih-D-06) - adsbdb's own callsign CCM21AW still
+    # resolves to the pre-rebrand string "CCM Airlines" (unchanged, see
+    # _AIRLINE_NAME_CORRECTIONS' CCM row), corrected on read via
+    # enrich.correct_airline_name(). This value must equal that row's
+    # corrected value (D-kih-03 invariant).
+    "CCM": "Air Corsica",  # callsign CCM21AW (adsbdb resolves "CCM Airlines")
     "VLG": "Vueling Airlines",  # airline endpoint VLG
     "IBE": "Iberia Airlines",  # airline endpoint IBE
     "TAP": "TAP Portugal",  # airline endpoint TAP
@@ -313,7 +450,13 @@ _ICAO_AIRLINE_PREFIXES = {
     "ITY": "ITA Airways",  # cited callsign ITY1830
     "AEA": "Air Europa",  # cited callsign AEA075
     "DAH": "Air Algerie",  # airline endpoint DAH
-    "FPO": "Europe Airpost",  # callsigns FPO701/FPO458 - stale-brand trap, NOT "ASL Airlines France"
+    # ASL Airlines France rebranded from Europe Airpost in 2015. Corrected
+    # value (260827-kih, QT-kih-D-06) - adsbdb's own callsigns FPO701/
+    # FPO458 still resolve to the pre-rebrand string "Europe Airpost"
+    # (unchanged, see _AIRLINE_NAME_CORRECTIONS' FPO row), corrected on
+    # read via enrich.correct_airline_name(). This value must equal that
+    # row's corrected value (D-kih-03 invariant).
+    "FPO": "ASL Airlines France",  # callsigns FPO701/FPO458 (adsbdb resolves "Europe Airpost")
     "RAM": "Royal Air Maroc",  # cited callsign RAM754
     "TAR": "Tunisair",  # airline endpoint TAR
     "PGT": "Pegasus Airlines",  # callsign PGT80PT
@@ -321,17 +464,106 @@ _ICAO_AIRLINE_PREFIXES = {
     "CLG": "Chalair Aviation",  # airline endpoint CLG
     "TJT": "Twin Jet",  # callsign TJT352A
     "FWI": "Air Caraïbes",  # cited callsign FWI701
-    "CRL": "Corsairfly",  # airline endpoint CRL - stale-brand trap, NOT "Corsair International"
+    # Corsair reverted from "Corsairfly" to "Corsair" ~2012. Corrected
+    # value (260827-kih, QT-kih-D-06) - adsbdb's own CRL airline endpoint
+    # still resolves to the prior-brand string "Corsairfly" (unchanged,
+    # see _AIRLINE_NAME_CORRECTIONS' CRL row), corrected on read via
+    # enrich.correct_airline_name(). This value must equal that row's
+    # corrected value (D-kih-03 invariant).
+    "CRL": "Corsair",  # airline endpoint CRL (adsbdb resolves "Corsairfly")
     "FBU": "French Bee",  # cited callsign FBU701
+    # KMM (KM Malta Airlines) and JAF (TUIfly Belgium) added by quick task
+    # 260827-jz6 (2026-08-27). Neither is sourced from
+    # 03.1-LIVE-RESOLUTION.md - both are new carriers this session verified
+    # live, directly against adsbdb, rather than retyped from a candidate
+    # ICAO code or a training-knowledge guess.
+    #
+    # KMM: this session ran `curl https://api.adsbdb.com/v0/callsign/
+    # KMM466` (2026-08-27) and got back "unknown callsign" - a confirmed
+    # permanent miss. KM Malta Airlines replaced Air Malta (ICAO AMC, ceased
+    # operations March 2024) and adsbdb was never updated for the 2023
+    # rebrand. Exactly like EJU above, this value can never be contradicted
+    # by a live adsbdb hit, because adsbdb has nothing to say about this
+    # carrier at all.
+    "KMM": "KM Malta Airlines",
+    # JAF: this session ran `curl https://api.adsbdb.com/v0/callsign/
+    # JAF7521` (2026-08-27) and it DOES resolve, returning the pre-2016
+    # legacy brand name "Jetairfly". QT-jz6-D-02: the developer chose the
+    # current brand name "TUIfly Belgium" anyway, deliberately - a named
+    # exception to the FPO/CRL/CCM stale-brand-mirroring precedent directly
+    # above, not an oversight. Accepted consequence: a real TUIfly Belgium
+    # flight whose callsign hits adsbdb renders "Jetairfly" and drops to a
+    # lower illustration tier, while the airline-only fallback path (this
+    # table) renders "TUIfly Belgium" and reaches its own dedicated art.
+    "JAF": "TUIfly Belgium",
+    # AIA (Amelia) added by quick task 260827-kih (2026-08-27) - a worse
+    # failure mode than every entry above. This is not a stale label for
+    # the same real airline (like KMM/JAF); adsbdb's AIA callsign resolves
+    # live to "Avies", a *different, defunct* Estonian carrier (ICAO AIA,
+    # IATA U3, ceased operations 2016) that happened to hold the same ICAO
+    # prefix before ceasing, and whose code was never retired upstream.
+    # Live-verified this session: `curl https://api.adsbdb.com/v0/
+    # callsign/AIA6412` (2026-08-27) returns a populated result -
+    # airline.name "Avies", airline.country "Estonia" - recorded verbatim
+    # in server/fixtures/adsbdb_hit_AIA6412.json. The real ICAO prefix
+    # AIA/Amelia is independently corroborated by Flightradar24
+    # (live-tracked flight 8R6412 as callsign 8R/AIA), Airhex, Wikipedia,
+    # ERAA and IATA. This value is also the corrected value
+    # `_AIRLINE_NAME_CORRECTIONS` maps ("AIA", "Avies") to below - the two
+    # tables agree by construction, an agreement `test_enrich.py`'s check
+    # 32 asserts as a machine-checked invariant rather than assumes.
+    "AIA": "Amelia",
+    # HOP, WMT, KLJ added by quick task 260827-lgt (2026-08-27), all three
+    # cross-checked against the official Paris Aeroport Orly airline list.
+    #
+    # HOP: this session ran `curl https://api.adsbdb.com/v0/callsign/
+    # HOP4001` (2026-08-27) and got back a real resolved route
+    # (Nantes-Lyon) with airline.name "Air France Hop". This is the FIRST
+    # row in this table whose value agrees with adsbdb's live answer
+    # BECAUSE adsbdb is already right - not because it was corrected (like
+    # FPO/CRL/CCM above) and not because adsbdb is silent (like KMM/EJU).
+    # That is precisely why NO _AIRLINE_NAME_CORRECTIONS row exists for
+    # HOP, and none should be added (QT-lgt-D-07) - a future reader must
+    # not "complete the job" here, there is nothing to correct. The ADS-B
+    # callsign field really is HOP+number regardless of the "Airfrans"
+    # radio callsign air traffic control actually uses - radio phraseology
+    # is irrelevant to this project, which matches on the ADS-B callsign
+    # field only.
+    "HOP": "Air France Hop",
+    # WMT: Wizz Air Malta is a separate legal entity and AOC (Malta) from
+    # WZZ (main Wizz Air, IATA W6, already in this table above), holding
+    # IATA W4 since its 2022 reassignment to the Malta AOC. It is mapped
+    # here to the PARENT brand's name deliberately (QT-lgt-D-01): its
+    # fleet (A320/A321neo) and livery are brand-standard Wizz Air, visually
+    # indistinguishable at this project's flat side-profile illustration
+    # fidelity - the identical rationale as the EJU row above, which this
+    # comment names explicitly as the precedent. Accepted consequence: the
+    # caption for a real Wizz Air Malta flight renders "Wizz Air", not
+    # "Wizz Air Malta" (illustrations.py adds zero new target/artwork for
+    # this row - see that module's docstring). QT-lgt-D-02: Wizz Air UK
+    # (WUK, IATA W9) is explicitly OUT OF SCOPE and must not be added as
+    # tidy-up - it was never researched this session and no decision exists
+    # for it. Note in passing: the Paris Aeroport list's "Wizz Air Hungary
+    # Ltd / W4" labelling is very likely an airport-side error, since W4
+    # belongs to the Malta AOC today, not Hungary.
+    "WMT": "Wizz Air",
+    # KLJ: KlasJet. CARRIES MATERIALLY LOWER CONFIDENCE THAN EVERY ROW
+    # ABOVE - this row must not be presented with the same confidence as
+    # the rest of this table. The prefix is corroborated by lookup sources
+    # but was NEVER LIVE-CONFIRMED (QT-lgt-D-06): approximately 25 adsbdb
+    # queries across plausible flight-number ranges all returned "unknown
+    # callsign" - zero live confirmation, materially weaker than KMM's
+    # confirmed-negative above (a specific curl of a specific real callsign
+    # that definitively missed). KlasJet is a Lithuanian ACMI/wet-lease and
+    # VIP charter operator, and wet-lease flights typically broadcast the
+    # CONTRACTING airline's callsign rather than the operator's own, so a
+    # real KLJ-prefixed callsign may rarely or never appear at Orly. The
+    # developer chose to include it anyway, with this uncertainty in hand.
+    # Remediation pointer: if a real KLJ callsign is ever observed and
+    # resolves to a different carrier, this row is the first thing to
+    # re-verify.
+    "KLJ": "KlasJet",
 }
-
-# Gate applied before any prefix lookup (mirrors classify_aircraft_type()'s
-# security property exactly, T-hyy-01): the normalised callsign must be
-# alphanumeric-only, at least 4 characters, with its first three characters
-# in A-Z. This rejects a bare 3-letter string with no flight suffix, a
-# path-separator payload, and anything shorter than a real callsign, before
-# `_ICAO_AIRLINE_PREFIXES.get()` is ever called.
-_AIRLINE_PREFIX_SHAPE_RE = re.compile(r"^[A-Z]{3}[A-Z0-9]+$")
 
 
 def airline_from_callsign(callsign):

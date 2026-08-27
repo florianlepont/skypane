@@ -1,0 +1,42 @@
+{
+  "http_status": 200,
+  "body": {
+    "response": {
+      "flightroute": {
+        "callsign": "AIA6412",
+        "callsign_icao": "AIA6412",
+        "callsign_iata": "U36412",
+        "airline": {
+          "name": "Avies",
+          "icao": "AIA",
+          "iata": "U3",
+          "country": "Estonia",
+          "country_iso": "EE",
+          "callsign": "AVIES"
+        },
+        "origin": {
+          "country_iso_name": "FR",
+          "country_name": "France",
+          "elevation": 291,
+          "iata_code": "ORY",
+          "icao_code": "LFPO",
+          "latitude": 48.7233333,
+          "longitude": 2.3794444,
+          "municipality": "Paris",
+          "name": "Paris-Orly Airport"
+        },
+        "destination": {
+          "country_iso_name": "FR",
+          "country_name": "France",
+          "elevation": 291,
+          "iata_code": "ORY",
+          "icao_code": "LFPO",
+          "latitude": 48.7233333,
+          "longitude": 2.3794444,
+          "municipality": "Paris",
+          "name": "Paris-Orly Airport"
+        }
+      }
+    }
+  }
+}

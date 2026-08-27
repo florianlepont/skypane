@@ -26,7 +26,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 25
+EXPECTED_CHECK_COUNT = 39
 
 
 def load_fixture(name):
@@ -477,6 +477,305 @@ def main():
             return False, "prefix table has key(s) that are not exactly 3 uppercase A-Z letters: %r" % (bad,)
         return True, ""
     check("every key of enrich._ICAO_AIRLINE_PREFIXES is exactly 3 uppercase A-Z characters", _prefix_table_keys_are_three_uppercase_letters)
+
+    # 26. Quick task 260827-jz6: KM Malta Airlines resolves from the real
+    #     callsign this session actually curled (KMM466) against the live
+    #     adsbdb endpoint, which returned "unknown callsign" - a confirmed
+    #     permanent miss, resolved with zero network call here.
+    def _airline_from_callsign_km_malta():
+        got = enrich.airline_from_callsign("KMM466")
+        if got != "KM Malta Airlines":
+            return False, "airline_from_callsign('KMM466') = %r, expected 'KM Malta Airlines'" % (got,)
+        return True, ""
+    check("airline_from_callsign('KMM466') returns 'KM Malta Airlines' (260827-jz6, real curled callsign)", _airline_from_callsign_km_malta)
+
+    # 27. Quick task 260827-jz6: TUIfly Belgium resolves from the real
+    #     callsign this session actually curled (JAF7521) - adsbdb itself
+    #     resolves that exact callsign to "Jetairfly" (QT-jz6-D-02), but the
+    #     prefix table deliberately carries the current brand name instead.
+    def _airline_from_callsign_tuifly_belgium():
+        got = enrich.airline_from_callsign("JAF7521")
+        if got != "TUIfly Belgium":
+            return False, "airline_from_callsign('JAF7521') = %r, expected 'TUIfly Belgium'" % (got,)
+        return True, ""
+    check("airline_from_callsign('JAF7521') returns 'TUIfly Belgium' (260827-jz6, real curled callsign, QT-jz6-D-02 override)", _airline_from_callsign_tuifly_belgium)
+
+    # --- Quick task 260827-kih: enrich.correct_airline_name() /
+    # apply_airline_name_correction() - the single prefix-scoped correction
+    # seam applied inside lookup_route(). ---------------------------------
+
+    aia_hit_body = load_fixture("adsbdb_hit_AIA6412.json")["body"]
+
+    # 28. The headline case: adsbdb's real recorded AIA6412 response
+    #     attributes the AIA prefix to "Avies" (a different, defunct
+    #     Estonian carrier) - correct_airline_name() corrects it to "Amelia".
+    def _correct_airline_name_aia_to_amelia():
+        got = enrich.correct_airline_name("AIA6412", "Avies")
+        if got != "Amelia":
+            return False, "correct_airline_name('AIA6412', 'Avies') = %r, expected 'Amelia'" % (got,)
+        return True, ""
+    check("correct_airline_name('AIA6412', 'Avies') returns 'Amelia' (260827-kih)", _correct_airline_name_aia_to_amelia)
+
+    # 29. The corrected-away string arriving under a DIFFERENT prefix is
+    #     never rewritten - the correction is keyed on the (prefix, string)
+    #     pair, never on the string alone (QT-kih-D-01).
+    def _correct_airline_name_is_prefix_scoped():
+        got = enrich.correct_airline_name("ZZZ1234", "Avies")
+        if got != "Avies":
+            return False, "correct_airline_name('ZZZ1234', 'Avies') = %r, expected 'Avies' unchanged (prefix-scoped, not a global replace)" % (got,)
+        return True, ""
+    check(
+        "correct_airline_name('ZZZ1234', 'Avies') returns 'Avies' unchanged - a different prefix carrying the "
+        "same string is never rewritten (QT-kih-D-01)",
+        _correct_airline_name_is_prefix_scoped,
+    )
+
+    # 30. End to end through resolve_route(): a fresh 200 hit that
+    #     misattributes AIA6412 to Avies is corrected to "Amelia" (source
+    #     "fresh_hit"); a second call against the same cache is corrected
+    #     identically (source "cache_hit"), with exactly one transport call
+    #     across both - and the cache entry ITSELF still holds the raw
+    #     upstream string "Avies", proving the correction is applied on
+    #     read, never on write (QT-kih-D-02).
+    def _resolve_route_corrects_aia_fresh_then_cached():
+        cache = {}
+        calls = []
+        transport = make_transport(200, aia_hit_body, calls=calls)
+        route1, source1 = enrich.resolve_route("AIA6412", cache, transport=transport)
+        if route1 is None or route1.get("airline_name") != "Amelia" or source1 != "fresh_hit":
+            return False, "expected a fresh_hit route with airline_name 'Amelia', got (%r, %r)" % (route1, source1)
+        route2, source2 = enrich.resolve_route("AIA6412", cache, transport=transport)
+        if route2 is None or route2.get("airline_name") != "Amelia" or source2 != "cache_hit":
+            return False, "expected a cache_hit route with airline_name 'Amelia', got (%r, %r)" % (route2, source2)
+        if len(calls) != 1:
+            return False, "expected exactly 1 transport call across both resolve_route() calls, got %d" % len(calls)
+        cached_entry = cache.get("AIA6412")
+        if not isinstance(cached_entry, dict) or cached_entry.get("airline_name") != "Avies":
+            return False, "the cache entry itself must still hold the raw upstream string 'Avies', got %r" % (cached_entry,)
+        return True, ""
+    check(
+        "resolve_route('AIA6412', ...) corrects the real recorded AIA/Avies misattribution to 'Amelia' on both a "
+        "fresh_hit and a cache_hit, while the cache entry itself keeps the raw upstream string (QT-kih-D-02)",
+        _resolve_route_corrects_aia_fresh_then_cached,
+    )
+
+    # 31. airline_from_callsign('AIA6412') resolves 'Amelia' with zero
+    #     network call - the prefix-only fallback path already carries the
+    #     corrected value by construction (QT-kih-D-03).
+    def _airline_from_callsign_aia_amelia():
+        got = enrich.airline_from_callsign("AIA6412")
+        if got != "Amelia":
+            return False, "airline_from_callsign('AIA6412') = %r, expected 'Amelia'" % (got,)
+        return True, ""
+    check("airline_from_callsign('AIA6412') returns 'Amelia' (260827-kih, zero network call)", _airline_from_callsign_aia_amelia)
+
+    # 32. The cross-table invariant (QT-kih-D-03): for every
+    #     (prefix, stale) -> corrected row in _AIRLINE_NAME_CORRECTIONS,
+    #     _ICAO_AIRLINE_PREFIXES[prefix] equals the corrected value, and the
+    #     corrected value is a member of illustrations.target_airline_names().
+    #     Iterates the real table rather than restating its contents, so a
+    #     future correction row that forgets to mirror the prefix table
+    #     fails this check instead of silently drifting.
+    def _correction_table_agrees_with_prefix_table_and_targets():
+        target_names = set(illustrations.target_airline_names())
+        for (prefix, _stale), corrected in enrich._AIRLINE_NAME_CORRECTIONS.items():
+            prefix_value = enrich._ICAO_AIRLINE_PREFIXES.get(prefix)
+            if prefix_value != corrected:
+                return False, (
+                    "_AIRLINE_NAME_CORRECTIONS[(%r, ...)] = %r but _ICAO_AIRLINE_PREFIXES[%r] = %r - the two "
+                    "tables must agree" % (prefix, corrected, prefix, prefix_value)
+                )
+            if corrected not in target_names:
+                return False, "corrected value %r is not a member of illustrations.target_airline_names()" % (corrected,)
+        return True, ""
+    check(
+        "every _AIRLINE_NAME_CORRECTIONS row agrees with _ICAO_AIRLINE_PREFIXES and its corrected value is a "
+        "target_airline_names() member (QT-kih-D-03 cross-table invariant)",
+        _correction_table_agrees_with_prefix_table_and_targets,
+    )
+
+    # 33. Never-raises battery for both new functions: None, an int, an
+    #     empty string, a bare 3-letter callsign, a path-separator payload,
+    #     a non-dict route, and a route whose .get() raises - and neither
+    #     function ever returns a value derived from its arguments other
+    #     than the unchanged airline_name it was handed (T-kih-01).
+    def _correction_seam_never_raises_battery():
+        # Hostile/malformed callsigns: None, an int, an empty string, a bare
+        # 3-letter string with no flight suffix, and a path-separator
+        # payload - none of these can ever reach _AIRLINE_NAME_CORRECTIONS,
+        # so correct_airline_name() must return airline_name unchanged for
+        # every one of them, and never raise.
+        hostile_callsigns = (None, 42, "", "AIA", "AIA/6412")
+        for callsign in hostile_callsigns:
+            for airline_name in (None, 42, "", "Avies"):
+                try:
+                    got = enrich.correct_airline_name(callsign, airline_name)
+                except Exception as exc:
+                    return False, "correct_airline_name(%r, %r) raised %r" % (callsign, airline_name, exc)
+                if got is not airline_name:
+                    return False, (
+                        "correct_airline_name(%r, %r) = %r - a hostile/malformed callsign must never change the "
+                        "airline_name it was handed" % (callsign, airline_name, got)
+                    )
+
+        class _ExplodingRoute(dict):
+            def get(self, *_args, **_kwargs):
+                raise RuntimeError("simulated .get() failure")
+
+        malformed_routes = (None, {}, "not-a-dict", 42, ["a", "list"], _ExplodingRoute())
+        for callsign in hostile_callsigns:
+            for route in malformed_routes:
+                try:
+                    got = enrich.apply_airline_name_correction(callsign, route)
+                except Exception as exc:
+                    return False, "apply_airline_name_correction(%r, %r) raised %r" % (callsign, route, exc)
+                if not isinstance(route, dict) or isinstance(route, _ExplodingRoute):
+                    if got is not route:
+                        return False, "apply_airline_name_correction(%r, %r) should return the non-dict route unchanged, got %r" % (callsign, route, got)
+        return True, ""
+    check(
+        "correct_airline_name()/apply_airline_name_correction() never raise for a hostile callsign x airline_name/"
+        "route battery (None, int, empty string, bare prefix, path-separator payload, non-dict route, a route "
+        "whose .get() raises), and never return a value derived from the arguments other than the unchanged "
+        "airline_name (T-kih-01)",
+        _correction_seam_never_raises_battery,
+    )
+
+    # --- Quick task 260827-kih Task 2: the three stale-brand corrections
+    # (FPO/CRL/CCM) applied through the same seam. ------------------------
+
+    def _stubbed_hit_body(airline_name):
+        return {
+            "response": {
+                "flightroute": {
+                    "airline": {"name": airline_name},
+                    "origin": {"iata_code": "ORY", "municipality": "Paris"},
+                    "destination": {"iata_code": "XXX", "municipality": "Somewhere"},
+                }
+            }
+        }
+
+    # 34. correct_airline_name() maps each of the three (prefix, upstream
+    #     string) pairs to its real current name.
+    def _correct_airline_name_three_stale_brand_pairs():
+        cases = [
+            ("FPO701", "Europe Airpost", "ASL Airlines France"),
+            ("CRL8025", "Corsairfly", "Corsair"),
+            ("CCM21AW", "CCM Airlines", "Air Corsica"),
+        ]
+        for callsign, stale, expected in cases:
+            got = enrich.correct_airline_name(callsign, stale)
+            if got != expected:
+                return False, "correct_airline_name(%r, %r) = %r, expected %r" % (callsign, stale, got, expected)
+        return True, ""
+    check(
+        "correct_airline_name() maps FPO/Europe Airpost -> ASL Airlines France, CRL/Corsairfly -> Corsair, "
+        "CCM/CCM Airlines -> Air Corsica (260827-kih)",
+        _correct_airline_name_three_stale_brand_pairs,
+    )
+
+    # 35. End-to-end: resolve_route() against a stubbed 200 body carrying
+    #     each upstream string under its own prefix returns the corrected
+    #     name; the same body served under an unrelated prefix returns the
+    #     upstream string untouched (the negative prefix-scoped case).
+    #     select_illustration() on the corrected CCM/Air Corsica route
+    #     resolves to the renamed primary (A320) and secondary (ATR72)
+    #     files - proving the correction lands before illustration
+    #     selection, not just in the caption text.
+    def _resolve_route_and_selection_for_three_stale_brand_carriers():
+        cases = [
+            ("FPO701", "Europe Airpost", "ASL Airlines France"),
+            ("CRL8025", "Corsairfly", "Corsair"),
+            ("CCM21AW", "CCM Airlines", "Air Corsica"),
+        ]
+        for callsign, stale, expected in cases:
+            cache = {}
+            body = _stubbed_hit_body(stale)
+            route, source = enrich.resolve_route(callsign, cache, transport=make_transport(200, body))
+            if route is None or route.get("airline_name") != expected or source != "fresh_hit":
+                return False, "resolve_route(%r, ...) = (%r, %r), expected airline_name %r, source 'fresh_hit'" % (
+                    callsign, route, source, expected,
+                )
+
+        # Negative case: the same upstream string, served under an
+        # UNRELATED prefix, must come back untouched - the correction is
+        # keyed on the (prefix, string) pair, never on the string alone.
+        cache = {}
+        unrelated_body = _stubbed_hit_body("CCM Airlines")
+        route, source = enrich.resolve_route("ZZZ9999", cache, transport=make_transport(200, unrelated_body))
+        if route is None or route.get("airline_name") != "CCM Airlines":
+            return False, "resolve_route('ZZZ9999', ...) with airline_name 'CCM Airlines' under an unrelated " \
+                "prefix must come back untouched, got %r" % (route,)
+
+        ccm_route = enrich.airline_only_route("Air Corsica")
+        primary = illustrations.select_illustration(ccm_route, "A320")
+        if primary is None or os.path.basename(primary) != "air-corsica.png":
+            return False, "select_illustration(Air Corsica route, 'A320') = %r, expected air-corsica.png" % (primary,)
+        secondary = illustrations.select_illustration(ccm_route, "AT72")
+        if secondary is None or os.path.basename(secondary) != "air-corsica-atr72.png":
+            return False, "select_illustration(Air Corsica route, 'AT72') = %r, expected air-corsica-atr72.png" % (secondary,)
+        return True, ""
+    check(
+        "resolve_route() corrects all three stale-brand carriers under their own prefix and leaves the same "
+        "string untouched under an unrelated prefix; the corrected Air Corsica route selects the renamed "
+        "air-corsica.png/air-corsica-atr72.png files (260827-kih)",
+        _resolve_route_and_selection_for_three_stale_brand_carriers,
+    )
+
+    # --- Quick task 260827-lgt: HOP! Air France, Wizz Air Malta, KlasJet -
+    # three new prefix-table rows, cross-checked against the official
+    # Paris Aeroport Orly airline list. ------------------------------------
+
+    # 36. HOP resolves from the real callsign this session curled
+    #     (HOP4001) - adsbdb resolves the exact same string live, so both
+    #     the adsbdb-hit path and this prefix-only fallback path agree by
+    #     construction (QT-lgt-D-03).
+    def _airline_from_callsign_hop_air_france():
+        got = enrich.airline_from_callsign("HOP4001")
+        if got != "Air France Hop":
+            return False, "airline_from_callsign('HOP4001') = %r, expected 'Air France Hop'" % (got,)
+        return True, ""
+    check("airline_from_callsign('HOP4001') returns 'Air France Hop' (260827-lgt, real curled callsign)", _airline_from_callsign_hop_air_france)
+
+    # 37. WMT resolves to the parent brand name "Wizz Air", deliberately
+    #     (QT-lgt-D-01) - real callsign WMT3001 curled live this session
+    #     resolves via adsbdb to the more-specific "Wizz Air Malta", but
+    #     this prefix-only fallback path intentionally returns the parent
+    #     brand instead, the same EJU -> easyJet consolidation precedent.
+    def _airline_from_callsign_wizz_air_malta():
+        got = enrich.airline_from_callsign("WMT3001")
+        if got != "Wizz Air":
+            return False, "airline_from_callsign('WMT3001') = %r, expected 'Wizz Air'" % (got,)
+        return True, ""
+    check("airline_from_callsign('WMT3001') returns 'Wizz Air' (260827-lgt, real curled callsign WMT3001; adsbdb itself resolves 'Wizz Air Malta', QT-lgt-D-01 deliberate brand consolidation)", _airline_from_callsign_wizz_air_malta)
+
+    # 38. KLJ resolves to "KlasJet" from a synthetic, shape-valid callsign
+    #     only - no real KLJ callsign could be confirmed live this session
+    #     (QT-lgt-D-06, ~25 adsbdb probes all missed). This check proves
+    #     only that the table row is wired correctly, not that the prefix
+    #     assignment itself is correct.
+    def _airline_from_callsign_klasjet():
+        got = enrich.airline_from_callsign("KLJ123")
+        if got != "KlasJet":
+            return False, "airline_from_callsign('KLJ123') = %r, expected 'KlasJet'" % (got,)
+        return True, ""
+    check("airline_from_callsign('KLJ123') returns 'KlasJet' (260827-lgt, KLJ123 is a SYNTHETIC shape-valid callsign - no real KLJ callsign was ever live-confirmed, QT-lgt-D-06)", _airline_from_callsign_klasjet)
+
+    # 39. QT-lgt-D-07 guard: none of HOP/WMT/KLJ needs a correction row -
+    #     HOP because adsbdb is already correct, WMT because a
+    #     more-specific adsbdb answer is an accepted divergence not a
+    #     misattribution, and KLJ because nothing resolves at all. This
+    #     keeps a future reader from "completing the job" by adding
+    #     correction rows none of these three actually needs.
+    def _no_correction_row_for_new_lgt_prefixes():
+        bad = [k for k in enrich._AIRLINE_NAME_CORRECTIONS if k[0] in ("HOP", "WMT", "KLJ")]
+        if bad:
+            return False, "unexpected _AIRLINE_NAME_CORRECTIONS row(s) for HOP/WMT/KLJ: %r" % (bad,)
+        return True, ""
+    check(
+        "no _AIRLINE_NAME_CORRECTIONS row exists whose prefix element is HOP, WMT or KLJ (QT-lgt-D-07 guard)",
+        _no_correction_row_for_new_lgt_prefixes,
+    )
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
