@@ -141,12 +141,12 @@ Plans:
   4. The full automated test suite (`scripts/run-all-tests.sh`) stays green and `server/plane/illustrations.py --validate` passes for every delivered asset. (On-glass legibility sign-off is deliberately **Phase 6's** criterion, not this phase's — Phase 6 already owns the project's single real-hardware verification pass, the same precedent STATE.md records for Phase 3's own on-glass criteria.)
   5. Coverage gracefully degrades (a sensible fallback, not a crash or a blank illustration) for any airline/type combination not yet defined in the livery/shape mapping — mirroring D-08's existing generic-fallback discipline from Phase 3.
 
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 03.1-01-PLAN.md — ROADMAP D-10 revision pass, plus the live-verified record of every target airline's exact resolved name and the `t` field's presence on both aggregator providers
+- [x] 03.1-01-PLAN.md — ROADMAP D-10 revision pass, plus the live-verified record of every target airline's exact resolved name and the `t` field's presence on both aggregator providers
 - [ ] 03.1-02-PLAN.md — `detect.py` extracts and normalises the ICAO aircraft-type designator, with fixture and harness coverage for the present, absent and malformed cases
 
 **Wave 2** *(blocked on Wave 1 completion)*
