@@ -206,6 +206,29 @@ left unknown (the bare callsign, no `to`/`from` clause); only when
 52.6% figure alone would suggest, though still a first-class, designed
 state rather than an error path.
 
+That third outcome — neither adsbdb nor the prefix table resolving
+anything — now leaves a durable trace (quick task 260827-oz9): the
+callsign's 3-letter ICAO prefix is accumulated into `poll_state.json`
+alongside the enrichment cache, under an `unresolved_prefixes` key carrying
+an occurrence count, a first-seen and last-seen timestamp, and a recent
+example callsign, with the same-cycle `unknown_prefix` log field acting as
+the immediate, per-cycle view of the same fact. A persisted record exists
+because journald's retention is time-bounded and rotates while the
+question it answers — which carriers serving this airport this project
+still cannot name — is a slow one, measured in weeks; the concrete
+motivation is that the alternative is the manual cross-reference against
+the official Paris Aéroport airline list that produced this session's five
+prior additions. Three honest caveats apply: the count is poll cycles
+rather than distinct flights, so one aircraft held on the runway inflates
+it; the record is bounded in entry count and evicts the least-recurring
+entry first, precisely so a spoofed or malformed callsign field cannot
+displace a genuine finding; and only shape-valid callsigns whose prefix is
+absent from the static table are ever recorded, so a covered airline can
+never appear there. The remediation for a recorded prefix is to
+live-verify it against adsbdb and add a row to the static table under that
+table's own sourcing discipline — never to infer an airline name from the
+three letters.
+
 **Composition.** `server/plane/render.py` builds a two-flight poster: the
 current detection (large, upper-center) and the immediately-preceding
 detection from `poll_state.json`'s two-deep history (smaller, lower-right)
