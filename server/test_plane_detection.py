@@ -22,7 +22,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 6
+EXPECTED_CHECK_COUNT = 10
 
 
 def load_fixture(name):
@@ -134,6 +134,64 @@ def main():
                 first["hex"], second["hex"])
         return True, ""
     check("select_runway3_aircraft is deterministic under input reordering", _deterministic_under_shuffle)
+
+    # 7. PLANE-01/02: the multi-aircraft fixture winner's aircraft_type is
+    #    extracted from its fixture-carried `t` field (03.1-02).
+    def _multi_aircraft_winner_has_aircraft_type():
+        fixture = load_fixture("geofence_multi_aircraft.json")
+        winner = detect.select_runway3_aircraft(fixture["ac"], geofence)
+        if winner is None:
+            return False, "expected a winner"
+        if winner.get("aircraft_type") != "B738":
+            return False, "expected aircraft_type 'B738', got %r" % (winner.get("aircraft_type"),)
+        return True, ""
+    check("select_runway3_aircraft: multi-aircraft winner's aircraft_type is B738", _multi_aircraft_winner_has_aircraft_type)
+
+    # 8. PLANE-01/02: the on-ground fixture winner's aircraft_type is
+    #    extracted from its fixture-carried `t` field (03.1-02).
+    def _on_ground_winner_has_aircraft_type():
+        fixture = load_fixture("geofence_on_ground.json")
+        winner = detect.select_runway3_aircraft(fixture["ac"], geofence)
+        if winner is None:
+            return False, "expected a winner"
+        if winner.get("aircraft_type") != "A320":
+            return False, "expected aircraft_type 'A320', got %r" % (winner.get("aircraft_type"),)
+        return True, ""
+    check("select_runway3_aircraft: on-ground winner's aircraft_type is A320", _on_ground_winner_has_aircraft_type)
+
+    # 9. A record with no `t` key at all still selects successfully and
+    #    yields aircraft_type is None - built inline from the multi-aircraft
+    #    fixture's own winner coordinates rather than a third fixture file.
+    def _no_type_key_yields_none():
+        fixture = load_fixture("geofence_multi_aircraft.json")
+        winner_record = next(ac for ac in fixture["ac"] if ac["hex"] == "39d300")
+        no_type_record = dict(winner_record)
+        no_type_record.pop("t", None)
+        winner = detect.select_runway3_aircraft([no_type_record], geofence)
+        if winner is None:
+            return False, "expected a winner"
+        if winner.get("aircraft_type") is not None:
+            return False, "expected aircraft_type None for a record with no t key, got %r" % (winner.get("aircraft_type"),)
+        return True, ""
+    check("select_runway3_aircraft: a record with no t key yields aircraft_type None", _no_type_key_yields_none)
+
+    # 10. T-03.1-02-01 / ASVS V5: a battery of malformed type values all
+    #     degrade to aircraft_type None and none raises.
+    def _malformed_type_values_never_raise():
+        fixture = load_fixture("geofence_multi_aircraft.json")
+        winner_record = next(ac for ac in fixture["ac"] if ac["hex"] == "39d300")
+        malformed_values = ["", "   ", 738, ["A320"], "../../etc/passwd"]
+        for bad_value in malformed_values:
+            record = dict(winner_record)
+            record["t"] = bad_value
+            winner = detect.select_runway3_aircraft([record], geofence)
+            if winner is None:
+                return False, "expected a winner for malformed t=%r" % (bad_value,)
+            if winner.get("aircraft_type") is not None:
+                return False, "expected aircraft_type None for malformed t=%r, got %r" % (
+                    bad_value, winner.get("aircraft_type"))
+        return True, ""
+    check("select_runway3_aircraft: malformed type values all yield aircraft_type None without raising", _malformed_type_values_never_raise)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

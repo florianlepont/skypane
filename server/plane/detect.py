@@ -18,6 +18,7 @@ Usage:
 import argparse
 import json
 import os
+import re
 import sys
 import time
 
@@ -53,6 +54,14 @@ PROVIDERS = {
 # Examples, inherited from 01-RESEARCH.md). Sleeping longer than the strict
 # minimum leaves headroom.
 MIN_SECONDS_BETWEEN_CALLS = 1.1
+
+# Real ICAO aircraft type designators are short alphanumeric codes (B738,
+# A20N, AT76, E145) - never containing whitespace, path separators, or any
+# other punctuation. T-03.1-02-01 (ASVS V5): the raw `t` field crosses an
+# untrusted trust boundary from the aggregator, so this is the normalization
+# boundary - a value that doesn't match this shape is treated the same as a
+# genuinely missing designator (None), never passed through as-is.
+_VALID_AIRCRAFT_TYPE_RE = re.compile(r"^[A-Z0-9]+$")
 
 DEFAULT_GEOFENCE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),  # server/
@@ -161,8 +170,10 @@ def select_runway3_aircraft(aircraft, geofence):
     None if no candidate is both in-bbox and below-ceiling. aircraft_type is
     the ICAO type designator as reported by the aggregator (B738, A20N,
     AT76), uppercased, or None when the record carries none, carries an
-    empty/whitespace-only value, or carries a non-string value - a missing
-    designator is an ordinary, expected case, not an error.
+    empty/whitespace-only value, carries a non-string value, or carries a
+    string that isn't shaped like a real ICAO type designator (alphanumeric
+    only - see _VALID_AIRCRAFT_TYPE_RE) - a missing designator is an
+    ordinary, expected case, not an error.
     """
     candidates = [
         ac for ac in filter_in_geofence(aircraft, geofence)
@@ -180,7 +191,11 @@ def select_runway3_aircraft(aircraft, geofence):
 
     callsign = (winner.get("flight") or "").strip() or None
     raw_type = winner.get("t")
-    aircraft_type = (raw_type if isinstance(raw_type, str) else "").strip().upper() or None
+    if isinstance(raw_type, str):
+        candidate_type = raw_type.strip().upper()
+        aircraft_type = candidate_type if _VALID_AIRCRAFT_TYPE_RE.match(candidate_type) else None
+    else:
+        aircraft_type = None
     vertical_rate_fpm = winner.get("baro_rate")
     if vertical_rate_fpm is None:
         vertical_rate_fpm = winner.get("geom_rate")

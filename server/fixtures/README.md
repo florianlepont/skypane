@@ -34,6 +34,17 @@ fixture, always explicitly noted).
     `test_plane_detection.py`.
   - `hex 000002` / `flight "SYNTH02 "` — synthetic, `lat`/`lon` set to
     `null` on purpose to drive the missing-position negative case.
+- **`t` field (phase 03.1):** `t: "B738"` on `39d300` and `t: "A20N"` on
+  `39dd01` were added synthetically in phase 03.1 for the aircraft-type
+  extraction tests (`server/plane/detect.py`'s `aircraft_type` field,
+  PLANE-01/02). Neither value was present in the original captured
+  payload; both are chosen to be real ICAO type designators plausible for
+  the callsign already on each record — `39d300`/`39dd01` are both
+  Transavia France (`TVF`) callsigns, and Transavia France's real
+  dominant type per `03.1-CONTEXT.md` D-03 is the B737-family (B738 is
+  used here; A20N marks the carrier's parallel A320neo-family fleet).
+  `000001`/`000002` deliberately carry no `t` key at all, driving the
+  missing-type-designator negative case.
 
 ## `geofence_on_ground.json`
 
@@ -49,6 +60,14 @@ fixture, always explicitly noted).
     `geofence_multi_aircraft.json`'s source snapshot.
 - Under D-P2-01 the on-ground aircraft (`3985a7`, effective altitude `0`)
   beats the 800ft airborne aircraft.
+- **`t` field (phase 03.1):** `t: "A320"` on `3985a7` was added
+  synthetically in phase 03.1 for the aircraft-type extraction tests
+  (`server/plane/detect.py`'s `aircraft_type` field, PLANE-01/02). It was
+  not present in the original captured payload; the value is chosen to be
+  a real ICAO type designator plausible for the callsign already on the
+  record — `3985a7` is an `AFR` (Air France) callsign, and A320 is Air
+  France's real Orly type per `03.1-CONTEXT.md` D-03. `39dd01` in this
+  file deliberately carries no `t` key.
 
 ## `geofence_empty.json`
 
