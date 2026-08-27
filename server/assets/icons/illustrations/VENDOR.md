@@ -79,7 +79,7 @@ files currently vendored in this directory, `shasum -a 256 <file>`).
 | `air-france.png` | Air France | Airbus A320 | 2008×783 | `eeeeb53cb687b6f2ab054984fcb7f4910c781be7641e2215ada947ad340a96d4` |
 | `iberia-airlines.png` | Iberia Airlines | Airbus A320 | 2170×725 | `9873a243c6c75b65a5417b77486659fa94b72b8a8d193f3e94a2af4b624c7339` |
 | `tap-portugal.png` | TAP Portugal | Airbus A321neo | 2073×758 | `984fa5682f53b82a35f2f974ce604e07d1b5810bc1cc8cf08c03648293f81164` |
-| `air-algerie.png` | Air Algérie | Boeing 737-800 | 2073×758 | `e3e38c8685dd63cf5c6698178d2264e6a320ccddcb66b897aa72a6327c0de996` |
+| `air-algerie.png` | Air Algérie | Boeing 737-800 | 1774×887 | `9c519bca126c416715893bd672b41340a3f8617e5fc9205fe4c87a73bcb141e6` |
 | `air-corsica.png` (renamed from `ccm-airlines.png`, 260827-kih) | Air Corsica (adsbdb still resolves the pre-2013-rebrand name "CCM Airlines" - see Naming rules) | Airbus A320 | 1735×906 | `21abe6cf667e955f4274b50ab9bbf489d743e5599f1f451ebf3a14547e32d6d4` |
 | `vueling-airlines.png` | Vueling Airlines | Airbus A320neo | 1916×821 | `331ed5c7cfa763c48e7209ed3dfa61c989b387f1b12d5fa48470b297fd12322a` |
 | `transavia-france.png` | Transavia France | Boeing 737-800 | 2078×757 | `a793210007eedaeb950e09f42459967e337dbc4c411d9bc41380e4a3c72cc933` |
@@ -97,34 +97,32 @@ dimensions read via Pillow `Image.open(path).size`).
 
 | Filename | Airline served | Aircraft type | Dimensions (px) | sha256 |
 |---|---|---|---|---|
-| `easyjet.png` | easyJet | Airbus A320neo | 1774×887 | `0c7fbfb7cb54980549eb31a9755745ec31b1dc64ad7a5c32bb645fbd984a1e2d` |
-| `wizz-air.png` | Wizz Air | Airbus A321neo | 2072×759 | `6a964206e077f4a0c591310471893121ef3753c35c32f11ba0bc158b24aeb68d` |
-| `volotea.png` | Volotea | Airbus A320 | 2053×766 | `600f5aad2b67ed8d3dcde1b94a3ac303bd6542562a665849ce88e6be8425f351` |
-| `ita-airways.png` | ITA Airways | Airbus A321neo | 2172×724 | `0e0ade845ac994d5d0f1d9ea399482b6969e48eba20c440477b90c6637a3cc00` |
-| `air-europa.png` | Air Europa | Boeing 737-800 | 1997×788 | `62b00637e4e98174c2505abb4d39bc885cbc81c1a28d35661d15db6e9496134b` |
-| `royal-air-maroc.png` | Royal Air Maroc | Boeing 737 MAX 8 | 2048×768 | `5f91c708f20a24f8998040ec0c28affa22478022699bbb41fee0714a44b20149` |
-| `lot-polish-airlines.png` | LOT Polish Airlines | Embraer E195 | 2172×724 | `7c258442bcab8cd80e3903eccf13d171f06dd8dec6dcfc917ee56c61a6f8b844` |
-| `air-caraibes.png` | Air Caraïbes | Airbus A350-900 | 2172×724 | `fdd7c38784ebd7b73fb8c1412f64fcd123a15290044bb4235ec0db1a39baaef1` |
-| `french-bee.png` | French Bee | Airbus A350-900 | 2048×768 | `30180fb1a3ac75280a12b8263223feb246fe4f53fd5db44e60eb7df322f711a1` |
-| `asl-airlines-france.png` (renamed from `europe-airpost.png`, 260827-kih) | ASL Airlines France (adsbdb still resolves the pre-2015-rebrand name "Europe Airpost" — see Naming rules) | Boeing 737-800 | 1967×799 | `e768d1977d89ed59ad56238e534c267634ebe504c5af55e1cb0c96beeb66eecc` |
-| `tunisair.png` | Tunisair | Airbus A320neo | 1962×801 | `45da829a1889e11ce9a41878ac779c92278422c9873c0d1a067f51bedb9506a9` |
-| `pegasus-airlines.png` | Pegasus Airlines | Airbus A321neo | 2087×754 | `b1b1172a6dc8e1b379206b9dbecf58564b84b2842f3b55ae5fbf7eacb31e8c33` |
-| `chalair-aviation.png` | Chalair Aviation | ATR 72 | 2068×760 | `7526a7feba31bad21a7016af5b6f2e19d3438cd5f6edd13c1a91e917f42fcfd4` |
-| `twin-jet.png` | Twin Jet | Beechcraft 1900D | 1926×816 | `1cca1686cce71aeec6adce4b5b8cebaa1ddd324af8682f8738b7095cc1ccca70` |
-| `corsair.png` (renamed from `corsairfly.png`, 260827-kih) | Corsair (adsbdb still resolves the prior-brand name "Corsairfly" — see Naming rules) | Airbus A330-900neo | 2172×724 | `80b5fdb68038195611282f8a1612cdd187f88ae506a32fc6d3230b8261dbe68c` |
+| `easyjet.png` | easyJet | Airbus A320neo | 1774×887 | `79f3295f07367da9187fae7ad9eaa7bfe73781ff3f3b0d57a02486e6b2bc12ad` |
+| `wizz-air.png` | Wizz Air | Airbus A321neo | 2103×748 | `0b5cc7a13751c811076b7638fd473e30d7911a2f88a632bc6434bb037d59f164` |
+| `volotea.png` | Volotea | Airbus A320 | 1774×887 | `c6d7b4a47cdc03165982f3582129d68b13dd8f34c199c9ec92eb4e57a7ca7e01` |
+| `ita-airways.png` | ITA Airways | Airbus A321neo | 2138×735 | `27840fae3041edd404f2b109026eca42e2319ef0709a140fb1a83dcb7df8d568` |
+| `air-europa.png` | Air Europa | Boeing 737-800 | 1672×941 | `5cf3fd251f28ae55634f4681cdb857082c6d0a83988c309807922ec6a3384068` |
+| `royal-air-maroc.png` | Royal Air Maroc | Boeing 737 MAX 8 | 1774×887 | `462775d3534dad7fce8733ac6888c783a221c9aa73bcc602e7ccc80afdbc99ba` |
+| `lot-polish-airlines.png` | LOT Polish Airlines | Embraer E195 | 1994×789 | `8f972d953b1fcd0407e83661b18c07f64266f2dc18d75b67e78fbf91fd53da45` |
+| `air-caraibes.png` | Air Caraïbes | Airbus A350-900 | 2135×736 | `e0e4679ddc236206e446669a970d29c527f88687e8a522c05758edf7b921dc98` |
+| `french-bee.png` | French Bee | Airbus A350-900 | 2073×758 | `6b7209d25f09076067665fd0729b9b8f43851738aab942a7b1e23506891927f7` |
+| `asl-airlines-france.png` (renamed from `europe-airpost.png`, 260827-kih) | ASL Airlines France (adsbdb still resolves the pre-2015-rebrand name "Europe Airpost" — see Naming rules) | Boeing 737-800 | 1672×941 | `09d7fe175aff73c8b98eb6f99400fce81a502a99d45d22ca59aff3ef1c34701d` |
+| `tunisair.png` | Tunisair | Airbus A320neo | 1672×941 | `d837b45ae6b9caa506cbda3994ae14166afcfe2b8d32bfa2f44ae89f88443a80` |
+| `pegasus-airlines.png` | Pegasus Airlines | Airbus A321neo | 1672×941 | `b973d7eb11d77d4f8f4e2a683007ee90e5e371d796eb7891c9b569cb5808f07c` |
+| `chalair-aviation.png` | Chalair Aviation | ATR 72 | 1774×887 | `7554aabfbb89b4d9f0e47a523da02050367e686e9073bf7852d8b56776f4335b` |
+| `twin-jet.png` | Twin Jet | Beechcraft 1900D | 1774×887 | `073ae62ffbb389cf9a354e8a3215006f0a708d2f38050df038f4ee61531f7529` |
+| `corsair.png` (renamed from `corsairfly.png`, 260827-kih) | Corsair (adsbdb still resolves the prior-brand name "Corsairfly" — see Naming rules) | Airbus A330-900neo | 1672×941 | `0cab4949fe62f79eb9a7275a76ab0c703eefaedc0a393ef492f97d3aa6a5baf2` |
 
 **Airline secondary-variant files (3) — mixed-fleet minority types, P-04:**
 
 | Filename | Airline served | Aircraft type | Dimensions (px) | sha256 |
 |---|---|---|---|---|
 | `air-corsica-atr72.png` (renamed from `ccm-airlines-atr72.png`, 260827-kih) | Air Corsica (adsbdb still resolves the pre-2013-rebrand name "CCM Airlines" — see Naming rules) | ATR 72-600 | 1881×836 | `ee422917de57506d77420b491eee6971a841620a10dc60cf138bc3d6f2fb86e8` |
-| `transavia-france-a320.png` | Transavia France | Airbus A320neo | 1774×887 | `bca0bd1f345e9a8f8e223f371765e88eecc4db1fe44af055a32535d28bcc9aa8` |
+| `transavia-france-a320.png` | Transavia France | Airbus A320neo | 2080×756 | `0b38cd60da537c2d86a1371d9469b0ae282a64c9b674540ea9babcf78c5b62c1` |
 | `air-caraibes-a330.png` | Air Caraïbes | Airbus A330-300 | 1991×789 | `71a1e71069599c931421859cdb5c3110274b7d00668d08c0d8c6d9e26b101ffd` |
 
-Note: `royal-air-maroc-embraer.png` (Royal Air Maroc's minority Embraer E190
-variant) is target #28 of this tier (per `--targets`' current numbering)
-and remains **outstanding** — not yet generated. See the coverage section
-below for the exact list delivered.
+`royal-air-maroc-embraer.png` was delivered in the 2026-08-27 follow-up
+batch documented below.
 
 **Neutral shape fallbacks (7, D-07 tier) — serve no specific carrier:**
 
@@ -135,17 +133,17 @@ for all seven.
 
 | Filename | Airline served | Aircraft type | Dimensions (px) | sha256 |
 |---|---|---|---|---|
-| `generic-a320.png` | *(none — D-07 neutral shape fallback)* | A320-family shape | 2048×768 | `d64c370f80604732d429ec3c3978961e09b5e72df6112256e3ab42a3981ea898` |
-| `generic-b737.png` | *(none — D-07 neutral shape fallback)* | B737-family shape | 2103×748 | `c5da4e6ad0eff8ac846be7c67becee434f22335ad176f9b1e26f52eab88d99c0` |
-| `generic-atr72.png` | *(none — D-07 neutral shape fallback)* | ATR 72 shape | 2048×768 | `fceda76659d5c65137ca67c4fb62ffae91e867e040343a21bd9aaa4269c9c6ff` |
-| `generic-beechcraft1900d.png` | *(none — D-07 neutral shape fallback)* | Beechcraft 1900D shape | 1870×841 | `96b36bd7c0fba610a49e4e5d8e3e92dfc2907deebf2d727b3dd1500cf049c74c` |
-| `generic-embraer.png` | *(none — D-07 neutral shape fallback)* | Embraer E-Jet shape | 2172×724 | `4554ad60f6390d54f8c80504adcabbace04aefa508f1a04aa681fac6d4a61e6f` |
-| `generic-a330.png` | *(none — D-07 neutral shape fallback)* | A330-family shape | 2172×724 | `11ec3c888fa12247a93708c91688c8a1eccfcd4859392de65173c825c52b5be1` |
-| `generic-a350.png` | *(none — D-07 neutral shape fallback)* | A350-family shape | 2172×724 | `b39ac32f818397a8f3745591fc6fa03725674dd1e54d5f1e12aa1f561d8639ac` |
+| `generic-a320.png` | *(none — D-07 neutral shape fallback)* | A320-family shape | 1672×941 | `bb4e2aefe0fdb337b77eda1713a20308ba024992ee6f5c330249ccc09bd5d2bf` |
+| `generic-b737.png` | *(none — D-07 neutral shape fallback)* | B737-family shape | 1672×941 | `f4fb6c57b2834afd2cc15d92496f9c8a6d0f16cbc4bff8d4abeef88167b35bad` |
+| `generic-atr72.png` | *(none — D-07 neutral shape fallback)* | ATR 72 shape | 1774×887 | `1dd0a7ea19381f440ff55f39776d08a65933ea1c10a1e4759f27bdd6d1c3943d` |
+| `generic-beechcraft1900d.png` | *(none — D-07 neutral shape fallback)* | Beechcraft 1900D shape | 1920×819 | `388c14cfb9cb064c97ed0c61206b86ac7e13aa203bfe1d8e2eccfe8f4f70dc14` |
+| `generic-embraer.png` | *(none — D-07 neutral shape fallback)* | Embraer E-Jet shape | 2172×724 | `ba78794a0d37200291b53b8f2f7cdc7f8d1ca0949aab0a6e4da5f2b26b7f6723` |
+| `generic-a330.png` | *(none — D-07 neutral shape fallback)* | A330-family shape | 1672×941 | `9668b91ff52283ad44d514eb74e528991dadb0792749923ca6968d019386a0e7` |
+| `generic-a350.png` | *(none — D-07 neutral shape fallback)* | A350-family shape | 1774×887 | `459fa39fa8df935cd01480aebcec2e7e83c9f6a9f1904e8b23d427130263c9eb` |
 
 ### `_unresolved/` — generated but NOT selection targets (not shipped assets)
 
-These three files exist on disk (required here only so
+These two files exist on disk (required here only so
 `scripts/check-attribution.sh` — which recurses — passes; they are invisible
 to `server/plane/illustrations.py --validate`, which does a non-recursive
 directory listing) but correspond to **no `(airline, shape)` combination any
@@ -154,9 +152,8 @@ shipped, reachable art.
 
 | Filename | Why it is not a target | Dimensions (px) | sha256 |
 |---|---|---|---|
-| `_unresolved/amelia-international.png` | **Status changed by quick task 260827-kih (2026-08-27): Amelia IS now a real selection target** (`amelia.png`/`amelia-embraer.png`, live-verified ICAO prefix `AIA` - see the Naming rules/Coverage caveat sections above and `enrich.py`'s `_AIRLINE_NAME_CORRECTIONS`). This specific file remains a non-selectable holding-directory artifact anyway, for two independent reasons: (1) its filename (`amelia-international.png`) does not match either derived slug (`amelia.png`/`amelia-embraer.png` - the carrier's confirmed name is "Amelia", not "Amelia International"), and (2) its depicted aircraft type was never recorded or eye-verified against either target's requirement (A320 primary / Embraer E145 secondary) at the time it was generated. The developer may promote it to a real target by `git mv`-ing it to the correct filename *after* confirming by eye which type it depicts and that the nose points left, or may simply regenerate fresh art from `HANDOFF.md`'s prompts #25/#30 instead. Original disposition, for the record: generated speculatively under the old, incorrect "Amelia International" name before `03.1-LIVE-RESOLUTION.md` Step C marked that name `[UNRESOLVED]` (neither the guessed candidate ICAO code `AMB`, resolving to a German air-ambulance operator, nor the two-independently-sourced candidate `AEH`, per airhex.com and French Wikipedia, resolved to Amelia in `adsbdb` - a real, live `AEH`-coded flight was confirmed that session to actually belong to Aviaexpress, Hungary). | 2135×736 | `e0e4679ddc236206e446669a970d29c527f88687e8a522c05758edf7b921dc98` |
 | `_unresolved/la-compagnie.png` | Same situation as Amelia International. `03.1-LIVE-RESOLUTION.md` Step C marks La Compagnie `[UNRESOLVED]`: its real-world ICAO code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s own database resolves that exact code to an unrelated US airline ("Denver Jet"), and no real La Compagnie callsign was available this session to determine what a genuine flight actually returns. Kept for future reference only; same remediation path as Amelia. | 2048×768 | `b3acb6f628bae81c29c7cce6796b72880e2b19277cf692b284a3b8487192f4f9` |
-| `_unresolved/air-caraibes-atr72-unused.png` | Air Caraïbes' ATR72 fleet is explicitly documented in `03.1-CONTEXT.md` D-03 as staying in-Caribbean, not Orly-relevant — `_TYPE_SHAPE_BUCKETS`'s atr72 comment in `illustrations.py` does not list Air Caraïbes among that shape's airlines. There is no `("Air Caraïbes", "atr72")` entry in `_ILLUSTRATION_TARGETS` and none can ever be reached by `select_illustration()`. Kept only in case the shape-bucket granularity changes later. | 2172×724 | `f7a682ae42c45a351949797eb2f62cb2eb51537cc2320a2e7189390e1843f8d3` |
+| `_unresolved/air-caraibes-atr72-unused.png` | Superseded draft retained only for historical reference. A separately audited `air-caraibes-atr72.png` is now a canonical target. | 2172×724 | `f7a682ae42c45a351949797eb2f62cb2eb51537cc2320a2e7189390e1843f8d3` |
 
 The aircraft-type column mirrors `server/assets/icons/VENDOR.md`'s
 existing "Selected aircraft types" list, cross-checked against
@@ -236,18 +233,11 @@ including `generic-fallback.png`, plus 26 new Phase 3.1 targets — see
 authoritative enumeration; `HANDOFF.md`'s "Required files" section lists
 the same 34 by name).
 **Delivered this batch:** 25 of the 26 outstanding targets.
-**Outstanding from the Phase 3.1 batch:** 1 file —
-`royal-air-maroc-embraer.png` (Royal Air Maroc's minority Embraer E190
-secondary variant, P-04). Reason: not yet generated. The developer's Task 2
-hand-off was an explicitly named partial batch. Real flights of Royal Air
-Maroc detected as the B737 shape are unaffected (Tier 2, the
-`royal-air-maroc.png` primary file, already covers them); only the rarer
-Embraer-shape secondary variant falls through to Tier 3 (`generic-embraer.png`)
-or Tier 4 until this file is delivered. Nothing else in the Phase 3.1 target
-set is silently dropped. See "Quick task 260827-kih" below for the current
-project-wide total of 5 outstanding files (the "Quick task 260827-jz6"
-subsection immediately below records the intermediate 3-file total as of
-that session).
+**`royal-air-maroc-embraer.png`** (Royal Air Maroc's minority Embraer E190
+secondary variant, P-04) was the one file left outstanding from this batch;
+it was delivered in the 2026-08-27 follow-up batch documented below, by a
+parallel session running the same day. Nothing in the Phase 3.1 target set
+was silently dropped.
 
 ### Quick task 260827-jz6 (2026-08-27) — two new targets, both outstanding
 
@@ -283,8 +273,11 @@ an oversight. Accepted consequence: an `adsbdb`-hit render shows the legacy
 identify the real carrier; the divergence is cosmetic, not a wrong-carrier
 claim. See `HANDOFF.md`'s Naming rules section for the full record.
 
-**No PNG artwork was generated by this task.** Both files await an external
-developer-side generation batch per D-09.
+**No PNG artwork was generated by this task.** Both files awaited an
+external developer-side generation batch per D-09 — since delivered by a
+parallel session the same day; see the digest tables above and the
+follow-up batch note below. `--outstanding` is the authoritative current
+state at any given moment.
 
 **D-03 airlines excluded from the target set (not "outstanding" — excluded
 by design, per `03.1-LIVE-RESOLUTION.md`):**
@@ -297,9 +290,12 @@ by design, per `03.1-LIVE-RESOLUTION.md`):**
   this exclusion was recorded (Phase 3.1), no adsbdb code could be trusted:
   the guessed candidate (`AMB`) resolved to a wrong airline, and the two
   independently-corroborated candidate (`AEH`) was confirmed via a real
-  live flight to actually belong to Aviaexpress (Hungary), not Amelia. See
-  `_unresolved/amelia-international.png` above for the disposition of the
-  art generated under the old, incorrect exclusion.
+  live flight to actually belong to Aviaexpress (Hungary), not Amelia. The
+  speculatively-generated `_unresolved/amelia-international.png` this
+  exclusion produced has since been removed from disk (2026-08-27, by the
+  same parallel session that delivered the real `amelia.png`/
+  `amelia-embraer.png` art) — it is no longer present and no longer listed
+  in the `_unresolved/` table above.
 - **La Compagnie** — `[UNRESOLVED]`, still excluded. Its real-world ICAO
   code (`DJT`) is independently confirmed via Wikipedia, but `adsbdb`'s own
   database resolves that exact code to an unrelated US airline ("Denver
@@ -359,12 +355,14 @@ lives in `enrich.py` itself and in `test_enrich.py`.
   corroborated by Flightradar24 (live-tracked flight 8R6412 as callsign
   8R/AIA), Airhex, Wikipedia, ERAA and IATA.
 
-**Two new outstanding targets, both flagged moderate-confidence on
-livery detail (see `HANDOFF.md` prompts #25/#30 for the full note):**
+**Two new targets, initially flagged moderate-confidence on livery detail
+pending generation (see `HANDOFF.md` prompts #25/#30) — since delivered and
+corrected against a real reference photo; see the digest table and the
+"Amelia A320 correction" note below for the actual, verified livery:**
 
-| Filename | Airline | Aircraft type | Livery (moderate confidence) |
+| Filename | Airline | Aircraft type | Livery (moderate confidence at spec time) |
 |---|---|---|---|
-| `amelia.png` | Amelia | Airbus A320 | White fuselage, blue tail, lowercase "amelia" wordmark |
+| `amelia.png` | Amelia | Airbus A320 | Originally specified as white fuselage, blue tail, lowercase "amelia" wordmark — corrected post-delivery, see below |
 | `amelia-embraer.png` | Amelia | Embraer E145 | Same livery, on the regional-jet airframe (Amelia's real Orly-relevant Pau service type, per `03.1-CONTEXT.md` D-03) |
 
 **KM Malta Airlines and TUIfly Belgium (quick task `260827-jz6`) are
@@ -373,8 +371,10 @@ untouched by this session (QT-kih-D-07) — see the Naming rules section of
 `JAF` this session, even though it could trivially cover the same failure
 mode.**
 
-**No PNG artwork was generated by this task.** Both Amelia files await an
-external developer-side generation batch per D-09.
+**No PNG artwork was generated by this task.** Both Amelia files awaited an
+external developer-side generation batch per D-09 — since delivered by a
+parallel session the same day; see the "Follow-up aircraft batch" digest
+table and the "Amelia A320 correction" note below.
 
 ### Quick task 260827-lgt (2026-08-27) — two new targets with art, one carrier deliberately sharing existing art
 
@@ -434,5 +434,51 @@ QT-lgt-D-02: Wizz Air UK (`WUK`) is explicitly out of scope, was never
 researched this session, and must not be added as tidy-up.
 
 **No PNG artwork was generated by this task.** All three new files
-(`air-france-hop.png`, `air-france-hop-atr72.png`, `klasjet.png`) await an
-external developer-side generation batch per D-09.
+(`air-france-hop.png`, `air-france-hop-atr72.png`, `klasjet.png`) awaited an
+external developer-side generation batch per D-09 — since delivered by a
+parallel session the same day; see the "Follow-up aircraft batch" digest
+table below.
+
+## Additional Air Caraïbes variants (2026-08-27)
+
+These two native-RGBA variants were delivered during the preceding livery
+audit and are now registered as exact selection targets.
+
+| Filename | Airline served | Aircraft type | Dimensions (px) | sha256 |
+|---|---|---|---|---|
+| `air-caraibes-a350-1000.png` | Air Caraïbes | Airbus A350-1000 | 2117×743 | `1cba6996aaf0101444bad48a401b3ddecc27a181690e5db1ba71f0009e24f478` |
+| `air-caraibes-atr72.png` | Air Caraïbes | ATR 72 | 2172×724 | `f7a682ae42c45a351949797eb2f62cb2eb51537cc2320a2e7189390e1843f8d3` |
+
+## Follow-up aircraft batch (2026-08-27)
+
+Generated with OpenAI's built-in image-generation tool as native RGBA PNGs,
+using the same nose-left, horizontal side-profile and transparent-background
+convention as the existing set. Liveries were checked against current
+operator imagery before generation. In particular, the earlier
+`_unresolved/amelia-international.png` was rejected because it depicted Air
+Caraïbes rather than Amelia; it was removed instead of promoted.
+
+| Filename | Airline served | Aircraft type / livery status | Dimensions (px) | sha256 |
+|---|---|---|---|---|
+| `km-malta-airlines.png` | KM Malta Airlines | Airbus A320neo, post-2023 | 2017×780 | `57317df5cbb460889afd1358be7579f45d5f3742abfb594b222f7715f55bd38f` |
+| `tuifly-belgium.png` | TUIfly Belgium | Boeing 737 MAX 8 | 2001×786 | `71605dfeee854ba4c296b242d31831a3fcee12d86d15d848dacb2b395d7390ea` |
+| `amelia.png` | Amelia | Airbus A320, white tail with low emerald fuselage ribbons | 2084×754 | `58598c69094b4a77c79a61f588343c5159d38cce474b59f3fb431e4723f5cdd4` |
+| `amelia-embraer.png` | Amelia | Embraer E145, verified white/dark-green livery | 2067×761 | `284e4947fe2f1b30c51ddd0bc9b6af6489ba3bd92f526800260435f65141aa53` |
+| `air-france-hop.png` | Air France HOP | Embraer E190, post-2019 | 2135×737 | `20eb212ce74e744e7972a248d107a9cacae7b4003652f1d53a783861d8c1c995` |
+| `air-france-hop-atr72.png` | Air France HOP | ATR 72-600, historical HOP! livery | 2056×765 | `6994215f6b85048f084cdf1900a86ad826f38cdecba569a92d9f6f8db69e3121` |
+| `klasjet.png` | KlasJet | Boeing 737-800, current minimalist ACMI appearance | 2073×758 | `628557ff3171001d9dfd6b847f9c5471da9c6b6657b1006edc0d40d54a5e5f20` |
+| `royal-air-maroc-embraer.png` | Royal Air Maroc | Embraer E190 | 1971×798 | `91079825f60d821e26cd787f95547934a5fc077f54bcb189f9a23a0f08161cd2` |
+
+No post-processing, cropping, alpha replacement or background removal was
+applied: the accepted files are the generator's native outputs. Each file
+was checked for RGBA mode, transparent corners, non-opaque alpha, minimum
+width, landscape framing, nose-left orientation, horizontal attitude and
+aircraft-type/livery match.
+
+**Amelia A320 correction:** after the first delivery, a user-supplied photo
+of F-HDSJ showed that the initial illustration overextended the green graphic
+onto the vertical tail and enlarged the wordmark. `amelia.png` was regenerated
+with the real aircraft's plain white tail, modest uppercase `AMELIA` title and
+two low emerald ribbons. A first correction draft that painted a checkerboard
+was rejected as opaque RGB and never vendored; the accepted replacement is
+native RGBA with transparent corners.

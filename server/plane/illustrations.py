@@ -233,10 +233,11 @@ _COVERAGE_CHECK_AIRLINE_NAME = "Volotea"
 # Europe) remains a confirmed non-resolving carrier for which no file is
 # requested, unchanged from Phase 3 (P-03).
 #
-# Amelia International and La Compagnie are deliberately absent -
-# 03.1-LIVE-RESOLUTION.md marks both `[UNRESOLVED]` (no adsbdb code could
-# be trusted this session for either). Add them here with zero other code
-# change once a real callsign confirms their resolved name.
+# La Compagnie remains deliberately absent: 03.1-LIVE-RESOLUTION.md marks
+# it `[UNRESOLVED]`.  The additional airline assets below are explicit
+# product coverage requested on 2026-08-27; the table is also the canonical
+# filename registry, even where adsbdb still needs a future resolution-key
+# audit before the art can be selected from live traffic.
 _ILLUSTRATION_TARGETS = [
     # --- Baseline: already-confirmed resolutions, primary files ---
     ("Air France", None, "D-03 baseline; [VERIFIED-CALLSIGN]"),
@@ -437,6 +438,23 @@ _ILLUSTRATION_TARGETS = [
         "'Air France Hop' primary row and give this row 'embraer' "
         "instead), and D-06's Tier 2 fallback means a HOP flight of the "
         "non-primary type still gets HOP-branded art either way.",
+    ),
+    (
+        "Air Caraïbes",
+        "a350-1000",
+        "Long-haul secondary variant added during a parallel 2026-08-27 "
+        "livery-audit session (independent of 260827-jz6/kih/lgt) - real "
+        "vendored artwork delivered directly to main "
+        "(air-caraibes-a350-1000.png), merged in here rather than "
+        "duplicated.",
+    ),
+    (
+        "Air Caraïbes",
+        "atr72",
+        "Regional secondary variant added during the same parallel "
+        "2026-08-27 livery-audit session - real vendored artwork "
+        "delivered directly to main (air-caraibes-atr72.png), merged in "
+        "here rather than duplicated.",
     ),
 ]
 

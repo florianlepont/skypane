@@ -16,19 +16,24 @@ neutral shape fallbacks — 34 target files in total, each one's aircraft type
 now dictated by its filename rather than chosen freely. Quick task
 `260827-jz6` (2026-08-27) added two further carriers, taking the plan from
 34 to 36 files. Quick task `260827-kih` (2026-08-27) added Amelia (primary +
-Embraer secondary), taking the plan from 36 to **38 files** — see the Naming
+Embraer secondary), taking the plan from 36 to 38 files — see the Naming
 rules section below for why three already-vendored files were also renamed
 in that same session, with zero effect on the total file count. Quick task
 `260827-lgt` (2026-08-27) added two further carriers with art — HOP! Air
 France (primary + ATR72 secondary) and KlasJet (primary) — plus one carrier
 that deliberately reuses existing art with zero new files (Wizz Air Malta),
-taking the plan from 38 to **41 files**.
+taking the plan from 38 to 41 files. A parallel, independent session running
+the same day delivered real vendored artwork for every one of those 41
+files' outstanding entries directly to `main`, plus two further Air Caraïbes
+secondary variants (A350-1000, ATR72) this document did not previously
+track — taking the registry to **43 target files total**, reconciled here
+rather than duplicated.
 
 Read this file in full before generating anything. Run these two commands at
 any time for the authoritative machine-reported state:
 
 ```
-server/.venv/bin/python3 server/plane/illustrations.py --targets       # the full 41-file plan
+server/.venv/bin/python3 server/plane/illustrations.py --targets       # the full 43-file plan
 server/.venv/bin/python3 server/plane/illustrations.py --outstanding   # what is still missing right now
 ```
 
@@ -39,7 +44,7 @@ exist on disk plus the pre-Phase-3.1 baseline. Nothing in the target set is
 ever silently dropped — whatever remains outstanding when you stop is
 recorded by name in `VENDOR.md`.
 
-## Required files (41 total, 8 already vendored)
+## Required files (43 total — see Outstanding below for what remains undelivered)
 
 **Airline primary files (27)**
 
@@ -638,15 +643,20 @@ Transparent background (PNG with real alpha channel) — no ground, no sky,
 no shadow, nothing behind the aircraft. Clean flat illustration style,
 crisp hard edges, vintage aviation poster plate.
 
-LIVERY CONFIDENCE NOTE: the white fuselage / blue tail / lowercase
-wordmark description above is MODERATE CONFIDENCE — check it against a
-real photo of an Amelia aircraft before generating. This carrier was only
-added to the target set this session (quick task 260827-kih) after live
-ICAO-prefix verification (see the Coverage caveat above); the livery
-detail itself has not been independently photo-verified the way this
-project's other liveries were, so treat it as a starting point for the
-developer's own judgement at generation time, not a confirmed fact.
+LIVERY CONFIDENCE NOTE (SUPERSEDED — see correction below): the white
+fuselage / blue tail / lowercase wordmark description above was MODERATE
+CONFIDENCE at spec time and has since been corrected against a real
+reference photo.
 ```
+
+**Delivered and corrected (2026-08-27, same day, by a parallel session):**
+`amelia.png` was generated from the prompt above, then regenerated after a
+user-supplied photo of registration F-HDSJ showed the real livery is a
+**plain white tail with a modest uppercase `AMELIA` title and two low
+emerald fuselage ribbons** — not a blue tail with a lowercase wordmark. See
+`VENDOR.md`'s "Amelia A320 correction" note for the full record. Any future
+regeneration of `amelia.png` or `amelia-embraer.png` should use the
+corrected description, not the original prompt text above.
 
 ### 26. `air-france-hop.png` (primary — Air France Hop's Embraer E190, 260827-lgt, MEDIUM confidence on primary/secondary split)
 ```
@@ -831,3 +841,38 @@ alpha channel) — no ground, no sky, no shadow, nothing behind the aircraft.
 Clean flat illustration style, crisp hard edges, vintage aviation poster
 plate.
 ```
+
+## 2026-08-27 user-requested extension
+
+Eight additional native-RGBA assets were generated with OpenAI's built-in
+image-generation mode. Every prompt reused the set-wide geometry contract:
+exact nose-left side profile, horizontal fuselage/window row, zero pitch,
+roll and yaw, only a narrow near-wing sliver, retracted landing gear,
+landscape framing of at least 1200px, crisp editorial illustration and true
+alpha with no backdrop or cast shadow.
+
+The per-file subject/livery clauses were:
+
+- `km-malta-airlines.png` — A320neo; current post-2023 white/red scheme,
+  large red `malta`, red tail with one white Maltese cross.
+- `tuifly-belgium.png` — 737 MAX 8; LEAP nacelles and split-tip winglets;
+  white/pale-blue TUI livery, blue tail and red smile emblem.
+- `amelia.png` — A320; verified almost-white scheme with a plain white tail,
+  modest uppercase `AMELIA` title and two low emerald fuselage ribbons. The
+  originally suggested blue tail and a later oversized tail graphic were
+  rejected as inaccurate.
+- `amelia-embraer.png` — E145 with rear engines and T-tail; the verified
+  white/dark-green Amelia sweep adapted to the regional jet.
+- `air-france-hop.png` — E190; post-2019 Air France regional scheme with
+  `AIRFRANCE`, restrained red `HOP!` and the contemporary striped tail.
+- `air-france-hop-atr72.png` — ATR 72-600; explicitly historical HOP!
+  scheme with large red forward wordmark, rear red disc and Air France tail.
+- `klasjet.png` — 737-800 NG with blended winglets; verified minimalist
+  all-white ACMI appearance, not the unconfirmed blue/yellow tail and not
+  the black/gold VIP scheme.
+- `royal-air-maroc-embraer.png` — E190; white/red/green Royal Air Maroc
+  scheme, red tail with a green five-point Moroccan star.
+
+Before this extension, `_unresolved/amelia-international.png` was inspected
+and rejected: it depicted an Air Caraïbes aircraft rather than Amelia. It
+has been removed and was not used as a visual reference.

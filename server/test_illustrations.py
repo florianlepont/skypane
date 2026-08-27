@@ -694,25 +694,29 @@ def main():
         _km_malta_and_tuifly_belgium_targets_present,
     )
 
-    # 45 (quick task 260827-kih, total updated by 260827-lgt). Amelia's two
-    # new target filenames are present in target_filenames() (still
-    # outstanding on disk, no artwork exists yet), and the full target
-    # plan now totals 41 entries (38 -> 41, quick task 260827-lgt added
-    # three: air-france-hop.png, air-france-hop-atr72.png, klasjet.png).
-    def _amelia_targets_present_and_total_is_41():
+    # 45 (quick task 260827-kih, total updated by 260827-lgt and by a
+    # parallel 2026-08-27 livery-audit session that delivered real artwork
+    # for every outstanding target plus two further Air Caraïbes secondary
+    # variants). Amelia's two new target filenames are present in
+    # target_filenames() and now exist on disk (delivered, not merely
+    # planned - see VENDOR.md's "Amelia A320 correction" note for the
+    # livery-fix record), and the full target plan now totals 43 entries
+    # (38 -> 41 via 260827-lgt, 41 -> 43 via the parallel session's two
+    # Air Caraïbes additions: air-caraibes-a350-1000.png, air-caraibes-atr72.png).
+    def _amelia_targets_present_and_total_is_43():
         targets = ill.target_filenames()
         for expected_file in ("amelia.png", "amelia-embraer.png"):
             if expected_file not in targets:
                 return False, "target_filenames() is missing %r: not present" % (expected_file,)
-            if os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
-                return False, "%r already exists on disk - expected it to still be outstanding" % (expected_file,)
-        if len(targets) != 41:
-            return False, "target_filenames() has %d entries, expected 41" % (len(targets),)
+            if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
+                return False, "%r is a target but missing on disk - expected it to be delivered" % (expected_file,)
+        if len(targets) != 43:
+            return False, "target_filenames() has %d entries, expected 43" % (len(targets),)
         return True, ""
     check(
-        "target_filenames() contains 'amelia.png'/'amelia-embraer.png' (still outstanding on disk) and totals "
-        "41 entries (260827-kih baseline, total updated by 260827-lgt)",
-        _amelia_targets_present_and_total_is_41,
+        "target_filenames() contains 'amelia.png'/'amelia-embraer.png' (delivered on disk) and totals "
+        "43 entries (260827-kih baseline, updated by 260827-lgt and a parallel Air Caraïbes livery-audit session)",
+        _amelia_targets_present_and_total_is_43,
     )
 
     # 46 (quick task 260827-kih). The four renamed files exist on disk
@@ -733,14 +737,16 @@ def main():
         _renamed_files_exist_superseded_names_do_not,
     )
 
-    # 47 (quick task 260827-lgt). "Air France Hop"/"KlasJet" are present as
-    # distinct target airline names (alongside "Air France"/"Wizz Air",
-    # which must remain present too - the exact-match guard for
-    # QT-lgt-D-04's separate-key claim); their three derived filenames are
-    # present in target_filenames() and none of them exists on disk yet;
-    # and the QT-lgt-D-01 reuse guard holds - no Malta-specific Wizz
-    # variant crept into either list, "Wizz Air"/wizz-air.png remain the
-    # sole Wizz Air Malta-brand-token entries.
+    # 47 (quick task 260827-lgt, delivery status updated by a parallel
+    # 2026-08-27 livery-audit session). "Air France Hop"/"KlasJet" are
+    # present as distinct target airline names (alongside "Air
+    # France"/"Wizz Air", which must remain present too - the exact-match
+    # guard for QT-lgt-D-04's separate-key claim); their three derived
+    # filenames are present in target_filenames() and all now exist on
+    # disk (delivered by the parallel session, not merely planned); and
+    # the QT-lgt-D-01 reuse guard holds - no Malta-specific Wizz variant
+    # crept into either list, "Wizz Air"/wizz-air.png remain the sole Wizz
+    # Air Malta-brand-token entries.
     def _lgt_targets_present_and_wizz_reuse_guard_holds():
         names = ill.target_airline_names()
         for expected in ("Air France Hop", "KlasJet", "Air France", "Wizz Air"):
@@ -752,8 +758,8 @@ def main():
         for expected_file in new_files:
             if expected_file not in filenames:
                 return False, "target_filenames() is missing %r: not present" % (expected_file,)
-            if os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
-                return False, "%r already exists on disk - expected it to still be outstanding" % (expected_file,)
+            if not os.path.isfile(os.path.join(ill.ILLUSTRATION_DIR, expected_file)):
+                return False, "%r is a target but missing on disk - expected it to be delivered" % (expected_file,)
 
         # QT-lgt-D-01 reuse guard: no member of either list, other than the
         # exact "Wizz Air" name / wizz-air.png filename, may start with the
@@ -768,7 +774,7 @@ def main():
         return True, ""
     check(
         "target_airline_names()/target_filenames() carry 'Air France Hop'/'KlasJet' (with 'Air France'/'Wizz Air' "
-        "still present as distinct names) and the three new filenames (none yet on disk); the QT-lgt-D-01 Wizz "
+        "still present as distinct names) and the three new filenames (delivered on disk); the QT-lgt-D-01 Wizz "
         "Air Malta reuse guard holds - no Malta-specific Wizz entry exists in either list (260827-lgt)",
         _lgt_targets_present_and_wizz_reuse_guard_holds,
     )
