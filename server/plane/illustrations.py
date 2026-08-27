@@ -46,6 +46,16 @@ module docstring and 02-RESEARCH.md already document them as confirmed misses.
 
 Filenames are derived from these exact live-resolved strings via
 `normalise_airline_key()`, never hand-typed - see `required_filenames()`.
+
+## `_TYPE_SHAPE_BUCKETS` (Phase 3.1, `classify_aircraft_type()`)
+
+`_TYPE_SHAPE_BUCKETS` follows the same discipline as `_LIVE_RESOLVED_AIRLINES`
+above: it is a hand-curated, static table, verified out of band (against
+`03.1-CONTEXT.md`'s D-03 user-verified fleet table and a live-observed
+sample of real ICAO type designators), hardcoded rather than fetched at
+runtime. A designator missing from the table is not an error - it degrades
+`classify_aircraft_type()` to `None`, which `select_illustration()` treats
+as "no shape" and falls through to the next fallback tier.
 """
 import os
 import re
@@ -110,6 +120,64 @@ _COVERAGE_CHECK_AIRLINE_NAME = "Volotea"
 # asset directory via path construction).
 _UNSAFE_KEY_RE = re.compile(r"[\\/]|\.\.")
 
+# The seven D-03 base aircraft shapes classify_aircraft_type() classifies
+# real ICAO type designators into. Order is iteration-stable (target_
+# filenames()'s generic-{shape}.png block uses this exact order) but is not
+# a priority ranking. Character-for-character contract shared with the
+# filename convention (illustrations/{shape}.png) and with render.py's
+# caption labels (03.1-04) - these seven strings must match everywhere.
+SHAPE_SLUGS = (
+    "a320",
+    "b737",
+    "atr72",
+    "beechcraft1900d",
+    "embraer",
+    "a330",
+    "a350",
+)
+
+# ICAO type designator (uppercase) -> one of SHAPE_SLUGS. Hand-curated from
+# 03.1-CONTEXT.md's D-03 user-verified fleet table and 03.1-RESEARCH.md's
+# Code-Level Finding #4 (ICAO Doc 8643 designators; the two designators
+# actually observed live this phase, A320 and B738, are confirmed, the
+# rest are a first draft from training knowledge per Assumption A1) -
+# same discipline as _LIVE_RESOLVED_AIRLINES below: verified out of band,
+# hardcoded, documented, never a live lookup. A designator missing from
+# this table degrades classify_aircraft_type() to None, which
+# select_illustration() treats as "no shape" and falls through to the
+# next fallback tier - a wrong or missing entry degrades safely, it never
+# raises and never fails closed into an error.
+_TYPE_SHAPE_BUCKETS = {
+    # A320 family (D-03: Air France, Vueling, Iberia, TAP, Transavia,
+    # easyJet, Wizz Air, Volotea, ITA Airways, Tunisair, Pegasus, La
+    # Compagnie [excluded from the target set pending re-verification])
+    "A318": "a320", "A319": "a320", "A320": "a320", "A321": "a320",
+    "A20N": "a320", "A21N": "a320",  # A320neo / A321neo
+    # B737 family (D-03: Transavia, Air Europa, Air Algerie, Europe
+    # Airpost/ASL Airlines France, Royal Air Maroc)
+    "B731": "b737", "B732": "b737", "B733": "b737", "B734": "b737",
+    "B735": "b737", "B736": "b737", "B737": "b737", "B738": "b737",
+    "B739": "b737", "B37M": "b737", "B38M": "b737", "B39M": "b737",
+    "B3XM": "b737",  # MAX 7/8/9/10
+    # ATR72 (D-03: CCM Airlines/Air Corsica, Chalair Aviation) - per P-06,
+    # ATR42 designators map here too since D-03's table has no separate
+    # ATR42 shape.
+    "AT43": "atr72", "AT44": "atr72", "AT45": "atr72", "AT46": "atr72",
+    "AT72": "atr72", "AT73": "atr72", "AT75": "atr72", "AT76": "atr72",
+    # Beechcraft 1900D (D-03: Twin Jet)
+    "BE9L": "beechcraft1900d",
+    # Embraer E-Jet family (D-03: LOT Polish Airlines, Amelia International
+    # [excluded from the target set pending re-verification], Royal Air
+    # Maroc minority)
+    "E135": "embraer", "E145": "embraer", "E170": "embraer",
+    "E75L": "embraer", "E75S": "embraer", "E190": "embraer",
+    "E195": "embraer", "E290": "embraer", "E295": "embraer",
+    # A330 family (D-03: Air Caraibes minority, Corsairfly)
+    "A332": "a330", "A333": "a330", "A339": "a330",
+    # A350 family (D-03: Air Caraibes majority, French Bee)
+    "A359": "a350", "A35K": "a350",
+}
+
 
 def normalise_airline_key(airline_name):
     """Return a deterministic, filesystem-safe slug for `airline_name`, or
@@ -125,6 +193,29 @@ def normalise_airline_key(airline_name):
     ascii_name = unicodedata.normalize("NFKD", airline_name).encode("ascii", "ignore").decode("ascii")
     slug = re.sub(r"[^a-z0-9]+", "-", ascii_name.lower()).strip("-")
     return slug or None
+
+
+def classify_aircraft_type(icao_type):
+    """Return one of SHAPE_SLUGS for a known ICAO type designator, or
+    `None` for anything falsy, non-string, or unrecognized - mirrors
+    normalise_airline_key()'s never-raises discipline exactly. Pure, no
+    I/O.
+
+    `classify_aircraft_type("A20N")` -> `"a320"`
+    `classify_aircraft_type(" b38m ")` -> `"b737"`
+    `classify_aircraft_type("ZZZZ")`, `(None)`, `("")`, `(42)` -> `None`
+
+    This is a lookup against a fixed static table (_TYPE_SHAPE_BUCKETS)
+    whose values are all members of SHAPE_SLUGS - it never returns any
+    value derived from its argument. That is what makes a hostile
+    designator (e.g. containing a path separator or a parent-directory
+    sequence) unable to reach a filesystem path: the only strings this
+    function can ever produce are the seven hardcoded slugs, or None
+    (T-03.1-03-01).
+    """
+    if not isinstance(icao_type, str) or not icao_type:
+        return None
+    return _TYPE_SHAPE_BUCKETS.get(icao_type.strip().upper())
 
 
 def illustration_path_for_key(key):
