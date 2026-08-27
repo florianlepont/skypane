@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
 | 5. Battery Life & Low-Battery Indicator | 0/1+ | In Progress | - |
-| 6. Companion Configuration Web Interface | 0/0 | Not Started | - |
+| 6. Companion Configuration Web Interface | 0/12 | Not Started | - |
 | 7. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 0 plans
 
@@ -242,11 +242,35 @@ Plans:
 **Goal:** A user can reach a password-protected companion web page — a new, separate service on its own nip.io subdomain, not touching the vendored device-protocol server — to choose a validated display theme, select which Orly runway is tracked, monitor the device's health and the ADS-B sources' reliability over time, browse recent flight/render history, see airline-coverage gaps, and debug the render pipeline directly, all without SSH access to the VPS.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-05, CFG-06, CFG-07, CFG-08, CFG-09, CFG-10, CFG-11, CFG-12
 **Depends on:** Phase 5
-**Plans:** 0 plans
+**Plans:** 12 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 6 to break down)
+- [ ] 06-01-PLAN.md — Config and history persistence foundation (`server/device_config.py` theme/runway registries, `server/history_db.py` SQLite store + Caddy battery-log tailer)
+- [ ] 06-02-PLAN.md — Runway parameterization of the detection pipeline (CFG-12: `runways` block in the geofence, `select_aircraft_for_runway()`, all-providers-failed diagnostics)
+- [ ] 06-03-PLAN.md — Panel unpack for the live preview (`unpack_panel()`, the inverse of `pack_panel()`, plus PNG encoding)
+- [ ] 06-04-PLAN.md — Companion auth, layout shell and stylesheet (HMAC session cookie, single escaping helper, full UI-SPEC design system with dark/light and mobile)
+
+**Wave 2**
+
+- [ ] 06-05-PLAN.md — Companion HTTP service and router (complete route table, whole-site auth gate, preview/gallery routes, manual poll trigger, five page stubs)
+- [ ] 06-06-PLAN.md — Render pipeline: theme-aware colours, runway-aware labels, CFG-05 source-fault badge
+
+**Wave 3**
+
+- [ ] 06-07-PLAN.md — Config page: theme picker (CFG-01), runway picker (CFG-12), poll trigger (CFG-07)
+- [ ] 06-08-PLAN.md — Health page (CFG-03/CFG-05 landing) and Airlines page (CFG-04/CFG-08)
+- [ ] 06-09-PLAN.md — History page (CFG-06) and Preview page (CFG-10/CFG-11)
+- [ ] 06-10-PLAN.md — Poll-loop integration: config threading, history writes on state change, gallery retention, fault classification
+
+**Wave 4**
+
+- [ ] 06-11-PLAN.md — Deployment (systemd unit, Caddy site block, durable access log, firewall deny, env template, push script, docs) and test-suite registration
+
+**Wave 5**
+
+- [ ] 06-12-PLAN.md — Live verification: runway-gate capture (closes Assumption A1), Caddy log-shape confirmation (closes Assumption A3), developer sign-off checkpoint
 
 ### Phase 7: Final On-Glass Verification
 
