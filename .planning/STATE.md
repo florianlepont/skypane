@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 03
-current_phase_name: visual-polish-on-real-glass
+current_phase: 03.1
+current_phase_name: Procedural Per-Airline Livery Rendering
 status: executing
 stopped_at: 03-04 complete (gap-closure — Phase 3 closed, 4/4)
-last_updated: "2026-08-27T08:51:45.697Z"
+last_updated: "2026-08-27T09:06:37.860Z"
 last_activity: 2026-08-27
-last_activity_desc: 03-04 complete (render path guarded against corrupt/oversized illustrations)
+last_activity_desc: Phase 03 complete, transitioned to Phase 03.1
 progress:
   total_phases: 7
   completed_phases: 6
@@ -28,10 +28,10 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 03 (visual-polish-on-real-glass) — COMPLETE (4/4 plans, gap-closure plan 03-04 done)
+Phase: 03.1 — Procedural Per-Airline Livery Rendering
 Plans: 4/4 executed (03-01/03-02/03-03/03-04, all done) — 03-VERIFICATION.md's two gaps (corrupt/oversized illustration decode) now closed
 Status: Phase 03 closed. Next: Phase 5 (Battery Life & Low-Battery Indicator, in progress) or Phase 6 (Final On-Glass Verification, not yet planned).
-Last activity: 2026-08-27 — 03-04 complete (render path guarded against corrupt/oversized illustrations)
+Last activity: 2026-08-27 — Phase 03 complete, transitioned to Phase 03.1
 
 Progress: [██████████] 93% (27/29 plans)
 
@@ -39,7 +39,7 @@ Progress: [██████████] 93% (27/29 plans)
 
 **Velocity:**
 
-- Total plans completed: 7
+- Total plans completed: 11
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -48,6 +48,7 @@ Progress: [██████████] 93% (27/29 plans)
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 | 7 | - | - |
+| 03 | 4 | - | - |
 
 **Recent Trend:**
 
