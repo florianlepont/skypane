@@ -29,12 +29,12 @@ Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected
 - [x] **CFG-03**: User can see the device's last-known health status (last successful poll time, battery voltage once wired per Phase 5's DEVICE-04) via the web interface — deliberately not a phone push notification, to avoid reintroducing a phone dependency for an ambient device
 - [x] **CFG-04**: User can see which ADS-B callsign ICAO prefixes have gone unrecognized in production, backed directly by `enrich.py`'s unresolved-prefix registry (`poll_state.json`'s `unresolved_prefixes`, added 2026-08-27) — surfaces airline-coverage gaps from real traffic instead of requiring another manual research audit
 - [x] **CFG-05**: When the server's ADS-B data source itself is failing (not the normal "no aircraft right now" Empty state), the next successfully-rendered image includes a small alert icon prompting the user to check the web interface (CFG-03) for details — full design rationale in `.planning/seeds/on-device-fault-icon.md`
-- [ ] **CFG-06**: User can see a log of recently detected flights (not just the current one), via the web interface
+- [x] **CFG-06**: User can see a log of recently detected flights (not just the current one), via the web interface
 - [x] **CFG-07**: User can manually trigger an immediate detection/render cycle from the web interface, for debugging without waiting for the next scheduled cycle — rate-limited (short cooldown) to avoid abusing the free ADS-B aggregator APIs
 - [x] **CFG-08**: User can see airline/route resolution statistics over time via the web interface, beyond CFG-04's raw unresolved-prefix registry
 - [x] **CFG-09**: User can toggle a dark/light theme for the web interface itself, independent of the colors rendered on the physical frame
 - [x] **CFG-10**: User can see a live preview of what the physical panel is currently displaying, via the web interface, without needing SSH access to the server
-- [ ] **CFG-11**: User can see a gallery of the most recently rendered panel images via the web interface, for quick visual QA without SSH
+- [x] **CFG-11**: User can see a gallery of the most recently rendered panel images via the web interface, for quick visual QA without SSH
 - [x] **CFG-12**: User can select which of Orly's three runways the device tracks (currently hardcoded to runway 3; the two neighboring runways, 06/24 and 02/20, already have corridor geometry in `server/plane/detect.py` — added by the runway3-false-positive fix, currently used only to *exclude* their traffic). Generalizes PLANE-01/02/03's runway-3-specific detection to be parameterized by the selected runway. One runway tracked at a time, applied on the device's next scheduled poll (same timing as CFG-01).
 
 ## v2 Requirements
