@@ -35,8 +35,10 @@ Deferred 2026-08-11 — user-requested scope reduction so v1 ships single-view (
 
 Deferred 2026-08-11 alongside RER — meaningless in v1 with only one view. Revisit once a second view (RER or otherwise) exists in v2.
 
-- **DEVICE-01**: User can press a physical button on the frame to switch between the plane view and the RER view
-- **DEVICE-02**: Switching views (button press) triggers a fresh data poll for the newly selected view, not a stale cached image
+Superseded 2026-08-27 (explore session): the frame is meant to stay wall-mounted, so a physical button is impractical for routine interaction. View switching moves to the companion web interface (see CFG-01/CFG-02 below) instead. The physical button — not yet wired to any hardware (`firmware/main/app_main.c`'s wake-reason switch has a "button" case solely to exercise the log contract; the comment there states plainly "No button is wired up in Phase 1") — is reserved for debug/maintenance functions only (e.g. forcing an immediate poll, resetting Wi-Fi provisioning), not user-facing view control.
+
+- **DEVICE-01**: User can switch between the plane view and the RER view via the companion web interface (CFG-02) — not a physical button
+- **DEVICE-02**: Switching views triggers a fresh data poll for the newly selected view, not a stale cached image
 
 ### Messaging
 
@@ -50,9 +52,12 @@ Deferred 2026-08-26 (Phase 3 discuss-phase) — user confirmed via SenseCraft th
 
 ### Companion Configuration Web Interface
 
-Seed idea, deferred 2026-08-26 (Phase 3 discuss-phase) — raised as a v2/v3 concept, not scoped or detailed yet.
+Seed idea, deferred 2026-08-26 (Phase 3 discuss-phase) — raised as a v2/v3 concept, not scoped or detailed yet. Expanded 2026-08-27 (explore session) beyond visual configuration alone: this is also where view switching (superseding the physical-button concept — see View Switching above), device health/battery status, and airline-coverage monitoring converge, rather than three separate mechanisms (a button, a push-notification channel, and manual log-grepping).
 
 - **CFG-01**: User can configure the frame's settings (background colors/style, tracked airport, other display preferences) via a web interface, instead of every visual choice being fixed at build time
+- **CFG-02**: User can switch between available views (plane/RER) via the web interface, superseding the physical-button view-switch concept in DEVICE-01
+- **CFG-03**: User can see the device's last-known health status (last successful poll time, battery voltage once wired per Phase 5's DEVICE-04) via the web interface — deliberately not a phone push notification, to avoid reintroducing a phone dependency for an ambient device
+- **CFG-04**: User can see which ADS-B callsign ICAO prefixes have gone unrecognized in production, backed directly by `enrich.py`'s unresolved-prefix registry (`poll_state.json`'s `unresolved_prefixes`, added 2026-08-27) — surfaces airline-coverage gaps from real traffic instead of requiring another manual research audit
 
 ## Out of Scope
 
