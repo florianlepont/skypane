@@ -4,16 +4,20 @@ building blocks (companion/auth.py, companion/layout.py).
 
 Covers: constant-time password checking, fail-closed behaviour when no
 password is configured, stateless signed session tokens (issue/verify
-round trip, five distinct malformed-token rejections, a flipped-
-signature rejection), session/logout cookie security flags, cookie
-parsing, and the process-global login-attempt throttle.
+round trip, six distinct malformed-token rejections, forged-secret and
+hand-built-expired coverage), session/logout cookie security flags,
+cookie parsing, the process-global login-attempt throttle, the single
+canonical HTML-escaping helper, the page shell's document shape and
+active-nav/theme rendering, the status-dot/data-table component
+builders, and that AuthNotConfigured never leaks the configured
+password value.
 
-Checks are grouped under clearly-commented sections mirroring the
-modules this plan builds (companion/auth.py, companion/layout.py). A
-route-driven section (subprocess checks against companion/app.py)
-arrives with plan 06-05, which extends this same file rather than
-replacing it; do not restructure main() to merge that section into
-these when it lands.
+Checks are grouped under two clearly-commented sections mirroring the
+two modules this plan builds (companion/auth.py, companion/layout.py).
+A third section — subprocess-driven route checks against
+companion/app.py — arrives with plan 06-05, which extends this same
+file rather than replacing it; do not restructure main() to merge that
+section into these two when it lands.
 
 Stdlib-only (hashlib, hmac, os, sys, time). No pytest.
 
@@ -35,7 +39,7 @@ if REPO_ROOT not in sys.path:
 from companion import auth, layout  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
-EXPECTED_CHECK_COUNT = 16
+EXPECTED_CHECK_COUNT = 20
 
 
 def _sign_with_secret(payload, secret):
@@ -187,6 +191,42 @@ def main():
             "LoginThrottle allows attempts up to its limit, locks out, then resets on success",
             _login_throttle_allows_locks_and_resets)
 
+        def _forged_token_different_secret_rejected():
+            forged = _sign_with_secret(
+                str(int(time.time()) + 3600), "attacker-controlled-secret")
+            if auth.verify_session_token(forged) is not False:
+                return False, "a token signed with a different secret must not verify"
+            return True, ""
+        check(
+            "a forged token signed with a different secret is rejected",
+            _forged_token_different_secret_rejected)
+
+        def _hand_built_expired_token_rejected():
+            expiry = str(int(time.time()) - 1)
+            token = _sign_with_secret(expiry, TEST_PASSWORD)
+            if auth.verify_session_token(token) is not False:
+                return False, "a token expired by exactly one second must be rejected"
+            return True, ""
+        check(
+            "a hand-built token expired by one second is rejected despite a correct signature",
+            _hand_built_expired_token_rejected)
+
+        def _auth_not_configured_message_omits_password():
+            saved = os.environ.pop(auth.PASSWORD_ENV_VAR, None)
+            try:
+                auth.configured_password()
+                return False, "expected AuthNotConfigured to be raised"
+            except auth.AuthNotConfigured as exc:
+                if TEST_PASSWORD in str(exc):
+                    return False, "the exception text must never contain the password value"
+                return True, ""
+            finally:
+                if saved is not None:
+                    os.environ[auth.PASSWORD_ENV_VAR] = saved
+        check(
+            "AuthNotConfigured's message never contains the configured password value",
+            _auth_not_configured_message_omits_password)
+
         # ==================================================================
         # Section 2: companion/layout.py
         # (the route-driven check section arrives with plan 06-05's
@@ -303,6 +343,16 @@ def main():
         check(
             "data_table() escapes every header/cell and emits the empty-state block for zero rows",
             _data_table_escapes_and_empty_state)
+
+        def _page_shell_escapes_hostile_body():
+            escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")
+            rendered = layout.page_shell(title="Health", active="health", body=escaped_hostile_body)
+            if "<script>" in rendered:
+                return False, "an unescaped <script> tag reached the rendered page"
+            return True, ""
+        check(
+            "page_shell()'s output contains no unescaped script tag for an escaped hostile body",
+            _page_shell_escapes_hostile_body)
 
     finally:
         if previous_password is not None:
