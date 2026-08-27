@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Contract harness for the SkyPane companion service's auth and layout
-building blocks (companion/auth.py, companion/layout.py).
+"""Contract harness for the SkyPane companion service: companion/auth.py,
+companion/layout.py, and (plan 06-05) the real subprocess-launched
+companion/app.py route table.
 
 Covers: constant-time password checking, fail-closed behaviour when no
 password is configured, stateless signed session tokens (issue/verify
@@ -9,17 +10,23 @@ hand-built-expired coverage), session/logout cookie security flags,
 cookie parsing, the process-global login-attempt throttle, the single
 canonical HTML-escaping helper, the page shell's document shape and
 active-nav/theme rendering, the status-dot/data-table component
-builders, and that AuthNotConfigured never leaks the configured
-password value.
+builders, that AuthNotConfigured never leaks the configured password
+value, the D-02 whole-site auth gate asserted route by route against a
+real running service, the login failure/success flow and its cookie
+flags, the 404 copy, the preview PNG path (missing file vs. a real
+960,000-byte panel), gallery path-traversal rejection with a canary
+file, and the server-global (not per-session) poll-trigger cooldown.
 
-Checks are grouped under two clearly-commented sections mirroring the
-two modules this plan builds (companion/auth.py, companion/layout.py).
-A third section — subprocess-driven route checks against
-companion/app.py — arrives with plan 06-05, which extends this same
-file rather than replacing it; do not restructure main() to merge that
-section into these two when it lands.
+Checks are grouped under three clearly-commented sections: Section 1
+(companion/auth.py) and Section 2 (companion/layout.py) are pure
+in-process unit checks against the imported modules. Section 3 (plan
+06-05) launches companion/app.py as a real subprocess on a free local
+port and drives it with urllib.request, mirroring
+stub-server/test_poll_cycle.py's Harness/http_request()/readiness-poll
+pattern.
 
-Stdlib-only (hashlib, hmac, os, sys, time). No pytest.
+Stdlib-only (hashlib, hmac, html, os, shutil, socket, subprocess, sys,
+tempfile, time, urllib). No pytest.
 
 Usage:
     server/.venv/bin/python3 companion/test_companion_app.py
@@ -28,8 +35,15 @@ import hashlib
 import hmac
 import html
 import os
+import shutil
+import socket
+import subprocess
 import sys
+import tempfile
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -39,7 +53,164 @@ if REPO_ROOT not in sys.path:
 from companion import auth, layout  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
-EXPECTED_CHECK_COUNT = 20
+APP_PATH = os.path.join(HERE, "app.py")
+IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
+# plain literal so this harness never has to import Pillow (or
+# server.panel_format) itself, matching panel_format.py's own documented
+# precedent for stub-server/make_test_panel.py's independent duplication.
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+STARTUP_DEADLINE_S = 10.0
+EXPECTED_CHECK_COUNT = 49
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Return None from redirect_request() so a 303 (or any other
+    redirect) is surfaced to the caller as an HTTPError instead of being
+    silently followed — the auth-gate and flash-key checks below need to
+    see the raw status code and Location/Set-Cookie headers, not the page
+    the redirect points at.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+# A single shared opener with redirects disabled. Deliberately NOT built
+# with urllib.request.HTTPCookieProcessor: this test server runs over
+# plain HTTP, and companion/auth.py's session cookie always carries the
+# `Secure` flag (correctly, for production) - http.cookiejar honours that
+# flag and silently refuses to store or resend a Secure cookie over a
+# non-HTTPS connection, which would make an automatic cookie jar quietly
+# drop the session cookie in exactly this harness. Cookies are instead
+# captured from Set-Cookie response headers and threaded through
+# explicitly as plain Cookie request headers below.
+_OPENER = urllib.request.build_opener(_NoRedirectHandler)
+
+
+def http_request(url, method="GET", data=None, cookie=None, timeout=10):
+    """Minimal stdlib HTTP client (mirrors
+    stub-server/test_poll_cycle.py's http_request()): returns
+    (status, headers_dict, raw_bytes) for both success and HTTP-error
+    responses; connection-level failures propagate.
+    """
+    headers = {}
+    if cookie:
+        headers["Cookie"] = cookie
+    if data is not None and method == "POST":
+        headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with _OPENER.open(req, timeout=timeout) as resp:
+            return resp.status, dict(resp.headers), resp.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, dict(exc.headers or {}), exc.read()
+
+
+def _cookie_value(headers):
+    """Extract just the "name=value" portion of a Set-Cookie response
+    header (dropping the trailing attribute flags), or None.
+    """
+    raw = headers.get("Set-Cookie")
+    if not raw:
+        return None
+    return raw.split(";", 1)[0]
+
+
+class Harness:
+    """Owns the companion/app.py subprocess lifecycle: a free port, an
+    isolated temp state directory, startup readiness polling, and clean
+    teardown - structurally mirrors
+    stub-server/test_poll_cycle.py's own Harness class.
+    """
+
+    def __init__(self):
+        self.tmpdir = tempfile.mkdtemp(prefix="skypane-companion-")
+        self.port = self._pick_free_port()
+        self.stdout_path = os.path.join(self.tmpdir, "app.stdout.log")
+        self.proc = None
+
+    @staticmethod
+    def _pick_free_port():
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(("127.0.0.1", 0))
+            return s.getsockname()[1]
+        finally:
+            s.close()
+
+    def base_url(self):
+        return "http://127.0.0.1:%d" % self.port
+
+    def state_path(self, *parts):
+        return os.path.join(self.tmpdir, *parts)
+
+    def start(self):
+        env = dict(os.environ)
+        env[auth.PASSWORD_ENV_VAR] = TEST_PASSWORD
+        stdout_fh = open(self.stdout_path, "w")
+        cmd = [
+            sys.executable, APP_PATH,
+            "--port", str(self.port),
+            "--state-dir", self.tmpdir,
+        ]
+        try:
+            self.proc = subprocess.Popen(
+                cmd, stdout=stdout_fh, stderr=subprocess.STDOUT, env=env)
+        finally:
+            stdout_fh.close()  # child holds its own duplicated fd
+
+        deadline = time.time() + STARTUP_DEADLINE_S
+        while time.time() < deadline:
+            if self.proc.poll() is not None:
+                raise RuntimeError(
+                    "companion/app.py exited early (code %s) before "
+                    "accepting connections:\n%s"
+                    % (self.proc.returncode, self.read_stdout()))
+            try:
+                with socket.create_connection(("127.0.0.1", self.port), timeout=0.5):
+                    return
+            except OSError:
+                time.sleep(0.1)
+        raise RuntimeError(
+            "companion/app.py did not start listening within %.0fs" % STARTUP_DEADLINE_S)
+
+    def stop(self):
+        if self.proc is None:
+            return
+        if self.proc.poll() is None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait(timeout=5)
+        self.proc = None
+
+    def read_stdout(self):
+        try:
+            with open(self.stdout_path) as fh:
+                return fh.read()
+        except OSError:
+            return ""
+
+    def cleanup(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+
+def _login(harness, password=TEST_PASSWORD):
+    """POST /login with `password` and return the session cookie's
+    "name=value" pair. Raises AssertionError if login did not succeed -
+    callers that expect failure should call http_request() directly.
+    """
+    status, headers, _ = http_request(
+        harness.base_url() + "/login", method="POST",
+        data=urllib.parse.urlencode({"password": password}).encode())
+    if status != 303:
+        raise AssertionError("expected a 303 redirect on successful login, got %d" % status)
+    cookie = _cookie_value(headers)
+    if not cookie:
+        raise AssertionError("expected a Set-Cookie header on successful login")
+    return cookie
 
 
 def _sign_with_secret(payload, secret):
@@ -359,6 +530,283 @@ def main():
             os.environ[auth.PASSWORD_ENV_VAR] = previous_password
         else:
             os.environ.pop(auth.PASSWORD_ENV_VAR, None)
+
+    # ==================================================================
+    # Section 3: companion/app.py (plan 06-05) — a real companion/app.py
+    # subprocess, launched on a free local port, driven with
+    # urllib.request. This section owns its own harness lifecycle
+    # (independent of Section 1/2's env-var save/restore above), and
+    # tolerates the ADS-B aggregators being unreachable in this sandboxed
+    # environment — the poll-trigger checks below assert on the flash
+    # outcome and the cooldown behaviour, never on a flight being
+    # detected.
+    # ==================================================================
+
+    harness = Harness()
+    try:
+        harness.start()
+        base = harness.base_url()
+
+        # --- D-02 whole-site auth gate: nine routes, asserted individually ---
+        # A single forgotten require_session() call is a full auth
+        # bypass, so each route below is its own check, not a shared loop
+        # collapsed into one assertion.
+
+        def _unauth_redirects_to_login(method, path, data=None):
+            def _run():
+                status, headers, body = http_request(base + path, method=method, data=data)
+                if status != 303:
+                    return False, "expected 303, got %d" % status
+                if headers.get("Location") != "/login":
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                if body:
+                    return False, "expected an empty redirect body, got %d bytes of content" % len(body)
+                return True, ""
+            return _run
+
+        for _tab_path in ("/config", "/health", "/airlines", "/history", "/preview"):
+            check(
+                "unauthenticated GET %s redirects to /login without page content" % _tab_path,
+                _unauth_redirects_to_login("GET", _tab_path))
+
+        check(
+            "unauthenticated GET /preview.png redirects to /login without page content",
+            _unauth_redirects_to_login("GET", "/preview.png"))
+
+        check(
+            "unauthenticated GET of a gallery image route redirects to /login without page content",
+            _unauth_redirects_to_login("GET", "/gallery/whatever.png"))
+
+        check(
+            "unauthenticated POST /config redirects to /login without page content",
+            _unauth_redirects_to_login(
+                "POST", "/config",
+                data=urllib.parse.urlencode({"ui_theme": "sky"}).encode()))
+
+        check(
+            "unauthenticated POST /poll-now redirects to /login without page content",
+            _unauth_redirects_to_login("POST", "/poll-now"))
+
+        # --- stylesheet: public, no session required ---
+
+        def _stylesheet_public():
+            status, headers, body = http_request(base + "/static/style.css")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            content_type = headers.get("Content-Type", "")
+            if "text/css" not in content_type:
+                return False, "expected a text/css content type, got %r" % content_type
+            if not body:
+                return False, "expected a non-empty stylesheet body"
+            return True, ""
+        check(
+            "GET /static/style.css succeeds without a session and returns a CSS content type",
+            _stylesheet_public)
+
+        # --- login: wrong password, right password, cookie flags ---
+
+        def _login_wrong_password():
+            status, headers, body = http_request(
+                base + "/login", method="POST",
+                data=urllib.parse.urlencode({"password": "not-the-real-password"}).encode())
+            if status != 401:
+                return False, "expected 401 for a wrong password, got %d" % status
+            if b"Incorrect password. Try again." not in body:
+                return False, "expected the exact login-failure copy in the response body"
+            if "Set-Cookie" in headers:
+                return False, "expected no Set-Cookie header on a failed login"
+            return True, ""
+        check(
+            "a login POST with the wrong password re-renders the form with the exact copy and sets no cookie",
+            _login_wrong_password)
+
+        def _login_correct_password():
+            status, headers, _ = http_request(
+                base + "/login", method="POST",
+                data=urllib.parse.urlencode({"password": TEST_PASSWORD}).encode())
+            if status != 303:
+                return False, "expected a 303 redirect on successful login, got %d" % status
+            if headers.get("Location") != "/config":
+                return False, "expected a redirect to /config, got %r" % headers.get("Location")
+            set_cookie = headers.get("Set-Cookie", "")
+            for needle in ("HttpOnly", "Secure", "SameSite=Strict"):
+                if needle not in set_cookie:
+                    return False, "missing %r in the session cookie header: %r" % (needle, set_cookie)
+            return True, ""
+        check(
+            "a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to /config",
+            _login_correct_password)
+
+        session_cookie = _login(harness)
+
+        # --- authenticated: all five tabs return 200 with their own heading ---
+
+        for _tab_path, _heading in (
+            ("/config", "Config"), ("/health", "Health"),
+            ("/airlines", "Airlines"), ("/history", "History"),
+            ("/preview", "Preview"),
+        ):
+            def _tab_ok(tab_path=_tab_path, heading=_heading):
+                status, _headers, body = http_request(base + tab_path, cookie=session_cookie)
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                if heading.encode() not in body:
+                    return False, "expected the %r heading in the response body" % heading
+                return True, ""
+            check(
+                "authenticated GET %s returns 200 and contains its own %r heading" % (_tab_path, _heading),
+                _tab_ok)
+
+        # --- logout clears the cookie; a subsequent tab request is refused again ---
+
+        def _logout_clears_cookie():
+            status, headers, _ = http_request(base + "/logout", cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect on logout, got %d" % status
+            set_cookie = headers.get("Set-Cookie", "")
+            if "Max-Age=0" not in set_cookie:
+                return False, "expected the logout cookie header to carry Max-Age=0, got %r" % set_cookie
+            return True, ""
+        check("GET /logout clears the session cookie (Max-Age=0)", _logout_clears_cookie)
+
+        def _tab_refused_after_logout():
+            # Sessions are stateless signed cookies (companion/auth.py has
+            # no server-side revocation store, by design) - logout works
+            # by clearing the *client's* cookie, not by invalidating the
+            # token server-side. A real browser discards the cookie the
+            # instant it sees Max-Age=0, so the faithful way to prove "a
+            # subsequent tab request is refused again" is to present no
+            # cookie at all on the next request, exactly as a browser
+            # would - resending the stale cookie value would prove
+            # nothing (it would still verify, by design).
+            status, headers, _ = http_request(base + "/config")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, "expected a redirect to /login for a post-logout request, got %d/%r" % (
+                    status, headers.get("Location"))
+            return True, ""
+        check(
+            "a tab request after logout (no cookie presented) is refused again",
+            _tab_refused_after_logout)
+
+        # Re-authenticate for the remaining checks below.
+        session_cookie = _login(harness)
+
+        # --- 404 ---
+
+        def _unknown_path_404():
+            status, _headers, body = http_request(base + "/this-route-does-not-exist")
+            if status != 404:
+                return False, "expected 404, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
+        check("an unknown path returns 404 with the exact 'Page not found.' copy", _unknown_path_404)
+
+        # --- preview.png: missing file, then a real panel ---
+
+        def _preview_missing():
+            status, _headers, _body = http_request(base + "/preview.png", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 with no panel.bin present, got %d" % status
+            return True, ""
+        check("GET /preview.png with no panel file present returns 404", _preview_missing)
+
+        def _preview_real_panel():
+            with open(harness.state_path("panel.bin"), "wb") as fh:
+                fh.write(b"\x11" * IMAGE_BYTES)  # an all-white, legal-nibble panel
+            status, headers, body = http_request(base + "/preview.png", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 after writing a valid panel, got %d" % status
+            if not body.startswith(PNG_SIGNATURE):
+                return False, "expected the response body to start with the PNG signature"
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected an image/png content type, got %r" % headers.get("Content-Type")
+            return True, ""
+        check(
+            "GET /preview.png after writing a valid 960,000-byte panel returns a body starting with the PNG signature",
+            _preview_real_panel)
+
+        # --- gallery path-traversal rejection, with a canary file one level up ---
+
+        os.makedirs(harness.state_path("gallery"), exist_ok=True)
+        canary_marker = "TOP-SECRET-CANARY-MARKER-DO-NOT-SERVE"
+        with open(harness.state_path("canary.txt"), "w") as fh:
+            fh.write(canary_marker)
+
+        _traversal_payloads = (
+            ("parent-directory segments", "../canary.txt"),
+            ("an absolute path", harness.state_path("canary.txt")),
+            ("a null byte", "canary.txt\x00.png"),
+        )
+        _traversal_bodies = []
+
+        for _label, _payload in _traversal_payloads:
+            def _traversal_404(label=_label, payload=_payload):
+                encoded = urllib.parse.quote(payload, safe="")
+                status, _headers, body = http_request(
+                    base + "/gallery/" + encoded, cookie=session_cookie)
+                _traversal_bodies.append(body)
+                if status != 404:
+                    return False, "expected 404 for %s (%r), got %d" % (label, payload, status)
+                return True, ""
+            check("a gallery request with %s returns 404" % _label, _traversal_404)
+
+        def _canary_never_returned():
+            if not _traversal_bodies:
+                return False, "no traversal responses were captured to inspect"
+            for body in _traversal_bodies:
+                if canary_marker.encode() in body:
+                    return False, "the canary file's content leaked into a traversal response body"
+            return True, ""
+        check(
+            "the canary file placed one level above the gallery directory never appears in any traversal response",
+            _canary_never_returned)
+
+        # --- poll-trigger cooldown: server-global, not per-session ---
+
+        def _poll_trigger_first_call():
+            status, headers, _ = http_request(base + "/poll-now", method="POST", cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if "flash=poll_triggered" not in location:
+                return False, "expected the poll_triggered flash key in the redirect, got %r" % location
+            return True, ""
+        check(
+            "a first poll trigger redirects with the poll_triggered flash key",
+            _poll_trigger_first_call)
+
+        def _poll_trigger_cooldown_same_session():
+            status, headers, _ = http_request(base + "/poll-now", method="POST", cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if "flash=poll_cooldown" not in location:
+                return False, "expected the poll_cooldown flash key in the redirect, got %r" % location
+            return True, ""
+        check(
+            "an immediate second poll trigger redirects with the poll_cooldown flash key",
+            _poll_trigger_cooldown_same_session)
+
+        def _poll_trigger_cooldown_second_opener():
+            second_session_cookie = _login(harness)
+            status, headers, _ = http_request(
+                base + "/poll-now", method="POST", cookie=second_session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if "flash=poll_cooldown" not in location:
+                return False, (
+                    "expected a fresh second-opener session to also see the "
+                    "poll_cooldown flash key, got %r" % location)
+            return True, ""
+        check(
+            "a fresh second-opener session is refused by the same cooldown (server-global, not per-session)",
+            _poll_trigger_cooldown_second_opener)
+
+    finally:
+        harness.stop()
+        harness.cleanup()
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
