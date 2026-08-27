@@ -23,7 +23,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 13
+EXPECTED_CHECK_COUNT = 16
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -73,7 +73,6 @@ def main():
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
-            import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("load_device_config() on a missing state directory returns the documented defaults", _missing_state_dir_yields_defaults)
@@ -90,7 +89,6 @@ def main():
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
-            import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("load_device_config() on a JSON array, a truncated document, or a non-dict returns defaults instead of raising", _malformed_file_yields_defaults)
@@ -106,7 +104,6 @@ def main():
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
-            import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("load_device_config() replaces an unrecognised theme/runway value with the default rather than passing it through", _hostile_values_yield_defaults)
@@ -120,7 +117,6 @@ def main():
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
-            import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("save_device_config() followed by load_device_config() round-trips the saved theme and tracked_runway", _save_then_load_round_trips)
@@ -142,7 +138,6 @@ def main():
                 return False, "a rejected save left a .tmp file behind"
             return True, ""
         finally:
-            import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("save_device_config() with an unknown theme id raises ValueError and leaves the state directory file-free", _unknown_theme_rejected_without_touching_file)
@@ -155,10 +150,28 @@ def main():
                 return False, "a .tmp file survived a successful save"
             return True, ""
         finally:
-            import shutil
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("no .tmp file remains in the state directory after a successful save", _no_tmp_survives_a_successful_save)
+
+    def _hostile_hand_edit_after_a_real_save_still_yields_defaults():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="sky", tracked_runway="02-20")
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "w") as fh:
+                fh.write('{"theme": "sky/../x", "tracked_runway": "3; DROP TABLE"}')
+            config = device_config.load_device_config(tmpdir)
+            if config != {"theme": "sky", "tracked_runway": "3"}:
+                return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a legitimately saved config, hand-edited on disk to hostile values, still yields defaults from load_device_config()",
+        _hostile_hand_edit_after_a_real_save_still_yields_defaults,
+    )
 
     # --- history_db.py ------------------------------------------------------
 
@@ -246,6 +259,49 @@ def main():
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("corroboration_counts(since=...) buckets True/None/False separately, never collapsing None into False", _corroboration_counts_keeps_none_distinct_from_false)
+
+    def _corroborated_unknown_is_readable_back_distinctly():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(conn, ts="2026-08-27T12:00:00+00:00", hex="unk0", corroborated=None)
+                history_db.record_runway_event(conn, ts="2026-08-27T12:01:00+00:00", hex="unk1", corroborated=False)
+                rows = history_db.recent_runway_events(conn, limit=2)
+            by_hex = {row["hex"]: row["corroborated"] for row in rows}
+            if by_hex.get("unk0") != "None":
+                return False, "corroborated=None was not readable back as the unknown value, got %r" % (by_hex.get("unk0"),)
+            if by_hex.get("unk1") != "False":
+                return False, "corroborated=False was not readable back as the false value, got %r" % (by_hex.get("unk1"),)
+            if by_hex.get("unk0") == by_hex.get("unk1"):
+                return False, "the unknown and false corroboration values were not stored distinctly"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a runway_events row written with corroborated unknown is readable back as the unknown value, distinct from false",
+        _corroborated_unknown_is_readable_back_distinctly,
+    )
+
+    def _hostile_callsign_round_trips_byte_identically():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            hostile_callsign = """<script>alert('x')</script>' OR '1'='1"""
+            with history_db.open_db(tmpdir) as conn:
+                history_db.record_runway_event(conn, ts="2026-08-27T13:00:00+00:00", hex="hostile1", callsign=hostile_callsign, airline="O'Brien's \"Air\"")
+                rows = history_db.recent_runway_events(conn, limit=1)
+            if not rows or rows[0]["callsign"] != hostile_callsign:
+                return False, "callsign round-tripped as %r, expected byte-identical %r" % (rows[0]["callsign"] if rows else None, hostile_callsign)
+            if rows[0]["airline"] != "O'Brien's \"Air\"":
+                return False, "airline round-tripped as %r" % (rows[0]["airline"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a callsign containing an HTML angle bracket and a SQL quote round-trips byte-identically through recent_runway_events()",
+        _hostile_callsign_round_trips_byte_identically,
+    )
 
     def _meta_get_set_overwrites_not_duplicates():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
