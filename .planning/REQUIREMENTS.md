@@ -59,6 +59,13 @@ Seed idea, deferred 2026-08-26 (Phase 3 discuss-phase) — raised as a v2/v3 con
 - **CFG-03**: User can see the device's last-known health status (last successful poll time, battery voltage once wired per Phase 5's DEVICE-04) via the web interface — deliberately not a phone push notification, to avoid reintroducing a phone dependency for an ambient device
 - **CFG-04**: User can see which ADS-B callsign ICAO prefixes have gone unrecognized in production, backed directly by `enrich.py`'s unresolved-prefix registry (`poll_state.json`'s `unresolved_prefixes`, added 2026-08-27) — surfaces airline-coverage gaps from real traffic instead of requiring another manual research audit
 
+### On-Screen Fault Indicator
+
+Seed idea, deferred 2026-08-27 (explore session) — builds on the Companion Configuration Web Interface above (specifically CFG-03's health status) by giving the physical frame itself a visible nudge to go check that dashboard, rather than failing silently. Two independent trigger paths, since a device-side communication outage and a server-side data-source outage need different rendering mechanisms — full design rationale in `.planning/seeds/on-device-fault-icon.md`.
+
+- **DEVICE-06**: When the device has failed to reach the server for 2+ consecutive poll attempts (`backoff_n >= 2`), it renders a small local fallback screen (solid fill + pre-baked alert icon) directly in firmware via the existing `fp_panel_draw()` call, without needing a successful server round-trip
+- **CFG-05**: When the server's ADS-B data source itself is failing (not the normal "no aircraft right now" Empty state), the next successfully-rendered image includes a small alert icon prompting the user to check the web interface (CFG-03) for details
+
 ## Out of Scope
 
 Explicitly excluded. Documented to prevent scope creep.
