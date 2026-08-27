@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 28
+EXPECTED_CHECK_COUNT = 36
 
 
 def main():
@@ -250,6 +250,164 @@ def main():
     check(
         "select_illustration() returns None only when even the generic fallback file is absent",
         _select_returns_none_only_when_fallback_missing,
+    )
+
+    # --- select_illustration() four-tier fallback (Task 2, D-06/D-07/D-08) --
+
+    def _make_fixture_png(path):
+        Image.new("RGBA", (1400, 700), (10, 20, 30, 200)).save(path, format="PNG")
+
+    def _tier1_airline_and_shape_match():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air.png"))
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air-a320.png"))
+            path = ill.select_illustration({"airline_name": "Acme Air"}, "A320")
+            if path is None or os.path.basename(path) != "acme-air-a320.png":
+                return False, "Tier 1 returned %r, expected acme-air-a320.png" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check("select_illustration() Tier 1 returns the airline-and-shape file when it exists", _tier1_airline_and_shape_match)
+
+    def _tier2_airline_only_when_shape_absent():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air.png"))
+            path = ill.select_illustration({"airline_name": "Acme Air"}, "A320")
+            if path is None or os.path.basename(path) != "acme-air.png":
+                return False, "Tier 2 (D-06) returned %r, expected acme-air.png" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check("select_illustration() Tier 2 (D-06) returns the airline-only file when the shape file is absent", _tier2_airline_only_when_shape_absent)
+
+    def _tier2_wins_over_tier3():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air.png"))
+            _make_fixture_png(os.path.join(fixture_dir, "generic-a320.png"))
+            path = ill.select_illustration({"airline_name": "Acme Air"}, "A320")
+            if path is None or os.path.basename(path) != "acme-air.png":
+                return False, "Tier 2 should win over Tier 3, got %r" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() Tier 2 wins over Tier 3 when both an airline file and a matching generic-shape file exist",
+        _tier2_wins_over_tier3,
+    )
+
+    def _tier3_neutral_shape_for_unrecognized_airline():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "generic-a320.png"))
+            path = ill.select_illustration({"airline_name": "Unknown Air"}, "A320")
+            if path is None or os.path.basename(path) != "generic-a320.png":
+                return False, "Tier 3 (D-07) returned %r, expected generic-a320.png" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() Tier 3 (D-07) returns the neutral shape file for an unrecognized airline with a known shape",
+        _tier3_neutral_shape_for_unrecognized_airline,
+    )
+
+    def _tier3_applies_when_route_is_none():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "generic-a320.png"))
+            path = ill.select_illustration(None, "A320")
+            if path is None or os.path.basename(path) != "generic-a320.png":
+                return False, "Tier 3 with route=None returned %r, expected generic-a320.png" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check("select_illustration() Tier 3 also applies when route is None but a type is supplied", _tier3_applies_when_route_is_none)
+
+    def _tier4_universal_fallback_when_neither_resolves():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, ill.GENERIC_FALLBACK_FILENAME))
+            path = ill.select_illustration({"airline_name": "Unknown Air"}, "ZZZZ")
+            if path is None or os.path.basename(path) != ill.GENERIC_FALLBACK_FILENAME:
+                return False, "Tier 4 (D-08) returned %r, expected %r" % (path, ill.GENERIC_FALLBACK_FILENAME)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() Tier 4 (D-08) returns the universal fallback when neither key resolves",
+        _tier4_universal_fallback_when_neither_resolves,
+    )
+
+    def _tier4_when_shape_classifies_but_no_generic_file():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, ill.GENERIC_FALLBACK_FILENAME))
+            path = ill.select_illustration({"airline_name": "Unknown Air"}, "A320")
+            if path is None or os.path.basename(path) != ill.GENERIC_FALLBACK_FILENAME:
+                return False, "Tier 4 returned %r, expected the universal fallback (no generic-a320.png present)" % (path,)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() Tier 4 also returns when the shape classifies but no generic-{shape}.png file exists",
+        _tier4_when_shape_classifies_but_no_generic_file,
+    )
+
+    def _select_illustration_hostile_battery_never_raises_and_stays_confined():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, ill.GENERIC_FALLBACK_FILENAME))
+            hostile_types = (
+                "../../etc/passwd", "..\\..\\windows", "/etc/passwd", "..",
+                "a" * 5000, None, 123, [], {}, object(),
+            )
+            malformed_routes = (
+                None, {}, {"airline_name": None}, {"airline_name": 123}, "not-a-dict",
+                42, ["a", "list"], {"airline_name": "../../etc/passwd"},
+            )
+            fixture_dir_real = os.path.realpath(fixture_dir)
+            for aircraft_type in hostile_types:
+                for route in malformed_routes:
+                    got = ill.select_illustration(route, aircraft_type)  # must not raise
+                    if got is not None:
+                        got_real = os.path.realpath(got)
+                        if os.path.commonpath([got_real, fixture_dir_real]) != fixture_dir_real:
+                            return False, "select_illustration(%r, %r) returned a path outside ILLUSTRATION_DIR: %r" % (
+                                route, aircraft_type, got,
+                            )
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+    check(
+        "select_illustration() never raises for a hostile aircraft_type x malformed-route matrix, "
+        "and no returned path escapes ILLUSTRATION_DIR (T-03.1-03-01)",
+        _select_illustration_hostile_battery_never_raises_and_stays_confined,
     )
 
     # --- illustration_path_for_key() boundary --------------------------------
