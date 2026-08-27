@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 03.1
 current_phase_name: procedural-per-airline-livery-rendering
 status: executing
-stopped_at: 03.1-01 complete (Wave 1, plan 1 of 2)
-last_updated: "2026-08-27T00:08:58.873Z"
+stopped_at: 03.1-02 complete (Wave 1, plan 2 of 2 - Wave 1 done)
+last_updated: "2026-08-27T00:25:00.000Z"
 last_activity: 2026-08-27
-last_activity_desc: 03.1-01 complete (ROADMAP D-10 revision + live airline-name/t-field resolution)
+last_activity_desc: 03.1-02 complete (detect.py aircraft_type extraction, ICAO-shape validated, fixture + harness coverage)
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 28
-  completed_plans: 22
-  percent: 79
+  completed_plans: 23
+  percent: 82
 ---
 
 # Project State
@@ -29,11 +29,11 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 03.1 (procedural-per-airline-livery-rendering) — EXECUTING
-Plans: 1/5 executed (5 plans, 3 waves — 03.1-01 done, 03.1-02 through 03.1-05 remaining)
-Status: Wave 1 (03.1-01 complete; 03.1-02 remaining in Wave 1)
-Last activity: 2026-08-27 — 03.1-01 complete (ROADMAP D-10 revision + live airline-name/`t`-field resolution)
+Plans: 2/5 executed (5 plans, 3 waves — 03.1-01/03.1-02 done, Wave 1 complete; 03.1-03 through 03.1-05 remaining)
+Status: Wave 1 complete; Wave 2 (03.1-03) up next
+Last activity: 2026-08-27 — 03.1-02 complete (detect.py aircraft_type extraction, ICAO-shape validated, fixture + harness coverage)
 
-Progress: [████████░░] 79% (22/28 plans)
+Progress: [████████░░] 82% (23/28 plans)
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [████████░░] 79% (22/28 plans)
 | Phase 04 P04 | 12min | 3 tasks | 2 files |
 | Phase 04 P05 | ~30min | 3 tasks | 3 files |
 | Phase 04 P06 | ~45min | 3 tasks | 1 file (04-06-SUMMARY.md) + repo publication/environment/secrets/deploy-approval on real infra |
+| Phase 03.1 P02 | ~10min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -141,6 +142,7 @@ Recent decisions affecting current work:
 - [Phase 04]: 04-05 complete - repo-root README.md is the project's front door: honest v1 scope (single plane view; RER + button deferred to v2), a six-directory navigation table, and Hardware/Server/Tests/Firmware/Deployment sections each pointing at the authoritative doc (hardware/BOM.md, server/README.md, scripts/run-all-tests.sh, firmware/build.sh+VENDOR.md, deploy/README.md) rather than duplicating it; Data Sources section credits adsb.fi (live link, satisfying their cite-and-link term), airplanes.live, and adsbdb.com, closing the visible half of D-14. Repo-root ARCHITECTURE.md written directly from the shipped code (state_machine.c, backoff.c, poll_loop.py, detect.py, enrich.py, render.py, panel_format.py, byos_server.py), not the stale research doc - covers the firmware wake/poll/blit/deep-sleep cycle (hash-skip short-circuit, deferred-vs-failed panel-guard distinction, the frozen Log Line Contract, measured ~31.5s full-refresh duration), the server render pipeline (deterministic multi-aircraft selection, vertical-rate deadband, enrich.py's ~52.6%-hit-rate cache documented as a first-class fallback state, the two-flight poster composition), and the OVH deployment topology (Caddy/ufw loopback enforcement, systemd units, bearer-token auth) - plus an ASCII data-flow diagram and a deliberate-constraints section. .planning/research/ARCHITECTURE.md got an additive-only status note (zero lines deleted) pointing at the new document. Every command in the README was executed while writing it (venv install, a manual render, a real poll_loop.py cycle that correctly fell back to the Empty state when the sandboxed environment's live aggregator call returned 403); all 9 test harnesses, ruff, and check-attribution.sh still pass. One self-caught deviation: two literal strings (a no-space `esp_deep_sleep_start()` and literal `127.0.0.1`/`0.0.0.0` addresses) failed the task's own automated verification on first draft and were corrected before commit - documented in 04-05-SUMMARY.md.
 - [Phase 04]: 04-06 complete - Phase 4 fully closed (6/6 plans). Repository published public at `florianlepont/ink-frame` after a second scrub pass (Category D: supplier order numbers + payment note, found beyond Task 1's original review) on top of 04-01's first pass; commit-author email deliberately left unscrubbed at developer's explicit request. `production` GitHub Environment created with `florianlepont` as required reviewer; three secrets (`DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_HOST_KEY`, `DEPLOY_SSH_TARGET`) provisioned from a dedicated CI-only ed25519 keypair, not the developer's personal key. On real GitHub infrastructure: CI went green with all 9 harnesses individually confirmed reporting (`dither: 6/6` ... `poll-cycle: 17/17`) plus lint and attribution; a deliberately lint-breaking throwaway PR failed CI and left the deploy job with zero executed steps and no pending_deployments entry (proof a PR cannot reach deploy credentials); firmware.yml's path restriction confirmed both ways (skipped for the lint-only PR, built successfully for a firmware/** change, corroborated again by a real direct-to-main firmware.yml documentation commit); the production deploy job was observed genuinely paused (`pending_deployments` with `current_user_can_approve: true`), approved via `gh api`, and `deploy/deploy.sh` completed with all documented post-deploy health checks passing (services active, real poll cycle in the journal, TLS+401 auth gate, app port unreachable externally). No secret value found in any run log. A second pending deployment (from a prior dispatch's direct push, 243e233) surfaced mid-session and was deliberately left for the developer's own approval rather than force through the session's auto-mode production-deploy classifier guard - documented in 04-06-SUMMARY.md, not a blocker to Phase 4 closure.
 - [Phase 03.1]: 03.1-01 complete (Wave 1, first of two Wave-1 plans) - ROADMAP.md's Phase 3.1 section rewritten via four scoped `Edit`s (goal, phase-list summary bullet, success criteria 3-4, a dated superseding note appended to the preserved "Note on origin" paragraph) to describe the static-but-type-accurate approach (D-10) instead of the abandoned server-side SVG-shape+livery-color compositing engine; `git diff --numstat` confirmed the edit stayed confined to the Phase 3.1 bullet+section. `03.1-LIVE-RESOLUTION.md` created: calibrated the `adsbdb` airline-endpoint probe against the known `AFR` -> `Air France` answer, re-confirmed the four load-bearing callsigns (CCM Airlines, easyJet, Air France, Transavia France still resolve as expected - P-01 holds), and live-resolved all eight previously-unverified D-03 airlines. Found two more Pitfall-1-style stale-brand-name mismatches beyond the known CCM Airlines/Air Corsica case: ASL Airlines France resolves as `"Europe Airpost"` (confirmed via two real live callsigns, FPO701/FPO458) and Corsair International resolves as `"Corsairfly"` (confirmed via the calibrated airline endpoint + independent Wikipedia corroboration) - both are the real selection keys plan 03.1-03 must use, not D-03's labels. Confirmed the ADS-B `t` field present on 111/125 real aircraft via `opendata.adsb.fi`; `api.airplanes.live` remains network-blocked (HTTP 403), consistent with the existing `COMPLIANCE.md` finding, not schema-absent. Two airlines (Amelia International, La Compagnie) marked `[UNRESOLVED]` with full evidence and excluded from the target set pending a future real-callsign re-verification - both had a candidate ICAO code that turned out to belong to a different real airline in adsbdb. No server code touched (`git status --porcelain server/` empty throughout).
+- [Phase 03.1]: 03.1-02 complete (Wave 1, second of two Wave-1 plans - Wave 1 now closed) - `detect.py`'s `select_runway3_aircraft()` now extracts and normalizes `aircraft_type` from the raw aggregator `t` field: non-string/falsy input degrades to `None`, valid strings are stripped/uppercased, and the result is additionally validated against an alphanumeric-only ICAO-designator shape (`_VALID_AIRCRAFT_TYPE_RE`) before leaving the function - a deviation beyond `03.1-PATTERNS.md`'s literal one-liner, required because the plan's own malformed-value battery mandates a path-separator payload also yield `None` (T-03.1-02-01, ASVS V5). Both committed geofence fixtures gained annotated, plausible `t` values (Transavia France B738/A20N, Air France A320) with synthetic no-position/out-of-bbox records left deliberately without a `t` key; `server/fixtures/README.md` documents the phase 03.1 provenance. `test_plane_detection.py` grew from 6 to 10 checks, all passing. Live-verified via a fixture-driven `poll_loop.run_once()` call that `aircraft_type` reaches `poll_state.json` with zero code changes to `poll_loop.py`, confirming `03.1-RESEARCH.md`'s Code-Level Finding #2. Full 9-harness suite + `ruff check .` green, coverage unchanged at 79%.
 
 ### Pending Todos
 
@@ -175,10 +177,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-27T00:08:58.873Z
-Stopped at: 03.1-01 complete (Wave 1, plan 1 of 2) — continue with 03.1-02
+Last session: 2026-08-27T00:25:00.000Z
+Stopped at: 03.1-02 complete (Wave 1, plan 2 of 2 - Wave 1 done) — continue with 03.1-03 (Wave 2)
 
-Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-02-PLAN.md
+Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-03-PLAN.md
 
 **State at end of this session (2026-08-26, ~09:25):**
 
@@ -258,3 +260,11 @@ Resume file: .planning/phases/03.1-procedural-per-airline-livery-rendering/03.1-
 - Three commits landed for 03.1-01: `cc814ed` (Task 2, `03.1-LIVE-RESOLUTION.md`), `b94cb80` (Task 1, ROADMAP.md revision), `ad9dcd2`/`6724536` (`03.1-01-SUMMARY.md` + its self-check appendix). Task 2 was executed and committed before Task 1 in this session, since Task 2's live findings directly informed Task 1's superseding-note wording — both tasks are independent and non-order-dependent per the plan.
 - This worktree (`skypane/.claude/worktrees/reprise-travail-a8e93d`) has no `server/.venv` (present in the main repo checkout, absent here) and this sandbox's `pip` points at an unreachable internal registry — `scripts/run-all-tests.sh` could not be run as this plan's no-regression check. Not a blocker for 03.1-01 (zero server files touched, `git status --porcelain server/` confirmed empty), but plan 03.1-02 (the first plan in this phase that actually edits `server/plane/detect.py`) will need a working venv in whichever environment executes it.
 - Next step: continue `/gsd-execute-phase 03.1` with plan `03.1-02` (`detect.py` ICAO aircraft-type extraction) — Wave 1's second and final plan.
+
+**State at end of this session (2026-08-27) — 03.1-02 executed, Wave 1 closed:**
+
+- Orchestrator provisioned `server/.venv` in this worktree ahead of dispatch (`pip install --index-url https://pypi.org/simple ...`, bypassing the unreachable internal registry flagged in the previous session note) and confirmed `scripts/run-all-tests.sh` green (79% coverage, all 9 harnesses) immediately before this plan ran.
+- `/gsd-execute-phase 03.1` ran plan `03.1-02` (Wave 1, second and final Wave-1 plan) — see the `[Phase 03.1]` decisions-log bullet above for the full technical summary. One real deviation found and auto-fixed (Rule 2): the plan's own Task 2 malformed-value battery requires a path-separator `t` string to also yield `aircraft_type is None`, which the literal PATTERNS.md extraction one-liner cannot satisfy (it only checks type/emptiness, not shape) — added `_VALID_AIRCRAFT_TYPE_RE` (alphanumeric-only) as the actual normalization boundary. Full detail and verification evidence in `03.1-02-SUMMARY.md`.
+- Two task commits landed: `af26053` (Task 1, `detect.py` extraction), `0ea839f` (Task 2, fixtures + harness checks + the Rule 2 shape-validation fix), plus `abb9f2e`/`ed2354b` (`03.1-02-SUMMARY.md` + its self-check appendix).
+- `state.advance-plan` again errored on this STATE.md's "Plans: N/M executed" line shape (same known tool limitation as every prior session); `state.update-progress` returned `completed_phases: 5, completed_plans: 24, percent: 71` (internally inconsistent — 24/28 is 86%, not 71% — and `completed_phases: 5` was wrong, since Phase 3.1 still has 3/5 plans outstanding) — corrected by hand to `completed_phases: 4`, `completed_plans: 23` (22 before this plan + 1 for 03.1-02, cross-checked against a direct count of 24 non-archived `*-SUMMARY.md` files minus the one known in-progress partial, `05-01-SUMMARY.md`), `percent: 82` (23/28, rounded). `current_position` body text and progress bar hand-corrected to match, same pattern as every prior session note above.
+- Next step: continue `/gsd-execute-phase 03.1` with Wave 2 (plan `03.1-03`, illustration selection/`classify_aircraft_type()`).
