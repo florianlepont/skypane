@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-08-27
+revised: 2026-08-28
 amends: .planning/phases/03-visual-polish-on-real-glass/03-UI-SPEC.md (Revision 4, as-shipped record of `server/plane/render.py`'s two-flight poster layout — this document adds one new zone without touching any existing one)
 supersedes: 03-CONTEXT.md's D-12 (Yellow reserved for the low-battery indicator) — 05-CONTEXT.md's D-04 confirms the indicator is White/Ivory, not Yellow; the D-12 reservation is now moot and Yellow stays free
 ---
@@ -33,33 +34,39 @@ supersedes: 03-CONTEXT.md's D-12 (Yellow reserved for the low-battery indicator)
 
 ## Canvas and Geometry — new zone only
 
+### Revision 2 — live on-glass size correction (2026-08-28)
+
+The geometry originally specified below (Revision 1) shipped in plan 05-02 and was deployed to the real production hardware. The developer then saw the low-battery glyph rendered on the physical 13.3" Spectra 6 panel and judged it too large. Every size dimension (`BATTERY_ICON_BODY_W`/`BODY_H`/`NUB_W`/`NUB_H`/`STROKE_PX`) was therefore reduced to 70% of its original value (`round(original * 0.7)`); the two position constants (`BATTERY_ICON_LEFT`/`BATTERY_ICON_BOTTOM`) and `BATTERY_ICON_FILL_FRAC` were deliberately left untouched. The superseded total bounding box was `(64, 1504, 136, 1536)` — 72×32px; the new one is `(64, 1514, 115, 1536)` — 51×22px. This is a live on-glass correction in the same lineage as Phase 3's D-20/D-21/D-22 and D-26/D-27 on-glass corrections, recorded here per quick task **260828-0qo**. This section's own original instruction — "Confirm against a real render before treating as final" — is exactly what produced this revision: the process worked as designed.
+
 Canvas unchanged: 1200×1600, portrait, full-bleed. `MARGIN = 64` (unchanged `server/plane/render.py` constant, reused here — see below).
 
 **New zone: bottom-left battery icon.** This is the one area of the locked layout with no existing element (`05-CONTEXT.md` D-05) — the frame's top-left corner holds the state label, top-right holds the tag, bottom-right holds the previous-flight card; bottom-left is empty. Anchoring the icon at the same `MARGIN` inset the top labels already use makes it the visual mirror of those corners, and reads as the deliberate opposite-corner counterweight to the previous-flight card (`05-CONTEXT.md` D-05: "visually balances the previous-flight card on the opposite side").
 
 | Constant | Value | Notes |
 |---|---|---|
-| `BATTERY_ICON_LEFT` | `MARGIN` = 64 | Same left inset as the top-row labels and the previous-flight text block's `available_width` origin — one consistent left baseline across the whole panel |
-| `BATTERY_ICON_BOTTOM` | `HEIGHT - MARGIN` = 1536 | Mirrors the top labels' `MARGIN` inset on the opposite (bottom) edge |
-| `BATTERY_ICON_BODY_W` | 64px | Icon body (outline rectangle) width |
-| `BATTERY_ICON_BODY_H` | 32px | Icon body height |
-| `BATTERY_ICON_NUB_W` | 8px | Terminal nub width, attached to the body's right edge |
-| `BATTERY_ICON_NUB_H` | 14px | Terminal nub height, vertically centered on the body |
-| `BATTERY_ICON_STROKE_PX` | 3px | Outline stroke width — thicker than the frame's 2px (`FRAME_STROKE_PX`) so the glyph stays legible at this small size on e-ink |
-| `BATTERY_ICON_FILL_FRAC` | 0.22 | Fraction of the body's *interior* width (inside the stroke) filled solid, left-aligned — a fixed "low" glyph, not a live gauge (resolves `05-CONTEXT.md`'s "fill-level rendering" discretion item: a single fixed near-empty fill, not proportional to the real mV reading) |
+| `BATTERY_ICON_LEFT` | `MARGIN` = 64 | **Unchanged by Revision 2** — same left inset as the top-row labels and the previous-flight text block's `available_width` origin — one consistent left baseline across the whole panel |
+| `BATTERY_ICON_BOTTOM` | `HEIGHT - MARGIN` = 1536 | **Unchanged by Revision 2** — mirrors the top labels' `MARGIN` inset on the opposite (bottom) edge |
+| `BATTERY_ICON_BODY_W` | 45px | Icon body (outline rectangle) width — `round(64 * 0.7)` = `round(44.8)` (Revision 2; was 64px) |
+| `BATTERY_ICON_BODY_H` | 22px | Icon body height — `round(32 * 0.7)` = `round(22.4)` (Revision 2; was 32px) |
+| `BATTERY_ICON_NUB_W` | 6px | Terminal nub width, attached to the body's right edge — `round(8 * 0.7)` = `round(5.6)` (Revision 2; was 8px) |
+| `BATTERY_ICON_NUB_H` | 11px | Terminal nub height, vertically centered on the body (to within one pixel — see below) — `round(16 * 0.7)` = `round(11.2)` (Revision 2; was 16px — note: this document's pre-Revision-2 text read 14px, but the shipped 05-02 code has actually used 16px since 05-02 resolved its own grid-alignment discretion item; 16px, not 14px, is the value genuinely superseded here) |
+| `BATTERY_ICON_STROKE_PX` | 2px | Outline stroke width — `round(3 * 0.7)` = `round(2.1)` (Revision 2; was 3px). 2px is simultaneously where the proportional 0.7 reduction lands and the floor it stops at: it now equals the frame's own `FRAME_STROKE_PX`, not exceeds it — dropping further to a 1px hairline would cost the glyph its legibility as a distinct shape at e-ink resolution |
+| `BATTERY_ICON_FILL_FRAC` | 0.22 | **Unchanged by Revision 2** — a ratio of the interior width, not a pixel size. Fraction of the body's *interior* width (inside the stroke) filled solid, left-aligned — a fixed "low" glyph, not a live gauge (resolves `05-CONTEXT.md`'s "fill-level rendering" discretion item: a single fixed near-empty fill, not proportional to the real mV reading) |
 
-**Derived bounding boxes** (computed once, deterministic, no dependency on flight data):
+**Derived bounding boxes** (computed once, deterministic, no dependency on flight data) — **Revision 2 values, live on-glass corrected 2026-08-28:**
 
-- Icon body: `(64, 1504, 128, 1536)` — left=`BATTERY_ICON_LEFT`, bottom=`BATTERY_ICON_BOTTOM`, top=`bottom - BATTERY_ICON_BODY_H`, right=`left + BATTERY_ICON_BODY_W`.
-- Terminal nub: `(128, 1513, 136, 1527)` — attached to the body's right edge, vertically centered: `nub_top = body_top + (BODY_H - NUB_H) / 2`.
-- **Total icon bounding box: `(64, 1504, 136, 1536)` — 72×32px**, matching the session sketch's "~72×34px, sized like B" reference to within 2px (`05-CONTEXT.md` D-04). Confirm against a real `render.py --preview` render before treating as final, per this project's established preview-before-commit discipline (`05-CONTEXT.md`'s "Established Patterns" note, same precedent as Phase 3's D-20/D-21/D-22).
-- Fill rectangle (inside the stroke, left-aligned): interior = `(67, 1507, 125, 1533)` (58×26px after inset by `BATTERY_ICON_STROKE_PX`); fill width = `round(58 * 0.22)` = 13px → fill box `(67, 1507, 80, 1533)`.
+- Icon body: `(64, 1514, 109, 1536)` — left=`BATTERY_ICON_LEFT`, bottom=`BATTERY_ICON_BOTTOM`, top=`bottom - BATTERY_ICON_BODY_H`, right=`left + BATTERY_ICON_BODY_W`.
+- Terminal nub: `(109, 1519, 115, 1530)` — attached to the body's right edge, centered to within one pixel: `nub_top = body_top + (BODY_H - NUB_H) // 2`.
+- **Total icon bounding box: `(64, 1514, 115, 1536)` — 51×22px** (was `(64, 1504, 136, 1536)` — 72×32px before this revision). The pre-revision figure was itself compared against the session sketch's "~72×34px, sized like B" reference (`05-CONTEXT.md` D-04); that comparison is now superseded by direct observation of the real panel — the developer saw the shipped 72×32 glyph on the physical Spectra 6 hardware and judged it too large, which is the on-glass feedback this revision applies.
+- Fill rectangle (inside the stroke, left-aligned): interior = `(66, 1516, 107, 1534)` (41×18px after inset by `BATTERY_ICON_STROKE_PX`); fill width = `round(41 * 0.22)` = 9px → fill box `(66, 1516, 75, 1534)`.
 
-**Collision check against the existing locked layout** (verified by hand against `render.py`'s live geometry, not assumed):
+**Nub centring is no longer exactly symmetric (Revision 2).** `BODY_H - NUB_H` = `22 - 11` = `11`, an odd leftover, so floor division (`// 2`) puts a 5px gap above the nub and a 6px gap below it, rather than the 8px-above/8px-below exact centring the pre-revision 32/16 dimensions produced. This is the intended behaviour of the proportional reduction, not a defect — a future reader should not treat the one-pixel asymmetry as a bug to fix.
 
-- **Frame** (`FRAME_INSET_FRAC = 0.025` → outline at `(30, 30, 1170, 1570)`): icon sits 34px inside the frame's left edge and 34px inside its bottom edge — comfortably clear, same clearance the top labels get from the frame's top edge.
-- **Previous-flight card**: right-aligned to the main illustration's right edge (≈x 531–1096 for the default preview illustration; real per-airline files vary but are always right-anchored, never left-anchored) — zero horizontal overlap with the icon's x-range (64–136) under any real illustration file. Vertically, even a taller-than-average previous illustration's text block bottoms out well above y≈1504 (verified against the default preview geometry, ~49px of clearance) — no vertical collision under realistic aspect ratios.
-- **Main illustration/text block**: horizontally centered, always spans a width narrower than the full canvas; at `MAIN_ILLUSTRATION_TOP_FRAC = 0.30` (y=480) it sits far above the icon's y-range regardless of state.
+**Collision check against the existing locked layout** (verified by hand against `render.py`'s live geometry, not assumed) — **Revision 2: figures updated for the shrunk icon; conclusions unchanged, since a uniform shrink at a fixed anchor (`BATTERY_ICON_LEFT`/`BATTERY_ICON_BOTTOM` unmoved) cannot introduce a new collision — every clearance below can only have strictly increased relative to Revision 1:**
+
+- **Frame** (`FRAME_INSET_FRAC = 0.025` → outline at `(30, 30, 1170, 1570)`): icon sits 34px inside the frame's left edge and 34px inside its bottom edge (unchanged — the anchor didn't move); the icon's own footprint shrank, so its top edge is now 10px further from any element above it than before.
+- **Previous-flight card**: right-aligned to the main illustration's right edge (≈x 531–1096 for the default preview illustration; real per-airline files vary but are always right-anchored, never left-anchored) — zero horizontal overlap with the icon's x-range, now `64–115` (was `64–136`), under any real illustration file. Vertically, even a taller-than-average previous illustration's text block bottoms out well above y≈1514 (was y≈1504 pre-revision — the icon's top edge moved down 10px, widening this clearance) — no vertical collision under realistic aspect ratios.
+- **Main illustration/text block**: horizontally centered, always spans a width narrower than the full canvas; at `MAIN_ILLUSTRATION_TOP_FRAC = 0.30` (y=480) it sits far above the icon's y-range regardless of state, unaffected by the resize.
 
 **Guard rail:** wrap the icon's draw call in `_assert_within_canvas()` (the same looser guard every other active-state element outside the strict empty-state `SAFE_BOX` already uses — see `03-UI-SPEC.md`'s Canvas and Geometry section) — not `_assert_in_safe_box()`, since, like the frame and both illustrations, this element deliberately sits inside the old 64px band's bottom-left corner rather than being confined by it.
 
@@ -75,7 +82,7 @@ Canvas unchanged: 1200×1600, portrait, full-bleed. `MARGIN = 64` (unchanged `se
 
 **No text, no "LOW" label, no percentage** — icon-only per D-04's explicit correction mid-discussion ("tu me parles de texte alors que je pensais à un icône batterie tout simplement"). This is the poster's first and only icon-based element; every other element (state label, tag, both flight text blocks) stays pure text, per `05-CONTEXT.md`'s own flagged exception to the project's text-only visual language.
 
-**Line weight:** `BATTERY_ICON_STROKE_PX = 3` for the outline. Slightly thicker than the frame's 2px specifically because the icon is far smaller than the frame and needs to stay legible as a distinct shape at e-ink resolution, not because of any stroke-fill anti-aliasing rule (there is none here — all fills are flat integer-index rectangles, same discipline as every other shape in `render.py`).
+**Line weight:** `BATTERY_ICON_STROKE_PX = 2` for the outline (Revision 2; was 3). At 2px the stroke no longer exceeds the frame's own `FRAME_STROKE_PX` — it equals it. The rationale changed with the value: 2px is where the proportional `round(3 * 0.7)` reduction lands, and it is simultaneously the floor that reduction stops at, since dropping to a 1px hairline would cost the glyph its legibility as a distinct shape at e-ink resolution. Not related to any stroke-fill anti-aliasing rule (there is none here — all fills are flat integer-index rectangles, same discipline as every other shape in `render.py`).
 
 **Rendering primitive:** `ImageDraw.rectangle(box, outline=ink_idx, width=BATTERY_ICON_STROKE_PX)` for the body and nub outlines, `ImageDraw.rectangle(fill_box, fill=ink_idx)` for the interior fill and the nub (drawn solid, not outlined — a real device's terminal nub reads as a small solid tab, not a second hollow rectangle). No `stroke_width`/`stroke_fill` text-drawing parameters are involved (this is not text) so the project's standing anti-aliasing prohibition on that specific API is not a relevant risk here — but the same "flat integer-index fills only" discipline applies throughout.
 
