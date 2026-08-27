@@ -87,6 +87,14 @@ omit = [
     # derivation discipline below, since it will jump well above 75.
     "server/device_config.py",
     "server/history_db.py",
+    # 06-03: same deviation as the 06-01 entry above, same reason - the new
+    # panel_preview.py module is real and fully tested (test_panel_preview.py,
+    # 11/11 checks), but that harness is likewise deliberately NOT yet added
+    # to scripts/run-all-tests.sh's HARNESSES array (06-03-PLAN.md's own
+    # <verification> block: "this plan's harness is registered by plan
+    # 06-11"). REMOVE this line in plan 06-11 alongside the two above, at the
+    # same time test_panel_preview.py is added to HARNESSES.
+    "server/panel_preview.py",
 ]
 
 [tool.coverage.report]
