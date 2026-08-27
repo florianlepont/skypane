@@ -44,6 +44,7 @@ script is a systemd oneshot with no in-process memory between cycles).
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 import requests
 
@@ -657,3 +658,154 @@ def trim_cache(cache, max_entries=CACHE_MAX_ENTRIES):
     while len(cache) > max_entries:
         oldest_key = next(iter(cache))
         cache.pop(oldest_key, None)
+
+
+# --- Unrecognized-ICAO-prefix recorder (quick task 260827-oz9) --------------
+#
+# `resolve_route()`'s `"miss"` outcome means neither adsbdb nor
+# `_ICAO_AIRLINE_PREFIXES` resolved anything for a shape-valid callsign -
+# which, because `airline_from_callsign()` is the only thing that can ever
+# turn a "miss" into an "airline_only", is exactly equivalent to "this
+# callsign's 3-letter ICAO prefix is not (yet) in the static table". No new
+# resolution logic is required to detect that condition; this section only
+# gives it somewhere durable to live.
+#
+# This is observability only: it does not change `resolve_route()`'s
+# contract, its four source values, or anything `render.py`/
+# `illustrations.py` ever sees. Nothing here can influence what the panel
+# displays.
+#
+# `count` is incremented once per poll cycle in which the prefix is seen,
+# NOT once per distinct flight - an aircraft held on the runway across ten
+# cycles reads as ten. This must never be presented as a flight count
+# anywhere this number is surfaced (code comment, docs, runbook).
+#
+# The remediation for a prefix that shows up here is to live-verify it
+# against adsbdb (a real curled callsign, or a documented confirmed-negative
+# - the same sourcing discipline `_ICAO_AIRLINE_PREFIXES`'s own comments
+# already require) and add a row to that table. Never guess an airline name
+# from the three letters alone.
+
+# T-oz9-01: bound the registry's entry count so a spoofed or buggy callsign
+# field cannot grow poll_state.json without limit. The realistic population
+# is the set of carriers actually serving this one airport that the static
+# table does not yet name - comfortably below a few hundred - and each
+# entry is a handful of short JSON fields, the same order of magnitude as
+# the 300-entry `enrichment_cache` this file already tolerates. This cap
+# exists to survive hostile/malformed input, not to ration normal
+# operation.
+UNRESOLVED_PREFIX_MAX_ENTRIES = 200
+
+# T-oz9-01/T-oz9-03: bound the stored example callsign's length. Real ICAO
+# callsigns are at most eight characters, but neither `_CALLSIGN_SAFE_RE`
+# nor `_AIRLINE_PREFIX_SHAPE_RE` imposes any length limit at all, and
+# ADS-B callsign fields are unauthenticated and trivially spoofable - a
+# broken feed or a hostile source could otherwise grow one stored string
+# without bound.
+UNRESOLVED_EXAMPLE_MAX_LEN = 16
+
+
+def note_unresolved_prefix(callsign, registry, now=None):
+    """Record `callsign`'s 3-letter ICAO prefix in `registry` as an
+    unrecognized carrier, or return None without recording anything.
+
+    Recording happens only when `callsign` passes `_AIRLINE_PREFIX_SHAPE_RE`
+    (a real callsign shape, not empty/malformed/hostile input) AND
+    `airline_from_callsign(callsign)` returns None (the prefix is genuinely
+    absent from `_ICAO_AIRLINE_PREFIXES`, not just a differently-shaped
+    string). Both decisions are derived from the single
+    `airline_from_callsign()` call rather than a second, parallel lookup
+    against `_ICAO_AIRLINE_PREFIXES` - so this function can never drift from
+    that seam's resolve/None verdict as the table grows.
+
+    `registry` is a plain, JSON-serialisable dict (the caller persists it in
+    `poll_state.json`'s `unresolved_prefixes` key) mapping a 3-letter prefix
+    to `{"count", "first_seen", "last_seen", "example_callsign"}`. A first
+    sighting creates that entry with `count` 1 and both timestamps equal to
+    `now`. A later sighting of the same prefix increments `count`, updates
+    `last_seen` and `example_callsign` to this sighting, and leaves
+    `first_seen` untouched - it is the answer to "how long has this gap
+    existed?" and must never move once set.
+
+    `now` defaults to a timezone-aware UTC ISO-8601 string (seconds
+    precision) computed inside the function, but stays injectable so a
+    harness can pin it. `example_callsign` is truncated to
+    `UNRESOLVED_EXAMPLE_MAX_LEN`.
+
+    Returns None (and records nothing) for a non-dict `registry`, for any
+    `callsign` that fails the shape gate, and for any `callsign` whose
+    prefix already resolves via `airline_from_callsign()`. A pre-existing
+    entry that is not a dict, or whose `count` is not an int (a hand-edited
+    or older state file), is treated as absent and rebuilt fresh rather than
+    trusted - mirroring `apply_airline_name_correction()`'s defensive shape.
+    Never raises.
+    """
+    if not isinstance(registry, dict):
+        return None
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return None
+    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return None
+    if airline_from_callsign(callsign) is not None:
+        return None
+
+    prefix = normalised[:3]
+    if now is None:
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    example = normalised[:UNRESOLVED_EXAMPLE_MAX_LEN]
+
+    entry = registry.get(prefix)
+    if not isinstance(entry, dict) or not isinstance(entry.get("count"), int):
+        registry[prefix] = {
+            "count": 1,
+            "first_seen": now,
+            "last_seen": now,
+            "example_callsign": example,
+        }
+    else:
+        entry["count"] = entry["count"] + 1
+        entry["last_seen"] = now
+        entry["example_callsign"] = example
+
+    return prefix
+
+
+def _unresolved_prefix_sort_key(item):
+    """Sort key used by `trim_unresolved_prefixes()` to find the weakest
+    (most evictable) entry: lowest `count` first, then oldest `last_seen`,
+    then lexicographically smallest prefix. A malformed entry (not a dict,
+    or a non-string/missing `last_seen`) sorts as the weakest possible
+    candidate rather than raising.
+    """
+    prefix, entry = item
+    if not isinstance(entry, dict):
+        return (-1, "", prefix)
+    count = entry.get("count")
+    if not isinstance(count, int):
+        count = -1
+    last_seen = entry.get("last_seen")
+    if not isinstance(last_seen, str):
+        last_seen = ""
+    return (count, last_seen, prefix)
+
+
+def trim_unresolved_prefixes(registry, max_entries=UNRESOLVED_PREFIX_MAX_ENTRIES):
+    """Bound `registry` to at most `max_entries` by evicting the weakest
+    entry - lowest `count`, then oldest `last_seen`, then lexicographically
+    smallest prefix - one at a time, until the cap is met.
+
+    Deliberately NOT `trim_cache()`'s insertion-order eviction: the oldest
+    entry here is the longest-standing coverage gap, the single most
+    valuable row in this registry, and a recurring prefix must outrank any
+    number of one-off arrivals. Insertion-order eviction would let a burst
+    of spoofed or one-off prefixes push out exactly the finding this
+    registry exists to surface. Tolerates malformed entries (sorted as the
+    weakest candidates) rather than raising. Does nothing for a non-dict
+    `registry`.
+    """
+    if not isinstance(registry, dict):
+        return
+    while len(registry) > max_entries:
+        weakest_prefix, _weakest_entry = min(registry.items(), key=_unresolved_prefix_sort_key)
+        registry.pop(weakest_prefix, None)

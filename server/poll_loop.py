@@ -11,11 +11,12 @@ timer unit that actually drives the 30s cadence lands in plan 02-05, not
 this plan (02-RESEARCH.md's Don't Hand-Roll table).
 
 Cross-cycle state (D-P2-02): this script has no in-process memory between
-invocations, so the last detected flight and last chosen state live in
-`<state_dir>/poll_state.json`, written with the same tmp-write-then-
-os.replace() pattern stub-server/byos_server.py's save_state() uses. An
-unreadable or malformed state file is treated as empty state, never as a
-crash.
+invocations, so the last detected flight, last chosen state, and the
+unrecognized-ICAO-prefix registry (quick task 260827-oz9 - journald rotates,
+the coverage question does not) all live in `<state_dir>/poll_state.json`,
+written with the same tmp-write-then-os.replace() pattern
+stub-server/byos_server.py's save_state() uses. An unreadable or malformed
+state file is treated as empty state, never as a crash.
 
 Usage:
     server/.venv/bin/python3 server/poll_loop.py --once
@@ -171,6 +172,12 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     previous_flight = poll_state.get("previous_flight")
     previous_confirmed_state = poll_state.get("previous_confirmed_state")
     previous_route = poll_state.get("previous_route")
+    # quick task 260827-oz9: only the flight-detected branch below can ever
+    # set this, but every branch (including the two no-detection branches)
+    # falls through to the single shared log statement at the bottom, so
+    # it must be defined here, before any branching, or an ordinary cycle
+    # that detects nothing raises UnboundLocalError.
+    unknown_prefix = None
 
     if flight is not None:
         # D-25 (03-CONTEXT.md): two-deep flight history for the poster's
@@ -226,6 +233,21 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             route, route_source = enrich.resolve_route(flight.get("callsign"), cache)
             enrich.trim_cache(cache)
             poll_state["enrichment_cache"] = cache
+            # quick task 260827-oz9: a "miss" means neither adsbdb nor the
+            # static prefix table resolved anything for a shape-valid
+            # callsign - exactly "unrecognized ICAO prefix". Record it into
+            # the same durable poll_state.json this cycle already writes,
+            # so the finding survives this oneshot's process boundary.
+            # Never called for "airline_only"/"fresh_hit"/"cache_hit" (a
+            # source resolved something) or "held"/"n/a" (no enrichment
+            # ran this cycle at all).
+            unresolved_prefixes = poll_state.get("unresolved_prefixes")
+            if not isinstance(unresolved_prefixes, dict):
+                unresolved_prefixes = {}
+            if route_source == "miss":
+                unknown_prefix = enrich.note_unresolved_prefix(flight.get("callsign"), unresolved_prefixes)
+            enrich.trim_unresolved_prefixes(unresolved_prefixes)
+            poll_state["unresolved_prefixes"] = unresolved_prefixes
             # D-25/D-26: the previous flight's own real illustration/text
             # rides along on the same panel as the current detection's.
             rendered = render.render_panel(
@@ -267,9 +289,13 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
     # corroboration flag - a three-state provenance signal about this
     # project's own ADS-B sources, not third-party response content, so it
     # stays within this rule - never the raw adsbdb response body.
+    # quick task 260827-oz9: unknown_prefix is the first three characters
+    # of the callsign this same line already prints in full, derived from
+    # this project's own selected-aircraft record - not from any
+    # third-party response body - so it stays within the rule above too.
     print(
         "poll_loop: hex=%s callsign=%s aircraft_type=%s corroborated=%s altitude_ft=%s confirmed_state=%s "
-        "render_state=%s state_source=%s route_source=%s panel_changed=%s"
+        "render_state=%s state_source=%s route_source=%s unknown_prefix=%s panel_changed=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
@@ -280,6 +306,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
             render_state,
             state_source,
             route_source,
+            unknown_prefix,
             panel_changed,
         )
     )
