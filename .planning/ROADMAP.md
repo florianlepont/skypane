@@ -340,16 +340,16 @@ Plans:
 
 - [ ] TBD (run /gsd-plan-phase 06.2 to break down)
 
-### Phase 06.1: Battery status on companion web interface (INSERTED)
+### Phase 06.1: Battery status on companion web interface — SUPERSEDED (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Superseded 2026-08-28, before planning — merged into Phase 06.5. Codebase investigation during 06.5's discuss-phase found this phase's ask (a battery-status verdict on the companion web interface) targets the exact same code as 06.5 (`companion/pages/health_page.py`'s Battery Trend section), so both ship together there — an overall-status badge plus interactive hover/tooltip charting — rather than touching the same section twice. User confirmed the merge explicitly. See `06.5-CONTEXT.md` for the combined scope; this phase is intentionally never planned standalone.
+**Requirements**: None — folded into Phase 06.5
 **Depends on:** Phase 6
-**Plans:** 0 plans
+**Plans:** 0 plans (intentionally — superseded, not planned standalone)
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
+- [x] N/A — superseded by Phase 06.5, see above
 
 ### Phase 7: Final On-Glass Verification
 
