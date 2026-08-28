@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Planned 2026-08-28 (2 plans).
 - [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves.
 - [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan).
-- [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. Not yet planned.
+- [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves.
 - [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, clearer poll-trigger cooldown copy, clearer corroboration wording. Not yet planned.
 - [ ] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog)
 
@@ -298,14 +298,17 @@ Plans:
 
 ### Phase 06.5: Interactive battery trend chart with overall status (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
+**Goal:** The companion Health page's Battery trend section stops being the one section without a verdict and the one chart a user cannot interrogate. It gains (a) a persistent `status_dot()` badge rendered exactly as Device check-in and ADS-B pipeline already render theirs (D-01, the ask absorbed from the superseded Phase 06.1), and (b) real interactivity: every plotted point becomes a finger-sized, keyboard-focusable hit target carrying its exact millivolt reading and timestamp, revealed in a reserved readout line on tap **or** hover, working on a real phone and not only under a desktop mouse (D-02, against `06-CONTEXT.md` D-22's mobile bar). Two open questions are closed rather than deferred: the CONTEXT-flagged no-JS-vs-scoped-JS tension resolves to **scoped JS** — one external, cacheable ~30-line vanilla file served from a pre-auth `/static/battery-trend.js` route mirroring `/static/style.css`, because tap-triggered `:focus` on a non-native-control SVG shape is unreliable on iOS Safari and D-02 cannot be met by CSS alone; and the empty-history badge state is locked to **`"ok"`**, matching `corroboration_status()`'s "unknown is not a failure" precedent and avoiding a real coupling where a `"warn"` would make `collect_anomalies()` tell a zero-reading deployment it had suffered an abnormal drop. The pre-existing sparkline no-script regression test is left intact and unweakened; a new additive page-level check asserts exactly one `<script>` tag and zero inline event handlers instead.
+
+**Requirements**: None — unmapped backlog phase (promoted from 999.5, having absorbed 999.1/06.1), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (persistent status badge reusing `status_dot()`) and D-02 (hover **or** tap reveals the exact mV + timestamp, mobile included) in `06.5-CONTEXT.md`. It is UI-only follow-on work to CFG-03, already Complete (Phase 6, plan 06-08), which is not reopened.
+**Depends on:** Phase 6 (CFG-03's `_battery_section()`/`battery_sparkline_svg()`/`battery_status()`). Soft, order-insensitive relationship with Phase 06.3, which restructures the same file's `render()` into a stat-tile grid — `stat_tile()` passes `content_html` through byte-for-byte, so the badge and chart compose either way; `06.5-02-PLAN.md` and `06.3-04-PLAN.md` each carry a conditional note for whichever executes second.
+**Plans:** 3 plans (3 waves)
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 06.5 to break down)
+- [ ] 06.5-01-PLAN.md — Wave 1: `companion/static/battery-trend.js` (the project's first shipped JS file) + its stylesheet rules + the pre-auth `text/javascript` static route mirroring `/static/style.css`
+- [ ] 06.5-02-PLAN.md — Wave 2: the D-01 badge with the empty-history `"ok"` decision written into the code, and D-02's server-rendered per-point hit targets, readout line and single external script reference
+- [ ] 06.5-03-PLAN.md — Wave 3: seeded live preview plus the real-phone tap/hover verification this project's stdlib harness structurally cannot automate
 
 ### Phase 06.4: Runway picker - show runway number and airport map (INSERTED)
 
