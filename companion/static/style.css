@@ -494,3 +494,83 @@ button:disabled {
   height: auto;
   display: block;
 }
+
+/* Desktop dashboard shell (D-02, 06.3-UI-SPEC.md Layout Contract). This is
+ * the file's second and last width breakpoint — the 480px nav-scroll rule
+ * above stays exactly as it is, untouched. companion/layout.py's
+ * page_shell() renders both navigation copies (the horizontal .site-header
+ * nav and the vertical .dashboard-sidebar nav) and both theme-form copies
+ * into every response, because a stdlib HTTP server has no viewport
+ * information at render time — this block is what chooses between them.
+ * The losing copy is removed with `display: none`, which takes it out of
+ * the layout flow, the tab order and the accessibility tree together —
+ * that is what keeps a keyboard user from landing on invisible nav links
+ * and keeps exactly one navigation landmark exposed at any given width.
+ * Below 960px nothing here applies: the page renders exactly as it did
+ * before this phase, fluid single column, top .nav-bar, with its own
+ * 480px horizontal-scroll fallback intact (D-22's mobile floor). */
+@media (min-width: 960px) {
+  .dashboard-shell {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    column-gap: var(--space-xl);
+    align-items: start;
+  }
+
+  .dashboard-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    min-height: 100vh;
+    padding: var(--space-lg) var(--space-md);
+    background: var(--color-secondary);
+    border-right: 1px solid var(--color-border);
+  }
+
+  .dashboard-sidebar .theme-form {
+    margin-top: auto;
+  }
+
+  /* The sidebar carries the title, the nav and the theme toggle at this
+   * width, so the entire header row is removed rather than just its nav —
+   * leaving the header's title visible alongside the sidebar's would
+   * duplicate it on screen. The sidebar replaces the horizontal nav-bar
+   * here; a supplement was considered and rejected. */
+  .site-header {
+    display: none;
+  }
+
+  /* The cap and `margin: 0 auto` centre the content column; the 3xl
+   * horizontal padding is the 64px minimum side gutter, so content never
+   * runs edge-to-edge on an ultra-wide monitor. 3xl serves as the main
+   * column's horizontal padding rather than as a separate outer gutter
+   * element: expressing the cap and the gutter as two independent
+   * mechanisms would need an extra wrapper element in page_shell(), and
+   * this single-element form delivers the same visible result. Below the
+   * breakpoint the base .page-content padding rule above governs
+   * unchanged. */
+  .dashboard-main {
+    min-width: 0;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: var(--space-lg) var(--space-3xl) var(--space-2xl);
+  }
+
+  /* Config page (D-01/D-02): the Theme and Runway fieldsets render side by
+   * side, Save Settings stays a full-width row beneath both. */
+  .config-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    align-items: start;
+  }
+
+  .config-form fieldset {
+    margin-bottom: 0;
+  }
+
+  .config-form > button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
