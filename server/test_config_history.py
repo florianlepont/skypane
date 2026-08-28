@@ -23,7 +23,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 16
+EXPECTED_CHECK_COUNT = 21
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -69,7 +69,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "sky", "tracked_runway": "3"}:
+            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -85,7 +85,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "sky", "tracked_runway": "3"}:
+                if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -100,7 +100,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "3"}:
+            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -113,7 +113,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, theme="sky", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "02-20"}:
+            if config != {"theme": "sky", "tracked_runway": "02-20", "led_enabled": True}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -162,7 +162,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "sky/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "3"}:
+            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -171,6 +171,100 @@ def main():
     check(
         "a legitimately saved config, hand-edited on disk to hostile values, still yields defaults from load_device_config()",
         _hostile_hand_edit_after_a_real_save_still_yields_defaults,
+    )
+
+    def _normalise_led_enabled_only_accepts_real_bools():
+        for hostile in ("true", 0, 1, None, ["x"]):
+            got = device_config.normalise_led_enabled(hostile)
+            if got is not device_config.DEFAULT_LED_ENABLED:
+                return False, "normalise_led_enabled(%r) returned %r, expected DEFAULT_LED_ENABLED" % (hostile, got)
+        if device_config.normalise_led_enabled(True) is not True:
+            return False, "normalise_led_enabled(True) did not return True"
+        if device_config.normalise_led_enabled(False) is not False:
+            return False, "normalise_led_enabled(False) did not return False"
+        return True, ""
+
+    check(
+        "normalise_led_enabled() returns the value only for real bools and degrades a string, int 0, int 1, None, and a list to DEFAULT_LED_ENABLED",
+        _normalise_led_enabled_only_accepts_real_bools,
+    )
+
+    def _save_led_enabled_false_round_trips():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, led_enabled=False)
+            config = device_config.load_device_config(tmpdir)
+            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": False}:
+                return False, "round-trip produced %r" % (config,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(led_enabled=False) round-trips through load_device_config() as False, with theme/tracked_runway still at their defaults",
+        _save_led_enabled_false_round_trips,
+    )
+
+    def _hand_written_hostile_led_enabled_yields_default():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "w") as fh:
+                fh.write('{"led_enabled": "off"}')
+            config = device_config.load_device_config(tmpdir)
+            if config["led_enabled"] is not True:
+                return False, "hostile string led_enabled produced %r, expected DEFAULT_LED_ENABLED" % (config["led_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a hand-written device_config.json whose led_enabled is a hostile string yields DEFAULT_LED_ENABLED from load_device_config()",
+        _hand_written_hostile_led_enabled_yields_default,
+    )
+
+    def _save_led_enabled_off_rejected_without_touching_file():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="sky", tracked_runway="3", led_enabled=True)
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            raised = False
+            try:
+                device_config.save_device_config(tmpdir, led_enabled="off")
+            except ValueError:
+                raised = True
+            if not raised:
+                return False, "save_device_config(led_enabled='off') did not raise ValueError"
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "a rejected led_enabled write changed a pre-existing file's bytes"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(led_enabled='off') raises ValueError and leaves a pre-existing, legitimately-saved file byte-identical",
+        _save_led_enabled_off_rejected_without_touching_file,
+    )
+
+    def _theme_only_save_carries_led_enabled_false_forward():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, led_enabled=False)
+            device_config.save_device_config(tmpdir, theme="sky")
+            config = device_config.load_device_config(tmpdir)
+            if config["led_enabled"] is not False:
+                return False, "a theme-only save did not carry a previously-saved led_enabled=False forward, got %r" % (config["led_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a subsequent theme-only save_device_config(theme='sky') carries a previously-saved led_enabled=False forward unchanged",
+        _theme_only_save_carries_led_enabled_false_forward,
     )
 
     # --- history_db.py ------------------------------------------------------

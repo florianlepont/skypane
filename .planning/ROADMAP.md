@@ -24,12 +24,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/skypane, CI-block and deploy-gate proven on real infrastructure)
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 fully closed and confirmed on real glass; 05-01's actual multi-day discharge run — success criterion 1, DEVICE-05 — still deliberately deferred to end of project)
 - [x] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (12/12 plans complete — developer sign-off checkpoint passed 2026-08-28, two real defects found live and fixed: a poll-trigger crash and mobile table cropping) (completed 2026-08-28)
-- [ ] **Phase 6.1: Battery status on companion web interface** (INSERTED) - Surface the device's battery voltage/consumption on the companion interface. Not yet planned.
-- [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Not yet planned.
-- [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a better-distributed desktop layout, and Corroboration-section polish. Not yet planned.
-- [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Not yet planned.
-- [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. Not yet planned.
-- [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, clearer poll-trigger cooldown copy, clearer corroboration wording. Not yet planned.
+- [x] **Phase 6.1: Battery status on companion web interface** (INSERTED) - SUPERSEDED 2026-08-28, before planning — merged into Phase 6.5 (identical target: health_page.py's Battery Trend section). Never planned standalone; see Phase 6.5.
+- [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Planned 2026-08-28 (2 plans).
+- [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves.
+- [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan).
+- [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves.
+- [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, a live poll-trigger cooldown countdown, and a verified/pinned corroboration-copy drift guard. Planned 2026-08-28 (3 plans across 2 waves).
 - [ ] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog)
 
 ## Phase Details
@@ -287,69 +287,104 @@ Plans:
 
 ### Phase 06.6: Companion UI clarity pass - timestamps, poll-trigger cooldown, corroboration copy (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
+**Goal:** Three independent clarity fixes to the companion web app, raised during Phase 6's live developer sign-off. (1) **Timestamps** — `health_page.py`'s already-shipped "absolute + relative" format (`"2026-08-28T13:58:02 (3m ago)"`, used today by the Device check-in and ADS-B pipeline rows) reaches the three spots that lack it: Health's own Battery Trend table, History's table, and Preview's "Captured" caption (D-02). The logic is promoted once into `companion/layout.py` rather than duplicated three times, because `companion/pages/__init__.py` forbids one page module importing another. (2) **Poll-trigger cooldown** — the remaining-seconds copy becomes a live, ticking countdown that re-enables the Trigger Poll Now button by itself at zero, seeded from the server-computed, `history_db`-persisted figure already in `ctx["poll_cooldown_remaining"]` and never from a client-side guess (D-01); it ships as an inline `<script>` block, not a new static file, so it cannot collide with sibling phase 06.5's "first JS file this project ships" framing. (3) **Corroboration copy** — investigation found the existing copy already satisfies "never mislabel the unknown state as failure," so this is verify-and-polish: confirm it against the live modules and convert the one-off confirmation into a permanent cross-page drift guard, inventing no copy change without a concrete found defect (D-03).
+
+**Requirements**: None — unmapped backlog phase (promoted from 999.6), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (live ticking countdown), D-02 (extend the existing absolute+relative timestamp format to the three spots that lack it) and D-03 (corroboration copy, verify-only) in `06.6-CONTEXT.md`. All three fixes trace back to developer feedback captured during Phase 6's live sign-off (06-12).
+**Depends on:** Phase 6. Soft, order-insensitive relationships with siblings 06.3, 06.4 and 06.5, which are planned-but-unexecuted against these same files — every 06.6 task locates its edit target by function/symbol name rather than line number, keeps `_battery_section(trend_rows)` single-argument (06.5-02 pins that call-site literal in its own gate), and leaves `_history_table_html()`'s return block to 06.3-03.
+**Plans:** 3 plans (2 waves)
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 06.6 to break down)
+- [ ] 06.6-01-PLAN.md — Promote the timestamp helpers into `companion/layout.py` as public `parse_iso()`/`age_seconds()`/`relative_age_text()`/`absolute_and_relative()`, rewire `health_page.py` onto them, and reformat Health's Battery Trend table (D-02)
+- [ ] 06.6-02-PLAN.md — Live, server-seeded poll-cooldown countdown as an inline `<script>` in `poll_trigger_section()`, with `json.dumps()` seeding and a permanent sink-safety gate (D-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06.6-03-PLAN.md — History's Timestamp column and Preview's Captured caption onto the shared helper, plus the D-03 corroboration verification and its cross-page drift guard (D-02, D-03)
 
 ### Phase 06.5: Interactive battery trend chart with overall status (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
+**Goal:** The companion Health page's Battery trend section stops being the one section without a verdict and the one chart a user cannot interrogate. It gains (a) a persistent `status_dot()` badge rendered exactly as Device check-in and ADS-B pipeline already render theirs (D-01, the ask absorbed from the superseded Phase 06.1), and (b) real interactivity: every plotted point becomes a finger-sized, keyboard-focusable hit target carrying its exact millivolt reading and timestamp, revealed in a reserved readout line on tap **or** hover, working on a real phone and not only under a desktop mouse (D-02, against `06-CONTEXT.md` D-22's mobile bar). Two open questions are closed rather than deferred: the CONTEXT-flagged no-JS-vs-scoped-JS tension resolves to **scoped JS** — one external, cacheable ~30-line vanilla file served from a pre-auth `/static/battery-trend.js` route mirroring `/static/style.css`, because tap-triggered `:focus` on a non-native-control SVG shape is unreliable on iOS Safari and D-02 cannot be met by CSS alone; and the empty-history badge state is locked to **`"ok"`**, matching `corroboration_status()`'s "unknown is not a failure" precedent and avoiding a real coupling where a `"warn"` would make `collect_anomalies()` tell a zero-reading deployment it had suffered an abnormal drop. The pre-existing sparkline no-script regression test is left intact and unweakened; a new additive page-level check asserts exactly one `<script>` tag and zero inline event handlers instead.
+
+**Requirements**: None — unmapped backlog phase (promoted from 999.5, having absorbed 999.1/06.1), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (persistent status badge reusing `status_dot()`) and D-02 (hover **or** tap reveals the exact mV + timestamp, mobile included) in `06.5-CONTEXT.md`. It is UI-only follow-on work to CFG-03, already Complete (Phase 6, plan 06-08), which is not reopened.
+**Depends on:** Phase 6 (CFG-03's `_battery_section()`/`battery_sparkline_svg()`/`battery_status()`). Soft, order-insensitive relationship with Phase 06.3, which restructures the same file's `render()` into a stat-tile grid — `stat_tile()` passes `content_html` through byte-for-byte, so the badge and chart compose either way; `06.5-02-PLAN.md` and `06.3-04-PLAN.md` each carry a conditional note for whichever executes second.
+**Plans:** 3 plans (3 waves)
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 06.5 to break down)
+- [ ] 06.5-01-PLAN.md — Wave 1: `companion/static/battery-trend.js` (the project's first shipped JS file) + its stylesheet rules + the pre-auth `text/javascript` static route mirroring `/static/style.css`
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06.5-02-PLAN.md — Wave 2: the D-01 badge with the empty-history `"ok"` decision written into the code, and D-02's server-rendered per-point hit targets, readout line and single external script reference
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06.5-03-PLAN.md — Wave 3: seeded live preview plus the real-phone tap/hover verification this project's stdlib harness structurally cannot automate
 
 ### Phase 06.4: Runway picker - show runway number and airport map (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
+**Goal:** The Config page's runway picker shows each runway's number/heading in the large Display type instead of a small inline radio label, and — for any runway whose airport-diagram image the user has supplied — that real diagram beside it, one image per runway id, served over a session-gated route that validates the requested id against `device_config.RUNWAY_IDS` before building any filesystem path. Because the images are the user's to supply (D-02), the phase's actual deliverable is the drop-in asset contract plus code that is correct in both states: with no image files present it renders the upgraded text-only picker with zero `<img>` tags and no error, and dropping `companion/static/runway-{id}.png` in makes that runway's diagram appear on the next page load with no code change and no service restart (D-03). UI-only — `server/plane/detect.py`'s runway-tracking logic (CFG-12, shipped in Phase 6) is not reopened.
+
+**Requirements**: None — unmapped backlog phase (promoted from 999.4), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (real airport diagram/satellite excerpt with the runway highlighted), D-02 (the user supplies the image assets; the plan must not source, generate, or fetch one) and D-03 (graceful text-only fallback plus a predictable drop-in asset contract) in `06.4-CONTEXT.md`. It is UI-only follow-on work to CFG-12, which is already Complete (Phase 6, plan 06-07) and is not reopened.
+**Depends on:** Phase 6 (CFG-12's registry and picker); Phase 06.3 for the `--color-border` token and the 2-column desktop fieldset grid — a soft dependency only, the CSS carries a fallback so it is correct either way
+**Plans:** 1 plan
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 06.4 to break down)
+- [ ] 06.4-01-PLAN.md — Runway-image existence detection + ctx wiring, number-prominent fieldset with graceful fallback + D-03 asset contract, and the session-gated membership-validated `/runway-image/{id}.png` route
 
 ### Phase 06.3: Companion UI visual design and desktop layout pass (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** The companion web app carries its own visual identity — revised colour, spacing and card treatment — and at desktop width becomes a genuine dashboard: a 240px sidebar navigation replacing the horizontal tab row, and Health/Airlines rendering their signals as status-coloured stat tiles in a responsive multi-column grid, with the main column capped and centred. Below 960px the existing mobile-first fluid layout is untouched. The pass also closes a real pre-existing gap: History's hand-rolled table never received the `.data-table-wrap` horizontal-scroll fix Airlines and Health already have, so it is still the one table that crops on a phone.
+
+**Requirements**: None — unmapped backlog phase (promoted from 999.3), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (full colour/type/spacing refresh, superseding `06-CONTEXT.md` D-21), D-02 (true dashboard layout, not a wider single column) and D-03 (History's mobile table-crop fix) in `06.3-CONTEXT.md`, plus the carried-forward D-22/D-23/D-24/D-25 and the approved `06.3-UI-SPEC.md` design contract.
 **Depends on:** Phase 6
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 06.3 to break down)
+- [ ] 06.3-01-PLAN.md — `companion/layout.py`: shared `_nav_links()` helper, new `sidebar_nav()` and `stat_tile()` builders, and `page_shell()` extended into a `.dashboard-shell` that renders both nav copies
+- [ ] 06.3-02-PLAN.md — `companion/static/style.css`: revised colour tokens plus `--color-border`/`--space-3xl`, the stat-tile/dashboard-grid/page-section component rules (including the `min-width: 0` grid-blowout fix), and the single new 960px dashboard breakpoint
+- [ ] 06.3-03-PLAN.md — D-03's History `.data-table-wrap` fix, plus the Config form's `.config-form` class hook for the desktop two-column fieldset layout
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06.3-04-PLAN.md — Health's four signals and Airlines' two sections rendered as status-coloured stat tiles in dashboard grids under "Overview"/"Coverage" group headings
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06.3-05-PLAN.md — full-suite gate, `06.3-VALIDATION.md` reconciled to the shipped breakdown, and the browser visual sign-off at 900px/960px/1200px/1440px+/phone width
 
 ### Phase 06.2: LED enable/disable toggle (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** The board's bring-up LED can be turned on or off from the companion web interface, and the device obeys that choice on its next scheduled poll. Firmware and the wire protocol are already complete (`firmware/main/led.c`, `state_machine.c`, `api_client.c`); this phase closes the one remaining gap — no store, no endpoint, and no web control exist behind `byos_server.py`'s hardcoded `/display` field, so the setting can currently only be changed by physically reflashing the board.
+**Requirements**: None — unmapped backlog phase (promoted from 999.2), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (own dedicated Config-page section) and D-02 (defaults to enabled) in `06.2-CONTEXT.md`, plus the inherited D-03 vendored-file discipline from `06-CONTEXT.md`.
 **Depends on:** Phase 6
-**Plans:** 0 plans
+**Plans:** 1/2 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 06.2-01-PLAN.md — Wave 1: persist `led_enabled` in `server/device_config.py`, add the dedicated Config-page section and its own `/config-led` route, and read the value from the shared state directory in `byos_server.py`'s `/display` handler (VENDOR.md local modification #4)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06.2-02-PLAN.md — Wave 2: blocking developer checkpoint — cross-process verification with both services on one explicit `--state-dir`, plus the physical LED confirmation
+
+### Phase 06.1: Battery status on companion web interface — SUPERSEDED (INSERTED)
+
+**Goal:** Superseded 2026-08-28, before planning — merged into Phase 06.5. Codebase investigation during 06.5's discuss-phase found this phase's ask (a battery-status verdict on the companion web interface) targets the exact same code as 06.5 (`companion/pages/health_page.py`'s Battery Trend section), so both ship together there — an overall-status badge plus interactive hover/tooltip charting — rather than touching the same section twice. User confirmed the merge explicitly. See `06.5-CONTEXT.md` for the combined scope; this phase is intentionally never planned standalone.
+**Requirements**: None — folded into Phase 06.5
+**Depends on:** Phase 6
+**Plans:** 0 plans (intentionally — superseded, not planned standalone)
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 06.2 to break down)
-
-### Phase 06.1: Battery status on companion web interface (INSERTED)
-
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
-
-Plans:
-
-- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
+- [x] N/A — superseded by Phase 06.5, see above
 
 ### Phase 7: Final On-Glass Verification
 
@@ -383,4 +418,3 @@ Plans:
 - [ ] 07-01-PLAN.md — On-glass verification battery (RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) and the 02-UI-SPEC.md Colour addendum (moved from 03-04)
 
 **UI hint**: no
-

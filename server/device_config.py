@@ -49,6 +49,7 @@ from server.panel_format import IDX_BLUE, IDX_GREEN, IDX_WHITE
 
 DEFAULT_THEME_ID = "sky"
 DEFAULT_RUNWAY_ID = "3"
+DEFAULT_LED_ENABLED = True  # D-02: matches the LED's current hardcoded always-on behaviour, so nothing changes until a user opts out
 
 # --- Theme registry ----------------------------------------------------
 #
@@ -124,14 +125,30 @@ def normalise_runway_id(value):
     return DEFAULT_RUNWAY_ID
 
 
+def normalise_led_enabled(value):
+    """Return `value` unchanged only when `isinstance(value, bool)` is true -
+    otherwise return `DEFAULT_LED_ENABLED`. Never raises. Deliberately no
+    registry/membership test (unlike normalise_theme_id()/
+    normalise_runway_id()) - a boolean has no attributes beyond itself, so a
+    LED_STATES registry mirroring THEMES/RUNWAYS would be pure indirection
+    (06.2-RESEARCH.md "Alternatives Considered"). Note: an int such as `0`
+    or `1` is NOT a bool under `isinstance` in Python and therefore degrades
+    to the default - this is intentional, not an oversight.
+    """
+    if isinstance(value, bool):
+        return value
+    return DEFAULT_LED_ENABLED
+
+
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns both keys with valid,
-    registry-member values - `theme` and `tracked_runway` - via
-    normalise_theme_id()/normalise_runway_id(), so a hostile or stale value
-    on disk (e.g. a path-traversal string, or a numeric runway id) never
-    reaches a caller. Never raises.
+    empty dict rather than raising. Always returns all three keys with
+    valid values - `theme`, `tracked_runway`, and `led_enabled` - via
+    normalise_theme_id()/normalise_runway_id()/normalise_led_enabled(), so a
+    hostile or stale value on disk (e.g. a path-traversal string, a numeric
+    runway id, or a non-bool led_enabled) never reaches a caller. Never
+    raises.
     """
     try:
         with open(device_config_path(state_dir)) as fh:
@@ -143,19 +160,24 @@ def load_device_config(state_dir):
     return {
         "theme": normalise_theme_id(data.get("theme")),
         "tracked_runway": normalise_runway_id(data.get("tracked_runway")),
+        "led_enabled": normalise_led_enabled(data.get("led_enabled")),
     }
 
 
-def save_device_config(state_dir, theme=None, tracked_runway=None):
-    """Validate and persist a new theme and/or tracked-runway id.
+def save_device_config(state_dir, theme=None, tracked_runway=None, led_enabled=None):
+    """Validate and persist a new theme and/or tracked-runway id and/or
+    led_enabled flag.
 
-    Each supplied (non-None) value is checked against its registry with an
-    explicit membership test; an unknown id raises `ValueError` naming the
-    rejected key and the legal id list - and leaves any pre-existing file
-    byte-identical (T-06-01-01/T-06-01-06). A value left `None` is carried
-    over unchanged from the current on-disk config (falling back to the
-    documented defaults if none exists yet), so a caller updating only the
-    theme never has to also resupply the runway.
+    Each supplied (non-None) value is checked before anything is written:
+    `theme`/`tracked_runway` against their registries with an explicit
+    membership test, `led_enabled` with an explicit `isinstance(..., bool)`
+    type check (there is no registry for a boolean). An unknown/wrong-typed
+    value raises `ValueError` naming the rejected value - and leaves any
+    pre-existing file byte-identical (T-06-01-01/T-06-01-06). A value left
+    `None` is carried over unchanged from the current on-disk config
+    (falling back to the documented defaults if none exists yet), so a
+    caller updating only the theme never has to also resupply the runway
+    or the LED flag.
 
     Writes with the same tmp-write-then-os.replace() idiom
     server/poll_loop.py's save_poll_state() uses, including the except
@@ -168,11 +190,14 @@ def save_device_config(state_dir, theme=None, tracked_runway=None):
         raise ValueError("unknown theme id %r (expected one of %r)" % (theme, THEME_IDS))
     if tracked_runway is not None and tracked_runway not in RUNWAYS:
         raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
+    if led_enabled is not None and not isinstance(led_enabled, bool):
+        raise ValueError("led_enabled must be a bool, got %r" % (led_enabled,))
 
     current = load_device_config(state_dir)
     new_config = {
         "theme": theme if theme is not None else current["theme"],
         "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
+        "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
     }
 
     os.makedirs(state_dir, exist_ok=True)
