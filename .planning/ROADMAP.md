@@ -26,7 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (12/12 plans complete — developer sign-off checkpoint passed 2026-08-28, two real defects found live and fixed: a poll-trigger crash and mobile table cropping) (completed 2026-08-28)
 - [ ] **Phase 6.1: Battery status on companion web interface** (INSERTED) - Surface the device's battery voltage/consumption on the companion interface. Not yet planned.
 - [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Planned 2026-08-28 (2 plans).
-- [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a better-distributed desktop layout, and Corroboration-section polish. Not yet planned.
+- [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves.
 - [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Not yet planned.
 - [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. Not yet planned.
 - [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, clearer poll-trigger cooldown copy, clearer corroboration wording. Not yet planned.
@@ -320,14 +320,26 @@ Plans:
 
 ### Phase 06.3: Companion UI visual design and desktop layout pass (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** The companion web app carries its own visual identity — revised colour, spacing and card treatment — and at desktop width becomes a genuine dashboard: a 240px sidebar navigation replacing the horizontal tab row, and Health/Airlines rendering their signals as status-coloured stat tiles in a responsive multi-column grid, with the main column capped and centred. Below 960px the existing mobile-first fluid layout is untouched. The pass also closes a real pre-existing gap: History's hand-rolled table never received the `.data-table-wrap` horizontal-scroll fix Airlines and Health already have, so it is still the one table that crops on a phone.
+
+**Requirements**: None — unmapped backlog phase (promoted from 999.3), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (full colour/type/spacing refresh, superseding `06-CONTEXT.md` D-21), D-02 (true dashboard layout, not a wider single column) and D-03 (History's mobile table-crop fix) in `06.3-CONTEXT.md`, plus the carried-forward D-22/D-23/D-24/D-25 and the approved `06.3-UI-SPEC.md` design contract.
 **Depends on:** Phase 6
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 06.3 to break down)
+- [ ] 06.3-01-PLAN.md — `companion/layout.py`: shared `_nav_links()` helper, new `sidebar_nav()` and `stat_tile()` builders, and `page_shell()` extended into a `.dashboard-shell` that renders both nav copies
+- [ ] 06.3-02-PLAN.md — `companion/static/style.css`: revised colour tokens plus `--color-border`/`--space-3xl`, the stat-tile/dashboard-grid/page-section component rules (including the `min-width: 0` grid-blowout fix), and the single new 960px dashboard breakpoint
+- [ ] 06.3-03-PLAN.md — D-03's History `.data-table-wrap` fix, plus the Config form's `.config-form` class hook for the desktop two-column fieldset layout
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06.3-04-PLAN.md — Health's four signals and Airlines' two sections rendered as status-coloured stat tiles in dashboard grids under "Overview"/"Coverage" group headings
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 06.3-05-PLAN.md — full-suite gate, `06.3-VALIDATION.md` reconciled to the shipped breakdown, and the browser visual sign-off at 900px/960px/1200px/1440px+/phone width
 
 ### Phase 06.2: LED enable/disable toggle (INSERTED)
 
