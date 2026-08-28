@@ -342,7 +342,7 @@ Plans:
 
 **Requirements**: None — unmapped backlog phase (promoted from 999.3), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (full colour/type/spacing refresh, superseding `06-CONTEXT.md` D-21), D-02 (true dashboard layout, not a wider single column) and D-03 (History's mobile table-crop fix) in `06.3-CONTEXT.md`, plus the carried-forward D-22/D-23/D-24/D-25 and the approved `06.3-UI-SPEC.md` design contract.
 **Depends on:** Phase 6
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -353,7 +353,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06.3-04-PLAN.md — Health's four signals and Airlines' two sections rendered as status-coloured stat tiles in dashboard grids under "Overview"/"Coverage" group headings
+- [x] 06.3-04-PLAN.md — Health's four signals and Airlines' two sections rendered as status-coloured stat tiles in dashboard grids under "Overview"/"Coverage" group headings
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
