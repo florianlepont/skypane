@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.3
-current_phase_name: companion-ui-visual-design-and-desktop-layout-pass
+current_phase: "06.3"
+current_phase_name: Companion UI visual design and desktop layout pass
 status: executing
-stopped_at: Completed 06.3-04-PLAN.md (companion/pages/health_page.py + companion/pages/airlines_page.py stat-tile dashboard-grid reframe)
+stopped_at: "Completed 06.3-04-PLAN.md (companion/pages/health_page.py + companion/pages/airlines_page.py stat-tile dashboard-grid reframe). Waves 1-2 of Phase 06.3 done (4/5 plans); only 06.3-05 (full-suite gate + browser sign-off) remains."
 last_updated: "2026-08-28T14:01:26.168Z"
 last_activity: 2026-08-28
-last_activity_desc: Phase 06.3 execution started
+last_activity_desc: Phase 06.3 Waves 1-2 complete (4/5 plans); Wave 3 (06.3-05) next
 progress:
   total_phases: 14
   completed_phases: 8
   total_plans: 57
   completed_plans: 48
-  percent: 57
+  percent: 84
 ---
 
 # Project State
