@@ -372,6 +372,26 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Runway picker (06.4): number prominence + optional airport diagram. */
+.runway-option {
+  margin-bottom: var(--space-lg);
+}
+
+.runway-option__number {
+  font-size: var(--font-display-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+}
+
+.runway-option__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border, var(--color-secondary));
+}
+
 /* Data table: Secondary-background header row, alternating rows.
  * Wrapped in .data-table-wrap (scrolls horizontally, never crops) instead
  * of letting a wide table (History's timestamp/callsign/hex/airline/type

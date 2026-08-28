@@ -46,7 +46,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 28
+EXPECTED_CHECK_COUNT = 31
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -614,6 +614,53 @@ def main():
     check(
         "runway_images_available() ignores files that are not RUNWAY_IDS members, proving it is registry-bounded not directory-listing-bounded",
         _runway_images_available_bounded_by_registry_not_directory_listing)
+
+    # ------------------------------------------------------------------
+    # runway_fieldset() image emission (Task 2, D-01/D-03) - unit checks
+    # against the string output only, no filesystem/subprocess involved.
+    # ------------------------------------------------------------------
+
+    def _runway_fieldset_emits_img_only_for_available_runway():
+        rendered = config_page.runway_fieldset("3", {"3"})
+        if rendered.count("<img") != 1:
+            return False, "expected exactly one <img occurrence, got %d" % rendered.count("<img")
+        if "/runway-image/3.png" not in rendered:
+            return False, "expected the src to point at /runway-image/3.png"
+        if "runway-image/06-24" in rendered or "runway-image/02-20" in rendered:
+            return False, "expected no image reference for runways not in images_available"
+        return True, ""
+    check(
+        "runway_fieldset(images_available={'3'}) emits exactly one <img, for runway 3 only",
+        _runway_fieldset_emits_img_only_for_available_runway)
+
+    def _runway_fieldset_graceful_fallback_no_images():
+        rendered = config_page.runway_fieldset("3", set())
+        if "<img" in rendered:
+            return False, "expected zero <img occurrences with an empty images_available set"
+        if rendered.count('name="tracked_runway"') != 3:
+            return False, "expected all three runway radios still present"
+        for runway_id in device_config.RUNWAY_IDS:
+            if escape_html(device_config.runway_label(runway_id)) not in rendered:
+                return False, "expected the label text for runway %r" % (runway_id,)
+        return True, ""
+    check(
+        "runway_fieldset(images_available=set()) renders zero <img tags and all three number/heading labels (D-03 graceful fallback)",
+        _runway_fieldset_graceful_fallback_no_images)
+
+    def _render_forwards_ctx_runway_images_key():
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3"},
+            "poll_cooldown_remaining": 0,
+            "runway_images": {"06-24"},
+        })
+        if "/runway-image/06-24.png" not in rendered:
+            return False, "expected render() to forward ctx['runway_images'] into the <img> src"
+        if rendered.count("<img") != 1:
+            return False, "expected exactly one <img occurrence, got %d" % rendered.count("<img")
+        return True, ""
+    check(
+        "render() forwards ctx['runway_images'] to runway_fieldset() rather than relying on the parameter default",
+        _render_forwards_ctx_runway_images_key)
 
     # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py
