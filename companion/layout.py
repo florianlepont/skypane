@@ -39,13 +39,6 @@ _STATUS_DOT_CLASSES = {
 }
 _DEFAULT_STATUS_DOT_CLASS = _STATUS_DOT_CLASSES["warn"]
 
-_STAT_TILE_BORDER_CLASSES = {
-    "ok": "stat-tile--ok",
-    "warn": "stat-tile--warn",
-    "error": "stat-tile--error",
-}
-_DEFAULT_STAT_TILE_CLASS = "stat-tile--accent"
-
 
 def escape_html(value):
     """Coerce `value` to its escaped string form for safe HTML interpolation.
@@ -202,30 +195,6 @@ def status_dot(state, label):
     return (
         '<span class="dot %s"></span><span class="dot-label">%s</span>'
         % (css_class, escape_html(label)))
-
-
-def stat_tile(caption, content_html, status=None):
-    """A status-coloured dashboard card wrapping already-built markup.
-
-    `caption` is escaped here. `content_html` is the caller's own
-    already-safe markup (e.g. status_dot()'s raw <span> pair,
-    data_table()'s table, empty_state()'s block, or a hand-built <p>
-    string) and is interpolated verbatim, with no call to
-    escape_html() and no other transformation — re-encoding it here
-    would double-encode already-escaped tags and print them as visible
-    text instead of rendering. `status` maps to one of three fixed
-    CSS class suffixes ("ok"/"warn"/"error"); None or an unrecognised
-    value falls back to the accent-neutral class rather than emitting
-    an arbitrary, attacker-influenceable class name.
-    """
-    css_class = "stat-tile " + _STAT_TILE_BORDER_CLASSES.get(
-        status, _DEFAULT_STAT_TILE_CLASS)
-    return (
-        '<div class="%s">'
-        '<p class="text-label stat-tile__caption">%s</p>'
-        "%s"
-        "</div>"
-    ) % (css_class, escape_html(caption), content_html)
 
 
 def empty_state(heading, body):
