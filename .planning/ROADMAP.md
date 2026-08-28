@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6.1: Battery status on companion web interface** (INSERTED) - SUPERSEDED 2026-08-28, before planning — merged into Phase 6.5 (identical target: health_page.py's Battery Trend section). Never planned standalone; see Phase 6.5.
 - [x] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface (completed 2026-08-28).
 - [x] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves. (completed 2026-08-28)
-- [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan).
+- [x] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan). (completed 2026-08-28)
 - [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves.
 - [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, a live poll-trigger cooldown countdown, and a verified/pinned corroboration-copy drift guard. Planned 2026-08-28 (3 plans across 2 waves).
 - [ ] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog)
@@ -330,11 +330,11 @@ Plans:
 
 **Requirements**: None — unmapped backlog phase (promoted from 999.4), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (real airport diagram/satellite excerpt with the runway highlighted), D-02 (the user supplies the image assets; the plan must not source, generate, or fetch one) and D-03 (graceful text-only fallback plus a predictable drop-in asset contract) in `06.4-CONTEXT.md`. It is UI-only follow-on work to CFG-12, which is already Complete (Phase 6, plan 06-07) and is not reopened.
 **Depends on:** Phase 6 (CFG-12's registry and picker); Phase 06.3 for the `--color-border` token and the 2-column desktop fieldset grid — a soft dependency only, the CSS carries a fallback so it is correct either way
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 
-- [ ] 06.4-01-PLAN.md — Runway-image existence detection + ctx wiring, number-prominent fieldset with graceful fallback + D-03 asset contract, and the session-gated membership-validated `/runway-image/{id}.png` route
+- [x] 06.4-01-PLAN.md — Runway-image existence detection + ctx wiring, number-prominent fieldset with graceful fallback + D-03 asset contract, and the session-gated membership-validated `/runway-image/{id}.png` route
 
 ### Phase 06.3: Companion UI visual design and desktop layout pass (INSERTED)
 
