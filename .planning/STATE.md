@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: "06.4"
-current_phase_name: runway-picker-show-runway-number-and-airport-map
+current_phase_name: Runway picker - show runway number and airport map
 status: executing
-stopped_at: "Phase 06.3 complete (5/5 plans, 2026-08-28) — 06.3-05 resolved both open items: suite-red blocker fixed via origin/main merge (aeac512), browser visual sign-off approved (24/24 items, zero defects). nyquist_compliant: true. Next actionable phase per ROADMAP.md order: 06.4 (not yet planned)."
+stopped_at: "Phase 06.3 complete (5/5 plans, 2026-08-28) — 06.3-05 resolved both open items: suite-red blocker fixed via origin/main merge (aeac512), browser visual sign-off approved (24/24 items, zero defects, verified via precise DOM/CSS inspection against seeded test data). nyquist_compliant: true. Verification and phase-completion bookkeeping (code review, VERIFICATION.md, phase.complete) still to run before moving on to 06.4."
 last_updated: "2026-08-28T14:27:24.635Z"
 last_activity: 2026-08-28
-last_activity_desc: "Phase 06.3 execution in progress (Wave 3, plan 06.3-05); merged origin/main to pick up an unrelated quick-task's panel-digest re-pin (PR #17, `aeac512`) that this branch had gone stale against."
+last_activity_desc: "Phase 06.3 fully executed (5/5 plans); merged origin/main to pick up an unrelated quick-task's panel-digest re-pin (PR #17, aeac512)."
 progress:
   total_phases: 14
   completed_phases: 9
