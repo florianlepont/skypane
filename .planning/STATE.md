@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.3
-current_phase_name: companion-ui-visual-design-and-desktop-layout-pass
+current_phase: "06.3"
+current_phase_name: Companion UI visual design and desktop layout pass
 status: executing
 stopped_at: "Phase 06.2 (LED enable/disable toggle) fully complete, 2/2 plans — 06.2-02's blocking developer checkpoint resolved with developer sign-off. Part A (cross-process toggle, local, no hardware) verified pre-merge, all 6 sub-checks passed. Part B (real physical LED) went through two rounds: Round 1 was a false alarm ('LED still lit' after disabling) investigated against firmware/main/app_main.c and state_machine.c and root-caused — the LED is unconditionally lit during the WiFi-connect+poll window by design, regardless of led_enabled, only the window after the /display response is gated on the setting; no code changed. Round 2 re-observation confirmed the toggle works as designed ('ah si j'ai compris, donc ça marche'). Final verdict: APPROVED, no open issues. Full record in 06.2-02-SUMMARY.md. Next up: Phase 06.3 (Companion UI visual design & desktop layout pass), 5 plans across 3 waves, not yet executed."
 last_updated: "2026-08-28T13:00:52.669Z"
@@ -13,7 +13,7 @@ progress:
   completed_phases: 8
   total_plans: 57
   completed_plans: 44
-  percent: 57
+  percent: 77
 ---
 
 # Project State
