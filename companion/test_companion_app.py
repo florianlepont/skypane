@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 55
+EXPECTED_CHECK_COUNT = 54
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -457,22 +457,15 @@ def main():
 
         def _page_shell_marks_only_the_active_nav_tab():
             rendered = layout.page_shell(title="Health", active="health", body="")
-            # Scope to the horizontal <nav class="nav-bar"> only — page_shell()
-            # now also renders a vertical sidebar copy of the same links
-            # (06.3-01's dashboard-shell rework), so searching the whole
-            # document would match whichever copy comes first in source order.
-            nav_start = rendered.find('<nav class="nav-bar">')
-            nav_end = rendered.find("</nav>", nav_start)
-            nav_bar_html = rendered[nav_start:nav_end]
             for route, _ in layout.NAV_TABS:
                 slug = route.lstrip("/")
                 href_needle = 'href="%s"' % route
-                href_index = nav_bar_html.find(href_needle)
+                href_index = rendered.find(href_needle)
                 if href_index == -1:
                     return False, "missing nav link for %r" % route
-                tag_start = nav_bar_html.rfind("<a", 0, href_index)
-                tag_end = nav_bar_html.find(">", href_index)
-                tag = nav_bar_html[tag_start:tag_end]
+                tag_start = rendered.rfind("<a", 0, href_index)
+                tag_end = rendered.find(">", href_index)
+                tag = rendered[tag_start:tag_end]
                 is_active_class_present = "nav-tab--active" in tag
                 if slug == "health" and not is_active_class_present:
                     return False, "expected the active tab (%r) to carry the active class" % route
@@ -585,27 +578,6 @@ def main():
             "stat_tile() maps status to a fixed class with an accent fallback, escapes the "
             "caption, and passes content_html through unmodified",
             _stat_tile_status_classes_caption_escape_and_content_passthrough)
-
-        def _page_shell_renders_dashboard_shell_with_sidebar_and_duplicate_nav_theme():
-            rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")
-            for needle in (
-                '<div class="dashboard-shell">',
-                '<aside class="dashboard-sidebar">',
-                '<main class="page-content dashboard-main">',
-            ):
-                if needle not in rendered:
-                    return False, "expected %r in the rendered shell" % needle
-            if rendered.count('aria-label="Primary navigation"') != 1:
-                return False, "expected exactly one Primary navigation landmark"
-            if rendered.count('class="nav-bar"') != 1:
-                return False, "expected exactly one horizontal nav-bar"
-            if rendered.count('action="/ui-theme"') != 2:
-                return False, "expected both theme-form copies posting to /ui-theme"
-            return True, ""
-        check(
-            "page_shell() wraps header+sidebar+main in .dashboard-shell with both nav copies "
-            "and both theme-form copies present",
-            _page_shell_renders_dashboard_shell_with_sidebar_and_duplicate_nav_theme)
 
         def _page_shell_escapes_hostile_body():
             escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")

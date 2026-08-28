@@ -147,19 +147,10 @@ def page_shell(title, active, body, ui_theme="auto", flash=None, banner=None):
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     nav_html = _nav_html(active)
-    sidebar_html = sidebar_nav(active)
     theme_form_html = _theme_form_html(resolved_theme)
     flash_html = flash or ""
     banner_html = banner or ""
 
-    # The <aside> deliberately precedes the <header> in source order: at
-    # desktop width, where CSS hides the header entirely, a keyboard user
-    # tabs into the visible sidebar navigation first, with no invisible
-    # stops before it. Both nav copies and both theme-form copies are
-    # always present in the DOM — companion/static/style.css's 960px
-    # media query is the only thing that decides which copy is visible,
-    # never anything in this function (no inline styles, no
-    # boolean-hidden attribute, no ARIA visibility hint).
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en" data-ui-theme="%s">\n'
@@ -170,29 +161,19 @@ def page_shell(title, active, body, ui_theme="auto", flash=None, banner=None):
         '<link rel="stylesheet" href="/static/style.css">\n'
         "</head>\n"
         "<body>\n"
-        '<div class="dashboard-shell">\n'
-        '<aside class="dashboard-sidebar">\n'
-        '<span class="site-title sidebar-title">%s</span>\n'
-        "%s\n"
-        "%s\n"
-        "</aside>\n"
         '<header class="site-header">\n'
         '<span class="site-title">%s</span>\n'
         '<nav class="nav-bar">%s</nav>\n'
         "%s\n"
         "</header>\n"
-        '<main class="page-content dashboard-main">\n'
+        '<main class="page-content">\n'
         "%s\n%s\n%s\n"
         "</main>\n"
-        "</div>\n"
         "</body>\n"
         "</html>\n"
     ) % (
         escape_html(resolved_theme),
         escape_html(title), escape_html(SITE_TITLE),
-        escape_html(SITE_TITLE),
-        sidebar_html,
-        theme_form_html,
         escape_html(SITE_TITLE),
         nav_html,
         theme_form_html,
