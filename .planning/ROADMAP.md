@@ -23,7 +23,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Extends Phase 3's externally generated illustration set to real per-flight aircraft-type accuracy, by (a) surfacing the ADS-B ICAO type designator in `server/plane/detect.py`, (b) adding a second selection key plus a four-tier fallback in `server/plane/illustrations.py`, and (c) expanding the externally generated asset set per D-03's verified 24-airline / 7-base-shape table (completed 2026-08-27)
 - [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/skypane, CI-block and deploy-gate proven on real infrastructure)
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 fully closed and confirmed on real glass; 05-01's actual multi-day discharge run — success criterion 1, DEVICE-05 — still deliberately deferred to end of project)
-- [ ] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (11/12 plans complete; 06-12 live verification in progress, blocked on a developer sign-off checkpoint)
+- [x] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (12/12 plans complete — developer sign-off checkpoint passed 2026-08-28, two real defects found live and fixed: a poll-trigger crash and mobile table cropping) (completed 2026-08-28)
+- [ ] **Phase 6.1: Battery status on companion web interface** (INSERTED) - Surface the device's battery voltage/consumption on the companion interface. Not yet planned.
+- [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Not yet planned.
+- [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a better-distributed desktop layout, and Corroboration-section polish. Not yet planned.
+- [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Not yet planned.
+- [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. Not yet planned.
+- [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, clearer poll-trigger cooldown copy, clearer corroboration wording. Not yet planned.
 - [ ] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog)
 
 ## Phase Details
@@ -228,7 +234,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
 | 5. Battery Life & Low-Battery Indicator | 3/3 executed | In Progress (DEVICE-04 done, DEVICE-05 pending) | - |
-| 6. Companion Configuration Web Interface | 11/12 | In Progress (06-12 live verification, blocked on developer sign-off checkpoint) | - |
+| 6. Companion Configuration Web Interface | 12/12 | Complete    | 2026-08-28 |
 | 7. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 4/7 phases complete (1-4 plus inserted 3.1); 5 and 6 in progress, 7 not started
 
@@ -249,7 +255,7 @@ Plans:
 **Goal:** A user can reach a password-protected companion web page — a new, separate service on its own nip.io subdomain, not touching the vendored device-protocol server — to choose a validated display theme, select which Orly runway is tracked, monitor the device's health and the ADS-B sources' reliability over time, browse recent flight/render history, see airline-coverage gaps, and debug the render pipeline directly, all without SSH access to the VPS.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-05, CFG-06, CFG-07, CFG-08, CFG-09, CFG-10, CFG-11, CFG-12
 **Depends on:** Phase 5
-**Plans:** 11/12 plans executed
+**Plans:** 12/12 plans complete
 
 Plans:
 **Wave 1**
@@ -277,7 +283,73 @@ Plans:
 
 **Wave 5**
 
-- [ ] 06-12-PLAN.md — Live verification: runway-gate capture (closes Assumption A1), Caddy log-shape confirmation (closes Assumption A3), developer sign-off checkpoint
+- [x] 06-12-PLAN.md — Live verification: runway-gate capture (closes Assumption A1), Caddy log-shape confirmation (closes Assumption A3), developer sign-off checkpoint
+
+### Phase 06.6: Companion UI clarity pass - timestamps, poll-trigger cooldown, corroboration copy (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.6 to break down)
+
+### Phase 06.5: Interactive battery trend chart with overall status (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.5 to break down)
+
+### Phase 06.4: Runway picker - show runway number and airport map (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.4 to break down)
+
+### Phase 06.3: Companion UI visual design and desktop layout pass (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.3 to break down)
+
+### Phase 06.2: LED enable/disable toggle (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.2 to break down)
+
+### Phase 06.1: Battery status on companion web interface (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
 
 ### Phase 7: Final On-Glass Verification
 
@@ -312,28 +384,3 @@ Plans:
 
 **UI hint**: no
 
-## Backlog
-
-### Phase 999.1: Battery status on companion web interface (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Surface the device's battery status and power consumption on the companion configuration web interface (built in Phase 6). Raised by the user mid-Phase-6-execution as a follow-up idea, not part of Phase 6's scope. Device firmware already reports battery voltage via the `X-Battery-Mv` poll header (see PROJECT.md firmware stack) — this would need a history/trend view added to the companion app, likely alongside or extending the CFG-03 health page's device-health section.
-
-Plans:
-
-- [ ] TBD (promote with /gsd-review-backlog when ready)
-
-### Phase 999.2: LED enable/disable toggle (BACKLOG)
-
-**Goal:** [Captured for future planning]
-**Requirements:** TBD
-**Plans:** 0 plans
-
-Allow the board's LEDs to be enabled/disabled from the companion web interface. Raised by the user mid-Phase-6-execution as a follow-up idea, not part of Phase 6's scope. Needs a device-side control path (new poll-response field or command) plus a companion UI toggle — likely lands on the config page (CFG-01/CFG-12's sibling) once a device command channel exists.
-
-Plans:
-
-- [ ] TBD (promote with /gsd-review-backlog when ready)

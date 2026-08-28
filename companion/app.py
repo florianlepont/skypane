@@ -82,6 +82,7 @@ FLASH_KEY_SAVED = config_page.FLASH_SAVED
 FLASH_KEY_SAVE_FAILED = config_page.FLASH_SAVE_FAILED
 FLASH_KEY_POLL_TRIGGERED = config_page.FLASH_POLL_TRIGGERED
 FLASH_KEY_POLL_COOLDOWN = config_page.FLASH_POLL_COOLDOWN
+FLASH_KEY_POLL_FAILED = config_page.FLASH_POLL_FAILED
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -95,6 +96,9 @@ FLASH_MESSAGES = {
     FLASH_KEY_POLL_TRIGGERED: (
         "Poll triggered — refresh this page in a few seconds to see the result."),
     FLASH_KEY_POLL_COOLDOWN: "Poll triggered recently — try again in {n}s.",
+    FLASH_KEY_POLL_FAILED: (
+        "Poll trigger failed — please try again. If this keeps happening, "
+        "check the companion service logs."),
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -483,7 +487,7 @@ class Handler(BaseHTTPRequestHandler):
             poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
         except Exception:
             return self.redirect(
-                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_SAVE_FAILED)))
+                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_FAILED)))
         mark_poll_triggered(state_dir)
         return self.redirect(
             "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_TRIGGERED)))

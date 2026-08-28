@@ -42,6 +42,11 @@ FLASH_SAVED = "saved"
 FLASH_SAVE_FAILED = "save_failed"
 FLASH_POLL_TRIGGERED = "poll_triggered"
 FLASH_POLL_COOLDOWN = "poll_cooldown"
+# Distinct from FLASH_SAVE_FAILED (2026-08-28 fix): a run_once() exception
+# inside POST /poll-now used to redirect with FLASH_SAVE_FAILED, showing
+# "Couldn't save settings" for a failure that has nothing to do with
+# saving settings — confusing and actively misleading about what broke.
+FLASH_POLL_FAILED = "poll_failed"
 
 
 def theme_fieldset(current_theme_id):

@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 49
+EXPECTED_CHECK_COUNT = 51
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -123,11 +123,12 @@ class Harness:
     stub-server/test_poll_cycle.py's own Harness class.
     """
 
-    def __init__(self):
+    def __init__(self, extra_args=()):
         self.tmpdir = tempfile.mkdtemp(prefix="skypane-companion-")
         self.port = self._pick_free_port()
         self.stdout_path = os.path.join(self.tmpdir, "app.stdout.log")
         self.proc = None
+        self.extra_args = list(extra_args)
 
     @staticmethod
     def _pick_free_port():
@@ -152,7 +153,7 @@ class Harness:
             sys.executable, APP_PATH,
             "--port", str(self.port),
             "--state-dir", self.tmpdir,
-        ]
+        ] + self.extra_args
         try:
             self.proc = subprocess.Popen(
                 cmd, stdout=stdout_fh, stderr=subprocess.STDOUT, env=env)
@@ -515,6 +516,19 @@ def main():
             "data_table() escapes every header/cell and emits the empty-state block for zero rows",
             _data_table_escapes_and_empty_state)
 
+        def _data_table_wrapped_for_horizontal_scroll():
+            # 2026-08-28 mobile-cropping fix: a wide table (History's
+            # timestamp/callsign/hex/airline/type columns, Airlines'
+            # unresolved-prefix table) must scroll horizontally on a
+            # phone viewport instead of overflowing past it uncropped.
+            table_markup = layout.data_table(["A", "B"], [["1", "2"]])
+            if '<div class="data-table-wrap">' not in table_markup:
+                return False, "expected data_table() to wrap its <table> in a scrollable container"
+            return True, ""
+        check(
+            "data_table() wraps its <table> in a horizontally-scrollable container",
+            _data_table_wrapped_for_horizontal_scroll)
+
         def _page_shell_escapes_hostile_body():
             escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")
             rendered = layout.page_shell(title="Health", active="health", body=escaped_hostile_body)
@@ -803,6 +817,35 @@ def main():
         check(
             "a fresh second-opener session is refused by the same cooldown (server-global, not per-session)",
             _poll_trigger_cooldown_second_opener)
+
+        # 2026-08-28 fix: a genuine run_once() failure (e.g. an unreadable
+        # --geofence path, exactly what production hit when
+        # deploy/skypane-companion.service never passed --geofence at all
+        # and the relative default didn't resolve under its
+        # WorkingDirectory) must redirect with the distinct poll_failed
+        # flash key, never the misleading save_failed one - a poll
+        # trigger failing has nothing to do with "couldn't save settings".
+        def _poll_trigger_failure_uses_distinct_flash_key():
+            broken_harness = Harness(extra_args=["--geofence", "/nonexistent/no-such-geofence.json"])
+            try:
+                broken_harness.start()
+                broken_session = _login(broken_harness)
+                status, headers, _ = http_request(
+                    broken_harness.base_url() + "/poll-now", method="POST", cookie=broken_session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=poll_failed" not in location:
+                    return False, "expected the poll_failed flash key, got %r" % location
+                if "flash=save_failed" in location:
+                    return False, "a poll-trigger failure must never reuse save_failed's misleading copy"
+                return True, ""
+            finally:
+                broken_harness.stop()
+                broken_harness.cleanup()
+        check(
+            "a genuine poll-trigger failure redirects with the distinct poll_failed flash key, never save_failed",
+            _poll_trigger_failure_uses_distinct_flash_key)
 
     finally:
         harness.stop()
