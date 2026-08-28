@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 55
+EXPECTED_CHECK_COUNT = 56
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -694,6 +694,25 @@ def main():
         check(
             "GET /static/style.css succeeds without a session and returns a CSS content type",
             _stylesheet_public)
+
+        # --- battery-trend script: public, no session required (06.5-01, D-02) ---
+
+        def _battery_trend_script_public():
+            status, headers, body = http_request(base + "/static/battery-trend.js")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            content_type = headers.get("Content-Type", "")
+            if "text/javascript" not in content_type:
+                return False, "expected a text/javascript content type, got %r" % content_type
+            if not body:
+                return False, "expected a non-empty script body"
+            cache_control = headers.get("Cache-Control", "")
+            if "max-age=300" not in cache_control:
+                return False, "expected Cache-Control max-age=300, got %r" % cache_control
+            return True, ""
+        check(
+            "GET /static/battery-trend.js succeeds without a session and returns a JavaScript content type",
+            _battery_trend_script_public)
 
         # --- login: wrong password, right password, cookie flags ---
 

@@ -66,6 +66,11 @@ MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06
 
 LOGIN_ROUTE = "/login"
 STYLE_ROUTE = "/static/style.css"
+# Authoritative route value — companion/pages/health_page.py's
+# BATTERY_TREND_SCRIPT_SRC (plan 06.5-02) must equal this exactly; that
+# plan adds a check asserting the two stay in sync. Do not edit one
+# without the other.
+SCRIPT_ROUTE = "/static/battery-trend.js"
 CONFIG_ROUTE = "/config"
 LED_ROUTE = "/config-led"
 POLL_ROUTE = "/poll-now"
@@ -107,6 +112,7 @@ FLASH_MESSAGES = {
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
+_BATTERY_TREND_JS_PATH = os.path.join(_HERE, "static", "battery-trend.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -367,6 +373,23 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "text/css", payload, cache_seconds=300)
 
+    def _serve_battery_trend_script(self):
+        """Serve companion/static/battery-trend.js, pre-auth, structurally
+        identical to _serve_stylesheet() above. Unlike
+        _serve_gallery_image(), this resolves a single fixed module
+        constant and never joins a client-supplied segment into a
+        filesystem path, so it has no path-traversal surface.
+        """
+        try:
+            with open(_BATTERY_TREND_JS_PATH, "rb") as fh:
+                payload = fh.read()
+        except OSError:
+            return self.send_html(404, self._not_found_page())
+        # text/javascript is the sole current-standard MIME type for
+        # JavaScript per RFC 9239 (2022), which obsoletes RFC 4329's older
+        # application/-prefixed form — deliberately not used here.
+        return self.send_bytes(200, "text/javascript", payload, cache_seconds=300)
+
     def _serve_preview_image(self):
         state_dir = self.args.state_dir
         raw = panel_preview.read_panel_file(state_dir)
@@ -445,6 +468,13 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == STYLE_ROUTE:
             return self._serve_stylesheet()
+
+        # Pre-auth, matching /static/style.css: a static asset carries no
+        # per-user or sensitive data, so gating it would add a session
+        # round-trip for zero benefit (06.5-RESEARCH.md, Security Domain,
+        # V2/V4 both "no").
+        if path == SCRIPT_ROUTE:
+            return self._serve_battery_trend_script()
 
         if path == "/config":
             if not self.require_session():
