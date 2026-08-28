@@ -1,14 +1,22 @@
 /*
  * SkyPane companion service — hand-written stylesheet, no build step, no
- * framework, no web font, no icon font (06-UI-SPEC.md Design System). This
- * is a deliberately separate, lower-investment visual register from the
- * physical frame's own design system (D-21) — the frame's vendored fonts
- * and PALETTE_RGB values must never be pulled in here.
+ * framework, no web font, no icon font (06-UI-SPEC.md Design System).
+ * 06.3-CONTEXT.md's D-01 supersedes 06-CONTEXT.md's D-21 for the companion
+ * app: this stylesheet now carries its own full visual identity (colour,
+ * type, spacing, card treatment, dashboard layout), while staying entirely
+ * separate from the physical frame's own design system — the frame's
+ * vendored fonts and PALETTE_RGB values must still never be pulled in here.
  *
- * Accent is reserved to exactly four uses: primary buttons, the active
- * nav-tab indicator, links, and the focused-input outline. Do not broaden
- * this list without updating 06-UI-SPEC.md's Color section — everything
- * else interactive uses neutral gray, never accent blue.
+ * Accent is reserved to exactly five uses: primary buttons, the active
+ * nav-tab/sidebar-link indicator, links, the focused-input outline, and a
+ * stat tile's top border when no ok/warn/error status applies to that
+ * tile. Do not broaden this list without updating 06.3-UI-SPEC.md's Color
+ * section — everything else interactive uses neutral gray, never accent
+ * blue.
+ *
+ * Border is structural only — card outlines, the sidebar/content divider,
+ * and fieldset borders. It is never used as an interactive-state signal
+ * and never substitutes for the accent or status colours.
  *
  * Theme resolution (CFG-09): `prefers-color-scheme` supplies the default;
  * an explicit `data-ui-theme="light"`/`data-ui-theme="dark"` attribute on
@@ -28,6 +36,7 @@
   --space-lg: 24px;
   --space-xl: 32px;
   --space-2xl: 48px;
+  --space-3xl: 64px;
 
   /* Typography scale: exactly 4 sizes, 2 weights */
   --font-label-size: 14px;
@@ -41,9 +50,10 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Light mode (default) */
-  --color-dominant: #FFFFFF;
-  --color-secondary: #F1F3F6;
-  --color-accent: #2563EB;
+  --color-dominant: #FAFBFD;
+  --color-secondary: #EEF1F7;
+  --color-border: #E2E6EE;
+  --color-accent: #3454D1;
   --color-destructive: #DC2626;
   --color-text: #12151B;
   --color-status-ok: #16A34A;
@@ -53,9 +63,10 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-dominant: #12151B;
-    --color-secondary: #1C2028;
-    --color-accent: #5B8DEF;
+    --color-dominant: #0D0F14;
+    --color-secondary: #1A1E27;
+    --color-border: #262B36;
+    --color-accent: #6E93FF;
     --color-destructive: #F87171;
     --color-text: #F1F3F6;
     --color-status-ok: #4ADE80;
@@ -66,9 +77,10 @@
 
 /* CFG-09 explicit overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
-  --color-dominant: #FFFFFF;
-  --color-secondary: #F1F3F6;
-  --color-accent: #2563EB;
+  --color-dominant: #FAFBFD;
+  --color-secondary: #EEF1F7;
+  --color-border: #E2E6EE;
+  --color-accent: #3454D1;
   --color-destructive: #DC2626;
   --color-text: #12151B;
   --color-status-ok: #16A34A;
@@ -77,9 +89,10 @@ html[data-ui-theme="light"] {
 }
 
 html[data-ui-theme="dark"] {
-  --color-dominant: #12151B;
-  --color-secondary: #1C2028;
-  --color-accent: #5B8DEF;
+  --color-dominant: #0D0F14;
+  --color-secondary: #1A1E27;
+  --color-border: #262B36;
+  --color-accent: #6E93FF;
   --color-destructive: #F87171;
   --color-text: #F1F3F6;
   --color-status-ok: #4ADE80;
