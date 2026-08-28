@@ -305,9 +305,16 @@ Plans:
 **Plans:** 3 plans (3 waves)
 
 Plans:
+**Wave 1**
 
 - [ ] 06.5-01-PLAN.md — Wave 1: `companion/static/battery-trend.js` (the project's first shipped JS file) + its stylesheet rules + the pre-auth `text/javascript` static route mirroring `/static/style.css`
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 06.5-02-PLAN.md — Wave 2: the D-01 badge with the empty-history `"ok"` decision written into the code, and D-02's server-rendered per-point hit targets, readout line and single external script reference
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 06.5-03-PLAN.md — Wave 3: seeded live preview plus the real-phone tap/hover verification this project's stdlib harness structurally cannot automate
 
 ### Phase 06.4: Runway picker - show runway number and airport map (INSERTED)
