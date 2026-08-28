@@ -159,7 +159,15 @@ MAIN_ILLUSTRATION_TOP_FRAC = 0.30  # of canvas height
 MAIN_LINE_GAP_PX = 8  # gap between main line 1's bottom and line 2's top
 
 PREVIOUS_ILLUSTRATION_WIDTH_FRAC = 0.57  # of the MAIN illustration's own rendered width
-PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC = 0.76  # of canvas height
+# Of canvas height. Corrected 0.76 -> 0.7528 when the previous card's vertical
+# centring moved from its source rectangle to its painted pixels: because the
+# drop-shadow band makes bottom padding always exceed top padding, centring the
+# rectangle put the visible aircraft 5.5-28.5px ABOVE this line, always high,
+# by a per-file amount. 0.7528 is the fraction at which the sketch-era
+# vueling-airlines.png render lands on the exact same row it did before
+# (prev_top = 1118 either way), so the confirmed D-26 composition is preserved
+# while the per-file drift is removed.
+PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC = 0.7528
 PREVIOUS_LINE_GAP_PX = 34  # line 2's top below line 1's own TOP (not bottom)
 
 # --- Aircraft-to-text gaps (debug session illustration-crop-text-margin) ----
@@ -543,6 +551,52 @@ class IllustrationPlacement(tuple):
         return "IllustrationPlacement(rect=%r, content=%r)" % (self.rect, self.content)
 
 
+def _left_for_centered_content(resized_rgba, center_x):
+    """Return the paste `left` that puts the illustration's PAINTED horizontal
+    midpoint on `center_x`.
+
+    Not `(WIDTH - w) // 2`: that centres the source rectangle, and horizontal
+    transparent padding is asymmetric (measured post-resize across all 43
+    vendored files: left 3-32px, right 5-29px), which displaced the visible
+    aircraft from the canvas centre by up to 7.5px, varying per file - the same
+    defect as the vertical gap, on the other axis. Falls back to centring the
+    full rectangle when nothing would be painted. Never raises.
+    """
+    local = _opaque_bbox(resized_rgba)
+    if local is None:
+        return round(center_x - resized_rgba.size[0] / 2)
+    return round(center_x - (local[0] + local[2]) / 2)
+
+
+def _left_for_right_aligned_content(resized_rgba, right_x):
+    """Return the paste `left` that puts the illustration's PAINTED right edge
+    on `right_x`, so two illustrations aligned this way share one visible
+    vertical line regardless of their differing right padding (3-17px at the
+    previous card's scale, 5-29px at the main card's). Falls back to aligning
+    the full rectangle when nothing would be painted. Never raises.
+    """
+    local = _opaque_bbox(resized_rgba)
+    if local is None:
+        return round(right_x - resized_rgba.size[0])
+    return round(right_x - local[2])
+
+
+def _top_for_centered_content(resized_rgba, center_y):
+    """Return the paste `top` that puts the illustration's PAINTED vertical
+    midpoint on `center_y`.
+
+    Vertical padding is strongly asymmetric - the drop-shadow band means bottom
+    padding always exceeds top padding - so centring the source rectangle put
+    the visible aircraft 5.5-28.5px ABOVE the intended centre, always high,
+    varying per file. Falls back to centring the full rectangle when nothing
+    would be painted. Never raises.
+    """
+    local = _opaque_bbox(resized_rgba)
+    if local is None:
+        return round(center_y - resized_rgba.size[1] / 2)
+    return round(center_y - (local[1] + local[3]) / 2)
+
+
 def draw_illustration(canvas, resized_rgba, left, top):
     """Composite an already-resized real illustration (from
     `_resize_illustration()`) onto `canvas` at (`left`, `top`). Full-color,
@@ -750,14 +804,12 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     sits 21-99px below the aircraft at this card's scale, which made the gap
     vary from 43px to 121px across the vendored set.
 
-    Horizontal alignment deliberately still uses `prev_placement.rect[2]`, the
-    placement rectangle's right edge: that is what the previous illustration
-    was itself positioned against (`prev_left` in `_build_active_canvas()`), so
-    text and illustration stay on one shared vertical line. Switching only one
-    of the two to the opaque edge would pull them apart. The residual 5-29px of
-    transparent right padding is a separate, unreported cosmetic issue -
-    measured and documented in the debug session, deliberately not changed
-    here.
+    Horizontal alignment uses `prev_placement.content[2]` - the previous
+    aircraft's visible right edge, which `_build_active_canvas()` has already
+    placed on the MAIN aircraft's visible right edge. So the main aircraft, the
+    previous aircraft and this text block all share one visible vertical line.
+    Reading `.rect[2]` instead would put the text 3-17px right of the aircraft
+    it belongs to, varying per file (pass 2 of the debug session).
 
     Line 2 starts `PREVIOUS_LINE_GAP_PX` below line 1's own TOP, not its bottom
     (D-26's tighter confirmed stacking). No `PREVIOUS ·` prefix - explicitly
@@ -767,7 +819,7 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     (line1_bbox, line2_bbox).
     """
     draw = ImageDraw.Draw(canvas)
-    right_x = prev_placement.rect[2]
+    right_x = prev_placement.content[2]
     available_width = right_x - SAFE_BOX[0]
 
     line1_text = _flight_line1_text(flight, state, route)
@@ -893,7 +945,10 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     main_placement = None
     main_resized = _load_illustration_safely(main_path, main_w)
     if main_resized is not None:
-        main_left = (WIDTH - main_resized.size[0]) // 2
+        # D-26 centres the main illustration horizontally. Centre the pixels
+        # that are actually painted, not the source rectangle - see
+        # `_left_for_centered_content()`.
+        main_left = _left_for_centered_content(main_resized, WIDTH / 2)
         main_placement = draw_illustration(canvas, main_resized, main_left, main_top)
         # The full placement rectangle, not `.content`: this is a "does the
         # element fall off the canvas" guard, so the conservative geometric
@@ -907,18 +962,30 @@ def _build_active_canvas(flight, state, route=None, previous_flight=None, previo
     # Same nose-left convention as the main illustration, no mirroring.
     if previous_flight is not None and main_placement is not None:
         prev_path = illustrations.select_illustration(previous_route, (previous_flight or {}).get("aircraft_type"))
-        # Sized and right-aligned against the main illustration's full RENDERED
-        # width/right edge (`.rect`), which is what 03-UI-SPEC.md's documented
-        # "992 x 0.57 = 565px" derives from. Deliberately not `.content`:
-        # scaling or shifting this card is a separate change from fixing the
-        # text gap, and would silently invalidate that documented figure.
+        # SIZE derives from the main illustration's full RENDERED width
+        # (`.rect`), which is what 03-UI-SPEC.md's documented "992 x 0.57 =
+        # 565px" comes from. Deliberately still `.rect` and not `.content`,
+        # re-decided with horizontal centring explicitly in scope: `.rect`'s
+        # width is a constant 992 for every file, so this card's size is stable.
+        # Deriving it from the main illustration's opaque width (933-984px)
+        # would make the PREVIOUS card's size depend on which airline is in the
+        # MAIN slot - the same previous aircraft would render up to 5% larger
+        # or smaller depending on what flew before it. That is a new per-file
+        # coupling, and strictly worse than the ~28px visible-width variation
+        # it would remove. Sizing stays stable; only POSITION follows the
+        # painted pixels.
         main_rect = main_placement.rect
         prev_w = round((main_rect[2] - main_rect[0]) * PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
         prev_resized = _load_illustration_safely(prev_path, prev_w)
         if prev_resized is not None:
-            prev_h = prev_resized.size[1]
-            prev_left = main_rect[2] - prev_resized.size[0]
-            prev_top = round(HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC - prev_h / 2)
+            # POSITION, by contrast, is anchored to painted pixels on both
+            # axes: the previous aircraft's visible right edge lands exactly on
+            # the main aircraft's visible right edge (D-26: "right-aligned to
+            # the main illustration's own right edge" - which the eye reads as
+            # the aircraft's edge, not its padding's), and its visible vertical
+            # midpoint lands on PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC.
+            prev_left = _left_for_right_aligned_content(prev_resized, main_placement.content[2])
+            prev_top = _top_for_centered_content(prev_resized, HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC)
             prev_placement = draw_illustration(canvas, prev_resized, prev_left, prev_top)
             _assert_within_canvas(prev_placement.rect, "previous aircraft illustration")
             draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx)

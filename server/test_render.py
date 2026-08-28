@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 50
+EXPECTED_CHECK_COUNT = 53
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -141,6 +141,56 @@ class _SelectIllustrationSpy:
     def __exit__(self, exc_type, exc, tb):
         self._render_mod.illustrations.select_illustration = self._orig
         return False
+
+
+class _PlacementSpy:
+    """Captures every `IllustrationPlacement` render.py's
+    `_build_active_canvas()` actually produced while building one canvas, in
+    call order (main card first, previous card second).
+
+    Wraps the real `draw_illustration` and records its RETURN value rather than
+    recomputing placement from the geometry constants - so these checks observe
+    what the renderer really did. Recomputing would silently keep passing if
+    `_build_active_canvas()` were reverted to positioning by `.rect`.
+    """
+
+    def __init__(self, render_mod):
+        self._render_mod = render_mod
+        self.placements = []
+        self._orig = None
+
+    def __enter__(self):
+        self._orig = self._render_mod.draw_illustration
+
+        def _spy(canvas, resized_rgba, left, top):
+            placement = self._orig(canvas, resized_rgba, left, top)
+            self.placements.append(placement)
+            return placement
+
+        self._render_mod.draw_illustration = _spy
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._render_mod.draw_illustration = self._orig
+        return False
+
+
+@contextlib.contextmanager
+def _forced_illustration_pair(render_mod, main_path, prev_path):
+    """Force the main card onto `main_path` and the previous card onto
+    `prev_path`. `_build_active_canvas()` calls `select_illustration()` exactly
+    twice, main first - see the "no crossover" check above, which pins that
+    order independently. Lets a check pair two files with deliberately
+    mismatched transparent padding, which is the only way to prove the two
+    cards are aligned to each other rather than both to a shared rectangle.
+    """
+    orig = render_mod.illustrations.select_illustration
+    paths = iter((main_path, prev_path))
+    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None: next(paths)
+    try:
+        yield
+    finally:
+        render_mod.illustrations.select_illustration = orig
 
 
 def _write_garbage_png():
@@ -1167,35 +1217,33 @@ def main():
         from each aircraft's last actually-painted pixel row to its text
         block's drawn anchor y, plus each card's transparent bottom padding.
 
-        The opaque bottoms are recomputed here from the geometry constants
-        rather than read back out of render.py's own call, so this measures the
-        rendered result independently.
+        Both the painted bottoms and the paddings come from the placements the
+        renderer actually produced (`_PlacementSpy`), never from a local
+        re-derivation of the geometry constants - a re-derivation goes stale
+        the moment placement changes, and would report a layout regression that
+        is really just test drift.
+
+        `main_pad`/`previous_pad` are `rect` bottom minus `content` bottom, so
+        if `.content` ever degenerated back to `.rect` they would collapse to
+        0 and trip the callers' own fixture-spread guard.
         """
         path = _illustration_path(basename)
         with _forced_illustration(render, path):
-            with _TextSpy(render) as spy:
-                render.build_canvas(
-                    TEST_FLIGHT, "departing", route=TEST_ROUTE,
-                    previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
-                    previous_state="arriving",
-                )
+            with _PlacementSpy(render) as placements:
+                with _TextSpy(render) as spy:
+                    render.build_canvas(
+                        TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                        previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                        previous_state="arriving",
+                    )
+        if len(placements.placements) != 2:
+            raise AssertionError("expected 2 illustration placements, got %d" % len(placements.placements))
+        main_placement, prev_placement = placements.placements
 
-        inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
-        main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
-        main_top = round(panel_format.HEIGHT * render.MAIN_ILLUSTRATION_TOP_FRAC)
-        main_img = render._resize_illustration(path, main_w)
-        main_local = render._opaque_bbox(main_img)
-        main_opaque_bottom = main_top + main_local[3]
-        main_pad = main_img.size[1] - main_local[3]
-
-        prev_w = round(main_w * render.PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
-        prev_img = render._resize_illustration(path, prev_w)
-        prev_local = render._opaque_bbox(prev_img)
-        prev_top = round(
-            panel_format.HEIGHT * render.PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC - prev_img.size[1] / 2
-        )
-        prev_opaque_bottom = prev_top + prev_local[3]
-        prev_pad = prev_img.size[1] - prev_local[3]
+        main_opaque_bottom = main_placement.content[3]
+        main_pad = main_placement.rect[3] - main_placement.content[3]
+        prev_opaque_bottom = prev_placement.content[3]
+        prev_pad = prev_placement.rect[3] - prev_placement.content[3]
 
         main_line1 = "%s to %s" % (TEST_FLIGHT["callsign"], TEST_ROUTE["destination_city"])
         prev_line1 = "%s from %s" % (TEST_PREVIOUS_FLIGHT["callsign"], TEST_PREVIOUS_ROUTE["origin_city"])
@@ -1329,6 +1377,129 @@ def main():
         "draw_illustration() returns a placement whose .content is strictly contained in .rect, with a strictly "
         "higher bottom edge, for real vendored art (structural guard against restoring full-rectangle anchoring)",
         _placement_content_is_strictly_inside_its_rect,
+    )
+
+    # --- Pass 2 of the same debug session: horizontal/centring placement must
+    # follow the painted pixels too, not the padded rectangle. ---------------
+    #
+    # Measured post-resize across the vendored set: horizontal padding is
+    # asymmetric (main left 3-32px, right 5-29px), which pushed the visible
+    # aircraft up to 7.5px off the canvas centre; and because the previous card
+    # was right-aligned rectangle-to-rectangle, the two aircraft's visible
+    # right edges could sit up to 26px apart. Vertical padding is asymmetric in
+    # one direction (the drop-shadow band always makes bottom exceed top), so
+    # centring the previous card's rectangle put its aircraft 5.5-28.5px high.
+    #
+    # All three checks read the placements the renderer actually produced (via
+    # _PlacementSpy) and pair two DIFFERENT files, so they cannot be satisfied
+    # by aligning both cards to a common rectangle.
+    def _render_two_cards(main_basename, prev_basename):
+        """Build the real two-flight canvas with the two cards forced onto
+        different files; return (main_placement, prev_placement, text_calls).
+        """
+        base = os.path.join(REPO_ROOT, "server", "assets", "icons", "illustrations")
+        with _forced_illustration_pair(render, os.path.join(base, main_basename), os.path.join(base, prev_basename)):
+            with _PlacementSpy(render) as placements:
+                with _TextSpy(render) as text:
+                    render.build_canvas(
+                        TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                        previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                        previous_state="arriving",
+                    )
+        if len(placements.placements) != 2:
+            raise AssertionError("expected 2 illustration placements, got %d" % len(placements.placements))
+        return placements.placements[0], placements.placements[1], text.calls
+
+    # 51. The main illustration's VISIBLE horizontal midpoint sits on the
+    # canvas centre, for files whose left/right padding asymmetry differs
+    # sharply. generic-beechcraft1900d.png was the worst offender at +7.5px.
+    def _main_illustration_is_centred_on_its_visible_pixels():
+        canvas_centre = panel_format.WIDTH / 2.0
+        offsets = {}
+        for name in ("generic-beechcraft1900d.png", "generic-atr72.png", "lot-polish-airlines.png", "transavia-france.png"):
+            main_placement, _prev, _text = _render_two_cards(name, "transavia-france.png")
+            content, rect = main_placement.content, main_placement.rect
+            offsets[name] = (content[0] + content[2]) / 2.0 - canvas_centre
+            # The rectangle must NOT be what is centred - otherwise this check
+            # would pass trivially on a symmetric file.
+            if (content[0] - rect[0]) == (rect[2] - content[2]):
+                continue  # symmetric padding: both definitions agree, nothing to prove
+        worst = max(abs(v) for v in offsets.values())
+        if worst > 0.5:
+            return False, (
+                "the main aircraft's visible horizontal midpoint is off the canvas centre by up to %.1fpx %r - "
+                "the illustration is being centred by its source rectangle, not its painted pixels" % (worst, offsets)
+            )
+        return True, ""
+    check(
+        "the main illustration's VISIBLE horizontal midpoint sits on the canvas centre (within rounding) for files "
+        "with sharply different left/right padding asymmetry - centred by painted pixels, not by rectangle",
+        _main_illustration_is_centred_on_its_visible_pixels,
+    )
+
+    # 52. The previous aircraft's visible right edge lands exactly on the main
+    # aircraft's visible right edge, and the previous text is right-aligned to
+    # that same shared line. Pairing km-malta-airlines.png (main right padding
+    # 29px) with transavia-france.png (previous right padding 3px) is the
+    # worst case: rectangle-to-rectangle alignment left the two aircraft 26px
+    # apart, and the text 3px off its own aircraft.
+    def _previous_card_and_text_align_to_the_main_aircrafts_visible_right_edge():
+        main_placement, prev_placement, text_calls = _render_two_cards(
+            "km-malta-airlines.png", "transavia-france.png")
+        main_right = main_placement.content[2]
+        prev_right = prev_placement.content[2]
+        # Guard: the two files must actually differ in right padding, or the
+        # check proves nothing.
+        main_pad = main_placement.rect[2] - main_placement.content[2]
+        prev_pad = prev_placement.rect[2] - prev_placement.content[2]
+        if abs(main_pad - prev_pad) < 10:
+            return False, (
+                "fixture drift: main/previous right padding are now %dpx/%dpx - too close for this check to "
+                "distinguish visible-edge from rectangle alignment" % (main_pad, prev_pad)
+            )
+        if prev_right != main_right:
+            return False, (
+                "the previous aircraft's visible right edge is at x=%d but the main aircraft's is at x=%d (%dpx "
+                "apart) - the cards are aligned rectangle-to-rectangle, not aircraft-to-aircraft"
+                % (prev_right, main_right, prev_right - main_right)
+            )
+        prev_line1 = "%s from %s" % (TEST_PREVIOUS_FLIGHT["callsign"], TEST_PREVIOUS_ROUTE["origin_city"])
+        anchor_x = next(xy[0] for t, xy, _a in text_calls if t == prev_line1)
+        if anchor_x != prev_right:
+            return False, (
+                "the previous flight text is right-aligned to x=%d, but its aircraft's visible right edge is at "
+                "x=%d - text and illustration are on different vertical lines" % (anchor_x, prev_right)
+            )
+        return True, ""
+    check(
+        "the previous aircraft's visible right edge lands exactly on the main aircraft's visible right edge, and the "
+        "previous text right-aligns to that same shared line, for two files with very different right padding",
+        _previous_card_and_text_align_to_the_main_aircrafts_visible_right_edge,
+    )
+
+    # 53. The previous card's VISIBLE vertical midpoint sits on the
+    # PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC line. Because the drop-shadow band
+    # makes bottom padding always exceed top padding, centring the rectangle
+    # put every previous aircraft high, by 5.5-28.5px depending on the file.
+    def _previous_card_is_vertically_centred_on_its_visible_pixels():
+        centre_line = panel_format.HEIGHT * render.PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC
+        offsets = {}
+        for name in ("asl-airlines-france.png", "air-europa.png", "iberia-airlines.png", "amelia.png"):
+            _main, prev_placement, _text = _render_two_cards("transavia-france.png", name)
+            content = prev_placement.content
+            offsets[name] = (content[1] + content[3]) / 2.0 - centre_line
+        worst = max(abs(v) for v in offsets.values())
+        if worst > 0.5:
+            return False, (
+                "the previous aircraft's visible vertical midpoint is off the %.1f centre line by up to %.1fpx %r - "
+                "the card is being centred by its source rectangle, so it drifts vertically per illustration"
+                % (centre_line, worst, offsets)
+            )
+        return True, ""
+    check(
+        "the previous card's VISIBLE vertical midpoint sits on the PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC line (within "
+        "rounding) across illustrations with very different top/bottom padding - no per-file vertical drift",
+        _previous_card_is_vertically_centred_on_its_visible_pixels,
     )
 
     total = len(results)
