@@ -44,7 +44,7 @@ select = ["E4", "E7", "E9", "F"]
 ignore = ["E402"]
 
 [tool.coverage.run]
-# Parallel data files: the suite is 9 independent processes
+# Parallel data files: the suite is 15 independent processes
 # (scripts/run-all-tests.sh), each of which needs its own data file before
 # `coverage combine` merges them. Do NOT also set `append` — coverage.py
 # rejects that combination outright ("Can't append to data files in
@@ -52,16 +52,18 @@ ignore = ["E402"]
 # process its own file; append is the alternative to it, not a companion.
 parallel = true
 
-# Source-scoped to this project's own two code directories so library
+# Source-scoped to this project's own three code directories so library
 # internals (Pillow, requests, stdlib) are never counted toward the
 # measurement — an unscoped run makes any threshold meaningless
-# (04-RESEARCH.md Pitfall 3).
-source = ["server", "stub-server"]
+# (04-RESEARCH.md Pitfall 3). "companion" added 06-11 alongside the six
+# new harnesses that exercise it.
+source = ["server", "stub-server", "companion"]
 
 omit = [
     # The measuring instrument, not the thing being measured.
     "server/test_*.py",
     "stub-server/test_*.py",
+    "companion/test_*.py",
     # Structurally unmeasurable: test_poll_cycle.py exercises these two
     # scripts by launching them as a **child process** (subprocess), which
     # an uninstrumented coverage run cannot observe from the parent
@@ -69,44 +71,41 @@ omit = [
     # and turn the threshold into noise (M5).
     "stub-server/byos_server.py",
     "stub-server/make_test_panel.py",
-    # 06-01: device_config.py and history_db.py are real, fully-tested
-    # modules (server/test_config_history.py, 16/16 checks) - but that
-    # harness is deliberately NOT yet added to scripts/run-all-tests.sh's
-    # HARNESSES array (06-01-PLAN.md Task 3's own instruction: "this plan
-    # adds a 10th [harness] but does not register it - registration is
-    # plan 06-11's Task 3"). Without this omit, coverage.py's source-
-    # scoped scan (line 59 above) still counts both files' statements as
-    # 0%-covered production code purely because they exist under server/,
-    # which silently drags total coverage from 82% to 68% and trips the
-    # fail_under=75 gate for a reason that has nothing to do with an
-    # actual regression - a blocking build-config issue (T-06-01, Rule 3),
-    # not a real coverage gap. REMOVE these two lines in plan 06-11 at the
-    # same time test_config_history.py is added to HARNESSES - at that
-    # point real coverage from the existing 16 checks resumes counting,
-    # and 06-11 should re-measure/ratchet fail_under per this file's own
-    # derivation discipline below, since it will jump well above 75.
-    "server/device_config.py",
-    "server/history_db.py",
-    # 06-03: same deviation as the 06-01 entry above, same reason - the new
-    # panel_preview.py module is real and fully tested (test_panel_preview.py,
-    # 11/11 checks), but that harness is likewise deliberately NOT yet added
-    # to scripts/run-all-tests.sh's HARNESSES array (06-03-PLAN.md's own
-    # <verification> block: "this plan's harness is registered by plan
-    # 06-11"). REMOVE this line in plan 06-11 alongside the two above, at the
-    # same time test_panel_preview.py is added to HARNESSES.
-    "server/panel_preview.py",
+    # 06-11: companion/app.py is the exact same structural shape as the two
+    # stub-server entries above — every companion/test_*.py harness drives
+    # it as a real, uninstrumented **subprocess** (a genuinely-running
+    # ThreadingHTTPServer on a free local port, the only way to prove D-02's
+    # whole-site auth gate over a real HTTP round trip), never imports it
+    # and calls its route handlers in-process. Left in scope, its ~320
+    # statements measure at ~21% (only module-level code — constants, the
+    # argument parser — executed by the handful of test files that import
+    # `companion.app` for those, never a route body), which would silently
+    # drag total coverage down for a reason that has nothing to do with an
+    # actual regression, exactly the M5 finding this omit list already
+    # documents for stub-server/byos_server.py. Every route this file
+    # dispatches to is itself fully covered in-process via the individual
+    # companion/pages/*.py modules' own harnesses.
+    "companion/app.py",
 ]
 
 [tool.coverage.report]
-# Threshold: 75. Derivation (M5): measured 79% production-only coverage
-# under exactly this source/omit scope (server + stub-server, harnesses
-# and the two subprocess-launched stub scripts omitted), across all 9
-# harnesses via scripts/run-all-tests.sh's parallel-mode + combine
-# invocation. 75 sits 4 points below the measurement — tight enough that a
-# genuine regression trips it, loose enough that a legitimate refactor
-# shifting a few statements doesn't red-line the build and train the
-# habit of bypassing the gate. This is a floor to ratchet upward as
-# coverage improves, not a ceiling. Changing the `source` or `omit` lists
-# above invalidates this number — it stops meaning what it was measured
-# to mean the moment the scope changes.
-fail_under = 75
+# Threshold: 83. Derivation (06-11): measured 87% production-only coverage
+# under exactly this source/omit scope (server + stub-server + companion;
+# harnesses, the two subprocess-launched stub scripts, and
+# companion/app.py — itself subprocess-launched by every companion
+# harness, same M5 reasoning — all omitted), across all 15 harnesses via
+# scripts/run-all-tests.sh's parallel-mode + combine invocation, measured
+# 2026-08-28. 83 sits 4 points below the measurement — the same margin
+# discipline as the prior derivation (75, 4 points below a 79% measurement
+# under the smaller pre-phase-6 scope): tight enough that a genuine
+# regression trips it, loose enough that a legitimate refactor shifting a
+# few statements doesn't red-line the build and train the habit of
+# bypassing the gate. This is a floor to ratchet upward as coverage
+# improves, not a ceiling, and it only ever moves up — phase 6's own new
+# code (companion/pages/*.py, server/device_config.py, server/history_db.py,
+# server/panel_preview.py) measured well above the old 75 floor, so the
+# threshold is ratcheted up rather than left at its pre-phase-6 value to
+# accommodate it. Changing the `source` or `omit` lists above invalidates
+# this number — it stops meaning what it was measured to mean the moment
+# the scope changes.
+fail_under = 83

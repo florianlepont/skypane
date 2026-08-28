@@ -90,11 +90,12 @@ timer's oneshot — see the Deployment section below.
 
 This is the **exact same command CI runs** — a green local run means a
 green pipeline. There is no pytest here by design: every
-`server/test_*.py` / `stub-server/test_poll_cycle.py` harness is a
-directly-executable, stdlib-only script that reports its own check count
-and exit code (9 harnesses, currently 212 checks total), aggregated and
-coverage-gated by the script above. Don't arrive expecting to invoke a
-test collector — run each file, or run all of them via the script.
+`server/test_*.py` / `stub-server/test_poll_cycle.py` /
+`companion/test_*.py` harness is a directly-executable, stdlib-only script
+that reports its own check count and exit code (15 harnesses, currently
+394 checks total), aggregated and coverage-gated by the script above.
+Don't arrive expecting to invoke a test collector — run each file, or run
+all of them via the script.
 
 ## Firmware
 
