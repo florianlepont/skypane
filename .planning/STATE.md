@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.2
-current_phase_name: led-enable-disable-toggle
+current_phase: "06.2"
+current_phase_name: LED enable/disable toggle
 status: executing
 stopped_at: "Full discuss+plan pass complete across all six 06.x backlog phases. 06.1 superseded into 06.5 before planning (identical target — health_page.py's Battery Trend section). 06.2/06.3/06.4/06.5/06.6 each carry CONTEXT.md, RESEARCH.md, VALIDATION.md (nyquist_compliant: true), PATTERNS.md, plan-checker-verified PLAN.md(s) (06.2: 2 plans; 06.3: 5 plans/3 waves, plus an approved UI-SPEC.md; 06.4: 1 plan; 06.5: 3 plans/3 waves; 06.6: 3 plans/2 waves — 14 plans total). None executed yet. Two real cross-phase conflicts found during planning and reconciled in the plan text itself: 06.3-04-PLAN.md's "battery functions unchanged" claim now carries a conditional note since 06.5 changes those same functions (no formal execution-order dependency between the two phases); 06.6's plan avoids adding a second `companion/static/*.js` file and avoids changing `_battery_section()`'s call signature, both to not collide with 06.5's plan. Ready to execute in any order via /gsd-execute-phase 06.X; no phase depends on another's execution to be internally valid."
-last_updated: "2026-08-28T13:34:10.290Z"
+last_updated: "2026-08-28T12:03:09.325Z"
 last_activity: 2026-08-28
-last_activity_desc: "Phase 06.2 execution started (LED enable/disable toggle, plan 06.2-01 complete: server/device_config.py gains led_enabled, byos_server.py's /display handler reads it, companion Config page gets its own LED section and POST route). On branch `claude/debug-skypane-0c21a9`: completed quick task 260828-k5r — removed the D-26 outline from the active-state panel per developer request, with new real-render-path regression coverage and a CI-sourced digest re-pin (PR #17, open, CI green, not yet merged)."
+last_activity_desc: Phase 06.2 execution started
 progress:
   total_phases: 14
   completed_phases: 7
   total_plans: 57
-  completed_plans: 44
-  percent: 77
+  completed_plans: 43
+  percent: 75
 ---
 
 # Project State
@@ -37,8 +37,6 @@ Last activity: 2026-08-28 — Phase 06.2 execution started (LED enable/disable t
 **State at end of this session (2026-08-28), on branch `claude/debug-skypane-0c21a9`:** two more items completed on that branch, both unrelated to Phase 06's companion-app work, merged forward from a session that started as a live-device debugging conversation. Quick task 260828-b0d: corrected an unverified manufacturer citation about panel refresh cadence in `firmware/main/Kconfig.projbuild`, `firmware/main/panel_guard.h`, and `server/poll_loop.py`'s `MAX_STALENESS_S` comment, replacing it with the real Good Display GDEP133C02 datasheet finding (the datasheet's only refresh-frequency guidance is a 24h *minimum* against ghosting, not a maximum-rate wear limit as previously claimed) — zero behavioral/numeric change, proven by pre/post digests. Debug session `illustration-crop-text-margin` (resolved, two passes): the user reported the gap between the aircraft illustration and its flight-info text looked inconsistent across airlines; root cause was `draw_illustration()` anchoring layout to each PNG's full source rectangle rather than its actually-painted (opaque) pixels, while every vendored file carries a soft drop-shadow band the renderer already discards before painting — measured gap varied 17-154px by airline. Pass 1 fixed the vertical text gap (user-confirmed via preview renders); pass 2, requested as a follow-up, fixed horizontal centering (main aircraft up to 7.5px off canvas centre), the previous card's right-alignment (up to 26px between the two aircraft's visible edges), and a previously-unreported previous-card vertical-centering drift (5.5-28.5px, found while re-measuring for pass 2) — all three fixed the same way, via the `IllustrationPlacement.content` tight bbox. Card *sizing* deliberately still derives from the full rectangle so one aircraft's rendered size never depends on which airline preceded it. Neither fix has been confirmed on real Spectra 6 glass yet; both are server-side/comment-only so no firmware reflash is needed once deployed. This also means `server/plane/render.py`'s render output changed again since Phase 06's own digest re-pin (see `06-12`'s CI-fix commit) — a second, independent `_DEFAULT_CONFIG_DIGEST` re-pin landed on `main` for the same reason (real pixel output moved, not a platform artifact this time); reconciled during this merge, see git history for the merged value.
 
 Progress: [█████████▊] 98% (41/42 plans) — recomputed by hand from ROADMAP.md's own per-phase `**Plans**:` lines after today's Phase 06 completion and backlog promotion (06.1-06.6 added, 0 plans each); the two items above (quick task + debug session) are comment/doc-only and add no new GSD plans, so this count already reflects both branches' work correctly.
-
-**06.3-01 executed (2026-08-28), independently of Phase 06.2's own in-progress execution above — the two decimal phases have no execution-order dependency (per this session's own `stopped_at` note).** `companion/layout.py` gained `sidebar_nav()` (the D-02 desktop sidebar's Primary-navigation landmark, sharing NAV_TABS escaping with the existing horizontal nav via a new `_nav_links()` helper) and `stat_tile()` (the status-coloured card wrapper plan 06.3-04 needs, escaping its caption while passing already-safe `content_html` through unmodified — mirrors `_section()`'s existing convention). `page_shell()` now wraps every page in `<div class="dashboard-shell">` with a new `<aside class="dashboard-sidebar">` (title, sidebar nav, a second theme-form copy) preceding the unchanged `<header>` in source order, so a desktop keyboard user tabs into the sidebar first once plan 06.3-02's CSS (same wave) hides the header at >=960px; both nav copies and both theme-form copies are always in the DOM, CSS alone decides visibility. `companion/test_companion_app.py` grew 51->55 checks; one pre-existing check (`_page_shell_marks_only_the_active_nav_tab`) was rescoped to the horizontal `nav-bar` region only, since the new sidebar's duplicate links (same hrefs, different class names) now come first in source order and broke its whole-document search — a Rule 1 fix, not a plan deviation. `state.update-progress`'s known percent-corruption bug recurred again this session (returned `completed:44/total:57` correctly but wrote `percent: 50` instead of the correct 77) — corrected by hand to `percent: 77`, same pattern documented throughout this file's history. `requirements mark-complete D-01 D-02 D-24 D-25` returned all four as `not_found` — these are `06.3-CONTEXT.md` Decision IDs (D-01/D-02/D-24/D-25), not formal REQUIREMENTS.md entries, so REQUIREMENTS.md is correctly untouched by this plan.
 
 ## Performance Metrics
 
@@ -244,7 +242,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-28T13:34:10.275Z
+Last session: 2026-08-28T12:02:02.476Z
 Stopped at: Completed 06-11-PLAN.md; 06-12 (live verification) in progress, blocked on a developer sign-off checkpoint
 
 Resume file: .planning/phases/06-companion-configuration-web-interface-visual-settings-view-s/06-12-PLAN.md
