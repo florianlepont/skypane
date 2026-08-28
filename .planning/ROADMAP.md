@@ -25,7 +25,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 fully closed and confirmed on real glass; 05-01's actual multi-day discharge run — success criterion 1, DEVICE-05 — still deliberately deferred to end of project)
 - [x] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (12/12 plans complete — developer sign-off checkpoint passed 2026-08-28, two real defects found live and fixed: a poll-trigger crash and mobile table cropping) (completed 2026-08-28)
 - [x] **Phase 6.1: Battery status on companion web interface** (INSERTED) - SUPERSEDED 2026-08-28, before planning — merged into Phase 6.5 (identical target: health_page.py's Battery Trend section). Never planned standalone; see Phase 6.5.
-- [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Planned 2026-08-28 (2 plans).
+- [x] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface (completed 2026-08-28).
 - [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves.
 - [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan).
 - [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves.
@@ -364,7 +364,9 @@ Plans:
 **Goal:** The board's bring-up LED can be turned on or off from the companion web interface, and the device obeys that choice on its next scheduled poll. Firmware and the wire protocol are already complete (`firmware/main/led.c`, `state_machine.c`, `api_client.c`); this phase closes the one remaining gap — no store, no endpoint, and no web control exist behind `byos_server.py`'s hardcoded `/display` field, so the setting can currently only be changed by physically reflashing the board.
 **Requirements**: None — unmapped backlog phase (promoted from 999.2), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (own dedicated Config-page section) and D-02 (defaults to enabled) in `06.2-CONTEXT.md`, plus the inherited D-03 vendored-file discipline from `06-CONTEXT.md`.
 **Depends on:** Phase 6
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
+
+**Note on completion (2026-08-28):** Plan 06.2-02's sole task is a blocking human-verify checkpoint; the developer's sign-off is recorded in full in `06.2-02-SUMMARY.md`, including a real "LED still lit" false-alarm report from the first hardware observation round, investigated and root-caused (the firmware unconditionally lights the LED during the WiFi-connect+poll window regardless of `led_enabled`, per `firmware/main/app_main.c`/`state_machine.c`'s existing design) rather than silently dismissed. Second-round observation confirmed the toggle works as designed. No code changed in response — the report was a timing/expectation mismatch, not a defect.
 
 Plans:
 **Wave 1**
@@ -373,7 +375,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06.2-02-PLAN.md — Wave 2: blocking developer checkpoint — cross-process verification with both services on one explicit `--state-dir`, plus the physical LED confirmation
+- [x] 06.2-02-PLAN.md — Wave 2: blocking developer checkpoint — cross-process verification with both services on one explicit `--state-dir`, plus the physical LED confirmation (approved, both Part A and Part B confirmed)
 
 ### Phase 06.1: Battery status on companion web interface — SUPERSEDED (INSERTED)
 
