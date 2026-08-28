@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: "06.3"
 current_phase_name: Companion UI visual design and desktop layout pass
 status: executing
-stopped_at: "Completed 06.3-04-PLAN.md (companion/pages/health_page.py + companion/pages/airlines_page.py stat-tile dashboard-grid reframe). Waves 1-2 of Phase 06.3 done (4/5 plans); only 06.3-05 (full-suite gate + browser sign-off) remains."
-last_updated: "2026-08-28T14:01:26.168Z"
+stopped_at: "06.3-05 Task 1 complete (full suite run, VALIDATION.md reconciled; one pre-existing unrelated digest failure found, blocked on merging origin/main to pick up aeac512's fix). Task 2 (browser visual sign-off) awaiting orchestrator action."
+last_updated: "2026-08-28T14:12:21.783Z"
 last_activity: 2026-08-28
-last_activity_desc: Phase 06.3 Waves 1-2 complete (4/5 plans); Wave 3 (06.3-05) next
+last_activity_desc: Phase 06.3 Wave 3 (06.3-05) in progress — Task 1 done, Task 2 (visual sign-off) pending
 progress:
   total_phases: 14
   completed_phases: 8
@@ -232,6 +232,7 @@ None yet.
 
 - **05-03 blocked at Task 3 (blocking `checkpoint:human-verify`).** Requires the developer to physically flash the real EE02 board with `firmware/build.sh`/`firmware/flash.sh`, read the `fp_batt` console line via `firmware/monitor.sh`, confirm a plausible `battery mv=`/`pin_mv=` pair, and visually confirm the low-battery icon appears/disappears on the real 13.3" Spectra 6 panel. No soldering or external components required — only flashing firmware and reading numbers off the console/screen. DEVICE-04 remains incomplete until this step runs.
 - This session's sandbox has the `docker` CLI installed but no running daemon, so `firmware/build.sh` (the pinned `espressif/idf:v5.3.1` containerised build) could not be run to confirm Task 2's ESP-IDF-dependent `battery.c` module actually compiles under the real toolchain. Host-testable evidence (four-suite `run_host_tests.sh`, strict `cc` compile of the pure-math half) all passes; the ESP-IDF half is unverified by any build in this session and must be confirmed as part of Task 3's real flash (which requires Docker/ESP-IDF access on the developer's own machine regardless).
+- 06.3-05 Task 1 done (VALIDATION.md reconciled, commit 9bc163e). scripts/run-all-tests.sh exits 1: pre-existing, out-of-scope server/test_poll_loop.py digest-pin failure unrelated to this phase (needs unmerged upstream commit aeac512 merged). Per T-06.3-13, nyquist_compliant stays false while suite is red -- pending human/orchestrator decision. Task 2 (browser visual sign-off) is a human-check step, not yet performed; plan not complete.
 
 ### Quick Tasks Completed
 
@@ -261,10 +262,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-28T14:00:22.559Z
-Stopped at: Completed 06.3-04-PLAN.md (companion/pages/health_page.py + companion/pages/airlines_page.py stat-tile dashboard-grid reframe)
+Last session: 2026-08-28T14:12:21.775Z
+Stopped at: 06.3-05 Task 1 complete (VALIDATION.md reconciled); Task 2 (browser visual sign-off) awaiting human/orchestrator action
 
-Resume file: None
+Resume file: .planning/phases/06.3-companion-ui-visual-design-and-desktop-layout-pass/06.3-05-PLAN.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
