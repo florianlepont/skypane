@@ -20,6 +20,12 @@ print the raw tags as visible text instead of rendering the dot. This
 module therefore builds its own table markup (`_history_table_html()`),
 matching `data_table()`'s CSS classes exactly for visual consistency,
 escaping every other cell through `companion.layout.escape_html()`.
+Only the escaping had to be hand-rolled, not the scroll container: this
+table is still wrapped in the same horizontal-scroll container
+`data_table()` itself emits, so History's 9-column table matches
+Airlines and Health's phone behaviour (D-03) — dropping that wrapper
+along with the escaping, when this table was first hand-built, was the
+original defect this module now closes.
 """
 import sqlite3
 
@@ -146,10 +152,12 @@ def _history_table_html(formatted_rows):
             '<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
 
     return (
+        '<div class="data-table-wrap">'
         '<table class="data-table">'
         "<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
+        "</div>"
     ) % (header_cells, "".join(body_rows))
 
 

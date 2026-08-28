@@ -57,7 +57,7 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 19
+EXPECTED_CHECK_COUNT = 20
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -415,6 +415,32 @@ def main():
     check(
         "companion/pages/history_page.py never redefines _TYPE_DISPLAY_LABELS locally",
         _history_page_never_redefines_type_labels)
+
+    def _history_table_wrapped_for_horizontal_scroll_dot_survives():
+        # D-03/D-22 regression pin: History's own hand-built table gained
+        # the same .data-table-wrap horizontal-scroll wrapper Airlines and
+        # Health already had (mirrors test_companion_app.py's
+        # _data_table_wrapped_for_horizontal_scroll() check for
+        # layout.data_table() itself), and the Corroboration cell's
+        # unescaped status_dot() embedding must survive the wrap untouched.
+        tmp = _mkstate("h-wrap")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "d5", "callsign": "WRAP1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if '<div class="data-table-wrap">' not in rendered:
+                return False, "expected the flight table to be wrapped in .data-table-wrap"
+            if '<table class="data-table">' not in rendered:
+                return False, "expected the .data-table itself to still be present"
+            if "dot--" not in rendered:
+                return False, "expected the Corroboration cell's status_dot() dot class to survive the wrap"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's flight table gains the .data-table-wrap horizontal-scroll wrapper Airlines/Health already have, without disturbing the Corroboration status dot",
+        _history_table_wrapped_for_horizontal_scroll_dot_survives)
 
     # ======================================================================
     # Section 2: companion/pages/preview_page.py
