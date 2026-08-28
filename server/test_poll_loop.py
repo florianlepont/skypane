@@ -158,7 +158,14 @@ EXPECTED_CHECK_COUNT = 43
 # between this Mac and the CI container), re-pin from CI's FAIL output
 # exactly as done for the D-26 removal above - do not fight CI to match a
 # locally-computed value.
-_DEFAULT_CONFIG_DIGEST = "10c346e1c6ce65496eb0ff1baa833e8d96c7de0d2bee6f080e9e05715c3c3059"
+#
+# Second re-pin, same session: the dithered background's scattered White
+# speckle landed directly behind white-ink text and hurt legibility (another
+# on-glass finding) - draw_top_labels()/draw_main_text_block()/
+# draw_previous_text_block() now paint a small flat bg_idx backing plate
+# behind every text run before drawing it (_paint_text_backing()), so text
+# pixels genuinely move again. Same computed-locally caveat as above.
+_DEFAULT_CONFIG_DIGEST = "44fe835ed0b509411bbc491d46f22d832250c1dcea810758cea0edaad66ea955"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
