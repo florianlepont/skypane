@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.3
 current_phase_name: companion-ui-visual-design-and-desktop-layout-pass
 status: executing
-stopped_at: Completed 06.3-02-PLAN.md (companion/static/style.css token refresh + 960px dashboard breakpoint)
-last_updated: "2026-08-28T13:48:30.372Z"
+stopped_at: Completed 06.3-03-PLAN.md (companion/pages/history_page.py .data-table-wrap fix + companion/pages/config_page.py config-form class hook)
+last_updated: "2026-08-28T13:53:26.728Z"
 last_activity: 2026-08-28
 last_activity_desc: Phase 06.3 execution started
 progress:
   total_phases: 14
   completed_phases: 8
   total_plans: 57
-  completed_plans: 46
-  percent: 57
+  completed_plans: 47
+  percent: 82
 ---
 
 # Project State
@@ -40,6 +40,8 @@ Last activity: 2026-08-28 — Phase 06.3 execution started
 Progress: [█████████▊] 98% (41/42 plans) — recomputed by hand from ROADMAP.md's own per-phase `**Plans**:` lines after today's Phase 06 completion and backlog promotion (06.1-06.6 added, 0 plans each); the two items above (quick task + debug session) are comment/doc-only and add no new GSD plans, so this count already reflects both branches' work correctly.
 
 **06.3-01 executed (2026-08-28), independently of Phase 06.2's own in-progress execution above — the two decimal phases have no execution-order dependency (per this session's own `stopped_at` note).** `companion/layout.py` gained `sidebar_nav()` (the D-02 desktop sidebar's Primary-navigation landmark, sharing NAV_TABS escaping with the existing horizontal nav via a new `_nav_links()` helper) and `stat_tile()` (the status-coloured card wrapper plan 06.3-04 needs, escaping its caption while passing already-safe `content_html` through unmodified — mirrors `_section()`'s existing convention). `page_shell()` now wraps every page in `<div class="dashboard-shell">` with a new `<aside class="dashboard-sidebar">` (title, sidebar nav, a second theme-form copy) preceding the unchanged `<header>` in source order, so a desktop keyboard user tabs into the sidebar first once plan 06.3-02's CSS (same wave) hides the header at >=960px; both nav copies and both theme-form copies are always in the DOM, CSS alone decides visibility. `companion/test_companion_app.py` grew 51->55 checks; one pre-existing check (`_page_shell_marks_only_the_active_nav_tab`) was rescoped to the horizontal `nav-bar` region only, since the new sidebar's duplicate links (same hrefs, different class names) now come first in source order and broke its whole-document search — a Rule 1 fix, not a plan deviation. `state.update-progress`'s known percent-corruption bug recurred again this session (returned `completed:44/total:57` correctly but wrote `percent: 50` instead of the correct 77) — corrected by hand to `percent: 77`, same pattern documented throughout this file's history. `requirements mark-complete D-01 D-02 D-24 D-25` returned all four as `not_found` — these are `06.3-CONTEXT.md` Decision IDs (D-01/D-02/D-24/D-25), not formal REQUIREMENTS.md entries, so REQUIREMENTS.md is correctly untouched by this plan.
+
+**06.3-03 executed (2026-08-28), closing the wave-1 gap plans 06.3-01/06.3-02 left behind — History's flight table and Config's form now genuinely carry the visual-refresh hooks the earlier two plans built the infrastructure for.** `history_page.py::_history_table_html()`'s return block now wraps its `<table class="data-table">` in `<div class="data-table-wrap">`, matching `layout.data_table()`'s own wrap literal for literal — History's 9-column table is the one table D-03's original mobile-cropping fix never reached (Airlines and Health already had it), and now scrolls horizontally at phone width instead of cropping. The Corroboration column's unescaped `layout.status_dot()` embedding (the reason this table is hand-built rather than delegated to `layout.data_table()`) is untouched, pinned by a new regression check. `config_page.py::render()`'s settings form now carries `class="config-form"`, the stable hook plan 06.3-02's already-shipped 960px two-column fieldset grid rule targets; the poll-trigger and LED forms are untouched. `companion/test_view_pages.py` grew 19->20 checks (on-plan). `companion/test_config_page.py` grew 23->24 checks — **not** 15->16 as the plan's frontmatter stated: `config_page.py`/`test_config_page.py` had already grown to 23 checks by the time this plan executed (phase 06.2's LED-toggle feature landed between plan authoring and execution), so the plan's literal starting-count assumption was stale. The increment-by-one intent was preserved against the real on-disk baseline instead. Similarly, two of the plan's literal acceptance-criteria grep counts (`action="/config"` expected to equal 1) no longer match verbatim — the real file has 1 genuine `<form action="/config">` tag plus 2 unrelated prose mentions in 06.2-era docstrings/comments; verified the actual behavioural intent directly (`grep -n '<form'`) instead of the stale literal count. Both are documented as Rule 3 deviations in `06.3-03-SUMMARY.md`, not scope creep. `companion/static/style.css` was not touched (plan 06.3-02 owns it, confirmed via `git diff --stat`). Full suite: `test_view_pages.py` 20/20, `test_config_page.py` 24/24, `test_companion_app.py` 55/55.
 
 ## Performance Metrics
 
@@ -107,6 +109,7 @@ Progress: [█████████▊] 98% (41/42 plans) — recomputed by h
 | Phase 06.2 P02 | checkpoint-resolution | 1 tasks | 0 files |
 | Phase 06.3 P01 | 15min | 3 tasks | 2 files |
 | Phase 06.3 P02 | 20min | 3 tasks | 1 files |
+| Phase 06.3 P03 | 15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -205,6 +208,7 @@ Recent decisions affecting current work:
 - [Phase 06.3]: 06.3-01: extracted _nav_links() shared helper before adding sidebar_nav() so NAV_TABS is iterated/escaped in exactly one place
 - [Phase 06.3]: 06.3-01: both theme-form copies in page_shell() reuse one computed _theme_form_html() string so they cannot diverge in action/field-name
 - [Phase 06.3]: 06.3-02: token-value-only theming propagates the D-01 visual refresh app-wide (revised Dominant/Secondary/Accent + new --color-border at all four theme sites) without rewriting individual CSS rules — Every existing rule already reads var(--color-dominant)/var(--color-secondary)/var(--color-accent), so changing hex values at the declaration sites is sufficient
+- [Phase 06.3]: 06.3-03: wrapped History's hand-built table in .data-table-wrap (closing D-03's mobile-cropping gap) and gave Config's settings form a class="config-form" hook (D-01) for plan 06.3-02's desktop grid
 
 ### Pending Todos
 
@@ -253,7 +257,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-28T13:48:30.365Z
+Last session: 2026-08-28T13:52:45.535Z
 Stopped at: Completed 06.3-02-PLAN.md (companion/static/style.css token refresh + 960px dashboard breakpoint)
 
 Resume file: None

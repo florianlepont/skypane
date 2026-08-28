@@ -342,14 +342,14 @@ Plans:
 
 **Requirements**: None — unmapped backlog phase (promoted from 999.3), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (full colour/type/spacing refresh, superseding `06-CONTEXT.md` D-21), D-02 (true dashboard layout, not a wider single column) and D-03 (History's mobile table-crop fix) in `06.3-CONTEXT.md`, plus the carried-forward D-22/D-23/D-24/D-25 and the approved `06.3-UI-SPEC.md` design contract.
 **Depends on:** Phase 6
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 06.3-01-PLAN.md — `companion/layout.py`: shared `_nav_links()` helper, new `sidebar_nav()` and `stat_tile()` builders, and `page_shell()` extended into a `.dashboard-shell` that renders both nav copies
 - [x] 06.3-02-PLAN.md — `companion/static/style.css`: revised colour tokens plus `--color-border`/`--space-3xl`, the stat-tile/dashboard-grid/page-section component rules (including the `min-width: 0` grid-blowout fix), and the single new 960px dashboard breakpoint
-- [ ] 06.3-03-PLAN.md — D-03's History `.data-table-wrap` fix, plus the Config form's `.config-form` class hook for the desktop two-column fieldset layout
+- [x] 06.3-03-PLAN.md — D-03's History `.data-table-wrap` fix, plus the Config form's `.config-form` class hook for the desktop two-column fieldset layout
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
