@@ -142,6 +142,7 @@ body {
   font-size: var(--font-display-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
+  letter-spacing: 0.02em;
 }
 
 /* Visible focus outline on every focusable element — never removed without
@@ -222,6 +223,39 @@ a {
   color: var(--color-accent);
 }
 
+/* Dashboard sidebar (D-02, >=960px only). Base state is hidden — the
+ * 960px @media block below turns it on. Using `display` (rather than a
+ * transparency or CSS-visibility approach) keeps the hidden copy out of
+ * the tab order and the accessibility tree at mobile width, so a phone
+ * user tabbing through the page never lands on an invisible link and the
+ * page never exposes two navigation landmarks at once. */
+.dashboard-sidebar {
+  display: none;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--font-body-size);
+  border-left: 3px solid transparent;
+  letter-spacing: 0.02em;
+}
+
+.sidebar-link--active {
+  border-left-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 .page-content {
   padding: 0 var(--space-lg) var(--space-lg);
 }
@@ -273,7 +307,7 @@ a {
 
 /* Forms and fieldsets */
 fieldset {
-  border: 1px solid var(--color-secondary);
+  border: 1px solid var(--color-border);
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
 }
@@ -369,6 +403,82 @@ button:disabled {
 .preview-image {
   max-width: 100%;
   height: auto;
+}
+
+/* Stat tile: a card with a status-coloured top border. `min-width: 0` is
+ * the first declaration and is load-bearing — a grid item's default
+ * minimum size is its content's intrinsic width, and the Battery-trend
+ * tile contains a .data-table carrying `min-width: max-content` (see
+ * above), deliberately, so tables never crop. Without `min-width: 0` that
+ * intrinsic width propagates up and stretches the tile's whole
+ * dashboard-grid track far past the 240px floor, pushing sibling tiles
+ * off-grid and forcing horizontal scroll on the page itself. With it, the
+ * existing .data-table-wrap { overflow-x: auto } absorbs the width
+ * instead, which is exactly what that wrapper is for. */
+.stat-tile {
+  min-width: 0;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent);
+  border-radius: 2px;
+}
+
+.stat-tile--ok {
+  border-top-color: var(--color-status-ok);
+}
+
+.stat-tile--warn {
+  border-top-color: var(--color-status-warn);
+}
+
+.stat-tile--error {
+  border-top-color: var(--color-status-error);
+}
+
+.stat-tile--accent {
+  border-top-color: var(--color-accent);
+}
+
+.stat-tile__caption {
+  margin: 0 0 var(--space-sm);
+}
+
+.stat-tile__value {
+  font-size: var(--font-display-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+}
+
+/* The battery sparkline is emitted with fixed width="300" height="60"
+ * attributes alongside its viewBox; without this override it cannot
+ * shrink inside a 240px-floor tile. */
+.stat-tile svg {
+  width: 100%;
+  height: auto;
+}
+
+/* Dashboard grid (D-02): same auto-fit/minmax idiom .gallery-grid already
+ * establishes as this file's responsive-grid precedent, with a wider
+ * 240px floor and the lg gap. No breakpoint is needed for the grid
+ * itself: it collapses to one column on narrow viewports on its own. */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-2xl);
+}
+
+/* Page section card treatment: gives the below-breakpoint stacked
+ * sections the same card treatment as the dashboard's tiles. Note:
+ * health_page.py's source-fault block combines page-section with
+ * banner banner--anomaly, so its 4px destructive left border keeps
+ * overriding this rule's left edge — that is intended, not a conflict. */
+.page-section {
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
 }
 
 /* Gallery grid (CFG-11) — collapses to fewer columns automatically on
