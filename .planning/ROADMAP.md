@@ -337,8 +337,12 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 06.2-01-PLAN.md — Wave 1: persist `led_enabled` in `server/device_config.py`, add the dedicated Config-page section and its own `/config-led` route, and read the value from the shared state directory in `byos_server.py`'s `/display` handler (VENDOR.md local modification #4)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 06.2-02-PLAN.md — Wave 2: blocking developer checkpoint — cross-process verification with both services on one explicit `--state-dir`, plus the physical LED confirmation
 
 ### Phase 06.1: Battery status on companion web interface — SUPERSEDED (INSERTED)
@@ -384,4 +388,3 @@ Plans:
 - [ ] 07-01-PLAN.md — On-glass verification battery (RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) and the 02-UI-SPEC.md Colour addendum (moved from 03-04)
 
 **UI hint**: no
-
