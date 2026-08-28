@@ -9,7 +9,11 @@ Whole-site auth gate (D-02): every route except the login routes, the
 stylesheet, and the theme-toggle POST calls `Handler.require_session()`
 as its first statement and returns immediately when the session is
 invalid — this file is the single place that gate is enforced, not each
-page module.
+page module. This same exemption list also decides the caching scope on
+byte-served responses (`Handler.send_bytes()`'s `public` parameter): a
+route not in this list must never be advertised to a shared/intermediary
+cache as storable, so the two lists are not allowed to silently drift
+apart.
 
 This service binds all interfaces (0.0.0.0), exactly like
 `stub-server/byos_server.py` already does in production — loopback
@@ -202,12 +206,24 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def send_bytes(self, code, content_type, payload, cache_seconds=0):
+    def send_bytes(self, code, content_type, payload, cache_seconds=0, public=False):
+        """`public` (default False, fail-closed) decides whether a cached
+        response is advertised as shared-cacheable. A shared/intermediary
+        cache has no knowledge of the session cookie `require_session()`
+        checked — telling it a response may be stored means it can later
+        replay that response to a different client that never presented
+        the cookie. Callers must therefore explicitly opt into shared
+        cacheability by passing a true `public` value; a route that is
+        genuinely session-gated should never need to (WR-02,
+        06.4-REVIEW.md).
+        """
         self.send_response(code)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))
         if cache_seconds > 0:
-            self.send_header("Cache-Control", "public, max-age=%d" % cache_seconds)
+            scope = "public" if public else "private"
+            self.send_header(
+                "Cache-Control", "%s, max-age=%d" % (scope, cache_seconds))
         else:
             self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -330,7 +346,11 @@ class Handler(BaseHTTPRequestHandler):
                 payload = fh.read()
         except OSError:
             return self.send_html(404, self._not_found_page())
-        return self.send_bytes(200, "text/css", payload, cache_seconds=300)
+        # One of the three D-02 gate exemptions named in this module's
+        # docstring (login routes, stylesheet, theme-toggle POST): no
+        # per-user content, identical for every client, so it is
+        # legitimately shared-cacheable.
+        return self.send_bytes(200, "text/css", payload, cache_seconds=300, public=True)
 
     def _serve_preview_image(self):
         state_dir = self.args.state_dir
@@ -357,6 +377,9 @@ class Handler(BaseHTTPRequestHandler):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
             return self.send_html(404, self._not_found_page())
+        # This route sits behind do_GET()'s require_session() gate, so it
+        # deliberately relies on send_bytes()'s non-shared (private)
+        # default rather than opting into shared cacheability.
         return self.send_bytes(200, "image/png", payload, cache_seconds=3600)
 
     def _referring_tab(self):
