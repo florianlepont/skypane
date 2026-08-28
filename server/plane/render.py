@@ -67,6 +67,14 @@ Usage (manual QA):
         --out /tmp/panel.bin --preview /tmp/panel.preview.png
     server/.venv/bin/python3 server/plane/render.py --state departing --callsign AF1380 \
         --previous-callsign VY1234 --out /tmp/panel.bin --preview /tmp/panel.preview.png
+
+Reproducible on-glass forcing commands (Phase 7, 07-01 D-04/D-13), so a
+verification session never needs a hand-built dict or an inline Python
+snippet typed on a production host:
+    server/.venv/bin/python3 server/plane/render.py --state arriving --callsign AFR56XX \
+        --airline "Compagnie Nationale Royale Air Maroc Express" \
+        --city "Santiago de Compostela-Rosalia de Castro" --preview /tmp/longname.png
+    server/.venv/bin/python3 server/plane/render.py --calibration-preview /tmp/calib
 """
 import argparse
 import hashlib
@@ -1373,6 +1381,30 @@ def build_parser():
              "instead of the default sample resolved-route preview.",
     )
     parser.add_argument(
+        "--airline",
+        metavar="NAME",
+        default=None,
+        help="Manual QA only (D-04, Phase 7 07-01): override _PREVIEW_ROUTE's airline_name for a "
+             "departing/arriving preview, so a long/real airline name is a flag rather than a "
+             "hand-built dict. Ignored when --no-route is also given.",
+    )
+    parser.add_argument(
+        "--city",
+        metavar="NAME",
+        default=None,
+        help="Manual QA only (D-04, Phase 7 07-01): override the state-appropriate city in "
+             "_PREVIEW_ROUTE (destination_city for --state departing, origin_city for --state "
+             "arriving) for a departing/arriving preview. Ignored when --no-route is also given.",
+    )
+    parser.add_argument(
+        "--calibration-preview",
+        metavar="DIR",
+        default=None,
+        help="D-13 (Phase 7 07-01): write dither.write_calibration_preview(DIR)'s single "
+             "palette-swatches.png monitor-side calibration artifact into DIR, print its path, and "
+             "exit - no panel is rendered when this flag is given.",
+    )
+    parser.add_argument(
         "--preview-airline-only",
         action="store_true",
         help="Manual QA only (D-06, quick task 260827-hyy): preview the airline-only intermediate "
@@ -1403,6 +1435,14 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+
+    if args.calibration_preview:
+        # D-13: a standalone diagnostic action, not mixed with a panel
+        # render - no --state/--out/--preview handling below is reached.
+        for path in dither.write_calibration_preview(args.calibration_preview):
+            print("wrote %s" % path)
+        return 0
+
     flight = None
     route = None
     previous_flight = None
@@ -1418,6 +1458,20 @@ def main(argv=None):
             route = None
         else:
             route = _PREVIEW_ROUTE
+        # D-04 (Phase 7 07-01): --airline/--city override _PREVIEW_ROUTE's own
+        # fields so a long/real name is a flag rather than a hand-built dict.
+        # --no-route continues to win over both - route is already None above
+        # and stays None here. Never mutates _PREVIEW_ROUTE itself.
+        if route is not None and (args.airline or args.city):
+            route = dict(route)
+            if args.airline:
+                route["airline_name"] = args.airline
+            if args.city:
+                city_field = (
+                    "destination_city" if args.state == runway_config.STATE_DEPARTING
+                    else "origin_city"
+                )
+                route[city_field] = args.city
         if args.previous_callsign:
             previous_flight = {"hex": args.previous_hex, "callsign": args.previous_callsign}
             if args.preview_airline_only:
@@ -1450,6 +1504,15 @@ def main(argv=None):
         digest = hashlib.sha256(data).hexdigest()
         print("wrote %s (%d bytes, state=%s)" % (args.out, len(data), args.state))
         print("sha256 %s" % digest)
+        # T-07-01-01: a forced render's most common failure is a human
+        # forgetting to restart inkframe-poll.timer afterward - the tool
+        # doing the forcing is the right place to say so.
+        if args.airline or args.city or args.no_route:
+            print(
+                "REMINDER: this panel is SYNTHETIC (--airline/--city/--no-route was used) - "
+                "restart inkframe-poll.timer after testing, or the frame stays frozen on this "
+                "test image indefinitely."
+            )
 
     if args.preview:
         print(
