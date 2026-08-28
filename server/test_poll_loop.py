@@ -134,7 +134,18 @@ EXPECTED_CHECK_COUNT = 43
 # lesson holds even more strongly now: this value is pinned FROM THE REAL CI
 # FAIL OUTPUT below, not from any local computation, containerized or not.
 # Don't try this shortcut again - re-pin only from an actual CI run.
-_DEFAULT_CONFIG_DIGEST = "45b17a3e46e02f67575206ea2946633210b557a61bee5cd9bcc1ffd8ac654b5d"
+#
+# RE-PINNED AGAIN 2026-08-28 for quick task 260828-k5r: the D-26 outline
+# (draw_frame()'s thin 2px rectangle, ~30px inset from every edge) was
+# removed from the active-state render path at the developer's request -
+# server/plane/render.py's _build_active_canvas() no longer calls it. The
+# FLIGHT1 fixture's rendered pixels genuinely move because of this (a
+# reconstruction proof - re-drawing the outline back onto the post-removal
+# canvas - confirmed the outline band was the ONLY pixel difference), so a
+# new digest is expected, not a regression. Read from this PR's own CI FAIL
+# output (github.com/florianlepont/skypane/actions/runs/33172916595), not
+# computed locally or in a container, per the standing rule above.
+_DEFAULT_CONFIG_DIGEST = "6d580b949e1b4b0398794fd3979eef6331611012ff2533b4cd4678a89766ddac"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
