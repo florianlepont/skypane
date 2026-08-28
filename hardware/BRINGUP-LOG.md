@@ -155,6 +155,166 @@ Spectra 6 panel on this board:
   for in any UX expectations around how quickly the frame reflects a
   changed flight/train state.
 
+### Phase 7 On-Glass Verification (2026-08-28, plan 07-01)
+
+**This is the first time the shipped Phase 3 design (PT Serif Regular
+typography, flat single-color state background, per-airline dithered
+illustrations, two-flight composition) has been judged against the real
+13.3" Spectra 6 panel rather than a monitor preview.** Everything below was
+driven from the production render CLI's new `--airline`/`--city`/`--out`
+flags (07-01 Task 1) against the live production host, with `inkframe-poll.timer`
+(operationally `skypane-poll.timer` on the actual VPS — see the naming-drift
+note at the end of this entry) stopped for the session and restarted at the
+end.
+
+**D-13 calibration method (full account, for anyone weighing how much
+these numbers are worth).** Both of D-13's authoritative colorimetric
+sources were read in full during Phase 3 and publish no colorimetric data
+for the Spectra 6 panel — a confirmed negative result, not an unexplored
+gap. The starting `PALETTE_RGB` values were therefore a LOW-confidence
+community estimate gathered by eye against a different branded product.
+This Phase 7 pass is an informal visual side-by-side against the real
+panel: no colorimeter, no instrumentation — the developer compared the
+monitor-rendered `--calibration-preview` swatches and full-panel renders
+directly against the physical glass by eye and verbal description, plus one
+real photo of the six-band calibration test panel. The accuracy target is
+nearest-neighbour hue placement across six fixed inks, not measurement-grade
+precision.
+
+**Yellow and Red — confirmed close enough, no change.** Both inks were
+judged against the real panel and reported as reading noticeably better
+than Blue/Green (see below) — no mismatch direction was reported for
+either, so neither triple changed this session. Yellow stays
+`(240, 224, 80)`, Red stays `(160, 32, 32)`.
+
+**Blue and Green — CHANGED, not left unchanged (deviation from this
+plan's own original acceptance criterion, developer-approved live — see
+07-01-SUMMARY.md's Deviations section for the full Rule 4 write-up).**
+D-21 had only ever confirmed Blue/Green against in-chat monitor mockups,
+never real glass; this session was the first real-glass check of that
+decision. The developer reported, with a real photo of the six-band
+calibration panel as evidence, that both inks rendered "beaucoup plus
+terne et sombre" (much duller/darker) than the on-screen preview. Two
+darkening passes were made, each re-confirmed against the real panel:
+
+| Ink | D-21 (locked, monitor-only) | Pass 1 | Pass 2 (final, "c'est parfait") |
+|---|---|---|---|
+| Blue (index 4) | (110, 180, 225) | (70, 125, 185) | **(45, 95, 155)** |
+| Green (index 5) | (140, 195, 130) | (80, 140, 95) | **(50, 105, 65)** |
+
+`server/panel_format.py`'s `PALETTE_RGB` carries the Pass 2 values today,
+with this session's rationale recorded in that file's own comment block.
+
+**Background field lightening — a second, separate real-glass finding,
+not part of the original D-13 calibration scope.** Independently of the
+calibration-swatch mismatch above, the developer found the flat single-index
+background field (`panel_format.new_canvas(bg_idx)`, D-21) reads far darker
+again at full-panel coverage than the same ink does in a thin calibration
+band — simultaneous contrast makes a large solid field of dark ink read
+darker than a swatch of the same ink surrounded by other colours. Since
+Spectra 6 has only six fixed physical inks (no software value changes the
+real ink), the only way to visually lighten a fixed ink is to dither a blend
+of it toward White. `server/plane/dither.py` gained
+`dithered_state_background(bg_idx, lighten_fraction=0.4)`, and
+`_build_active_canvas()` now calls it instead of the flat `new_canvas()`
+fill. The developer confirmed both the departing (blue) and arriving
+(green) fields "parfait" after this change. A real bug was caught and fixed
+within the same iteration: quantizing the lightened blend against the full
+6-color palette (rather than a dedicated 2-color `{bg_idx, White}` palette)
+occasionally picked the wrong ink once Blue and Green were both darkened
+close together in RGB space — fixed by building a dedicated 2-entry palette
+per call, documented in `dither.py`'s own comments.
+
+**Text-backing-plate fix — a direct bug-style correction, not a design
+change.** The dithered background's scattered White speckle landed
+directly behind white-ink text and hurt legibility, specifically flagged by
+the developer for the top-left state label and the previous-flight card's
+text. `render.py` gained `_paint_text_backing()`, which paints a small flat
+`bg_idx` rectangle (4px pad) behind every text bbox before drawing it, so
+text keeps a clean undithered backdrop while the surrounding field stays
+lighter. Threaded through `draw_top_labels()`, `draw_main_text_block()`,
+`draw_previous_text_block()`, and their three call sites. Developer
+confirmed "parfait" on both departing and arriving after this fix.
+
+**PT Serif Regular legibility — fresh finding, does NOT derive from
+02-05-SUMMARY.md.** 02-05's "clearly legible" finding covered Inter glyphs
+on a flat single-index saturated field with no dithering anywhere on the
+panel — a structurally different render (Inter → Zilla Slab → PT Serif
+Regular across three fonts, and the composition itself is now a two-flight
+poster 02-05 never anticipated). This session's own fresh observation: "tout
+est parfait" (everything perfect) across every typographic role tested —
+the state label (20px), the top tag (18px), the main text block's two lines
+(44px/floor 28px and 22px/floor 16px), and specifically the previous card's
+smallest text (28px/floor 18px and, smallest of all ever put on this panel,
+16px/floor 12px). No font-weight swap to `PTSerif-Bold.ttf` was needed;
+Regular is legible at every role, on both departing and arriving renders,
+both before and after the text-backing-plate fix (re-confirmed "parfait"
+post-fix).
+
+**Bezel clipping — confirmed clear.** "Les marges sont top" (the margins
+are great) — no clipping of the frame, either illustration, or any text
+line by the physical bezel.
+
+**State distinction (colour + label only, no nose-direction cue) —
+confirmed clear.** Departing (blue field + "DEPARTING" label) and arriving
+(green field + "ARRIVING" label) both read clearly using only background
+colour and label text, with no nose-direction cue (D-24 dropped mirroring
+entirely).
+
+**Two-flight composition — confirmed "parfait."** The previous card reads
+as a real second aircraft, not a decorative element or rendering artifact;
+the main text block's overlap with the illustration and the previous
+card's right-alignment to the main illustration's own edge both read as
+intentional.
+
+**Illustration wordmark detail — confirmed "parfait."** Fuselage livery
+lettering (e.g. "AIRFRANCE") is readable at both rendered scales — roughly
+992px for the main illustration and roughly 565px for the previous card.
+
+**Forced departure/arrival (D-02) — visual path confirmed, threshold
+still open.** Departing renders blue-toned with the `DEPARTING` label;
+arriving renders green-toned with the `ARRIVING` label, confirmed across
+repeated renders this session. This closes only the *visual* DEPARTING
+path — the real +200 ft/min vertical-rate threshold remains unvalidated
+against real sensor data and stays open until a genuine departure is
+observed in production (A-02-02-01, carried forward — see
+07-01-SUMMARY.md).
+
+**Long-name stress test (D-04) — confirmed "c'est parfait."** Forced via
+`--state arriving --callsign AFR56XX --airline "Compagnie Nationale Royale
+Air Maroc Express" --city "Santiago de Compostela–Rosalía de Castro"`: no
+clipping, no bezel overrun, no mid-word wrap, shrunken text still readable.
+The developer did not name a specific smallest-still-readable point size
+beyond confirming it works, so none is invented here.
+
+**Desk-distance composition judgment (D-03) — provisional, not a
+wall-mounted verdict.** Stepped back to roughly wall-viewing distance from
+the desk where the frame currently sits: the aircraft still reads as a
+passenger jet and the whole composition reads as ambient art, not a data
+dump. **The frame is on a desk, not yet wall-mounted** — this judgment is
+explicitly provisional per D-03 and does not block phase closure; the
+wall-mounted re-check of ROADMAP criteria 1 and 4 remains open (carried
+forward — see 07-01-SUMMARY.md).
+
+**Teardown — confirmed, not just enabled.** `sudo systemctl start
+skypane-poll.timer` was run, `is-active` returned `active`, and a real
+poll cycle appeared afterward in the journal: a genuine detection
+(hex=39cea9, callsign=TVF64HM), then a second cycle where one provider
+(adsb.lol) timed out but the pipeline gracefully held the previous state —
+normal multi-provider resilience (D-04's disagreement/timeout handling),
+not a bug. Live detection is confirmed resumed, not just the unit enabled.
+
+**Documentation-drift note (observation, not a blocker).** At session
+start, the actual production systemd units were found to be
+`skypane-poll.timer`/`skypane-byos.service`/`skypane-companion.service`
+under `/opt/skypane/...` — not `inkframe-poll.timer`/`/opt/inkframe/...` as
+this plan's own Task 2 example commands say throughout. The project was
+renamed InkFrame → SkyPane and the VPS was mid-migration when this plan's
+text was drafted. Every command actually run this session used the real
+`skypane-*` names and `/opt/skypane/...` paths; the plan file's own stale
+example commands were left as-is since correcting them was out of scope for
+this task.
+
 ## Flashing Tooling
 
 `esptool` was installed via Homebrew (not pip), keeping Phase 1's
