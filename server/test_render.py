@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 71
+EXPECTED_CHECK_COUNT = 72
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -1750,6 +1750,42 @@ def main():
         "all three runway ids combined with the single theme id render without error across both active states "
         "(theme-addition regression guard)",
         _runway_and_theme_matrix_combines_without_error,
+    )
+
+    # 72. The D-26 outline must be genuinely absent from a REAL build_canvas()
+    # render - not just absent from a throwaway canvas draw_frame() is called
+    # on directly (that's checks 16/70's job). Sample points are derived from
+    # FRAME_INSET_FRAC/panel_format.WIDTH/HEIGHT, never hardcoded pixel
+    # literals, so a future inset change can never make this check silently
+    # vacuous. Every probe must equal the state's own background index, not
+    # merely differ from the ink index - that is the stronger claim and it is
+    # what "the mood colour shows through" actually means.
+    def _no_frame_outline_on_real_active_renders():
+        for state in ("departing", "arriving"):
+            canvas = render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE)
+            inset = round(panel_format.WIDTH * render.FRAME_INSET_FRAC)
+            expected = render.state_background_index(state)
+            points = [
+                (panel_format.WIDTH // 2, inset),
+                (panel_format.WIDTH // 2, inset + 1),
+                (inset, panel_format.HEIGHT // 2),
+                (panel_format.WIDTH - inset, panel_format.HEIGHT // 2),
+                (panel_format.WIDTH // 2, panel_format.HEIGHT - inset),
+                (inset, inset),
+                (panel_format.WIDTH - inset, panel_format.HEIGHT - inset),
+            ]
+            for point in points:
+                sample = canvas.getpixel(point)
+                if sample != expected:
+                    return False, (
+                        "state=%r point=%r read index %r, expected background index %r (former D-26 outline band)"
+                        % (state, point, sample, expected)
+                    )
+        return True, ""
+    check(
+        "the D-26 outline is genuinely absent from a real build_canvas() render - every sampled point on the "
+        "former frame band reads the state's own background index, in both active states",
+        _no_frame_outline_on_real_active_renders,
     )
 
     total = len(results)

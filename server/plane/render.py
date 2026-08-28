@@ -1144,8 +1144,12 @@ def _build_active_canvas(
     # D-21: flat single-color background field - no dithered mood gradient.
     canvas = pf.new_canvas(bg_idx)
 
-    # D-26: thin frame, inset ~2.5% of canvas width from every edge.
-    draw_frame(canvas, fg_idx)
+    # D-26's thin outline is no longer drawn (removed 2026-08-28 by developer
+    # request, quick task 260828-k5r). FRAME_INSET_FRAC deliberately survives
+    # below as pure layout geometry feeding inner_width, and
+    # draw_source_fault_badge() independently derives its own bottom anchor
+    # from the same constant. The helper itself, draw_frame, is retained but
+    # no longer called from this render path.
 
     # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
     # at the existing MARGIN inset (inside the frame, not on it).
