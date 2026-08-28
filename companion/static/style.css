@@ -534,6 +534,49 @@ button:disabled {
   display: block;
 }
 
+/* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
+ * readout line. */
+
+/* Cosmetic marker only — never receives pointer events, or it would steal
+ * them from the larger .sparkline-hit target painted at the same
+ * coordinates. */
+.sparkline-dot {
+  fill: currentColor;
+  pointer-events: none;
+}
+
+/* A transparent fill is still opaque for SVG hit-testing, which is exactly
+ * why this enlarged, invisible circle works as the real tap/click target
+ * (06.5-RESEARCH.md Pattern 2). */
+.sparkline-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+/* Deliberately var(--color-text), not var(--color-accent): this file's
+ * header comment reserves accent to exactly five uses, and a chart-point
+ * highlight is not one of them. */
+.sparkline-hit:hover,
+.sparkline-hit--active {
+  fill: var(--color-text);
+  fill-opacity: 0.15;
+}
+
+/* This one does use accent, because it is the header's already-listed
+ * "focused-input outline" use — not a violation of the reservation above. */
+.sparkline-hit:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Reserves a fixed-height line so the first reveal never shifts the page
+ * (06.5-RESEARCH.md, Open Question 1's recommendation — the layout-jump
+ * pitfall on mobile). */
+.battery-readout {
+  min-height: 1.4em;
+  margin: var(--space-xs) 0 0;
+}
+
 /* Desktop dashboard shell (D-02, 06.3-UI-SPEC.md Layout Contract). This is
  * the file's second and last width breakpoint — the 480px nav-scroll rule
  * above stays exactly as it is, untouched. companion/layout.py's
