@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 53
+EXPECTED_CHECK_COUNT = 54
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -553,6 +553,31 @@ def main():
         check(
             "sidebar_nav() matches no tab and stays script-free for a hostile active value",
             _sidebar_nav_escapes_hostile_active)
+
+        def _stat_tile_status_classes_caption_escape_and_content_passthrough():
+            for status, expected_class in (
+                ("ok", "stat-tile--ok"),
+                ("warn", "stat-tile--warn"),
+                ("error", "stat-tile--error"),
+            ):
+                markup = layout.stat_tile("c", "x", status)
+                if expected_class not in markup:
+                    return False, "expected %r to map to %r" % (status, expected_class)
+            if "stat-tile--accent" not in layout.stat_tile("c", "x"):
+                return False, "expected status=None to fall back to stat-tile--accent"
+            if "stat-tile--accent" not in layout.stat_tile("c", "x", "not-a-real-state"):
+                return False, "expected an unrecognised status to fall back to stat-tile--accent"
+            if "<b>" in layout.stat_tile("<b>hi</b>", "x"):
+                return False, "expected the caption to be escaped"
+            dot_markup = layout.status_dot("ok", "All good")
+            tile_markup = layout.stat_tile("Device", dot_markup, "ok")
+            if "dot--ok" not in tile_markup:
+                return False, "expected content_html to reach the output unmodified"
+            return True, ""
+        check(
+            "stat_tile() maps status to a fixed class with an accent fallback, escapes the "
+            "caption, and passes content_html through unmodified",
+            _stat_tile_status_classes_caption_escape_and_content_passthrough)
 
         def _page_shell_escapes_hostile_body():
             escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")
