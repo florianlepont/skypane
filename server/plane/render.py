@@ -226,6 +226,19 @@ def empty_heading_text(runway_id=device_config.DEFAULT_RUNWAY_ID):
 # must never read these two constants directly - call
 # empty_heading_text()/runway_tag_text() instead.
 EMPTY_HEADING_TEXT = empty_heading_text(device_config.DEFAULT_RUNWAY_ID)
+
+# The empty state's own already-established ink (its heading and body copy
+# both already used the bare IDX_BLACK literal) - named so the battery icon
+# can share "each state's own ink" structurally, not by comment (05-UI-SPEC.md
+# resolved discretion item: battery icon renders in all three states,
+# including empty, since a low-battery reading is a device-health fact
+# independent of whether an aircraft is currently detected).
+#
+# The empty state is deliberately NOT theme-dependent (CFG-01): it is always
+# White/Black, so this stays a bare constant rather than resolving through
+# state_ink_index(). The CFG-05 source-fault badge shares it for the same
+# reason.
+EMPTY_INK = IDX_BLACK
 EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment one is."
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
@@ -253,6 +266,27 @@ PREVIOUS_ILLUSTRATION_WIDTH_FRAC = 0.57  # of the MAIN illustration's own render
 PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC = 0.76  # of canvas height
 PREVIOUS_TEXT_GAP_PX = 22  # gap below the previous illustration's bottom edge
 PREVIOUS_LINE_GAP_PX = 34  # line 2's top below line 1's own TOP (not bottom)
+
+# --- D-04/D-06/D-07 battery-low icon geometry (05-UI-SPEC.md, 05-02-PLAN.md)
+# The two POSITION constants (LEFT/BOTTOM) still derive from MARGIN, unchanged
+# since 05-02. The four SIZE constants are a uniform round(original * 0.7)
+# reduction of their former spacing-scale values - a live on-glass correction
+# (260828-0qo, quick task) applied after the developer saw the original
+# (72x32-nominal) glyph on the real Spectra 6 panel and judged it too large.
+# Total bounding box is now (64, 1514, 115, 1536) - see draw_battery_icon()'s
+# docstring for the full geometry derivation.
+BATTERY_ICON_LEFT = MARGIN  # 64 - same left inset as the top-row labels
+BATTERY_ICON_BOTTOM = HEIGHT - MARGIN  # 1536 - same bottom inset, mirrored
+BATTERY_ICON_BODY_W = 45  # round(SPACE_LG * 0.7) = round(64 * 0.7) = round(44.8)
+BATTERY_ICON_BODY_H = 22  # round(SPACE_MD * 0.7) = round(32 * 0.7) = round(22.4)
+BATTERY_ICON_NUB_W = 6  # round(SPACE_XS * 0.7) = round(8 * 0.7) = round(5.6)
+BATTERY_ICON_NUB_H = 11  # round(SPACE_SM * 0.7) = round(16 * 0.7) = round(11.2) - the odd
+# BODY_H - NUB_H leftover (11) puts the nub's vertical centring one pixel low
+# (5px gap above, 6px below) rather than exactly symmetric.
+BATTERY_ICON_STROKE_PX = 2  # round(3 * 0.7) = round(2.1); now equal to FRAME_STROKE_PX,
+# held there as the e-ink legibility floor - the reduction stops here rather
+# than continuing toward an illegible 1px hairline.
+BATTERY_ICON_FILL_FRAC = 0.22  # bespoke: a fixed "low" glyph, not a live gauge (05-UI-SPEC.md) - unchanged, a ratio not a pixel size
 
 _font_cache = {}
 
@@ -404,6 +438,60 @@ def draw_source_fault_badge(canvas, ink_idx):
     draw.text((text_left, mid_y), SOURCE_FAULT_TEXT, font=caption_font, fill=ink_idx, anchor="lm")
 
     return combined_bbox
+
+
+def draw_battery_icon(canvas, draw, ink_idx):
+    """D-04/D-06: a bottom-left battery glyph - a hollow outlined body with a
+    small solid terminal nub and a left-aligned solid partial fill,
+    signalling a fixed "low" reading rather than a live gauge. Own dedicated
+    bottom-left zone (D-05) - the one area of the locked two-flight layout
+    with no existing element, and the visual counterweight to the
+    bottom-right previous-flight card; never reuses, displaces, or resizes
+    the top-left state label or the top-right runway tag (CFG-12 made that
+    tag runway-dependent; this icon's zone is unaffected either way). It is
+    also horizontally clear of the CFG-05 source-fault badge, which is
+    centred on the same bottom band - see draw_source_fault_badge().
+
+    All geometry derives from the BATTERY_ICON_* module constants (the two
+    position constants from MARGIN, the four size constants from a uniform
+    0.7 reduction of their former spacing-scale values - 260828-0qo) - no ad
+    hoc magic numbers. Draws three flat integer-palette-index rectangles: the
+    body as a BATTERY_ICON_STROKE_PX-wide outline, the nub filled solid, and
+    the fill box filled solid - square corners, no rounded-rectangle
+    primitive, no antialiasing parameters. These box tuples are Pillow's
+    inclusive corner coordinates, matching draw_frame()'s own convention: the
+    rendered footprint is therefore 52x23px for a nominal 51x22 box,
+    intentionally.
+
+    Returns the icon's total bounding box (left, top, right, bottom) -
+    (64, 1514, 115, 1536).
+    """
+    body_top = BATTERY_ICON_BOTTOM - BATTERY_ICON_BODY_H
+    body_right = BATTERY_ICON_LEFT + BATTERY_ICON_BODY_W
+    body = (BATTERY_ICON_LEFT, body_top, body_right, BATTERY_ICON_BOTTOM)
+
+    nub_top = body_top + (BATTERY_ICON_BODY_H - BATTERY_ICON_NUB_H) // 2
+    nub_bottom = nub_top + BATTERY_ICON_NUB_H
+    nub_right = body_right + BATTERY_ICON_NUB_W
+    nub = (body_right, nub_top, nub_right, nub_bottom)
+
+    interior_left = BATTERY_ICON_LEFT + BATTERY_ICON_STROKE_PX
+    interior_top = body_top + BATTERY_ICON_STROKE_PX
+    interior_right = body_right - BATTERY_ICON_STROKE_PX
+    interior_bottom = BATTERY_ICON_BOTTOM - BATTERY_ICON_STROKE_PX
+    fill_w = round((interior_right - interior_left) * BATTERY_ICON_FILL_FRAC)
+    fill = (interior_left, interior_top, interior_left + fill_w, interior_bottom)
+
+    total = (BATTERY_ICON_LEFT, body_top, nub_right, BATTERY_ICON_BOTTOM)
+    # Looser canvas guard, not the strict safe-box guard (05-UI-SPEC.md): this
+    # element sits inside the old 64px band's bottom-left corner
+    # deliberately, exactly like the frame and both illustrations already do.
+    _assert_within_canvas(total, "battery icon")
+
+    draw.rectangle(body, outline=ink_idx, width=BATTERY_ICON_STROKE_PX)
+    draw.rectangle(nub, fill=ink_idx)
+    draw.rectangle(fill, fill=ink_idx)
+    return total
 
 
 def draw_top_labels(canvas, state, ink_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
@@ -739,7 +827,20 @@ def draw_previous_text_block(canvas, flight, state, route, prev_bbox, ink_idx):
     return line1_bbox, line2_bbox
 
 
-def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False):
+def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False, battery_low=False):
+    """Build the empty-state canvas ("Watching Runway 3" by default; the
+    heading follows `runway_id` since CFG-12).
+
+    `battery_low` (D-04/D-06): when True, draws the bottom-left battery-low
+    icon in EMPTY_INK - a low-battery reading is a device-health fact
+    independent of whether an aircraft is currently detected, so the icon
+    renders here too.
+
+    `source_fault` (CFG-05): when True, draws the bottom-centre source-fault
+    badge, also in EMPTY_INK. The two indicators are independent and may
+    both be shown at once - they occupy horizontally disjoint parts of the
+    same bottom band.
+    """
     canvas = pf.new_canvas(IDX_WHITE)
     draw = ImageDraw.Draw(canvas)
     heading_text = empty_heading_text(runway_id)
@@ -766,20 +867,23 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
 
     heading_bbox = draw.textbbox((center_x, start_y), heading_text, font=heading_font, anchor="ma")
     _assert_in_safe_box(heading_bbox, "empty-state heading")
-    draw.text((center_x, start_y), heading_text, font=heading_font, fill=IDX_BLACK, anchor="ma")
+    draw.text((center_x, start_y), heading_text, font=heading_font, fill=EMPTY_INK, anchor="ma")
 
     y = start_y + heading_height + SPACE_SM
     for line in body_lines:
         line_bbox = draw.textbbox((center_x, y), line, font=body_font, anchor="ma")
         _assert_in_safe_box(line_bbox, "empty-state body line")
-        draw.text((center_x, y), line, font=body_font, fill=IDX_BLACK, anchor="ma")
+        draw.text((center_x, y), line, font=body_font, fill=EMPTY_INK, anchor="ma")
         y += body_line_height
 
     # CFG-05: the source-fault badge is visible whichever state the panel
-    # is in, including the empty state - the empty canvas uses IDX_BLACK,
+    # is in, including the empty state - the empty canvas uses EMPTY_INK,
     # matching every other element it already draws.
     if source_fault:
-        draw_source_fault_badge(canvas, IDX_BLACK)
+        draw_source_fault_badge(canvas, EMPTY_INK)
+
+    if battery_low:
+        draw_battery_icon(canvas, draw, EMPTY_INK)
 
     return canvas
 
@@ -819,8 +923,20 @@ def _assert_legal_palette(canvas, bg_idx):
 
 def _build_active_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
+    source_fault=False, battery_low=False,
 ):
+    """Build the departing/arriving two-flight poster canvas.
+
+    `battery_low` (D-04/D-06): when True, draws the bottom-left battery-low
+    icon in the state's own ink after the previous-flight card, before the
+    closing palette guard rail.
+
+    `source_fault` (CFG-05): when True, draws the bottom-centre source-fault
+    badge in that same ink. Both indicators resolve their ink through the
+    active theme's `state_ink_index()` (CFG-01), so neither can introduce an
+    index outside the current theme's palette.
+    """
     if state not in STATE_BACKGROUND:
         raise ValueError("unknown state %r (expected 'departing', 'arriving', or 'empty')" % (state,))
     bg_idx = state_background_index(state, theme_id=theme_id)
@@ -871,6 +987,9 @@ def _build_active_canvas(
     if source_fault:
         draw_source_fault_badge(canvas, fg_idx)
 
+    if battery_low:
+        draw_battery_icon(canvas, ImageDraw.Draw(canvas), fg_idx)
+
     # Guard rail: every index on the panel is legal, and the flat
     # background field is provably dominant.
     _assert_legal_palette(canvas, bg_idx)
@@ -880,7 +999,8 @@ def _build_active_canvas(
 
 def build_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
+    source_fault=False, battery_low=False,
 ):
     """Return the pre-pack "P"-mode canvas for `flight` in `state`
     ("departing" / "arriving" / "empty"). Public (not `_build_canvas`) so
@@ -919,9 +1039,14 @@ def build_canvas(
     because no aircraft was selected, which is Orly's ordinary quiet state
     and firing on it is exactly the false-alarm trap
     `.planning/seeds/on-device-fault-icon.md` rejects.
+
+    `battery_low` (D-04/D-06): when True, draws the bottom-left
+    battery-low icon - in every one of the three states, including empty.
+    Independent of `source_fault`; both may be true at once.
     """
     if flight is None or state == "empty":
-        return _build_empty_canvas(runway_id=runway_id, source_fault=source_fault)
+        return _build_empty_canvas(
+            runway_id=runway_id, source_fault=source_fault, battery_low=battery_low)
     return _build_active_canvas(
         flight,
         state,
@@ -932,12 +1057,14 @@ def build_canvas(
         theme_id=theme_id,
         runway_id=runway_id,
         source_fault=source_fault,
+        battery_low=battery_low,
     )
 
 
 def render_panel(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
-    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False,
+    theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
+    source_fault=False, battery_low=False,
 ):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
@@ -950,9 +1077,11 @@ def render_panel(
     per-state dicts on.
 
     `route`/`previous_flight`/`previous_route`/`previous_state`/`theme_id`/
-    `runway_id`/`source_fault` are passed straight through to
-    build_canvas() (D-25/D-26, CFG-01, CFG-12, CFG-05) - see
-    build_canvas()'s own docstring for the full contract of each.
+    `runway_id`/`source_fault`/`battery_low` are passed straight through to
+    build_canvas() (D-25/D-26, CFG-01, CFG-12, CFG-05, D-04/D-06) - see
+    build_canvas()'s own docstring for the full contract of each, including
+    what `route` may now be (a full route or, since quick task 260827-hyy,
+    an airline-only route) and `battery_low`'s per-state behaviour.
     """
     canvas = build_canvas(
         flight,
@@ -964,6 +1093,7 @@ def render_panel(
         theme_id=theme_id,
         runway_id=runway_id,
         source_fault=source_fault,
+        battery_low=battery_low,
     )
     return pf.pack_panel(canvas)
 
@@ -1035,6 +1165,11 @@ def build_parser():
         help="Manual QA only (CFG-05): preview the source-fault alert badge, as if every ADS-B "
              "provider had failed.",
     )
+    parser.add_argument(
+        "--battery-low",
+        action="store_true",
+        help="Manual QA only (D-04/D-06): preview the low-battery icon in the panel's bottom-left corner.",
+    )
     return parser
 
 
@@ -1075,6 +1210,7 @@ def main(argv=None):
         theme_id=args.theme,
         runway_id=args.runway,
         source_fault=args.source_fault,
+        battery_low=args.battery_low,
     )
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:

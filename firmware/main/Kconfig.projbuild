@@ -50,6 +50,74 @@ menu "FlightPortrait"
             default 12
     endmenu
 
+    menu "Battery sense (EE02 driver board, Phase 5 / DEVICE-04)"
+        config FP_PIN_BATTERY_ADC
+            int "Battery voltage-sense ADC GPIO"
+            range 1 10
+            default 1
+            help
+              (a) The sense divider is a feature of the EE02 driver board,
+              not of the bare XIAO module - the module's own documentation
+              describes no such circuit, which is why researching the
+              module alone finds nothing and wrongly suggests external
+              components are needed; the circuit already exists and
+              nothing is added to the hardware.
+              (b) The divider halves the pack voltage, which is what
+              keeps a full-charge 4.2 V cell inside the ADC's safe input
+              range - the raw pack must never be routed to a GPIO
+              directly.
+              (c) The range is restricted to 1..10 because only ADC unit
+              1 may be used - ADC unit 2 shares hardware with the Wi-Fi
+              driver on the ESP32-S3 and returns unreliable readings
+              whenever the radio is up, which on this device is exactly
+              when telemetry is sent.
+        config FP_PIN_BATTERY_ADC_EN
+            int "Battery sense divider enable GPIO"
+            range 0 48
+            default 6
+            help
+              The board gates its own divider: this line has to be
+              driven high before sampling, or the sense pin floats and
+              the reading is meaningless. The firmware drives it low
+              again immediately after the sample so the divider does not
+              sit conducting across the pack through deep sleep on a
+              device whose entire architecture (DEVICE-05) exists to
+              minimise draw.
+    endmenu
+
+    menu "Bring-up LED (built-in User LED, bring-up/reflash aid only)"
+        config FP_PIN_LED
+            int "Built-in User LED GPIO"
+            range 0 48
+            default 21
+            help
+              (a) This is the XIAO ESP32-S3 module's built-in "User LED",
+              distinct from the module's separate charge-status LED - it
+              is driven by firmware, not hardware charge logic.
+              (b) The value is sourced from web aggregation of Seeed
+              community and board-reference material, and is explicitly
+              NOT from an official schematic - unlike the panel pins,
+              which came from a vendor header. See
+              .planning/seeds/bring-up-debug-led-remote-toggle.md for the
+              full provenance trail and the flash-and-observe check that
+              promotes this from a claim to measured hardware fact.
+              (c) This pin must never collide with a panel, key or
+              battery-sense GPIO: driving a panel line mid-refresh
+              corrupts the image rather than failing cleanly, which is a
+              far worse failure than a debug LED simply not lighting.
+        config FP_LED_ACTIVE_LOW
+            bool "Built-in User LED is active-low"
+            default y
+            help
+              Configurable rather than hardcoded because getting this
+              wrong is the one outcome that actually costs battery: if
+              the real polarity turns out inverted, the LED would be dark
+              during the active wake window and lit through deep sleep -
+              precisely the failure this design exists to prevent. Making
+              this a Kconfig bool means the correction is a reflash, not
+              a code change.
+    endmenu
+
     menu "Panel"
         config FP_MIN_REFRESH_SPACING_S
             int "Minimum seconds between panel refreshes"

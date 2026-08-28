@@ -16,7 +16,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Device
 
 - [x] **DEVICE-03**: Device wakes on a schedule, polls the server over HTTPS, downloads and displays a new image if available, then returns to deep sleep, with exponential backoff on failure
-- [ ] **DEVICE-04**: User can see a low-battery indicator on the frame when the battery is running low
+- [x] **DEVICE-04**: User can see a low-battery indicator on the frame when the battery is running low
 - [ ] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
 
 ### Companion Configuration Web Interface
@@ -86,7 +86,7 @@ Explicitly excluded. Documented to prevent scope creep.
 | Wall power | Battery-only for v1, to force realistic power-budget decisions early |
 | Freshness timestamp / graceful stale-offline display state | Explicitly deferred by user for v1 despite research flagging it as a common pitfall; revisit if staleness becomes a real problem |
 | Additional views beyond plane/RER (weather, other transit lines, etc.) | Stay two-view to preserve focus on the core value |
-| Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions | Anti-features that would make the frame read as a gadget rather than ambient art |
+| Status LEDs, on-device settings/menu UI, gate/terminal/check-in fields, push notifications to phone, animated transitions | Anti-features that would make the frame read as a gadget rather than ambient art. Scoped 2026-08-27: this exclusion is about a permanently wall-visible indicator — the module's own built-in User LED, lit only during the multi-second active wake window and physically behind the frame as a bring-up/reflash aid (`firmware/main/led.c`, plan `260827-wo4`), falls outside it. See `.planning/seeds/bring-up-debug-led-remote-toggle.md`. |
 | Local RTL-SDR ADS-B receiver | Originally the primary plan; Phase 1 plan 01-04 validated the free adsb.fi/airplanes.live aggregators clear the coverage bar (~92min real traffic, 38/37 distinct aircraft, 2/2 on-ground) with no dedicated hardware needed — no RTL-SDR ordered |
 | ADS-B Exchange specifically (as opposed to adsb.fi/adsb.lol) | Considered as a possible aggregator but not the one validated/used — adsb.fi and adsb.lol are the two default providers in production |
 
@@ -100,7 +100,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLANE-02 | Phase 2 | Complete |
 | PLANE-03 | Phase 2 | Complete |
 | DEVICE-03 | Phase 1 | Complete |
-| DEVICE-04 | Phase 5 | Pending |
+| DEVICE-04 | Phase 5 | Complete |
 | DEVICE-05 | Phase 5 | In Progress (05-01 Task 1 of 3 done) |
 | CFG-01 | Phase 6 | Complete (06-07) |
 | CFG-03 | Phase 6 | Complete (06-08, deployed 06-11) |

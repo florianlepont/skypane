@@ -357,9 +357,165 @@ artifacts of this investigation are the two tooling fixes above and this
 written record, so a future session does not have to re-discover that
 "appears then disappears" is expected deep-sleep behavior.
 
+## User LED Bring-Up (GPIO21)
+
+**Status: NOT YET CONFIRMED ON THIS BOARD**
+
+**The claim.** The XIAO ESP32-S3 module carries a built-in "User LED" on
+**GPIO21**, active-low, distinct from the module's separate charge-status
+LED. GPIO21 is unclaimed by this project's thirteen-entry pin map (SCK=7,
+MOSI=9, CS_M=44, CS_S=41, DC=10, RST=38, BUSY=4, EN=43, KEY0=5, KEY1=3,
+KEY2=2, BATTERY_ADC=1, BATTERY_ADC_EN=6).
+
+**Provenance.** Web aggregation of Seeed community and board-reference
+sources, per `.planning/seeds/bring-up-debug-led-remote-toggle.md` —
+explicitly **not** an official schematic for this exact board combination,
+unlike the panel pins, which came from a vendor header. This is the same
+confidence posture the battery-sense pins (`CONFIG_FP_PIN_BATTERY_ADC`)
+started from above, and it gets the same cheap resolution: flash and look.
+
+**Procedure.** Flash, then watch the board through one full wake cycle and
+into deep sleep. No tool, no soldering, no purchase.
+
+| Observation | Expected | Result |
+|---|---|---|
+| LED lit within a second of reset/power-on | lit | |
+| LED lit continuously through the poll and any panel refresh | lit | |
+| LED dark for the whole deep-sleep interval | dark | |
+| Panel still renders correctly with no new artefact | correct, no artefact | |
+
+**What each failure outcome means, decided before the flash rather than
+after:**
+
+- **Nothing lights either way** — the GPIO21 claim is wrong. The firmware
+  is harmless as-is: GPIO21 is unclaimed, so at worst an unconnected pad
+  toggles once per wake. Re-source the pin later; no urgency.
+- **Dark while awake, lit while asleep** — polarity is inverted, which is
+  the one outcome that actually costs battery (an LED left lit through
+  deep sleep would cost DEVICE-05 an order of magnitude of battery life).
+  Set `CONFIG_FP_LED_ACTIVE_LOW=n` in `firmware/sdkconfig.ee02.defaults`
+  and reflash. Outcome 3 above is the one that matters most and must be
+  treated as a defect fixed before any DEVICE-05 discharge run.
+- **A panel artefact appears** — the pin is claimed by something on the
+  EE02 driver board after all. Change `CONFIG_FP_PIN_LED` to an
+  unclaimed value, or drop the feature; do not leave it driving a shared
+  line.
+
+## ADC Battery-Sense Bring-Up (Phase 5, DEVICE-04)
+
+**Status: CONFIRMED — 2026-08-28**
+
+Plan `05-03` Task 3's whole open question was narrow: `05-RESEARCH.md` rated
+the EE02's factory battery-sense circuit MEDIUM-HIGH confidence, because the
+Seeed EE0x driver-board cookbook's applicability banner names EE02 by name
+but its worked example says "EE04". This section closes that out on the
+record, with the real device's own numbers.
+
+**Step 1 — flash and read the number.** `firmware/build.sh` was rebuilt
+fresh (a Docker daemon was started for this session), flashed via
+`firmware/flash.sh`, and byte-verified via the same post-write read-back
+`hardware/logs/first-light.log` already documents the shape of. Console
+output captured via `firmware/monitor.sh` read:
+
+```
+fp_batt: battery mv=4156 pin_mv=2078
+```
+
+`2078 * 2 = 4156` — the sense pin reads *exactly* half the reported pack
+voltage, which is precisely what a working 2:1 factory divider produces.
+**This confirms the EE02 shares the same factory battery-sense circuit the
+EE0x cookbook documents for the EE04 worked example** — Assumption A1 in
+`05-RESEARCH.md` is closed as TRUE, at HIGH confidence, on this exact board.
+No polarity inversion, no wrong settle delay, and no divider-ratio mismatch
+were observed — `battery_math.c`'s `FP_BATTERY_DIVIDER_NUM`/`_DEN` constants
+needed no correction, and `battery.c`'s enable-line polarity and
+`FP_BATTERY_SETTLE_MS` needed no correction either.
+
+The same console capture also carried the normal wake cycle, unaffected by
+the two newly driven GPIOs: `poll ok sleep_s=30 hash_skip=1` and
+`sleep enter sleep_s=30` both appeared exactly as they do without this
+change, and the panel showed no garbling and no stuck refresh. This is the
+practical proof `T-05-03-02`'s pin-collision guard was checking for on
+paper — on real glass, the battery-sense GPIOs (`CONFIG_FP_PIN_BATTERY_ADC`
+= GPIO1, `CONFIG_FP_PIN_BATTERY_ADC_EN` = GPIO6) collide with nothing the
+panel or the keys already own.
+
+Beyond the single captured line, the reading proved stable and repeatable,
+not a one-off: over the following ~40 minutes, real polls from the live
+device landed in the production server's `battery_state.json` and
+`journalctl` with plausible, consistent values in the 4150-4200mV range
+(e.g. 4192mV, 4196mV) — a live device, on its own schedule, reporting a
+real pack voltage that never drifted outside a physically sane band.
+
+**Step 2 — optional multimeter cross-check.** Skipped by the developer's
+own choice. Per this plan's own framing, Step 1 alone already answers the
+question this plan needs answered (the sense circuit exists and reads
+correctly), so skipping the optional cross-check is not a gap — it is
+recorded here as skipped, not as a failure.
+
+**Step 3 — the icon on real glass.** Confirmed twice, at two different
+icon sizes, via direct authorized server-side injection into the live
+production server's `battery_state.json` (`battery_mv=3400`, below the
+3500mV D-01 threshold) rather than draining the real pack or crafting a
+synthetic device HTTP request — this exercises the exact same server-side
+hysteresis and render code path plan `05-02` built, end to end, with a real
+device fetching the result on its own next poll.
+
+1. **First pass, original (pre-shrink) icon geometry.** Server logs showed
+   `battery_low=True panel_changed=True`, and the real device's own next
+   poll (visible in `skypane-byos` journalctl as a `GET /img/...` matching
+   the low-battery render hash) downloaded the new image. The developer
+   directly confirmed seeing the battery glyph appear in the bottom-left
+   corner on the physical panel ("oui !"). It disappeared again on the
+   following refresh, roughly 60-90 seconds later, once the device's own
+   real (healthy, ~4190mV) telemetry overwrote the forced value and cleared
+   the hysteresis (`battery_low=False`, confirmed both in server logs and
+   by the developer watching the icon vanish).
+2. **Feedback and correction.** The developer's read on pass 1 was that the
+   icon was too large. A separate quick task (`260828-0qo`, already
+   committed and already deployed to the same production server before this
+   checkpoint's Step 3 was considered complete) reduced every icon geometry
+   constant by 30% (`round(original * 0.7)`): the bounding box moved from
+   `(64,1504,136,1536)` to `(64,1514,115,1536)`.
+3. **Second pass, post-shrink icon geometry.** Same forced-injection method,
+   same server. The developer directly confirmed seeing the smaller glyph
+   on the physical panel and approved the new size ("c'est parfait").
+
+Both passes confirmed the same four things: the glyph sits in the
+bottom-left corner; it renders in the correct ink color for the active
+state (White/Ivory on the Blue/departing or Green/arriving field); it reads
+recognizably as a battery (outline body, small solid tab on the right,
+mostly-empty interior with a small solid fill block); and no other poster
+element — the state label, the `ORY · RWY 3` tag, either illustration,
+either text block, or the previous-flight card — moved or changed across
+either pass. The appear-then-disappear transition was directly observed
+both in server logs and by the developer's own eyes on the physical glass,
+in both passes.
+
+**No production code change resulted from Step 1** — the polarity, settle
+delay, and divider ratio in `battery.c`/`battery_math.c` all worked
+correctly on the very first flash, so `battery.c`, `battery_math.c`, and
+`test_battery_math.c` are unchanged from what Task 2 already committed. The
+only production code change to land from this bring-up session is the
+already-separately-committed icon-size quick task (`260828-0qo`), which is
+outside this task's own file scope.
+
+**No soldering, no external component, and no hardware modification** was
+involved anywhere in this bring-up — every step above was firmware
+flashing, console reading, and a forced server-side value, exactly as
+`05-RESEARCH.md`'s corrected hardware paragraph and this plan's own "What
+this plan explicitly does NOT do" section required. `hardware/BOM.md` gains
+no new line item.
+
 ---
 *Log opened: 2026-08-25, Task 1 of plan 01-06. Task 2 flash+verify
 recorded 2026-08-25 21:38 UTC; first-boot capture diagnosed and resolved
 2026-08-25 22:1x UTC (see `## First-Boot Capture: Diagnosis (resolved)`
 above) — root cause was the device's own correct deep-sleep USB
-power-off, not a fault.*
+power-off, not a fault. User LED Bring-Up section (GPIO21) opened
+2026-08-27, plan `260827-wo4` Task 4, pre-registered before the board is
+flashed for this feature. ADC Battery-Sense Bring-Up section (Phase 5,
+DEVICE-04) recorded 2026-08-28, plan `05-03` Task 3 — sense circuit
+confirmed on the first flash attempt, no code correction needed; icon
+confirmed on real glass across two passes (original and 30%-shrunk
+geometry).*

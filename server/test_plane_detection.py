@@ -17,7 +17,46 @@ validation outcomes (agreement, disagreement, single-source degradation)
 now actually run through the default no-argument call production uses,
 not only through an explicit providers list; 28 proves adsb.fi's and
 adsb.lol's different response-array keys are never interchanged, through
-a stubbed transport rather than a trusted dict literal.
+a stubbed transport rather than a trusted dict literal. Checks 29-31 are
+the missed-flights-not-displayed session's regression coverage for the
+on-ground pavement gate (2026-08-27): a taxiing or holding aircraft that
+is inside the airborne corridor but not on runway 3's pavement scored
+effective altitude 0.0 and masked real runway-3 traffic, freezing the
+panel. 29 proves the fixture reproduces the pre-fix precondition, 30 is
+the regression itself, 31 pins the empty measured band the gate's
+threshold sits in so it cannot be tightened into rejecting genuine
+runway-3 ground traffic.
+
+Checks 32-37 are the same session's second pass (2026-08-28, mechanism B):
+two ADS-B feeds were being manufactured into a disagreement and the whole
+poll cycle discarded, which freezes the panel exactly as mechanism A did.
+Two defects, fixed together because each survives a fix for the other -
+`select_runway3_aircraft()` tie-broke on `seen_pos`, a per-provider
+staleness value, and `poll_current_aircraft()` compared only each feed's
+final PICK rather than asking whether the other feed had SEEN it. 32 is
+the precondition; 33-35 are the regressions; 37 pins the disagreement log
+line's content, which had to change because the code now compares
+candidate sets rather than winners.
+
+Checks 38-47 are CFG-12 (plan 06-02): detection is parameterised by
+runway id, so the same corridor + track-alignment + pavement discipline
+applies to runway 06/24 and 02/20 as to runway 3, and
+poll_current_aircraft() gained the diagnostics signal that tells "every
+ADS-B source is down" apart from "nothing is on the runway right now".
+They compose with 29-37 rather than replacing them: the pavement gate is
+applied to whichever runway's rectangle is selected, and the candidate-set
+corroboration runs on that runway's candidates.
+
+NOT EVERY CHECK IN A GROUP IS SUPPOSED TO FAIL AGAINST THE OLD CODE, and
+conflating the two kinds is how a suite starts lying about what it proves.
+The regressions (33, 34, 35, 37, alongside 12, 30) fail when the pre-fix
+implementation is restored - that is what makes them evidence. The
+precondition checks (32, alongside 11, 29) assert the OLD behaviour is
+genuinely reproducible, so they must hold in BOTH directions or the
+fixture is not reproducing the bug at all. The guards (36, alongside 13,
+31) assert something that must be true before AND after - 36 is the D-04
+cross-source safety net, deliberately kept to that single question so it
+can never be mistaken for a regression check and quietly relaxed.
 
 Stdlib-only, plus the module under test (server.plane.detect). Exits 0 only
 when every check below passes; any failure (or exception - none is ever
@@ -26,6 +65,8 @@ swallowed into a pass) exits 1.
 Usage:
     server/.venv/bin/python3 server/test_plane_detection.py
 """
+import contextlib
+import io
 import json
 import os
 import random
@@ -39,7 +80,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 38
+EXPECTED_CHECK_COUNT = 47
 
 
 def load_fixture(name):
@@ -681,15 +722,362 @@ def main():
           "(proven through the transport)", _provider_keys_are_not_interchanged)
 
     # ---------------------------------------------------------------
+    # On-ground pavement gate (missed-flights-not-displayed, 2026-08-27)
+    # ---------------------------------------------------------------
+
+    def _masking_snapshot():
+        return load_fixture("geofence_taxiway_masking.json")["aircraft"]
+
+    # 29. The masking fixture must genuinely reproduce the pre-fix
+    #     precondition, and - critically - must not be rejectable by any
+    #     gate that already existed. At +180m cross-track the taxiing
+    #     record is INSIDE the airborne corridor (half_width_m 500,
+    #     deliberately unchanged by this fix) and passes the track gate
+    #     outright, and its effective altitude 0.0 outranks the real
+    #     arrival's 775ft. Without this check, check 30 could pass because
+    #     the record fell outside the bbox, or was caught by the track
+    #     gate, or was never a candidate at all - i.e. for a reason that
+    #     has nothing to do with the bug.
+    def _masking_fixture_reproduces_the_precondition():
+        tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(_masking_snapshot(), geofence)}
+        if set(tagged) != {"3985a7", "347288"}:
+            return False, "expected both records in-bbox, got %r" % (sorted(tagged),)
+        masker = tagged["3985a7"]
+        if not masker.get("on_ground") or not masker.get("in_bbox") or not masker.get("below_ceiling"):
+            return False, "the masking record must be on-ground, in-bbox and below-ceiling, got %r" % (
+                {k: masker.get(k) for k in ("on_ground", "in_bbox", "below_ceiling")},)
+        if not masker.get("track_aligned"):
+            return False, ("the track gate rejected the masking record, so check 30 would no longer "
+                           "prove the lateral ground gate is what catches it")
+        half_width_m, _, _, ground_half_width_m = detect.corridor_params(geofence)
+        cross = abs(masker["cross_track_m"])
+        if not (ground_half_width_m < cross <= half_width_m):
+            return False, ("the masking record must sit inside the AIRBORNE corridor but outside the "
+                           "ground gate to isolate the fix; got |cross|=%.1f with ground=%r air=%r"
+                           % (cross, ground_half_width_m, half_width_m))
+        if detect.effective_altitude_ft(masker) >= detect.effective_altitude_ft(tagged["347288"]):
+            return False, ("premise broken: the masking record no longer outranks the real arrival on "
+                           "the D-P2-01 sort key, so there is nothing left to mask")
+        return True, ""
+    check("the taxiing masking record is in-bbox, track-aligned, inside the airborne corridor and "
+          "outranks the real arrival (the pre-fix accept condition)",
+          _masking_fixture_reproduces_the_precondition)
+
+    # 30. THE REGRESSION. A stationary/taxiing aircraft 180m off runway 3's
+    #     centreline used to win selection over a real runway-3 arrival,
+    #     purely because effective_altitude_ft() scores every on-ground
+    #     record at exactly 0.0. Its hex never changed, so the rendered
+    #     panel bytes never changed either and the display froze while real
+    #     traffic passed unseen. It must now fail the ground gate and the
+    #     genuine arrival must win.
+    def _taxiing_aircraft_no_longer_masks_real_runway3_traffic():
+        snapshot = _masking_snapshot()
+        tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(snapshot, geofence)}
+        if tagged["3985a7"].get("in_corridor"):
+            return False, ("the taxiing aircraft at 180m offset is still inside the corridor that "
+                           "applies to an on-ground record")
+        if tagged["3985a7"].get("on_runway3"):
+            return False, "the taxiing aircraft at 180m offset was still tagged on_runway3"
+        if not tagged["347288"].get("on_runway3"):
+            return False, "the real runway-3 arrival stopped being tagged on_runway3"
+        winner = detect.select_runway3_aircraft(snapshot, geofence)
+        if winner is None:
+            return False, "expected the real runway-3 arrival to be selected, got None"
+        if winner["hex"] != "347288":
+            return False, ("the taxiing aircraft still masked the real runway-3 arrival: selected %r "
+                           "(alt %r) instead of 347288" % (winner["hex"], winner.get("altitude_ft")))
+        return True, ""
+    check("select_runway3_aircraft: a taxiing aircraft off the pavement no longer masks a real "
+          "runway-3 movement", _taxiing_aircraft_no_longer_masks_real_runway3_traffic)
+
+    # 31. The ground gate must not have been tightened into rejecting
+    #     genuine runway-3 ground traffic - the mirror of check 13 for the
+    #     on-ground case. This pins the empty measured band the threshold
+    #     sits in: the real on-ground runway-3 capture measures +31.1m and
+    #     must qualify, while the near edge of the documented off-runway
+    #     residual band (150m) must not. Runway 3's own published paved
+    #     half-width is 22.6m (OurAirports width_ft=148), so the accepted
+    #     record is ~8.5m of position error beyond the pavement edge.
+    def _ground_gate_keeps_real_runway3_ground_traffic():
+        fixture = load_fixture("geofence_on_ground.json")
+        tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(fixture["ac"], geofence)}
+        real_ground = tagged["3985a7"]
+        if not real_ground.get("on_ground"):
+            return False, "premise broken: fixture 3985a7 is no longer an on-ground record"
+        cross = abs(real_ground["cross_track_m"])
+        if not (30.0 <= cross <= 32.0):
+            return False, ("premise broken: the real on-ground runway-3 record no longer measures "
+                           "~31m cross-track, got %.1f" % cross)
+        if not real_ground.get("on_runway3"):
+            return False, ("the ground gate rejected the real on-ground runway-3 record at %.1fm - "
+                           "over-tightened" % cross)
+        # ...and the near edge of the documented ~150-200m residual band
+        # must be rejected, so the empty band between them stays empty.
+        axis = detect.runway_axis(geofence)
+        residual = dict(next(ac for ac in fixture["ac"] if ac["hex"] == "3985a7"))
+        along, _ = detect.along_cross_track_m(residual["lat"], residual["lon"], geofence)
+        dx = along * axis["ux"] - 150.0 * axis["uy"]
+        dy = along * axis["uy"] + 150.0 * axis["ux"]
+        residual["lat"] = axis["lat0"] + dy / detect._M_PER_DEG_LAT
+        residual["lon"] = axis["lon0"] + dx / axis["lon_scale"]
+        moved = detect.filter_in_geofence([residual], geofence)
+        if not moved:
+            return False, "the 150m test point fell outside the bbox; check premise broken"
+        if moved[0].get("on_runway3"):
+            return False, ("an on-ground aircraft 150m off the centreline - the near edge of the "
+                           "documented residual band - still qualified as runway 3")
+        return True, ""
+    check("the on-ground gate keeps the real runway-3 ground record (+31m) and rejects the "
+          "documented 150m residual", _ground_gate_keeps_real_runway3_ground_traffic)
+
+    # ---------------------------------------------------------------
+    # Cross-source corroboration (missed-flights-not-displayed,
+    # mechanism B, 2026-08-28)
+    # ---------------------------------------------------------------
+
+    def _pavement(provider):
+        """The pavement-pair fixture's payload for one provider, in that
+        provider's own response shape (adsb.fi's 'aircraft' key vs
+        adsb.lol's 'ac' key - see check 28 for why that distinction is
+        never assumed anywhere in this file).
+        """
+        block = load_fixture("geofence_pavement_pair.json")[provider]
+        return block["aircraft"] if provider == "adsbfi" else block["ac"]
+
+    def _prefix_sort_key(ac):
+        """The PRE-FIX D-P2-01 key, written out here rather than imported,
+        so this file still describes the old behaviour after detect.py
+        stopped implementing it: (effective altitude, seen_pos, hex).
+        """
+        seen_pos = ac.get("seen_pos")
+        seen_pos_key = seen_pos if isinstance(seen_pos, (int, float)) else float("inf")
+        return (detect.effective_altitude_ft(ac), seen_pos_key, ac.get("hex") or "")
+
+    def _strip_volatile(record):
+        return {k: v for k, v in record.items()
+                if k != "seen_pos" and not k.startswith("_")}
+
+    # 32. PRECONDITION - and, like checks 11 and 29 before it, this one is
+    #     meant to hold BOTH before and after the fix. It proves the
+    #     fixture reproduces the bug's setup rather than proving the fix:
+    #     two aircraft both genuinely on runway 3's pavement, tied at
+    #     effective altitude exactly 0.0, present in both feeds at
+    #     identical positions, with the payloads differing in NOTHING but
+    #     seen_pos - and the pre-fix sort key nevertheless ordering them
+    #     differently for each feed. Without this, checks 33-34 could pass
+    #     for reasons unrelated to the tie-break.
+    def _pavement_pair_reproduces_the_precondition():
+        picks = {}
+        for provider in ("adsbfi", "adsblol"):
+            records = _pavement(provider)
+            tagged = {ac["hex"]: ac for ac in detect.filter_in_geofence(records, geofence)}
+            if set(tagged) != {"000003", "3985a7"}:
+                return False, "%s: expected both records in-bbox, got %r" % (provider, sorted(tagged))
+            for h, ac in tagged.items():
+                if not (ac.get("on_ground") and ac.get("below_ceiling") and ac.get("on_runway3")):
+                    return False, ("%s/%s must be an on-ground, below-ceiling, on-runway-3 record "
+                                   "(runway3.json known_residuals item 3), got %r"
+                                   % (provider, h, {k: ac.get(k) for k in
+                                      ("on_ground", "below_ceiling", "on_runway3", "cross_track_m")}))
+                if detect.effective_altitude_ft(ac) != 0.0:
+                    return False, "%s/%s should score effective altitude exactly 0.0" % (provider, h)
+            picks[provider] = min(tagged.values(), key=_prefix_sort_key)["hex"]
+
+        fi = sorted((_strip_volatile(r) for r in _pavement("adsbfi")), key=lambda r: r["hex"])
+        lol = sorted((_strip_volatile(r) for r in _pavement("adsblol")), key=lambda r: r["hex"])
+        if fi != lol:
+            return False, ("the two payloads must describe an IDENTICAL reality and differ only in "
+                           "seen_pos, otherwise the disagreement is not manufactured; they differ in "
+                           "more than that")
+        if picks["adsbfi"] == picks["adsblol"]:
+            return False, ("premise broken: the pre-fix (altitude, seen_pos, hex) key no longer orders "
+                           "these two feeds differently, so there is no manufactured disagreement left "
+                           "to reproduce (both picked %r)" % (picks["adsbfi"],))
+        return True, ""
+    check("the pavement pair ties at effective altitude 0.0, is identical across both feeds except "
+          "seen_pos, and the pre-fix key still splits them (the manufactured-disagreement precondition)",
+          _pavement_pair_reproduces_the_precondition)
+
+    # 33. THE REGRESSION, part 1 - the tie-break itself. Two feeds handed
+    #     the same two real aircraft at the same positions must select the
+    #     same one. Pre-fix the arbiter was `seen_pos`, a per-provider
+    #     staleness value whose spread between these two feeds is measured
+    #     in adsb-test/RESULTS.md at tens of seconds - so the feeds picked
+    #     different hexes purely from staleness noise.
+    def _selection_is_provider_independent():
+        fi = detect.select_runway3_aircraft(_pavement("adsbfi"), geofence)
+        lol = detect.select_runway3_aircraft(_pavement("adsblol"), geofence)
+        if fi is None or lol is None:
+            return False, "expected both feeds to select an aircraft, got %r / %r" % (fi, lol)
+        if fi["hex"] != lol["hex"]:
+            return False, ("the same two aircraft at the same positions selected differently per feed "
+                           "(%s vs %s) - the sort key is still reading a provider-local field"
+                           % (fi["hex"], lol["hex"]))
+        if fi["hex"] != "000003":
+            return False, ("expected the lexicographically smallest hex 000003 to win the altitude "
+                           "tie, got %r" % (fi["hex"],))
+        return True, ""
+    check("select_runway3_aircraft: two feeds differing only in seen_pos select the SAME aircraft",
+          _selection_is_provider_independent)
+
+    # 34. THE REGRESSION, part 2 - the cycle must no longer be thrown away.
+    #     Reached through the production default order (no providers
+    #     argument). Pre-fix this returned None and poll_loop took the D-04
+    #     "leave the panel alone" branch, which is indistinguishable from an
+    #     empty sky: the panel froze while real runway-3 traffic passed.
+    def _identical_sets_are_not_manufactured_into_disagreement():
+        responses = {"adsbfi": _pavement("adsbfi"), "adsblol": _pavement("adsblol")}
+        result = _with_stubbed_providers(
+            responses, lambda: detect.poll_current_aircraft(geofence))
+        if result is None:
+            return False, ("two feeds that agree completely about which aircraft are on runway 3 were "
+                           "still scored as a disagreement and the whole cycle was suppressed")
+        if result["hex"] != "000003":
+            return False, "expected 000003, got %r" % (result["hex"],)
+        if result.get("corroborated") is not True:
+            return False, "expected corroborated True, got %r" % (result.get("corroborated"),)
+        if sorted(result.get("sources") or []) != ["adsbfi", "adsblol"]:
+            return False, "expected both default providers in sources, got %r" % (result.get("sources"),)
+        return True, ""
+    check("poll_current_aircraft (default order): two feeds differing only in seen_pos are corroborated, "
+          "not suppressed", _identical_sets_are_not_manufactured_into_disagreement)
+
+    # 35. THE REGRESSION, part 3 - and the check that proves a stable
+    #     tie-break ALONE would not have been enough, which is the whole
+    #     reason this fix also changed what corroboration compares.
+    #     adsb.lol has not received the second aircraft yet: the feeds hold
+    #     overlapping-but-unequal candidate SETS, which no amount of
+    #     determinism can reconcile (adsb-test/RESULTS.md measures exactly
+    #     this asymmetry - 37 hex seen by both feeds, 1 by adsb.fi only,
+    #     over ~92 minutes). Assertion (a) below pins that explicitly: even
+    #     under detect.py's own CURRENT deterministic key, the two feeds'
+    #     per-provider picks still differ, so a pick-only comparison would
+    #     still have suppressed this cycle. Neither feed ever claimed the
+    #     other's extra aircraft was absent.
+    def _asymmetric_sets_corroborate_the_common_aircraft():
+        fi_records = _pavement("adsbfi")
+        lol_records = [r for r in _pavement("adsblol") if r["hex"] != "000003"]
+
+        # (a) determinism alone is provably insufficient here.
+        fi_pick = detect.select_runway3_aircraft(fi_records, geofence)
+        lol_pick = detect.select_runway3_aircraft(lol_records, geofence)
+        if fi_pick is None or lol_pick is None:
+            return False, "premise broken: both feeds must still select something"
+        if fi_pick["hex"] == lol_pick["hex"]:
+            return False, ("premise broken: the two feeds' own deterministic picks now agree, so this "
+                           "check no longer proves that a stable tie-break alone would have left the "
+                           "cycle suppressed")
+
+        responses = {"adsbfi": fi_records, "adsblol": lol_records}
+        result = _with_stubbed_providers(
+            responses, lambda: detect.poll_current_aircraft(geofence))
+        if result is None:
+            return False, ("one feed simply not having received an aircraft yet was scored as a "
+                           "disagreement and suppressed the whole cycle")
+        if result["hex"] != "3985a7":
+            return False, ("expected the aircraft BOTH feeds saw (3985a7) to be selected, got %r - an "
+                           "aircraft only one feed carries must never be displayed as corroborated"
+                           % (result["hex"],))
+        if result.get("corroborated") is not True:
+            return False, "expected corroborated True, got %r" % (result.get("corroborated"),)
+        if sorted(result.get("sources") or []) != ["adsbfi", "adsblol"]:
+            return False, "expected both providers in sources, got %r" % (result.get("sources"),)
+        # Ordering stays load-bearing: the record returned must be the
+        # FIRST-listed provider's (ARCHITECTURE.md), which for 3985a7 is
+        # adsb.fi's seen_pos 56.972 - not adsb.lol's 3.4.
+        if result.get("seen_pos") != 56.972:
+            return False, ("expected adsb.fi's own record for the corroborated aircraft (seen_pos "
+                           "56.972), got %r" % (result.get("seen_pos"),))
+        return True, ""
+    check("poll_current_aircraft (default order): unequal candidate sets corroborate the common "
+          "aircraft instead of suppressing (a stable tie-break alone would not have)",
+          _asymmetric_sets_corroborate_the_common_aircraft)
+
+    def _disjoint_snapshot():
+        """Two feeds whose runway-3 candidate sets have NOTHING in common,
+        each holding more than one candidate. adsb.fi gets the pavement
+        pair; adsb.lol gets two real captured aircraft (the runway-25
+        arrival and the multi-aircraft fixture's winner).
+        """
+        return (
+            _pavement("adsbfi"),
+            _runway3_record() + [
+                ac for ac in load_fixture("geofence_multi_aircraft.json")["ac"]
+                if ac["hex"] == "39d300"
+            ],
+        )
+
+    def _disjoint_poll():
+        fi_records, lol_records = _disjoint_snapshot()
+        fi_hexes = {ac.get("hex") for ac in detect.runway3_candidates(fi_records, geofence)}
+        lol_hexes = {ac.get("hex") for ac in detect.runway3_candidates(lol_records, geofence)}
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            result = _with_stubbed_providers(
+                {"adsbfi": fi_records, "adsblol": lol_records},
+                lambda: detect.poll_current_aircraft(geofence))
+        return fi_hexes, lol_hexes, result, captured.getvalue()
+
+    # 36. D-04 MUST SURVIVE - and like check 32, this one is meant to hold
+    #     both BEFORE and AFTER the fix. Its job is to fail if the fix ever
+    #     guts the cross-source safety net, not to fail pre-fix; it is
+    #     deliberately kept to that single question, with the separate
+    #     observability property split out into check 37 so this guard
+    #     cannot be confused for a regression check. Checks 23 and 26
+    #     already cover disjoint SINGLE-candidate sets; this covers the
+    #     multi-candidate case, which is precisely where comparing SETS
+    #     could have diverged from comparing PICKS. Two feeds naming
+    #     entirely different aircraft still means at most one is right, so
+    #     nothing is selected and the panel is left alone.
+    def _genuinely_disjoint_sets_still_suppress():
+        fi_hexes, lol_hexes, result, logged = _disjoint_poll()
+        if len(fi_hexes) < 2 or len(lol_hexes) < 2:
+            return False, ("premise broken: this check must exercise the MULTI-candidate disjoint case, "
+                           "got %r / %r" % (sorted(fi_hexes), sorted(lol_hexes)))
+        if fi_hexes & lol_hexes:
+            return False, "premise broken: the two candidate sets must be disjoint, got overlap %r" % (
+                fi_hexes & lol_hexes,)
+        if result is not None:
+            return False, ("D-04 was gutted: two feeds with no aircraft in common still produced a "
+                           "selection (%r)" % (result["hex"],))
+        if "providers disagree" not in logged:
+            return False, ("the suppression is now silent to the documented triage recipe - "
+                           "`journalctl -u skypane-poll | grep \"providers disagree\"` no longer "
+                           "matches; got %r" % (logged,))
+        return True, ""
+    check("poll_current_aircraft: genuinely disjoint candidate sets still suppress the cycle (D-04 "
+          "intact)", _genuinely_disjoint_sets_still_suppress)
+
+    # 37. The disagreement line must name every CANDIDATE, not just each
+    #     feed's winner. This is not cosmetic: corroboration now compares
+    #     candidate sets, so a log line that still printed only the two
+    #     winners would be describing something the code no longer does -
+    #     and the debug session's whole triage recipe for telling mechanism
+    #     B apart from an empty sky rests on this one stderr line. Pre-fix
+    #     the line named only the winners, so this check fails against the
+    #     old implementation.
+    def _disagreement_line_names_every_candidate():
+        fi_hexes, lol_hexes, result, logged = _disjoint_poll()
+        if result is not None:
+            return False, "premise broken: this snapshot must suppress"
+        for expected in sorted(fi_hexes | lol_hexes):
+            if expected not in logged:
+                return False, ("the disagreement line must name every candidate both feeds saw, not "
+                               "just the two winners; %r missing from %r" % (expected, logged))
+        return True, ""
+    check("poll_current_aircraft: the disagreement line names every candidate each feed saw, not just "
+          "the winners", _disagreement_line_names_every_candidate)
+
+    # ---------------------------------------------------------------
     # CFG-12 (2026-08-27, plan 06-02): runway-parameterised detection,
     # positive tracking on all three Orly runways
     # ---------------------------------------------------------------
     #
     # Every synthetic coordinate below is derived arithmetically from
     # coordinates already present in adsb-test/runway3.json - either read
-    # straight off the file (checks 29/31) or produced by walking one of
+    # straight off the file (checks 38/40) or produced by walking one of
     # detect.py's own runway axes (the _on_axis_record() helper, used by
-    # check 34) - never a hand-guessed latitude/longitude literal.
+    # check 43) - never a hand-guessed latitude/longitude literal.
 
     def _on_axis_record(geofence, runway_id, fraction, hex_id):
         """A synthetic on-ground record sitting exactly `fraction` of the
@@ -716,9 +1104,19 @@ def main():
             "track": axis["bearing_deg"],
         }
 
-    # 29. Task 1's deliberate duplication drift guard: runways["3"]'s
+    # 38. Task 1's deliberate duplication drift guard: runways["3"]'s
     #     runway/corridor sub-blocks must equal the legacy flat
     #     runway/corridor pair exactly.
+    #
+    #     `ground_half_width_m` is deliberately NOT in the compared set:
+    #     the measured derivation for the on-ground pavement gate lives on
+    #     the legacy top-level corridor block, and the per-runway blocks
+    #     omit it. That is only safe while both paths resolve to the SAME
+    #     number, which the second half of this check pins directly through
+    #     corridor_params() rather than by comparing dict literals - if the
+    #     file's figure is ever changed without adding it to runways["3"],
+    #     runway 3's ground gate would silently revert to the module
+    #     default and this check fails.
     def _runways_3_matches_legacy_blocks():
         entry = geofence["runways"]["3"]
         expected_thresholds = [geofence["runway"]["threshold_07"], geofence["runway"]["threshold_25"]]
@@ -727,11 +1125,16 @@ def main():
         expected_corridor = {k: geofence["corridor"][k] for k in ("half_width_m", "extension_m", "axis_tolerance_deg")}
         if entry["corridor"] != expected_corridor:
             return False, "runways['3'].corridor does not match the legacy corridor block"
+        resolved_ground = detect.corridor_params(geofence, runway_id="3")[3]
+        if resolved_ground != geofence["corridor"]["ground_half_width_m"]:
+            return False, ("runway 3's resolved ground gate (%r) no longer equals the legacy corridor "
+                           "block's measured ground_half_width_m (%r) - add it to runways['3'].corridor"
+                           % (resolved_ground, geofence["corridor"]["ground_half_width_m"]))
         return True, ""
     check("runways['3'] duplicates the legacy runway/corridor blocks exactly (drift guard)",
           _runways_3_matches_legacy_blocks)
 
-    # 30. runway_axis() with no runway_id and with the explicit default id
+    # 39. runway_axis() with no runway_id and with the explicit default id
     #     must return identical dicts - the new-shape runways['3'] entry is
     #     provably interchangeable with omitting runway_id entirely.
     def _default_runway_id_matches_explicit_default():
@@ -741,7 +1144,7 @@ def main():
     check("runway_axis(geofence) matches runway_axis(geofence, runway_id='3')",
           _default_runway_id_matches_explicit_default)
 
-    # 31. The computed axes for 06/24 and 02/20 cross-check against the
+    # 40. The computed axes for 06/24 and 02/20 cross-check against the
     #     published true headings already recorded in runway3.json.
     def _neighbouring_runway_bearings_match_published_headings():
         bearing_0624 = detect.runway_axis(geofence, runway_id="06-24")["bearing_deg"]
@@ -754,7 +1157,7 @@ def main():
     check("runway_axis: 06-24/02-20 computed bearings match their published true headings",
           _neighbouring_runway_bearings_match_published_headings)
 
-    # 32. T-06-02-01: an unrecognised runway_id lands on the default
+    # 41. T-06-02-01: an unrecognised runway_id lands on the default
     #     runway's geometry - never None, never an exception, never a
     #     different (widened) gate.
     def _unknown_runway_id_falls_back_to_default_axis():
@@ -766,30 +1169,40 @@ def main():
     check("runway_axis(runway_id='totally-unknown') falls back to the default runway's axis (T-06-02-01)",
           _unknown_runway_id_falls_back_to_default_axis)
 
-    # 33. corridor_params() for a real neighbouring runway returns its own
+    # 42. corridor_params() for a real neighbouring runway returns its own
     #     numbers; a hand-mutated negative entry falls back to the module
     #     default rather than accepting it (T-06-02-01).
+    #
+    #     The 4th element is the on-ground pavement gate merged in from the
+    #     missed-flights-not-displayed session. The per-runway corridor
+    #     blocks do not carry `ground_half_width_m`, so a neighbouring
+    #     runway resolves it to DEFAULT_GROUND_HALF_WIDTH_M - the tight
+    #     direction, and the same 75.0 runway 3 gets from the file.
     def _corridor_params_for_02_20_and_malformed_fallback():
-        half_width, extension, tolerance = detect.corridor_params(geofence, runway_id="02-20")
+        half_width, extension, tolerance, ground_half_width = detect.corridor_params(
+            geofence, runway_id="02-20")
         expected = geofence["runways"]["02-20"]["corridor"]
         if (half_width, extension, tolerance) != (
             expected["half_width_m"], expected["extension_m"], expected["axis_tolerance_deg"]
         ):
             return False, "corridor_params(runway_id='02-20') did not match runway3.json's own numbers"
+        if ground_half_width != detect.DEFAULT_GROUND_HALF_WIDTH_M:
+            return False, ("a runway block carrying no ground_half_width_m must resolve to the module "
+                           "default, got %r" % (ground_half_width,))
         mutated = json.loads(json.dumps(geofence))  # deep copy without a new import
         mutated["runways"]["02-20"]["corridor"]["half_width_m"] = -5
-        fallback_half_width, _, _ = detect.corridor_params(mutated, runway_id="02-20")
+        fallback_half_width, _, _, _ = detect.corridor_params(mutated, runway_id="02-20")
         if fallback_half_width != detect.DEFAULT_CORRIDOR_HALF_WIDTH_M:
             return False, "a negative half_width_m was not rejected, got %r" % (fallback_half_width,)
         return True, ""
     check("corridor_params(runway_id='02-20') matches the file, negative entries fall back to the default",
           _corridor_params_for_02_20_and_malformed_fallback)
 
-    # 34. Positive tracking on both neighbouring runways: a synthetic
+    # 43. Positive tracking on both neighbouring runways: a synthetic
     #     record on 06/24's (resp. 02/20's) own centreline, aligned with
     #     its own track, is selected when tracking that runway and
     #     rejected by the runway-3 default gate - and vice versa is
-    #     covered by check 35 below.
+    #     covered by check 44 below.
     def _positive_tracking_on_neighbouring_runways():
         for runway_id in ("06-24", "02-20"):
             record = _on_axis_record(geofence, runway_id, 0.5, "TEST%s" % runway_id.replace("-", ""))
@@ -805,7 +1218,7 @@ def main():
     check("select_aircraft_for_runway positively tracks 06-24 and 02-20 on their own centrelines",
           _positive_tracking_on_neighbouring_runways)
 
-    # 35. Reverse direction: the real committed runway-3 fixture is still
+    # 44. Reverse direction: the real committed runway-3 fixture is still
     #     selected with the default id and is NOT selected with
     #     runway_id="06-24" - the gate is exclusive both ways, not merely
     #     permissive.
@@ -819,7 +1232,7 @@ def main():
     check("the real runway-3 fixture is excluded from runway 06-24's gate (exclusive both ways)",
           _real_runway3_fixture_excluded_from_06_24)
 
-    # 36. selected_runway carries the requested id when recognised, and the
+    # 45. selected_runway carries the requested id when recognised, and the
     #     default id (the one it actually fell back to) when not.
     def _selected_runway_key_reports_effective_id():
         record = _on_axis_record(geofence, "02-20", 0.5, "TESTSR01")
@@ -835,7 +1248,7 @@ def main():
     check("selected_runway equals the requested id, or the default id on an unrecognised request",
           _selected_runway_key_reports_effective_id)
 
-    # 37. filter_in_geofence() tags carry both on_runway (the real gate
+    # 46. filter_in_geofence() tags carry both on_runway (the real gate
     #     result for the requested runway_id) and the deprecated
     #     on_runway3 alias, which is False whenever a non-default runway
     #     was requested.
@@ -853,7 +1266,7 @@ def main():
     check("filter_in_geofence tags carry on_runway and the deprecated on_runway3 alias correctly",
           _on_runway_and_deprecated_alias_tags)
 
-    # 38. poll_current_aircraft()'s diagnostics dict is the sole signal
+    # 47. poll_current_aircraft()'s diagnostics dict is the sole signal
     #     that tells "every source errored" apart from "nothing on the
     #     runway" - both currently return None. Driven entirely by
     #     monkeypatching detect.query_provider, so no real network call is

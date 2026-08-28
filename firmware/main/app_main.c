@@ -31,6 +31,7 @@
 #include "nvs_flash.h"
 
 #include "backoff.h"
+#include "led.h"
 #include "nvs_schema.h"
 #include "panel.h"
 #include "state_machine.h"
@@ -84,11 +85,28 @@ static void __attribute__((noreturn)) enter_deep_sleep(uint32_t seconds)
     fp_panel_before_sleep(seconds);
     esp_sleep_enable_timer_wakeup((uint64_t)seconds * 1000000ULL);
     ESP_LOGI(TAG, "sleep enter sleep_s=%" PRIu32, seconds);
+    /* This function is the single, noreturn exit from app_main() - the
+     * failure/backoff branch, the deferred-draw branch and the healthy
+     * branch all funnel through it, so one call here is what covers
+     * every path there is. An LED left energised past this point would
+     * draw single-digit-to-tens of mA against a tens-of-µA sleep budget,
+     * so this is a hard requirement of DEVICE-05, not housekeeping. It
+     * is deliberately not conditioned on any server-supplied preference,
+     * because a value that arrives over the network must never be able
+     * to hold a pin high through deep sleep. */
+    fp_led_off();
     esp_deep_sleep_start();
 }
 
 void app_main(void)
 {
+    /* First statement of the wake cycle, above NVS init: the recovery
+     * branch below can erase a whole partition and take seconds, and a
+     * signal that only appears after that has already lost the race it
+     * exists to win. This is the fastest point at which the developer
+     * can learn the flash took. */
+    fp_led_on();
+
     /* Never recover NVS by erasing the whole partition on an ordinary
      * error - only on the two specific "the partition itself is
      * unusable" codes below. */

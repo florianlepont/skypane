@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 60
+EXPECTED_CHECK_COUNT = 64
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -963,9 +963,189 @@ def main():
         _corrected_route_renders_current_brand_and_display_alias_is_noop,
     )
 
+    # --- Task 1 (05-02, DEVICE-04): bottom-left battery-low icon -------------
+    # BATTERY_ICON_BOX is computed from render's own constants (not restated
+    # as a hand-written literal) exactly the way draw_battery_icon() derives
+    # its own total bounding box - so this containment window can never go
+    # stale relative to the BATTERY_ICON_* constants again. Check D below is
+    # the one place that still pins the literal geometry values.
+
+    BATTERY_ICON_BOX = (
+        render.BATTERY_ICON_LEFT,
+        render.BATTERY_ICON_BOTTOM - render.BATTERY_ICON_BODY_H,
+        render.BATTERY_ICON_LEFT + render.BATTERY_ICON_BODY_W + render.BATTERY_ICON_NUB_W,
+        render.BATTERY_ICON_BOTTOM,
+    )
+
+    def _states_for_battery_checks():
+        """(state, flight, kwargs) triples exercising all three render
+        states - departing/arriving carry a real previous-flight card
+        (TEST_PREVIOUS_FLIGHT/TEST_PREVIOUS_ROUTE), per Task 1 Check B's
+        instruction that a real previous-flight card be on the canvas.
+        """
+        return [
+            ("departing", TEST_FLIGHT, dict(
+                route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                previous_state="arriving",
+            )),
+            ("arriving", TEST_FLIGHT, dict(
+                route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                previous_state="departing",
+            )),
+            ("empty", None, {}),
+        ]
+
+    def _diff_inside_outside(canvas_a, canvas_b, box):
+        """Return (inside, outside) bools: whether canvas_a and canvas_b
+        differ at at least one pixel inside `box` and at at least one pixel
+        outside it. `box` is treated with Pillow's own inclusive-corner
+        rectangle convention (matching draw_frame()'s/draw_battery_icon()'s
+        (left, top, right, bottom) - the drawn footprint spans left..right
+        and top..bottom INCLUSIVE, so containment here is `<=` on both
+        ends, not the exclusive `<` a half-open crop box would use.
+        Row-sliced byte comparison (fast C-level bytes equality per row) so
+        only rows that actually differ ever pay for a per-column Python
+        loop - the 1200x1600 canvas is never scanned pixel-by-pixel in the
+        common (near-identical) case.
+        """
+        left, top, right, bottom = box
+        width, height = canvas_a.size
+        bytes_a = canvas_a.tobytes()
+        bytes_b = canvas_b.tobytes()
+        inside = False
+        outside = False
+        for row in range(height):
+            start = row * width
+            end = start + width
+            row_a = bytes_a[start:end]
+            row_b = bytes_b[start:end]
+            if row_a == row_b:
+                continue
+            in_row_band = top <= row <= bottom
+            for col in range(width):
+                if row_a[col] != row_b[col]:
+                    if in_row_band and left <= col <= right:
+                        inside = True
+                    else:
+                        outside = True
+        return inside, outside
+
+    # 43. Check A - default-off and no regression: no battery kwarg and
+    # battery_low=False produce pixel-identical canvases for all three
+    # states (no pixel anywhere on the 1200x1600 canvas differs).
+    def _battery_default_off_matches_explicit_false():
+        for state, flight, kwargs in _states_for_battery_checks():
+            no_kw = render.build_canvas(flight, state, **kwargs)
+            explicit_false = render.build_canvas(flight, state, battery_low=False, **kwargs)
+            if no_kw.tobytes() != explicit_false.tobytes():
+                return False, "state=%r: build_canvas() with no battery kwarg differs from battery_low=False" % (state,)
+        return True, ""
+    check(
+        "build_canvas() with no battery kwarg is pixel-identical to battery_low=False for departing/arriving/empty (default-off, no regression)",
+        _battery_default_off_matches_explicit_false,
+    )
+
+    # 44. Check B - conditional draw is spatially contained: battery_low=True
+    # vs battery_low=False differ at >=1 pixel inside the icon bbox and 0
+    # pixels outside it, for all three states.
+    def _battery_icon_conditional_draw_is_spatially_contained():
+        for state, flight, kwargs in _states_for_battery_checks():
+            off = render.build_canvas(flight, state, battery_low=False, **kwargs)
+            on = render.build_canvas(flight, state, battery_low=True, **kwargs)
+            inside, outside = _diff_inside_outside(off, on, BATTERY_ICON_BOX)
+            if not inside:
+                return False, "state=%r: battery_low=True produced no pixel difference inside the icon box %r" % (state, BATTERY_ICON_BOX)
+            if outside:
+                return False, "state=%r: battery_low=True changed a pixel outside the icon box %r" % (state, BATTERY_ICON_BOX)
+        return True, ""
+    check(
+        "battery_low=True differs from battery_low=False only inside the icon bounding box (64,1514,115,1536), for "
+        "departing/arriving (with a real previous-flight card on the canvas) and empty",
+        _battery_icon_conditional_draw_is_spatially_contained,
+    )
+
+    # 45. Check C - per-state ink and hollow interior: the body outline
+    # corner, the left-aligned fill interior, and the solid nub all read as
+    # the state's own ink; the body interior right of the fill still reads
+    # as the state's background - the glyph must read as mostly empty.
+    def _battery_icon_ink_and_hollow_interior():
+        expectations = [
+            ("departing", TEST_FLIGHT, dict(route=TEST_ROUTE), render.STATE_INK["departing"], render.STATE_BACKGROUND["departing"]),
+            ("arriving", TEST_FLIGHT, dict(route=TEST_ROUTE), render.STATE_INK["arriving"], render.STATE_BACKGROUND["arriving"]),
+            ("empty", None, {}, render.EMPTY_INK, IDX_WHITE),
+        ]
+        for state, flight, kwargs, ink_idx, bg_idx in expectations:
+            canvas = render.build_canvas(flight, state, battery_low=True, **kwargs)
+            corner = canvas.getpixel((64, 1514))
+            fill_interior = canvas.getpixel((70, 1525))
+            nub = canvas.getpixel((112, 1524))
+            gap = canvas.getpixel((95, 1525))
+            if corner != ink_idx:
+                return False, "state=%r: body outline corner (64,1514) is %r, expected ink %r" % (state, corner, ink_idx)
+            if fill_interior != ink_idx:
+                return False, "state=%r: fill-interior pixel (70,1525) is %r, expected ink %r" % (state, fill_interior, ink_idx)
+            if nub != ink_idx:
+                return False, "state=%r: nub pixel (112,1524) is %r, expected ink %r" % (state, nub, ink_idx)
+            if gap != bg_idx:
+                return False, "state=%r: pixel (95,1525) inside the body outline but right of the fill is %r, expected background %r" % (state, gap, bg_idx)
+        return True, ""
+    check(
+        "with battery_low=True, the body outline corner/fill/nub read as the state's own ink (EMPTY_INK for the "
+        "empty state), while the hollow interior right of the fill still reads as the state's background",
+        _battery_icon_ink_and_hollow_interior,
+    )
+
+    # 46. Check D - size constants derive from a uniform 0.7 reduction of the
+    # spacing scale (260828-0qo, live on-glass correction), the two position
+    # constants are unchanged, the stroke never drops below the frame's own
+    # weight, the nub is centred to within one pixel (the odd BODY_H-NUB_H
+    # leftover puts it one pixel low, not a defect), and the total bounding
+    # box is exactly (64, 1514, 115, 1536).
+    def _battery_icon_geometry_derives_from_spacing_scale():
+        if render.BATTERY_ICON_BODY_W != round(render.SPACE_LG * 0.7):
+            return False, "BATTERY_ICON_BODY_W is not round(SPACE_LG * 0.7)"
+        if render.BATTERY_ICON_BODY_H != round(render.SPACE_MD * 0.7):
+            return False, "BATTERY_ICON_BODY_H is not round(SPACE_MD * 0.7)"
+        if render.BATTERY_ICON_NUB_W != round(render.SPACE_XS * 0.7):
+            return False, "BATTERY_ICON_NUB_W is not round(SPACE_XS * 0.7)"
+        if render.BATTERY_ICON_NUB_H != round(render.SPACE_SM * 0.7):
+            return False, "BATTERY_ICON_NUB_H is not round(SPACE_SM * 0.7)"
+        if render.BATTERY_ICON_STROKE_PX != 2:
+            return False, "BATTERY_ICON_STROKE_PX != 2"
+        if render.BATTERY_ICON_STROKE_PX < render.FRAME_STROKE_PX:
+            return False, "BATTERY_ICON_STROKE_PX dropped below FRAME_STROKE_PX, the legibility floor"
+        if render.BATTERY_ICON_LEFT is not render.MARGIN:
+            return False, "BATTERY_ICON_LEFT is not MARGIN"
+        if render.BATTERY_ICON_BOTTOM != render.HEIGHT - render.MARGIN:
+            return False, "BATTERY_ICON_BOTTOM != HEIGHT - MARGIN"
+        body_top = render.BATTERY_ICON_BOTTOM - render.BATTERY_ICON_BODY_H
+        nub_top = body_top + (render.BATTERY_ICON_BODY_H - render.BATTERY_ICON_NUB_H) // 2
+        nub_bottom = nub_top + render.BATTERY_ICON_NUB_H
+        gap_above = nub_top - body_top
+        gap_below = render.BATTERY_ICON_BOTTOM - nub_bottom
+        if gap_above < 0 or gap_below < 0 or (gap_below - gap_above) not in (0, 1):
+            return False, "nub is not centred to within one pixel: gap_above=%r gap_below=%r" % (gap_above, gap_below)
+        total = (
+            render.BATTERY_ICON_LEFT, body_top,
+            render.BATTERY_ICON_LEFT + render.BATTERY_ICON_BODY_W + render.BATTERY_ICON_NUB_W,
+            render.BATTERY_ICON_BOTTOM,
+        )
+        if total != (64, 1514, 115, 1536):
+            return False, "computed total bounding box %r != (64, 1514, 115, 1536)" % (total,)
+        return True, ""
+    check(
+        "battery icon size constants are a uniform round(original * 0.7) reduction of the former spacing-scale "
+        "values (260828-0qo on-glass correction) with the stroke never dropping below FRAME_STROKE_PX, position "
+        "constants (BATTERY_ICON_LEFT/BOTTOM) unchanged, the nub centred to within one pixel, and a total "
+        "bounding box of (64,1514,115,1536)",
+        _battery_icon_geometry_derives_from_spacing_scale,
+    )
+
     # --- Plan 06-06: CFG-01 theme, CFG-12 runway, CFG-05 source-fault badge ---
 
-    # 43. render_panel() with no theme_id is byte-identical to an explicit
+    # 47. render_panel() with no theme_id is byte-identical to an explicit
     # default theme_id - the default path is genuinely unchanged.
     def _theme_default_matches_no_theme_arg():
         a = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -975,7 +1155,7 @@ def main():
         return True, ""
     check("render_panel() with no theme_id is byte-identical to an explicit default theme_id (CFG-01)", _theme_default_matches_no_theme_arg)
 
-    # 44. build_canvas(theme_id="sky") and build_canvas() with no theme
+    # 48. build_canvas(theme_id="sky") and build_canvas() with no theme
     # produce identical canvases.
     def _sky_theme_canvas_matches_default():
         a = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -985,7 +1165,7 @@ def main():
         return True, ""
     check("build_canvas(theme_id='sky') and build_canvas() with no theme produce identical canvases", _sky_theme_canvas_matches_default)
 
-    # 45. An unrecognised theme id degrades to the default theme's canvas
+    # 49. An unrecognised theme id degrades to the default theme's canvas
     # rather than raising - an unknown theme is forgiving.
     def _unknown_theme_degrades_to_default_canvas():
         default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -998,7 +1178,7 @@ def main():
         return True, ""
     check("build_canvas(theme_id='not-a-theme') produces the default theme's canvas rather than raising", _unknown_theme_degrades_to_default_canvas)
 
-    # 46. An unrecognised state still raises ValueError naming all three
+    # 50. An unrecognised state still raises ValueError naming all three
     # legal states - an unknown state is a real caller-bug detector and
     # must stay loud even though an unknown theme is forgiving.
     def _unknown_state_still_raises_naming_all_three_states():
@@ -1015,7 +1195,7 @@ def main():
         return False, "build_canvas(flight, 'sideways') did not raise - an unknown state must stay loud"
     check("build_canvas(flight, 'nonsense-state') still raises ValueError naming departing/arriving/empty", _unknown_state_still_raises_naming_all_three_states)
 
-    # 47. _assert_legal_palette() (run internally by build_canvas()) still
+    # 51. _assert_legal_palette() (run internally by build_canvas()) still
     # passes for every registered theme.
     def _legal_palette_holds_for_every_theme():
         for theme_id in render.device_config.THEME_IDS:
@@ -1023,7 +1203,7 @@ def main():
         return True, ""
     check("_assert_legal_palette() (run internally by build_canvas()) passes for every registered theme", _legal_palette_holds_for_every_theme)
 
-    # 48. runway_tag_text() with no argument returns exactly the current
+    # 52. runway_tag_text() with no argument returns exactly the current
     # top-right tag string - the default render is unchanged.
     def _runway_tag_text_default_matches_top_right_tag():
         if render.runway_tag_text() != render.TOP_RIGHT_TAG_TEXT:
@@ -1031,7 +1211,7 @@ def main():
         return True, ""
     check("runway_tag_text() with no argument returns exactly TOP_RIGHT_TAG_TEXT (default render unchanged)", _runway_tag_text_default_matches_top_right_tag)
 
-    # 49. runway_tag_text("06-24")/("02-20") return the strings from the
+    # 53. runway_tag_text("06-24")/("02-20") return the strings from the
     # runway registry.
     def _runway_tag_text_matches_registry_for_other_runways():
         for runway_id in ("06-24", "02-20"):
@@ -1042,7 +1222,7 @@ def main():
         return True, ""
     check("runway_tag_text('06-24')/('02-20') return the strings from device_config.RUNWAYS", _runway_tag_text_matches_registry_for_other_runways)
 
-    # 50. An unrecognised runway id degrades to the default runway's tag
+    # 54. An unrecognised runway id degrades to the default runway's tag
     # rather than raising.
     def _runway_tag_text_unknown_id_degrades_to_default():
         if render.runway_tag_text("nope") != render.runway_tag_text():
@@ -1050,7 +1230,7 @@ def main():
         return True, ""
     check("runway_tag_text('unknown') returns the default runway's tag rather than raising", _runway_tag_text_unknown_id_degrades_to_default)
 
-    # 51. build_canvas(None, "empty", runway_id=...) draws that runway's
+    # 55. build_canvas(None, "empty", runway_id=...) draws that runway's
     # heading - including the longest of the three registry headings - and
     # still passes the safe-box assertion (fit_text_size() shrink path).
     def _empty_canvas_draws_selected_runways_heading():
@@ -1070,7 +1250,7 @@ def main():
         _empty_canvas_draws_selected_runways_heading,
     )
 
-    # 52. build_canvas(flight, "departing", runway_id="06-24") draws that
+    # 56. build_canvas(flight, "departing", runway_id="06-24") draws that
     # runway's tag, still passing the within-canvas assertion.
     def _active_canvas_draws_selected_runways_tag():
         with _TextSpy(render) as spy:
@@ -1086,7 +1266,7 @@ def main():
         _active_canvas_draws_selected_runways_tag,
     )
 
-    # 53. render_panel(..., source_fault=False) is byte-identical to the
+    # 57. render_panel(..., source_fault=False) is byte-identical to the
     # same call without the argument.
     def _source_fault_false_matches_default():
         a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
@@ -1096,7 +1276,7 @@ def main():
         return True, ""
     check("render_panel(..., source_fault=False) is byte-identical to the same call without the argument", _source_fault_false_matches_default)
 
-    # 54. render_panel(..., source_fault=True) differs from the same call
+    # 58. render_panel(..., source_fault=True) differs from the same call
     # with the flag false - the badge is genuinely drawn.
     def _source_fault_true_differs_from_false():
         a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE, source_fault=False)
@@ -1106,7 +1286,7 @@ def main():
         return True, ""
     check("render_panel(..., source_fault=True) differs from the same call with the flag false", _source_fault_true_differs_from_false)
 
-    # 55. The fault badge is drawn on the active canvas and on the empty
+    # 59. The fault badge is drawn on the active canvas and on the empty
     # canvas alike - visible whichever state the panel is in.
     def _badge_caption_present_on_active_and_empty_canvases():
         with _TextSpy(render) as spy_active:
@@ -1125,7 +1305,7 @@ def main():
         _badge_caption_present_on_active_and_empty_canvases,
     )
 
-    # 56. The badge caption is absent from a normal render (source_fault
+    # 60. The badge caption is absent from a normal render (source_fault
     # defaults to False) - same text-draw spy idiom already used for the
     # top-right tag.
     def _badge_caption_absent_from_a_normal_render():
@@ -1137,7 +1317,7 @@ def main():
         return True, ""
     check("the badge caption text is absent from a normal render (source_fault defaults to False)", _badge_caption_absent_from_a_normal_render)
 
-    # 57. _assert_legal_palette() (run internally by build_canvas()) still
+    # 61. _assert_legal_palette() (run internally by build_canvas()) still
     # passes with the badge drawn, in both active states, the empty state,
     # and every theme.
     def _legal_palette_holds_with_badge_across_states_and_themes():
@@ -1152,7 +1332,7 @@ def main():
         _legal_palette_holds_with_badge_across_states_and_themes,
     )
 
-    # 58. A fault-badged departing render still satisfies
+    # 62. A fault-badged departing render still satisfies
     # _assert_legal_palette() for the default theme - proven by calling
     # build_canvas() (which runs the assertion internally), not by
     # re-implementing it.
@@ -1167,7 +1347,7 @@ def main():
         _fault_badged_departing_render_satisfies_legal_palette_via_build_canvas,
     )
 
-    # 59. The badge's bounding box stays inside the drawn frame.
+    # 63. The badge's bounding box stays inside the drawn frame.
     def _badge_bbox_stays_inside_the_drawn_frame():
         canvas = panel_format.new_canvas(IDX_BLUE)
         frame_box = render.draw_frame(canvas, IDX_WHITE)
@@ -1179,7 +1359,7 @@ def main():
         return True, ""
     check("draw_source_fault_badge()'s bounding box stays inside the drawn frame", _badge_bbox_stays_inside_the_drawn_frame)
 
-    # 60. All three runway ids combined with the single registered theme id
+    # 64. All three runway ids combined with the single registered theme id
     # render without error across both active states - a small matrix, so
     # a future theme addition is immediately exercised.
     def _runway_and_theme_matrix_combines_without_error():

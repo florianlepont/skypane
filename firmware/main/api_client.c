@@ -15,6 +15,7 @@
 #include "nvs.h"
 #include "sdkconfig.h"
 
+#include "battery.h"
 #include "nvs_schema.h"
 #include "secrets.h"
 #include "wifi.h"
@@ -116,10 +117,11 @@ static void auth_header(esp_http_client_handle_t http)
 /* Every telemetry header PROTOCOL.md §2 names, sent unconditionally on
  * every /display and /log call (upstream sends X-Rssi only when nonzero;
  * this project always sends all four so the stub server's telemetry
- * line - and plan 01-08's battery measurement - never has a gap).
- * X-Battery-Mv has no ADC driver wired up yet this phase (the fuel-gauge
- * read is Phase 4's DEVICE-04), so it reports 0 (unknown) rather than a
- * fabricated value. */
+ * line - and the battery-life measurement - never has a gap).
+ * X-Battery-Mv carries one cached adc_oneshot + adc_cali read per wake,
+ * taken off the EE02 driver board's own factory sense divider
+ * (battery.h, DEVICE-04); zero is reported - PROTOCOL.md §2's unknown
+ * sentinel - if the read fails, never a fabricated value. */
 static void telemetry_headers(esp_http_client_handle_t http,
                               const char *boot_reason)
 {
@@ -128,7 +130,8 @@ static void telemetry_headers(esp_http_client_handle_t http,
     snprintf(buf, sizeof(buf), "%d", rssi);
     esp_http_client_set_header(http, "X-Rssi", buf);
 
-    esp_http_client_set_header(http, "X-Battery-Mv", "0");
+    snprintf(buf, sizeof(buf), "%u", (unsigned)fp_battery_mv());
+    esp_http_client_set_header(http, "X-Battery-Mv", buf);
 
     esp_http_client_set_header(http, "X-Fw-Version",
                                esp_app_get_description()->version);
@@ -301,6 +304,10 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     const cJSON *hash = cJSON_GetObjectItem(json, "image_hash");
     const cJSON *sleep_s = cJSON_GetObjectItem(json, "sleep_s");
     const cJSON *reset = cJSON_GetObjectItem(json, "reset");
+    /* DEVICE-05 bring-up LED toggle - deliberately fetched here, outside
+     * the rejection block below, and resolved after it. See its resolve
+     * expression further down for why. */
+    const cJSON *led = cJSON_GetObjectItem(json, "led_enabled");
 
     /* sleep_s: an exact integer within 1..4294967295 (PROTOCOL.md §2).
      * Zero, fractional values and anything above UINT32_MAX are
@@ -325,6 +332,18 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     strlcpy(parsed.image_hash, hash->valuestring, sizeof(parsed.image_hash));
     parsed.sleep_s = (uint32_t)sleep_s->valuedouble;
     parsed.reset = cJSON_IsTrue(reset);
+    /* Permissive by design: a missing key yields NULL, and cJSON's type
+     * predicates are NULL-safe and answer false, so an absent field
+     * resolves to enabled; a null, string or number value is likewise
+     * not a boolean, so a malformed value also resolves to enabled; only
+     * an explicit JSON `false` yields disabled. Consequence: a server
+     * that predates this field, or one with a future bug in it,
+     * degrades to the LED behaving exactly as it always did, rather
+     * than to a rejected poll and an exponential backoff - trading the
+     * device's actual function for a debug LED's preference would be
+     * the wrong failure direction, which is why this field is not
+     * validated the way image_url/sleep_s/reset are above. */
+    parsed.led_enabled = !cJSON_IsBool(led) || cJSON_IsTrue(led);
 
     /* `firmware` is null in Phase 1 (OTA is out of scope); no field of
      * it is read or stored regardless of what the server sends. */
