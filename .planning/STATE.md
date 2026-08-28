@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "06.3"
-current_phase_name: Companion UI visual design and desktop layout pass
+current_phase: 06.3
+current_phase_name: companion-ui-visual-design-and-desktop-layout-pass
 status: executing
-stopped_at: "Phase 06.1 formally closed (2026-08-28) — superseded before planning, merged into 06.5; closed via a written closure VERIFICATION.md (0/0 must-haves, status passed) rather than normal execution, since there was never any code or plans to verify. Phase 06.2 (LED toggle) remains complete and deployed to production (see prior entry). Phase 06.3 execution started: plan 06.3-01 complete (companion/layout.py gains sidebar_nav()/stat_tile(), page_shell() wraps a dashboard shell). Phases 06.4/06.5/06.6 remain fully planned, not yet executed. Note: 06.3-01's four commits were mistakenly made by a misdirected executor agent against the separate main checkout at /Users/florian/Projects/skypane instead of this worktree; recovered via git cherry-pick onto this branch, and the stray commits on that checkout's local main branch (never pushed to origin) still need cleanup."
-last_updated: "2026-08-28T13:34:39.795Z"
+stopped_at: Completed 06.3-02-PLAN.md (companion/static/style.css token refresh + 960px dashboard breakpoint)
+last_updated: "2026-08-28T13:48:30.372Z"
 last_activity: 2026-08-28
-last_activity_desc: Phase 06.3 execution started (plan 06.3-01 complete, recovered from a misdirected-executor mishap)
+last_activity_desc: Phase 06.3 execution started
 progress:
   total_phases: 14
   completed_phases: 8
   total_plans: 57
-  completed_plans: 44
-  percent: 77
+  completed_plans: 46
+  percent: 57
 ---
 
 # Project State
@@ -106,6 +106,7 @@ Progress: [█████████▊] 98% (41/42 plans) — recomputed by h
 | Phase 06.2 P01 | 25min | 3 tasks | 8 files |
 | Phase 06.2 P02 | checkpoint-resolution | 1 tasks | 0 files |
 | Phase 06.3 P01 | 15min | 3 tasks | 2 files |
+| Phase 06.3 P02 | 20min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -203,6 +204,7 @@ Recent decisions affecting current work:
 - [Phase 06.2]: Round 1 "LED still lit" hardware report investigated and root-caused as expected firmware behavior (LED unconditionally lit during WiFi-connect+poll window regardless of led_enabled, per app_main.c/state_machine.c) - no code change; Round 2 developer re-observation confirmed the toggle works as designed
 - [Phase 06.3]: 06.3-01: extracted _nav_links() shared helper before adding sidebar_nav() so NAV_TABS is iterated/escaped in exactly one place
 - [Phase 06.3]: 06.3-01: both theme-form copies in page_shell() reuse one computed _theme_form_html() string so they cannot diverge in action/field-name
+- [Phase 06.3]: 06.3-02: token-value-only theming propagates the D-01 visual refresh app-wide (revised Dominant/Secondary/Accent + new --color-border at all four theme sites) without rewriting individual CSS rules — Every existing rule already reads var(--color-dominant)/var(--color-secondary)/var(--color-accent), so changing hex values at the declaration sites is sufficient
 
 ### Pending Todos
 
@@ -251,10 +253,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-28T13:34:39.795Z
-Stopped at: Completed 06-11-PLAN.md; 06-12 (live verification) in progress, blocked on a developer sign-off checkpoint
+Last session: 2026-08-28T13:48:30.365Z
+Stopped at: Completed 06.3-02-PLAN.md (companion/static/style.css token refresh + 960px dashboard breakpoint)
 
-Resume file: .planning/phases/06-companion-configuration-web-interface-visual-settings-view-s/06-12-PLAN.md
+Resume file: None
 
 **State at end of this session (2026-08-27, ~08:50):**
 
