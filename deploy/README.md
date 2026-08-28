@@ -175,17 +175,26 @@ curl -sI https://<config-public-host>/ | head -1
 curl -sI --connect-timeout 3 http://<vps-ip>:8643/   # expect: refused or timeout
 ```
 
-### Open verification item: Assumption A3 (Caddy log field nesting)
+### Assumption A3 (Caddy log field nesting) — confirmed 2026-08-28
 
 `server/history_db.py`'s battery-log tailer assumes Caddy's JSON access log
 nests request headers at `request.headers.<Header-Name>` (a list of
-strings) — this is Caddy's documented shape, but it has **not** been
-hand-verified against one real captured log line on this project's actual
-Caddy version. Plan `06-12` confirms it on the live host by inspecting a
-real `caddy-access.log` line after a real device poll. Until confirmed, a
-nesting mismatch degrades silently to "zero readings ingested" (every
-line's lookup returns `None`/absent and is skipped) — never an exception,
-never a crash — so this is a data-completeness risk, not a stability one.
+strings). Confirmed against a real captured line on the live host
+(`request.headers` includes `"X-Battery-Mv":["4010"]` exactly as read) —
+no correction needed to the extraction logic.
+
+What *did* need fixing, found during this same live pass: the log file
+itself was unreadable by the process that needs to read it. Caddy's
+default file mode is owner-only (`caddy` user), while `server/poll_loop.py`
+runs as the `skypane` user — and separately, nothing in production ever
+called `history_db.ingest_caddy_battery_log()` at all (built and
+unit-tested in plan 06-01, never wired to a caller). Both are fixed: the
+log's `mode 660` directive plus `provision.sh`'s `caddy` → `skypane` group
+membership and setgid on `state/` make it group-writable *and*
+group-readable regardless of which of the two users last touched it, and
+`server/poll_loop.py --caddy-log` now ingests on every cycle. Verified live:
+real `device_health` rows with plausible millivolt values are landing in
+the deployed database.
 
 ## Reading logs
 
