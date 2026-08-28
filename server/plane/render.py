@@ -1149,8 +1149,12 @@ def _build_active_canvas(
     bg_idx = state_background_index(state, theme_id=theme_id)
     fg_idx = state_ink_index(state, theme_id=theme_id)
 
-    # D-21: flat single-color background field - no dithered mood gradient.
-    canvas = pf.new_canvas(bg_idx)
+    # D-21 gave a flat single-color background field, but Phase 7 07-01's
+    # on-glass session found the raw ink too dark/saturated at full-panel
+    # coverage - reopened per that plan's own scope note. A dithered blend
+    # toward White (dither.dithered_state_background()) is the only way to
+    # visually lighten a fixed physical ink; bg_idx stays the dominant index.
+    canvas = dither.dithered_state_background(bg_idx)
 
     # D-26's thin outline is no longer drawn (removed 2026-08-28 by developer
     # request, quick task 260828-k5r). FRAME_INSET_FRAC deliberately survives
