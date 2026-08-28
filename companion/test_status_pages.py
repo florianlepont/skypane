@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 27
+EXPECTED_CHECK_COUNT = 28
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -723,6 +723,37 @@ def main():
     check(
         "companion/pages/airlines_page.py never references enrich.py's prefix-derivation internals",
         _airlines_page_source_never_rederives_enrich_logic)
+
+    def _airlines_page_renders_one_dashboard_grid_of_two_tiles():
+        tmp = _mkstate("a-dashboard-grid")
+        try:
+            registry = {
+                "ABC": {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            rendered = airlines_page.render(_ctx(tmp))
+            if rendered.count('<div class="dashboard-grid">') != 1:
+                return False, (
+                    "expected exactly one dashboard-grid div, got %d"
+                    % rendered.count('<div class="dashboard-grid">'))
+            if rendered.count('class="stat-tile') != 2:
+                return False, (
+                    "expected exactly two stat-tile occurrences, got %d"
+                    % rendered.count('class="stat-tile'))
+            if rendered.count('<h2 class="text-heading">Coverage</h2>') != 1:
+                return False, (
+                    "expected exactly one Coverage group heading, got %d"
+                    % rendered.count('<h2 class="text-heading">Coverage</h2>'))
+            if "stat-tile--warn" not in rendered:
+                return False, "expected the registry tile to carry stat-tile--warn with a non-empty registry"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a non-empty registry renders one dashboard-grid with exactly two stat tiles under one Coverage heading, registry tile stat-tile--warn",
+        _airlines_page_renders_one_dashboard_grid_of_two_tiles)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
