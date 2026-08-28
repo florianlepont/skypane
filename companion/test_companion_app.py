@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 51
+EXPECTED_CHECK_COUNT = 53
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -528,6 +528,31 @@ def main():
         check(
             "data_table() wraps its <table> in a horizontally-scrollable container",
             _data_table_wrapped_for_horizontal_scroll)
+
+        def _sidebar_nav_renders_all_tabs_with_one_active():
+            markup = layout.sidebar_nav("history")
+            if 'aria-label="Primary navigation"' not in markup:
+                return False, "expected the Primary navigation landmark label"
+            for route, label in layout.NAV_TABS:
+                if route not in markup or label not in markup:
+                    return False, "expected every NAV_TABS route/label present"
+            if markup.count("sidebar-link--active") != 1:
+                return False, "expected exactly one active sidebar link"
+            return True, ""
+        check(
+            "sidebar_nav() renders every NAV_TABS link with exactly one active",
+            _sidebar_nav_renders_all_tabs_with_one_active)
+
+        def _sidebar_nav_escapes_hostile_active():
+            markup = layout.sidebar_nav("<script>alert(1)</script>")
+            if "<script>" in markup:
+                return False, "expected no raw <script> substring"
+            if markup.count("sidebar-link--active") != 0:
+                return False, "expected zero active links for a non-matching active slug"
+            return True, ""
+        check(
+            "sidebar_nav() matches no tab and stays script-free for a hostile active value",
+            _sidebar_nav_escapes_hostile_active)
 
         def _page_shell_escapes_hostile_body():
             escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")
