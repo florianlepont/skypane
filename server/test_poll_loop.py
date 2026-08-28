@@ -165,7 +165,13 @@ EXPECTED_CHECK_COUNT = 43
 # draw_previous_text_block() now paint a small flat bg_idx backing plate
 # behind every text run before drawing it (_paint_text_backing()), so text
 # pixels genuinely move again. Same computed-locally caveat as above.
-_DEFAULT_CONFIG_DIGEST = "44fe835ed0b509411bbc491d46f22d832250c1dcea810758cea0edaad66ea955"
+#
+# Third re-pin: the standing rule's caveat fired for real - CI (PR #18,
+# github.com/florianlepont/skypane/actions/runs/33183044663) computed a
+# different digest than this Mac for the identical code, confirming a real
+# font-rendering difference between this dev machine and the CI container.
+# Read verbatim from CI's own FAIL output, not recomputed locally.
+_DEFAULT_CONFIG_DIGEST = "49b8ba45f16b017e630bebf3c4b2f48a14d57ebbf932820eee9576502759d822"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
