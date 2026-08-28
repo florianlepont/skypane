@@ -1758,14 +1758,18 @@ def main():
     # on directly (that's checks 16/70's job). Sample points are derived from
     # FRAME_INSET_FRAC/panel_format.WIDTH/HEIGHT, never hardcoded pixel
     # literals, so a future inset change can never make this check silently
-    # vacuous. Every probe must equal the state's own background index, not
-    # merely differ from the ink index - that is the stronger claim and it is
-    # what "the mood colour shows through" actually means.
+    # vacuous. Every probe must be one of the state's own background index or
+    # the dither.dithered_state_background() White speckle mixed into it
+    # (Phase 7 07-01: the flat fill became a dithered lighten-toward-White
+    # blend after the developer found it too dark on real glass) - draw_frame()
+    # is never called on this path, so no third index can legitimately appear
+    # here; that remains the strong claim this check makes.
     def _no_frame_outline_on_real_active_renders():
         for state in ("departing", "arriving"):
             canvas = render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE)
             inset = round(panel_format.WIDTH * render.FRAME_INSET_FRAC)
             expected = render.state_background_index(state)
+            allowed = {expected, panel_format.IDX_WHITE}
             points = [
                 (panel_format.WIDTH // 2, inset),
                 (panel_format.WIDTH // 2, inset + 1),
@@ -1777,15 +1781,15 @@ def main():
             ]
             for point in points:
                 sample = canvas.getpixel(point)
-                if sample != expected:
+                if sample not in allowed:
                     return False, (
-                        "state=%r point=%r read index %r, expected background index %r (former D-26 outline band)"
-                        % (state, point, sample, expected)
+                        "state=%r point=%r read index %r, expected one of %r (former D-26 outline band)"
+                        % (state, point, sample, allowed)
                     )
         return True, ""
     check(
         "the D-26 outline is genuinely absent from a real build_canvas() render - every sampled point on the "
-        "former frame band reads the state's own background index, in both active states",
+        "former frame band reads the state's own background index or its dithered White speckle, in both active states",
         _no_frame_outline_on_real_active_renders,
     )
 

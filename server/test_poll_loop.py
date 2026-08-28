@@ -145,7 +145,20 @@ EXPECTED_CHECK_COUNT = 43
 # new digest is expected, not a regression. Read from this PR's own CI FAIL
 # output (github.com/florianlepont/skypane/actions/runs/33172916595), not
 # computed locally or in a container, per the standing rule above.
-_DEFAULT_CONFIG_DIGEST = "6d580b949e1b4b0398794fd3979eef6331611012ff2533b4cd4678a89766ddac"
+#
+# Phase 7 07-01 (on-glass session): both the panel_format.PALETTE_RGB
+# Blue/Green values changed (real ink runs darker than the D-21 sky-tone
+# values) and _build_active_canvas()'s background fill moved from a flat
+# index (panel_format.new_canvas()) to a dithered lighten-toward-White
+# blend (dither.dithered_state_background()) - the developer found the
+# flat fill too dark at full-panel coverage on real glass. Every pixel in
+# the background field genuinely changes because of this, so the digest
+# moves again. Computed locally this session, matching the standing rule's
+# caveat: if CI's own computed digest differs (font-rendering variance
+# between this Mac and the CI container), re-pin from CI's FAIL output
+# exactly as done for the D-26 removal above - do not fight CI to match a
+# locally-computed value.
+_DEFAULT_CONFIG_DIGEST = "10c346e1c6ce65496eb0ff1baa833e8d96c7de0d2bee6f080e9e05715c3c3059"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
