@@ -46,7 +46,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 24
+EXPECTED_CHECK_COUNT = 28
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -549,6 +549,71 @@ def main():
     check(
         "handle_led_post with a crafted non-checkbox value returns FLASH_SAVE_FAILED and leaves device_config.json byte-identical",
         _handle_led_post_crafted_value_rejected)
+
+    # ------------------------------------------------------------------
+    # Runway-image existence detection (Task 1, D-03) - each check uses
+    # its own tempfile.mkdtemp() image_dir and never touches the real
+    # companion/static/ (06.4-RESEARCH.md Pitfall 1).
+    # ------------------------------------------------------------------
+
+    def _runway_images_available_empty_dir_yields_empty_set():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-runway-images-")
+        try:
+            result = companion_app.runway_images_available(image_dir=tmpdir)
+            if result != set():
+                return False, "expected an empty set for an empty directory, got %r" % (result,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "runway_images_available() returns the empty set when the image directory has no files",
+        _runway_images_available_empty_dir_yields_empty_set)
+
+    def _runway_images_available_detects_single_present_file():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-runway-images-")
+        try:
+            with open(os.path.join(tmpdir, "runway-3.png"), "wb") as fh:
+                fh.write(b"not-a-real-png-just-test-bytes")
+            result = companion_app.runway_images_available(image_dir=tmpdir)
+            if result != {"3"}:
+                return False, "expected {'3'}, got %r" % (result,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "runway_images_available() returns exactly {'3'} when only runway-3.png exists",
+        _runway_images_available_detects_single_present_file)
+
+    def _runway_images_available_missing_dir_yields_empty_set_no_raise():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-runway-images-")
+        nonexistent = os.path.join(tmpdir, "does-not-exist")
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        result = companion_app.runway_images_available(image_dir=nonexistent)
+        if result != set():
+            return False, "expected an empty set for a non-existent directory, got %r" % (result,)
+        return True, ""
+    check(
+        "runway_images_available() returns the empty set (does not raise) when image_dir does not exist",
+        _runway_images_available_missing_dir_yields_empty_set_no_raise)
+
+    def _runway_images_available_bounded_by_registry_not_directory_listing():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-runway-images-")
+        try:
+            with open(os.path.join(tmpdir, "runway-99.png"), "wb") as fh:
+                fh.write(b"not-a-registry-member")
+            with open(os.path.join(tmpdir, "style.css"), "w") as fh:
+                fh.write("/* not a runway image */")
+            result = companion_app.runway_images_available(image_dir=tmpdir)
+            if result != set():
+                return False, (
+                    "expected an empty set (non-registry files must be ignored), got %r"
+                    % (result,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "runway_images_available() ignores files that are not RUNWAY_IDS members, proving it is registry-bounded not directory-listing-bounded",
+        _runway_images_available_bounded_by_registry_not_directory_listing)
 
     # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py

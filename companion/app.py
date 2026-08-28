@@ -103,6 +103,7 @@ FLASH_MESSAGES = {
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
+_RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
 # analogue) — D-01/D-02 mean there are no distinct users for a per-session
@@ -186,6 +187,36 @@ def gallery_bytes(state_dir, requested):
     except OSError:
         return None
     return None
+
+
+def _runway_image_filename(runway_id):
+    """The single, mechanical place the on-disk naming convention (D-03's
+    asset contract) is expressed: `runway-{runway_id}.png`.
+    """
+    return "runway-%s.png" % runway_id
+
+
+def _runway_image_path(runway_id, image_dir=_RUNWAY_IMAGE_DIR):
+    return os.path.join(image_dir, _runway_image_filename(runway_id))
+
+
+def runway_images_available(image_dir=_RUNWAY_IMAGE_DIR):
+    """The subset of `device_config.RUNWAY_IDS` that currently has a real
+    `runway-{id}.png` file on disk. A missing `image_dir`, a missing
+    individual file, or any other `OSError` while checking (permissions,
+    a symlink loop) is not an error — it is D-03's documented
+    graceful-fallback state, so this never raises. The result is bounded
+    by the fixed `RUNWAY_IDS` registry (iterated, never `os.scandir()`-ed),
+    so it can never report an image for an id that isn't a real runway.
+    """
+    available = set()
+    for runway_id in device_config.RUNWAY_IDS:
+        try:
+            if os.path.isfile(_runway_image_path(runway_id, image_dir)):
+                available.add(runway_id)
+        except OSError:
+            continue
+    return available
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -283,6 +314,7 @@ class Handler(BaseHTTPRequestHandler):
             "flash": _resolve_flash_text(flash_key, state_dir),
             "poll_cooldown_remaining": poll_cooldown_remaining(state_dir),
             "gallery_entries": gallery_entries(state_dir),
+            "runway_images": runway_images_available(),
             "now": history_db.utc_now_iso(),
         }
 
