@@ -86,7 +86,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 41
+EXPECTED_CHECK_COUNT = 43
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -1524,6 +1524,59 @@ def main():
             check(
                 "a corrupted device_config.json (invalid JSON) still yields a completed cycle using the documented defaults",
                 _corrupted_device_config_falls_back_to_defaults,
+            )
+
+            # 28. --caddy-log wiring (this fix): a run_once() cycle given a
+            # caddy_log path ingests any new /device/v1/display lines into
+            # device_health. ingest_caddy_battery_log() itself was already
+            # unit-tested in test_config_history.py; this proves poll_loop.py
+            # actually calls it, which nothing did before this fix.
+            def _caddy_log_ingestion_wired_into_poll_cycle():
+                log_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-caddylog-")
+                try:
+                    log_path = os.path.join(log_dir, "caddy-access.log")
+                    with open(log_path, "w") as fh:
+                        fh.write(json.dumps({
+                            "ts": 1_700_000_000.0,
+                            "request": {
+                                "uri": "/device/v1/display",
+                                "headers": {"X-Battery-Mv": ["4090"]},
+                            },
+                        }) + "\n")
+                    poll_loop.run_once(
+                        snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB),
+                        state_dir=log_dir, geofence=GEOFENCE_PATH, caddy_log=log_path,
+                    )
+                    with history_db.open_db(log_dir) as conn:
+                        rows = history_db.recent_device_health(conn, limit=5)
+                    if not any(r.get("battery_mv") == 4090 for r in rows):
+                        return False, "expected a device_health row with battery_mv=4090, got %r" % (rows,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(log_dir, ignore_errors=True)
+            check(
+                "a run_once() cycle given --caddy-log ingests a real access-log line into device_health",
+                _caddy_log_ingestion_wired_into_poll_cycle,
+            )
+
+            # 29. Omitting --caddy-log (the default) is a pure no-op - no
+            # exception, no device_health rows - so every prior test in this
+            # file (none of which pass caddy_log) still exercises the
+            # unmodified default path.
+            def _caddy_log_omitted_is_noop():
+                none_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-nocaddylog-")
+                try:
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=none_dir, geofence=GEOFENCE_PATH)
+                    with history_db.open_db(none_dir) as conn:
+                        rows = history_db.recent_device_health(conn, limit=5)
+                    if rows:
+                        return False, "expected zero device_health rows with caddy_log omitted, got %r" % (rows,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(none_dir, ignore_errors=True)
+            check(
+                "omitting --caddy-log (the default) ingests nothing and raises nothing",
+                _caddy_log_omitted_is_noop,
             )
 
         finally:

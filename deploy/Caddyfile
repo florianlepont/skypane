@@ -68,8 +68,20 @@
     # explicit four-name telemetry-header allowlist, never the header map
     # wholesale, so a future change to Caddy's redaction policy cannot
     # leak a credential into the history database (T-06-11-03).
+    # mode 660: this log is written by caddy (user `caddy`) but read every
+    # 30s by server/poll_loop.py (user `skypane`, via --caddy-log). Caddy's
+    # default file mode is owner-only (0600), inaccessible outside the
+    # caddy user. provision.sh sets setgid on state/ so every new/rotated
+    # file here inherits group `skypane` regardless of which process
+    # created it, and adds caddy to the skypane group - but that only
+    # helps if the GROUP bits grant what the accessing process needs: 660
+    # (not 640) because caddy itself may need to write this file via its
+    # *group* membership rather than ownership (e.g. after a rotation, or
+    # if the file was ever touched by another skypane-group process) -
+    # group read-only would then deny caddy's own append.
     log {
         output file /opt/skypane/state/caddy-access.log {
+            mode 660
             roll_size 10MiB
             roll_keep 5
         }

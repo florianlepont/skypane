@@ -63,6 +63,19 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | \
 apt-get update -qq
 apt-get install -y caddy
 
+echo "==> Granting caddy read access to the durable access log (CFG-03)"
+# server/poll_loop.py (user skypane) tails ${STATE_DIR}/caddy-access.log
+# every cycle for X-Battery-Mv telemetry (--caddy-log); caddy (user caddy)
+# is the one writing it via deploy/Caddyfile's `mode 640` log directive.
+# 640 alone is not enough - group ownership matters too, and Caddy's
+# FileWriter has no group= option of its own to set it explicitly. Adding
+# caddy to the skypane group plus setgid on STATE_DIR is what closes the
+# loop: setgid makes every new/rotated log file inherit group skypane
+# regardless of which user created it, and membership is what lets skypane
+# actually use that group-read bit.
+usermod -aG "${APP_USER}" caddy
+chmod g+ws "${STATE_DIR}"
+
 echo "==> Creating the Python virtualenv"
 if [ ! -d "${APP_ROOT}/venv" ]; then
     python3 -m venv "${APP_ROOT}/venv"
