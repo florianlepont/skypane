@@ -23,8 +23,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Extends Phase 3's externally generated illustration set to real per-flight aircraft-type accuracy, by (a) surfacing the ADS-B ICAO type designator in `server/plane/detect.py`, (b) adding a second selection key plus a four-tier fallback in `server/plane/illustrations.py`, and (c) expanding the externally generated asset set per D-03's verified 24-airline / 7-base-shape table (completed 2026-08-27)
 - [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/skypane, CI-block and deploy-gate proven on real infrastructure)
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 fully closed and confirmed on real glass; 05-01's actual multi-day discharge run — success criterion 1, DEVICE-05 — still deliberately deferred to end of project)
-- [ ] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (11/12 plans complete; 06-12 live verification in progress, blocked on a developer sign-off checkpoint)
-- [ ] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog)
+- [x] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (11/12 plans complete; 06-12 live verification in progress, blocked on a developer sign-off checkpoint) (completed 2026-08-28)
+- [x] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog) (completed 2026-08-28)
 
 ## Phase Details
 
@@ -228,7 +228,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
 | 5. Battery Life & Low-Battery Indicator | 3/3 executed | In Progress (DEVICE-04 done, DEVICE-05 pending) | - |
-| 6. Companion Configuration Web Interface | 11/12 | In Progress (06-12 live verification, blocked on developer sign-off checkpoint) | - |
+| 6. Companion Configuration Web Interface | 12/12 | Complete    | 2026-08-28 |
 | 7. Final On-Glass Verification | 0/1 | Not Started | - |
 **Plans:** 4/7 phases complete (1-4 plus inserted 3.1); 5 and 6 in progress, 7 not started
 
@@ -249,7 +249,7 @@ Plans:
 **Goal:** A user can reach a password-protected companion web page — a new, separate service on its own nip.io subdomain, not touching the vendored device-protocol server — to choose a validated display theme, select which Orly runway is tracked, monitor the device's health and the ADS-B sources' reliability over time, browse recent flight/render history, see airline-coverage gaps, and debug the render pipeline directly, all without SSH access to the VPS.
 **Requirements**: CFG-01, CFG-03, CFG-04, CFG-05, CFG-06, CFG-07, CFG-08, CFG-09, CFG-10, CFG-11, CFG-12
 **Depends on:** Phase 5
-**Plans:** 11/12 plans executed
+**Plans:** 12/12 plans complete
 
 Plans:
 **Wave 1**
@@ -277,7 +277,7 @@ Plans:
 
 **Wave 5**
 
-- [ ] 06-12-PLAN.md — Live verification: runway-gate capture (closes Assumption A1), Caddy log-shape confirmation (closes Assumption A3), developer sign-off checkpoint
+- [x] 06-12-PLAN.md — Live verification: runway-gate capture (closes Assumption A1), Caddy log-shape confirmation (closes Assumption A3), developer sign-off checkpoint
 
 ### Phase 7: Final On-Glass Verification
 
@@ -345,6 +345,7 @@ Plans:
 **Plans:** 0 plans
 
 Developer sign-off feedback (2026-08-28, phase 6 checkpoint) on the shipped companion interface: functionally solid, but "très très sobre et monotone" (very plain/monotone) — wants more visual personality. Specific asks bundled here since they're all one cohesive design-pass effort, not separate features:
+
 - Desktop view is a single long scrolling list; could be laid out/distributed better on wider screens (a dashboard/grid arrangement instead of one column) — mobile layout, by contrast, was called "vraiment parfait" (really perfect) and needs no rework.
 - The dark/light theme toggle takes up too much visual space in its current placement; move it into a settings menu/button instead of leaving it prominent in the main UI.
 - The Corroboration section (Health page) reads as unclear to a non-technical user and isn't visually polished.
@@ -384,6 +385,7 @@ Plans:
 **Plans:** 0 plans
 
 Developer sign-off feedback (2026-08-28, phase 6 checkpoint), grouped as one "make existing copy/formatting easier to read at a glance" pass:
+
 - Device/pipeline check-in times are shown as raw timestamps, not very readable — consider relative/human-friendly formatting ("2 min ago").
 - The poll-trigger cooldown/confirmation UX is unclear about the timing rule between two triggers — beyond the 2026-08-28 bugfix (which corrected a crash and a misleading error message, see git history), the cooldown's own explanatory copy could still be clearer, e.g. a visible countdown.
 - Corroboration section copy (also listed under 999.3 for its visual polish) is additionally unclear wording-wise for someone unfamiliar with the underlying ADS-B corroboration concept.
