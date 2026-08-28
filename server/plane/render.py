@@ -539,7 +539,24 @@ def draw_battery_icon(canvas, draw, ink_idx):
     return total
 
 
-def draw_top_labels(canvas, state, ink_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
+def _paint_text_backing(draw, bbox, bg_idx, pad=4):
+    """Paint a small solid `bg_idx` rectangle behind a text bbox, expanded by
+    `pad` on every side (glyph antialiasing/overshoot margin). Phase 7 07-01:
+    once the state background became a dithered lighten-toward-White blend
+    (dither.dithered_state_background()), the scattered White speckle it
+    introduces right behind white-ink text visibly hurt legibility (developer
+    on-glass finding) - painting a clean, undithered backing plate exactly
+    behind each text run keeps the surrounding field lighter while giving
+    every glyph the same flat, high-contrast backdrop the D-21 flat fill used
+    to provide everywhere.
+    """
+    draw.rectangle(
+        (bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad),
+        fill=bg_idx,
+    )
+
+
+def draw_top_labels(canvas, state, ink_idx, bg_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
     (top-right, `runway_tag_text(runway_id)`), both PT Serif Regular at the
     small sizes D-26 confirmed, both at the existing `MARGIN` inset (inside
@@ -560,10 +577,12 @@ def draw_top_labels(canvas, state, ink_idx, runway_id=device_config.DEFAULT_RUNW
     label_text = STATE_LABEL_TEXT[state]
     label_bbox = draw.textbbox((MARGIN, MARGIN), label_text, font=label_font, anchor="la")
     _assert_within_canvas(label_bbox, "state label")
+    _paint_text_backing(draw, label_bbox, bg_idx)
     draw.text((MARGIN, MARGIN), label_text, font=label_font, fill=ink_idx, anchor="la")
 
     tag_bbox = draw.textbbox((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, anchor="ra")
     _assert_within_canvas(tag_bbox, "top-right tag")
+    _paint_text_backing(draw, tag_bbox, bg_idx)
     draw.text((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, fill=ink_idx, anchor="ra")
 
 
@@ -950,7 +969,7 @@ def _flight_line2_text(route, aircraft_type=None):
     return "%s" % (display_name,)
 
 
-def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx):
+def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx):
     """D-26 main flight text: two centred lines starting `MAIN_TEXT_GAP_PX`
     below the main illustration's OPAQUE bottom edge
     (`main_placement.content[3]`) - the aircraft's last actually-painted pixel
@@ -979,17 +998,19 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx):
     top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
     line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
     _assert_within_canvas(line1_bbox, "main flight text line 1")
+    _paint_text_backing(draw, line1_bbox, bg_idx)
     draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
 
     line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
     line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
     _assert_within_canvas(line2_bbox, "main flight text line 2")
+    _paint_text_backing(draw, line2_bbox, bg_idx)
     draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
 
     return line1_bbox, line2_bbox
 
 
-def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx):
+def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx):
     """D-26 previous flight text: two right-aligned lines. Line 1 starts
     `PREVIOUS_TEXT_GAP_PX` below the previous illustration's OPAQUE bottom edge
     (`prev_placement.content[3]`), for the same reason
@@ -1024,11 +1045,13 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
     line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
     _assert_within_canvas(line1_bbox, "previous flight text line 1")
+    _paint_text_backing(draw, line1_bbox, bg_idx)
     draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
 
     line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
     line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
     _assert_within_canvas(line2_bbox, "previous flight text line 2")
+    _paint_text_backing(draw, line2_bbox, bg_idx)
     draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
 
     return line1_bbox, line2_bbox
@@ -1165,7 +1188,7 @@ def _build_active_canvas(
 
     # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
     # at the existing MARGIN inset (inside the frame, not on it).
-    draw_top_labels(canvas, state, fg_idx, runway_id=runway_id)
+    draw_top_labels(canvas, state, fg_idx, bg_idx, runway_id=runway_id)
 
     # D-25/D-26 main flight: the current detection's real per-airline
     # illustration, always nose-left (D-24 - no mirroring).
@@ -1187,7 +1210,7 @@ def _build_active_canvas(
         # footprint is the right thing to bound - unchanged by the
         # illustration-crop-text-margin fix.
         _assert_within_canvas(main_placement.rect, "main aircraft illustration")
-        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx)
+        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx)
 
     # D-25/D-26 previous flight: a real second flight card - the detection
     # immediately preceding this one (poll_loop.py's two-deep history).
@@ -1220,7 +1243,7 @@ def _build_active_canvas(
             prev_top = _top_for_centered_content(prev_resized, HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC)
             prev_placement = draw_illustration(canvas, prev_resized, prev_left, prev_top)
             _assert_within_canvas(prev_placement.rect, "previous aircraft illustration")
-            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx)
+            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx)
 
     # CFG-05: the source-fault badge, drawn last so it sits on top of
     # everything else, using the state's own resolved ink index.
