@@ -1,6 +1,6 @@
 ---
 status: resolved
-passes: 2 (vertical aircraft-to-text gap fixed + user-confirmed 2026-08-28; horizontal centering fixed 2026-08-28 - same root cause, scope extended at the user's request on the same confirmation)
+passes: 2 (vertical aircraft-to-text gap fixed + user-confirmed 2026-08-28; horizontal centering + previous-card alignment fixed 2026-08-28, awaiting on-glass confirmation)
 trigger: "Ce que je vois sur ma liseuse, enfin sur mon écran Inc [e-ink], c'est que la marge entre l'avion visible et l'écriture du dessous n'est jamais la même et je suspecte que la boxe et le crop transparent qui entoure l'avion varie d'une image à l'autre, ce qui fait qu'on dirait que l'écriture est décalée différemment en fonction du type d'avion."
 created: 2026-08-28T00:00:00Z
 updated: 2026-08-28T10:05:00Z
@@ -278,3 +278,119 @@ files_changed:
   - server/assets/icons/illustrations/HANDOFF.md: new "Framing / transparent margin"
     requirement row plus a "framing is not load-bearing" note warning future art
     deliveries against trimming margins or verifying padding with Image.getbbox()
+
+---
+
+# PASS 2 — horizontal centering and alignment (2026-08-28)
+
+Scope extension, not a new bug: the user's confirmation of pass 1 ("Ça règle le
+problème") came with "mais j'aimerais que tu les corriges aussi le, les centrale
+horizontale." Same root cause — layout anchored to the padded rectangle instead of the
+painted pixels — on the other axis, so it continues in this file rather than opening a
+new session.
+
+## Evidence (pass 2)
+
+- timestamp: 2026-08-28T11:00:00Z
+  checked: |
+    Re-measured horizontal padding across all 43 vendored files post-resize with the
+    renderer's own threshold, at both MAIN_W=992 and PREV_W=565. Pass 1's blind-spot note
+    ("off-centre by up to ~4px") was treated as a preliminary observation and re-derived
+    from scratch, not reused. Also measured the previous card's VERTICAL centering error,
+    which pass 1 had not examined at all.
+  found: |
+    Pass 1's preliminary estimate was TOO LOW. Real figures:
+
+    MAIN horizontal (rect is centred on the canvas, so the visible aircraft is displaced
+    by (L-R)/2):
+      left padding  3..32px (mean 11.4)
+      right padding 5..29px (mean 12.1)
+      centering error -4.0 .. +7.5px, |error| mean 1.5px, worst 7.5px
+      worst files: generic-beechcraft1900d +7.5, generic-atr72 +5.0, french-bee +4.0,
+                   lot-polish-airlines -4.0
+    So the true worst case is 7.5px, not the ~4px estimated in pass 1.
+
+    PREVIOUS right-alignment: the card's RECT right edge was pinned to the main card's
+    RECT right edge, so each aircraft's visible right edge fell short by its OWN right
+    padding - main 5..29px, previous 3..17px. The quantity the eye actually compares is
+    the difference between the two, across (main, previous) file pairings:
+      worst real pairing = km-malta-airlines.png (main, 29px) vs transavia-france.png
+      (previous, 3px) = 26px of visible misalignment.
+
+    PREVIOUS vertical centering - a THIRD instance, not previously examined. prev_top
+    centres the RECT on PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC. Because the drop-shadow band
+    makes bottom padding always exceed top padding, the error is systematically signed:
+      top padding    3..71px (mean 27.4)
+      bottom padding 21..99px (mean 59.3)
+      vertical centering error -5.5 .. -28.5px - ALWAYS negative, mean -15.9, spread 23px
+    Every previous aircraft rendered high, by a per-file amount.
+
+    Visible-width spread (for the sizing decision): MAIN 933..984px, PREV 532..560px.
+  implication: |
+    Three distinct placement anchors were all reading `.rect`. All three are the same
+    defect as pass 1. The vertical-centering one was not in the user's request and not in
+    pass 1's blind spots either - it surfaced only because pass 2 measured the previous
+    card's vertical geometry for the first time.
+
+## Resolution (pass 2)
+
+root_cause: |
+  Same as pass 1, on the remaining axes. `_build_active_canvas()` centred the main
+  illustration with `(WIDTH - w) // 2`, right-aligned the previous card with
+  `main_rect[2] - prev_w`, and centred it vertically with
+  `round(HEIGHT * FRAC - prev_h / 2)` - all three operate on the padded source
+  rectangle. `draw_previous_text_block()` likewise right-aligned to `prev_placement.rect[2]`.
+fix: |
+  Three placement helpers, all measuring painted pixels via the pass-1 `_opaque_bbox()`,
+  each falling back to the full rectangle when nothing would be painted, none raising:
+  `_left_for_centered_content()`, `_left_for_right_aligned_content()`,
+  `_top_for_centered_content()`.
+
+  - main illustration: centred on its visible horizontal midpoint (canvas centre)
+  - previous illustration: its visible right edge placed on the MAIN aircraft's visible
+    right edge; its visible vertical midpoint placed on CENTER_Y_FRAC
+  - previous text: right-aligned to `prev_placement.content[2]`, i.e. that same shared
+    visible line
+  - PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC re-derived 0.76 -> 0.7528, the value at which the
+    sketch-era vueling-airlines.png card lands on the identical row (prev_top = 1118
+    both ways), preserving the confirmed D-26 composition
+
+  DELIBERATELY UNCHANGED - `prev_w` still derives from the main illustration's `.rect`
+  width. Re-decided with fresh eyes now that centring is in scope: `.rect` width is a
+  constant 992 for every file, so the previous card's size is stable. Deriving it from
+  the main's opaque width (933-984px) would make the previous card's SIZE depend on which
+  airline is in the MAIN slot - the same previous aircraft rendering up to 5% larger or
+  smaller depending on what flew before it. That is a new per-file coupling and strictly
+  worse than the ~28px visible-width variation it removes. Sizing stays stable; only
+  position follows the painted pixels.
+verification: |
+  - 47 (main, previous) file pairings rendered through the real layout, including every
+    file as main paired with a rotating partner plus the extreme-padding combinations:
+      I1 main visible horizontal midpoint vs canvas centre: {-0.5, 0.0, +0.5}
+         (was -4.0 .. +7.5)
+      I2 previous visible right edge minus main visible right edge: {0} (was up to 26)
+      I3 previous visible vertical midpoint vs the CENTER_Y line: {-0.5, 0.0}
+         (was -5.5 .. -28.5)
+      I4 previous text anchor x minus previous visible right edge: {0} (was 3..17)
+      I5 pass-1 gaps still exactly {54} / {47}
+    The +-0.5px residuals are integer-pixel-grid rounding, i.e. optimal.
+  - 4 mutation tests, one per reverted anchor (M3 main centring, M4 previous
+    right-alignment, M5 previous vertical centring, M6 previous text alignment): each
+    fails exactly the intended new check with the measured error in the message - M4
+    reports the predicted 26px, M5 reports 29.0px.
+  - Full suite scripts/run-all-tests.sh: PASS, 250 checks (render 53/53), ruff clean,
+    check-attribution.sh clean.
+  - NOT yet human-verified on glass - annotated before/after previews produced for the
+    worst pairing (magenta = main aircraft's right edge, cyan = previous aircraft's).
+files_changed:
+  - server/plane/render.py: _left_for_centered_content(), _left_for_right_aligned_content(),
+    _top_for_centered_content(); main/previous placement re-anchored;
+    draw_previous_text_block() right-aligns to .content[2];
+    PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC 0.76 -> 0.7528
+  - server/test_render.py: _PlacementSpy and _forced_illustration_pair helpers; 3 new
+    checks (main centring, previous right-alignment + text, previous vertical centring);
+    _measured_gaps() now reads real placements instead of re-deriving geometry;
+    EXPECTED_CHECK_COUNT 50 -> 53
+  - .planning/phases/03-visual-polish-on-real-glass/03-UI-SPEC.md: items 3, 5 and 6
+    corrected, including the explicit "sizing stays stable, position follows painted
+    pixels" rationale
