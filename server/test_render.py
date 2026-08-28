@@ -25,6 +25,7 @@ Usage:
     server/.venv/bin/python3 server/test_render.py
 """
 import contextlib
+import io
 import os
 import sys
 import tempfile
@@ -35,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 72
+EXPECTED_CHECK_COUNT = 76
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -1786,6 +1787,98 @@ def main():
         "the D-26 outline is genuinely absent from a real build_canvas() render - every sampled point on the "
         "former frame band reads the state's own background index, in both active states",
         _no_frame_outline_on_real_active_renders,
+    )
+
+    # 73. Phase 7 07-01 (D-04): --airline and --city reach the rendered
+    # captions via render.main()'s CLI, following _TextSpy's monkeypatch
+    # technique rather than rendering to a scratch canvas and comparing pixels.
+    def _cli_airline_and_city_flags_reach_captions():
+        preview_fh = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        preview_fh.close()
+        with _TextSpy(render) as spy:
+            rc = render.main([
+                "--state", "departing", "--callsign", "AFR56XX",
+                "--airline", "Test Airline Override Name",
+                "--city", "Test City Override Name",
+                "--preview", preview_fh.name,
+            ])
+        if rc != 0:
+            return False, "render.main() exited %r, expected 0" % (rc,)
+        texts = [text for text, _xy, _anchor in spy.calls]
+        if not any("Test City Override Name" in t for t in texts):
+            return False, "--city override text not found in any drawn text: %r" % (texts,)
+        if not any("Test Airline Override Name" in t for t in texts):
+            return False, "--airline override text not found in any drawn text: %r" % (texts,)
+        return True, ""
+    check(
+        "--airline/--city CLI flags reach the rendered captions (render.main(), D-04)",
+        _cli_airline_and_city_flags_reach_captions,
+    )
+
+    # 74. --no-route continues to win over --airline/--city when both are
+    # given - the bare callsign (line 1) and ROUTE_FALLBACK_TEXT (line 2)
+    # render instead of either override.
+    def _cli_no_route_wins_over_airline_and_city():
+        preview_fh = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        preview_fh.close()
+        with _TextSpy(render) as spy:
+            rc = render.main([
+                "--state", "departing", "--callsign", "AFR56XX",
+                "--airline", "Should Not Appear Airline",
+                "--city", "Should Not Appear City",
+                "--no-route", "--preview", preview_fh.name,
+            ])
+        if rc != 0:
+            return False, "render.main() exited %r, expected 0" % (rc,)
+        texts = [text for text, _xy, _anchor in spy.calls]
+        if any("Should Not Appear" in t for t in texts):
+            return False, "--no-route did not win over --airline/--city overrides: %r" % (texts,)
+        if "AFR56XX" not in texts:
+            return False, "expected bare callsign text with --no-route in effect, got: %r" % (texts,)
+        if render.ROUTE_FALLBACK_TEXT not in texts:
+            return False, "expected ROUTE_FALLBACK_TEXT with --no-route in effect, got: %r" % (texts,)
+        return True, ""
+    check(
+        "--no-route still overrides --airline/--city (bare callsign, ROUTE_FALLBACK_TEXT)",
+        _cli_no_route_wins_over_airline_and_city,
+    )
+
+    # 75. --calibration-preview writes exactly one file (palette-swatches.png)
+    # into the given directory and exits 0 without rendering any panel.
+    def _calibration_preview_writes_exactly_one_file():
+        tmp_dir = tempfile.mkdtemp()
+        rc = render.main(["--calibration-preview", tmp_dir])
+        if rc != 0:
+            return False, "render.main(['--calibration-preview', ...]) exited %r, expected 0" % (rc,)
+        written = sorted(os.listdir(tmp_dir))
+        if written != ["palette-swatches.png"]:
+            return False, "expected exactly one file 'palette-swatches.png' in %r, got %r" % (tmp_dir, written)
+        return True, ""
+    check(
+        "--calibration-preview writes exactly one file (palette-swatches.png, D-13)",
+        _calibration_preview_writes_exactly_one_file,
+    )
+
+    # 76. Combining a route override (--airline/--city/--no-route) with --out
+    # prints the reminder line naming inkframe-poll.timer as the unit that
+    # must be restarted afterward (T-07-01-01).
+    def _synthetic_reminder_printed_when_override_combined_with_out():
+        out_fh = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
+        out_fh.close()
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = render.main([
+                "--state", "departing", "--callsign", "AFR56XX", "--no-route", "--out", out_fh.name,
+            ])
+        if rc != 0:
+            return False, "render.main() exited %r, expected 0" % (rc,)
+        stdout_text = buf.getvalue()
+        if "inkframe-poll.timer" not in stdout_text:
+            return False, "expected a synthetic-panel reminder naming inkframe-poll.timer, got stdout: %r" % (stdout_text,)
+        return True, ""
+    check(
+        "combining --no-route with --out prints the inkframe-poll.timer restart reminder (T-07-01-01)",
+        _synthetic_reminder_printed_when_override_combined_with_out,
     )
 
     total = len(results)
