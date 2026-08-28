@@ -309,12 +309,12 @@ Plans:
 
 **Requirements**: None — unmapped backlog phase (promoted from 999.5, having absorbed 999.1/06.1), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (persistent status badge reusing `status_dot()`) and D-02 (hover **or** tap reveals the exact mV + timestamp, mobile included) in `06.5-CONTEXT.md`. It is UI-only follow-on work to CFG-03, already Complete (Phase 6, plan 06-08), which is not reopened.
 **Depends on:** Phase 6 (CFG-03's `_battery_section()`/`battery_sparkline_svg()`/`battery_status()`). Soft, order-insensitive relationship with Phase 06.3, which restructures the same file's `render()` into a stat-tile grid — `stat_tile()` passes `content_html` through byte-for-byte, so the badge and chart compose either way; `06.5-02-PLAN.md` and `06.3-04-PLAN.md` each carry a conditional note for whichever executes second.
-**Plans:** 3 plans (3 waves)
+**Plans:** 1/3 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 06.5-01-PLAN.md — Wave 1: `companion/static/battery-trend.js` (the project's first shipped JS file) + its stylesheet rules + the pre-auth `text/javascript` static route mirroring `/static/style.css`
+- [x] 06.5-01-PLAN.md — Wave 1: `companion/static/battery-trend.js` (the project's first shipped JS file) + its stylesheet rules + the pre-auth `text/javascript` static route mirroring `/static/style.css`
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
