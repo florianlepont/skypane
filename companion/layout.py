@@ -69,51 +69,15 @@ def ui_theme_from_cookie(cookies):
     return value if value in UI_THEME_CHOICES else "auto"
 
 
-def _nav_links(active):
-    """Return one (is_active, escaped_route, escaped_label) tuple per
-    NAV_TABS entry, in NAV_TABS order.
-
-    This is the single place NAV_TABS is iterated and its route/label
-    pair escaped; both _nav_html() (horizontal nav) and sidebar_nav()
-    (vertical nav) consume this instead of re-iterating NAV_TABS and
-    re-implementing the same escaping/active-state logic twice.
-    """
+def _nav_html(active):
     links = []
     for route, label in NAV_TABS:
         slug = route.lstrip("/")
-        is_active = slug == active
-        links.append((is_active, escape_html(route), escape_html(label)))
-    return links
-
-
-def _nav_html(active):
-    links = []
-    for is_active, route, label in _nav_links(active):
-        css_class = "nav-tab nav-tab--active" if is_active else "nav-tab"
-        links.append('<a class="%s" href="%s">%s</a>' % (css_class, route, label))
+        css_class = "nav-tab nav-tab--active" if slug == active else "nav-tab"
+        links.append(
+            '<a class="%s" href="%s">%s</a>'
+            % (css_class, escape_html(route), escape_html(label)))
     return "\n".join(links)
-
-
-def sidebar_nav(active):
-    """The vertical Primary-navigation landmark shown by page_shell()'s
-    dashboard sidebar column at desktop width.
-
-    Renders the same NAV_TABS route set as _nav_html() — via the shared
-    _nav_links() helper, so the two renderers can never drift — just in
-    a vertical arrangement. companion/static/style.css's 960px media
-    query decides which of the two copies is visible at a given
-    viewport width; this function has no opinion on visibility.
-    """
-    links = []
-    for is_active, route, label in _nav_links(active):
-        if is_active:
-            css_class = "sidebar-link sidebar-link--active"
-        else:
-            css_class = "sidebar-link"
-        links.append('<a class="%s" href="%s">%s</a>' % (css_class, route, label))
-    return (
-        '<nav class="sidebar-nav" aria-label="Primary navigation">%s</nav>'
-        % "".join(links))
 
 
 def _theme_form_html(resolved_theme):
