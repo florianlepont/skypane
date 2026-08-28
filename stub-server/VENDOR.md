@@ -87,6 +87,44 @@ names, response shapes, telemetry printing) is untouched:
    No existing endpoint, response field, status code, or telemetry print
    statement was touched by this change.
 
+4. **Added a read-only `led_enabled` lookup against the shared
+   `device_config.json` document** (phase 06.2). Upstream has no concept of
+   a per-device bring-up-LED setting at all; this repository's own
+   pre-06.2 state hardcoded the `GET /device/v1/display` response's
+   `led_enabled` field to the literal `True`, with a comment documenting
+   that there was no store, endpoint, or web control behind it (DEVICE-05).
+   Phase 06.2 closed that gap on the companion side — `companion/app.py`'s
+   Config page now writes a genuine, user-settable `led_enabled` value via
+   `server/device_config.py`'s `save_device_config()` — and this change is
+   this vendored file's read half of that same feature.
+
+   Concretely: this repository adds `device_config_path(state_dir)` (mirrors
+   `state_path()`/`battery_state_path()`) and `read_led_enabled(state_dir)`
+   (a best-effort, never-raising read: a missing file, an unreadable file,
+   a malformed document, a non-dict document, or a present-but-non-bool
+   `led_enabled` value all degrade to `True`, matching the firmware's own
+   fail-open contract in `firmware/main/api_client.c`). The `do_GET`
+   `/device/v1/display` branch is the single call site — it now assigns
+   `read_led_enabled(self.args.state_dir)` to the response dict's
+   `led_enabled` key instead of the hardcoded literal. The shared channel
+   is the same `--state-dir` this file already accepts (local modification
+   1) — both processes must be pointed at the same directory for a saved
+   value to be observed, exactly like `battery_state.json`'s existing
+   producer/consumer relationship with `server/poll_loop.py`.
+
+   A deliberate decision **not** made here: this file does not import
+   `server.device_config` (the project's own module that defines the JSON
+   key's shape and default) to read or validate that key. The read logic
+   above is a small, self-contained, independent reimplementation of just
+   the `led_enabled` half of `server.device_config.normalise_led_enabled()`.
+   This keeps the module docstring's stdlib-only claim true and avoids
+   coupling a deliberately-frozen vendored file to actively-changing
+   project internals — the same reasoning that already kept local
+   modifications 1-3 free of any project-package import.
+
+   No other endpoint, response field, status code, or telemetry print
+   statement was touched by this change.
+
 **Everything else is verbatim**, including: the three endpoint
 implementations (`POST /device/v1/setup`, `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`), the `--image`/`--port`/`--secret`/
@@ -124,7 +162,8 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply **both** local modifications (`--state-dir` and
-`--image-url-scheme`), update the pinned commit hash above, and re-run
+recorded here, re-apply all **four** local modifications (`--state-dir`,
+`--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
+and this LED read), update the pinned commit hash above, and re-run
 `stub-server/test_poll_cycle.py` to confirm the contract — including both
 scheme checks — still holds.

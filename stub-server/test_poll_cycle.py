@@ -37,7 +37,7 @@ SERVER_PATH = os.path.join(HERE, "byos_server.py")
 MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 20
+EXPECTED_CHECK_COUNT = 23
 
 
 def verify_panel_bytes(buf, expected_hash):
@@ -605,7 +605,96 @@ def main():
             _battery_write_barrier_sits_behind_auth,
         )
 
-        # 20. Failure classification: with the server stopped, a display poll
+        # 20-22. read_led_enabled() checks (Phase 06.2, T-06.2-01/T-06.2-03).
+        # Each writes its own device_config.json fixture directly into
+        # harness.tmpdir (the harness already passes --state-dir there),
+        # polls /device/v1/display, and removes the fixture in a finally
+        # block so no later check observes it. byos_server.py reads the
+        # file per-request, so no server restart is needed.
+
+        def _device_config_fixture_path():
+            return os.path.join(harness.tmpdir, "device_config.json")
+
+        # 20. A document whose led_enabled is JSON false yields a 200 whose
+        # response field is exactly False. This is the ONLY check that
+        # exercises the real read path - the pre-existing _display_shape
+        # assertion (check 5) passes identically whether the read works or
+        # is broken and always falls through to the default
+        # (06.2-RESEARCH.md Pitfall 3), so it is not coverage for this
+        # feature.
+        def _led_enabled_false_from_shared_config():
+            fixture_path = _device_config_fixture_path()
+            with open(fixture_path, "w") as fh:
+                json.dump({"led_enabled": False}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"]})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if obj.get("led_enabled") is not False:
+                    return False, "expected led_enabled:false, got %r" % (obj.get("led_enabled"),)
+                return True, ""
+            finally:
+                if os.path.exists(fixture_path):
+                    os.remove(fixture_path)
+        check(
+            "a device_config.json with led_enabled:false yields a 200 display response with led_enabled:false",
+            _led_enabled_false_from_shared_config,
+        )
+
+        # 21. A document whose led_enabled is a hostile string yields a 200
+        # whose response field is True.
+        def _led_enabled_hostile_string_falls_back_to_true():
+            fixture_path = _device_config_fixture_path()
+            with open(fixture_path, "w") as fh:
+                json.dump({"led_enabled": "off"}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"]})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if obj.get("led_enabled") is not True:
+                    return False, "expected led_enabled:true (fail-open), got %r" % (obj.get("led_enabled"),)
+                return True, ""
+            finally:
+                if os.path.exists(fixture_path):
+                    os.remove(fixture_path)
+        check(
+            "a device_config.json with a hostile string led_enabled yields a 200 display response with led_enabled:true",
+            _led_enabled_hostile_string_falls_back_to_true,
+        )
+
+        # 22. A truncated/invalid JSON document yields a 200 whose response
+        # field is True and which still satisfies validate_display_response().
+        def _led_enabled_malformed_json_falls_back_to_true():
+            fixture_path = _device_config_fixture_path()
+            with open(fixture_path, "w") as fh:
+                fh.write("{not valid json")
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"]})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if not validate_display_response(obj):
+                    return False, "response failed validate_display_response: %r" % (obj,)
+                if obj.get("led_enabled") is not True:
+                    return False, "expected led_enabled:true (fail-open), got %r" % (obj.get("led_enabled"),)
+                return True, ""
+            finally:
+                if os.path.exists(fixture_path):
+                    os.remove(fixture_path)
+        check(
+            "a truncated/invalid device_config.json still yields a 200 display response with led_enabled:true and passes validate_display_response()",
+            _led_enabled_malformed_json_falls_back_to_true,
+        )
+
+        # 23. Failure classification: with the server stopped, a display poll
         #     raises a connection error that the harness classifies as a
         #     failed wake rather than crashing.
         def _failure_classification():

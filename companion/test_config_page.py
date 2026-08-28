@@ -46,7 +46,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 15
+EXPECTED_CHECK_COUNT = 23
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -177,10 +177,13 @@ def _login(harness, password=TEST_PASSWORD):
     return cookie
 
 
-def _write_device_config(state_dir, theme, tracked_runway):
+def _write_device_config(state_dir, theme, tracked_runway, led_enabled=None):
     os.makedirs(state_dir, exist_ok=True)
+    doc = {"theme": theme, "tracked_runway": tracked_runway}
+    if led_enabled is not None:
+        doc["led_enabled"] = led_enabled
     with open(device_config.device_config_path(state_dir), "w") as fh:
-        json.dump({"theme": theme, "tracked_runway": tracked_runway}, fh)
+        json.dump(doc, fh)
 
 
 def main():
@@ -204,20 +207,20 @@ def main():
     # temporary state directory and a hand-built ctx dict.
     # ==================================================================
 
-    def _render_shape_two_fieldsets_and_save_button():
+    def _render_shape_three_fieldsets_and_save_button():
         ctx = {
-            "device_config": {"theme": "sky", "tracked_runway": "3"},
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        if rendered.count("<fieldset") != 2:
-            return False, "expected exactly 2 <fieldset occurrences, got %d" % rendered.count("<fieldset")
+        if rendered.count("<fieldset") != 3:
+            return False, "expected exactly 3 <fieldset occurrences, got %d" % rendered.count("<fieldset")
         if "Save Settings" not in rendered:
             return False, "expected the 'Save Settings' submit button copy"
         return True, ""
     check(
-        "render() emits exactly two fieldsets and a Save Settings submit button",
-        _render_shape_two_fieldsets_and_save_button)
+        "render() emits exactly three fieldsets and a Save Settings submit button",
+        _render_shape_three_fieldsets_and_save_button)
 
     def _theme_fieldset_one_radio_per_registry_entry():
         rendered = config_page.theme_fieldset("sky")
@@ -250,9 +253,11 @@ def main():
             return False, "theme helper text missing (escaped-verbatim)"
         if escape_html(config_page.RUNWAY_HELPER_TEXT) not in rendered:
             return False, "runway helper text missing (escaped-verbatim)"
+        if escape_html(config_page.LED_HELPER_TEXT) not in rendered:
+            return False, "LED helper text missing (escaped-verbatim)"
         return True, ""
     check(
-        "the theme and runway helper texts both appear escaped-verbatim in render()'s output",
+        "the theme, runway, and LED helper texts all appear escaped-verbatim in render()'s output",
         _helper_texts_appear_escaped_verbatim)
 
     def _current_theme_and_runway_are_selected():
@@ -302,7 +307,7 @@ def main():
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
-            if on_disk != {"theme": "sky", "tracked_runway": "06-24"}:
+            if on_disk != {"theme": "sky", "tracked_runway": "06-24", "led_enabled": True}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -433,6 +438,100 @@ def main():
         "a save that raises OSError returns the save-failure flash key rather than propagating",
         _save_oserror_returns_failure_key_not_raise)
 
+    # ------------------------------------------------------------------
+    # LED section checks (Task 2, D-01/D-02/T-06.2-02) - a-f are unit
+    # checks; g-h (below, inside the Harness block) drive real HTTP.
+    # ------------------------------------------------------------------
+
+    def _led_fieldset_checked_true():
+        rendered = config_page.led_fieldset(True)
+        if "checked" not in rendered:
+            return False, "expected a checked attribute for led_fieldset(True)"
+        if rendered.count('name="led_enabled"') != 1:
+            return False, "expected exactly one name=\"led_enabled\" input"
+        return True, ""
+    check(
+        "led_fieldset(True) contains a checked attribute and one name=\"led_enabled\" input",
+        _led_fieldset_checked_true)
+
+    def _led_fieldset_unchecked_false():
+        rendered = config_page.led_fieldset(False)
+        if "checked" in rendered:
+            return False, "expected no checked attribute for led_fieldset(False)"
+        return True, ""
+    check(
+        "led_fieldset(False) contains no checked attribute",
+        _led_fieldset_unchecked_false)
+
+    def _render_has_second_form_for_led_route():
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if 'action="/config"' not in rendered:
+            return False, "expected the /config form action to be present"
+        if 'action="/config-led"' not in rendered:
+            return False, "expected a second, distinct /config-led form action"
+        return True, ""
+    check(
+        "render() emits a second <form whose action is the LED route, distinct from the /config form",
+        _render_has_second_form_for_led_route)
+
+    def _handle_led_post_unchecked_persists_false():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_led_post({}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["led_enabled"] is not False:
+                return False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_led_post({}, ctx) - the shape a browser sends for an unchecked checkbox - persists led_enabled False and returns the saved flash key",
+        _handle_led_post_unchecked_persists_false)
+
+    def _handle_led_post_checked_persists_true():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_led_post(
+                {"led_enabled": config_page.LED_CHECKBOX_VALUE}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["led_enabled"] is not True:
+                return False, "expected led_enabled True on disk, got %r" % (on_disk["led_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_led_post({\"led_enabled\": LED_CHECKBOX_VALUE}, ctx) persists led_enabled True and returns the saved flash key",
+        _handle_led_post_checked_persists_true)
+
+    def _handle_led_post_crafted_value_rejected():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "sky", "3", led_enabled=True)
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_led_post(
+                {"led_enabled": "<script>alert(1)</script>"}, ctx)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a crafted led_enabled value, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to be byte-identical, it changed"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_led_post with a crafted non-checkbox value returns FLASH_SAVE_FAILED and leaves device_config.json byte-identical",
+        _handle_led_post_crafted_value_rejected)
+
     # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py
     # subprocess, logs in, posts a valid theme-and-runway pair, follows
@@ -476,6 +575,52 @@ def main():
         check(
             "a real HTTP save round trip shows D-07's confirmation copy and the newly-saved runway selected",
             _save_round_trip_shows_confirmation_and_new_selection)
+
+        def _led_post_empty_body_saves_false_and_renders_unchecked():
+            status, headers, _ = http_request(
+                base + "/config-led", method="POST", cookie=session_cookie,
+                data=b"")
+            if status != 303:
+                return False, "expected a 303 redirect on save, got %d" % status
+            location = headers.get("Location", "")
+            if "flash=saved" not in location:
+                return False, "expected the saved flash key in the redirect, got %r" % location
+            on_disk = device_config.load_device_config(harness.tmpdir)
+            if on_disk["led_enabled"] is not False:
+                return False, "expected on-disk led_enabled False after an empty-body POST, got %r" % (on_disk["led_enabled"],)
+            get_status, _get_headers, body = http_request(
+                base + "/config", cookie=session_cookie)
+            if get_status != 200:
+                return False, "expected 200 on the follow-up GET /config, got %d" % get_status
+            if b'name="led_enabled" value="on" checked' in body:
+                return False, "expected the LED checkbox to render unchecked after saving False"
+            return True, ""
+        check(
+            "a live authenticated POST /config-led with an empty body 303-redirects to /config?flash=saved, persists led_enabled False, and a follow-up GET /config renders the control unchecked",
+            _led_post_empty_body_saves_false_and_renders_unchecked)
+
+        def _led_post_unauthenticated_redirects_to_login_and_writes_nothing():
+            config_path = device_config.device_config_path(harness.tmpdir)
+            existed_before = os.path.exists(config_path)
+            before = open(config_path, "rb").read() if existed_before else None
+            status, headers, _ = http_request(
+                base + "/config-led", method="POST", data=b"")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if "/login" not in location:
+                return False, "expected a redirect to /login, got %r" % location
+            exists_after = os.path.exists(config_path)
+            if not existed_before and exists_after:
+                return False, "an unauthenticated POST /config-led created device_config.json"
+            if existed_before:
+                after = open(config_path, "rb").read()
+                if before != after:
+                    return False, "an unauthenticated POST /config-led modified device_config.json"
+            return True, ""
+        check(
+            "an unauthenticated POST /config-led redirects to /login and writes nothing",
+            _led_post_unauthenticated_redirects_to_login_and_writes_nothing)
 
     finally:
         harness.stop()

@@ -29,12 +29,15 @@ from the long-running instance the hardware bring-up plans keep alive;
 added --image-url-scheme (default: http) so the served image_url can
 advertise https when this process runs behind a TLS-terminating
 reverse proxy (Phase 2's Caddy-fronted deployment), instead of always
-hardcoding http; and added DEVICE-04 X-Battery-Mv validation/persistence
+hardcoding http; added DEVICE-04 X-Battery-Mv validation/persistence
 (parse_battery_mv() / save_battery_state()) - an authenticated
 /device/v1/display poll carrying a plausible reading writes
 battery_state.json ({"battery_mv": int, "received_at": float}) in
 --state-dir, the single writer of that file anywhere in this repo (see
-stub-server/VENDOR.md). See stub-server/VENDOR.md for the full list of
+stub-server/VENDOR.md); and added a read-only led_enabled lookup
+(device_config_path() / read_led_enabled()) so /device/v1/display serves
+the companion app's saved bring-up-LED setting instead of a hardcoded
+constant (Phase 06.2). See stub-server/VENDOR.md for the full list of
 local changes.
 """
 import argparse
@@ -73,6 +76,35 @@ def save_state(state_dir, state):
     with open(tmp, "w") as fh:
         json.dump(state, fh, indent=1)
     os.replace(tmp, state_path(state_dir))
+
+
+def device_config_path(state_dir):
+    return os.path.join(state_dir, "device_config.json")
+
+
+def read_led_enabled(state_dir):
+    """Best-effort read of the shared device_config.json's led_enabled
+    field. Never raises.
+
+    The file is written by companion/app.py's config page via
+    server/device_config.py's save_device_config(); every failure mode
+    here (missing file, unreadable file, malformed JSON, a non-dict
+    document, or a present-but-non-bool led_enabled value) degrades to
+    enabled, matching the firmware's own fail-open contract in
+    firmware/main/api_client.c. This is the only place in this file that
+    reads that document.
+    """
+    try:
+        with open(device_config_path(state_dir)) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return True
+    if not isinstance(data, dict):
+        return True
+    value = data.get("led_enabled")
+    if isinstance(value, bool):
+        return value
+    return True
 
 
 def battery_state_path(state_dir):
@@ -222,16 +254,20 @@ class Handler(BaseHTTPRequestHandler):
                 "sleep_s": self.args.sleep,
                 "firmware": None,
                 "reset": False,
-                # DEVICE-05 bring-up LED toggle: a hardcoded constant, not
-                # a per-device setting - there is no store, no endpoint
-                # and no web control behind it yet. It ships now anyway
-                # because the firmware half of this toggle can only be
-                # changed by physically reflashing the board, while this
-                # server-side half can be redeployed any afternoon - so
-                # putting the field on the wire today makes the eventual
-                # real per-device setting (CFG-01..CFG-04) a server-only
-                # change with no reflash required.
-                "led_enabled": True,
+                # DEVICE-05 bring-up LED toggle: originally a hardcoded
+                # constant, not a per-device setting - there was no store,
+                # no endpoint and no web control behind it yet. It shipped
+                # that way anyway because the firmware half of this toggle
+                # can only be changed by physically reflashing the board,
+                # while this server-side half can be redeployed any
+                # afternoon - so putting the field on the wire early made
+                # the eventual real per-device setting (CFG-01..CFG-04) a
+                # server-only change with no reflash required. Phase 06.2
+                # closes that gap: the value below now comes from the
+                # shared device_config.json document written by the
+                # companion app's Config page (server/device_config.py's
+                # save_device_config()), not a hardcoded literal.
+                "led_enabled": read_led_enabled(self.args.state_dir),
             })
         if self.path.startswith("/img/"):
             try:
