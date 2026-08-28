@@ -60,8 +60,8 @@ PALETTE_RGB = [
     255, 255, 255,  # index 1 -> nibble 0x1 white
     240, 224, 80,   # index 2 -> nibble 0x2 yellow (D-13 interim, confirmed close enough on-glass 07-01)
     160, 32, 32,    # index 3 -> nibble 0x3 red (D-13 interim, confirmed close enough on-glass 07-01)
-    70, 125, 185,   # index 4 -> nibble 0x5 blue  (07-01: darkened from D-21's (110,180,225), real ink runs darker/more saturated)
-    80, 140, 95,    # index 5 -> nibble 0x6 green (07-01: darkened from D-21's (140,195,130), real ink runs darker/more muted)
+    45, 95, 155,    # index 4 -> nibble 0x5 blue  (07-01: darkened further from (70,125,185) - developer reported real ink still more muted)
+    50, 105, 65,    # index 5 -> nibble 0x6 green (07-01: darkened further from (80,140,95) - developer reported real ink still more muted)
 ]
 
 # Pillow "P"-mode palette indices are contiguous from 0; the wire format's
