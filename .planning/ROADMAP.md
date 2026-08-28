@@ -25,7 +25,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 fully closed and confirmed on real glass; 05-01's actual multi-day discharge run — success criterion 1, DEVICE-05 — still deliberately deferred to end of project)
 - [x] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (12/12 plans complete — developer sign-off checkpoint passed 2026-08-28, two real defects found live and fixed: a poll-trigger crash and mobile table cropping) (completed 2026-08-28)
 - [ ] **Phase 6.1: Battery status on companion web interface** (INSERTED) - Surface the device's battery voltage/consumption on the companion interface. Not yet planned.
-- [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Not yet planned.
+- [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Planned 2026-08-28 (2 plans).
 - [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a better-distributed desktop layout, and Corroboration-section polish. Not yet planned.
 - [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Not yet planned.
 - [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. Not yet planned.
@@ -331,14 +331,15 @@ Plans:
 
 ### Phase 06.2: LED enable/disable toggle (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** The board's bring-up LED can be turned on or off from the companion web interface, and the device obeys that choice on its next scheduled poll. Firmware and the wire protocol are already complete (`firmware/main/led.c`, `state_machine.c`, `api_client.c`); this phase closes the one remaining gap — no store, no endpoint, and no web control exist behind `byos_server.py`'s hardcoded `/display` field, so the setting can currently only be changed by physically reflashing the board.
+**Requirements**: None — unmapped backlog phase (promoted from 999.2), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (own dedicated Config-page section) and D-02 (defaults to enabled) in `06.2-CONTEXT.md`, plus the inherited D-03 vendored-file discipline from `06-CONTEXT.md`.
 **Depends on:** Phase 6
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 06.2 to break down)
+- [ ] 06.2-01-PLAN.md — Wave 1: persist `led_enabled` in `server/device_config.py`, add the dedicated Config-page section and its own `/config-led` route, and read the value from the shared state directory in `byos_server.py`'s `/display` handler (VENDOR.md local modification #4)
+- [ ] 06.2-02-PLAN.md — Wave 2: blocking developer checkpoint — cross-process verification with both services on one explicit `--state-dir`, plus the physical LED confirmation
 
 ### Phase 06.1: Battery status on companion web interface — SUPERSEDED (INSERTED)
 
