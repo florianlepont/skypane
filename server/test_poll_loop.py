@@ -119,16 +119,22 @@ EXPECTED_CHECK_COUNT = 43
 # with origin/main's Phase 6 companion-app plumbing on top of the prior
 # pin's baseline - the FLIGHT1 fixture's rendered pixels genuinely move
 # (that is the fix's entire point), so a new digest is expected, not a
-# regression. Computed on macOS AND independently inside a Linux container
-# (`python:3.12-slim`, Pillow==12.3.0 pinned from server/requirements.txt,
-# matching CI's ubuntu-latest setup) - both produced the IDENTICAL value
-# below, unlike the prior re-pin above. That convergence is why this one
-# was pinned directly rather than round-tripped through a CI failure: the
-# macOS/Linux FreeType difference that forced the previous re-pin does not
-# reproduce with this Pillow version. If CI disagrees anyway, re-pin from
-# its own FAIL output per the standing rule above - don't assume this
-# comment is still accurate for a future Pillow bump.
-_DEFAULT_CONFIG_DIGEST = "ea555e8b68e9387bef30dd93088c712707b0c30ad1bdf53a336841c04ea8e5b3"
+# regression.
+#
+# A first attempt tried to shortcut the standing rule above by computing the
+# digest inside a `python:3.12-slim` Linux container (Pillow==12.3.0 pinned
+# from server/requirements.txt) instead of round-tripping through an actual
+# CI failure, reasoning that a manylinux Pillow wheel bundles its own static
+# FreeType regardless of distro. That reasoning was WRONG, or at least
+# incomplete: the container's digest matched this macOS checkout exactly,
+# but GitHub Actions' actual ubuntu-latest runner produced a THIRD, different
+# digest again - proving some other environment difference (fontconfig, a
+# distro-provided font discovered at runtime, or something else entirely)
+# still separates a generic Linux container from the real CI runner. The
+# lesson holds even more strongly now: this value is pinned FROM THE REAL CI
+# FAIL OUTPUT below, not from any local computation, containerized or not.
+# Don't try this shortcut again - re-pin only from an actual CI run.
+_DEFAULT_CONFIG_DIGEST = "45b17a3e46e02f67575206ea2946633210b557a61bee5cd9bcc1ffd8ac654b5d"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
