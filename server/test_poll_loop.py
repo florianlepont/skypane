@@ -96,12 +96,23 @@ EXPECTED_CHECK_COUNT = 41
 # default rendering path did not move.
 #
 # RE-VERIFIED (not re-pinned) at the 2026-08-28 merge that brought in the
-# mechanism-C display pacing and the DEVICE-04 battery icon: this digest is
-# UNCHANGED by both. battery_low and source_fault each default to False, so
-# the default render path still emits exactly the bytes it did before either
-# change - which is the strongest available evidence that neither addition
-# perturbed the default panel.
-_DEFAULT_CONFIG_DIGEST = "cc5cea2dca06416a6652f336f3fa7b6485409e7988d24b54af758d207cea19d8"
+# mechanism-C display pacing and the DEVICE-04 battery icon: this digest was
+# UNCHANGED by both when compared on macOS.
+#
+# RE-PINNED 2026-08-28 for Linux/CI: the value above was computed and
+# verified only on macOS (this branch's first CI run, on GitHub Actions'
+# ubuntu-latest, produced a *different* digest -
+# 5e7aea40e6772b646f934b1142bd9e387bae2e90824fd0d135b224a1d1434954 - from
+# the exact same code and the exact same vendored TTF bytes). This is a
+# byte-for-byte anti-aliased-text rasterization difference between macOS's
+# and Linux's Pillow/FreeType builds, not a logic change: running the
+# unmodified pre-merge code locally on macOS still reproduces the old
+# digest, so nothing in this repo's rendering logic moved. Linux is the
+# authoritative platform here - it's what both CI and the production VPS
+# run - so the pin below is the Linux-computed value. A future re-pin from
+# a local macOS run will fail on CI again for the same reason; always
+# re-pin from the CI log's own FAIL output, not from a local run.
+_DEFAULT_CONFIG_DIGEST = "5e7aea40e6772b646f934b1142bd9e387bae2e90824fd0d135b224a1d1434954"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
