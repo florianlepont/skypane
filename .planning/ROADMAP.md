@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 6.1: Battery status on companion web interface** (INSERTED) - Surface the device's battery voltage/consumption on the companion interface. Not yet planned.
 - [ ] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface. Planned 2026-08-28 (2 plans).
 - [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves.
-- [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Not yet planned.
+- [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan).
 - [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. Not yet planned.
 - [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, clearer poll-trigger cooldown copy, clearer corroboration wording. Not yet planned.
 - [ ] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog)
@@ -309,14 +309,15 @@ Plans:
 
 ### Phase 06.4: Runway picker - show runway number and airport map (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
+**Goal:** The Config page's runway picker shows each runway's number/heading in the large Display type instead of a small inline radio label, and — for any runway whose airport-diagram image the user has supplied — that real diagram beside it, one image per runway id, served over a session-gated route that validates the requested id against `device_config.RUNWAY_IDS` before building any filesystem path. Because the images are the user's to supply (D-02), the phase's actual deliverable is the drop-in asset contract plus code that is correct in both states: with no image files present it renders the upgraded text-only picker with zero `<img>` tags and no error, and dropping `companion/static/runway-{id}.png` in makes that runway's diagram appear on the next page load with no code change and no service restart (D-03). UI-only — `server/plane/detect.py`'s runway-tracking logic (CFG-12, shipped in Phase 6) is not reopened.
+
+**Requirements**: None — unmapped backlog phase (promoted from 999.4), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (real airport diagram/satellite excerpt with the runway highlighted), D-02 (the user supplies the image assets; the plan must not source, generate, or fetch one) and D-03 (graceful text-only fallback plus a predictable drop-in asset contract) in `06.4-CONTEXT.md`. It is UI-only follow-on work to CFG-12, which is already Complete (Phase 6, plan 06-07) and is not reopened.
+**Depends on:** Phase 6 (CFG-12's registry and picker); Phase 06.3 for the `--color-border` token and the 2-column desktop fieldset grid — a soft dependency only, the CSS carries a fallback so it is correct either way
+**Plans:** 1 plan
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 06.4 to break down)
+- [ ] 06.4-01-PLAN.md — Runway-image existence detection + ctx wiring, number-prominent fieldset with graceful fallback + D-03 asset contract, and the session-gated membership-validated `/runway-image/{id}.png` route
 
 ### Phase 06.3: Companion UI visual design and desktop layout pass (INSERTED)
 
