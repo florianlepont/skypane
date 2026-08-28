@@ -46,7 +46,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 23
+EXPECTED_CHECK_COUNT = 24
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -221,6 +221,24 @@ def main():
     check(
         "render() emits exactly three fieldsets and a Save Settings submit button",
         _render_shape_three_fieldsets_and_save_button)
+
+    def _settings_form_carries_config_form_class_hook():
+        # D-01 stable class hook: the settings form (POST /config) needs a
+        # class attribute so plan 06.3-02's desktop two-column fieldset
+        # grid rule (companion/static/style.css's 960px breakpoint) can
+        # target it without a brittle attribute selector.
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if 'class="config-form"' not in rendered:
+            return False, "expected the settings form to carry class=\"config-form\""
+        if '<form class="config-form" method="post" action="/config">' not in rendered:
+            return False, "expected the config-form class, method=\"post\", and action=\"/config\" on the same form tag"
+        return True, ""
+    check(
+        "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
+        _settings_form_carries_config_form_class_hook)
 
     def _theme_fieldset_one_radio_per_registry_entry():
         rendered = config_page.theme_fieldset("sky")

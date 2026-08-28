@@ -189,7 +189,7 @@ def render(ctx):
     # moving it into the fieldset grid (06.2-01-PLAN.md Task 2, step 5).
     return (
         '<h1 class="text-heading">Config</h1>'
-        '<form method="post" action="/config">'
+        '<form class="config-form" method="post" action="/config">'
         "%s"
         "%s"
         '<button type="submit">Save Settings</button>'
