@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 46
+EXPECTED_CHECK_COUNT = 50
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -400,16 +400,29 @@ def main():
                 # exactly the shape 03-RESEARCH.md Pitfall 2 describes.
                 pixels[x, y] = (200, 30, 30, int(255 * x / 39))
         canvas = panel_format.new_canvas(IDX_BLUE)
-        bbox = render.draw_illustration(canvas, gradient, 10, 10)
-        if bbox != (10, 10, 50, 50):
-            return False, "draw_illustration() returned bbox %r, expected (10, 10, 50, 50)" % (bbox,)
+        placement = render.draw_illustration(canvas, gradient, 10, 10)
+        # `.rect` is the full 40x40 placement rectangle pasted at (10, 10) -
+        # unchanged by the illustration-crop-text-margin fix.
+        if placement.rect != (10, 10, 50, 50):
+            return False, "draw_illustration() returned rect %r, expected (10, 10, 50, 50)" % (placement.rect,)
+        # `.content` is the tight bbox of what actually gets PAINTED. This
+        # source's alpha ramp is int(255 * x / 39), so alpha exceeds the
+        # threshold of 127 first at x=20 (int(130.7)=130) and not at x=19
+        # (int(124.2)=124) - columns 20..39 are painted, 0..19 are erased.
+        # Absolute: (10+20, 10+0, 10+40, 10+40).
+        if placement.content != (30, 10, 50, 50):
+            return False, (
+                "draw_illustration() returned content %r, expected (30, 10, 50, 50) - the tight "
+                "bbox of pixels above the alpha threshold, not the full rectangle" % (placement.content,)
+            )
         idx_set = {value for _count, value in canvas.getcolors()} if canvas.getcolors() else set()
         illegal = idx_set - LEGAL_IDX
         if illegal:
             return False, "a soft-alpha source produced illegal palette index(es) %r on the canvas - alpha must be hard-thresholded before paste()" % (sorted(illegal),)
         return True, ""
     check(
-        "draw_illustration() with a soft/gradient alpha source never produces an illegal in-between palette index (Pitfall 2 regression)",
+        "draw_illustration() with a soft/gradient alpha source never produces an illegal in-between palette index "
+        "(Pitfall 2 regression), and returns .rect (full placement) plus .content (tight painted bbox) as distinct boxes",
         _soft_alpha_illustration_stays_within_legal_palette,
     )
 
@@ -1122,6 +1135,200 @@ def main():
         "battery icon geometry derives from the existing spacing scale (SPACE_LG/MD/XS/SM, MARGIN) with the nub "
         "vertically centred (8px gap above and below) and a total bounding box of (64,1504,136,1536)",
         _battery_icon_geometry_derives_from_spacing_scale,
+    )
+
+    # --- Debug session illustration-crop-text-margin: the aircraft-to-text gap
+    # must be a property of the LAYOUT, not of whichever airline is flying. ---
+    #
+    # Three real vendored files chosen for maximal spread in transparent bottom
+    # padding, measured with the renderer's own alpha threshold at the main
+    # card's 992px render width: 37px (thinnest in the set), 74px (air-france -
+    # the file the D-26 sketch pass was tuned against), 174px (thickest in the
+    # set). Under the old full-rectangle anchoring these three produced visible
+    # gaps of 17px, 54px and 154px respectively - a 9.1x spread, which is the
+    # bug the developer saw on the physical e-ink panel.
+    #
+    # These checks are deliberately illustration-file-agnostic: they assert the
+    # gap is IDENTICAL across the three, never that any file lands on a
+    # particular pixel row. Re-anchoring either text block to `.rect` would
+    # fail them immediately, no matter how the constants were retuned.
+    GAP_SPREAD_ILLUSTRATIONS = (
+        "iberia-airlines.png",
+        "air-france.png",
+        "asl-airlines-france.png",
+    )
+
+    def _illustration_path(basename):
+        return os.path.join(REPO_ROOT, "server", "assets", "icons", "illustrations", basename)
+
+    def _measured_gaps(basename):
+        """Render the real two-flight layout forced onto one illustration, then
+        return (main_gap, previous_gap, main_pad, previous_pad): the distance
+        from each aircraft's last actually-painted pixel row to its text
+        block's drawn anchor y, plus each card's transparent bottom padding.
+
+        The opaque bottoms are recomputed here from the geometry constants
+        rather than read back out of render.py's own call, so this measures the
+        rendered result independently.
+        """
+        path = _illustration_path(basename)
+        with _forced_illustration(render, path):
+            with _TextSpy(render) as spy:
+                render.build_canvas(
+                    TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                    previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                    previous_state="arriving",
+                )
+
+        inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
+        main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
+        main_top = round(panel_format.HEIGHT * render.MAIN_ILLUSTRATION_TOP_FRAC)
+        main_img = render._resize_illustration(path, main_w)
+        main_local = render._opaque_bbox(main_img)
+        main_opaque_bottom = main_top + main_local[3]
+        main_pad = main_img.size[1] - main_local[3]
+
+        prev_w = round(main_w * render.PREVIOUS_ILLUSTRATION_WIDTH_FRAC)
+        prev_img = render._resize_illustration(path, prev_w)
+        prev_local = render._opaque_bbox(prev_img)
+        prev_top = round(
+            panel_format.HEIGHT * render.PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC - prev_img.size[1] / 2
+        )
+        prev_opaque_bottom = prev_top + prev_local[3]
+        prev_pad = prev_img.size[1] - prev_local[3]
+
+        main_line1 = "%s to %s" % (TEST_FLIGHT["callsign"], TEST_ROUTE["destination_city"])
+        prev_line1 = "%s from %s" % (TEST_PREVIOUS_FLIGHT["callsign"], TEST_PREVIOUS_ROUTE["origin_city"])
+        main_y = next(xy[1] for t, xy, _a in spy.calls if t == main_line1)
+        prev_y = next(xy[1] for t, xy, _a in spy.calls if t == prev_line1)
+        return main_y - main_opaque_bottom, prev_y - prev_opaque_bottom, main_pad, prev_pad
+
+    # 47. The main block's gap is identical across illustrations whose
+    # transparent bottom padding differs by >100px.
+    def _main_text_gap_is_constant_across_illustrations():
+        measured = {name: _measured_gaps(name) for name in GAP_SPREAD_ILLUSTRATIONS}
+        pads = {name: m[2] for name, m in measured.items()}
+        if max(pads.values()) - min(pads.values()) < 100:
+            return False, (
+                "these fixtures no longer span a wide range of transparent bottom padding (%r) - the check "
+                "would pass trivially and must be re-pointed at files that do" % (pads,)
+            )
+        gaps = {name: m[0] for name, m in measured.items()}
+        if len(set(gaps.values())) != 1:
+            return False, (
+                "the gap between the aircraft's last painted pixel and the main text varies by illustration: %r "
+                "(bottom padding %r) - the text is anchored to the illustration's full rectangle, not its opaque "
+                "content bbox" % (gaps, pads)
+            )
+        only = next(iter(set(gaps.values())))
+        if only != render.MAIN_TEXT_GAP_PX:
+            return False, "constant main gap is %dpx, expected MAIN_TEXT_GAP_PX (%d)" % (only, render.MAIN_TEXT_GAP_PX)
+        return True, ""
+    check(
+        "the main flight text sits exactly MAIN_TEXT_GAP_PX below the aircraft's last actually-painted pixel row, "
+        "identically for illustrations whose transparent bottom padding differs by over 100px "
+        "(illustration-crop-text-margin: no full-rectangle anchoring)",
+        _main_text_gap_is_constant_across_illustrations,
+    )
+
+    # 48. Same guarantee for the previous-flight card, which consumes its own
+    # draw_illustration() placement and has its own gap constant.
+    def _previous_text_gap_is_constant_across_illustrations():
+        measured = {name: _measured_gaps(name) for name in GAP_SPREAD_ILLUSTRATIONS}
+        pads = {name: m[3] for name, m in measured.items()}
+        if max(pads.values()) - min(pads.values()) < 50:
+            return False, (
+                "these fixtures no longer span a wide range of transparent bottom padding at the previous card's "
+                "scale (%r) - the check would pass trivially" % (pads,)
+            )
+        gaps = {name: m[1] for name, m in measured.items()}
+        if len(set(gaps.values())) != 1:
+            return False, (
+                "the gap between the previous aircraft's last painted pixel and its text varies by illustration: %r "
+                "(bottom padding %r) - the previous text block is anchored to the full rectangle" % (gaps, pads)
+            )
+        only = next(iter(set(gaps.values())))
+        if only != render.PREVIOUS_TEXT_GAP_PX:
+            return False, "constant previous gap is %dpx, expected PREVIOUS_TEXT_GAP_PX (%d)" % (only, render.PREVIOUS_TEXT_GAP_PX)
+        return True, ""
+    check(
+        "the previous flight text sits exactly PREVIOUS_TEXT_GAP_PX below its aircraft's last actually-painted pixel "
+        "row, identically across illustrations with very different transparent bottom padding",
+        _previous_text_gap_is_constant_across_illustrations,
+    )
+
+    # 49. The measurement itself must use the paste threshold, not a naive
+    # Image.getbbox(). This is the specific mistake that caused the bug: every
+    # vendored file carries a soft drop-shadow band (alpha 1..127) that
+    # getbbox() counts as content and draw_illustration() erases. Six files -
+    # air-france.png among them - report a naive bottom padding of exactly 0
+    # while their real painted padding is 82-174px, which is how "the vendored
+    # illustration files have no transparent bottom padding of their own" came
+    # to be written down as a verified fact.
+    def _opaque_bbox_uses_the_paste_threshold_not_a_naive_getbbox():
+        path = _illustration_path("air-france.png")
+        rgba = Image.open(path).convert("RGBA")
+        naive_rgba = rgba.getbbox()
+        naive_alpha = rgba.getchannel("A").getbbox()
+        thresholded = render._opaque_bbox(rgba)
+        if thresholded is None:
+            return False, "_opaque_bbox() returned None for a real vendored illustration"
+        if naive_alpha[3] != rgba.size[1]:
+            return False, (
+                "fixture drift: air-france.png's raw-alpha bbox bottom is %d, not the full height %d - it no longer "
+                "demonstrates the soft-shadow trap this check exists to guard" % (naive_alpha[3], rgba.size[1])
+            )
+        if thresholded[3] >= naive_alpha[3] or thresholded[3] >= naive_rgba[3]:
+            return False, (
+                "_opaque_bbox() bottom (%d) is not strictly above the naive bboxes (rgba %d, alpha %d) - it is "
+                "counting sub-threshold drop-shadow pixels that draw_illustration() never paints"
+                % (thresholded[3], naive_rgba[3], naive_alpha[3])
+            )
+        # And it must agree exactly with the mask actually handed to paste().
+        painted = render._threshold_alpha(rgba).getbbox()
+        if thresholded != painted:
+            return False, (
+                "_opaque_bbox() %r disagrees with the mask draw_illustration() pastes with %r - layout and painting "
+                "must measure the same pixels" % (thresholded, painted)
+            )
+        return True, ""
+    check(
+        "_opaque_bbox() measures the hard-thresholded paste mask, never a naive Image.getbbox() - the soft "
+        "drop-shadow band (alpha 1..127) that is never painted must not count as content",
+        _opaque_bbox_uses_the_paste_threshold_not_a_naive_getbbox,
+    )
+
+    # 50. Structural guard on the return contract: for real vendored art the
+    # two boxes must genuinely differ, so a future "simplification" that
+    # returns the placement rectangle for both fields is caught here rather
+    # than silently restoring per-airline gap drift.
+    def _placement_content_is_strictly_inside_its_rect():
+        path = _illustration_path("air-france.png")
+        inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
+        main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
+        resized = render._resize_illustration(path, main_w)
+        canvas = panel_format.new_canvas(IDX_BLUE)
+        placement = render.draw_illustration(canvas, resized, 100, 200)
+        rect, content = placement.rect, placement.content
+        if rect != (100, 200, 100 + resized.size[0], 200 + resized.size[1]):
+            return False, "placement.rect %r is not the full pasted rectangle" % (rect,)
+        if content == rect:
+            return False, (
+                "placement.content is identical to placement.rect for real vendored art - draw_illustration() is "
+                "not measuring the painted pixels, and every text gap will drift per airline again"
+            )
+        if not (rect[0] <= content[0] and rect[1] <= content[1] and content[2] <= rect[2] and content[3] <= rect[3]):
+            return False, "placement.content %r is not contained within placement.rect %r" % (content, rect)
+        if content[3] >= rect[3]:
+            return False, (
+                "placement.content's bottom (%d) is not above placement.rect's bottom (%d) - the transparent bottom "
+                "padding this fix exists to exclude is still being counted" % (content[3], rect[3])
+            )
+        return True, ""
+    check(
+        "draw_illustration() returns a placement whose .content is strictly contained in .rect, with a strictly "
+        "higher bottom edge, for real vendored art (structural guard against restoring full-rectangle anchoring)",
+        _placement_content_is_strictly_inside_its_rect,
     )
 
     total = len(results)
