@@ -198,8 +198,10 @@ def data_table(headers, rows, mono_columns=()):
         body_rows.append('<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
 
     return (
+        '<div class="data-table-wrap">'
         '<table class="data-table">'
         "<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
+        "</div>"
     ) % (header_cells, "".join(body_rows))

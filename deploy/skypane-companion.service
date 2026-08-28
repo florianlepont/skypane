@@ -23,7 +23,8 @@ EnvironmentFile=/opt/skypane/skypane.env
 WorkingDirectory=/opt/skypane
 ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/companion/app.py \
     --port ${SKYPANE_COMPANION_PORT} \
-    --state-dir ${SKYPANE_STATE_DIR}
+    --state-dir ${SKYPANE_STATE_DIR} \
+    --geofence /opt/skypane/config/runway3.json
 Restart=always
 RestartSec=5
 

@@ -314,9 +314,18 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Data table: Secondary-background header row, alternating rows */
+/* Data table: Secondary-background header row, alternating rows.
+ * Wrapped in .data-table-wrap (scrolls horizontally, never crops) instead
+ * of letting a wide table (History's timestamp/callsign/hex/airline/type
+ * columns, Airlines' unresolved-prefix table) overflow the viewport on
+ * phone widths — same fix .nav-bar already uses above. */
+.data-table-wrap {
+  overflow-x: auto;
+}
+
 .data-table {
   width: 100%;
+  min-width: max-content;
   border-collapse: collapse;
 }
 
