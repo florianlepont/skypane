@@ -145,7 +145,33 @@ EXPECTED_CHECK_COUNT = 43
 # new digest is expected, not a regression. Read from this PR's own CI FAIL
 # output (github.com/florianlepont/skypane/actions/runs/33172916595), not
 # computed locally or in a container, per the standing rule above.
-_DEFAULT_CONFIG_DIGEST = "6d580b949e1b4b0398794fd3979eef6331611012ff2533b4cd4678a89766ddac"
+#
+# Phase 7 07-01 (on-glass session): both the panel_format.PALETTE_RGB
+# Blue/Green values changed (real ink runs darker than the D-21 sky-tone
+# values) and _build_active_canvas()'s background fill moved from a flat
+# index (panel_format.new_canvas()) to a dithered lighten-toward-White
+# blend (dither.dithered_state_background()) - the developer found the
+# flat fill too dark at full-panel coverage on real glass. Every pixel in
+# the background field genuinely changes because of this, so the digest
+# moves again. Computed locally this session, matching the standing rule's
+# caveat: if CI's own computed digest differs (font-rendering variance
+# between this Mac and the CI container), re-pin from CI's FAIL output
+# exactly as done for the D-26 removal above - do not fight CI to match a
+# locally-computed value.
+#
+# Second re-pin, same session: the dithered background's scattered White
+# speckle landed directly behind white-ink text and hurt legibility (another
+# on-glass finding) - draw_top_labels()/draw_main_text_block()/
+# draw_previous_text_block() now paint a small flat bg_idx backing plate
+# behind every text run before drawing it (_paint_text_backing()), so text
+# pixels genuinely move again. Same computed-locally caveat as above.
+#
+# Third re-pin: the standing rule's caveat fired for real - CI (PR #18,
+# github.com/florianlepont/skypane/actions/runs/33183044663) computed a
+# different digest than this Mac for the identical code, confirming a real
+# font-rendering difference between this dev machine and the CI container.
+# Read verbatim from CI's own FAIL output, not recomputed locally.
+_DEFAULT_CONFIG_DIGEST = "49b8ba45f16b017e630bebf3c4b2f48a14d57ebbf932820eee9576502759d822"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.

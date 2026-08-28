@@ -51,6 +51,51 @@ def dither_to_full_panel_palette(source_rgb):
     return source_rgb.quantize(palette=panel_palette_image(), dither=Image.FLOYDSTEINBERG)
 
 
+def dithered_state_background(bg_idx, lighten_fraction=0.4):
+    """Return a full WIDTHxHEIGHT "P"-mode canvas whose background field is
+    `bg_idx`'s ink lightened toward White via Floyd-Steinberg dithering,
+    rather than a flat fill (`panel_format.new_canvas()`).
+
+    Phase 7 07-01 on-glass finding: at full-panel coverage the flat fill's
+    raw ink (Blue/Green) reads noticeably darker/more saturated than the
+    developer wants, and no software value can change the physical ink
+    itself - the only way to visually lighten it is to dither a blend
+    toward White. `lighten_fraction` is the blend weight toward White (0 =
+    the flat fill's own color, 1 = pure White); keep it comfortably under
+    0.5 so `bg_idx` stays the dominant index on the resulting canvas
+    (`_assert_legal_palette()`'s dominance invariant in render.py) rather
+    than White outnumbering it.
+    """
+    r, g, b = pf.PALETTE_RGB[bg_idx * 3 : bg_idx * 3 + 3]
+    blend = (
+        round(r + (255 - r) * lighten_fraction),
+        round(g + (255 - g) * lighten_fraction),
+        round(b + (255 - b) * lighten_fraction),
+    )
+    flat_rgb = Image.new("RGB", (WIDTH, HEIGHT), blend)
+
+    # Quantize against ONLY {bg_idx's own ink, White} - never the full
+    # 6-color palette. Once Blue and Green were both darkened during the
+    # same on-glass session (07-01), they landed close enough together in
+    # RGB space that the generic 6-color quantizer picked Blue as the
+    # nearest match for a lightened-Green target, leaving the arriving
+    # state's background almost entirely the wrong ink. A dedicated 2-entry
+    # palette makes that impossible regardless of how any other ink is tuned.
+    two_color_palette = Image.new("P", (1, 1))
+    two_color_palette.putpalette([r, g, b, 255, 255, 255])
+    dithered = flat_rgb.quantize(palette=two_color_palette, dither=Image.FLOYDSTEINBERG)
+
+    # dithered's local indices are 0 (bg_idx's ink) / 1 (White) only - remap
+    # onto the canvas's real index space, then reattach the full panel
+    # palette so downstream index-fill drawing (ImageDraw with IDX_* fills)
+    # behaves exactly like a panel_format.new_canvas() canvas.
+    local_indices = dithered.getdata()
+    canvas = Image.new("P", (WIDTH, HEIGHT))
+    canvas.putdata([bg_idx if v == 0 else pf.IDX_WHITE for v in local_indices])
+    canvas.putpalette(pf.padded_palette())
+    return canvas
+
+
 def write_calibration_preview(out_dir):
     """Write a six-swatch calibration PNG into `out_dir` for the on-glass
     calibration pass: six equal horizontal bands, one per palette index in

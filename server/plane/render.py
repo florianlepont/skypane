@@ -67,6 +67,14 @@ Usage (manual QA):
         --out /tmp/panel.bin --preview /tmp/panel.preview.png
     server/.venv/bin/python3 server/plane/render.py --state departing --callsign AF1380 \
         --previous-callsign VY1234 --out /tmp/panel.bin --preview /tmp/panel.preview.png
+
+Reproducible on-glass forcing commands (Phase 7, 07-01 D-04/D-13), so a
+verification session never needs a hand-built dict or an inline Python
+snippet typed on a production host:
+    server/.venv/bin/python3 server/plane/render.py --state arriving --callsign AFR56XX \
+        --airline "Compagnie Nationale Royale Air Maroc Express" \
+        --city "Santiago de Compostela-Rosalia de Castro" --preview /tmp/longname.png
+    server/.venv/bin/python3 server/plane/render.py --calibration-preview /tmp/calib
 """
 import argparse
 import hashlib
@@ -531,7 +539,24 @@ def draw_battery_icon(canvas, draw, ink_idx):
     return total
 
 
-def draw_top_labels(canvas, state, ink_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
+def _paint_text_backing(draw, bbox, bg_idx, pad=4):
+    """Paint a small solid `bg_idx` rectangle behind a text bbox, expanded by
+    `pad` on every side (glyph antialiasing/overshoot margin). Phase 7 07-01:
+    once the state background became a dithered lighten-toward-White blend
+    (dither.dithered_state_background()), the scattered White speckle it
+    introduces right behind white-ink text visibly hurt legibility (developer
+    on-glass finding) - painting a clean, undithered backing plate exactly
+    behind each text run keeps the surrounding field lighter while giving
+    every glyph the same flat, high-contrast backdrop the D-21 flat fill used
+    to provide everywhere.
+    """
+    draw.rectangle(
+        (bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad),
+        fill=bg_idx,
+    )
+
+
+def draw_top_labels(canvas, state, ink_idx, bg_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
     (top-right, `runway_tag_text(runway_id)`), both PT Serif Regular at the
     small sizes D-26 confirmed, both at the existing `MARGIN` inset (inside
@@ -552,10 +577,12 @@ def draw_top_labels(canvas, state, ink_idx, runway_id=device_config.DEFAULT_RUNW
     label_text = STATE_LABEL_TEXT[state]
     label_bbox = draw.textbbox((MARGIN, MARGIN), label_text, font=label_font, anchor="la")
     _assert_within_canvas(label_bbox, "state label")
+    _paint_text_backing(draw, label_bbox, bg_idx)
     draw.text((MARGIN, MARGIN), label_text, font=label_font, fill=ink_idx, anchor="la")
 
     tag_bbox = draw.textbbox((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, anchor="ra")
     _assert_within_canvas(tag_bbox, "top-right tag")
+    _paint_text_backing(draw, tag_bbox, bg_idx)
     draw.text((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, fill=ink_idx, anchor="ra")
 
 
@@ -942,7 +969,7 @@ def _flight_line2_text(route, aircraft_type=None):
     return "%s" % (display_name,)
 
 
-def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx):
+def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx):
     """D-26 main flight text: two centred lines starting `MAIN_TEXT_GAP_PX`
     below the main illustration's OPAQUE bottom edge
     (`main_placement.content[3]`) - the aircraft's last actually-painted pixel
@@ -971,17 +998,19 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx):
     top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
     line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
     _assert_within_canvas(line1_bbox, "main flight text line 1")
+    _paint_text_backing(draw, line1_bbox, bg_idx)
     draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
 
     line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
     line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
     _assert_within_canvas(line2_bbox, "main flight text line 2")
+    _paint_text_backing(draw, line2_bbox, bg_idx)
     draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
 
     return line1_bbox, line2_bbox
 
 
-def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx):
+def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx):
     """D-26 previous flight text: two right-aligned lines. Line 1 starts
     `PREVIOUS_TEXT_GAP_PX` below the previous illustration's OPAQUE bottom edge
     (`prev_placement.content[3]`), for the same reason
@@ -1016,11 +1045,13 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
     line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
     _assert_within_canvas(line1_bbox, "previous flight text line 1")
+    _paint_text_backing(draw, line1_bbox, bg_idx)
     draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
 
     line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
     line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
     _assert_within_canvas(line2_bbox, "previous flight text line 2")
+    _paint_text_backing(draw, line2_bbox, bg_idx)
     draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
 
     return line1_bbox, line2_bbox
@@ -1141,8 +1172,12 @@ def _build_active_canvas(
     bg_idx = state_background_index(state, theme_id=theme_id)
     fg_idx = state_ink_index(state, theme_id=theme_id)
 
-    # D-21: flat single-color background field - no dithered mood gradient.
-    canvas = pf.new_canvas(bg_idx)
+    # D-21 gave a flat single-color background field, but Phase 7 07-01's
+    # on-glass session found the raw ink too dark/saturated at full-panel
+    # coverage - reopened per that plan's own scope note. A dithered blend
+    # toward White (dither.dithered_state_background()) is the only way to
+    # visually lighten a fixed physical ink; bg_idx stays the dominant index.
+    canvas = dither.dithered_state_background(bg_idx)
 
     # D-26's thin outline is no longer drawn (removed 2026-08-28 by developer
     # request, quick task 260828-k5r). FRAME_INSET_FRAC deliberately survives
@@ -1153,7 +1188,7 @@ def _build_active_canvas(
 
     # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
     # at the existing MARGIN inset (inside the frame, not on it).
-    draw_top_labels(canvas, state, fg_idx, runway_id=runway_id)
+    draw_top_labels(canvas, state, fg_idx, bg_idx, runway_id=runway_id)
 
     # D-25/D-26 main flight: the current detection's real per-airline
     # illustration, always nose-left (D-24 - no mirroring).
@@ -1175,7 +1210,7 @@ def _build_active_canvas(
         # footprint is the right thing to bound - unchanged by the
         # illustration-crop-text-margin fix.
         _assert_within_canvas(main_placement.rect, "main aircraft illustration")
-        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx)
+        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx)
 
     # D-25/D-26 previous flight: a real second flight card - the detection
     # immediately preceding this one (poll_loop.py's two-deep history).
@@ -1208,7 +1243,7 @@ def _build_active_canvas(
             prev_top = _top_for_centered_content(prev_resized, HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC)
             prev_placement = draw_illustration(canvas, prev_resized, prev_left, prev_top)
             _assert_within_canvas(prev_placement.rect, "previous aircraft illustration")
-            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx)
+            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx)
 
     # CFG-05: the source-fault badge, drawn last so it sits on top of
     # everything else, using the state's own resolved ink index.
@@ -1373,6 +1408,30 @@ def build_parser():
              "instead of the default sample resolved-route preview.",
     )
     parser.add_argument(
+        "--airline",
+        metavar="NAME",
+        default=None,
+        help="Manual QA only (D-04, Phase 7 07-01): override _PREVIEW_ROUTE's airline_name for a "
+             "departing/arriving preview, so a long/real airline name is a flag rather than a "
+             "hand-built dict. Ignored when --no-route is also given.",
+    )
+    parser.add_argument(
+        "--city",
+        metavar="NAME",
+        default=None,
+        help="Manual QA only (D-04, Phase 7 07-01): override the state-appropriate city in "
+             "_PREVIEW_ROUTE (destination_city for --state departing, origin_city for --state "
+             "arriving) for a departing/arriving preview. Ignored when --no-route is also given.",
+    )
+    parser.add_argument(
+        "--calibration-preview",
+        metavar="DIR",
+        default=None,
+        help="D-13 (Phase 7 07-01): write dither.write_calibration_preview(DIR)'s single "
+             "palette-swatches.png monitor-side calibration artifact into DIR, print its path, and "
+             "exit - no panel is rendered when this flag is given.",
+    )
+    parser.add_argument(
         "--preview-airline-only",
         action="store_true",
         help="Manual QA only (D-06, quick task 260827-hyy): preview the airline-only intermediate "
@@ -1403,6 +1462,14 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+
+    if args.calibration_preview:
+        # D-13: a standalone diagnostic action, not mixed with a panel
+        # render - no --state/--out/--preview handling below is reached.
+        for path in dither.write_calibration_preview(args.calibration_preview):
+            print("wrote %s" % path)
+        return 0
+
     flight = None
     route = None
     previous_flight = None
@@ -1418,6 +1485,20 @@ def main(argv=None):
             route = None
         else:
             route = _PREVIEW_ROUTE
+        # D-04 (Phase 7 07-01): --airline/--city override _PREVIEW_ROUTE's own
+        # fields so a long/real name is a flag rather than a hand-built dict.
+        # --no-route continues to win over both - route is already None above
+        # and stays None here. Never mutates _PREVIEW_ROUTE itself.
+        if route is not None and (args.airline or args.city):
+            route = dict(route)
+            if args.airline:
+                route["airline_name"] = args.airline
+            if args.city:
+                city_field = (
+                    "destination_city" if args.state == runway_config.STATE_DEPARTING
+                    else "origin_city"
+                )
+                route[city_field] = args.city
         if args.previous_callsign:
             previous_flight = {"hex": args.previous_hex, "callsign": args.previous_callsign}
             if args.preview_airline_only:
@@ -1450,6 +1531,15 @@ def main(argv=None):
         digest = hashlib.sha256(data).hexdigest()
         print("wrote %s (%d bytes, state=%s)" % (args.out, len(data), args.state))
         print("sha256 %s" % digest)
+        # T-07-01-01: a forced render's most common failure is a human
+        # forgetting to restart inkframe-poll.timer afterward - the tool
+        # doing the forcing is the right place to say so.
+        if args.airline or args.city or args.no_route:
+            print(
+                "REMINDER: this panel is SYNTHETIC (--airline/--city/--no-route was used) - "
+                "restart inkframe-poll.timer after testing, or the frame stays frozen on this "
+                "test image indefinitely."
+            )
 
     if args.preview:
         print(

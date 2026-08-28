@@ -54,12 +54,20 @@ DEFAULT_LED_ENABLED = True  # D-02: matches the LED's current hardcoded always-o
 # --- Theme registry ----------------------------------------------------
 #
 # D-09/D-10/D-11 (06-CONTEXT.md): the "sky" entry below is the *only*
-# theme today, and its Blue/Green hues are confirmed against on-screen
-# previews only (03-CONTEXT.md D-21) - Phase 7 is the first place this
-# panel design meets real glass, and any additional selectable theme
-# entries arrive there, once real-glass-validated. Never write a bare
-# palette integer here - always reference panel_format's named IDX_*
-# constants, matching that module's own stated discipline.
+# theme today. Its Blue/Green hues were confirmed against on-screen
+# previews only through D-21 (03-CONTEXT.md) - Phase 7's on-glass session
+# (07-01, hardware/BRINGUP-LOG.md's "Phase 7 On-Glass Verification" entry)
+# was the first time this design met real glass, and it found both hues
+# genuinely too dark/saturated on the real panel versus the monitor
+# preview. panel_format.PALETTE_RGB's Blue/Green triples were darkened
+# accordingly (see that module's own comment block for the before/after
+# values) - this THEMES dict references panel_format.IDX_BLUE/IDX_GREEN
+# indirectly and needed no change itself, since the real-glass tuning
+# lives entirely in the RGB triples those indices point at. Any additional
+# selectable theme entries should be real-glass-validated the same way
+# before landing here. Never write a bare palette integer here - always
+# reference panel_format's named IDX_* constants, matching that module's
+# own stated discipline.
 THEMES = {
     "sky": {
         "departing_index": IDX_BLUE,
