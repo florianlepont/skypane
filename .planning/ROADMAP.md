@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan).
 - [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves.
 - [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, a live poll-trigger cooldown countdown, and a verified/pinned corroboration-copy drift guard. Planned 2026-08-28 (3 plans across 2 waves).
-- [ ] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog)
+- [x] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog) (completed 2026-08-28)
 
 ## Phase Details
 
@@ -235,7 +235,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
 | 5. Battery Life & Low-Battery Indicator | 3/3 executed | In Progress (DEVICE-04 done, DEVICE-05 pending) | - |
 | 6. Companion Configuration Web Interface | 12/12 | Complete    | 2026-08-28 |
-| 7. Final On-Glass Verification | 0/1 | Not Started | - |
+| 7. Final On-Glass Verification | 1/1 | Complete   | 2026-08-28 |
 **Plans:** 4/7 phases complete (1-4 plus inserted 3.1); 5 and 6 in progress, 7 not started
 
 Plans:
@@ -406,15 +406,15 @@ Plans:
   4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call made with the frame in its current desk/temporary location as a provisional check; a final check once wall-mounted remains a caveat, not a blocker (D-03).
   5. PT Serif Regular's e-ink hairline-legibility risk (flagged in `server/assets/fonts/VENDOR.md`, never before checked on real glass) is judged per typographic role, including the previous-flight card's smallest text (16px/12px floor).
   6. Whether the frame/illustrations/text — positioned inside the old 64px safe-box band at a tighter 2.5%-of-width inset (D-26) — are clipped by the physical bezel is confirmed one way or the other.
-  7. `PALETTE_RGB`'s two still-interim triples (Yellow, Red) carry values tuned against the real panel; 2-3 alternate Blue/Green DEPARTING/ARRIVING theme variants are tested on the real panel and the validated set is recorded for Phase 6's CFG-01 theme picker (reopens D-21 — see this phase's "Note on scope" above; supersedes the prior "verified unchanged" wording).
+  7. `PALETTE_RGB`'s two still-interim triples (Yellow, Red) carry values tuned against the real panel; 2-3 alternate Blue/Green DEPARTING/ARRIVING theme variants are tested on the real panel and the validated set is recorded for Phase 6's CFG-01 theme picker (reopens D-21 — see this phase's "Note on scope" above; supersedes the prior "verified unchanged" wording). **[PARTIALLY FULFILLED, 2026-08-28 — see `07-01-SUMMARY.md`:** Yellow/Red confirmed on real glass, no change needed. D-21 reopened as anticipated, but not the way this criterion expected: the developer found the *default* "sky" theme's Blue/Green too dark/saturated on real glass (both the six-band calibration swatch and, worse, the full-panel flat-fill field) and had `panel_format.PALETTE_RGB`'s Blue/Green re-tuned in place (two darkening passes) plus the flat background replaced with a dithered lighten-toward-White blend (`dither.dithered_state_background()`) to make a fixed physical ink visually lighter at all — a single corrected default, not 2-3 alternate selectable theme variants. **CFG-01's theme picker still has only the one "sky" theme; the multi-variant part of this criterion remains open**, now for a future phase to pick up if additional theme options are wanted.]
   8. Any small font-weight, font-size, or geometry correction the session's observations called for has been applied directly and re-confirmed on the glass — not just recorded for later. Only a genuine redesign need (a new font, a new asset, a different composition) is deferred as a scope question.
   9. The frame is left running live detection at the end of the session, not frozen on a synthetic test panel.
 
-**Plans**: 0/1 plans executed
+**Plans**: 1/1 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 07-01-PLAN.md — On-glass verification battery (RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) and the 02-UI-SPEC.md Colour addendum (moved from 03-04)
+- [x] 07-01-PLAN.md — On-glass verification battery (RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) and the 02-UI-SPEC.md Colour addendum (moved from 03-04)
 
 **UI hint**: no
