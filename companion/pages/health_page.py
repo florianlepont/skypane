@@ -138,6 +138,23 @@ PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
 # matched (D-01).
 BATTERY_STATUS_LABEL = "Battery readings"
 
+# D-02: per-point interactive hit-target contract. BATTERY_READOUT_ID and
+# SPARKLINE_HIT_CLASS are looked up by companion/static/battery-trend.js
+# and styled by companion/static/style.css — the value is duplicated
+# rather than imported from those files because there is nothing in this
+# Python module to import from (they are static assets, not Python).
+# companion/test_status_pages.py's cross-file contract check asserts
+# both literals actually appear in battery-trend.js's shipped source.
+BATTERY_READOUT_ID = "battery-readout"
+SPARKLINE_HIT_CLASS = "sparkline-hit"
+SPARKLINE_DOT_CLASS = "sparkline-dot"
+# Must equal companion/app.py's SCRIPT_ROUTE — duplicated, not imported,
+# because companion/pages/__init__.py's contract forbids a page module
+# importing companion.app (app.py imports pages, so importing back would
+# be circular). The test harness asserts the two stay equal.
+BATTERY_TREND_SCRIPT_SRC = "/static/battery-trend.js"
+BATTERY_READOUT_PLACEHOLDER = "Tap or hover a point on the chart to see its exact reading."
+
 _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 # "query succeeded and legitimately returned None/empty" (e.g. no rows
 # recorded yet), which must render very differently.
@@ -237,23 +254,36 @@ def battery_trend_rows(conn):
 def battery_sparkline_svg(rows):
     """A minimal, dependency-free inline SVG sparkline built server-side
     from `rows` (newest-first, `battery_trend_rows()`'s own shape) — a
-    fixed viewBox, exactly one `<polyline>`, no text, no external
-    reference (`url(`, `<image`, `<script`) of any kind, consistent with
-    the zero-new-dependencies constraint (T-06-08-SC).
+    fixed viewBox, exactly one `<polyline>`, no external reference
+    (`url(`, `<image`, or a script tag) of any kind, consistent with the
+    zero-new-dependencies constraint (T-06-08-SC). D-02: each plotted
+    point also carries a cosmetic marker plus a transparent, enlarged,
+    keyboard-focusable hit target with `data-mv`/`data-ts` attributes and
+    a `<title>` tooltip, so the exact reading is available on hover/tap
+    with no JavaScript at all. Deliberately does **not** emit a
+    script tag or the readout element itself — those are
+    `_battery_section()`'s job — so this function's own no-external-
+    reference guarantee (asserted directly against its return value by
+    `companion/test_status_pages.py`) stays true unweakened.
 
     Returns `""` (no sparkline at all) when fewer than two rows carry a
     numeric `battery_mv` — a single point cannot show a trend. Rows with
     a missing/non-numeric `battery_mv` are dropped rather than plotted,
     which can compress the effective time axis; this is a presentational
-    simplification, not a claim about even reading spacing.
+    simplification, not a claim about even reading spacing. Each row's
+    timestamp is paired with its `battery_mv` value before filtering, so
+    a dropped row also drops its own timestamp — never zipping two
+    independently-filtered lists, which would otherwise silently shift
+    every later point's timestamp by one.
     """
     chronological = list(reversed(rows))
-    values = [
-        row.get("battery_mv") for row in chronological
+    pairs = [
+        (row.get("battery_mv"), row.get("ts")) for row in chronological
         if isinstance(row.get("battery_mv"), int) and not isinstance(row.get("battery_mv"), bool)
     ]
-    if len(values) < 2:
+    if len(pairs) < 2:
         return ""
+    values = [value for value, _ts in pairs]
 
     width, height, padding = 300, 60, 4
     usable_w = width - 2 * padding
@@ -263,17 +293,42 @@ def battery_sparkline_svg(rows):
     step = usable_w / (len(values) - 1)
 
     points = []
-    for index, value in enumerate(values):
+    markers = []
+    hit_targets = []
+    for index, (value, ts) in enumerate(pairs):
         x = padding + index * step
         y = padding + usable_h - ((value - lo) / span) * usable_h
         points.append("%.1f,%.1f" % (x, y))
 
+        markers.append(
+            '<circle class="%s" cx="%.1f" cy="%.1f" r="3" aria-hidden="true"/>'
+            % (SPARKLINE_DOT_CLASS, x, y))
+
+        # "%d mV — %s" (escaped ts) — byte-identical in shape to the
+        # readout string companion/static/battery-trend.js composes from
+        # these same data-mv/data-ts attributes, so hover text and tap
+        # readout never read differently.
+        label = "%d mV — %s" % (value, escape_html(ts))
+        hit_targets.append(
+            '<circle class="%s" cx="%.1f" cy="%.1f" r="8" tabindex="0" '
+            'role="button" data-mv="%d" data-ts="%s" aria-label="%s">'
+            "<title>%s</title></circle>"
+            % (SPARKLINE_HIT_CLASS, x, y, value, escape_html(ts), label, label))
+
+    # Document order matters: SVG paints in document order and pointer
+    # events go to the topmost element, so the transparent hit targets
+    # must come last (after the cosmetic markers) or the cosmetic dots
+    # would intercept taps meant for the hit targets underneath.
     return (
         '<svg viewBox="0 0 %d %d" width="%d" height="%d" '
-        'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Battery trend">'
+        'xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Battery trend">'
         '<polyline points="%s" fill="none" stroke="currentColor" stroke-width="2"/>'
+        "%s%s"
         "</svg>"
-    ) % (width, height, width, height, " ".join(points))
+    ) % (
+        width, height, width, height, " ".join(points),
+        "".join(markers), "".join(hit_targets),
+    )
 
 
 def battery_status(rows):
@@ -373,6 +428,17 @@ def _battery_badge_block(state):
     return '<p class="text-body">%s</p>' % layout.status_dot(state, BATTERY_STATUS_LABEL)
 
 
+def _battery_readout_block():
+    """The reserved-height readout line `companion/static/battery-trend.js`
+    writes into on hover/tap/keyboard reveal. `role="status"` already
+    implies a polite live region, so no separate `aria-live` attribute is
+    added.
+    """
+    return (
+        '<p id="%s" class="battery-readout text-label mono" role="status">%s</p>'
+        % (BATTERY_READOUT_ID, escape_html(BATTERY_READOUT_PLACEHOLDER)))
+
+
 def _battery_section(trend_rows):
     """Return `(markup, state)` for the Battery trend tile.
 
@@ -409,7 +475,19 @@ def _battery_section(trend_rows):
     table_html = layout.data_table(
         ["Timestamp", "Battery (mV)"], table_rows, mono_columns=(0, 1))
     sparkline_html = battery_sparkline_svg(trend_rows) if len(trend_rows) >= 2 else ""
-    return _battery_badge_block(state) + table_html + sparkline_html, state
+    # The script tag and readout element are emitted only when a chart
+    # actually exists (sparkline_html is non-empty) — a single-reading
+    # device, or one whose only rows have non-numeric millivolts, gets no
+    # chart and therefore no script, keeping "exactly one script tag, and
+    # zero on the empty/no-chart path" testable and true. The tag's own
+    # deferred-execution attribute is what makes a DOMContentLoaded
+    # wrapper unnecessary in the script.
+    chart_block = ""
+    if sparkline_html:
+        chart_block = (
+            sparkline_html + _battery_readout_block()
+            + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
+    return _battery_badge_block(state) + table_html + chart_block, state
 
 
 def _corroboration_section(counts):

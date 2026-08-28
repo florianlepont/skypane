@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 31
+EXPECTED_CHECK_COUNT = 36
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -429,6 +429,12 @@ def main():
         "a real battery drop drives both the badge (error) and the pre-existing anomaly banner",
         _battery_drop_drives_both_badge_and_banner)
 
+    # This check's scope is narrower than it first appears — it exercises
+    # only battery_sparkline_svg()'s own return value, which still never
+    # gains a script/url/image reference after Task 2's D-02 markup was
+    # added. The page-level "exactly one scoped script" guarantee is
+    # carried by _page_allows_exactly_one_scoped_script_no_inline_handlers()
+    # below, added additively rather than by relaxing this one.
     def _sparkline_has_no_external_reference():
         rows = [
             {"ts": "t1", "battery_mv": 4200},
@@ -443,6 +449,134 @@ def main():
     check(
         "battery_sparkline_svg() emits no url(, <image, or <script — no external reference at all",
         _sparkline_has_no_external_reference)
+
+    def _sparkline_svg_has_per_point_interactive_markup():
+        rows = [
+            {"ts": "2024-01-03T00:00:00", "battery_mv": 4050},
+            {"ts": "2024-01-02T00:00:00", "battery_mv": 4100},
+            {"ts": "2024-01-01T00:00:00", "battery_mv": 4200},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        if svg.count(health_page.SPARKLINE_HIT_CLASS) != 3:
+            return False, "expected exactly 3 hit-target circles, got %d" % svg.count(health_page.SPARKLINE_HIT_CLASS)
+        if svg.count(health_page.SPARKLINE_DOT_CLASS) != 3:
+            return False, "expected exactly 3 cosmetic dot circles, got %d" % svg.count(health_page.SPARKLINE_DOT_CLASS)
+        if svg.count("data-mv=") != 3:
+            return False, "expected exactly 3 data-mv attributes, got %d" % svg.count("data-mv=")
+        if svg.count("data-ts=") != 3:
+            return False, "expected exactly 3 data-ts attributes, got %d" % svg.count("data-ts=")
+        if svg.count("<title") != 3:
+            return False, "expected exactly 3 <title elements, got %d" % svg.count("<title")
+        if svg.count('tabindex="0"') != 3:
+            return False, "expected exactly 3 tabindex=\"0\" hit targets, got %d" % svg.count('tabindex="0"')
+        if svg.count("<polyline") != 1:
+            return False, "expected exactly 1 <polyline, got %d" % svg.count("<polyline")
+        for _ts, mv in [(r["ts"], r["battery_mv"]) for r in rows]:
+            if ('data-mv="%d"' % mv) not in svg:
+                return False, "expected battery_mv=%d to appear inside a data-mv attribute" % mv
+        oldest_index = svg.find("2024-01-01T00:00:00")
+        middle_index = svg.find("2024-01-02T00:00:00")
+        newest_index = svg.find("2024-01-03T00:00:00")
+        if not (oldest_index < middle_index < newest_index):
+            return False, "expected timestamps in chronological (oldest-first) order, matching the polyline's own ordering"
+        return True, ""
+    check(
+        "battery_sparkline_svg() emits per-point interactive hit targets with data-mv/data-ts/<title>, in chronological order",
+        _sparkline_svg_has_per_point_interactive_markup)
+
+    def _page_allows_exactly_one_scoped_script_no_inline_handlers():
+        tmp = _mkstate("h-script-scope")
+        try:
+            base = _now()
+            _seed_device_health(tmp, [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if rendered.count("<script") != 1:
+                return False, "expected exactly one <script tag, got %d" % rendered.count("<script")
+            if health_page.BATTERY_TREND_SCRIPT_SRC not in rendered:
+                return False, "expected BATTERY_TREND_SCRIPT_SRC in the rendered <script src>"
+            for forbidden in ("onclick=", "onmouseover=", "ontouchstart=", "onfocus=", "onload="):
+                if forbidden in rendered:
+                    return False, "found forbidden inline event-handler attribute %r" % forbidden
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a chart-bearing page emits exactly one scoped <script src> and zero inline event-handler attributes",
+        _page_allows_exactly_one_scoped_script_no_inline_handlers)
+
+    def _empty_battery_history_stays_script_free():
+        tmp = _mkstate("h-empty-script-free")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            if "<script" in rendered:
+                return False, "did not expect any <script tag with zero battery rows"
+            if "<svg" in rendered:
+                return False, "did not expect any <svg with zero battery rows"
+            if health_page.BATTERY_READOUT_ID in rendered:
+                return False, "did not expect the readout element id with zero battery rows"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the empty-history battery path stays script-free — no <script, no <svg, no readout element",
+        _empty_battery_history_stays_script_free)
+
+    def _hostile_timestamp_is_escaped_in_chart_markup():
+        tmp = _mkstate("h-hostile-ts")
+        try:
+            base = _now()
+            hostile_ts = '2024-01-01T00:00:00Z"><script>alert(1)</script>'
+            _seed_device_health(tmp, [
+                (hostile_ts, 4200),
+                (_iso(base), 4190),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if hostile_ts in rendered:
+                return False, "the raw hostile timestamp fragment survived unescaped into the output"
+            if '"><script>alert(1)</script>' in rendered:
+                return False, "the raw quote-and-tag fragment survived unescaped into a double-quoted attribute"
+            escaped_ts = health_page.escape_html(hostile_ts)
+            if escaped_ts not in rendered:
+                return False, "expected the escaped form of the hostile timestamp to appear"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a hostile timestamp reaching data-ts/<title> is escaped, never interpolated raw",
+        _hostile_timestamp_is_escaped_in_chart_markup)
+
+    def _cross_file_contract_drift_guard():
+        import companion.app as app_module
+        if app_module.SCRIPT_ROUTE != health_page.BATTERY_TREND_SCRIPT_SRC:
+            return False, "companion.app.SCRIPT_ROUTE and health_page.BATTERY_TREND_SCRIPT_SRC have drifted apart"
+        js_path = os.path.join(HERE, "static", "battery-trend.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+        if health_page.BATTERY_READOUT_ID not in js_source:
+            return False, "battery-trend.js no longer references BATTERY_READOUT_ID's literal value"
+        if health_page.SPARKLINE_HIT_CLASS not in js_source:
+            return False, "battery-trend.js no longer references SPARKLINE_HIT_CLASS's literal value"
+        tmp = _mkstate("h-contract-drift")
+        try:
+            base = _now()
+            _seed_device_health(tmp, [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if health_page.BATTERY_READOUT_ID not in rendered:
+                return False, "expected BATTERY_READOUT_ID in a rendered chart-bearing page"
+            if health_page.SPARKLINE_HIT_CLASS not in rendered:
+                return False, "expected SPARKLINE_HIT_CLASS in a rendered chart-bearing page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Python/CSS/JS three-file contract (route + DOM literals) is guarded against silent drift",
+        _cross_file_contract_drift_guard)
 
     def _battery_drop_flags_anomaly_gentle_decline_does_not():
         # battery_status() takes newest-first rows (matching
