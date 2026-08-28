@@ -281,6 +281,20 @@ as `<public-host>`, never by its real address).
 - **`skypane-poll.service` / `skypane-poll.timer`** is a `Type=oneshot`
   unit invoking `server/poll_loop.py --once`, fired every 30 seconds by
   the timer.
+- **`skypane-companion.service`** runs `companion/app.py` — the companion
+  configuration web interface — as its own process, its own unit, on its
+  own loopback port, behind its own Caddy hostname (`config-`-prefixed,
+  its own Let's Encrypt certificate). It reads the state directory
+  `server/poll_loop.py` writes (flight history, the packed panel image)
+  and writes two persistence artefacts of its own: `history.db` (device
+  health/runway-event history, `server/history_db.py`) and a small
+  `device_config.json` side-file for the theme/runway settings a Save
+  click writes. It never touches `stub-server/byos_server.py`. Because
+  that vendored server prints the device's battery-voltage header but
+  persists nothing, and cannot be modified, the companion service's own
+  battery history comes from a second source instead: Caddy's own durable
+  JSON access log on the device-protocol site block, tailed for the
+  `X-Battery-Mv` header on every device poll.
 - **Device authentication** is a bearer token, issued at
   `/device/v1/setup` in exchange for a shared setup secret
   (`SKYPANE_BYOS_SECRET`, set once in a hand-written, gitignored

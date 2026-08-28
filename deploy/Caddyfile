@@ -27,16 +27,62 @@
 # this VPS's IP, and reload Caddy (`systemctl reload caddy`). Nothing else
 # in this file, or in skypane-byos.service, needs to change — Caddy
 # re-requests a certificate for whatever hostname the site block names.
+#
+# Two site blocks now exist (06-11-PLAN.md, D-05): the device-protocol
+# block below, and a second block for the companion configuration web
+# interface, prefixed "config-" (e.g. config-203-0-113-10.nip.io). nip.io
+# accepts an arbitrary label before the IP-encoding suffix, so the second
+# name needs no DNS configuration of its own — it resolves to the same IP
+# by the same mechanism as the first. Let's Encrypt issues a separate
+# certificate per hostname at no additional cost. A separate hostname was
+# chosen over a path prefix on the device hostname (e.g. /config/*) for a
+# cleaner boundary between the device protocol and the human-facing
+# interface — two independent site blocks, two independent failure
+# domains, rather than one block routing on path.
 
 203-0-113-10.nip.io {
     reverse_proxy 127.0.0.1:8642
 
-    # Structured per-request access log to stdout, captured by journald
-    # (journalctl -u caddy). Task 3's on-glass verification (02-05-PLAN.md)
-    # greps this for the device's /device/v1/display and /img/*.bin
-    # requests to confirm both travel over 443, not a plaintext port-80
-    # fallback - without this directive Caddy logs only lifecycle/TLS
-    # events, never individual requests.
+    # Structured per-request access log to a durable file, not stdout
+    # (changed in 06-11-PLAN.md — this is the load-bearing edit that makes
+    # CFG-03's battery history possible). The device sends its battery
+    # voltage as the X-Battery-Mv request header on every poll;
+    # stub-server/byos_server.py prints that header and persists nothing,
+    # and is explicitly off-limits to modify (D-03, stub-server/VENDOR.md)
+    # — solved at the infrastructure layer instead, following this
+    # project's existing precedent of working around a vendored-code
+    # limitation rather than patching the file. The previous "output
+    # stdout" directive was journald-bound and rotates on journald's own
+    # schedule (the same reasoning server/poll_loop.py's own module
+    # docstring already records for a different durable-state decision),
+    # so it could never be the source of a durable history. roll_size/
+    # roll_keep bound the file's growth (T-06-11-04) — server/history_db.py's
+    # tailer resets its stored offset when the file is shorter than the
+    # offset, so a rotation neither loses nor double-counts readings.
+    #
+    # Caddy's own header redaction only covers a fixed sensitive set
+    # (Cookie, Set-Cookie, Authorization, Proxy-Authorization) — the
+    # device's telemetry headers are not in that set, which is why they
+    # appear in this log at all. The tailer that reads this file
+    # (server/history_db.py's tail_caddy_battery_log()) extracts only an
+    # explicit four-name telemetry-header allowlist, never the header map
+    # wholesale, so a future change to Caddy's redaction policy cannot
+    # leak a credential into the history database (T-06-11-03).
+    log {
+        output file /opt/skypane/state/caddy-access.log {
+            roll_size 10MiB
+            roll_keep 5
+        }
+        format json
+    }
+}
+
+config-203-0-113-10.nip.io {
+    reverse_proxy 127.0.0.1:8643
+
+    # Console stream is fine here: the companion interface has no
+    # durable-telemetry requirement of its own (unlike the block above),
+    # this is purely operator convenience for `journalctl -u caddy`.
     log {
         output stdout
         format json
