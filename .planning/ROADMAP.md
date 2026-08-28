@@ -19,11 +19,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation — Hardware Bring-up & ADS-B Validation** - Validate ADS-B reception on real hardware, with the core wake/poll/backoff loop proven against a stub server (completed 2026-08-26)
 - [x] **Phase 2: Plane View — End-to-End Slice** - First complete vertical slice: real runway-3 plane data flowing from ADS-B detection through server rendering to the physical display (completed 2026-08-26)
-- [x] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle (completed 2026-08-26 — on-glass visual sign-off moved to Phase 6, not a blocker on this phase)
+- [x] **Phase 3: Visual Polish on Real Glass** - Refine the plane view's visual design against real Spectra 6 E-ink output, resolving legibility/balance items that a digital preview can't settle (completed 2026-08-26 — on-glass visual sign-off moved to Phase 7, not a blocker on this phase)
 - [x] **Phase 3.1: Procedural Per-Airline Livery Rendering** (INSERTED) - Extends Phase 3's externally generated illustration set to real per-flight aircraft-type accuracy, by (a) surfacing the ADS-B ICAO type designator in `server/plane/detect.py`, (b) adding a second selection key plus a four-tier fallback in `server/plane/illustrations.py`, and (c) expanding the externally generated asset set per D-03's verified 24-airline / 7-base-shape table (completed 2026-08-27)
 - [x] **Phase 4: CI/CD, Documentation & Legal Compliance** - GitHub Actions CI (tests, build, code quality, coverage) with automated deploy to the OVH VPS, a project README, a code LICENSE, third-party API terms-of-use compliance documentation, and consolidated asset attribution (completed 2026-08-26 — repo public at github.com/florianlepont/skypane, CI-block and deploy-gate proven on real infrastructure)
-- [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience
-- [ ] **Phase 6: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished
+- [ ] **Phase 5: Battery Life & Low-Battery Indicator** - Measure real on-battery wake/poll/sleep viability via an unattended multi-day discharge run, then build the low-battery warning it informs, completing the v1 single-view device experience (05-02/05-03 complete 2026-08-27, DEVICE-04 fully closed and confirmed on real glass; 05-01's actual multi-day discharge run — success criterion 1, DEVICE-05 — still deliberately deferred to end of project)
+- [ ] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (11/12 plans complete; 06-12 live verification in progress, blocked on a developer sign-off checkpoint)
+- [ ] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog)
 
 ## Phase Details
 
@@ -95,14 +96,14 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Note on scope (2026-08-26, discuss-phase):** Widened during `/gsd-discuss-phase 3` from a pure hardware-verification pass into also including a real visual upgrade to the aircraft artwork. The user confirmed via SenseCraft (Seeed's official companion app) that this panel renders dithered/photographic content well — the flat, no-dither rendering rule from 02-UI-SPEC.md Revision 2 was a deliberate Phase 2 style choice, not a hardware limit. This unlocks a per-airline illustration approach that was explicitly rejected in Phase 2 (D-02/02-UI-SPEC.md) only because no CC0/licensable per-airline livery art existed — the user will generate the illustrations themselves (AI image generation), sidestepping that licensing constraint. A personal photo as the panel's *background* was discussed and explicitly deferred to v2 (see REQUIREMENTS.md v2 backlog) — this phase's scope is the aircraft illustration only, not the background.
 
-**Note on the on-glass verification plan (2026-08-26):** This phase's original fourth plan (03-04, the on-glass verification battery) was moved to **Phase 6: Final On-Glass Verification** (now `06-01-PLAN.md`) at the user's explicit request — they want one final real-hardware sign-off at the very end of the whole project, after CI/CD and Battery Life are also done, rather than a mid-project on-glass pass. **The four on-glass success criteria that used to live here (silhouette/illustration legibility, caption legibility, the visual DEPARTING state, and overall composition) moved with it — they are not duplicated below.** They are now Phase 6's own criteria in full (see that phase's section) — this phase's remaining criterion is the one thing that's genuinely code-verifiable without the physical device.
+**Note on the on-glass verification plan (2026-08-26, renumbered 2026-08-27):** This phase's original fourth plan (03-04, the on-glass verification battery) was moved to **Phase 7: Final On-Glass Verification** (now `07-01-PLAN.md`; briefly Phase 6/`06-01-PLAN.md` between 2026-08-26 and 2026-08-27, see that phase's own numbering note) at the user's explicit request — they want one final real-hardware sign-off at the very end of the whole project, after CI/CD and Battery Life are also done, rather than a mid-project on-glass pass. **The four on-glass success criteria that used to live here (silhouette/illustration legibility, caption legibility, the visual DEPARTING state, and overall composition) moved with it — they are not duplicated below.** They are now Phase 7's own criteria in full (see that phase's section) — this phase's remaining criterion is the one thing that's genuinely code-verifiable without the physical device.
 
 **Mode:** mvp
 **Depends on**: Phase 1 (hardware flashed via 01-06/01-07) and Phase 2 (deployed via 02-05)
-**Requirements**: PLANE-01, PLANE-02 (hardware-verified legibility closure — now Phase 6's job — and a richer visual treatment of the "airline" element both requirements already call for)
+**Requirements**: PLANE-01, PLANE-02 (hardware-verified legibility closure — now Phase 7's job — and a richer visual treatment of the "airline" element both requirements already call for)
 **Success Criteria** (what must be TRUE):
 
-  1. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not a flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration as the fallback for uncovered airlines and the "Route unavailable" enrichment-failure state, never mirrored by state (D-24) — the selection and compositing mechanism itself, independent of how it looks on real glass, which is Phase 6's job. Verified by the automated suite (`server/test_illustrations.py`, `server/test_render.py`), not by eye.
+  1. Each detected flight renders a dithered, per-airline-generated aircraft illustration (not a flat-White CC0 silhouette) for airlines covered by the generated set, with a single dithered generic illustration as the fallback for uncovered airlines and the "Route unavailable" enrichment-failure state, never mirrored by state (D-24) — the selection and compositing mechanism itself, independent of how it looks on real glass, which is Phase 7's job. Verified by the automated suite (`server/test_illustrations.py`, `server/test_render.py`), not by eye.
 
 **Plans**: 4/4 plans complete
 
@@ -142,7 +143,7 @@ Plans:
   1. Real aircraft-type data (ICAO type designator) is confirmed available and reliably present in this project's live ADS-B aggregator responses — or, if genuinely unavailable, this phase is descoped/re-planned around that finding rather than proceeding on an unverified assumption.
   2. `server/plane/detect.py` extracts and surfaces the aircraft-type field alongside the existing callsign/altitude/vertical-rate fields already captured.
   3. An externally generated static illustration is selected for the actual detected flight keyed on both the resolved `airline_name` and the classified aircraft-type shape bucket, through D-06/D-07/D-08's four fallback tiers (exact airline+shape match, known-airline-any-shape, unknown-airline-known-shape neutral fallback, universal fallback) — verified by `server/test_illustrations.py` and `server/test_render.py`, not by eye.
-  4. The full automated test suite (`scripts/run-all-tests.sh`) stays green and `server/plane/illustrations.py --validate` passes for every delivered asset. (On-glass legibility sign-off is deliberately **Phase 6's** criterion, not this phase's — Phase 6 already owns the project's single real-hardware verification pass, the same precedent STATE.md records for Phase 3's own on-glass criteria.)
+  4. The full automated test suite (`scripts/run-all-tests.sh`) stays green and `server/plane/illustrations.py --validate` passes for every delivered asset. (On-glass legibility sign-off is deliberately **Phase 7's** criterion, not this phase's — Phase 7 already owns the project's single real-hardware verification pass, the same precedent STATE.md records for Phase 3's own on-glass criteria.)
   5. Coverage gracefully degrades (a sensible fallback, not a crash or a blank illustration) for any airline/type combination not yet defined in the livery/shape mapping — mirroring D-08's existing generic-fallback discipline from Phase 3.
 
 **Plans:** 4/4 plans complete
@@ -203,22 +204,22 @@ Plans:
   1. The device completes multiple wake/poll/sleep cycles running on battery power alone, producing a measured mAh-per-cycle figure — not an estimate — that supports a realistic wake-interval and battery-life plan.
   2. User can see a low-battery indicator on the frame when the battery is running low.
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed, but the phase is NOT complete — 05-01's Tasks 2-3 (success criterion 1, DEVICE-05) are deliberately parked until the end of the project; only DEVICE-04 (criterion 2, 05-02+05-03) is actually closed.
 **Wave 1**
 
-- [x] 05-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker (Task 1 done), unattended multi-day discharge run and verdict (Tasks 2-3 pending)
+- [ ] 05-01-PLAN.md — Battery-life measurement: pre-registered D-07 protocol + check-battery checker (Task 1 done), unattended multi-day discharge run and verdict (Tasks 2-3 pending, deliberately deferred)
 - [x] 05-02-PLAN.md — Low-battery indicator, server half: strict X-Battery-Mv validation and single-writer persistence, the 3500/3600 mV hysteresis decision, and the bottom-left battery icon drawn onto the served panel
 
 **Wave 2**
 
-- [ ] 05-03-PLAN.md — Low-battery indicator, device half: host-tested divider conversion, a real calibrated ADC1 read off the EE02 board's existing factory battery-sense divider (A0/GPIO1, enabled via D5/GPIO6) replacing the compiled-in unknown sentinel, and the blocking hardware bring-up (flash-and-observe confirmation of the sense circuit, icon confirmed on real glass) — firmware and configuration only, no soldering and no added components
+- [x] 05-03-PLAN.md — Low-battery indicator, device half: host-tested divider conversion, a real calibrated ADC1 read off the EE02 board's existing factory battery-sense divider (A0/GPIO1, enabled via D5/GPIO6) replacing the compiled-in unknown sentinel, and the blocking hardware bring-up (flash-and-observe confirmation of the sense circuit, icon confirmed on real glass) — firmware and configuration only, no soldering and no added components
 
 **UI hint**: yes
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -226,23 +227,69 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. Plane View — End-to-End Slice | 5/5 | Complete    | 2026-08-26 |
 | 3. Visual Polish on Real Glass | 4/4 | Complete    | 2026-08-26 |
 | 4. CI/CD, Documentation & Legal Compliance | 6/6 | Complete    | 2026-08-26 |
-| 5. Battery Life & Low-Battery Indicator | 2/3 | In Progress | - |
-| 6. Final On-Glass Verification | 0/1 | Not Started | - |
-**Plans:** 6/6 plans complete
+| 5. Battery Life & Low-Battery Indicator | 3/3 executed | In Progress (DEVICE-04 done, DEVICE-05 pending) | - |
+| 6. Companion Configuration Web Interface | 11/12 | In Progress (06-12 live verification, blocked on developer sign-off checkpoint) | - |
+| 7. Final On-Glass Verification | 0/1 | Not Started | - |
+**Plans:** 4/7 phases complete (1-4 plus inserted 3.1); 5 and 6 in progress, 7 not started
 
 Plans:
 
-- [ ] 05-01-PLAN.md — Battery-life measurement (DEVICE-05) — Task 1 done, Tasks 2-3 parked to end of project
-- [ ] 05-02-PLAN.md — Low-battery indicator, server half (DEVICE-04) — Wave 1
-- [ ] 05-03-PLAN.md — Low-battery indicator, device half + hardware bring-up (DEVICE-04) — Wave 2
+- [x] 05-01-PLAN.md — Battery-life measurement (DEVICE-05) — Task 1 done, Tasks 2-3 parked to end of project
+- [x] 05-02-PLAN.md — Low-battery indicator, server half (DEVICE-04) — Wave 1
+- [x] 05-03-PLAN.md — Low-battery indicator, device half + hardware bring-up (DEVICE-04) — Wave 2 (completed 2026-08-27, confirmed on real glass)
 
-### Phase 6: Final On-Glass Verification
+### Phase 6: Companion Configuration Web Interface
+
+**Note on origin (2026-08-27):** Promoted from REQUIREMENTS.md's v2 backlog, where it had lived as a "seed idea" since 2026-08-26 (`/gsd-discuss-phase 3`) and was expanded 2026-08-27 across two explore sessions (git commits `180fdd9`, `30f432f`, `8be8510`; seed notes `.planning/seeds/on-device-fault-icon.md` and the presence-adaptive-polling seed's sibling context) to also absorb view switching (superseding the physical-button concept), device health/battery status, airline-coverage monitoring, and a fault-icon affordance (CFG-05) — rather than staying three separate mechanisms. Promoted over four sibling seeds (AeroDataBox destination lookup, local RTL-SDR backup, presence-adaptive poll cadence, and the standalone device-local fault-icon fallback DEVICE-06) by explicit user choice.
+
+**Note on numbering (2026-08-27):** Originally added as Phase 7 (appended after the then-existing Phase 6: Final On-Glass Verification, per `/gsd-phase add`'s default of appending to the end). The user asked why it depended on Phase 6 and, once told that dependency was just the tool's append-to-end default rather than a real technical or sequencing need, asked for it to run *before* the final on-glass sign-off instead — consistent with that phase's own stated intent to be "the project's true last step... done once everything else is finished." Renumbered to Phase 6; Final On-Glass Verification became Phase 7 (see that phase's own numbering note for the full cross-reference list touched by this swap).
+
+**Note on scope (2026-08-27, `/gsd-discuss-phase 6`):** CFG-02 (view switching) removed — still nothing to switch to until a second view exists, moved back to v2 Requirements. In its place, discussion surfaced and the user chose to add seven new capabilities scoped as CFG-06 through CFG-12: a flight-history log, a manual poll trigger (rate-limited), airline-resolution statistics, a dark/light theme for the page itself, a live render preview, a gallery of recent renders, and — raised mid-discussion, after everything else was already settled — **runway selection (CFG-12)**: the device currently tracks only Orly's runway 3 (hardcoded); the two neighboring runways (06/24, 02/20) already have corridor geometry in `server/plane/detect.py` from the runway3-false-positive fix, currently used only to *exclude* their traffic, not to track it. This generalizes PLANE-01/02/03's detection logic (currently runway-3-specific) to be parameterized by a user-selected runway — a materially bigger change than the other CFG items, since it touches core detection code from Phase 1/2, not just a display/config layer over already-existing server data. CFG-01 (visual config) was narrowed during discussion to a DEPARTING/ARRIVING background-theme picker, constrained to variants Phase 7 validates on real glass — this reopens Phase 7's D-21 (see that phase's own scope note). Full discussion record: `06-CONTEXT.md`.
+
+**Goal:** A user can reach a password-protected companion web page — a new, separate service on its own nip.io subdomain, not touching the vendored device-protocol server — to choose a validated display theme, select which Orly runway is tracked, monitor the device's health and the ADS-B sources' reliability over time, browse recent flight/render history, see airline-coverage gaps, and debug the render pipeline directly, all without SSH access to the VPS.
+**Requirements**: CFG-01, CFG-03, CFG-04, CFG-05, CFG-06, CFG-07, CFG-08, CFG-09, CFG-10, CFG-11, CFG-12
+**Depends on:** Phase 5
+**Plans:** 11/12 plans executed
+
+Plans:
+**Wave 1**
+
+- [x] 06-01-PLAN.md — Config and history persistence foundation (`server/device_config.py` theme/runway registries, `server/history_db.py` SQLite store + Caddy battery-log tailer)
+- [x] 06-02-PLAN.md — Runway parameterization of the detection pipeline (CFG-12: `runways` block in the geofence, `select_aircraft_for_runway()`, all-providers-failed diagnostics)
+- [x] 06-03-PLAN.md — Panel unpack for the live preview (`unpack_panel()`, the inverse of `pack_panel()`, plus PNG encoding)
+- [x] 06-04-PLAN.md — Companion auth, layout shell and stylesheet (HMAC session cookie, single escaping helper, full UI-SPEC design system with dark/light and mobile)
+
+**Wave 2**
+
+- [x] 06-05-PLAN.md — Companion HTTP service and router (complete route table, whole-site auth gate, preview/gallery routes, manual poll trigger, five page stubs)
+- [x] 06-06-PLAN.md — Render pipeline: theme-aware colours, runway-aware labels, CFG-05 source-fault badge
+
+**Wave 3**
+
+- [x] 06-07-PLAN.md — Config page: theme picker (CFG-01), runway picker (CFG-12), poll trigger (CFG-07)
+- [x] 06-08-PLAN.md — Health page (CFG-03/CFG-05 landing) and Airlines page (CFG-04/CFG-08)
+- [x] 06-09-PLAN.md — History page (CFG-06) and Preview page (CFG-10/CFG-11)
+- [x] 06-10-PLAN.md — Poll-loop integration: config threading, history writes on state change, gallery retention, fault classification
+
+**Wave 4**
+
+- [x] 06-11-PLAN.md — Deployment (systemd unit, Caddy site block, durable access log, firewall deny, env template, push script, docs) and test-suite registration
+
+**Wave 5**
+
+- [ ] 06-12-PLAN.md — Live verification: runway-gate capture (closes Assumption A1), Caddy log-shape confirmation (closes Assumption A3), developer sign-off checkpoint
+
+### Phase 7: Final On-Glass Verification
 
 **Goal:** The project's true final sign-off, done once — not incrementally per phase — on the real, fully-finished device: Phase 3's shipped design (PT Serif Regular typography, the flat single-color background, the two-flight poster composition, per-airline dithered illustrations) is judged against actual Spectra 6 glass, the panel's still-interim Yellow/Red palette values are tuned by eye against the real ink, and every hardware-verification item this project has carried forward is closed out or explicitly recorded as a caveat. **This phase is not purely observational** — small font and structure corrections (a font-weight swap, a point-size adjustment, a geometry nudge for bezel clearance) are made directly here, based on what the glass actually shows, rather than deferred to a hypothetical future phase.
 
-**Note on origin (2026-08-26):** This phase's sole plan (06-01) is Phase 3's original fourth plan (03-04), moved here at the user's explicit request — "cause this will be my really last step." Rather than doing the on-glass sign-off mid-Phase-3, the user wants one comprehensive real-hardware pass at the very end of the project, after Phase 4 (CI/CD) and Phase 5 (Battery Life) are also done. **Phase 3's original on-glass success criteria moved here in full, not just by reference** — Phase 3 closed on its code/mechanism work alone; the visual sign-off below is entirely this phase's to own. See `06-01-PLAN.md`'s own Provenance Note for the full renumbering record, and Phase 3's "Note on the on-glass verification plan" for the other side of this move.
+**Note on origin (2026-08-26):** This phase's sole plan (07-01) is Phase 3's original fourth plan (03-04), moved here at the user's explicit request — "cause this will be my really last step." Rather than doing the on-glass sign-off mid-Phase-3, the user wants one comprehensive real-hardware pass at the very end of the project, after Phase 4 (CI/CD) and Phase 5 (Battery Life) are also done. **Phase 3's original on-glass success criteria moved here in full, not just by reference** — Phase 3 closed on its code/mechanism work alone; the visual sign-off below is entirely this phase's to own. See `07-01-PLAN.md`'s own Provenance Note for the full renumbering record, and Phase 3's "Note on the on-glass verification plan" for the other side of this move.
 
-**Depends on:** Phase 5 (sequential execution order — the plan's actual technical prerequisite is Phase 3's shipped render pipeline, already satisfied and complete)
+**Note on numbering (2026-08-27):** Renumbered from Phase 6 to Phase 7 to make room for the new Phase 6 (Companion Configuration Web Interface), which the user wanted to run first — consistent with this phase's own stated intent to be the true last step, done once everything else is finished. Directory, plan file, threat IDs (`T-06-01-*` → `T-07-01-*`) and the expectation-note ID (`N-06-01-01` → `N-07-01-01`) all renumbered accordingly; no content beyond identity strings changed. See `07-01-PLAN.md`'s own "Second Renumbering Note" for the full record.
+
+**Note on scope — D-21 reopened (2026-08-27, during Phase 6's `/gsd-discuss-phase 6`):** Phase 6's CFG-01 became a DEPARTING/ARRIVING background-theme picker, constrained to variants validated on real glass — which this phase is the only place that can happen. Success criterion 7 below is revised accordingly: instead of confirming Blue/Green unchanged, this phase now tests 2-3 alternate Blue/Green hue variants on the real panel (reopening `03-CONTEXT.md`'s D-21, previously "confirmed as 'parfait'" from screen previews only) and records the validated set for CFG-01 to expose. **Not yet reflected in `07-01-PLAN.md`'s own task detail/acceptance criteria** — that plan currently still assumes "Blue/Green confirmed unchanged" per the old criterion 7 wording; revise it when Phase 7 is next planned/re-verified, before executing Task 3.
+
+**Depends on:** Phase 6 (sequential execution order — the plan's actual technical prerequisite is Phase 3's shipped render pipeline, already satisfied and complete)
 **Requirements**: PLANE-01, PLANE-02 (the hardware-verified-legibility half of both — closing what Phase 3 could not close without the physical device)
 **Success Criteria** (what must be TRUE):
 
@@ -252,7 +299,7 @@ Plans:
   4. Overall poster composition reads as ambient art on the wall, not a data dump — a judgment call made with the frame in its current desk/temporary location as a provisional check; a final check once wall-mounted remains a caveat, not a blocker (D-03).
   5. PT Serif Regular's e-ink hairline-legibility risk (flagged in `server/assets/fonts/VENDOR.md`, never before checked on real glass) is judged per typographic role, including the previous-flight card's smallest text (16px/12px floor).
   6. Whether the frame/illustrations/text — positioned inside the old 64px safe-box band at a tighter 2.5%-of-width inset (D-26) — are clipped by the physical bezel is confirmed one way or the other.
-  7. `PALETTE_RGB`'s two still-interim triples (Yellow, Red) carry values tuned against the real panel; Blue and Green (already D-21-confirmed) are verified unchanged.
+  7. `PALETTE_RGB`'s two still-interim triples (Yellow, Red) carry values tuned against the real panel; 2-3 alternate Blue/Green DEPARTING/ARRIVING theme variants are tested on the real panel and the validated set is recorded for Phase 6's CFG-01 theme picker (reopens D-21 — see this phase's "Note on scope" above; supersedes the prior "verified unchanged" wording).
   8. Any small font-weight, font-size, or geometry correction the session's observations called for has been applied directly and re-confirmed on the glass — not just recorded for later. Only a genuine redesign need (a new font, a new asset, a different composition) is deferred as a scope question.
   9. The frame is left running live detection at the end of the session, not frozen on a synthetic test panel.
 
@@ -261,6 +308,32 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 06-01-PLAN.md — On-glass verification battery (RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) and the 02-UI-SPEC.md Colour addendum (moved from 03-04)
+- [ ] 07-01-PLAN.md — On-glass verification battery (RGB calibration, PT Serif legibility, bezel clipping, forced departure/arrival, long names, two-flight composition) and the 02-UI-SPEC.md Colour addendum (moved from 03-04)
 
 **UI hint**: no
+
+## Backlog
+
+### Phase 999.1: Battery status on companion web interface (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Surface the device's battery status and power consumption on the companion configuration web interface (built in Phase 6). Raised by the user mid-Phase-6-execution as a follow-up idea, not part of Phase 6's scope. Device firmware already reports battery voltage via the `X-Battery-Mv` poll header (see PROJECT.md firmware stack) — this would need a history/trend view added to the companion app, likely alongside or extending the CFG-03 health page's device-health section.
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.2: LED enable/disable toggle (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Allow the board's LEDs to be enabled/disabled from the companion web interface. Raised by the user mid-Phase-6-execution as a follow-up idea, not part of Phase 6's scope. Needs a device-side control path (new poll-response field or command) plus a companion UI toggle — likely lands on the config page (CFG-01/CFG-12's sibling) once a device command channel exists.
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)

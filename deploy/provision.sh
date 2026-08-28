@@ -35,7 +35,7 @@ echo "==> Creating service user and directory layout"
 id -u "${APP_USER}" >/dev/null 2>&1 || \
     useradd --system --home-dir "${APP_ROOT}" --create-home \
         --shell /usr/sbin/nologin "${APP_USER}"
-mkdir -p "${APP_ROOT}/server" "${APP_ROOT}/stub-server" "${APP_ROOT}/config" "${STATE_DIR}"
+mkdir -p "${APP_ROOT}/server" "${APP_ROOT}/stub-server" "${APP_ROOT}/companion" "${APP_ROOT}/config" "${STATE_DIR}"
 chown -R "${APP_USER}:${APP_USER}" "${APP_ROOT}"
 
 echo "==> Installing Python 3 and python3-venv"
@@ -63,6 +63,19 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | \
 apt-get update -qq
 apt-get install -y caddy
 
+echo "==> Granting caddy read access to the durable access log (CFG-03)"
+# server/poll_loop.py (user skypane) tails ${STATE_DIR}/caddy-access.log
+# every cycle for X-Battery-Mv telemetry (--caddy-log); caddy (user caddy)
+# is the one writing it via deploy/Caddyfile's `mode 640` log directive.
+# 640 alone is not enough - group ownership matters too, and Caddy's
+# FileWriter has no group= option of its own to set it explicitly. Adding
+# caddy to the skypane group plus setgid on STATE_DIR is what closes the
+# loop: setgid makes every new/rotated log file inherit group skypane
+# regardless of which user created it, and membership is what lets skypane
+# actually use that group-read bit.
+usermod -aG "${APP_USER}" caddy
+chmod g+ws "${STATE_DIR}"
+
 echo "==> Creating the Python virtualenv"
 if [ ! -d "${APP_ROOT}/venv" ]; then
     python3 -m venv "${APP_ROOT}/venv"
@@ -77,6 +90,7 @@ echo "==> Installing systemd unit files"
 install -m 644 "${HERE}/skypane-byos.service" /etc/systemd/system/skypane-byos.service
 install -m 644 "${HERE}/skypane-poll.service" /etc/systemd/system/skypane-poll.service
 install -m 644 "${HERE}/skypane-poll.timer" /etc/systemd/system/skypane-poll.timer
+install -m 644 "${HERE}/skypane-companion.service" /etc/systemd/system/skypane-companion.service
 
 echo "==> Installing the Caddyfile"
 if [ -n "${PUBLIC_HOST}" ]; then
@@ -95,6 +109,9 @@ systemctl daemon-reload
 # stub-server/ code in place first, which deploy.sh rsyncs and then starts.
 systemctl enable skypane-byos.service
 systemctl enable skypane-poll.timer
+# Same reasoning as above - the companion service needs companion/ code
+# in place first, which deploy.sh also rsyncs and then starts.
+systemctl enable skypane-companion.service
 systemctl enable --now caddy
 
 echo "==> Configuring the firewall (ufw)"
@@ -106,6 +123,10 @@ ufw allow 443/tcp
 # incoming policy - documents intent and survives a future accidental
 # "ufw allow" for something else being added carelessly.
 ufw deny 8642/tcp
+# Same discipline, for the companion configuration interface's own
+# loopback port - Caddy is the only thing that should ever reach it
+# (deploy/Caddyfile's companion site block).
+ufw deny 8643/tcp
 ufw --force enable
 
 echo "==> Hardening SSH (key-only access)"

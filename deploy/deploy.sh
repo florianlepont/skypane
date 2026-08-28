@@ -18,13 +18,14 @@
 # password prompt has no tty to answer over a non-interactive `ssh host
 # "sudo ..."` call and will hang/fail.
 #
-# Rsyncs server/ and stub-server/ to the VPS, reinstalls pinned Python
-# requirements only if requirements.txt changed, restarts the byos
-# service, starts the poll timer (idempotent if already running), and
-# prints the last few journald lines for both units so a bad deploy is
-# visible immediately. Never touches deploy/skypane.env - that file is
-# created once, by hand, directly on the VPS (deploy/README.md), and lives
-# outside the server/ and stub-server/ directories this script rsyncs.
+# Rsyncs server/, stub-server/, and companion/ to the VPS, reinstalls
+# pinned Python requirements only if requirements.txt changed, restarts
+# the byos and companion services, starts the poll timer (idempotent if
+# already running), and prints the last few journald lines for all three
+# units so a bad deploy is visible immediately. Never touches
+# deploy/skypane.env - that file is created once, by hand, directly on the
+# VPS (deploy/README.md), and lives outside the server/, stub-server/, and
+# companion/ directories this script rsyncs.
 set -euo pipefail
 
 APP_ROOT="/opt/skypane"
@@ -48,6 +49,11 @@ rsync -az --delete --rsync-path="sudo -u skypane rsync" \
     --exclude '__pycache__' --exclude '*.pyc' --exclude 'skypane.env' \
     "${REPO_ROOT}/stub-server/" "${SSH_TARGET}:${APP_ROOT}/stub-server/"
 
+echo "==> Syncing companion/ to ${SSH_TARGET}:${APP_ROOT}/companion/"
+rsync -az --delete --rsync-path="sudo -u skypane rsync" \
+    --exclude '__pycache__' --exclude '*.pyc' --exclude 'skypane.env' \
+    "${REPO_ROOT}/companion/" "${SSH_TARGET}:${APP_ROOT}/companion/"
+
 echo "==> Syncing adsb-test/runway3.json (production geofence config, not a test fixture -"
 echo "    server/poll_loop.py's --geofence flag and detect.load_geofence() need this file"
 echo "    at runtime for every poll cycle) to ${SSH_TARGET}:${APP_ROOT}/config/runway3.json"
@@ -65,15 +71,17 @@ else
 fi
 
 echo "==> Fixing ownership after rsync (defensive no-op - rsync above already writes as skypane via sudo)"
-ssh "${SSH_TARGET}" "sudo chown -R skypane:skypane ${APP_ROOT}/server ${APP_ROOT}/stub-server"
+ssh "${SSH_TARGET}" "sudo chown -R skypane:skypane ${APP_ROOT}/server ${APP_ROOT}/stub-server ${APP_ROOT}/companion"
 
-echo "==> Restarting skypane-byos.service and starting skypane-poll.timer"
-ssh "${SSH_TARGET}" "sudo systemctl restart skypane-byos.service && sudo systemctl start skypane-poll.timer"
+echo "==> Restarting skypane-byos.service and skypane-companion.service, starting skypane-poll.timer"
+ssh "${SSH_TARGET}" "sudo systemctl restart skypane-byos.service && sudo systemctl restart skypane-companion.service && sudo systemctl start skypane-poll.timer"
 
 echo "==> Recent journald output"
 echo "--- skypane-byos ---"
 ssh "${SSH_TARGET}" "sudo journalctl -u skypane-byos --no-pager -n 10"
 echo "--- skypane-poll ---"
 ssh "${SSH_TARGET}" "sudo journalctl -u skypane-poll --no-pager -n 10"
+echo "--- skypane-companion ---"
+ssh "${SSH_TARGET}" "sudo journalctl -u skypane-companion --no-pager -n 10"
 
 echo "==> Deploy complete."

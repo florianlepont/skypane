@@ -70,10 +70,12 @@ Usage:
     server/.venv/bin/python3 server/test_poll_loop.py
 """
 import contextlib
+import hashlib
 import io
 import json
 import os
 import shutil
+import sqlite3
 import sys
 import tempfile
 
@@ -84,7 +86,49 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 22
+EXPECTED_CHECK_COUNT = 43
+
+# Pins the default-config panel.bin digest produced against the FLIGHT1
+# fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
+# verified byte-identical against the pre-06-10 implementation for an
+# equivalent fixture before this plan's config/theme/runway/fault plumbing
+# landed (06-10-SUMMARY.md records the exact comparison). Proves the
+# default rendering path did not move.
+#
+# RE-VERIFIED (not re-pinned) at the 2026-08-28 merge that brought in the
+# mechanism-C display pacing and the DEVICE-04 battery icon: this digest was
+# UNCHANGED by both when compared on macOS.
+#
+# RE-PINNED 2026-08-28 for Linux/CI: the value above was computed and
+# verified only on macOS (this branch's first CI run, on GitHub Actions'
+# ubuntu-latest, produced a *different* digest -
+# 5e7aea40e6772b646f934b1142bd9e387bae2e90824fd0d135b224a1d1434954 - from
+# the exact same code and the exact same vendored TTF bytes). This is a
+# byte-for-byte anti-aliased-text rasterization difference between macOS's
+# and Linux's Pillow/FreeType builds, not a logic change: running the
+# unmodified pre-merge code locally on macOS still reproduces the old
+# digest, so nothing in this repo's rendering logic moved. Linux is the
+# authoritative platform here - it's what both CI and the production VPS
+# run - so the pin below is the Linux-computed value. A future re-pin from
+# a local macOS run will fail on CI again for the same reason; always
+# re-pin from the CI log's own FAIL output, not from a local run.
+#
+# RE-PINNED AGAIN 2026-08-28, merging the illustration-crop-text-margin
+# debug session (both passes: text-gap and horizontal/vertical centering
+# now follow each illustration's real painted pixels, server/plane/render.py)
+# with origin/main's Phase 6 companion-app plumbing on top of the prior
+# pin's baseline - the FLIGHT1 fixture's rendered pixels genuinely move
+# (that is the fix's entire point), so a new digest is expected, not a
+# regression. Computed on macOS AND independently inside a Linux container
+# (`python:3.12-slim`, Pillow==12.3.0 pinned from server/requirements.txt,
+# matching CI's ubuntu-latest setup) - both produced the IDENTICAL value
+# below, unlike the prior re-pin above. That convergence is why this one
+# was pinned directly rather than round-tripped through a CI failure: the
+# macOS/Linux FreeType difference that forced the previous re-pin does not
+# reproduce with this Pillow version. If CI disagrees anyway, re-pin from
+# its own FAIL output per the standing rule above - don't assume this
+# comment is still accurate for a future Pillow bump.
+_DEFAULT_CONFIG_DIGEST = "ea555e8b68e9387bef30dd93088c712707b0c30ad1bdf53a336841c04ea8e5b3"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
@@ -149,6 +193,10 @@ def main():
         print("FAIL import server.poll_loop - %r" % (exc,))
         print("poll-loop: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
         return 1
+
+    import server.device_config as device_config
+    import server.plane.detect as detect
+    from server import history_db
 
     # Install the fake clock for the WHOLE harness (restored in the outer
     # finally). Checks 1-8 predate display pacing and are about the two-deep
@@ -227,32 +275,43 @@ def main():
             return True, ""
         check("a third distinct detection shifts again - previous_flight tracks only the immediately-preceding detection (two-deep)", _third_detection_shifts_again_two_deep_only)
 
-        # 5. render.render_panel() was actually called with the shifted
+        # 5. render.build_canvas() was actually called with the shifted
         # previous_flight/previous_route/previous_state (not just recorded
         # in poll_state.json but plumbed through to the render call) - spy
-        # on render.render_panel via the module poll_loop already imported.
+        # on render.build_canvas via the module poll_loop already imported.
+        # (plan 06-10 Task 2 restructured poll_loop.py's render call sites
+        # from render.render_panel() to render.build_canvas() +
+        # panel_format.pack_panel(), so the gallery hook can archive the
+        # pre-pack canvas without a second render pass - this check follows
+        # that restructuring rather than testing a call site that no longer
+        # exists.)
         def _previous_flight_is_plumbed_into_render_panel():
             import server.plane.render as render
 
             captured = {}
-            original = render.render_panel
+            original = render.build_canvas
 
-            def _spy(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None, battery_low=False):
+            def _spy(flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None, **kwargs):
+                # **kwargs (plan 06-10): forward-compatible with run_once()'s
+                # theme_id/runway_id/source_fault keyword arguments and with
+                # 05-02's battery_low - this check only cares about
+                # previous_flight/previous_state, so it passes anything else
+                # straight through unexamined.
                 captured["previous_flight"] = previous_flight
                 captured["previous_state"] = previous_state
-                return original(flight, state, route=route, previous_flight=previous_flight, previous_route=previous_route, previous_state=previous_state, battery_low=battery_low)
+                return original(flight, state, route=route, previous_flight=previous_flight, previous_route=previous_route, previous_state=previous_state, **kwargs)
 
-            poll_loop.render.render_panel = _spy
+            poll_loop.render.build_canvas = _spy
             try:
                 _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                 poll_loop.run_once(snapshot=_snapshot("dddddd", "FLIGHT4 ", CLIMB), state_dir=tmpdir, geofence=GEOFENCE_PATH)
             finally:
-                poll_loop.render.render_panel = original
+                poll_loop.render.build_canvas = original
 
             if captured.get("previous_flight", {}).get("hex") != "cccccc":
-                return False, "render_panel() was called with previous_flight=%r, expected hex=cccccc" % (captured.get("previous_flight"),)
+                return False, "build_canvas() was called with previous_flight=%r, expected hex=cccccc" % (captured.get("previous_flight"),)
             return True, ""
-        check("render.render_panel() is actually called with the shifted previous_flight (not just recorded in poll_state.json)", _previous_flight_is_plumbed_into_render_panel)
+        check("render.build_canvas() is actually called with the shifted previous_flight (not just recorded in poll_state.json)", _previous_flight_is_plumbed_into_render_panel)
 
         # NOTE: checks 1-5 above already populate poll_state.json's
         # unresolved_prefixes registry as a harmless side effect - FLIGHT1
@@ -980,6 +1039,564 @@ def main():
             "cycle, and even with no aircraft detected at all)",
             _cross_cycle_persistence_and_hold_branch_rerender,
         )
+
+        # --- plan 06-10: config/theme/runway threading, CFG-05 fault
+        # classification and its transition gate, history write gating,
+        # gallery retention/pruning, failure containment of both hooks, the
+        # default-path byte identity, and the cross-module runway-id
+        # agreement. Every check below stubs enrich.default_transport (no
+        # live network call) and uses its own fresh temp state directory,
+        # never the shared `tmpdir` checks 1-8 already populated. ---------
+
+        original_transport = enrich.default_transport
+        enrich.default_transport = lambda callsign, timeout=None: (404, None)
+        try:
+
+            # 9. The cross-module consistency check this phase has been
+            # deferring: device_config.RUNWAYS and the geofence file's own
+            # runway id set must agree exactly - plans 06-01/06-02 each
+            # defined one of those key sets independently so they could be
+            # built in parallel.
+            def _runway_ids_agree_across_device_config_and_geofence():
+                geofence = detect.load_geofence(GEOFENCE_PATH)
+                geofence_ids = set(geofence.get("runways") or {})
+                config_ids = set(device_config.RUNWAYS)
+                if config_ids != geofence_ids:
+                    return False, (
+                        "device_config.RUNWAYS=%r does not match adsb-test/runway3.json's runways=%r - "
+                        "the two runway-id sets must agree" % (sorted(config_ids), sorted(geofence_ids))
+                    )
+                return True, ""
+            check(
+                "device_config.RUNWAYS and the geofence file's own runway id set agree exactly",
+                _runway_ids_agree_across_device_config_and_geofence,
+            )
+
+            # 10. Byte-identity regression gate against the pinned pre-06-10
+            # digest (default config, FLIGHT1 fixture).
+            def _default_config_byte_identity():
+                digest_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-digest-")
+                try:
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=digest_dir, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(digest_dir, "panel.bin"), "rb") as fh:
+                        data = fh.read()
+                    digest = hashlib.sha256(data).hexdigest()
+                    if digest != _DEFAULT_CONFIG_DIGEST:
+                        return False, "panel.bin digest %s != pinned %s" % (digest, _DEFAULT_CONFIG_DIGEST)
+                    return True, ""
+                finally:
+                    shutil.rmtree(digest_dir, ignore_errors=True)
+            check(
+                "a default config against the FLIGHT1 fixture reproduces the pinned pre-06-10 panel.bin digest",
+                _default_config_byte_identity,
+            )
+
+            # 11. A saved non-default runway reaches
+            # detect.select_aircraft_for_runway on the injected-snapshot
+            # branch.
+            def _non_default_runway_reaches_select_aircraft_for_runway():
+                runway_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-runway-")
+                try:
+                    device_config.save_device_config(runway_dir, tracked_runway="06-24")
+                    captured = {}
+                    original = detect.select_aircraft_for_runway
+
+                    def _spy(aircraft, geofence, runway_id=device_config.DEFAULT_RUNWAY_ID):
+                        captured["runway_id"] = runway_id
+                        return original(aircraft, geofence, runway_id=runway_id)
+
+                    poll_loop.detect.select_aircraft_for_runway = _spy
+                    try:
+                        poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=runway_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.select_aircraft_for_runway = original
+                    if captured.get("runway_id") != "06-24":
+                        return False, "select_aircraft_for_runway received runway_id=%r, expected '06-24'" % (captured.get("runway_id"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(runway_dir, ignore_errors=True)
+            check(
+                "a saved non-default tracked runway reaches detect.select_aircraft_for_runway on the injected-snapshot branch",
+                _non_default_runway_reaches_select_aircraft_for_runway,
+            )
+
+            # 12. A saved non-default runway reaches
+            # detect.poll_current_aircraft on the live branch (hermetic:
+            # poll_current_aircraft itself is monkeypatched, no network).
+            def _non_default_runway_reaches_poll_current_aircraft():
+                runway_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-runway-live-")
+                try:
+                    device_config.save_device_config(runway_dir, tracked_runway="02-20")
+                    captured = {}
+
+                    def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+                        captured["runway_id"] = runway_id
+                        if diagnostics is not None:
+                            diagnostics.update({"queried": [], "failed": [], "selected": [], "disagreement": False, "runway_id": runway_id})
+                        return None
+
+                    original = poll_loop.detect.poll_current_aircraft
+                    poll_loop.detect.poll_current_aircraft = _fake_poll
+                    try:
+                        poll_loop.run_once(state_dir=runway_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.poll_current_aircraft = original
+                    if captured.get("runway_id") != "02-20":
+                        return False, "poll_current_aircraft received runway_id=%r, expected '02-20'" % (captured.get("runway_id"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(runway_dir, ignore_errors=True)
+            check(
+                "a saved non-default tracked runway reaches detect.poll_current_aircraft on the live branch",
+                _non_default_runway_reaches_poll_current_aircraft,
+            )
+
+            # 13. An all-providers-failed diagnostics report yields a true
+            # source_fault flag, reaching render.build_canvas.
+            def _all_failed_diagnostics_yields_true_fault_flag():
+                fault_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-fault-")
+                try:
+                    def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+                        if diagnostics is not None:
+                            diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": ["adsbfi", "adsblol"], "selected": [], "disagreement": False, "runway_id": runway_id})
+                        return None
+
+                    captured = {}
+                    original_poll = poll_loop.detect.poll_current_aircraft
+                    original_build = poll_loop.render.build_canvas
+
+                    def _spy_build(flight, state, **kwargs):
+                        captured["source_fault"] = kwargs.get("source_fault")
+                        return original_build(flight, state, **kwargs)
+
+                    poll_loop.detect.poll_current_aircraft = _fake_poll
+                    poll_loop.render.build_canvas = _spy_build
+                    try:
+                        result = poll_loop.run_once(state_dir=fault_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.poll_current_aircraft = original_poll
+                        poll_loop.render.build_canvas = original_build
+                    if result.get("source_fault") is not True:
+                        return False, "run_once() result source_fault=%r, expected True" % (result.get("source_fault"),)
+                    if captured.get("source_fault") is not True:
+                        return False, "render.build_canvas() received source_fault=%r, expected True" % (captured.get("source_fault"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(fault_dir, ignore_errors=True)
+            check(
+                "an all-providers-failed diagnostics report yields a true source_fault flag passed to render.build_canvas",
+                _all_failed_diagnostics_yields_true_fault_flag,
+            )
+
+            # 14. Providers queried successfully with nothing selected
+            # leaves the fault flag false - the opposing case to check 13.
+            def _successful_query_no_selection_yields_false_fault_flag():
+                fault_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-nofault-")
+                try:
+                    def _fake_poll(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+                        if diagnostics is not None:
+                            diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": [], "selected": [], "disagreement": False, "runway_id": runway_id})
+                        return None
+
+                    original = poll_loop.detect.poll_current_aircraft
+                    poll_loop.detect.poll_current_aircraft = _fake_poll
+                    try:
+                        result = poll_loop.run_once(state_dir=fault_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.poll_current_aircraft = original
+                    if result.get("source_fault") is not False:
+                        return False, "run_once() result source_fault=%r, expected False" % (result.get("source_fault"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(fault_dir, ignore_errors=True)
+            check(
+                "providers queried successfully with nothing selected leaves the source_fault flag false",
+                _successful_query_no_selection_yields_false_fault_flag,
+            )
+
+            # 15. The injected-snapshot branch never sets the fault flag,
+            # even against a previously-persisted true value.
+            def _injected_snapshot_branch_never_sets_fault():
+                snap_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-snapfault-")
+                try:
+                    with history_db.open_db(snap_dir) as conn:
+                        history_db.set_meta(conn, history_db.META_SOURCE_FAULT, "True")
+                    result = poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=snap_dir, geofence=GEOFENCE_PATH)
+                    if result.get("source_fault") is not False:
+                        return False, "injected-snapshot branch returned source_fault=%r, expected False" % (result.get("source_fault"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(snap_dir, ignore_errors=True)
+            check(
+                "the injected-snapshot branch never sets the source_fault flag, regardless of a previously-persisted true value",
+                _injected_snapshot_branch_never_sets_fault,
+            )
+
+            # 16. T-06-10-04: two consecutive cycles with an unchanged true
+            # fault flag and no new detection write panel.bin exactly once.
+            def _fault_transition_gated_not_value():
+                trans_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-transition-")
+                try:
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=trans_dir, geofence=GEOFENCE_PATH)
+
+                    def _fake_poll_all_failed(geofence, timeout=10.0, providers=None, runway_id=device_config.DEFAULT_RUNWAY_ID, diagnostics=None):
+                        if diagnostics is not None:
+                            diagnostics.update({"queried": ["adsbfi", "adsblol"], "failed": ["adsbfi", "adsblol"], "selected": [], "disagreement": False, "runway_id": runway_id})
+                        return None
+
+                    original = poll_loop.detect.poll_current_aircraft
+                    poll_loop.detect.poll_current_aircraft = _fake_poll_all_failed
+                    try:
+                        r1 = poll_loop.run_once(state_dir=trans_dir, geofence=GEOFENCE_PATH)
+                        r2 = poll_loop.run_once(state_dir=trans_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.poll_current_aircraft = original
+                    writes = sum(1 for r in (r1, r2) if r.get("panel_changed"))
+                    if writes != 1:
+                        return False, "two consecutive cycles with an unchanged true fault flag wrote panel.bin %d times, expected exactly 1" % (writes,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(trans_dir, ignore_errors=True)
+            check(
+                "two consecutive cycles with an unchanged true fault flag and no new detection write panel.bin exactly once, not twice",
+                _fault_transition_gated_not_value,
+            )
+
+            # 17. The log line gains theme=/tracked_runway=/source_fault=
+            # fields and stays a single print() per cycle.
+            def _log_line_gains_theme_runway_fault_fields():
+                log_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-logfields-")
+                try:
+                    buf = io.StringIO()
+                    with contextlib.redirect_stdout(buf):
+                        poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=log_dir, geofence=GEOFENCE_PATH)
+                    lines = [ln for ln in buf.getvalue().splitlines() if ln.startswith("poll_loop: hex=")]
+                    if len(lines) != 1:
+                        return False, "expected exactly one 'poll_loop: hex=' line, found %d" % (len(lines),)
+                    line = lines[0]
+                    for field in ("theme=", "tracked_runway=", "source_fault="):
+                        if field not in line:
+                            return False, "log line missing new field %s: %s" % (field, line)
+                    return True, ""
+                finally:
+                    shutil.rmtree(log_dir, ignore_errors=True)
+            check(
+                "the poll_loop: log line gains theme=/tracked_runway=/source_fault= fields and stays a single print() per cycle",
+                _log_line_gains_theme_runway_fault_fields,
+            )
+
+            # 18. Detecting a new aircraft writes exactly one runway_events
+            # row; re-detecting it unchanged writes no further row.
+            def _history_row_written_only_on_hex_transition():
+                hist_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-hist-hex-")
+                try:
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=hist_dir, geofence=GEOFENCE_PATH)
+                    with history_db.open_db(hist_dir) as conn:
+                        count1 = len(history_db.recent_runway_events(conn, limit=100))
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=hist_dir, geofence=GEOFENCE_PATH)
+                    with history_db.open_db(hist_dir) as conn:
+                        count2 = len(history_db.recent_runway_events(conn, limit=100))
+                    if count1 != 1:
+                        return False, "first-ever detection produced %d runway_events rows, expected exactly 1" % (count1,)
+                    if count2 != 1:
+                        return False, "re-detecting the same hex with an unchanged state produced %d total rows, expected still 1" % (count2,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(hist_dir, ignore_errors=True)
+            check(
+                "detecting a new aircraft writes exactly one runway_events row; re-detecting it unchanged writes no further row",
+                _history_row_written_only_on_hex_transition,
+            )
+
+            # 19. A confirmed_state flip on the same hex writes a new row.
+            def _history_row_written_on_confirmed_state_flip():
+                hist_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-hist-state-")
+                try:
+                    DESCEND = -2400
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=hist_dir, geofence=GEOFENCE_PATH)
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", DESCEND), state_dir=hist_dir, geofence=GEOFENCE_PATH)
+                    with history_db.open_db(hist_dir) as conn:
+                        rows = history_db.recent_runway_events(conn, limit=100)
+                    if len(rows) != 2:
+                        return False, "a confirmed_state flip on the same hex produced %d total rows, expected 2" % (len(rows),)
+                    states = sorted(r["confirmed_state"] for r in rows)
+                    if states != ["arriving", "departing"]:
+                        return False, "expected one departing and one arriving row, got %r" % (states,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(hist_dir, ignore_errors=True)
+            check(
+                "a confirmed_state flip on the same hex writes a new runway_events row",
+                _history_row_written_on_confirmed_state_flip,
+            )
+
+            # 20. A corroboration flip on the same hex/state writes a new
+            # row - detect.select_aircraft_for_runway is monkeypatched
+            # (the injected-snapshot branch never sets "corroborated"
+            # itself) so this stays hermetic and independent of live
+            # cross-source agreement.
+            def _history_row_written_on_corroboration_flip():
+                hist_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-hist-corrob-")
+                try:
+                    base_flight = {
+                        "hex": "aaaaaa", "callsign": "FLIGHT1", "aircraft_type": None,
+                        "altitude_ft": 450.0, "on_ground": False, "vertical_rate_fpm": CLIMB,
+                        "lat": 48.7233, "lon": 2.3794, "gs": 137.1, "seen_pos": 1.0,
+                        "along_track_m": 0.0, "cross_track_m": 0.0, "track_deg": None,
+                        "track_deviation_deg": None, "selected_runway": "3",
+                    }
+                    calls = {"n": 0}
+                    original = poll_loop.detect.select_aircraft_for_runway
+
+                    def _spy(aircraft, geofence, runway_id=device_config.DEFAULT_RUNWAY_ID):
+                        calls["n"] += 1
+                        flight = dict(base_flight)
+                        flight["corroborated"] = True if calls["n"] == 1 else False
+                        return flight
+
+                    poll_loop.detect.select_aircraft_for_runway = _spy
+                    try:
+                        poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=hist_dir, geofence=GEOFENCE_PATH)
+                        poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=hist_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.select_aircraft_for_runway = original
+                    with history_db.open_db(hist_dir) as conn:
+                        rows = history_db.recent_runway_events(conn, limit=100)
+                    if len(rows) != 2:
+                        return False, "a corroboration flip on the same hex/state produced %d total rows, expected 2" % (len(rows),)
+                    corroborated_values = sorted(r["corroborated"] for r in rows)
+                    if corroborated_values != ["False", "True"]:
+                        return False, "expected one True and one False corroborated row, got %r" % (corroborated_values,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(hist_dir, ignore_errors=True)
+            check(
+                "a corroboration flip on the same hex/confirmed_state writes a new runway_events row",
+                _history_row_written_on_corroboration_flip,
+            )
+
+            # 21. The pipeline-run meta timestamp is rewritten on every
+            # cycle, including one that writes no runway_events row.
+            def _pipeline_run_meta_updated_every_cycle():
+                meta_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-meta-")
+                try:
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=meta_dir, geofence=GEOFENCE_PATH)
+                    # A known sentinel in between makes the second (no-new-
+                    # row) cycle's write provable without depending on
+                    # wall-clock time actually advancing between two fast
+                    # consecutive calls (meta timestamps are second-precision).
+                    with history_db.open_db(meta_dir) as conn:
+                        history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, "SENTINEL")
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=meta_dir, geofence=GEOFENCE_PATH)
+                    with history_db.open_db(meta_dir) as conn:
+                        ts_after = history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)
+                        rows = history_db.recent_runway_events(conn, limit=100)
+                    if len(rows) != 1:
+                        return False, "expected the second (unchanged) cycle to write no new row, found %d total" % (len(rows),)
+                    if ts_after == "SENTINEL" or not ts_after:
+                        return False, "pipeline-run meta timestamp was not rewritten on a no-new-row cycle: %r" % (ts_after,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(meta_dir, ignore_errors=True)
+            check(
+                "the pipeline-run meta timestamp updates on every cycle, including one that writes no runway_events row",
+                _pipeline_run_meta_updated_every_cycle,
+            )
+
+            # 22. A changed panel saves one gallery image; an unchanged
+            # cycle saves none.
+            def _gallery_archives_only_changed_panels():
+                gal_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-gallery-changed-")
+                try:
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=gal_dir, geofence=GEOFENCE_PATH)
+                    entries_after_1 = os.listdir(os.path.join(gal_dir, "gallery"))
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=gal_dir, geofence=GEOFENCE_PATH)
+                    entries_after_2 = os.listdir(os.path.join(gal_dir, "gallery"))
+                    if len(entries_after_1) != 1:
+                        return False, "a changed-bytes cycle produced %d gallery entries, expected 1" % (len(entries_after_1),)
+                    if len(entries_after_2) != len(entries_after_1):
+                        return False, "an unchanged-bytes cycle changed the gallery entry count: %d -> %d" % (len(entries_after_1), len(entries_after_2))
+                    return True, ""
+                finally:
+                    shutil.rmtree(gal_dir, ignore_errors=True)
+            check(
+                "a panel write with changed bytes saves one image into the gallery; an unchanged-bytes cycle saves none",
+                _gallery_archives_only_changed_panels,
+            )
+
+            # 23. The gallery never holds more than GALLERY_MAX_ENTRIES;
+            # the oldest entries are removed first.
+            def _gallery_prunes_to_max_entries():
+                cap_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-gallery-cap-")
+                try:
+                    gallery_dir = os.path.join(cap_dir, "gallery")
+                    os.makedirs(gallery_dir)
+                    for i in range(30):
+                        with open(os.path.join(gallery_dir, "2020-01-01T00-00-%02d+00-00.png" % i), "wb") as fh:
+                            fh.write(b"x")
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=cap_dir, geofence=GEOFENCE_PATH)
+                    entries = sorted(os.listdir(gallery_dir))
+                    if len(entries) != poll_loop.GALLERY_MAX_ENTRIES:
+                        return False, "gallery holds %d entries after a changed cycle, expected exactly GALLERY_MAX_ENTRIES=%d" % (len(entries), poll_loop.GALLERY_MAX_ENTRIES)
+                    if "2020-01-01T00-00-00+00-00.png" in entries:
+                        return False, "the oldest seeded entry was not pruned: %r" % (entries,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(cap_dir, ignore_errors=True)
+            check(
+                "the gallery never holds more than GALLERY_MAX_ENTRIES; the oldest entries are removed first",
+                _gallery_prunes_to_max_entries,
+            )
+
+            # 24. A read-only gallery directory does not fail the cycle.
+            def _readonly_gallery_dir_does_not_fail_cycle():
+                ro_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-gallery-ro-")
+                try:
+                    gallery_dir = os.path.join(ro_dir, "gallery")
+                    os.makedirs(gallery_dir)
+                    os.chmod(gallery_dir, 0o500)
+                    try:
+                        result = poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=ro_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        os.chmod(gallery_dir, 0o700)
+                    if not result.get("panel_changed"):
+                        return False, "run_once() reported panel_changed=%r, expected True" % (result.get("panel_changed"),)
+                    if not os.path.exists(os.path.join(ro_dir, "panel.bin")):
+                        return False, "panel.bin was not written when the gallery directory was read-only"
+                    return True, ""
+                finally:
+                    shutil.rmtree(ro_dir, ignore_errors=True)
+            check(
+                "a read-only gallery directory does not fail the cycle - run_once() still returns and panel.bin is still written",
+                _readonly_gallery_dir_does_not_fail_cycle,
+            )
+
+            # 25. A history.db failure (open_db raising) is caught and
+            # logged without failing the cycle or leaving panel.bin
+            # unwritten.
+            def _history_write_failure_does_not_fail_cycle():
+                hist_fail_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-histfail-")
+                try:
+                    def _boom(*args, **kwargs):
+                        raise sqlite3.OperationalError("simulated lock")
+
+                    original_open_db = poll_loop.history_db.open_db
+                    poll_loop.history_db.open_db = _boom
+                    try:
+                        result = poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=hist_fail_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.history_db.open_db = original_open_db
+                    if not result.get("panel_changed"):
+                        return False, "run_once() reported panel_changed=%r, expected True" % (result.get("panel_changed"),)
+                    if not os.path.exists(os.path.join(hist_fail_dir, "panel.bin")):
+                        return False, "panel.bin was not written when history_db.open_db raised"
+                    return True, ""
+                finally:
+                    shutil.rmtree(hist_fail_dir, ignore_errors=True)
+            check(
+                "a history.db failure (open_db raising) is caught and logged without failing the cycle or leaving panel.bin unwritten",
+                _history_write_failure_does_not_fail_cycle,
+            )
+
+            # 26. device_config.json is byte-identical before and after a
+            # poll cycle - poll_loop.py reads it and never writes it.
+            def _poll_loop_never_writes_device_config():
+                cfg_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cfgwrite-")
+                try:
+                    device_config.save_device_config(cfg_dir, theme="sky", tracked_runway="3")
+                    path = device_config.device_config_path(cfg_dir)
+                    with open(path, "rb") as fh:
+                        before = fh.read()
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=cfg_dir, geofence=GEOFENCE_PATH)
+                    with open(path, "rb") as fh:
+                        after = fh.read()
+                    if before != after:
+                        return False, "device_config.json changed after a poll cycle - poll_loop.py must only ever read it"
+                    return True, ""
+                finally:
+                    shutil.rmtree(cfg_dir, ignore_errors=True)
+            check(
+                "device_config.json is byte-identical before and after a poll cycle - poll_loop.py reads it and never writes it",
+                _poll_loop_never_writes_device_config,
+            )
+
+            # 27. A corrupted device_config.json (invalid JSON) still
+            # yields a completed cycle using the documented defaults -
+            # load_device_config() is documented never to raise.
+            def _corrupted_device_config_falls_back_to_defaults():
+                bad_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-badcfg-")
+                try:
+                    os.makedirs(bad_dir, exist_ok=True)
+                    with open(device_config.device_config_path(bad_dir), "w") as fh:
+                        fh.write("{not valid json")
+                    result = poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=bad_dir, geofence=GEOFENCE_PATH)
+                    if result.get("theme") != device_config.DEFAULT_THEME_ID:
+                        return False, "corrupted device_config.json yielded theme=%r, expected the default %r" % (result.get("theme"), device_config.DEFAULT_THEME_ID)
+                    if result.get("tracked_runway") != device_config.DEFAULT_RUNWAY_ID:
+                        return False, "corrupted device_config.json yielded tracked_runway=%r, expected the default %r" % (result.get("tracked_runway"), device_config.DEFAULT_RUNWAY_ID)
+                    return True, ""
+                finally:
+                    shutil.rmtree(bad_dir, ignore_errors=True)
+            check(
+                "a corrupted device_config.json (invalid JSON) still yields a completed cycle using the documented defaults",
+                _corrupted_device_config_falls_back_to_defaults,
+            )
+
+            # 28. --caddy-log wiring (this fix): a run_once() cycle given a
+            # caddy_log path ingests any new /device/v1/display lines into
+            # device_health. ingest_caddy_battery_log() itself was already
+            # unit-tested in test_config_history.py; this proves poll_loop.py
+            # actually calls it, which nothing did before this fix.
+            def _caddy_log_ingestion_wired_into_poll_cycle():
+                log_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-caddylog-")
+                try:
+                    log_path = os.path.join(log_dir, "caddy-access.log")
+                    with open(log_path, "w") as fh:
+                        fh.write(json.dumps({
+                            "ts": 1_700_000_000.0,
+                            "request": {
+                                "uri": "/device/v1/display",
+                                "headers": {"X-Battery-Mv": ["4090"]},
+                            },
+                        }) + "\n")
+                    poll_loop.run_once(
+                        snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB),
+                        state_dir=log_dir, geofence=GEOFENCE_PATH, caddy_log=log_path,
+                    )
+                    with history_db.open_db(log_dir) as conn:
+                        rows = history_db.recent_device_health(conn, limit=5)
+                    if not any(r.get("battery_mv") == 4090 for r in rows):
+                        return False, "expected a device_health row with battery_mv=4090, got %r" % (rows,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(log_dir, ignore_errors=True)
+            check(
+                "a run_once() cycle given --caddy-log ingests a real access-log line into device_health",
+                _caddy_log_ingestion_wired_into_poll_cycle,
+            )
+
+            # 29. Omitting --caddy-log (the default) is a pure no-op - no
+            # exception, no device_health rows - so every prior test in this
+            # file (none of which pass caddy_log) still exercises the
+            # unmodified default path.
+            def _caddy_log_omitted_is_noop():
+                none_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-nocaddylog-")
+                try:
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=none_dir, geofence=GEOFENCE_PATH)
+                    with history_db.open_db(none_dir) as conn:
+                        rows = history_db.recent_device_health(conn, limit=5)
+                    if rows:
+                        return False, "expected zero device_health rows with caddy_log omitted, got %r" % (rows,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(none_dir, ignore_errors=True)
+            check(
+                "omitting --caddy-log (the default) ingests nothing and raises nothing",
+                _caddy_log_omitted_is_noop,
+            )
+
+        finally:
+            enrich.default_transport = original_transport
 
     finally:
         poll_loop.now_s = _real_now_s

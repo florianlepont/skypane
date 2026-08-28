@@ -1,0 +1,40 @@
+[Unit]
+Description=SkyPane companion configuration web interface (companion/app.py)
+# Caddy is the only thing that should ever reach this - see deploy/Caddyfile
+# (reverse_proxy 127.0.0.1:${SKYPANE_COMPANION_PORT}) and deploy/provision.sh
+# (ufw denies the companion port from outside). companion/app.py itself
+# binds 0.0.0.0 - the same discipline skypane-byos.service documents for
+# stub-server/byos_server.py - so the loopback restriction is enforced at
+# the firewall/reverse-proxy layer instead of in the app.
+#
+# Separate process (D-03): this is a distinct service from both
+# skypane-byos.service (device protocol) and skypane-poll.service (the
+# ADS-B detection/render loop), so a failure or restart in this web-facing
+# configuration interface cannot take down the ADS-B detection loop or the
+# panel the device fetches.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=skypane
+Group=skypane
+EnvironmentFile=/opt/skypane/skypane.env
+WorkingDirectory=/opt/skypane
+ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/companion/app.py \
+    --port ${SKYPANE_COMPANION_PORT} \
+    --state-dir ${SKYPANE_STATE_DIR}
+Restart=always
+RestartSec=5
+
+# Hardening - cheap and unconditional for a single-purpose unprivileged
+# service. ReadWritePaths is scoped to the state directory only; everything
+# else the process might touch is read-only or private.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/skypane/state
+
+[Install]
+WantedBy=multi-user.target

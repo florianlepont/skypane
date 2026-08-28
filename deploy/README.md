@@ -28,9 +28,10 @@ passwordless-sudo non-root one — see each script's header comment.
 | `skypane.env.example` | Template for the real, gitignored `skypane.env` — secrets and per-deployment config, loaded by systemd's `EnvironmentFile=` |
 | `skypane-byos.service` | Runs `stub-server/byos_server.py` as the `skypane` user, bound to loopback, `--image-url-scheme https` |
 | `skypane-poll.service` / `skypane-poll.timer` | A `Type=oneshot` unit invoking `server/poll_loop.py --once`, fired every 30s by the timer |
-| `Caddyfile` | Reverse-proxies the public hostname to `127.0.0.1:8642` with Caddy's automatic Let's Encrypt HTTPS |
+| `skypane-companion.service` | Runs `companion/app.py` as the `skypane` user, bound to loopback — the companion configuration web interface (06-11-PLAN.md) |
+| `Caddyfile` | Reverse-proxies the public hostname to `127.0.0.1:8642` (device protocol) and a second, `config-`-prefixed hostname to `127.0.0.1:8643` (companion interface), both with Caddy's automatic Let's Encrypt HTTPS |
 | `provision.sh` | Idempotent first-run setup on a fresh Ubuntu VPS: user, packages, venv, unit files, ufw, SSH hardening |
-| `deploy.sh` | Repeatable code push: rsync, conditional pip install, service restart, journald tail |
+| `deploy.sh` | Repeatable code push: rsync (`server/`, `stub-server/`, `companion/`), conditional pip install, service restarts, journald tail |
 
 ## One-time human steps (dashboard, no CLI equivalent exists)
 
@@ -96,8 +97,10 @@ Create it directly there:
 # Direct-root example:
 ssh root@<vps-ip>
 cp deploy/skypane.env.example /opt/skypane/skypane.env
-nano /opt/skypane/skypane.env   # fill in a real SKYPANE_BYOS_SECRET (openssl rand -hex 32),
-                                   # confirm SKYPANE_PUBLIC_HOST matches the public host above
+nano /opt/skypane/skypane.env   # fill in a real SKYPANE_BYOS_SECRET and
+                                   # SKYPANE_COMPANION_PASSWORD (openssl rand -hex 32
+                                   # each), confirm SKYPANE_PUBLIC_HOST and
+                                   # SKYPANE_COMPANION_HOST match the public hosts above
 chown skypane:skypane /opt/skypane/skypane.env
 chmod 600 /opt/skypane/skypane.env
 
@@ -114,6 +117,12 @@ The `SKYPANE_BYOS_SECRET` value written here is the same value Task 3 of
 the device side — it never enters git on either side, matching this
 repo's `secrets.h` discipline (T-02-05-02).
 
+**Companion password:** generate `SKYPANE_COMPANION_PASSWORD` with the same
+command (`openssl rand -hex 32`) as `SKYPANE_BYOS_SECRET` above. It is the
+single shared password gating the companion configuration web interface
+(D-01/D-02) — there are no per-user accounts — and is written by hand on
+the VPS only, same discipline as every other secret in this file.
+
 ## Ship the code
 
 From your laptop, from the repository root:
@@ -124,15 +133,16 @@ deploy/deploy.sh root@<vps-ip>
 deploy/deploy.sh ubuntu@<vps-ip>
 ```
 
-Re-run this any time `server/`, `stub-server/`, or `adsb-test/runway3.json`
-changes. It rsyncs the code (excluding `.venv`, `state/`, `__pycache__`,
-and any env file) plus `adsb-test/runway3.json` — the runway-3 geofence
-boundary `server/poll_loop.py`'s `--geofence` flag reads on every cycle;
-despite living under `adsb-test/`, it is production configuration, not a
-test fixture, and every poll cycle fails without it on the server —
-reinstalls `server/requirements.txt` only if it changed, restarts
-`skypane-byos.service`, starts `skypane-poll.timer`, and prints the last
-10 journald lines for both units so a bad deploy is visible immediately.
+Re-run this any time `server/`, `stub-server/`, `companion/`, or
+`adsb-test/runway3.json` changes. It rsyncs the code (excluding `.venv`,
+`state/`, `__pycache__`, and any env file) plus `adsb-test/runway3.json` —
+the runway-3 geofence boundary `server/poll_loop.py`'s `--geofence` flag
+reads on every cycle; despite living under `adsb-test/`, it is production
+configuration, not a test fixture, and every poll cycle fails without it
+on the server — reinstalls `server/requirements.txt` only if it changed,
+restarts `skypane-byos.service` and `skypane-companion.service`, starts
+`skypane-poll.timer`, and prints the last 10 journald lines for all three
+units so a bad deploy is visible immediately.
 Every remote step routes through `sudo` (see `deploy.sh`'s header comment),
 so this works whether `SSH_TARGET` logs in as root directly or as a
 non-root user with passwordless sudo.
@@ -154,14 +164,45 @@ ssh root@<vps-ip> journalctl -u skypane-poll -n 20
 
 # On the VPS: Caddy is terminating TLS and proxying correctly.
 ssh root@<vps-ip> journalctl -u caddy -n 20
+
+# The companion interface answers over TLS on its own hostname, and an
+# unauthenticated request redirects to the login page rather than serving
+# content (302/303 to /login, not 200):
+curl -sI https://<config-public-host>/ | head -1
+
+# The companion port must NOT be reachable directly either (ufw denies it,
+# same as the app port above):
+curl -sI --connect-timeout 3 http://<vps-ip>:8643/   # expect: refused or timeout
 ```
+
+### Assumption A3 (Caddy log field nesting) — confirmed 2026-08-28
+
+`server/history_db.py`'s battery-log tailer assumes Caddy's JSON access log
+nests request headers at `request.headers.<Header-Name>` (a list of
+strings). Confirmed against a real captured line on the live host
+(`request.headers` includes `"X-Battery-Mv":["4010"]` exactly as read) —
+no correction needed to the extraction logic.
+
+What *did* need fixing, found during this same live pass: the log file
+itself was unreadable by the process that needs to read it. Caddy's
+default file mode is owner-only (`caddy` user), while `server/poll_loop.py`
+runs as the `skypane` user — and separately, nothing in production ever
+called `history_db.ingest_caddy_battery_log()` at all (built and
+unit-tested in plan 06-01, never wired to a caller). Both are fixed: the
+log's `mode 660` directive plus `provision.sh`'s `caddy` → `skypane` group
+membership and setgid on `state/` make it group-writable *and*
+group-readable regardless of which of the two users last touched it, and
+`server/poll_loop.py --caddy-log` now ingests on every cycle. Verified live:
+real `device_health` rows with plausible millivolt values are landing in
+the deployed database.
 
 ## Reading logs
 
 ```bash
-ssh root@<vps-ip> journalctl -u skypane-poll -f     # follow the poll cycle live
-ssh root@<vps-ip> journalctl -u skypane-byos -f     # follow device requests live
-ssh root@<vps-ip> journalctl -u caddy -f             # follow TLS/proxy activity live
+ssh root@<vps-ip> journalctl -u skypane-poll -f       # follow the poll cycle live
+ssh root@<vps-ip> journalctl -u skypane-byos -f       # follow device requests live
+ssh root@<vps-ip> journalctl -u skypane-companion -f  # follow companion interface activity live
+ssh root@<vps-ip> journalctl -u caddy -f               # follow TLS/proxy activity live
 
 # Which ICAO prefixes has the panel failed to name recently, and how often
 # (within journald's retention window)?
