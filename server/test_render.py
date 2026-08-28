@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 64
+EXPECTED_CHECK_COUNT = 71
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -141,6 +141,56 @@ class _SelectIllustrationSpy:
     def __exit__(self, exc_type, exc, tb):
         self._render_mod.illustrations.select_illustration = self._orig
         return False
+
+
+class _PlacementSpy:
+    """Captures every `IllustrationPlacement` render.py's
+    `_build_active_canvas()` actually produced while building one canvas, in
+    call order (main card first, previous card second).
+
+    Wraps the real `draw_illustration` and records its RETURN value rather than
+    recomputing placement from the geometry constants - so these checks observe
+    what the renderer really did. Recomputing would silently keep passing if
+    `_build_active_canvas()` were reverted to positioning by `.rect`.
+    """
+
+    def __init__(self, render_mod):
+        self._render_mod = render_mod
+        self.placements = []
+        self._orig = None
+
+    def __enter__(self):
+        self._orig = self._render_mod.draw_illustration
+
+        def _spy(canvas, resized_rgba, left, top):
+            placement = self._orig(canvas, resized_rgba, left, top)
+            self.placements.append(placement)
+            return placement
+
+        self._render_mod.draw_illustration = _spy
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._render_mod.draw_illustration = self._orig
+        return False
+
+
+@contextlib.contextmanager
+def _forced_illustration_pair(render_mod, main_path, prev_path):
+    """Force the main card onto `main_path` and the previous card onto
+    `prev_path`. `_build_active_canvas()` calls `select_illustration()` exactly
+    twice, main first - see the "no crossover" check above, which pins that
+    order independently. Lets a check pair two files with deliberately
+    mismatched transparent padding, which is the only way to prove the two
+    cards are aligned to each other rather than both to a shared rectangle.
+    """
+    orig = render_mod.illustrations.select_illustration
+    paths = iter((main_path, prev_path))
+    render_mod.illustrations.select_illustration = lambda route, aircraft_type=None: next(paths)
+    try:
+        yield
+    finally:
+        render_mod.illustrations.select_illustration = orig
 
 
 def _write_garbage_png():
@@ -400,16 +450,29 @@ def main():
                 # exactly the shape 03-RESEARCH.md Pitfall 2 describes.
                 pixels[x, y] = (200, 30, 30, int(255 * x / 39))
         canvas = panel_format.new_canvas(IDX_BLUE)
-        bbox = render.draw_illustration(canvas, gradient, 10, 10)
-        if bbox != (10, 10, 50, 50):
-            return False, "draw_illustration() returned bbox %r, expected (10, 10, 50, 50)" % (bbox,)
+        placement = render.draw_illustration(canvas, gradient, 10, 10)
+        # `.rect` is the full 40x40 placement rectangle pasted at (10, 10) -
+        # unchanged by the illustration-crop-text-margin fix.
+        if placement.rect != (10, 10, 50, 50):
+            return False, "draw_illustration() returned rect %r, expected (10, 10, 50, 50)" % (placement.rect,)
+        # `.content` is the tight bbox of what actually gets PAINTED. This
+        # source's alpha ramp is int(255 * x / 39), so alpha exceeds the
+        # threshold of 127 first at x=20 (int(130.7)=130) and not at x=19
+        # (int(124.2)=124) - columns 20..39 are painted, 0..19 are erased.
+        # Absolute: (10+20, 10+0, 10+40, 10+40).
+        if placement.content != (30, 10, 50, 50):
+            return False, (
+                "draw_illustration() returned content %r, expected (30, 10, 50, 50) - the tight "
+                "bbox of pixels above the alpha threshold, not the full rectangle" % (placement.content,)
+            )
         idx_set = {value for _count, value in canvas.getcolors()} if canvas.getcolors() else set()
         illegal = idx_set - LEGAL_IDX
         if illegal:
             return False, "a soft-alpha source produced illegal palette index(es) %r on the canvas - alpha must be hard-thresholded before paste()" % (sorted(illegal),)
         return True, ""
     check(
-        "draw_illustration() with a soft/gradient alpha source never produces an illegal in-between palette index (Pitfall 2 regression)",
+        "draw_illustration() with a soft/gradient alpha source never produces an illegal in-between palette index "
+        "(Pitfall 2 regression), and returns .rect (full placement) plus .content (tight painted bbox) as distinct boxes",
         _soft_alpha_illustration_stays_within_legal_palette,
     )
 
@@ -1143,9 +1206,324 @@ def main():
         _battery_icon_geometry_derives_from_spacing_scale,
     )
 
+    # --- Debug session illustration-crop-text-margin: the aircraft-to-text gap
+    # must be a property of the LAYOUT, not of whichever airline is flying. ---
+    #
+    # Three real vendored files chosen for maximal spread in transparent bottom
+    # padding, measured with the renderer's own alpha threshold at the main
+    # card's 992px render width: 37px (thinnest in the set), 74px (air-france -
+    # the file the D-26 sketch pass was tuned against), 174px (thickest in the
+    # set). Under the old full-rectangle anchoring these three produced visible
+    # gaps of 17px, 54px and 154px respectively - a 9.1x spread, which is the
+    # bug the developer saw on the physical e-ink panel.
+    #
+    # These checks are deliberately illustration-file-agnostic: they assert the
+    # gap is IDENTICAL across the three, never that any file lands on a
+    # particular pixel row. Re-anchoring either text block to `.rect` would
+    # fail them immediately, no matter how the constants were retuned.
+    GAP_SPREAD_ILLUSTRATIONS = (
+        "iberia-airlines.png",
+        "air-france.png",
+        "asl-airlines-france.png",
+    )
+
+    def _illustration_path(basename):
+        return os.path.join(REPO_ROOT, "server", "assets", "icons", "illustrations", basename)
+
+    def _measured_gaps(basename):
+        """Render the real two-flight layout forced onto one illustration, then
+        return (main_gap, previous_gap, main_pad, previous_pad): the distance
+        from each aircraft's last actually-painted pixel row to its text
+        block's drawn anchor y, plus each card's transparent bottom padding.
+
+        Both the painted bottoms and the paddings come from the placements the
+        renderer actually produced (`_PlacementSpy`), never from a local
+        re-derivation of the geometry constants - a re-derivation goes stale
+        the moment placement changes, and would report a layout regression that
+        is really just test drift.
+
+        `main_pad`/`previous_pad` are `rect` bottom minus `content` bottom, so
+        if `.content` ever degenerated back to `.rect` they would collapse to
+        0 and trip the callers' own fixture-spread guard.
+        """
+        path = _illustration_path(basename)
+        with _forced_illustration(render, path):
+            with _PlacementSpy(render) as placements:
+                with _TextSpy(render) as spy:
+                    render.build_canvas(
+                        TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                        previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                        previous_state="arriving",
+                    )
+        if len(placements.placements) != 2:
+            raise AssertionError("expected 2 illustration placements, got %d" % len(placements.placements))
+        main_placement, prev_placement = placements.placements
+
+        main_opaque_bottom = main_placement.content[3]
+        main_pad = main_placement.rect[3] - main_placement.content[3]
+        prev_opaque_bottom = prev_placement.content[3]
+        prev_pad = prev_placement.rect[3] - prev_placement.content[3]
+
+        main_line1 = "%s to %s" % (TEST_FLIGHT["callsign"], TEST_ROUTE["destination_city"])
+        prev_line1 = "%s from %s" % (TEST_PREVIOUS_FLIGHT["callsign"], TEST_PREVIOUS_ROUTE["origin_city"])
+        main_y = next(xy[1] for t, xy, _a in spy.calls if t == main_line1)
+        prev_y = next(xy[1] for t, xy, _a in spy.calls if t == prev_line1)
+        return main_y - main_opaque_bottom, prev_y - prev_opaque_bottom, main_pad, prev_pad
+
+    # 47. The main block's gap is identical across illustrations whose
+    # transparent bottom padding differs by >100px.
+    def _main_text_gap_is_constant_across_illustrations():
+        measured = {name: _measured_gaps(name) for name in GAP_SPREAD_ILLUSTRATIONS}
+        pads = {name: m[2] for name, m in measured.items()}
+        if max(pads.values()) - min(pads.values()) < 100:
+            return False, (
+                "these fixtures no longer span a wide range of transparent bottom padding (%r) - the check "
+                "would pass trivially and must be re-pointed at files that do" % (pads,)
+            )
+        gaps = {name: m[0] for name, m in measured.items()}
+        if len(set(gaps.values())) != 1:
+            return False, (
+                "the gap between the aircraft's last painted pixel and the main text varies by illustration: %r "
+                "(bottom padding %r) - the text is anchored to the illustration's full rectangle, not its opaque "
+                "content bbox" % (gaps, pads)
+            )
+        only = next(iter(set(gaps.values())))
+        if only != render.MAIN_TEXT_GAP_PX:
+            return False, "constant main gap is %dpx, expected MAIN_TEXT_GAP_PX (%d)" % (only, render.MAIN_TEXT_GAP_PX)
+        return True, ""
+    check(
+        "the main flight text sits exactly MAIN_TEXT_GAP_PX below the aircraft's last actually-painted pixel row, "
+        "identically for illustrations whose transparent bottom padding differs by over 100px "
+        "(illustration-crop-text-margin: no full-rectangle anchoring)",
+        _main_text_gap_is_constant_across_illustrations,
+    )
+
+    # 48. Same guarantee for the previous-flight card, which consumes its own
+    # draw_illustration() placement and has its own gap constant.
+    def _previous_text_gap_is_constant_across_illustrations():
+        measured = {name: _measured_gaps(name) for name in GAP_SPREAD_ILLUSTRATIONS}
+        pads = {name: m[3] for name, m in measured.items()}
+        if max(pads.values()) - min(pads.values()) < 50:
+            return False, (
+                "these fixtures no longer span a wide range of transparent bottom padding at the previous card's "
+                "scale (%r) - the check would pass trivially" % (pads,)
+            )
+        gaps = {name: m[1] for name, m in measured.items()}
+        if len(set(gaps.values())) != 1:
+            return False, (
+                "the gap between the previous aircraft's last painted pixel and its text varies by illustration: %r "
+                "(bottom padding %r) - the previous text block is anchored to the full rectangle" % (gaps, pads)
+            )
+        only = next(iter(set(gaps.values())))
+        if only != render.PREVIOUS_TEXT_GAP_PX:
+            return False, "constant previous gap is %dpx, expected PREVIOUS_TEXT_GAP_PX (%d)" % (only, render.PREVIOUS_TEXT_GAP_PX)
+        return True, ""
+    check(
+        "the previous flight text sits exactly PREVIOUS_TEXT_GAP_PX below its aircraft's last actually-painted pixel "
+        "row, identically across illustrations with very different transparent bottom padding",
+        _previous_text_gap_is_constant_across_illustrations,
+    )
+
+    # 49. The measurement itself must use the paste threshold, not a naive
+    # Image.getbbox(). This is the specific mistake that caused the bug: every
+    # vendored file carries a soft drop-shadow band (alpha 1..127) that
+    # getbbox() counts as content and draw_illustration() erases. Six files -
+    # air-france.png among them - report a naive bottom padding of exactly 0
+    # while their real painted padding is 82-174px, which is how "the vendored
+    # illustration files have no transparent bottom padding of their own" came
+    # to be written down as a verified fact.
+    def _opaque_bbox_uses_the_paste_threshold_not_a_naive_getbbox():
+        path = _illustration_path("air-france.png")
+        rgba = Image.open(path).convert("RGBA")
+        naive_rgba = rgba.getbbox()
+        naive_alpha = rgba.getchannel("A").getbbox()
+        thresholded = render._opaque_bbox(rgba)
+        if thresholded is None:
+            return False, "_opaque_bbox() returned None for a real vendored illustration"
+        if naive_alpha[3] != rgba.size[1]:
+            return False, (
+                "fixture drift: air-france.png's raw-alpha bbox bottom is %d, not the full height %d - it no longer "
+                "demonstrates the soft-shadow trap this check exists to guard" % (naive_alpha[3], rgba.size[1])
+            )
+        if thresholded[3] >= naive_alpha[3] or thresholded[3] >= naive_rgba[3]:
+            return False, (
+                "_opaque_bbox() bottom (%d) is not strictly above the naive bboxes (rgba %d, alpha %d) - it is "
+                "counting sub-threshold drop-shadow pixels that draw_illustration() never paints"
+                % (thresholded[3], naive_rgba[3], naive_alpha[3])
+            )
+        # And it must agree exactly with the mask actually handed to paste().
+        painted = render._threshold_alpha(rgba).getbbox()
+        if thresholded != painted:
+            return False, (
+                "_opaque_bbox() %r disagrees with the mask draw_illustration() pastes with %r - layout and painting "
+                "must measure the same pixels" % (thresholded, painted)
+            )
+        return True, ""
+    check(
+        "_opaque_bbox() measures the hard-thresholded paste mask, never a naive Image.getbbox() - the soft "
+        "drop-shadow band (alpha 1..127) that is never painted must not count as content",
+        _opaque_bbox_uses_the_paste_threshold_not_a_naive_getbbox,
+    )
+
+    # 50. Structural guard on the return contract: for real vendored art the
+    # two boxes must genuinely differ, so a future "simplification" that
+    # returns the placement rectangle for both fields is caught here rather
+    # than silently restoring per-airline gap drift.
+    def _placement_content_is_strictly_inside_its_rect():
+        path = _illustration_path("air-france.png")
+        inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
+        main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
+        resized = render._resize_illustration(path, main_w)
+        canvas = panel_format.new_canvas(IDX_BLUE)
+        placement = render.draw_illustration(canvas, resized, 100, 200)
+        rect, content = placement.rect, placement.content
+        if rect != (100, 200, 100 + resized.size[0], 200 + resized.size[1]):
+            return False, "placement.rect %r is not the full pasted rectangle" % (rect,)
+        if content == rect:
+            return False, (
+                "placement.content is identical to placement.rect for real vendored art - draw_illustration() is "
+                "not measuring the painted pixels, and every text gap will drift per airline again"
+            )
+        if not (rect[0] <= content[0] and rect[1] <= content[1] and content[2] <= rect[2] and content[3] <= rect[3]):
+            return False, "placement.content %r is not contained within placement.rect %r" % (content, rect)
+        if content[3] >= rect[3]:
+            return False, (
+                "placement.content's bottom (%d) is not above placement.rect's bottom (%d) - the transparent bottom "
+                "padding this fix exists to exclude is still being counted" % (content[3], rect[3])
+            )
+        return True, ""
+    check(
+        "draw_illustration() returns a placement whose .content is strictly contained in .rect, with a strictly "
+        "higher bottom edge, for real vendored art (structural guard against restoring full-rectangle anchoring)",
+        _placement_content_is_strictly_inside_its_rect,
+    )
+
+    # --- Pass 2 of the same debug session: horizontal/centring placement must
+    # follow the painted pixels too, not the padded rectangle. ---------------
+    #
+    # Measured post-resize across the vendored set: horizontal padding is
+    # asymmetric (main left 3-32px, right 5-29px), which pushed the visible
+    # aircraft up to 7.5px off the canvas centre; and because the previous card
+    # was right-aligned rectangle-to-rectangle, the two aircraft's visible
+    # right edges could sit up to 26px apart. Vertical padding is asymmetric in
+    # one direction (the drop-shadow band always makes bottom exceed top), so
+    # centring the previous card's rectangle put its aircraft 5.5-28.5px high.
+    #
+    # All three checks read the placements the renderer actually produced (via
+    # _PlacementSpy) and pair two DIFFERENT files, so they cannot be satisfied
+    # by aligning both cards to a common rectangle.
+    def _render_two_cards(main_basename, prev_basename):
+        """Build the real two-flight canvas with the two cards forced onto
+        different files; return (main_placement, prev_placement, text_calls).
+        """
+        base = os.path.join(REPO_ROOT, "server", "assets", "icons", "illustrations")
+        with _forced_illustration_pair(render, os.path.join(base, main_basename), os.path.join(base, prev_basename)):
+            with _PlacementSpy(render) as placements:
+                with _TextSpy(render) as text:
+                    render.build_canvas(
+                        TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                        previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                        previous_state="arriving",
+                    )
+        if len(placements.placements) != 2:
+            raise AssertionError("expected 2 illustration placements, got %d" % len(placements.placements))
+        return placements.placements[0], placements.placements[1], text.calls
+
+    # 51. The main illustration's VISIBLE horizontal midpoint sits on the
+    # canvas centre, for files whose left/right padding asymmetry differs
+    # sharply. generic-beechcraft1900d.png was the worst offender at +7.5px.
+    def _main_illustration_is_centred_on_its_visible_pixels():
+        canvas_centre = panel_format.WIDTH / 2.0
+        offsets = {}
+        for name in ("generic-beechcraft1900d.png", "generic-atr72.png", "lot-polish-airlines.png", "transavia-france.png"):
+            main_placement, _prev, _text = _render_two_cards(name, "transavia-france.png")
+            content, rect = main_placement.content, main_placement.rect
+            offsets[name] = (content[0] + content[2]) / 2.0 - canvas_centre
+            # The rectangle must NOT be what is centred - otherwise this check
+            # would pass trivially on a symmetric file.
+            if (content[0] - rect[0]) == (rect[2] - content[2]):
+                continue  # symmetric padding: both definitions agree, nothing to prove
+        worst = max(abs(v) for v in offsets.values())
+        if worst > 0.5:
+            return False, (
+                "the main aircraft's visible horizontal midpoint is off the canvas centre by up to %.1fpx %r - "
+                "the illustration is being centred by its source rectangle, not its painted pixels" % (worst, offsets)
+            )
+        return True, ""
+    check(
+        "the main illustration's VISIBLE horizontal midpoint sits on the canvas centre (within rounding) for files "
+        "with sharply different left/right padding asymmetry - centred by painted pixels, not by rectangle",
+        _main_illustration_is_centred_on_its_visible_pixels,
+    )
+
+    # 52. The previous aircraft's visible right edge lands exactly on the main
+    # aircraft's visible right edge, and the previous text is right-aligned to
+    # that same shared line. Pairing km-malta-airlines.png (main right padding
+    # 29px) with transavia-france.png (previous right padding 3px) is the
+    # worst case: rectangle-to-rectangle alignment left the two aircraft 26px
+    # apart, and the text 3px off its own aircraft.
+    def _previous_card_and_text_align_to_the_main_aircrafts_visible_right_edge():
+        main_placement, prev_placement, text_calls = _render_two_cards(
+            "km-malta-airlines.png", "transavia-france.png")
+        main_right = main_placement.content[2]
+        prev_right = prev_placement.content[2]
+        # Guard: the two files must actually differ in right padding, or the
+        # check proves nothing.
+        main_pad = main_placement.rect[2] - main_placement.content[2]
+        prev_pad = prev_placement.rect[2] - prev_placement.content[2]
+        if abs(main_pad - prev_pad) < 10:
+            return False, (
+                "fixture drift: main/previous right padding are now %dpx/%dpx - too close for this check to "
+                "distinguish visible-edge from rectangle alignment" % (main_pad, prev_pad)
+            )
+        if prev_right != main_right:
+            return False, (
+                "the previous aircraft's visible right edge is at x=%d but the main aircraft's is at x=%d (%dpx "
+                "apart) - the cards are aligned rectangle-to-rectangle, not aircraft-to-aircraft"
+                % (prev_right, main_right, prev_right - main_right)
+            )
+        prev_line1 = "%s from %s" % (TEST_PREVIOUS_FLIGHT["callsign"], TEST_PREVIOUS_ROUTE["origin_city"])
+        anchor_x = next(xy[0] for t, xy, _a in text_calls if t == prev_line1)
+        if anchor_x != prev_right:
+            return False, (
+                "the previous flight text is right-aligned to x=%d, but its aircraft's visible right edge is at "
+                "x=%d - text and illustration are on different vertical lines" % (anchor_x, prev_right)
+            )
+        return True, ""
+    check(
+        "the previous aircraft's visible right edge lands exactly on the main aircraft's visible right edge, and the "
+        "previous text right-aligns to that same shared line, for two files with very different right padding",
+        _previous_card_and_text_align_to_the_main_aircrafts_visible_right_edge,
+    )
+
+    # 53. The previous card's VISIBLE vertical midpoint sits on the
+    # PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC line. Because the drop-shadow band
+    # makes bottom padding always exceed top padding, centring the rectangle
+    # put every previous aircraft high, by 5.5-28.5px depending on the file.
+    def _previous_card_is_vertically_centred_on_its_visible_pixels():
+        centre_line = panel_format.HEIGHT * render.PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC
+        offsets = {}
+        for name in ("asl-airlines-france.png", "air-europa.png", "iberia-airlines.png", "amelia.png"):
+            _main, prev_placement, _text = _render_two_cards("transavia-france.png", name)
+            content = prev_placement.content
+            offsets[name] = (content[1] + content[3]) / 2.0 - centre_line
+        worst = max(abs(v) for v in offsets.values())
+        if worst > 0.5:
+            return False, (
+                "the previous aircraft's visible vertical midpoint is off the %.1f centre line by up to %.1fpx %r - "
+                "the card is being centred by its source rectangle, so it drifts vertically per illustration"
+                % (centre_line, worst, offsets)
+            )
+        return True, ""
+    check(
+        "the previous card's VISIBLE vertical midpoint sits on the PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC line (within "
+        "rounding) across illustrations with very different top/bottom padding - no per-file vertical drift",
+        _previous_card_is_vertically_centred_on_its_visible_pixels,
+    )
+
     # --- Plan 06-06: CFG-01 theme, CFG-12 runway, CFG-05 source-fault badge ---
 
-    # 47. render_panel() with no theme_id is byte-identical to an explicit
+    # 54. render_panel() with no theme_id is byte-identical to an explicit
     # default theme_id - the default path is genuinely unchanged.
     def _theme_default_matches_no_theme_arg():
         a = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -1155,7 +1533,7 @@ def main():
         return True, ""
     check("render_panel() with no theme_id is byte-identical to an explicit default theme_id (CFG-01)", _theme_default_matches_no_theme_arg)
 
-    # 48. build_canvas(theme_id="sky") and build_canvas() with no theme
+    # 55. build_canvas(theme_id="sky") and build_canvas() with no theme
     # produce identical canvases.
     def _sky_theme_canvas_matches_default():
         a = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -1165,7 +1543,7 @@ def main():
         return True, ""
     check("build_canvas(theme_id='sky') and build_canvas() with no theme produce identical canvases", _sky_theme_canvas_matches_default)
 
-    # 49. An unrecognised theme id degrades to the default theme's canvas
+    # 56. An unrecognised theme id degrades to the default theme's canvas
     # rather than raising - an unknown theme is forgiving.
     def _unknown_theme_degrades_to_default_canvas():
         default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
@@ -1178,7 +1556,7 @@ def main():
         return True, ""
     check("build_canvas(theme_id='not-a-theme') produces the default theme's canvas rather than raising", _unknown_theme_degrades_to_default_canvas)
 
-    # 50. An unrecognised state still raises ValueError naming all three
+    # 57. An unrecognised state still raises ValueError naming all three
     # legal states - an unknown state is a real caller-bug detector and
     # must stay loud even though an unknown theme is forgiving.
     def _unknown_state_still_raises_naming_all_three_states():
@@ -1195,7 +1573,7 @@ def main():
         return False, "build_canvas(flight, 'sideways') did not raise - an unknown state must stay loud"
     check("build_canvas(flight, 'nonsense-state') still raises ValueError naming departing/arriving/empty", _unknown_state_still_raises_naming_all_three_states)
 
-    # 51. _assert_legal_palette() (run internally by build_canvas()) still
+    # 58. _assert_legal_palette() (run internally by build_canvas()) still
     # passes for every registered theme.
     def _legal_palette_holds_for_every_theme():
         for theme_id in render.device_config.THEME_IDS:
@@ -1203,7 +1581,7 @@ def main():
         return True, ""
     check("_assert_legal_palette() (run internally by build_canvas()) passes for every registered theme", _legal_palette_holds_for_every_theme)
 
-    # 52. runway_tag_text() with no argument returns exactly the current
+    # 59. runway_tag_text() with no argument returns exactly the current
     # top-right tag string - the default render is unchanged.
     def _runway_tag_text_default_matches_top_right_tag():
         if render.runway_tag_text() != render.TOP_RIGHT_TAG_TEXT:
@@ -1211,7 +1589,7 @@ def main():
         return True, ""
     check("runway_tag_text() with no argument returns exactly TOP_RIGHT_TAG_TEXT (default render unchanged)", _runway_tag_text_default_matches_top_right_tag)
 
-    # 53. runway_tag_text("06-24")/("02-20") return the strings from the
+    # 60. runway_tag_text("06-24")/("02-20") return the strings from the
     # runway registry.
     def _runway_tag_text_matches_registry_for_other_runways():
         for runway_id in ("06-24", "02-20"):
@@ -1222,7 +1600,7 @@ def main():
         return True, ""
     check("runway_tag_text('06-24')/('02-20') return the strings from device_config.RUNWAYS", _runway_tag_text_matches_registry_for_other_runways)
 
-    # 54. An unrecognised runway id degrades to the default runway's tag
+    # 61. An unrecognised runway id degrades to the default runway's tag
     # rather than raising.
     def _runway_tag_text_unknown_id_degrades_to_default():
         if render.runway_tag_text("nope") != render.runway_tag_text():
@@ -1230,7 +1608,7 @@ def main():
         return True, ""
     check("runway_tag_text('unknown') returns the default runway's tag rather than raising", _runway_tag_text_unknown_id_degrades_to_default)
 
-    # 55. build_canvas(None, "empty", runway_id=...) draws that runway's
+    # 62. build_canvas(None, "empty", runway_id=...) draws that runway's
     # heading - including the longest of the three registry headings - and
     # still passes the safe-box assertion (fit_text_size() shrink path).
     def _empty_canvas_draws_selected_runways_heading():
@@ -1250,7 +1628,7 @@ def main():
         _empty_canvas_draws_selected_runways_heading,
     )
 
-    # 56. build_canvas(flight, "departing", runway_id="06-24") draws that
+    # 63. build_canvas(flight, "departing", runway_id="06-24") draws that
     # runway's tag, still passing the within-canvas assertion.
     def _active_canvas_draws_selected_runways_tag():
         with _TextSpy(render) as spy:
@@ -1266,7 +1644,7 @@ def main():
         _active_canvas_draws_selected_runways_tag,
     )
 
-    # 57. render_panel(..., source_fault=False) is byte-identical to the
+    # 64. render_panel(..., source_fault=False) is byte-identical to the
     # same call without the argument.
     def _source_fault_false_matches_default():
         a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
@@ -1276,7 +1654,7 @@ def main():
         return True, ""
     check("render_panel(..., source_fault=False) is byte-identical to the same call without the argument", _source_fault_false_matches_default)
 
-    # 58. render_panel(..., source_fault=True) differs from the same call
+    # 65. render_panel(..., source_fault=True) differs from the same call
     # with the flag false - the badge is genuinely drawn.
     def _source_fault_true_differs_from_false():
         a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE, source_fault=False)
@@ -1286,7 +1664,7 @@ def main():
         return True, ""
     check("render_panel(..., source_fault=True) differs from the same call with the flag false", _source_fault_true_differs_from_false)
 
-    # 59. The fault badge is drawn on the active canvas and on the empty
+    # 66. The fault badge is drawn on the active canvas and on the empty
     # canvas alike - visible whichever state the panel is in.
     def _badge_caption_present_on_active_and_empty_canvases():
         with _TextSpy(render) as spy_active:
@@ -1305,7 +1683,7 @@ def main():
         _badge_caption_present_on_active_and_empty_canvases,
     )
 
-    # 60. The badge caption is absent from a normal render (source_fault
+    # 67. The badge caption is absent from a normal render (source_fault
     # defaults to False) - same text-draw spy idiom already used for the
     # top-right tag.
     def _badge_caption_absent_from_a_normal_render():
@@ -1317,7 +1695,7 @@ def main():
         return True, ""
     check("the badge caption text is absent from a normal render (source_fault defaults to False)", _badge_caption_absent_from_a_normal_render)
 
-    # 61. _assert_legal_palette() (run internally by build_canvas()) still
+    # 68. _assert_legal_palette() (run internally by build_canvas()) still
     # passes with the badge drawn, in both active states, the empty state,
     # and every theme.
     def _legal_palette_holds_with_badge_across_states_and_themes():
@@ -1332,7 +1710,7 @@ def main():
         _legal_palette_holds_with_badge_across_states_and_themes,
     )
 
-    # 62. A fault-badged departing render still satisfies
+    # 69. A fault-badged departing render still satisfies
     # _assert_legal_palette() for the default theme - proven by calling
     # build_canvas() (which runs the assertion internally), not by
     # re-implementing it.
@@ -1347,7 +1725,7 @@ def main():
         _fault_badged_departing_render_satisfies_legal_palette_via_build_canvas,
     )
 
-    # 63. The badge's bounding box stays inside the drawn frame.
+    # 70. The badge's bounding box stays inside the drawn frame.
     def _badge_bbox_stays_inside_the_drawn_frame():
         canvas = panel_format.new_canvas(IDX_BLUE)
         frame_box = render.draw_frame(canvas, IDX_WHITE)
@@ -1359,7 +1737,7 @@ def main():
         return True, ""
     check("draw_source_fault_badge()'s bounding box stays inside the drawn frame", _badge_bbox_stays_inside_the_drawn_frame)
 
-    # 64. All three runway ids combined with the single registered theme id
+    # 71. All three runway ids combined with the single registered theme id
     # render without error across both active states - a small matrix, so
     # a future theme addition is immediately exercised.
     def _runway_and_theme_matrix_combines_without_error():

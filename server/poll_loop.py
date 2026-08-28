@@ -104,10 +104,7 @@ MIN_ADVANCE_INTERVAL_S = 90
 # the board is, and this is a real-time departure board first. Chosen
 # deliberately at 2m30s as the tradeoff point between "never drop a flight"
 # (an unbounded queue, whose displayed lag grows without limit during any
-# sustained busy period) and "never show anything stale". Corroborating
-# coincidence, not the derivation: the panel maker's own published
-# reliability testing ran at 150s refresh intervals
-# (firmware/main/Kconfig.projbuild's FP_MIN_REFRESH_SPACING_S help text).
+# sustained busy period) and "never show anything stale".
 MAX_STALENESS_S = 150
 
 # Defensive depth backstop, INDEPENDENT of MAX_STALENESS_S. Expired entries

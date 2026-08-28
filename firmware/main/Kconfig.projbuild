@@ -124,13 +124,42 @@ menu "FlightPortrait"
             range 30 86400
             default 60
             help
-              The firmware defends the glass regardless of what the server
-              asks for. Know the panel's own numbers before lowering this:
-              the maker suggests updating ONCE A DAY, and their published
-              reliability testing ran at 150 s intervals. Below 150 s is off
-              the tested envelope — reasonable for a demo table under
-              supervision, a deliberate choice for a frame that hangs on a
-              customer's wall for years.
+              (a) The physical panel is the Good Display GDEP133C02 - the
+              part behind Seeed SKU E-6569, the 13.3" Spectra 6 panel in
+              the XIAO ePaper DIY Kit EE02 this project uses. That
+              identification is a cross-match on resolution, active area,
+              weight and connector spec, not a vendor statement equating
+              the two part numbers - confidence is high but derived.
+              (b) The GDEP133C02 datasheet documents no maximum refresh
+              rate, no minimum spacing between refreshes, and no
+              cycle-count endurance or lifespan rating; its own
+              reliability section covers environmental stress only
+              (temperature, humidity, thermal shock, ESD), with no
+              refresh-cycle endurance test at all. Its one refresh-
+              frequency recommendation runs the other way: section 13
+              "Precautions", item 5 says refresh at least every 24 hours,
+              because a panel left static longer than that may show
+              ghosting or image sticking - a minimum-frequency rule
+              against a stuck image, not a maximum-rate limit against
+              wear. It is close to inert here anyway: a board tracking
+              real airport traffic does not sit unchanged for a day in
+              normal operation. This is an absence in the document
+              consulted, not proof the glass never degrades, and it does
+              not make rapid refresh free.
+              (c) So 60 s is this project's own conservative engineering margin,
+              not a vendor-mandated threshold: it buys against a
+              full redraw's measured ~31.5 s of visible churn
+              (hardware/BRINGUP-LOG.md, quoted in ARCHITECTURE.md's
+              firmware section) and against the battery every redraw
+              spends on a device built to minimise draw. Lower it and
+              that is the real tradeoff being weighed - battery life and
+              visual churn on this project's own terms, not a step
+              outside a vendor-validated range, because no such range
+              was ever documented.
+              Source: Good Display GDEP133C02 datasheet, section 13
+              "Precautions" item 5 and section 10 "Reliability Test",
+              retrieved 2026-08-28 from the vendor CDN mirror
+              v4.cecdn.yun300.cn/100001_1909185148/GDEP133C02.pdf.
         config FP_MAX_GUARD_WAIT_S
             int "Longest the frame stays awake waiting out the guard"
             range 0 300
