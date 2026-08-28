@@ -207,7 +207,13 @@ a {
   gap: var(--space-xs);
 }
 
-.theme-option {
+/* Doubled `.theme-form .theme-option` (specificity 0,2,0) rather than the
+ * bare class (0,1,0): theme-option buttons are `<button type="submit">`,
+ * so the later `button[type="submit"]` rule (0,1,1) would otherwise win
+ * on `background` regardless of source order, painting every theme
+ * button — active or not — with the same accent fill and making the
+ * active indicator below effectively invisible. */
+.theme-form .theme-option {
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-sm);
@@ -218,7 +224,7 @@ a {
   cursor: pointer;
 }
 
-.theme-option--active {
+.theme-form .theme-option--active {
   border-color: var(--color-accent);
   color: var(--color-accent);
 }
@@ -348,7 +354,12 @@ button {
   color: var(--color-text);
 }
 
-/* Primary button — the one non-nav, non-link accent use. */
+/* Primary-action buttons (Save Settings, Trigger Poll Now, Save LED
+ * Setting, Sign In) — accent fill. Theme-picker buttons are also
+ * type="submit" but are excluded via the higher-specificity
+ * `.theme-form .theme-option` rule above, which is what actually keeps
+ * them out of this accent treatment, not their absence from this
+ * selector's match set. */
 button[type="submit"] {
   background: var(--color-accent);
   color: var(--color-dominant);
@@ -470,15 +481,23 @@ button:disabled {
 }
 
 /* Page section card treatment: gives the below-breakpoint stacked
- * sections the same card treatment as the dashboard's tiles. Note:
- * health_page.py's source-fault block combines page-section with
- * banner banner--anomaly, so its 4px destructive left border keeps
- * overriding this rule's left edge — that is intended, not a conflict. */
+ * sections the same card treatment as the dashboard's tiles. */
 .page-section {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
   border: 1px solid var(--color-border);
   border-radius: 2px;
+}
+
+/* health_page.py's source-fault block combines page-section with banner
+ * banner--anomaly. .page-section's `border` shorthand above resets all
+ * four sides, including the left edge banner--anomaly needs destructive-
+ * coloured — at equal (0,1,0) specificity the later rule wins regardless
+ * of which one "means" to own that edge. This combined selector (0,2,0)
+ * restores the destructive left border deterministically, independent of
+ * source order. */
+.page-section.banner--anomaly {
+  border-left-color: var(--color-destructive);
 }
 
 /* Gallery grid (CFG-11) — collapses to fewer columns automatically on

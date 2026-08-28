@@ -126,12 +126,14 @@ def sidebar_nav(active):
 def _theme_form_html(resolved_theme):
     options = []
     for choice in UI_THEME_CHOICES:
+        is_active = choice == resolved_theme
         css_class = (
             "theme-option theme-option--active"
-            if choice == resolved_theme else "theme-option")
+            if is_active else "theme-option")
         options.append(
-            '<button type="submit" name="ui_theme" value="%s" class="%s">%s</button>'
-            % (escape_html(choice), css_class, escape_html(choice.capitalize())))
+            '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s">%s</button>'
+            % (escape_html(choice), css_class, "true" if is_active else "false",
+               escape_html(choice.capitalize())))
     return (
         '<form class="theme-form" method="post" action="/ui-theme">%s</form>'
         % "".join(options))

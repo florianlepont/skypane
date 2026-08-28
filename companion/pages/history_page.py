@@ -134,19 +134,19 @@ def _history_table_html(formatted_rows):
     header_cells = "".join("<th>%s</th>" % escape_html(h) for h in _HEADERS)
 
     body_rows = []
-    for index, cell in enumerate(formatted_rows):
+    for index, row in enumerate(formatted_rows):
         row_class = "row-alt" if index % 2 else "row"
         cells = (
-            '<td class="mono">%s</td>' % escape_html(cell["ts"]),
-            '<td class="mono">%s</td>' % escape_html(cell["callsign"]),
-            '<td class="mono">%s</td>' % escape_html(cell["hex"]),
-            "<td>%s</td>" % escape_html(cell["aircraft_type_label"]),
-            "<td>%s</td>" % escape_html(cell["airline_label"]),
-            "<td>%s</td>" % escape_html(cell["route_label"]),
-            "<td>%s</td>" % escape_html(cell["confirmed_state"]),
+            '<td class="mono">%s</td>' % escape_html(row["ts"]),
+            '<td class="mono">%s</td>' % escape_html(row["callsign"]),
+            '<td class="mono">%s</td>' % escape_html(row["hex"]),
+            "<td>%s</td>" % escape_html(row["aircraft_type_label"]),
+            "<td>%s</td>" % escape_html(row["airline_label"]),
+            "<td>%s</td>" % escape_html(row["route_label"]),
+            "<td>%s</td>" % escape_html(row["confirmed_state"]),
             "<td>%s</td>" % layout.status_dot(
-                cell["corroboration_status"], cell["corroboration_label"]),
-            "<td>%s</td>" % escape_html(cell["tracked_runway"]),
+                row["corroboration_status"], row["corroboration_label"]),
+            "<td>%s</td>" % escape_html(row["tracked_runway"]),
         )
         body_rows.append(
             '<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
