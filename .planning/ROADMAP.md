@@ -287,14 +287,21 @@ Plans:
 
 ### Phase 06.6: Companion UI clarity pass - timestamps, poll-trigger cooldown, corroboration copy (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
-**Plans:** 0 plans
+**Goal:** Three independent clarity fixes to the companion web app, raised during Phase 6's live developer sign-off. (1) **Timestamps** — `health_page.py`'s already-shipped "absolute + relative" format (`"2026-08-28T13:58:02 (3m ago)"`, used today by the Device check-in and ADS-B pipeline rows) reaches the three spots that lack it: Health's own Battery Trend table, History's table, and Preview's "Captured" caption (D-02). The logic is promoted once into `companion/layout.py` rather than duplicated three times, because `companion/pages/__init__.py` forbids one page module importing another. (2) **Poll-trigger cooldown** — the remaining-seconds copy becomes a live, ticking countdown that re-enables the Trigger Poll Now button by itself at zero, seeded from the server-computed, `history_db`-persisted figure already in `ctx["poll_cooldown_remaining"]` and never from a client-side guess (D-01); it ships as an inline `<script>` block, not a new static file, so it cannot collide with sibling phase 06.5's "first JS file this project ships" framing. (3) **Corroboration copy** — investigation found the existing copy already satisfies "never mislabel the unknown state as failure," so this is verify-and-polish: confirm it against the live modules and convert the one-off confirmation into a permanent cross-page drift guard, inventing no copy change without a concrete found defect (D-03).
+
+**Requirements**: None — unmapped backlog phase (promoted from 999.6), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (live ticking countdown), D-02 (extend the existing absolute+relative timestamp format to the three spots that lack it) and D-03 (corroboration copy, verify-only) in `06.6-CONTEXT.md`. All three fixes trace back to developer feedback captured during Phase 6's live sign-off (06-12).
+**Depends on:** Phase 6. Soft, order-insensitive relationships with siblings 06.3, 06.4 and 06.5, which are planned-but-unexecuted against these same files — every 06.6 task locates its edit target by function/symbol name rather than line number, keeps `_battery_section(trend_rows)` single-argument (06.5-02 pins that call-site literal in its own gate), and leaves `_history_table_html()`'s return block to 06.3-03.
+**Plans:** 3 plans (2 waves)
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 06.6 to break down)
+- [ ] 06.6-01-PLAN.md — Promote the timestamp helpers into `companion/layout.py` as public `parse_iso()`/`age_seconds()`/`relative_age_text()`/`absolute_and_relative()`, rewire `health_page.py` onto them, and reformat Health's Battery Trend table (D-02)
+- [ ] 06.6-02-PLAN.md — Live, server-seeded poll-cooldown countdown as an inline `<script>` in `poll_trigger_section()`, with `json.dumps()` seeding and a permanent sink-safety gate (D-01)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 06.6-03-PLAN.md — History's Timestamp column and Preview's Captured caption onto the shared helper, plus the D-03 corroboration verification and its cross-page drift guard (D-02, D-03)
 
 ### Phase 06.5: Interactive battery trend chart with overall status (INSERTED)
 
