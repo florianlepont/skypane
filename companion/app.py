@@ -73,6 +73,10 @@ THEME_ROUTE = "/ui-theme"
 LOGOUT_ROUTE = "/logout"
 PREVIEW_IMAGE_ROUTE = "/preview.png"
 GALLERY_ROUTE_PREFIX = "/gallery/"
+# Single definition site is companion/pages/config_page.py (app.py imports
+# that module, so the reverse import would be a cycle) — rebound here
+# exactly like the FLASH_KEY_* constants below.
+RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -391,6 +395,24 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=3600)
 
+    def _serve_runway_image(self, runway_id):
+        # Membership test FIRST, before any path is ever constructed
+        # (validate-then-join, never sanitise-then-join — T-06.4-02). An
+        # unknown id and an unreadable file both return this same 404, so
+        # a caller can never distinguish "not a real runway" from "no
+        # image for a real runway" — leaking nothing about the
+        # filesystem beyond the RUNWAY_IDS set the authenticated /config
+        # page already renders in full to the same caller.
+        if runway_id not in device_config.RUNWAY_IDS:
+            return self.send_html(404, self._not_found_page())
+        path = _runway_image_path(runway_id)
+        try:
+            with open(path, "rb") as fh:
+                payload = fh.read()
+        except OSError:
+            return self.send_html(404, self._not_found_page())
+        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -484,6 +506,12 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._serve_gallery_image(path[len(GALLERY_ROUTE_PREFIX):])
+
+        if path.startswith(RUNWAY_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
+            if not self.require_session():
+                return None
+            runway_id = path[len(RUNWAY_IMAGE_ROUTE_PREFIX):-len(".png")]
+            return self._serve_runway_image(runway_id)
 
         if path == LOGOUT_ROUTE:
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())

@@ -46,7 +46,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 31
+EXPECTED_CHECK_COUNT = 34
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -751,6 +751,53 @@ def main():
         check(
             "an unauthenticated POST /config-led redirects to /login and writes nothing",
             _led_post_unauthenticated_redirects_to_login_and_writes_nothing)
+
+        def _runway_image_route_requires_session():
+            status, headers, _ = http_request(base + "/runway-image/3.png")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if location != "/login":
+                return False, "expected a Location of /login, got %r" % location
+            return True, ""
+        check(
+            "an unauthenticated GET /runway-image/3.png redirects to /login",
+            _runway_image_route_requires_session)
+
+        def _runway_image_route_honest_present_or_absent():
+            path = companion_app._runway_image_path("3")
+            status, headers, _ = http_request(
+                base + "/runway-image/3.png", cookie=session_cookie)
+            if os.path.isfile(path):
+                if status != 200:
+                    return False, "expected 200 when the file exists, got %d" % status
+                if headers.get("Content-Type") != "image/png":
+                    return False, "expected Content-Type image/png, got %r" % headers.get("Content-Type")
+            else:
+                if status != 404:
+                    return False, "expected 404 when the file is absent (D-02 shipped state), got %d" % status
+            return True, ""
+        check(
+            "a session-authenticated GET /runway-image/3.png returns the branch matching real on-disk state (never 500)",
+            _runway_image_route_honest_present_or_absent)
+
+        def _runway_image_route_path_traversal_rejected():
+            adversarial_paths = [
+                "/runway-image/..%2F..%2Fetc%2Fpasswd.png",
+                "/runway-image/../../../etc/passwd.png",
+                "/runway-image/style.png",
+            ]
+            for adversarial_path in adversarial_paths:
+                status, _headers, _ = http_request(
+                    base + adversarial_path, cookie=session_cookie)
+                if status not in (404,):
+                    return False, (
+                        "expected 404 for adversarial path %r, got %d"
+                        % (adversarial_path, status))
+            return True, ""
+        check(
+            "session-authenticated GET requests for three adversarial runway-image paths all return 404, never 200/500",
+            _runway_image_route_path_traversal_rejected)
 
     finally:
         harness.stop()
