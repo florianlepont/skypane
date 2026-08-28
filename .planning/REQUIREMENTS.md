@@ -103,7 +103,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEVICE-04 | Phase 5 | Pending |
 | DEVICE-05 | Phase 5 | In Progress (05-01 Task 1 of 3 done) |
 | CFG-01 | Phase 6 | Complete (06-07) |
-| CFG-03 | Phase 6 | Pending (not yet planned) |
+| CFG-03 | Phase 6 | Complete (06-08, deployed 06-11) |
 | CFG-04 | Phase 6 | Pending (not yet planned) |
 | CFG-05 | Phase 6 | Pending (not yet planned) |
 | CFG-06 | Phase 6 | Pending (not yet planned) |
