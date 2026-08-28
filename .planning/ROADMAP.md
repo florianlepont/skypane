@@ -26,7 +26,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6: Companion Configuration Web Interface** - A password-protected web page (theme picker, runway selection, health/history, airline-coverage monitoring, flight log, manual poll trigger, render preview/gallery) covering CFG-01, CFG-03..12, promoted from the v2 backlog (12/12 plans complete — developer sign-off checkpoint passed 2026-08-28, two real defects found live and fixed: a poll-trigger crash and mobile table cropping) (completed 2026-08-28)
 - [x] **Phase 6.1: Battery status on companion web interface** (INSERTED) - SUPERSEDED 2026-08-28, before planning — merged into Phase 6.5 (identical target: health_page.py's Battery Trend section). Never planned standalone; see Phase 6.5.
 - [x] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface (completed 2026-08-28).
-- [ ] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves.
+- [x] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves. (completed 2026-08-28)
 - [ ] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan).
 - [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves.
 - [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, a live poll-trigger cooldown countdown, and a verified/pinned corroboration-copy drift guard. Planned 2026-08-28 (3 plans across 2 waves).
@@ -342,7 +342,7 @@ Plans:
 
 **Requirements**: None — unmapped backlog phase (promoted from 999.3), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (full colour/type/spacing refresh, superseding `06-CONTEXT.md` D-21), D-02 (true dashboard layout, not a wider single column) and D-03 (History's mobile table-crop fix) in `06.3-CONTEXT.md`, plus the carried-forward D-22/D-23/D-24/D-25 and the approved `06.3-UI-SPEC.md` design contract.
 **Depends on:** Phase 6
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -357,7 +357,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06.3-05-PLAN.md — full-suite gate, `06.3-VALIDATION.md` reconciled to the shipped breakdown, and the browser visual sign-off at 900px/960px/1200px/1440px+/phone width
+- [x] 06.3-05-PLAN.md — full-suite gate, `06.3-VALIDATION.md` reconciled to the shipped breakdown, and the browser visual sign-off at 900px/960px/1200px/1440px+/phone width
 
 ### Phase 06.2: LED enable/disable toggle (INSERTED)
 
