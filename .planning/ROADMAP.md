@@ -309,7 +309,7 @@ Plans:
 
 **Requirements**: None — unmapped backlog phase (promoted from 999.5, having absorbed 999.1/06.1), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (persistent status badge reusing `status_dot()`) and D-02 (hover **or** tap reveals the exact mV + timestamp, mobile included) in `06.5-CONTEXT.md`. It is UI-only follow-on work to CFG-03, already Complete (Phase 6, plan 06-08), which is not reopened.
 **Depends on:** Phase 6 (CFG-03's `_battery_section()`/`battery_sparkline_svg()`/`battery_status()`). Soft, order-insensitive relationship with Phase 06.3, which restructures the same file's `render()` into a stat-tile grid — `stat_tile()` passes `content_html` through byte-for-byte, so the badge and chart compose either way; `06.5-02-PLAN.md` and `06.3-04-PLAN.md` each carry a conditional note for whichever executes second.
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 **Wave 1**
@@ -318,7 +318,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06.5-02-PLAN.md — Wave 2: the D-01 badge with the empty-history `"ok"` decision written into the code, and D-02's server-rendered per-point hit targets, readout line and single external script reference
+- [x] 06.5-02-PLAN.md — Wave 2: the D-01 badge with the empty-history `"ok"` decision written into the code, and D-02's server-rendered per-point hit targets, readout line and single external script reference
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

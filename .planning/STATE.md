@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.5
 current_phase_name: interactive-battery-trend-chart-with-overall-status
 status: executing
-stopped_at: Phase 06.4 closed and merged with origin/main's Phase 7 (2026-08-28). Starting Phase 06.5 (interactive battery trend chart, 3 plans, 3 waves) — Wave 3 (06.5-03) requires a real-phone tap test with the developer; Waves 1-2 are fully automated.
-last_updated: "2026-08-28T22:15:31.091Z"
+stopped_at: Completed 06.5-02-PLAN.md
+last_updated: "2026-08-28T22:32:36.315Z"
 last_activity: 2026-08-28
 last_activity_desc: Phase 06.5 execution started
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 57
-  completed_plans: 51
-  percent: 71
+  completed_plans: 52
+  percent: 91
 ---
 
 # Project State
@@ -125,6 +125,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.3 P04 | 5min | 2 tasks | 3 files |
 | Phase 06.3 P05 | 25min | 2 tasks | 2 files |
 | Phase 06.4 P01 | ~20min | 3 tasks | 5 files (+1 new: companion/static/RUNWAY-IMAGES.md) |
+| Phase 06.5 P02 | 20min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -228,6 +229,8 @@ Recent decisions affecting current work:
 - [Phase 06.3]: 06.3-05: Accepted server/test_poll_loop.py's remaining panel.bin digest mismatch as a documented, cross-referenced, environment-specific exception (macOS-local Pillow/FreeType rendering vs. pinned Linux-CI digest) rather than a regression
 - [Phase 06.3]: 06.3-05: Performed the visual sign-off via browser automation with DOM/CSS/computed-style inspection rather than screenshot review, since screenshots were unavailable this session
 - [Phase 06.5-01]: battery-trend.js uses getAttribute(data-mv/data-ts) instead of the dataset property — dataset on SVGElement has a narrower browser-support floor than getAttribute
+- [Phase 06.5]: 06.5-02: Battery trend badge state uses Assumption A1 (empty history stays ok, not warn), locked and documented in _battery_section()'s docstring
+- [Phase 06.5]: 06.5-02: SVG role changed img->group so per-point interactive hit targets stay reachable to assistive tech
 
 ### Pending Todos
 
@@ -278,8 +281,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-28T22:14:52.922Z
-Stopped at: 06.3-05 complete — Phase 06.3 fully complete (5/5 plans). Both open items resolved: suite-red blocker fixed via origin/main merge (aeac512), browser visual sign-off approved (24/24 items, zero defects).
+Last session: 2026-08-28T22:32:36.301Z
+Stopped at: Completed 06.5-02-PLAN.md
 
 Resume file: None
 
