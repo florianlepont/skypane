@@ -332,7 +332,61 @@ Plans:
 **Requirements:** TBD
 **Plans:** 0 plans
 
-Allow the board's LEDs to be enabled/disabled from the companion web interface. Raised by the user mid-Phase-6-execution as a follow-up idea, not part of Phase 6's scope. Needs a device-side control path (new poll-response field or command) plus a companion UI toggle — likely lands on the config page (CFG-01/CFG-12's sibling) once a device command channel exists.
+Allow the board's LEDs to be enabled/disabled from the companion web interface. Raised by the user mid-Phase-6-execution as a follow-up idea, not part of Phase 6's scope. Needs a device-side control path (new poll-response field or command) plus a companion UI toggle — likely lands on the config page (CFG-01/CFG-12's sibling) once a device command channel exists. Note (2026-08-28): `led_enabled` already flows firmware-side (state_machine.c reads it from every poll response) but the server half is a hardcoded `True` constant in the vendored, off-limits-to-modify `stub-server/byos_server.py` — wiring a real toggle will need to reckon with that same D-03 constraint the battery-telemetry feature hit (solved there via an infrastructure-level Caddy-log workaround, not a direct code change).
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.3: Companion UI visual design & desktop layout pass (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Developer sign-off feedback (2026-08-28, phase 6 checkpoint) on the shipped companion interface: functionally solid, but "très très sobre et monotone" (very plain/monotone) — wants more visual personality. Specific asks bundled here since they're all one cohesive design-pass effort, not separate features:
+- Desktop view is a single long scrolling list; could be laid out/distributed better on wider screens (a dashboard/grid arrangement instead of one column) — mobile layout, by contrast, was called "vraiment parfait" (really perfect) and needs no rework.
+- The dark/light theme toggle takes up too much visual space in its current placement; move it into a settings menu/button instead of leaving it prominent in the main UI.
+- The Corroboration section (Health page) reads as unclear to a non-technical user and isn't visually polished.
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: Runway picker — show runway number + airport map (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Developer sign-off feedback (2026-08-28, phase 6 checkpoint): the Config page's runway picker should show the runway number more clearly, and a small airport diagram/map alongside the picker would help the developer understand which physical runway each option corresponds to.
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.5: Interactive battery trend chart with overall status (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Developer sign-off feedback (2026-08-28, phase 6 checkpoint): the Health page's battery trend (currently a static SVG sparkline, CFG-03) would be more useful as an interactive chart, paired with an at-a-glance overall battery status indicator rather than requiring the developer to read the trend line themselves.
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.6: Companion UI clarity pass — timestamps, poll-trigger cooldown, corroboration copy (BACKLOG)
+
+**Goal:** [Captured for future planning]
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Developer sign-off feedback (2026-08-28, phase 6 checkpoint), grouped as one "make existing copy/formatting easier to read at a glance" pass:
+- Device/pipeline check-in times are shown as raw timestamps, not very readable — consider relative/human-friendly formatting ("2 min ago").
+- The poll-trigger cooldown/confirmation UX is unclear about the timing rule between two triggers — beyond the 2026-08-28 bugfix (which corrected a crash and a misleading error message, see git history), the cooldown's own explanatory copy could still be clearer, e.g. a visible countdown.
+- Corroboration section copy (also listed under 999.3 for its visual polish) is additionally unclear wording-wise for someone unfamiliar with the underlying ADS-B corroboration concept.
 
 Plans:
 
