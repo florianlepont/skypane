@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 28
+EXPECTED_CHECK_COUNT = 31
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -282,13 +282,19 @@ def main():
             non_healthy = rendered.count("dot--warn") + rendered.count("dot--error")
             if non_healthy != 1:
                 return False, "expected exactly one warn/error status class, got %d" % non_healthy
-            if rendered.count("dot--ok") != 1:
-                return False, "expected exactly one healthy status class, got %d" % rendered.count("dot--ok")
+            # Two healthy dots are expected here: the fresh pipeline's, and
+            # the Battery badge's (D-01) — a single seeded reading has no
+            # consecutive pair to compare, so battery_status() correctly
+            # returns "ok".
+            if rendered.count("dot--ok") != 2:
+                return False, (
+                    "expected exactly two healthy status classes "
+                    "(pipeline + battery badge), got %d" % rendered.count("dot--ok"))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a stale device and a fresh pipeline produce one non-healthy row and one healthy row, not a blended verdict",
+        "a stale device and a fresh pipeline produce one non-healthy row and two healthy rows, not a blended verdict",
         _independent_thresholds_one_warn_one_ok)
 
     def _battery_empty_state_no_svg():
@@ -330,6 +336,98 @@ def main():
     check(
         "three battery rows render the full trend (not just the latest value) and exactly one <svg><polyline>",
         _battery_trend_shows_all_readings_and_one_sparkline)
+
+    def _battery_badge_present_and_healthy_on_normal_trend():
+        tmp = _mkstate("h-battery-badge-ok")
+        try:
+            now = _now()
+            readings = [
+                (_iso(now - timedelta(minutes=1)), 4200),
+                (_iso(now), 4190),
+            ]
+            _seed_device_health(tmp, readings)
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if health_page.BATTERY_STATUS_LABEL not in rendered:
+                return False, "expected the battery status badge label to appear"
+            # Three healthy dots: device, pipeline (both fresh) and battery.
+            if rendered.count("dot--ok") != 3:
+                return False, "expected exactly three healthy status classes, got %d" % rendered.count("dot--ok")
+            if "dot--warn" in rendered or "dot--error" in rendered:
+                return False, "did not expect any non-healthy status class in this fixture"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Battery trend renders a healthy status_dot() badge on a normal trend (D-01)",
+        _battery_badge_present_and_healthy_on_normal_trend)
+
+    def _battery_empty_history_ok_badge_no_anomaly_banner():
+        # 06.5-RESEARCH.md Pitfall 2: the empty-history branch must stay
+        # "ok" (Assumption A1), or a freshly-provisioned device with zero
+        # readings would display "A battery reading shows an abnormal
+        # drop." — factually wrong copy. This check is a permanent
+        # regression guard against that switch.
+        #
+        # Direct unit-level proof that _battery_section([]) itself never
+        # produces an error badge or the abnormal-drop copy:
+        markup, state = health_page._battery_section([])
+        if state != "ok":
+            return False, "expected _battery_section([]) to return state 'ok', got %r" % (state,)
+        if health_page.BATTERY_STATUS_LABEL not in markup:
+            return False, "expected the battery status badge label in the empty-history markup"
+        if "dot--error" in markup or "dot--warn" in markup:
+            return False, "did not expect a non-healthy status class in the empty-history markup"
+        # Page-level proof that a fresh device with no meaningful battery
+        # readings (device/pipeline both healthy, no drop possible) never
+        # surfaces the abnormal-drop anomaly or the banner it drives —
+        # device_health and battery trend share one table, so a page-level
+        # "zero device_health rows at all" fixture would also make Device
+        # check-in read as stale for an unrelated reason; this fixture
+        # isolates the battery-specific guarantee instead.
+        tmp = _mkstate("h-battery-empty-badge")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if "dot--error" in rendered:
+                return False, "did not expect an error status class with a single battery reading"
+            if health_page.ANOMALY_BANNER_TEXT in rendered:
+                return False, "did not expect the anomaly banner with a single, healthy battery reading"
+            if "A battery reading shows an abnormal drop." in rendered:
+                return False, "did not expect the abnormal-drop copy with a single battery reading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an empty/single-reading battery trend renders an ok badge and no anomaly banner (Assumption A1 regression guard)",
+        _battery_empty_history_ok_badge_no_anomaly_banner)
+
+    def _battery_drop_drives_both_badge_and_banner():
+        tmp = _mkstate("h-battery-drop-badge")
+        try:
+            now = _now()
+            readings = [
+                (_iso(now - timedelta(minutes=1)), 4200),
+                (_iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+            ]
+            _seed_device_health(tmp, readings)
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if "dot--error" not in rendered:
+                return False, "expected an error status class for a drop >= BATTERY_DROP_WARN_MV"
+            count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+            if count != 1:
+                return False, "expected the anomaly banner copy exactly once, found %d" % count
+            if "A battery reading shows an abnormal drop." not in rendered:
+                return False, "expected the abnormal-drop copy in the anomaly list"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a real battery drop drives both the badge (error) and the pre-existing anomaly banner",
+        _battery_drop_drives_both_badge_and_banner)
 
     def _sparkline_has_no_external_reference():
         rows = [

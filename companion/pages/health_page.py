@@ -132,6 +132,11 @@ ANOMALY_BANNER_TEXT = "⚠ Something needs attention — see the flagged item(s)
 
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
 PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
+# Deliberately not "Battery trend" (render()'s section/tile caption for
+# this same content) — reusing that string would make every substring
+# assertion in the test harness ambiguous about which of the two it
+# matched (D-01).
+BATTERY_STATUS_LABEL = "Battery readings"
 
 _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 # "query succeeded and legitimately returned None/empty" (e.g. no rows
@@ -364,19 +369,47 @@ def _pipeline_section(pipeline_ts, now):
     return row, state
 
 
+def _battery_badge_block(state):
+    return '<p class="text-body">%s</p>' % layout.status_dot(state, BATTERY_STATUS_LABEL)
+
+
 def _battery_section(trend_rows):
+    """Return `(markup, state)` for the Battery trend tile.
+
+    `state` drives two independent consumers from one value: the
+    `status_dot()` badge rendered by this function, and
+    `collect_anomalies()`'s abnormal-drop signal in `render()`.
+
+    The empty-history branch (`not trend_rows`) deliberately returns
+    `"ok"`, not `"warn"` — unlike Device/Pipeline's never-seen state,
+    which does map to `"warn"` via `staleness_status()`. Two reasons:
+    (1) precedent — `corroboration_status()` already maps its own
+    unknown state (`"None"`, single-source) to `"ok"`, on the rationale
+    that an absence of information is not a failure; a device that has
+    simply never reported a battery reading is the same shape of
+    unknown, not a staleness signal like Device/Pipeline's silence.
+    (2) a real coupling — `render()` passes this function's second
+    return value straight into `collect_anomalies()`, which appends the
+    literal copy "A battery reading shows an abnormal drop." for any
+    non-`"ok"` battery state. A `"warn"` here would make a freshly
+    provisioned deployment with zero readings display a banner
+    asserting an abnormal drop that never happened. Keeping `"ok"`
+    keeps one value honest for both consumers, so `render()` needs no
+    decoupling.
+    """
     if trend_rows is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     if not trend_rows:
-        return layout.empty_state(
+        return _battery_badge_block("ok") + layout.empty_state(
             "No battery readings yet.",
             "No battery telemetry recorded yet — check back after the "
             "device's next poll."), "ok"
+    state = battery_status(trend_rows)
     table_rows = [(row.get("ts"), row.get("battery_mv")) for row in trend_rows]
     table_html = layout.data_table(
         ["Timestamp", "Battery (mV)"], table_rows, mono_columns=(0, 1))
     sparkline_html = battery_sparkline_svg(trend_rows) if len(trend_rows) >= 2 else ""
-    return table_html + sparkline_html, battery_status(trend_rows)
+    return _battery_badge_block(state) + table_html + sparkline_html, state
 
 
 def _corroboration_section(counts):
