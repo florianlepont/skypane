@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 25
+EXPECTED_CHECK_COUNT = 27
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -481,6 +481,63 @@ def main():
     check(
         "companion/pages/health_page.py never imports the stdlib html module directly",
         _health_page_never_imports_html_module)
+
+    def _health_page_renders_one_dashboard_grid_of_four_tiles():
+        tmp = _mkstate("h-dashboard-grid")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if rendered.count('<div class="dashboard-grid">') != 1:
+                return False, (
+                    "expected exactly one dashboard-grid div, got %d"
+                    % rendered.count('<div class="dashboard-grid">'))
+            if rendered.count('class="stat-tile') != 4:
+                return False, (
+                    "expected exactly four stat-tile occurrences, got %d"
+                    % rendered.count('class="stat-tile'))
+            if rendered.count(">Overview<") != 1:
+                return False, (
+                    "expected exactly one Overview group heading, got %d"
+                    % rendered.count(">Overview<"))
+            if 'class="page-section"' in rendered:
+                return False, "did not expect any page-section from the four signal sections"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a healthy fixture renders one dashboard-grid with exactly four stat tiles under one Overview heading",
+        _health_page_renders_one_dashboard_grid_of_four_tiles)
+
+    def _health_page_section_builder_markup_survives_reframe():
+        tmp = _mkstate("h-reframe-survives")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=2)), 4200),
+                (_iso(base - timedelta(minutes=1)), 4190),
+                (_iso(base), 4180),
+            ]
+            _seed_device_health(tmp, readings)
+            _seed_runway_events(tmp, [
+                dict(
+                    ts=_iso(base), hex="abc123", confirmed_state="DEPARTING",
+                    corroborated="True"),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if "dot--" not in rendered:
+                return False, "expected at least one dot-- status class to survive the reframe"
+            if '<table class="data-table">' not in rendered:
+                return False, "expected the battery table to survive the reframe"
+            if "<svg" not in rendered:
+                return False, "expected the battery sparkline svg to survive the reframe"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "battery and corroboration section-builder markup (dot, table, svg) survives the stat-tile reframe untouched",
+        _health_page_section_builder_markup_survives_reframe)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py

@@ -335,15 +335,6 @@ def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(HEALTH_UNAVAILABLE_TEXT)
 
 
-def _section(name, content_html):
-    return (
-        '<section class="page-section">'
-        '<h2 class="text-heading">%s</h2>'
-        "%s"
-        "</section>"
-    ) % (escape_html(name), content_html)
-
-
 def _device_section(device_health, now):
     if device_health is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
@@ -455,16 +446,19 @@ def render(ctx):
             '<li class="text-body">%s</li>' % escape_html(item) for item in anomalies)
         banner_html = layout.anomaly_banner(ANOMALY_BANNER_TEXT) + "<ul>%s</ul>" % items_html
 
-    sections_html = (
-        _section("Device check-in", device_html)
-        + _section("ADS-B pipeline", pipeline_html)
-        + _section("Battery trend", battery_html)
-        + _section("Corroboration", corroboration_html)
+    tiles_html = (
+        layout.stat_tile(DEVICE_FRESHNESS_LABEL, device_html, device_state)
+        + layout.stat_tile(PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state)
+        + layout.stat_tile("Battery trend", battery_html, battery_state)
+        + layout.stat_tile(
+            "Corroboration", corroboration_html,
+            "warn" if disagreement_warn else "ok")
     )
 
     return (
         '<h1 class="text-heading">Health</h1>'
         + _source_fault_block(source_fault_raw)
         + banner_html
-        + sections_html
+        + '<h2 class="text-heading">Overview</h2>'
+        + '<div class="dashboard-grid">' + tiles_html + '</div>'
     )
