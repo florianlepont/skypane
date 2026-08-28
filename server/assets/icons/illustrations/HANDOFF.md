@@ -220,6 +220,37 @@ generate separate art per sub-variant.
 | **Aircraft type (D-19 / Phase 3.1 accuracy upgrade)** | **No longer a free "plausible for that carrier" choice — it is dictated by the filename.** An unsuffixed airline file must show that carrier's numerically dominant type per `03.1-CONTEXT.md`'s D-03 table (see the per-file prompts below for the exact type). A shape-suffixed file must show exactly that shape. This is a correctness requirement now, not a style preference, because `select_illustration()`'s two-key lookup and the caption text (`{airline} · {type}`) both depend on the right art existing under the right name. |
 | **Neutral shape files — no airline identity** | The seven `generic-{shape}.png` files must carry **no airline identity, no livery colours, no tail markings, and no logo shapes of any kind** — neutral brushed-metal/grey tones only. These files are shown precisely when the carrier could not be identified (D-07); any brand cue on them would misattribute a real, unidentified flight to a specific airline it may not even be. |
 | **No readable text anywhere on the aircraft** | No fuselage titles, no tail wordmarks, no registration codes, no readable lettering of any kind painted on the airframe - color blocks and non-text emblems/logo shapes are fine, but nothing a human reads as words. |
+| **Framing / transparent margin** | **Not constrained — do not trim, crop, or pad a delivered file to "tighten" it.** How much empty space surrounds the aircraft inside its canvas is free to vary from file to file. The renderer measures each illustration's real opaque-pixel bounding box and lays text out against that, so framing has no effect on spacing. See the note below before "fixing" a file that looks loosely framed. |
+
+**Framing is not load-bearing (2026-08-28, debug session
+`illustration-crop-text-margin`).** This used to be false by accident and is
+worth stating explicitly, because the natural instinct on seeing a loosely
+framed file is to crop it.
+
+Every delivered file carries a soft alpha falloff below the aircraft — a
+drop-shadow/anti-aliasing band of alpha 1..127, 5-261px tall depending on the
+file. `render.draw_illustration()` hard-thresholds alpha at `> 127` before
+compositing (it must: a soft mask blends palette *index integers* during
+`paste()` and yields illegal in-between indices), so **none of that band is
+ever painted.** Measured across all 43 files, the aircraft's last painted pixel
+row sits 37-174px above the bottom of its own source rectangle.
+
+The layout previously anchored flight text to the source rectangle, which made
+the visible aircraft-to-text gap swing between 17px and 154px purely on which
+airline was flying. It now anchors to the opaque-pixel bbox
+(`render._opaque_bbox()`, measured with that same `> 127` threshold), so the gap
+is constant regardless of framing.
+
+Two consequences for anyone delivering art:
+
+- **Do not trim transparent margins.** It changes nothing visually and costs
+  effective resolution, since the file is downscaled to a fixed target *width*.
+- **Never verify padding with `Image.getbbox()`** on the image or its raw alpha
+  channel. Both count the sub-threshold shadow band as content. Six current
+  files — `air-france.png` among them — report a naive bottom padding of exactly
+  **0** while their real painted padding is 82-174px. Trusting that reading is
+  precisely how the original bug was introduced. Use
+  `render._opaque_bbox()`, or replicate its threshold.
 
 **Project decision (2026-08-26):** this no-text requirement is explicitly
 **waived** for the generated airline illustrations at the user's request, and

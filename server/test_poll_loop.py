@@ -112,7 +112,29 @@ EXPECTED_CHECK_COUNT = 43
 # run - so the pin below is the Linux-computed value. A future re-pin from
 # a local macOS run will fail on CI again for the same reason; always
 # re-pin from the CI log's own FAIL output, not from a local run.
-_DEFAULT_CONFIG_DIGEST = "5e7aea40e6772b646f934b1142bd9e387bae2e90824fd0d135b224a1d1434954"
+#
+# RE-PINNED AGAIN 2026-08-28, merging the illustration-crop-text-margin
+# debug session (both passes: text-gap and horizontal/vertical centering
+# now follow each illustration's real painted pixels, server/plane/render.py)
+# with origin/main's Phase 6 companion-app plumbing on top of the prior
+# pin's baseline - the FLIGHT1 fixture's rendered pixels genuinely move
+# (that is the fix's entire point), so a new digest is expected, not a
+# regression.
+#
+# A first attempt tried to shortcut the standing rule above by computing the
+# digest inside a `python:3.12-slim` Linux container (Pillow==12.3.0 pinned
+# from server/requirements.txt) instead of round-tripping through an actual
+# CI failure, reasoning that a manylinux Pillow wheel bundles its own static
+# FreeType regardless of distro. That reasoning was WRONG, or at least
+# incomplete: the container's digest matched this macOS checkout exactly,
+# but GitHub Actions' actual ubuntu-latest runner produced a THIRD, different
+# digest again - proving some other environment difference (fontconfig, a
+# distro-provided font discovered at runtime, or something else entirely)
+# still separates a generic Linux container from the real CI runner. The
+# lesson holds even more strongly now: this value is pinned FROM THE REAL CI
+# FAIL OUTPUT below, not from any local computation, containerized or not.
+# Don't try this shortcut again - re-pin only from an actual CI run.
+_DEFAULT_CONFIG_DIGEST = "45b17a3e46e02f67575206ea2946633210b557a61bee5cd9bcc1ffd8ac654b5d"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
