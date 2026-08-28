@@ -19,6 +19,16 @@ THEME_HELPER_TEXT = (
     "options on real hardware.")
 RUNWAY_HELPER_TEXT = (
     "Applies on the device's next scheduled poll — not immediately.")
+LED_HELPER_TEXT = (
+    "Controls the board's built-in bring-up LED. It's lit only during the "
+    "device's brief active wake window and isn't visible from the "
+    "wall-facing side. Applies on the device's next scheduled poll — not "
+    "immediately.")
+
+# The sole accepted submitted value for the LED checkbox (D-01) — shared
+# by led_fieldset()'s markup and handle_led_post()'s validator so the two
+# can never drift apart.
+LED_CHECKBOX_VALUE = "on"
 
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
@@ -102,6 +112,42 @@ def runway_fieldset(current_runway_id):
     ) % ("".join(options), escape_html(RUNWAY_HELPER_TEXT))
 
 
+def led_fieldset(current_led_enabled):
+    """A single checkbox controlling the CFG-LED bring-up LED (D-01/D-02):
+    a `<label>` wrapping `<input type="checkbox" name="led_enabled"
+    value="on">`, carrying a bare `checked` attribute only when
+    `current_led_enabled` is truthy, plus the helper text explaining what
+    the control does.
+    """
+    checked = " checked" if current_led_enabled else ""
+    return (
+        "<fieldset>"
+        "<legend>Bring-up LED</legend>"
+        "<label>"
+        '<input type="checkbox" name="led_enabled" value="%s"%s> Enable bring-up LED'
+        "</label>"
+        '<p class="text-label">%s</p>'
+        "</fieldset>"
+    ) % (escape_html(LED_CHECKBOX_VALUE), checked, escape_html(LED_HELPER_TEXT))
+
+
+def led_section(current_led_enabled):
+    """Wraps led_fieldset() in its own dedicated, independently-submittable
+    `<section>`/`<form>` (D-01) — mirroring poll_trigger_section()'s own
+    "own dedicated form" precedent. See render()'s comment for why this is
+    NOT folded into the Theme/Runway `<form action="/config">`.
+    """
+    return (
+        '<section class="page-section">'
+        '<h2 class="text-heading">Bring-up LED</h2>'
+        '<form method="post" action="/config-led">'
+        "%s"
+        '<button type="submit">Save LED Setting</button>'
+        "</form>"
+        "</section>"
+    ) % led_fieldset(current_led_enabled)
+
+
 def poll_trigger_section(cooldown_remaining):
     """The CFG-07 manual-trigger control: an enabled button when
     `cooldown_remaining` is zero, or a native-disabled button plus the
@@ -129,8 +175,18 @@ def render(ctx):
     current_theme_id = device_cfg.get("theme", device_config.DEFAULT_THEME_ID)
     current_runway_id = device_cfg.get(
         "tracked_runway", device_config.DEFAULT_RUNWAY_ID)
+    current_led_enabled = device_cfg.get(
+        "led_enabled", device_config.DEFAULT_LED_ENABLED)
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
 
+    # The LED section is deliberately a sibling page-section, appended
+    # AFTER the Poll section, rather than a third fieldset inside the
+    # `<form action="/config">` block above: 06.3-UI-SPEC.md line 181
+    # locks a 2-column grid over that form's fieldsets at >=960px, and a
+    # third fieldset there would become a silent 2+1 orphan row. As its
+    # own sibling page-section it stacks below like the Poll section
+    # instead, leaving that grid rule untouched. Do not "fix" this by
+    # moving it into the fieldset grid (06.2-01-PLAN.md Task 2, step 5).
     return (
         '<h1 class="text-heading">Config</h1>'
         '<form method="post" action="/config">'
@@ -142,10 +198,12 @@ def render(ctx):
         '<h2 class="text-heading">Poll</h2>'
         "%s"
         "</section>"
+        "%s"
     ) % (
         theme_fieldset(current_theme_id),
         runway_fieldset(current_runway_id),
         poll_trigger_section(cooldown_remaining),
+        led_section(current_led_enabled),
     )
 
 
@@ -192,6 +250,40 @@ def handle_post(form, ctx):
     try:
         device_config.save_device_config(
             state_dir, theme=submitted_theme, tracked_runway=submitted_runway)
+    except (ValueError, OSError):
+        return FLASH_SAVE_FAILED
+    return FLASH_SAVED
+
+
+def handle_led_post(form, ctx):
+    """Validate and persist the LED checkbox submission (D-01, T-06.2-02).
+
+    Same asymmetric-validation discipline handle_post()'s own docstring
+    states: the read path forgives via `device_config.normalise_led_enabled()`,
+    this write path rejects the whole submission and never silently
+    coerces. Exactly three shapes are resolved and no others:
+      - the field is absent from `form` (an unchecked HTML checkbox is
+        omitted from the POST body entirely) -> `led_enabled=False`;
+      - the field equals `LED_CHECKBOX_VALUE` -> `led_enabled=True`;
+      - anything else (a crafted/hostile value) -> reject the whole
+        submission with FLASH_SAVE_FAILED, before any write.
+
+    Reuses FLASH_SAVED/FLASH_SAVE_FAILED rather than adding new flash
+    keys — this action's user-facing outcome is exactly what those keys
+    already say.
+    """
+    state_dir = ctx["state_dir"]
+    submitted = form.get("led_enabled")
+
+    if submitted is None:
+        led_enabled = False
+    elif submitted == LED_CHECKBOX_VALUE:
+        led_enabled = True
+    else:
+        return FLASH_SAVE_FAILED
+
+    try:
+        device_config.save_device_config(state_dir, led_enabled=led_enabled)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
     return FLASH_SAVED
