@@ -1,7 +1,7 @@
 ---
 phase: 06-companion-configuration-web-interface-visual-settings-view-s
 plan: 12
-status: checkpoint-pending
+status: gaps-addressed-awaiting-final-approval
 ---
 
 ## Task 1: Runway gate live-capture verification
@@ -54,12 +54,85 @@ verification doc) — all merged except #14, which is open pending merge.
 
 ## Task 3: Developer sign-off
 
-**Pending.** Checkpoint presented to the developer; awaiting response.
+Checkpoint presented; developer worked through all 11 items on phone and
+laptop and reported specific findings for each (not a blanket approval).
+Recorded verbatim by item below, per this task's own instruction that an
+untried item is recorded as skipped, never as passed — every item below
+was actually tried.
 
-The companion service is confirmed running and reachable at
-**`https://config-92-222-92-167.nip.io`**, with real content on every
-page: recent flight activity (runway 3 actively tracking, e.g. a Wizz Air
-A321neo arrival), real battery-voltage history, and a populated render
-gallery (5+ recent panel images from the last 15 minutes). Nothing is
-empty by omission — any page that looks sparse reflects genuinely limited
-history since this is the service's first live deployment, not a bug.
+1. **Access gate.** Not commented on directly; implicitly fine (the
+   developer reached and used every other page, which requires this gate
+   to work).
+2. **Config, theme.** OK, no issues.
+3. **Config, runway.** OK, no issues with save/confirmation. Follow-up
+   feature request: show the runway *number* more clearly, and an airport
+   map alongside the picker to show which physical runway is selected —
+   backlogged as **999.4**.
+4. **Config, poll trigger.** **Real defect.** Clicking the button showed
+   "can't save settings" and did not visibly trigger the frame. Root
+   cause found and fixed live (see below): `--geofence` was never passed
+   to the companion service, so every trigger raised `FileNotFoundError`
+   under a misleading flash message. Also flagged: the cooldown/timing
+   UX is unclear beyond the crash — backlogged as part of **999.6**.
+5. **Health, device checkin.** OK the two freshness signals are shown
+   separately as required, but raw-timestamp formatting isn't very
+   readable — backlogged as part of **999.6**.
+6. **Health, battery trend.** OK, present and shows a trend, but
+   feature request: an interactive chart with an overall status
+   indicator would be more useful than the current static sparkline —
+   backlogged as **999.5**.
+7. **Health, corroboration.** OK, functionally present, but unclear
+   copy for a non-expert and not visually polished — backlogged as part
+   of **999.3** (visual) and **999.6** (copy).
+8. **Airlines.** OK, no issues with the read-only design or resolution
+   percentage.
+9. **History.** OK, no issues.
+10. **Preview.** OK. Question asked and answered: the gallery keeps 25
+    panels on disk (`GALLERY_MAX_ENTRIES`), displaying the newest 12
+    (`GALLERY_DISPLAY_LIMIT`).
+11. **Dark and light.** OK, both palettes readable, but the toggle
+    control takes up too much visual space in its current placement —
+    backlogged as part of **999.3**.
+12. **Phone.** **Real defect.** "Navigation is not usable as-is" — the
+    Airlines Unresolved table and the History table were cropped on
+    phone. Root cause found and fixed live (see below): `data_table()`
+    had no horizontal-scroll container.
+13. **Overall.** "Globally very functional, well done" — but the
+    interface reads as very plain/monotone and wants more personality;
+    the desktop view is one long scrolling list that could be better
+    laid out on wider screens. Mobile layout itself (navigation,
+    responsiveness) was called "really perfect" aside from the two
+    cropped tables above. Backlogged as **999.3**.
+
+### Fixed live during this checkpoint (not just recorded — shipped and re-verified)
+
+Both concrete defects (items 4 and 12) were root-caused, fixed, tested,
+and deployed within this same session, then re-verified against the real
+production service before reporting back:
+
+- **Poll-trigger crash + misleading message**: `deploy/skypane-companion.service`
+  now passes `--geofence /opt/skypane/config/runway3.json` (matching
+  `skypane-poll.service`'s existing pattern); a genuine failure now
+  redirects with a distinct `poll_failed` flash key instead of reusing
+  `save_failed`'s "couldn't save settings" copy. Verified: a real
+  `POST /poll-now` against the live service now returns
+  `flash=poll_triggered`.
+- **Mobile table cropping**: `layout.data_table()` (shared by History,
+  Airlines, Health) now wraps its `<table>` in a horizontally-scrollable
+  container, the same fix `.nav-bar` already used for the identical
+  problem. Verified: the fix is present in the deployed `style.css`.
+- Two new regression tests added (`companion/test_companion_app.py`,
+  51/51). PR: #14 (same PR as Task 1's verification doc — CI green,
+  merged).
+
+### Not yet re-confirmed by the developer
+
+All UX/design feedback not listed as a "real defect" above (runway map,
+interactive battery chart, timestamp readability, dark/light toggle
+placement, overall visual personality, desktop layout) is intentionally
+**deferred, not fixed** — backlogged as phases **999.3** through **999.6**
+for future planning, per the developer's own framing of these as "would
+be nicer" rather than "broken." The two functional defects are fixed and
+live. Phase closure is not yet declared — awaiting the developer's
+explicit "approved" (or further findings) now that both real bugs are
+resolved.
