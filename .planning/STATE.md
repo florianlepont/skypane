@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "06.2"
-current_phase_name: LED enable/disable toggle
+current_phase: 06.2
+current_phase_name: led-enable-disable-toggle
 status: executing
 stopped_at: "Full discuss+plan pass complete across all six 06.x backlog phases. 06.1 superseded into 06.5 before planning (identical target — health_page.py's Battery Trend section). 06.2/06.3/06.4/06.5/06.6 each carry CONTEXT.md, RESEARCH.md, VALIDATION.md (nyquist_compliant: true), PATTERNS.md, plan-checker-verified PLAN.md(s) (06.2: 2 plans; 06.3: 5 plans/3 waves, plus an approved UI-SPEC.md; 06.4: 1 plan; 06.5: 3 plans/3 waves; 06.6: 3 plans/2 waves — 14 plans total). None executed yet. Two real cross-phase conflicts found during planning and reconciled in the plan text itself: 06.3-04-PLAN.md's "battery functions unchanged" claim now carries a conditional note since 06.5 changes those same functions (no formal execution-order dependency between the two phases); 06.6's plan avoids adding a second `companion/static/*.js` file and avoids changing `_battery_section()`'s call signature, both to not collide with 06.5's plan. Ready to execute in any order via /gsd-execute-phase 06.X; no phase depends on another's execution to be internally valid."
-last_updated: "2026-08-28T11:51:11.010Z"
+last_updated: "2026-08-28T12:03:09.325Z"
 last_activity: 2026-08-28
 last_activity_desc: Phase 06.2 execution started
 progress:
   total_phases: 14
   completed_phases: 7
   total_plans: 57
-  completed_plans: 42
-  percent: 74
+  completed_plans: 43
+  percent: 50
 ---
 
 # Project State
@@ -98,6 +98,7 @@ Progress: [█████████▊] 98% (41/42 plans) — recomputed by h
 | Phase 06 P09 | ~30min | 3 tasks | 5 files |
 | Phase 06 P10 | 40min | 3 tasks | 2 files |
 | Phase 06 P11 | ~35min | 3 tasks | 10 files (1 new: deploy/skypane-companion.service; 9 modified) |
+| Phase 06.2 P01 | 25min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -191,6 +192,7 @@ Recent decisions affecting current work:
 - [Phase 06]: 06-09 complete - companion/pages/history_page.py (CFG-06, reuses server.plane.render's display_airline_name()/_TYPE_DISPLAY_LABELS/ROUTE_FALLBACK_TEXT so web and panel never drift; a hand-built table hosts layout.status_dot() markup since layout.data_table() would double-escape it) and companion/pages/preview_page.py (CFG-10/CFG-11, mandatory not-colour-accurate caveat, honest no-panel-yet fallback instead of a broken <img>, capped newest-first gallery built only from ctx["gallery_entries"]); companion/app.py's page_context() gained gallery_entries so preview_page never imports the router; companion/test_view_pages.py added, 19/19 checks; CFG-06/CFG-11 marked complete (CFG-10 already complete from 06-05).
 - [Phase 06]: 06-10 complete - run_once() reads device_config.json once per cycle threading theme/runway/CFG-05 fault into detection and every render.build_canvas() call site; the fault-transition comparison is persisted in history.db's meta table (not poll_state.json, to keep save_poll_state()'s single call site unchanged) so a persistent outage re-renders once, not every 30s cycle; _should_record_event()/_record_history() write runway_events rows only on a real hex/confirmed_state/corroborated transition with per-cycle meta on every cycle regardless; _save_to_gallery()/_prune_gallery() cap the CFG-11 gallery at 25 entries; test_poll_loop.py grew 8 -> 27 checks including a pinned pre-06-10 byte-identity digest and the cross-module device_config.RUNWAYS/geofence runway-id consistency check
 - [Phase 06]: 06-11 complete (Wave 4, final plan) - companion service deployed: deploy/skypane-companion.service mirrors skypane-byos.service's five hardening directives (D-03 separate-process rationale); deploy/skypane.env.example/provision.sh gain the companion password/port/host/access-log entries, unit install+enable, and a matching ufw deny 8643/tcp; deploy/Caddyfile gains a config-prefixed companion site block and moves the existing device-protocol block's access log from stdout to a durable rolled JSON file (Pattern 6, D-03) - the only path to CFG-03's battery-voltage history since the vendored byos_server.py may not be modified; deploy/deploy.sh ships+restarts companion/ alongside server/stub-server; deploy/README.md/README.md/ARCHITECTURE.md document the new service, with deploy/README.md recording Assumption A3 (Caddy JSON header-nesting shape, unverified against a live line) as an open item for 06-12. scripts/run-all-tests.sh's canonical array grows 9->15 (server/test_config_history.py, server/test_panel_preview.py, four companion/test_*.py harnesses); pyproject.toml's coverage source gains companion, the two temporary 06-01/06-03 omit-deviations are removed. Deviation: companion/app.py added to the omit list (every companion harness drives it as an uninstrumented subprocess - same M5 rationale already documented for stub-server/byos_server.py); without this the newly-in-scope device_config.py/history_db.py/panel_preview.py gains were offset almost exactly by companion/app.py's ~21% coverage, producing a suspicious coincidental re-measurement of 79% (identical to the pre-phase-6 figure) before the deviation was applied. After the fix, re-measured coverage is 87%; threshold ratcheted 75->83 (same 4-point margin discipline) with a freshly-dated derivation comment. Full suite (15/15 harnesses, 394 checks), ruff, and check-attribution.sh all green. Phase 6 is 11/12 - only 06-12 (live on-VPS verification, closing Assumption A3 and the ufw-deny-from-outside check) remains.
+- [Phase 06.2]: led_enabled defaults to True (D-02); LED toggle gets its own dedicated /config-led form (D-01) to avoid checkbox-absence ambiguity; VENDOR.md records byos_server.py's read as local modification 4 (D-03)
 
 ### Pending Todos
 
@@ -239,7 +241,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-28T08:21:13.993Z
+Last session: 2026-08-28T12:02:02.476Z
 Stopped at: Completed 06-11-PLAN.md; 06-12 (live verification) in progress, blocked on a developer sign-off checkpoint
 
 Resume file: .planning/phases/06-companion-configuration-web-interface-visual-settings-view-s/06-12-PLAN.md

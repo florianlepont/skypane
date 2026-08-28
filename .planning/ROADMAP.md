@@ -364,12 +364,12 @@ Plans:
 **Goal:** The board's bring-up LED can be turned on or off from the companion web interface, and the device obeys that choice on its next scheduled poll. Firmware and the wire protocol are already complete (`firmware/main/led.c`, `state_machine.c`, `api_client.c`); this phase closes the one remaining gap — no store, no endpoint, and no web control exist behind `byos_server.py`'s hardcoded `/display` field, so the setting can currently only be changed by physically reflashing the board.
 **Requirements**: None — unmapped backlog phase (promoted from 999.2), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (own dedicated Config-page section) and D-02 (defaults to enabled) in `06.2-CONTEXT.md`, plus the inherited D-03 vendored-file discipline from `06-CONTEXT.md`.
 **Depends on:** Phase 6
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 06.2-01-PLAN.md — Wave 1: persist `led_enabled` in `server/device_config.py`, add the dedicated Config-page section and its own `/config-led` route, and read the value from the shared state directory in `byos_server.py`'s `/display` handler (VENDOR.md local modification #4)
+- [x] 06.2-01-PLAN.md — Wave 1: persist `led_enabled` in `server/device_config.py`, add the dedicated Config-page section and its own `/config-led` route, and read the value from the shared state directory in `byos_server.py`'s `/display` handler (VENDOR.md local modification #4)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
