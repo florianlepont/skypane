@@ -178,33 +178,111 @@ DEFAULT_AXIS_TOLERANCE_DEG = 30.0
 # `corridor.ground_gate_derivation` for the full derivation.
 DEFAULT_GROUND_HALF_WIDTH_M = 75.0
 
+# The runway id used by every generalised function's default parameter
+# (CFG-12), so the pre-CFG-12 default behaviour - runway 3, the only
+# runway this module ever tracked before this change - is exactly what a
+# caller gets when it passes no runway_id at all. poll_loop.py, the CLI,
+# and every pre-existing check in server/test_plane_detection.py all rely
+# on this.
+DEFAULT_RUNWAY_ID = "3"
+
 
 def load_geofence(path=None):
     with open(path or DEFAULT_GEOFENCE, "r") as f:
         return json.load(f)
 
 
-def runway_axis(geofence):
-    """Derive runway 3's centreline from the two published threshold
-    coordinates in geofence['runway'].
-
-    Returns a dict with the origin (threshold 07), the unit vector along
-    07 -> 25 in local metres, the centreline length, and the true bearing;
-    or None when the geofence carries no usable threshold pair (a custom or
-    older geofence file), in which case the corridor/alignment gates are
-    skipped and only the bbox applies - see filter_in_geofence().
-
-    The bearing is TRUE, not magnetic: the thresholds come from
-    OurAirports' le/he_latitude/longitude columns and the resulting bearing
-    (74.41 deg) matches the `le_heading_degT` column, which is what ADS-B's
-    own `track` field is measured against. runway3.json's
-    `runway.correction_2026_08_27` records why that distinction matters.
+def runway_ids(geofence):
+    """The set of runway ids selectable via `--runway` / `runway_id=...`,
+    read from the geofence file's own `runways` keys. Never raises: an
+    older or hand-written geofence carrying no `runways` key (or an empty
+    one) degrades to the single default id, `DEFAULT_RUNWAY_ID` - exactly
+    the one runway that geofence shape has ever supported.
     """
-    runway = geofence.get("runway")
+    runways = geofence.get("runways")
+    if isinstance(runways, dict) and len(runways) > 0:
+        return tuple(runways.keys())
+    return (DEFAULT_RUNWAY_ID,)
+
+
+def _effective_runway_id(geofence, runway_id):
+    """The runway id `runway_block()` actually resolves `runway_id` to:
+    `runway_id` itself when it names a real entry in `geofence["runways"]`,
+    else `DEFAULT_RUNWAY_ID` (the id whose geometry the legacy-fallback
+    branch serves). Shared by `runway_block()` and
+    `select_aircraft_for_runway()`, which needs to report which runway a
+    selection was actually gated on rather than the (possibly
+    unrecognised) id it was asked for.
+    """
+    runways = geofence.get("runways")
+    if isinstance(runways, dict) and isinstance(runways.get(runway_id), dict):
+        return runway_id
+    return DEFAULT_RUNWAY_ID
+
+
+def runway_block(geofence, runway_id=DEFAULT_RUNWAY_ID):
+    """The `{"runway": ..., "corridor": ...}` block for `runway_id`.
+
+    Returns `geofence["runways"][runway_id]` when the new-shape `runways`
+    key is a dict and `runway_id` names one of its entries. Otherwise -
+    including an unrecognised `runway_id`, a malformed `runways` value, or
+    an older geofence file carrying no `runways` key at all - falls back
+    to a synthetic block built from the legacy flat `runway`/`corridor`
+    keys.
+
+    This fallback is the security-relevant branch (T-06-02-01, ASVS V5):
+    an unrecognised or malformed `runway_id` must land on the default
+    runway's geometry, never raise, and never widen a gate - the same
+    "malformed config falls back rather than raising" discipline
+    `corridor_params()` already applies to a single malformed number,
+    extended here to the runway selector itself.
+    """
+    runways = geofence.get("runways")
+    if isinstance(runways, dict) and isinstance(runways.get(runway_id), dict):
+        return runways[runway_id]
+    return {
+        "runway": geofence.get("runway"),
+        "corridor": geofence.get("corridor"),
+    }
+
+
+def runway_axis(geofence, runway_id=DEFAULT_RUNWAY_ID):
+    """Derive the selected runway's centreline from its two published
+    threshold coordinates (see runway_block()).
+
+    Returns a dict with the origin (the first threshold), the unit vector
+    from the first threshold to the second in local metres, the centreline
+    length, and the true bearing; or None when the resolved runway block
+    carries no usable threshold pair (a custom or older geofence file), in
+    which case the corridor/alignment gates are skipped and only the bbox
+    applies - see filter_in_geofence().
+
+    Reads the new two-element `thresholds` array first, falling back to
+    the legacy `threshold_07`/`threshold_25` keys so an old-shape geofence
+    (or runway_block()'s legacy-fallback branch) still works - every
+    existing guard (non-dict, missing key, non-numeric, zero-length axis
+    all return None) is unchanged. An unrecognised `runway_id` resolves,
+    via runway_block(), to the default runway's geometry rather than None
+    or an exception (T-06-02-01).
+
+    For runway 3 (the default), the bearing is TRUE, not magnetic: the
+    thresholds come from OurAirports' le/he_latitude/longitude columns and
+    the resulting bearing (74.41 deg) matches the `le_heading_degT` column,
+    which is what ADS-B's own `track` field is measured against.
+    runway3.json's `runway.correction_2026_08_27` records why that
+    distinction matters; the same TRUE-heading convention applies to the
+    other runways' `heading_deg_true` fields.
+    """
+    block = runway_block(geofence, runway_id=runway_id)
+    runway = block.get("runway") if isinstance(block, dict) else None
     if not isinstance(runway, dict):
         return None
-    start = runway.get("threshold_07")
-    end = runway.get("threshold_25")
+    thresholds = runway.get("thresholds")
+    if isinstance(thresholds, list) and len(thresholds) == 2:
+        start, end = thresholds[0], thresholds[1]
+    else:
+        start = runway.get("threshold_07")
+        end = runway.get("threshold_25")
     if not isinstance(start, dict) or not isinstance(end, dict):
         return None
     try:
@@ -230,20 +308,35 @@ def runway_axis(geofence):
     }
 
 
-def corridor_params(geofence):
-    """The corridor gate's four numbers, from geofence['corridor'] when
-    present, else the module defaults. Non-numeric or non-positive entries
-    fall back rather than raising - a malformed config must not be able to
-    silently widen the gate to infinity.
+def corridor_params(geofence, runway_id=DEFAULT_RUNWAY_ID):
+    """The corridor gate's four numbers for the selected runway, from
+    `runway_block(geofence, runway_id)['corridor']` when present, else the
+    module defaults. Non-numeric or non-positive entries fall back rather
+    than raising - a malformed config must not be able to silently widen
+    the gate to infinity. An unrecognised `runway_id` resolves to the
+    default runway's corridor via runway_block() rather than raising or
+    widening anything (T-06-02-01).
 
     Returns (half_width_m, extension_m, axis_tolerance_deg,
     ground_half_width_m). The first three describe the AIRBORNE corridor;
     the fourth is the on-ground pavement gate, used as both the lateral
     half-width and the along-track margin beyond each threshold (one
-    concept - "within X of runway 3's paved rectangle" - rather than two
-    tunables).
+    concept - "within X of the selected runway's paved rectangle" - rather
+    than two tunables).
+
+    NOTE on the ground gate and per-runway corridor blocks (merge of the
+    2026-08-27 pavement fix with CFG-12's runway parameterisation): the
+    measured derivation for `ground_half_width_m` lives on the legacy
+    top-level `corridor` block, while the per-runway blocks under
+    `runways` do not carry the key. That resolves to the SAME 75.0 either
+    way - a per-runway block omitting it falls through to
+    DEFAULT_GROUND_HALF_WIDTH_M, which is the identical figure - so the
+    pavement gate holds for every runway id, and the fallback direction is
+    the tight one. A per-runway block MAY override it once that runway's
+    own pavement width is measured.
     """
-    block = geofence.get("corridor")
+    resolved = runway_block(geofence, runway_id=runway_id)
+    block = resolved.get("corridor") if isinstance(resolved, dict) else None
     if not isinstance(block, dict):
         block = {}
 
@@ -261,17 +354,17 @@ def corridor_params(geofence):
     )
 
 
-def along_cross_track_m(lat, lon, geofence, axis=None):
-    """Position relative to runway 3's centreline, in metres.
+def along_cross_track_m(lat, lon, geofence, axis=None, runway_id=DEFAULT_RUNWAY_ID):
+    """Position relative to the selected runway's centreline, in metres.
 
-    Returns (along_m, cross_m): along_m is distance from threshold 07
-    measured along the 07 -> 25 direction (negative = short of 07, greater
-    than the runway length = beyond 25); cross_m is the perpendicular
-    offset, positive to the left of the 07 -> 25 direction (i.e. north of
-    the runway). Returns (None, None) when the geofence has no usable
-    runway axis.
+    Returns (along_m, cross_m): along_m is distance from the first
+    threshold measured along the first -> second threshold direction
+    (negative = short of the first threshold, greater than the runway
+    length = beyond the second); cross_m is the perpendicular offset,
+    positive to the left of that direction. Returns (None, None) when the
+    geofence has no usable runway axis for `runway_id`.
     """
-    axis = axis or runway_axis(geofence)
+    axis = axis or runway_axis(geofence, runway_id=runway_id)
     if axis is None:
         return (None, None)
     dx = (lon - axis["lon0"]) * axis["lon_scale"]
@@ -281,22 +374,24 @@ def along_cross_track_m(lat, lon, geofence, axis=None):
     return (along, cross)
 
 
-def track_axis_deviation_deg(track, geofence, axis=None):
-    """How far a true track over ground is from runway 3's axis, in
-    degrees, 0-90.
+def track_axis_deviation_deg(track, geofence, axis=None, runway_id=DEFAULT_RUNWAY_ID):
+    """How far a true track over ground is from the selected runway's
+    axis, in degrees, 0-90.
 
-    Runway 3 is used in both directions (landing/departing 07 or 25), so a
-    track is compared against the centreline bearing AND its reciprocal and
-    the smaller deviation wins - an aircraft on final to 25 (track ~254)
-    and one rolling out on 07 (track ~074) are both perfectly aligned.
+    Every runway here is used in both directions (e.g. runway 3's
+    landing/departing 07 or 25), so a track is compared against the
+    centreline bearing AND its reciprocal and the smaller deviation wins -
+    an aircraft on final to one end (track ~254 for runway 3's 25) and one
+    rolling out on the other (track ~074 for runway 3's 07) are both
+    perfectly aligned.
 
     Returns None when `track` is missing/non-numeric (bools are rejected
     explicitly - Python's bool is an int subclass, so an unguarded True
     would read as a track of 1 degree) or when the geofence has no usable
-    runway axis. A None here does NOT mean "misaligned"; see
-    filter_in_geofence() for how an unknown track is treated.
+    runway axis for `runway_id`. A None here does NOT mean "misaligned";
+    see filter_in_geofence() for how an unknown track is treated.
     """
-    axis = axis or runway_axis(geofence)
+    axis = axis or runway_axis(geofence, runway_id=runway_id)
     if axis is None:
         return None
     if isinstance(track, bool) or not isinstance(track, (int, float)):
@@ -322,10 +417,10 @@ def query_provider(name, lat, lon, radius_nm, timeout=10.0):
     return aircraft
 
 
-def filter_in_geofence(aircraft, geofence):
+def filter_in_geofence(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID):
     """Return the subset of `aircraft` whose position falls inside
     geofence['bbox'], each tagged with in_bbox / on_ground / below_ceiling
-    booleans plus the runway-3 geometry tags described below.
+    booleans plus the selected-runway geometry tags described below.
 
     Ported unchanged in behaviour from adsb-test/query_aggregator.py
     (T-02-01-01): explicit isinstance() checks on lat/lon, bbox
@@ -338,10 +433,12 @@ def filter_in_geofence(aircraft, geofence):
     What changed (2026-08-27, runway3-false-positive) is that each record
     now also carries:
 
-      along_track_m / cross_track_m  position relative to runway 3's real
-                                     centreline (None without a runway axis)
+      along_track_m / cross_track_m  position relative to the selected
+                                     runway's real centreline (None
+                                     without a runway axis)
       track_deg / track_deviation_deg  the record's true track and how far
-                                     off runway 3's axis it points
+                                     off the selected runway's axis it
+                                     points
       in_corridor                    within the runway-aligned corridor
                                      that applies to THIS record - the wide
                                      approach/departure corridor when
@@ -349,8 +446,16 @@ def filter_in_geofence(aircraft, geofence):
                                      when on_ground (see below)
       track_aligned                  within the axis tolerance, OR carrying
                                      no usable track at all (see below)
-      on_runway3                     in_corridor AND track_aligned - the
-                                     tag select_runway3_aircraft() filters on
+      on_runway                      in_corridor AND track_aligned for the
+                                     requested runway_id - the tag
+                                     select_aircraft_for_runway() filters on
+      on_runway3                     DEPRECATED alias (CFG-12), preserved
+                                     because several existing checks read
+                                     this exact tag name: equal to
+                                     on_runway when runway_id is
+                                     DEFAULT_RUNWAY_ID, False otherwise.
+                                     Retire once every caller has migrated
+                                     to on_runway.
 
     The bbox alone was never a runway-3 test: measured against real
     published OurAirports LFPO geometry it contains 71.9% of runway 06/24
@@ -368,24 +473,38 @@ def filter_in_geofence(aircraft, geofence):
     carried a numeric track; the pre-existing committed fixtures carry
     none. runway3.json's `corridor.known_residuals` records the exposure.
 
+    The gate is now parameterised by `runway_id` (CFG-12): the same
+    corridor + track-alignment discipline that produced the figures above
+    for runway 3 is applied identically to runway 06/24 and runway 02/20,
+    but those two runways' corridor thresholds are copied placeholders,
+    not independently re-derived from real captured traffic on either
+    runway - runway3.json's `runways["06-24"].corridor.threshold_status`
+    and `runways["02-20"].corridor.threshold_status` record this
+    explicitly, and plan 06-12 is the live-capture pass that confirms or
+    replaces them (06-RESEARCH.md Assumption A1).
+
     ON-GROUND RECORDS GET A TIGHTER CORRIDOR (2026-08-27,
     missed-flights-not-displayed). `half_width_m`/`extension_m` describe
-    where an aircraft IN THE AIR on approach to or departure from runway 3
-    may legitimately be; every measurement they were derived from is an
-    airborne track. A record already on the ground is instead required to
-    be on runway 3's own pavement - within `ground_half_width_m` of the
-    paved rectangle, laterally AND along-track. Without that, any taxiing
-    or holding aircraft within 500m of the centreline scored effective
-    altitude 0.0 and masked every real airborne runway-3 movement, freezing
-    the panel on an aircraft that was not going anywhere. The pavement
-    figure is calibrated against runway 3's published 45.1m width and the
-    real on-ground fixture's measured 31.1m offset; see runway3.json's
-    `corridor.ground_gate_derivation`.
+    where an aircraft IN THE AIR on approach to or departure from the
+    selected runway may legitimately be; every measurement they were
+    derived from is an airborne track. A record already on the ground is
+    instead required to be on that runway's own pavement - within
+    `ground_half_width_m` of the paved rectangle, laterally AND
+    along-track. Without that, any taxiing or holding aircraft within 500m
+    of the centreline scored effective altitude 0.0 and masked every real
+    airborne runway-3 movement, freezing the panel on an aircraft that was
+    not going anywhere. The pavement figure is calibrated against runway
+    3's published 45.1m width and the real on-ground fixture's measured
+    31.1m offset; see runway3.json's `corridor.ground_gate_derivation`.
+    The gate applies per-runway: the pavement rectangle is always the
+    rectangle of the runway named by `runway_id`, so selecting 06/24 or
+    02/20 gates its ground records on ITS pavement, not runway 3's.
     """
     bbox = geofence["bbox"]
     ceiling_ft = geofence["alt_ceiling_ft"]
-    axis = runway_axis(geofence)
-    half_width_m, extension_m, axis_tolerance_deg, ground_half_width_m = corridor_params(geofence)
+    axis = runway_axis(geofence, runway_id=runway_id)
+    half_width_m, extension_m, axis_tolerance_deg, ground_half_width_m = corridor_params(
+        geofence, runway_id=runway_id)
     matched = []
     for ac in aircraft:
         lat = ac.get("lat")
@@ -440,7 +559,8 @@ def filter_in_geofence(aircraft, geofence):
         tagged["track_deviation_deg"] = deviation_deg
         tagged["in_corridor"] = in_corridor
         tagged["track_aligned"] = track_aligned
-        tagged["on_runway3"] = bool(in_corridor and track_aligned)
+        tagged["on_runway"] = bool(in_corridor and track_aligned)
+        tagged["on_runway3"] = tagged["on_runway"] if runway_id == DEFAULT_RUNWAY_ID else False
         matched.append(tagged)
     return matched
 
@@ -520,13 +640,18 @@ def selection_sort_key(ac):
     genuine traffic. Tracked as runway3.json known_residuals item (4).
     `seen_pos` is still carried in the returned selection for diagnostics;
     only its role in the ORDERING was removed.
+
+    This key is runway-independent (CFG-12): it ranks records that have
+    ALREADY been gated to one runway by runway_candidates(), so which
+    runway is being tracked never enters the ordering.
     """
     return (effective_altitude_ft(ac), ac.get("hex") or "")
 
 
-def runway3_candidates(aircraft, geofence):
-    """Every record in `aircraft` that is on runway 3 and below the ceiling
-    - the candidate set select_runway3_aircraft() then picks one from.
+def runway_candidates(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID):
+    """Every record in `aircraft` that is on the selected runway and below
+    the ceiling - the candidate set select_aircraft_for_runway() then picks
+    one from.
 
     Split out of select_runway3_aircraft() (2026-08-28, mechanism B of the
     missed-flights-not-displayed debug session) with no behaviour change,
@@ -536,18 +661,36 @@ def runway3_candidates(aircraft, geofence):
     hold overlapping-but-unequal sets, so their winners can differ even
     when both agree about the aircraft that is actually there. See
     poll_current_aircraft() for why that mattered.
+
+    Gates on `on_runway` - the real gate result for `runway_id` - rather
+    than the deprecated `on_runway3` alias, so the candidate set follows
+    the selected runway (CFG-12). For `runway_id=DEFAULT_RUNWAY_ID` the two
+    tags are equal by construction, so the default path is unchanged.
     """
     return [
-        ac for ac in filter_in_geofence(aircraft, geofence)
-        if ac.get("below_ceiling") and ac.get("on_runway3")
+        ac for ac in filter_in_geofence(aircraft, geofence, runway_id=runway_id)
+        if ac.get("below_ceiling") and ac.get("on_runway")
     ]
 
 
-def _normalise_selection(winner):
+def runway3_candidates(aircraft, geofence):
+    """Preserved back-compat wrapper (CFG-12), pinned to the default runway
+    (id "3") - the same wrapper discipline select_runway3_aircraft() uses,
+    so pre-CFG-12 callers and checks keep working unchanged.
+    """
+    return runway_candidates(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID)
+
+
+def _normalise_selection(winner, selected_runway=DEFAULT_RUNWAY_ID):
     """Shape one gated candidate record into the selection dict described
-    by select_runway3_aircraft()'s docstring. Shared by that function and
+    by select_aircraft_for_runway()'s docstring. Shared by that function and
     by poll_current_aircraft()'s corroborated branch, so there is exactly
     one definition of what a selection looks like.
+
+    `selected_runway` is the runway id the candidate was actually gated on,
+    already resolved through _effective_runway_id() by the caller - so an
+    unrecognised runway_id reports the default it really fell back to
+    rather than the string it was handed (CFG-12).
     """
     callsign = (winner.get("flight") or "").strip() or None
     raw_type = winner.get("t")
@@ -575,37 +718,39 @@ def _normalise_selection(winner):
         "cross_track_m": winner.get("cross_track_m"),
         "track_deg": winner.get("track_deg"),
         "track_deviation_deg": winner.get("track_deviation_deg"),
+        "selected_runway": selected_runway,
     }
 
 
-def select_runway3_aircraft(aircraft, geofence):
+def select_aircraft_for_runway(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID):
     """D-P2-01 (locked, 02-01-PLAN.md): when more than one aircraft is
-    inside the runway-3 geofence in the same poll, select exactly one by
-    the total order in selection_sort_key() - lowest effective altitude,
-    then lexicographically smallest hex.
+    inside the selected runway's geofence in the same poll, select exactly
+    one by the total order in selection_sort_key() - lowest effective
+    altitude, then lexicographically smallest hex.
 
     Rationale: lowest-and-closest-to-the-ground is the aircraft actually
-    committed to the runway right now, which is what "the plane using
-    runway 3" means to a person looking at the frame; the hex tie-break
-    makes the pick independent of the aggregator's own array ordering, of
-    which aggregator is answering, and of when the poll happened - so the
-    same snapshot always yields the same flight and the display never
-    flickers between two simultaneous aircraft. See selection_sort_key()
-    for why the former `seen_pos` tie-break was removed on 2026-08-28.
+    committed to the runway right now, which is what "the plane using this
+    runway" means to a person looking at the frame; the hex tie-break makes
+    the pick independent of the aggregator's own array ordering, of which
+    aggregator is answering, and of when the poll happened - so the same
+    snapshot always yields the same flight and the display never flickers
+    between two simultaneous aircraft. See selection_sort_key() for why the
+    former `seen_pos` tie-break was removed on 2026-08-28.
 
-    Candidates are gated on `on_runway3` (see filter_in_geofence), not on
+    Candidates are gated on `on_runway` (see filter_in_geofence), not on
     bbox containment. That gate replaces the "known limitation (accepted
     for v1)" this docstring used to carry, which understated the problem
     badly: measured against real published OurAirports LFPO geometry the
     bbox contains 71.9% of runway 06/24 AND 80.5% of runway 02/20
     (including runway 02's threshold), and a 22-poll live capture on
     2026-08-27 caught two real aircraft using those other runways winning
-    this selection - a runway-20 departure climbing at +2304 ft/min 750m
-    off runway 3's centreline (which would also have flipped the panel to
-    "departing"), and a 02/20-aligned arrival 611m off it. The sort below
-    was never the problem; the absence of any lateral or directional test
-    was. See runway3.json's `corridor` block for the gate's thresholds and
-    why both a corridor and a track check are needed.
+    this selection (for runway 3, the default) - a runway-20 departure
+    climbing at +2304 ft/min 750m off runway 3's centreline (which would
+    also have flipped the panel to "departing"), and a 02/20-aligned
+    arrival 611m off it. The sort below was never the problem; the absence
+    of any lateral or directional test was. See runway3.json's `corridor`
+    block for each runway's gate thresholds and why both a corridor and a
+    track check are needed.
 
     The same conclusion held a second time, for a different symptom
     (2026-08-27, .planning/debug/missed-flights-not-displayed.md: real
@@ -621,26 +766,48 @@ def select_runway3_aircraft(aircraft, geofence):
     records. filter_in_geofence() now holds on-ground records to the
     runway's pavement instead. The sort below is unchanged.
 
+    CFG-12 parameterised the gate by `runway_id` so the same discipline
+    applies to runway 06/24 and runway 02/20 as well; see
+    filter_in_geofence()'s docstring for the caveat on those two runways'
+    corridor thresholds. Both properties compose: the pavement gate is
+    applied to whichever runway's rectangle `runway_id` names.
+
     Returns a normalised dict (hex, callsign, aircraft_type, altitude_ft,
     on_ground, vertical_rate_fpm, lat, lon, gs, seen_pos, plus the
     along_track_m / cross_track_m / track_deg / track_deviation_deg
-    geometry the gate accepted it on, so a questionable pick is diagnosable
-    from the logged selection alone) for the winner, or None if no
-    candidate is on runway 3 and below the ceiling. aircraft_type is
-    the ICAO type designator as reported by the aggregator (B738, A20N,
-    AT76), uppercased, or None when the record carries none, carries an
-    empty/whitespace-only value, carries a non-string value, or carries a
-    string that isn't shaped like a real ICAO type designator (alphanumeric
-    only - see _VALID_AIRCRAFT_TYPE_RE) - a missing designator is an
-    ordinary, expected case, not an error.
+    geometry the gate accepted it on, plus `selected_runway` - the runway
+    id it was actually gated on, resolved through runway_block() so an
+    unrecognised `runway_id` reports the default it actually fell back to
+    rather than the string it was handed - so a questionable pick is
+    diagnosable from the logged selection alone) for the winner, or None
+    if no candidate is on the selected runway and below the ceiling.
+    aircraft_type is the ICAO type designator as reported by the
+    aggregator (B738, A20N, AT76), uppercased, or None when the record
+    carries none, carries an empty/whitespace-only value, carries a
+    non-string value, or carries a string that isn't shaped like a real
+    ICAO type designator (alphanumeric only - see _VALID_AIRCRAFT_TYPE_RE)
+    - a missing designator is an ordinary, expected case, not an error.
     """
-    candidates = runway3_candidates(aircraft, geofence)
+    effective_runway_id = _effective_runway_id(geofence, runway_id)
+    candidates = runway_candidates(aircraft, geofence, runway_id=runway_id)
     if not candidates:
         return None
-    return _normalise_selection(min(candidates, key=selection_sort_key))
+    return _normalise_selection(
+        min(candidates, key=selection_sort_key),
+        selected_runway=effective_runway_id,
+    )
 
 
-def poll_current_aircraft(geofence, timeout=10.0, providers=None):
+def select_runway3_aircraft(aircraft, geofence):
+    """Preserved back-compat wrapper (CFG-12): every pre-CFG-12 caller -
+    `poll_loop.py`, the CLI, and the existing checks in
+    `server/test_plane_detection.py` - keeps working unchanged, pinned to
+    the default runway (id "3").
+    """
+    return select_aircraft_for_runway(aircraft, geofence, runway_id=DEFAULT_RUNWAY_ID)
+
+
+def poll_current_aircraft(geofence, timeout=10.0, providers=None, runway_id=DEFAULT_RUNWAY_ID, diagnostics=None):
     """Query provider(s) in order - by default just DEFAULT_PROVIDER_ORDER
     (adsb.fi then adsb.lol), not every registered provider - sleeping
     MIN_SECONDS_BETWEEN_CALLS between successive calls in that sequence,
@@ -739,57 +906,105 @@ def poll_current_aircraft(geofence, timeout=10.0, providers=None):
     double).
 
     The returned dict carries two extra keys - `sources` (the provider
-    names whose own runway-3 candidate set contained this aircraft) and
-    `corroborated` - so the caller and the logs can tell a two-source
-    agreement from a lone unverified reading.
+    names whose own candidate set for this runway contained this aircraft)
+    and `corroborated` - so the caller and the logs can tell a two-source
+    agreement from a lone unverified reading. It also carries `runway_id`,
+    the runway this poll was asked to track, echoed back for the caller's
+    own logging, and (via _normalise_selection) `selected_runway`, the
+    runway the gate actually resolved to.
+
+    Two new keyword parameters (CFG-12):
+
+    `runway_id` (default DEFAULT_RUNWAY_ID) is threaded into the
+    per-provider `select_aircraft_for_runway()` call, so the whole poll -
+    query, selection, cross-validation - runs against one consistently
+    selected runway.
+
+    `diagnostics`, when a dict is passed, is populated in place with
+    `queried` (the provider names actually attempted, in call order),
+    `failed` (the subset that raised), `selected` (the subset that
+    contributed a runway candidate set, i.e. the subset that would have
+    returned a selection), `disagreement` (a bool, set True only on the
+    no-common-aircraft branch below) and `runway_id`. This is the sole
+    signal that tells "every ADS-B source is down" apart from "nothing is
+    on the runway right now" - both return None from this function, an
+    ambiguity CFG-05's fault icon needs resolved (T-06-02-03). Passing no
+    `diagnostics` argument (the default, and every pre-CFG-12 caller)
+    leaves this function's return value and stderr output completely
+    unchanged.
     """
     provider_names = providers if providers is not None else list(DEFAULT_PROVIDER_ORDER)
     center = geofence["center"]
     radius_nm = geofence["radius_nm"]
 
+    effective_runway_id = _effective_runway_id(geofence, runway_id)
+    queried = []
+    failed = []
     # [(provider_name, candidate_records)] in provider order, for the
-    # providers that both answered AND saw at least one aircraft on runway
-    # 3. A provider that answered but saw nothing on runway 3 is not a
-    # dissenting vote - it simply has nothing to corroborate with, exactly
-    # as it was before this function compared sets rather than picks.
+    # providers that both answered AND saw at least one aircraft on the
+    # selected runway. A provider that answered but saw nothing there is
+    # not a dissenting vote - it simply has nothing to corroborate with,
+    # exactly as it was before this function compared sets rather than
+    # picks.
     polled = []
     for i, name in enumerate(provider_names):
         if i > 0:
             time.sleep(MIN_SECONDS_BETWEEN_CALLS)
+        queried.append(name)
         try:
             aircraft = query_provider(name, center["lat"], center["lon"], radius_nm, timeout)
         except (requests.RequestException, ValueError) as exc:
             print("detect: %s query failed: %s: %s" % (name, type(exc).__name__, exc), file=sys.stderr)
+            failed.append(name)
             continue
-        candidates = runway3_candidates(aircraft, geofence)
+        candidates = runway_candidates(aircraft, geofence, runway_id=runway_id)
         if candidates:
             polled.append((name, candidates))
+
+    # Populated before every return below, so an all-providers-failed poll
+    # stays distinguishable from a nothing-on-the-runway poll even though
+    # both return None (T-06-02-03).
+    if diagnostics is not None:
+        diagnostics["queried"] = queried
+        diagnostics["failed"] = failed
+        diagnostics["selected"] = [name for name, _ in polled]
+        diagnostics["disagreement"] = False
+        diagnostics["runway_id"] = runway_id
 
     if not polled:
         return None
 
     if len(polled) == 1:
         name, candidates = polled[0]
-        result = _normalise_selection(min(candidates, key=selection_sort_key))
+        result = _normalise_selection(
+            min(candidates, key=selection_sort_key),
+            selected_runway=effective_runway_id,
+        )
         result["sources"] = [name]
         result["corroborated"] = None
+        result["runway_id"] = runway_id
         return result
 
-    # Two or more sources each saw runway-3 traffic. `hex` is normalised
-    # the same way selection_sort_key() normalises it, so this comparison
-    # cannot disagree with the ordering that follows. (A record carrying no
-    # hex at all therefore still compares equal to another record carrying
-    # none - pre-existing behaviour, deliberately not changed here; no real
-    # aggregator record omits the field.)
+    # Two or more sources each saw traffic on the selected runway. `hex` is
+    # normalised the same way selection_sort_key() normalises it, so this
+    # comparison cannot disagree with the ordering that follows. (A record
+    # carrying no hex at all therefore still compares equal to another
+    # record carrying none - pre-existing behaviour, deliberately not
+    # changed here; no real aggregator record omits the field.)
     common = set.intersection(*[{ac.get("hex") or "" for ac in c} for _, c in polled])
 
     if not common:
+        if diagnostics is not None:
+            diagnostics["disagreement"] = True
         print(
-            "detect: providers disagree on the runway-3 aircraft (%s) - no aircraft common to "
+            "detect: providers disagree on the runway-%s aircraft (%s) - no aircraft common to "
             "every source, treating as doubt, selecting nothing this poll"
-            % "; ".join(
-                "%s=[%s]" % (name, ",".join(sorted(ac.get("hex") or "?" for ac in c)))
-                for name, c in polled
+            % (
+                effective_runway_id,
+                "; ".join(
+                    "%s=[%s]" % (name, ",".join(sorted(ac.get("hex") or "?" for ac in c)))
+                    for name, c in polled
+                ),
             ),
             file=sys.stderr,
         )
@@ -802,9 +1017,13 @@ def poll_current_aircraft(geofence, timeout=10.0, providers=None):
     # first provider's selection on agreement.
     first_candidates = polled[0][1]
     corroborated_records = [ac for ac in first_candidates if (ac.get("hex") or "") in common]
-    result = _normalise_selection(min(corroborated_records, key=selection_sort_key))
+    result = _normalise_selection(
+        min(corroborated_records, key=selection_sort_key),
+        selected_runway=effective_runway_id,
+    )
     result["sources"] = [name for name, _ in polled]
     result["corroborated"] = True
+    result["runway_id"] = runway_id
     return result
 
 
@@ -841,12 +1060,35 @@ def build_parser():
         default=10.0,
         help="Per-request timeout in seconds (default: 10).",
     )
+    parser.add_argument(
+        "--runway",
+        default=DEFAULT_RUNWAY_ID,
+        help="Which runway id to track (default: %s). `choices` can't be "
+             "computed here - the geofence path is itself a flag - so this "
+             "accepts a free string and main() validates it against the "
+             "loaded geofence's own runway_ids() after parsing, printing "
+             "every legal id and exiting non-zero on an unknown one rather "
+             "than silently falling back (T-06-02-01 is the library-level "
+             "fallback; this CLI-level check exists so a typo is caught "
+             "immediately instead of quietly landing on the default "
+             "runway)." % DEFAULT_RUNWAY_ID,
+    )
     return parser
 
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
     geofence = load_geofence(args.geofence)
+
+    legal_runway_ids = runway_ids(geofence)
+    if args.runway not in legal_runway_ids:
+        print(
+            "detect: unknown --runway %r - legal ids for this geofence are: %s"
+            % (args.runway, ", ".join(sorted(legal_runway_ids))),
+            file=sys.stderr,
+        )
+        return 1
+
     if args.provider == "default":
         # No explicit providers argument at all, so poll_current_aircraft()
         # reads its own DEFAULT_PROVIDER_ORDER - there is exactly one
@@ -856,15 +1098,16 @@ def main(argv=None):
         providers = list(PROVIDERS)
     else:
         providers = [args.provider]
-    selection = poll_current_aircraft(geofence, timeout=args.timeout, providers=providers)
+    selection = poll_current_aircraft(
+        geofence, timeout=args.timeout, providers=providers, runway_id=args.runway)
 
     if args.as_json:
         print(json.dumps(selection))
     elif selection is None:
-        print("no aircraft in the runway-3 geofence")
+        print("no aircraft in the runway-%s geofence" % args.runway)
     else:
         print(
-            "%s %s alt=%sft vrate=%s on_ground=%s cross=%sm track=%s dev=%s sources=%s corroborated=%s"
+            "%s %s alt=%sft vrate=%s on_ground=%s cross=%sm track=%s dev=%s runway=%s sources=%s corroborated=%s"
             % (
                 selection["hex"],
                 selection["callsign"] or "?",
@@ -874,6 +1117,7 @@ def main(argv=None):
                 None if selection["cross_track_m"] is None else round(selection["cross_track_m"]),
                 selection["track_deg"],
                 None if selection["track_deviation_deg"] is None else round(selection["track_deviation_deg"], 1),
+                selection.get("selected_runway"),
                 ",".join(selection.get("sources") or []) or "?",
                 selection.get("corroborated"),
             )

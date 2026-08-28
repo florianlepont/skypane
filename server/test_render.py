@@ -35,7 +35,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 46
+EXPECTED_CHECK_COUNT = 64
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -1141,6 +1141,237 @@ def main():
         "constants (BATTERY_ICON_LEFT/BOTTOM) unchanged, the nub centred to within one pixel, and a total "
         "bounding box of (64,1514,115,1536)",
         _battery_icon_geometry_derives_from_spacing_scale,
+    )
+
+    # --- Plan 06-06: CFG-01 theme, CFG-12 runway, CFG-05 source-fault badge ---
+
+    # 47. render_panel() with no theme_id is byte-identical to an explicit
+    # default theme_id - the default path is genuinely unchanged.
+    def _theme_default_matches_no_theme_arg():
+        a = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        b = render.render_panel(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=render.device_config.DEFAULT_THEME_ID)
+        if a != b:
+            return False, "render_panel() with no theme_id differs from an explicit default theme_id - CFG-01's default path must be byte-identical"
+        return True, ""
+    check("render_panel() with no theme_id is byte-identical to an explicit default theme_id (CFG-01)", _theme_default_matches_no_theme_arg)
+
+    # 48. build_canvas(theme_id="sky") and build_canvas() with no theme
+    # produce identical canvases.
+    def _sky_theme_canvas_matches_default():
+        a = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        b = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="sky")
+        if list(a.getdata()) != list(b.getdata()):
+            return False, "build_canvas(theme_id='sky') differs from build_canvas() with no theme_id"
+        return True, ""
+    check("build_canvas(theme_id='sky') and build_canvas() with no theme produce identical canvases", _sky_theme_canvas_matches_default)
+
+    # 49. An unrecognised theme id degrades to the default theme's canvas
+    # rather than raising - an unknown theme is forgiving.
+    def _unknown_theme_degrades_to_default_canvas():
+        default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        try:
+            unknown_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="not-a-theme")
+        except Exception as exc:
+            return False, "build_canvas(theme_id='not-a-theme') raised %r - an unknown theme must degrade to the default" % (exc,)
+        if list(default_canvas.getdata()) != list(unknown_canvas.getdata()):
+            return False, "build_canvas(theme_id='not-a-theme') produced a canvas different from the default theme's"
+        return True, ""
+    check("build_canvas(theme_id='not-a-theme') produces the default theme's canvas rather than raising", _unknown_theme_degrades_to_default_canvas)
+
+    # 50. An unrecognised state still raises ValueError naming all three
+    # legal states - an unknown state is a real caller-bug detector and
+    # must stay loud even though an unknown theme is forgiving.
+    def _unknown_state_still_raises_naming_all_three_states():
+        try:
+            render.build_canvas(TEST_FLIGHT, "sideways")
+        except ValueError as exc:
+            message = str(exc)
+            for word in ("departing", "arriving", "empty"):
+                if word not in message:
+                    return False, "ValueError message %r does not name %r" % (message, word)
+            return True, ""
+        except Exception as exc:
+            return False, "build_canvas(flight, 'sideways') raised %r, expected ValueError" % (exc,)
+        return False, "build_canvas(flight, 'sideways') did not raise - an unknown state must stay loud"
+    check("build_canvas(flight, 'nonsense-state') still raises ValueError naming departing/arriving/empty", _unknown_state_still_raises_naming_all_three_states)
+
+    # 51. _assert_legal_palette() (run internally by build_canvas()) still
+    # passes for every registered theme.
+    def _legal_palette_holds_for_every_theme():
+        for theme_id in render.device_config.THEME_IDS:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
+        return True, ""
+    check("_assert_legal_palette() (run internally by build_canvas()) passes for every registered theme", _legal_palette_holds_for_every_theme)
+
+    # 52. runway_tag_text() with no argument returns exactly the current
+    # top-right tag string - the default render is unchanged.
+    def _runway_tag_text_default_matches_top_right_tag():
+        if render.runway_tag_text() != render.TOP_RIGHT_TAG_TEXT:
+            return False, "runway_tag_text() != render.TOP_RIGHT_TAG_TEXT"
+        return True, ""
+    check("runway_tag_text() with no argument returns exactly TOP_RIGHT_TAG_TEXT (default render unchanged)", _runway_tag_text_default_matches_top_right_tag)
+
+    # 53. runway_tag_text("06-24")/("02-20") return the strings from the
+    # runway registry.
+    def _runway_tag_text_matches_registry_for_other_runways():
+        for runway_id in ("06-24", "02-20"):
+            expected = render.device_config.runway_tag_text(runway_id)
+            got = render.runway_tag_text(runway_id)
+            if got != expected:
+                return False, "runway_tag_text(%r) = %r, expected %r" % (runway_id, got, expected)
+        return True, ""
+    check("runway_tag_text('06-24')/('02-20') return the strings from device_config.RUNWAYS", _runway_tag_text_matches_registry_for_other_runways)
+
+    # 54. An unrecognised runway id degrades to the default runway's tag
+    # rather than raising.
+    def _runway_tag_text_unknown_id_degrades_to_default():
+        if render.runway_tag_text("nope") != render.runway_tag_text():
+            return False, "runway_tag_text('nope') != runway_tag_text() - an unknown runway id must degrade to the default"
+        return True, ""
+    check("runway_tag_text('unknown') returns the default runway's tag rather than raising", _runway_tag_text_unknown_id_degrades_to_default)
+
+    # 55. build_canvas(None, "empty", runway_id=...) draws that runway's
+    # heading - including the longest of the three registry headings - and
+    # still passes the safe-box assertion (fit_text_size() shrink path).
+    def _empty_canvas_draws_selected_runways_heading():
+        longest_runway_id = max(
+            render.device_config.RUNWAY_IDS, key=lambda rid: len(render.device_config.runway_empty_heading(rid))
+        )
+        with _TextSpy(render) as spy:
+            render.build_canvas(None, "empty", runway_id=longest_runway_id)
+        texts = [t for t, _xy, _anchor in spy.calls]
+        expected = render.empty_heading_text(longest_runway_id)
+        if expected not in texts:
+            return False, "expected the longest runway heading %r among the text draws, got %r" % (expected, texts)
+        return True, ""
+    check(
+        "build_canvas(None, 'empty', runway_id=...) draws that runway's heading, including the longest of the "
+        "three, and passes the safe-box assertion",
+        _empty_canvas_draws_selected_runways_heading,
+    )
+
+    # 56. build_canvas(flight, "departing", runway_id="06-24") draws that
+    # runway's tag, still passing the within-canvas assertion.
+    def _active_canvas_draws_selected_runways_tag():
+        with _TextSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, runway_id="06-24")
+        texts = [t for t, _xy, _anchor in spy.calls]
+        expected = render.runway_tag_text("06-24")
+        if expected not in texts:
+            return False, "expected the runway 06-24 tag %r among the text draws, got %r" % (expected, texts)
+        return True, ""
+    check(
+        "build_canvas(flight, 'departing', runway_id='06-24') draws that runway's tag, passing the "
+        "within-canvas assertion",
+        _active_canvas_draws_selected_runways_tag,
+    )
+
+    # 57. render_panel(..., source_fault=False) is byte-identical to the
+    # same call without the argument.
+    def _source_fault_false_matches_default():
+        a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
+        b = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE, source_fault=False)
+        if a != b:
+            return False, "render_panel(source_fault=False) differs from the default call"
+        return True, ""
+    check("render_panel(..., source_fault=False) is byte-identical to the same call without the argument", _source_fault_false_matches_default)
+
+    # 58. render_panel(..., source_fault=True) differs from the same call
+    # with the flag false - the badge is genuinely drawn.
+    def _source_fault_true_differs_from_false():
+        a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE, source_fault=False)
+        b = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE, source_fault=True)
+        if a == b:
+            return False, "render_panel(source_fault=True) is byte-identical to source_fault=False - the badge is not actually drawn"
+        return True, ""
+    check("render_panel(..., source_fault=True) differs from the same call with the flag false", _source_fault_true_differs_from_false)
+
+    # 59. The fault badge is drawn on the active canvas and on the empty
+    # canvas alike - visible whichever state the panel is in.
+    def _badge_caption_present_on_active_and_empty_canvases():
+        with _TextSpy(render) as spy_active:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, source_fault=True)
+        with _TextSpy(render) as spy_empty:
+            render.build_canvas(None, "empty", source_fault=True)
+        active_texts = [t for t, _xy, _anchor in spy_active.calls]
+        empty_texts = [t for t, _xy, _anchor in spy_empty.calls]
+        if render.SOURCE_FAULT_TEXT not in active_texts:
+            return False, "SOURCE_FAULT_TEXT missing from the active-state text draws with source_fault=True"
+        if render.SOURCE_FAULT_TEXT not in empty_texts:
+            return False, "SOURCE_FAULT_TEXT missing from the empty-state text draws with source_fault=True"
+        return True, ""
+    check(
+        "the source-fault badge is drawn on both the active canvas and the empty canvas (visible in every state)",
+        _badge_caption_present_on_active_and_empty_canvases,
+    )
+
+    # 60. The badge caption is absent from a normal render (source_fault
+    # defaults to False) - same text-draw spy idiom already used for the
+    # top-right tag.
+    def _badge_caption_absent_from_a_normal_render():
+        with _TextSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        texts = [t for t, _xy, _anchor in spy.calls]
+        if render.SOURCE_FAULT_TEXT in texts:
+            return False, "SOURCE_FAULT_TEXT appeared in a normal render with no source_fault flag"
+        return True, ""
+    check("the badge caption text is absent from a normal render (source_fault defaults to False)", _badge_caption_absent_from_a_normal_render)
+
+    # 61. _assert_legal_palette() (run internally by build_canvas()) still
+    # passes with the badge drawn, in both active states, the empty state,
+    # and every theme.
+    def _legal_palette_holds_with_badge_across_states_and_themes():
+        for theme_id in render.device_config.THEME_IDS:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, source_fault=True, theme_id=theme_id)
+            render.build_canvas(TEST_FLIGHT, "arriving", route=TEST_ROUTE, source_fault=True, theme_id=theme_id)
+        render.build_canvas(None, "empty", source_fault=True)
+        return True, ""
+    check(
+        "_assert_legal_palette() (run internally by build_canvas()) passes with the badge drawn, in both active "
+        "states, the empty state, and every theme",
+        _legal_palette_holds_with_badge_across_states_and_themes,
+    )
+
+    # 62. A fault-badged departing render still satisfies
+    # _assert_legal_palette() for the default theme - proven by calling
+    # build_canvas() (which runs the assertion internally), not by
+    # re-implementing it.
+    def _fault_badged_departing_render_satisfies_legal_palette_via_build_canvas():
+        render.build_canvas(
+            TEST_FLIGHT, "departing", route=TEST_ROUTE, source_fault=True, theme_id=render.device_config.DEFAULT_THEME_ID
+        )
+        return True, ""
+    check(
+        "a fault-badged departing render still satisfies _assert_legal_palette() for the default theme "
+        "(proven via build_canvas(), not a re-implementation)",
+        _fault_badged_departing_render_satisfies_legal_palette_via_build_canvas,
+    )
+
+    # 63. The badge's bounding box stays inside the drawn frame.
+    def _badge_bbox_stays_inside_the_drawn_frame():
+        canvas = panel_format.new_canvas(IDX_BLUE)
+        frame_box = render.draw_frame(canvas, IDX_WHITE)
+        badge_bbox = render.draw_source_fault_badge(canvas, IDX_WHITE)
+        fl, ft, fr, fb = frame_box
+        bl, bt, br, bb = badge_bbox
+        if not (bl >= fl and bt >= ft and br <= fr and bb <= fb):
+            return False, "badge bbox %r is not contained within the frame bbox %r" % (badge_bbox, frame_box)
+        return True, ""
+    check("draw_source_fault_badge()'s bounding box stays inside the drawn frame", _badge_bbox_stays_inside_the_drawn_frame)
+
+    # 64. All three runway ids combined with the single registered theme id
+    # render without error across both active states - a small matrix, so
+    # a future theme addition is immediately exercised.
+    def _runway_and_theme_matrix_combines_without_error():
+        for runway_id in render.device_config.RUNWAY_IDS:
+            for theme_id in render.device_config.THEME_IDS:
+                for state in ("departing", "arriving"):
+                    render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE, runway_id=runway_id, theme_id=theme_id)
+        return True, ""
+    check(
+        "all three runway ids combined with the single theme id render without error across both active states "
+        "(theme-addition regression guard)",
+        _runway_and_theme_matrix_combines_without_error,
     )
 
     total = len(results)

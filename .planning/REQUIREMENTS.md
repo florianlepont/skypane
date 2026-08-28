@@ -19,6 +19,24 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DEVICE-04**: User can see a low-battery indicator on the frame when the battery is running low
 - [ ] **DEVICE-05**: Device runs on battery power only (no wall power, no solar) for v1
 
+### Companion Configuration Web Interface
+
+Promoted 2026-08-27 from the v2 backlog to Phase 6 (see ROADMAP.md) — selected by the user over four sibling seeds (AeroDataBox destination lookup, local RTL-SDR backup, presence-adaptive poll cadence, and the standalone device-local fault-icon fallback DEVICE-06, which stays deferred in v2 below). Originated 2026-08-26 (`/gsd-discuss-phase 3`) as an unscoped seed idea, then expanded across two 2026-08-27 explore sessions to also cover view switching, device health/battery status, airline-coverage monitoring, and a server-side fault icon — rather than three separate mechanisms (a button, a push channel, and manual log-grepping).
+
+**Scope widened again during `/gsd-discuss-phase 6` (2026-08-27):** CFG-02 (view switching) was removed from this phase — there's still nothing to switch to until a second view exists, so it moved back to v2's "View Switching" section below. In its place, the user asked to add seven new capabilities to this same phase: a flight-history log, a manual poll trigger, airline-resolution statistics, a dark/light theme for the page itself, a live render preview, a gallery of recent renders, and runway selection (CFG-06 through CFG-12 below — CFG-12 was raised mid-discussion, after the rest of this section was already written). See `06-CONTEXT.md` for the full discussion record.
+
+- [x] **CFG-01**: User can configure the frame's settings (background colors/style, tracked airport, other display preferences) via a web interface, instead of every visual choice being fixed at build time. For v1, background-color configuration is scoped to choosing among DEPARTING/ARRIVING theme variants validated on real glass during Phase 7 — see `06-CONTEXT.md`.
+- [x] **CFG-03**: User can see the device's last-known health status (last successful poll time, battery voltage once wired per Phase 5's DEVICE-04) via the web interface — deliberately not a phone push notification, to avoid reintroducing a phone dependency for an ambient device
+- [x] **CFG-04**: User can see which ADS-B callsign ICAO prefixes have gone unrecognized in production, backed directly by `enrich.py`'s unresolved-prefix registry (`poll_state.json`'s `unresolved_prefixes`, added 2026-08-27) — surfaces airline-coverage gaps from real traffic instead of requiring another manual research audit
+- [x] **CFG-05**: When the server's ADS-B data source itself is failing (not the normal "no aircraft right now" Empty state), the next successfully-rendered image includes a small alert icon prompting the user to check the web interface (CFG-03) for details — full design rationale in `.planning/seeds/on-device-fault-icon.md`
+- [x] **CFG-06**: User can see a log of recently detected flights (not just the current one), via the web interface
+- [x] **CFG-07**: User can manually trigger an immediate detection/render cycle from the web interface, for debugging without waiting for the next scheduled cycle — rate-limited (short cooldown) to avoid abusing the free ADS-B aggregator APIs
+- [x] **CFG-08**: User can see airline/route resolution statistics over time via the web interface, beyond CFG-04's raw unresolved-prefix registry
+- [x] **CFG-09**: User can toggle a dark/light theme for the web interface itself, independent of the colors rendered on the physical frame
+- [x] **CFG-10**: User can see a live preview of what the physical panel is currently displaying, via the web interface, without needing SSH access to the server
+- [x] **CFG-11**: User can see a gallery of the most recently rendered panel images via the web interface, for quick visual QA without SSH
+- [x] **CFG-12**: User can select which of Orly's three runways the device tracks (currently hardcoded to runway 3; the two neighboring runways, 06/24 and 02/20, already have corridor geometry in `server/plane/detect.py` — added by the runway3-false-positive fix, currently used only to *exclude* their traffic). Generalizes PLANE-01/02/03's runway-3-specific detection to be parameterized by the selected runway. One runway tracked at a time, applied on the device's next scheduled poll (same timing as CFG-01).
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -39,6 +57,7 @@ Superseded 2026-08-27 (explore session): the frame is meant to stay wall-mounted
 
 - **DEVICE-01**: User can switch between the plane view and the RER view via the companion web interface (CFG-02) — not a physical button
 - **DEVICE-02**: Switching views triggers a fresh data poll for the newly selected view, not a stale cached image
+- **CFG-02**: User can switch between available views (plane/RER) via the web interface, superseding the physical-button view-switch concept in DEVICE-01. **Moved back here from v1 (2026-08-27, `/gsd-discuss-phase 6`)** — inert with nothing to switch to until a second view exists; revisit once RER (or another view) is actually built.
 
 ### Messaging
 
@@ -50,21 +69,11 @@ Deferred 2026-08-26 (Phase 3 discuss-phase) — user confirmed via SenseCraft th
 
 - **VIS-01**: User can set a personal photo (e.g. of the install location) as the plane view's background, rendered with dithering instead of the current full-bleed solid state-color field
 
-### Companion Configuration Web Interface
+### On-Device Fault Fallback
 
-Seed idea, deferred 2026-08-26 (Phase 3 discuss-phase) — raised as a v2/v3 concept, not scoped or detailed yet. Expanded 2026-08-27 (explore session) beyond visual configuration alone: this is also where view switching (superseding the physical-button concept — see View Switching above), device health/battery status, and airline-coverage monitoring converge, rather than three separate mechanisms (a button, a push-notification channel, and manual log-grepping).
-
-- **CFG-01**: User can configure the frame's settings (background colors/style, tracked airport, other display preferences) via a web interface, instead of every visual choice being fixed at build time
-- **CFG-02**: User can switch between available views (plane/RER) via the web interface, superseding the physical-button view-switch concept in DEVICE-01
-- **CFG-03**: User can see the device's last-known health status (last successful poll time, battery voltage once wired per Phase 5's DEVICE-04) via the web interface — deliberately not a phone push notification, to avoid reintroducing a phone dependency for an ambient device
-- **CFG-04**: User can see which ADS-B callsign ICAO prefixes have gone unrecognized in production, backed directly by `enrich.py`'s unresolved-prefix registry (`poll_state.json`'s `unresolved_prefixes`, added 2026-08-27) — surfaces airline-coverage gaps from real traffic instead of requiring another manual research audit
-
-### On-Screen Fault Indicator
-
-Seed idea, deferred 2026-08-27 (explore session) — builds on the Companion Configuration Web Interface above (specifically CFG-03's health status) by giving the physical frame itself a visible nudge to go check that dashboard, rather than failing silently. Two independent trigger paths, since a device-side communication outage and a server-side data-source outage need different rendering mechanisms — full design rationale in `.planning/seeds/on-device-fault-icon.md`.
+Seed idea, deferred 2026-08-27 (explore session) — the device-local half of the fault-icon idea explored alongside the Companion Configuration Web Interface (CFG-05, now promoted to Phase 6 — see v1 Requirements above). This half stays deferred: it's technically independent of the web interface (no dependency on CFG-03 existing) and covers the harder case where the device can't reach the server at all, so no server-rendered image can carry an alert. Full design rationale in `.planning/seeds/on-device-fault-icon.md`.
 
 - **DEVICE-06**: When the device has failed to reach the server for 2+ consecutive poll attempts (`backoff_n >= 2`), it renders a small local fallback screen (solid fill + pre-baked alert icon) directly in firmware via the existing `fp_panel_draw()` call, without needing a successful server round-trip
-- **CFG-05**: When the server's ADS-B data source itself is failing (not the normal "no aircraft right now" Empty state), the next successfully-rendered image includes a small alert icon prompting the user to check the web interface (CFG-03) for details
 
 ## Out of Scope
 
@@ -93,13 +102,24 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEVICE-03 | Phase 1 | Complete |
 | DEVICE-04 | Phase 5 | Complete |
 | DEVICE-05 | Phase 5 | In Progress (05-01 Task 1 of 3 done) |
+| CFG-01 | Phase 6 | Complete (06-07) |
+| CFG-03 | Phase 6 | Complete (06-08, deployed 06-11) |
+| CFG-04 | Phase 6 | Pending (not yet planned) |
+| CFG-05 | Phase 6 | Pending (not yet planned) |
+| CFG-06 | Phase 6 | Pending (not yet planned) |
+| CFG-07 | Phase 6 | Complete (06-07) |
+| CFG-08 | Phase 6 | Pending (not yet planned) |
+| CFG-09 | Phase 6 | Pending (not yet planned) |
+| CFG-10 | Phase 6 | Pending (not yet planned) |
+| CFG-11 | Phase 6 | Pending (not yet planned) |
+| CFG-12 | Phase 6 | Complete (06-07) |
 
-RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase.
+RER-01/02/03 and DEVICE-01/02 moved to v2 Requirements (2026-08-11) — no longer mapped to a v1 phase. CFG-01/03/04/05 (and now CFG-06..11) moved the other direction: promoted from v2 Requirements to Phase 6 (2026-08-27, briefly Phase 7 for a few minutes before the Phase 6/7 renumbering). CFG-02 was promoted alongside them but moved back to v2 during `/gsd-discuss-phase 6` (2026-08-27) — still nothing to switch to. DEVICE-06 stays in v2 Requirements, not promoted.
 
 **Coverage:**
 
-- v1 requirements: 6 total
-- Mapped to phases: 6 (Phase 1: 1, Phase 2: 3, Phase 3: 1, Phase 5: 2)
+- v1 requirements: 17 total
+- Mapped to phases: 17 (Phase 1: 1, Phase 2: 3, Phase 5: 2, Phase 6: 11)
 - Unmapped: 0 ✓
 
 ---

@@ -30,7 +30,8 @@ not an oversight.
 | `firmware/` | ESP32-S3 device firmware (ESP-IDF, C) — the wake/poll/display/deep-sleep state machine that runs on the physical frame | This README's Firmware section, `firmware/VENDOR.md` |
 | `server/` | The always-on render pipeline: ADS-B detection, route enrichment, panel rendering, and the poll-loop entrypoint | `server/README.md` |
 | `stub-server/` | A throwaway local dev server implementing the same device protocol, used for firmware bring-up without a deployed backend | `stub-server/README.md` |
-| `deploy/` | Scripts and unit files that turn `server/` + `stub-server/` into an always-on VPS deployment | `deploy/README.md` |
+| `companion/` | The companion configuration web interface — theme/runway settings, device health, airline coverage, and a live panel preview, gated behind a single shared password | This README's Companion interface section, `deploy/README.md` |
+| `deploy/` | Scripts and unit files that turn `server/` + `stub-server/` + `companion/` into an always-on VPS deployment | `deploy/README.md` |
 | `hardware/` | Bill of materials, physical bring-up log, and the battery-life measurement protocol | `hardware/BOM.md`, `hardware/BRINGUP-LOG.md` |
 | `adsb-test/` | A Phase 1 spike that validated free public ADS-B aggregators can see low-altitude traffic near runway 3, before any of the above was built | `adsb-test/README.md` |
 
@@ -89,11 +90,12 @@ timer's oneshot — see the Deployment section below.
 
 This is the **exact same command CI runs** — a green local run means a
 green pipeline. There is no pytest here by design: every
-`server/test_*.py` / `stub-server/test_poll_cycle.py` harness is a
-directly-executable, stdlib-only script that reports its own check count
-and exit code (9 harnesses, currently 212 checks total), aggregated and
-coverage-gated by the script above. Don't arrive expecting to invoke a
-test collector — run each file, or run all of them via the script.
+`server/test_*.py` / `stub-server/test_poll_cycle.py` /
+`companion/test_*.py` harness is a directly-executable, stdlib-only script
+that reports its own check count and exit code (15 harnesses, currently
+394 checks total), aggregated and coverage-gated by the script above.
+Don't arrive expecting to invoke a test collector — run each file, or run
+all of them via the script.
 
 ## Firmware
 
@@ -120,6 +122,21 @@ above, see `hardware/BRINGUP-LOG.md` and `firmware/VENDOR.md` (the latter
 also documents exactly which upstream files this firmware vendors from
 [flightportrait/frame](https://github.com/flightportrait/frame), and
 which are original to this project).
+
+## Companion interface
+
+A small, password-protected web interface — `companion/app.py`, a stdlib
+`ThreadingHTTPServer` with no framework dependency — for the things this
+project doesn't need a physical button or a schema migration for: picking
+the display theme and tracked runway, triggering a manual poll, viewing
+device health (battery trend, freshness signals, ADS-B corroboration
+status), reviewing which airline callsign prefixes the panel still can't
+name, browsing recent flight history, and previewing the current panel
+image. It runs as its own systemd unit, on its own port, behind its own
+Caddy hostname — a separate process from both the device-protocol server
+and the poll loop, so a restart or crash in the web UI never touches
+either. Access is gated by a single shared password (no per-user
+accounts); see `deploy/README.md` for how to set one up and reach it.
 
 ## Deployment
 
