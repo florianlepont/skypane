@@ -17,7 +17,8 @@ WorkingDirectory=/opt/skypane
 ExecStart=/opt/skypane/venv/bin/python3 /opt/skypane/server/poll_loop.py \
     --once \
     --state-dir ${SKYPANE_STATE_DIR} \
-    --geofence /opt/skypane/config/runway3.json
+    --geofence /opt/skypane/config/runway3.json \
+    --caddy-log ${SKYPANE_CADDY_ACCESS_LOG}
 
 # Hardening - same posture as skypane-byos.service.
 NoNewPrivileges=true

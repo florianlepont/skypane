@@ -504,7 +504,7 @@ def _should_record_event(flight, confirmed_state, poll_state):
     return hex_ != last_hex or confirmed_state != last_confirmed or corroborated != last_corroborated
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso):
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None):
     """Write this cycle's durable signals into `history.db`, in one
     connection, fully contained: a database or filesystem failure here is
     caught and logged, never allowed to fail the poll cycle or leave the
@@ -519,6 +519,14 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     to the fixed-size `meta` table on every single cycle, transition or
     not, so those per-cycle freshness signals never grow the database
     (Pitfall 1).
+
+    `caddy_log`, when given a path, ingests any new `/device/v1/display`
+    lines from the Caddy durable access log into `device_health` on every
+    cycle (CFG-03's only path to battery-voltage history - see
+    history_db.tail_caddy_battery_log()'s module note). This was built and
+    unit-tested in plan 06-01 but never wired into a caller until this
+    fix - a missing/unreadable log file is a no-op (0 rows), same
+    catch-and-log containment as everything else in this function.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -542,6 +550,8 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
             history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
             if flight is not None:
                 history_db.set_meta(conn, history_db.META_LAST_DETECTION, now_iso)
+            if caddy_log:
+                history_db.ingest_caddy_battery_log(conn, caddy_log)
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -602,7 +612,7 @@ def _save_to_gallery(state_dir, canvas, now_iso):
         print("poll_loop: gallery archive failed: %s: %s" % (type(exc).__name__, exc))
 
 
-def run_once(snapshot=None, state_dir=None, geofence=None):
+def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     """One poll cycle. `snapshot=None` polls the live aggregators
     (detect.poll_current_aircraft()); a non-None `snapshot` is a raw
     aggregator response dict injected by the test harness so
@@ -861,6 +871,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         _record_history(
             state_dir, current_flight, confirmed_state, route_source, route,
             tracked_runway_id, source_fault, event_recorded, now_iso,
+            caddy_log=caddy_log,
         )
     elif current_flight is not None:
         # D-04: nothing NEW reached the display this cycle, but a flight was
@@ -935,6 +946,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         _record_history(
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
+            caddy_log=caddy_log,
         )
     else:
         # Nothing detected, and nothing has ever been detected since the
@@ -960,6 +972,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None):
         _record_history(
             state_dir, None, None, None, None,
             tracked_runway_id, source_fault, False, now_iso,
+            caddy_log=caddy_log,
         )
 
     # T-02-04-05: log only the callsign, the enrichment outcome
@@ -1053,13 +1066,20 @@ def build_parser():
         default=None,
         help="Path to the geofence JSON (default: adsb-test/runway3.json).",
     )
+    parser.add_argument(
+        "--caddy-log",
+        default=None,
+        help="Path to Caddy's durable device-protocol access log "
+             "(SKYPANE_CADDY_ACCESS_LOG in skypane.env), tailed every cycle "
+             "for CFG-03's X-Battery-Mv telemetry. Omit to skip ingestion.",
+    )
     return parser
 
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
-        run_once(state_dir=args.state_dir, geofence=args.geofence)
+        run_once(state_dir=args.state_dir, geofence=args.geofence, caddy_log=args.caddy_log)
     except Exception as exc:
         # A failed cycle must leave the previously served panel intact and
         # never crash-loop the systemd timer silently - log to stdout
