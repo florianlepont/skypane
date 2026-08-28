@@ -157,6 +157,18 @@ In the Departing/Arriving states, Blue/Green is reserved for **the full canvas b
 
 **Destructive:** not applicable — no destructive actions exist on a passive, buttonless display this phase.
 
+### Illustration-Zone Exception (Phase 3, D-11/D-21 — 2026-08-26)
+
+Phase 3 grants the two aircraft-illustration zones an explicit, narrowly-scoped exception to the reservation language above. The zones are the two bounding boxes `render.draw_illustration()` returns — called once for the current detection's main illustration and once for the immediately-preceding detection's previous-flight card (see `03-UI-SPEC.md` Revision 4's Layout and Composition section for both boxes' actual geometry). Within those two bounding boxes, a per-airline dithered livery illustration may use the panel's full 6-color legal palette (Black, White, Yellow, Red, Blue, Green) via Floyd-Steinberg dithering — not just White.
+
+**What actually shipped, stated plainly.** The Departing/Arriving background is a **flat single-color fill** per state (D-21) — there is no dithered mood-gradient background, and nothing else on the panel is dithered outside the two illustration boxes above. The palette guard rail that ships in code (`render._assert_legal_palette()`) is **legality-plus-dominance, not spatially scoped**: every index anywhere on the panel must be one of the 6 legal Spectra 6 indices, and the state's own background index must be the single most common index on the panel — full stop. It does not itself check "is every non-White, non-background index confined to an illustration's own bounding box." In practice a real livery's own colors do stay inside its own illustration's bbox, because that is the only place `draw_illustration()` ever paints a non-flat pixel — but that containment is a property of what the renderer draws, not something the guard rail spatially enforces. The Colour contract has genuinely loosened panel-wide relative to Revision 2's strict `{bg_idx, IDX_WHITE}`-everywhere rule: a legal ink may now appear anywhere on the canvas, not only inside an illustration's own bbox.
+
+**Cross-phase reservation update (Phase 3, D-12).** Yellow's presence in a per-airline illustration is explicitly permitted — the illustration zones and Phase 4's low-battery indicator occupy visually distinct parts of the panel, so reuse is not confusing. Red's original reservation rationale ("Phase 3's disruption banner, RER-03") is stale: RER-03 was deferred to v2 in the 2026-08-11 scope cut and has no scheduled consumer in this roadmap, so Red is likewise available for illustration use without reservation conflict. This paragraph supersedes the "Cross-phase reservation note" above for the illustration zones specifically; that note is unchanged for every other zone (Yellow/Red remain unused elsewhere on the panel).
+
+**Panel-color-accuracy caveat.** The illustration's quantization target (`server/panel_format.py`'s `PALETTE_RGB`) is a nominal, hardware-tuned approximation, not a colorimetrically-measured value — see `hardware/BRINGUP-LOG.md`'s `## Panel Observations` section for the calibration method actually used and its limitations. Livery colors are guaranteed *legal* (one of the 6 real panel inks) but not guaranteed to visually match the source art's intended brand colors with precision.
+
+**Full amendment pointer.** `03-UI-SPEC.md` Revision 4 is the full amendment covering typography, hierarchy and background treatment for Phase 3's as-shipped design; this subsection only extends the Color section's reservation language above to cover the illustration zones. See that document for the complete design contract.
+
 ---
 
 ## Copywriting Contract
