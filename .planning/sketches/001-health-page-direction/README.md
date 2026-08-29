@@ -2,7 +2,7 @@
 sketch: 001
 name: health-page-direction
 question: "Does the new visual direction (serif headings, cards with relief, orange/amber accent, airier spacing) work on a real page?"
-winner: null
+winner: "B"
 tags: [visual-direction, typography, color]
 ---
 
