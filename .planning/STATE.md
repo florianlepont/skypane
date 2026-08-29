@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.6.1
-current_phase_name: companion-visual-polish-pass
+current_phase: "06.6.1"
+current_phase_name: Companion visual polish pass
 status: executing
-stopped_at: "Completed 06.6.1-04-PLAN.md (Wave 2: icon sprite + Health nav notification dot)"
+stopped_at: "Phase 06.6.1 Wave 2 complete (4/6 plans): 04 added the icon sprite + Health nav-tab notification dot on top of Wave 1's CSS/History/Health work. Wave 3 (plan 05, hamburger nav) about to dispatch, depends on 01+04. completed_plans re-derived this time as total_plans(63) minus Phase 06.6's 3 still-unexecuted plans minus 06.6.1's 2 remaining plans (05/06) = 58, since the running completed_plans counter had drifted past total_plans in a prior session (a pre-existing undercount artifact, not a new bug) — see project_gsd_state_percent_bug memory for the full history of this counter's imprecision."
 last_updated: "2026-08-29T22:07:20.711Z"
 last_activity: 2026-08-29
-last_activity_desc: Phase 06.6.1 execution started
+last_activity_desc: "Phase 06.6.1 Wave 2 complete (4/6 plans)"
 progress:
   total_phases: 15
   completed_phases: 11
   total_plans: 63
-  completed_plans: 57
-  percent: 90
+  completed_plans: 58
+  percent: 92
 ---
 
 # Project State
