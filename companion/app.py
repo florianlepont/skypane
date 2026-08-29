@@ -71,6 +71,11 @@ STYLE_ROUTE = "/static/style.css"
 # plan adds a check asserting the two stay in sync. Do not edit one
 # without the other.
 SCRIPT_ROUTE = "/static/battery-trend.js"
+# Authoritative route value — companion/layout.py's NAV_DROPDOWN_SCRIPT_SRC
+# (plan 06.6.1-05) must equal this exactly; that plan's Task 3 asserts the
+# two stay in sync, mirroring SCRIPT_ROUTE/BATTERY_TREND_SCRIPT_SRC's own
+# established pair above.
+NAV_SCRIPT_ROUTE = "/static/nav-dropdown.js"
 CONFIG_ROUTE = "/config"
 LED_ROUTE = "/config-led"
 POLL_ROUTE = "/poll-now"
@@ -113,6 +118,7 @@ FLASH_MESSAGES = {
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
 _BATTERY_TREND_JS_PATH = os.path.join(_HERE, "static", "battery-trend.js")
+_NAV_DROPDOWN_JS_PATH = os.path.join(_HERE, "static", "nav-dropdown.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -383,15 +389,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "text/css", payload, cache_seconds=300)
 
-    def _serve_battery_trend_script(self):
-        """Serve companion/static/battery-trend.js, pre-auth, structurally
+    def _serve_script_file(self, abs_path):
+        """Serve one fixed JavaScript file, pre-auth, structurally
         identical to _serve_stylesheet() above. Unlike
         _serve_gallery_image(), this resolves a single fixed module
-        constant and never joins a client-supplied segment into a
-        filesystem path, so it has no path-traversal surface.
+        constant (`abs_path` is always one of this module's own path
+        constants — _BATTERY_TREND_JS_PATH or _NAV_DROPDOWN_JS_PATH — never
+        a client-supplied segment) and never joins a request-derived
+        segment into a filesystem path, so it has no path-traversal
+        surface. Shared body for _serve_battery_trend_script() and
+        _serve_nav_dropdown_script() below.
         """
         try:
-            with open(_BATTERY_TREND_JS_PATH, "rb") as fh:
+            with open(abs_path, "rb") as fh:
                 payload = fh.read()
         except OSError:
             return self.send_html(404, self._not_found_page())
@@ -399,6 +409,21 @@ class Handler(BaseHTTPRequestHandler):
         # JavaScript per RFC 9239 (2022), which obsoletes RFC 4329's older
         # application/-prefixed form — deliberately not used here.
         return self.send_bytes(200, "text/javascript", payload, cache_seconds=300)
+
+    def _serve_battery_trend_script(self):
+        """Serve companion/static/battery-trend.js, pre-auth. Thin
+        delegate onto _serve_script_file() — kept as its own named method
+        (rather than inlined at the do_GET call site) since an existing
+        check references it by name.
+        """
+        return self._serve_script_file(_BATTERY_TREND_JS_PATH)
+
+    def _serve_nav_dropdown_script(self):
+        """Serve companion/static/nav-dropdown.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_battery_trend_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_NAV_DROPDOWN_JS_PATH)
 
     def _serve_preview_image(self):
         state_dir = self.args.state_dir
@@ -483,9 +508,13 @@ class Handler(BaseHTTPRequestHandler):
         # Pre-auth, matching /static/style.css: a static asset carries no
         # per-user or sensitive data, so gating it would add a session
         # round-trip for zero benefit (06.5-RESEARCH.md, Security Domain,
-        # V2/V4 both "no").
+        # V2/V4 both "no"). NAV_SCRIPT_ROUTE (06.6.1-05) below is the same
+        # reasoning, not a second justification.
         if path == SCRIPT_ROUTE:
             return self._serve_battery_trend_script()
+
+        if path == NAV_SCRIPT_ROUTE:
+            return self._serve_nav_dropdown_script()
 
         if path == "/config":
             if not self.require_session():

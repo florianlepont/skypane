@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 62  # 56 + 5 (06.6.1-04 Task 1: icon sprite) + 1 (Task 3: nav notification dot)
+EXPECTED_CHECK_COUNT = 64  # 62 + 2 (06.6.1-05 Task 1: nav-dropdown.js served pre-auth + ES5-safe dialect)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -749,6 +749,36 @@ def main():
             "nowhere when False/omitted, and never on another link",
             _health_nav_notification_dot)
 
+        # --- 06.6.1-05 Task 1: nav-dropdown.js ES5-safe/side-effect-free dialect ---
+
+        def _nav_dropdown_script_es5_safe_and_side_effect_free():
+            # These are standing constraints on the file, not incidental
+            # facts — companion/static/battery-trend.js's own header
+            # states the same rules for the same reasons: no build step,
+            # ES5-safe subset, no network call, no timer, no persistent
+            # state.
+            js_path = os.path.join(HERE, "static", "nav-dropdown.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "fetch(", "XMLHttpRequest",
+                "setTimeout", "setInterval", "innerHTML", "document.write",
+                "eval(")
+            for token in banned:
+                if token in src:
+                    return False, "nav-dropdown.js must not contain %r" % token
+            if "aria-expanded" not in src:
+                return False, "expected the open state to be read from aria-expanded"
+            return True, ""
+        check(
+            "nav-dropdown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "fetch/XHR/timers/innerHTML/document.write/eval) — standing constraints on the file",
+            _nav_dropdown_script_es5_safe_and_side_effect_free)
+
     finally:
         if previous_password is not None:
             os.environ[auth.PASSWORD_ENV_VAR] = previous_password
@@ -845,6 +875,23 @@ def main():
         check(
             "GET /static/battery-trend.js succeeds without a session and returns a JavaScript content type",
             _battery_trend_script_public)
+
+        # --- nav-dropdown script: public, no session required (06.6.1-05, D-06) ---
+
+        def _nav_dropdown_script_public():
+            status, headers, body = http_request(base + "/static/nav-dropdown.js")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            content_type = headers.get("Content-Type", "")
+            if "text/javascript" not in content_type:
+                return False, "expected a text/javascript content type, got %r" % content_type
+            if b"site-nav-toggle" not in body:
+                return False, "expected the toggle-id literal in the served body, proving the real file was served"
+            return True, ""
+        check(
+            "GET /static/nav-dropdown.js succeeds without a session, returns a JavaScript content type, "
+            "and serves the real file",
+            _nav_dropdown_script_public)
 
         # --- login: wrong password, right password, cookie flags ---
 
