@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 56
+EXPECTED_CHECK_COUNT = 61  # 56 + 5 (06.6.1-04 Task 1: icon sprite)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -616,6 +616,97 @@ def main():
         check(
             "page_shell()'s output contains no unescaped script tag for an escaped hostile body",
             _page_shell_escapes_hostile_body)
+
+        # --- 06.6.1-04 Task 1: icon sprite, whitelisted builder, stat_tile() icon slot ---
+
+        def _icon_sprite_integrity():
+            import re
+            if len(layout.ICON_IDS) != 5:
+                return False, "expected exactly five ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 5:
+                return False, "expected ICON_IDS to have no duplicates"
+            symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
+            if sorted(symbol_ids) != sorted(layout.ICON_IDS):
+                return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
+                    symbol_ids, layout.ICON_IDS)
+            if layout.ICON_DEFS_HTML.count("<symbol") != 5:
+                return False, "expected exactly five <symbol occurrences, got %d" % (
+                    layout.ICON_DEFS_HTML.count("<symbol"))
+            if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
+                return False, "expected stroke=\"currentColor\" in the sprite"
+            if 'fill="#' in layout.ICON_DEFS_HTML:
+                return False, "a hard-coded hex fill would defeat the per-status tint"
+            return True, ""
+        check(
+            "layout.ICON_IDS has exactly five unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            _icon_sprite_integrity)
+
+        def _icon_html_whitelist_enforcement():
+            for icon_id in layout.ICON_IDS:
+                out = layout.icon_html(icon_id)
+                if not out or "<use" not in out:
+                    return False, "expected non-empty <use markup for %r, got %r" % (icon_id, out)
+            for bad in ("not-an-icon", "", None):
+                if layout.icon_html(bad) != "":
+                    return False, "expected icon_html(%r) == ''" % (bad,)
+            hostile = '"><script>alert(1)</script>'
+            if layout.icon_html(hostile) != "":
+                return False, "expected a hostile id to render nothing"
+            if hostile in layout.icon_html(hostile):
+                return False, "a hostile id string must never reach icon_html()'s output"
+            return True, ""
+        check(
+            "icon_html() returns markup for every whitelisted id and '' for an unknown/empty/None/hostile id",
+            _icon_html_whitelist_enforcement)
+
+        def _stat_tile_backcompat_and_icon_slot():
+            default_call = layout.stat_tile("c", "x")
+            explicit_none = layout.stat_tile("c", "x", None)
+            if default_call != explicit_none:
+                return False, "expected stat_tile('c','x') == stat_tile('c','x',None)"
+            if "<svg" in default_call:
+                return False, "expected no <svg when icon is omitted"
+            valid_icon = layout.ICON_IDS[0]
+            with_icon = layout.stat_tile("Cap", "<p>y</p>", "ok", icon=valid_icon)
+            if with_icon.count("<svg") != 1:
+                return False, "expected exactly one <svg when a valid icon is supplied"
+            if layout.STAT_TILE_ICON_CLASS not in with_icon:
+                return False, "expected the tint class on the tile's icon"
+            if "stat-tile--ok" not in with_icon:
+                return False, "expected the status class to still be present"
+            if with_icon.index("<svg") >= with_icon.index("Cap"):
+                return False, "expected the icon markup to precede the caption text"
+            return True, ""
+        check(
+            "stat_tile() is byte-identical with icon omitted and places a valid icon before the caption text",
+            _stat_tile_backcompat_and_icon_slot)
+
+        def _page_shell_emits_sprite_once_no_inline_styles():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            if doc.count("<defs") != 1:
+                return False, "expected exactly one <defs, got %d" % doc.count("<defs")
+            if doc.count("<symbol") != 5:
+                return False, "expected exactly five <symbol, got %d" % doc.count("<symbol")
+            if doc.index("icon-defs") >= doc.index("dashboard-shell"):
+                return False, "expected the sprite to precede the dashboard-shell div"
+            if ' style="' in doc:
+                return False, "page_shell() must emit no inline styles"
+            return True, ""
+        check(
+            "page_shell() emits exactly one sprite (one <defs, five <symbol) before dashboard-shell, no inline styles",
+            _page_shell_emits_sprite_once_no_inline_styles)
+
+        def _icon_classes_match_stylesheet():
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            for cls in ("icon-defs", "icon", layout.STAT_TILE_ICON_CLASS):
+                if cls not in css:
+                    return False, "expected class %r to be styled in companion/static/style.css" % cls
+            return True, ""
+        check(
+            "the icon/icon-defs/STAT_TILE_ICON_CLASS class names all appear in companion/static/style.css",
+            _icon_classes_match_stylesheet)
 
     finally:
         if previous_password is not None:

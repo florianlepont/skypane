@@ -46,6 +46,121 @@ _STAT_TILE_BORDER_CLASSES = {
 }
 _DEFAULT_STAT_TILE_CLASS = "stat-tile--accent"
 
+# --- 06.6.1-04: icon sprite (D-02) -------------------------------------
+#
+# The whitelist. Capped at exactly five ids by 06.6.1-UI-SPEC.md's Design
+# System contract — this is not an incomplete set to extend later, it is
+# the whole set. The hamburger member is consumed by plan 06.6.1-05's
+# mobile-nav toggle button; it is defined here anyway (rather than by
+# that later plan) so the sprite in ICON_DEFS_HTML stays the single
+# write site for every icon in the app, never two.
+ICON_IDS = (
+    "icon-device",
+    "icon-pipeline",
+    "icon-corroboration",
+    "icon-battery",
+    "icon-hamburger",
+)
+
+# One shared inline sprite, emitted once per document by page_shell().
+# `display: none` (companion/static/style.css's `.icon-defs` rule) still
+# lets every <use href="#icon-..."> reference below resolve correctly —
+# that is the entire technique. Because of that, this sprite must never
+# be moved inside a conditionally-rendered region: a `<use>` referencing
+# a symbol that isn't in the DOM at all (not merely hidden) resolves to
+# nothing.
+#
+# Each symbol carries fill="none"/stroke="currentColor" so a single CSS
+# `color` property drives the whole glyph — this is what lets
+# .stat-tile__icon's per-status tint rules (companion/static/style.css)
+# work with no second colour mapping to keep in sync. The four tile
+# icons use a 20x20 viewBox; the hamburger (plan 06.6.1-05) uses 24x24
+# and is three horizontal lines, per the UI-SPEC. Every glyph is built
+# from plain <path>/<line>/<rect>/<circle> primitives — legible outline
+# shapes, not detailed illustration.
+ICON_DEFS_HTML = (
+    '<svg class="icon-defs" aria-hidden="true" focusable="false">'
+    "<defs>"
+    '<symbol id="icon-device" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<rect x="5" y="2" width="10" height="16" rx="2"/>'
+    '<path d="M7.5 10l2 2 4-4.5"/>'
+    "</symbol>"
+    '<symbol id="icon-pipeline" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M10 16v-3"/>'
+    '<path d="M6.5 11.5a5 5 0 0 1 7 0"/>'
+    '<path d="M4 8.5a9 9 0 0 1 12 0"/>'
+    "</symbol>"
+    '<symbol id="icon-corroboration" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<circle cx="8" cy="10" r="5"/>'
+    '<circle cx="12" cy="10" r="5"/>'
+    "</symbol>"
+    '<symbol id="icon-battery" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<rect x="2" y="6" width="14" height="8" rx="1.5"/>'
+    '<path d="M18 8.5v3"/>'
+    '<path d="M5 9v2"/>'
+    "</symbol>"
+    '<symbol id="icon-hamburger" viewBox="0 0 24 24" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<line x1="4" y1="7" x2="20" y2="7"/>'
+    '<line x1="4" y1="12" x2="20" y2="12"/>'
+    '<line x1="4" y1="17" x2="20" y2="17"/>'
+    "</symbol>"
+    "</defs>"
+    "</svg>"
+)
+
+# The tint class stat_tile() adds to its own icon instance. Its
+# counterpart is companion/static/style.css's `.stat-tile__icon` (and
+# the per-status `.stat-tile--* .stat-tile__icon` overrides) — Task 1's
+# test harness reads that stylesheet from disk and asserts this class
+# name actually appears in it, guarding against the two silently
+# drifting apart.
+STAT_TILE_ICON_CLASS = "stat-tile__icon"
+
+
+def icon_html(icon_id, size=20, extra_class=""):
+    """A `<svg>` referencing one symbol from ICON_DEFS_HTML via `<use>`,
+    or the empty string when `icon_id` is not a member of ICON_IDS.
+
+    This is a whitelist, not a sanitiser — the same discipline
+    status_dot() and stat_tile() already apply to their own state
+    arguments. `icon_id` becomes a `#`-prefixed fragment identifier
+    inside a `<use href="...">` attribute; an id that reached the output
+    unchecked would be an attacker-influenceable fragment reference. An
+    unrecognised id instead fails visibly-but-safely — a missing icon,
+    not a dangling or injectable reference.
+
+    The explicit `width`/`height` attributes are belt-and-braces against
+    companion/static/style.css's `.icon` sizing rule being lost or
+    overridden: an `<svg>` with neither an attribute nor a CSS size
+    renders at the SVG default 300x150 and would blow the layout apart.
+    This mirrors how the battery sparkline already carries both fixed
+    attributes and a CSS override.
+
+    `aria-hidden="true"` is set unconditionally: every icon this phase
+    renders sits beside its own visible text label (a tile caption, a
+    section heading), so the icon is decorative and announcing it would
+    duplicate the label. Do not "improve" this by adding a `<title>`.
+    """
+    if icon_id not in ICON_IDS:
+        return ""
+    css_class = "icon"
+    if extra_class:
+        css_class = "%s %s" % (css_class, extra_class)
+    return (
+        '<svg class="%s" width="%d" height="%d" aria-hidden="true" '
+        'focusable="false"><use href="#%s"></use></svg>'
+    ) % (css_class, size, size, icon_id)
+
 
 def escape_html(value):
     """Coerce `value` to its escaped string form for safe HTML interpolation.
@@ -161,7 +276,10 @@ def page_shell(title, active, body, ui_theme="auto", flash=None, banner=None):
     # always present in the DOM — companion/static/style.css's 960px
     # media query is the only thing that decides which copy is visible,
     # never anything in this function (no inline styles, no
-    # boolean-hidden attribute, no ARIA visibility hint).
+    # boolean-hidden attribute, no ARIA visibility hint). 06.6.1-04:
+    # ICON_DEFS_HTML is emitted here unconditionally, once per document,
+    # immediately inside <body> and before the dashboard-shell div — the
+    # only definition site for every icon in the app.
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en" data-ui-theme="%s">\n'
@@ -172,6 +290,7 @@ def page_shell(title, active, body, ui_theme="auto", flash=None, banner=None):
         '<link rel="stylesheet" href="/static/style.css">\n'
         "</head>\n"
         "<body>\n"
+        "%s\n"
         '<div class="dashboard-shell">\n'
         '<aside class="dashboard-sidebar">\n'
         '<span class="site-title sidebar-title">%s</span>\n'
@@ -192,6 +311,7 @@ def page_shell(title, active, body, ui_theme="auto", flash=None, banner=None):
     ) % (
         escape_html(resolved_theme),
         escape_html(title), escape_html(SITE_TITLE),
+        ICON_DEFS_HTML,
         escape_html(SITE_TITLE),
         sidebar_html,
         theme_form_html,
@@ -225,7 +345,7 @@ def status_dot(state, label):
         % (css_class, escape_html(label)))
 
 
-def stat_tile(caption, content_html, status=None):
+def stat_tile(caption, content_html, status=None, icon=None):
     """A status-coloured dashboard card wrapping already-built markup.
 
     `caption` is escaped here. `content_html` is the caller's own
@@ -238,15 +358,32 @@ def stat_tile(caption, content_html, status=None):
     CSS class suffixes ("ok"/"warn"/"error"); None or an unrecognised
     value falls back to the accent-neutral class rather than emitting
     an arbitrary, attacker-influenceable class name.
+
+    `icon` (06.6.1-04, D-02) is a whitelisted id from ICON_IDS — not
+    markup — passed straight to icon_html(), which is this function's
+    only route to injecting raw HTML beyond `content_html`; that is
+    deliberate, so stat_tile() never grows a second free-form raw-markup
+    parameter. When falsy (the default) or not a member of ICON_IDS, the
+    caption renders exactly as it did before this parameter existed —
+    every pre-existing call site is byte-identical. When it names a
+    valid icon, the caption element becomes the icon markup (tinted via
+    STAT_TILE_ICON_CLASS) followed by the escaped caption text in a
+    <span>, so companion/static/style.css's flex caption rule lays them
+    out on one line.
     """
     css_class = "stat-tile " + _STAT_TILE_BORDER_CLASSES.get(
         status, _DEFAULT_STAT_TILE_CLASS)
+    icon_markup = icon_html(icon, extra_class=STAT_TILE_ICON_CLASS) if icon else ""
+    if icon_markup:
+        caption_html = icon_markup + "<span>%s</span>" % escape_html(caption)
+    else:
+        caption_html = escape_html(caption)
     return (
         '<div class="%s">'
         '<p class="text-label stat-tile__caption">%s</p>'
         "%s"
         "</div>"
-    ) % (css_class, escape_html(caption), content_html)
+    ) % (css_class, caption_html, content_html)
 
 
 def empty_state(heading, body):
