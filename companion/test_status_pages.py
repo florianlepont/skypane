@@ -44,7 +44,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth  # noqa: E402
+from companion import auth, layout  # noqa: E402
 from companion.pages import airlines_page, health_page  # noqa: E402
 from server import history_db  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 42
+EXPECTED_CHECK_COUNT = 44  # 42 + 2 (06.6.1-04 Task 2: Health icons + Airlines iconless)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -297,20 +297,27 @@ def main():
         "a stale device and a fresh pipeline produce one non-healthy row and two healthy rows, not a blended verdict",
         _independent_thresholds_one_warn_one_ok)
 
-    def _battery_empty_state_no_svg():
+    # 06.6.1-04: "no <svg" stopped being a valid proxy for "no sparkline"
+    # the moment the page gained four icon instances (D-02) — a plain
+    # <svg> count would now always be non-zero. Retargeted to assert on
+    # the sparkline specifically (zero <polyline, zero SPARKLINE_DOT_CLASS),
+    # which is what this check always actually meant.
+    def _battery_empty_state_no_sparkline():
         tmp = _mkstate("h-battery-empty")
         try:
             rendered = health_page.render(_ctx(tmp))
             if "No battery readings yet." not in rendered:
                 return False, "expected the battery good-news empty-state heading"
-            if "<svg" in rendered:
-                return False, "did not expect an <svg with zero battery rows"
+            if "<polyline" in rendered:
+                return False, "did not expect a sparkline <polyline with zero battery rows"
+            if health_page.SPARKLINE_DOT_CLASS in rendered:
+                return False, "did not expect a sparkline dot with zero battery rows"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "zero battery rows render the good-news empty state and no <svg",
-        _battery_empty_state_no_svg)
+        "zero battery rows render the good-news empty state and no sparkline",
+        _battery_empty_state_no_sparkline)
 
     def _battery_trend_shows_all_readings_and_one_sparkline():
         tmp = _mkstate("h-battery-trend")
@@ -326,8 +333,15 @@ def main():
             for _ts, mv in readings:
                 if str(mv) not in rendered:
                     return False, "expected battery_mv=%d to appear (a trend, not just the latest)" % mv
-            if rendered.count("<svg") != 1:
-                return False, "expected exactly one <svg, got %d" % rendered.count("<svg")
+            # 06.6.1-04: the page now also carries four icon <svg>
+            # instances (D-02), so a bare "<svg" count of 1 no longer
+            # proves "one sparkline" — subtract the icon <use>
+            # references (one per icon <svg>) to isolate the sparkline's
+            # own non-icon <svg>. The <polyline> count below is the
+            # check's real, unweakened meaning and is unchanged.
+            non_icon_svg_count = rendered.count("<svg") - rendered.count("<use")
+            if non_icon_svg_count != 1:
+                return False, "expected exactly one non-icon <svg, got %d" % non_icon_svg_count
             if rendered.count("<polyline") != 1:
                 return False, "expected exactly one <polyline, got %d" % rendered.count("<polyline")
             return True, ""
@@ -577,8 +591,16 @@ def main():
             rendered = health_page.render(_ctx(tmp))
             if "<script" in rendered:
                 return False, "did not expect any <script tag with zero battery rows"
-            if "<svg" in rendered:
-                return False, "did not expect any <svg with zero battery rows"
+            # 06.6.1-04: "no <svg" stopped being a valid proxy for "no
+            # sparkline" once the page gained four icon instances (D-02)
+            # — retargeted to the sparkline-specific markers, same fix
+            # as _battery_empty_state_no_sparkline() above. The
+            # <script>/readout assertions below are unaffected and are
+            # this check's real, unchanged subject.
+            if "<polyline" in rendered:
+                return False, "did not expect a sparkline <polyline with zero battery rows"
+            if health_page.SPARKLINE_DOT_CLASS in rendered:
+                return False, "did not expect a sparkline dot with zero battery rows"
             if health_page.BATTERY_READOUT_ID in rendered:
                 return False, "did not expect the readout element id with zero battery rows"
             return True, ""
@@ -989,6 +1011,54 @@ def main():
     check(
         "battery and corroboration section-builder markup (dot, table, svg) survives the stat-tile reframe untouched",
         _health_page_section_builder_markup_survives_reframe)
+
+    def _health_page_four_icons_correctly_placed_and_tinted():
+        four = (
+            health_page.ICON_DEVICE, health_page.ICON_PIPELINE,
+            health_page.ICON_CORROBORATION, health_page.ICON_BATTERY)
+        if len(set(four)) != 4:
+            return False, "expected the four Health icon constants to be distinct: %r" % (four,)
+        for icon_id in four:
+            if icon_id not in layout.ICON_IDS:
+                return False, "%r is not a member of layout.ICON_IDS" % icon_id
+        tmp = _mkstate("h-icons")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            if rendered.count("<use") != 4:
+                return False, "expected exactly four <use occurrences, got %d" % rendered.count("<use")
+            for icon_id in four:
+                count = rendered.count("#" + icon_id)
+                if count != 1:
+                    return False, "expected %r exactly once, got %d" % (icon_id, count)
+            if rendered.count(layout.STAT_TILE_ICON_CLASS) != 3:
+                return False, "expected exactly the three tile icons to carry the tint class, got %d" % (
+                    rendered.count(layout.STAT_TILE_ICON_CLASS))
+            section_start = rendered.index(health_page.BATTERY_SECTION_CLASS)
+            icon_index = rendered.index("#" + health_page.ICON_BATTERY)
+            heading_close = rendered.index("</h2>", section_start)
+            if not (section_start < icon_index < heading_close):
+                return False, "expected the battery icon to sit inside the section heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health renders exactly four icon instances — three tinted tile icons plus one heading icon, all whitelisted",
+        _health_page_four_icons_correctly_placed_and_tinted)
+
+    def _airlines_page_stays_iconless():
+        tmp = _mkstate("a-iconless")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            if rendered.count("<use") != 0:
+                return False, "expected zero <use occurrences on Airlines this phase"
+            if rendered.count("<svg") != 0:
+                return False, "expected zero <svg occurrences on Airlines this phase"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Airlines page stays iconless — icons are scoped to Health this phase",
+        _airlines_page_stays_iconless)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py

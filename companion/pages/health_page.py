@@ -176,6 +176,18 @@ BATTERY_SECTION_HEADING = "Battery trend"
 # against silent drift by a cross-file check in test_status_pages.py.
 BATTERY_SECTION_CLASS = "battery-trend-section"
 
+# 06.6.1-04 (D-02): one icon id per Health signal, each a member of
+# layout.ICON_IDS — the whitelist itself is what keeps a typo here from
+# ever becoming a raw-markup injection: icon_html() renders nothing at
+# all for an id it doesn't recognise, which is safe but invisible, so
+# this module's own test harness separately asserts every one of these
+# four constants is a genuine ICON_IDS member (a typo therefore fails a
+# check loudly instead of silently rendering no icon).
+ICON_DEVICE = "icon-device"
+ICON_PIPELINE = "icon-pipeline"
+ICON_CORROBORATION = "icon-corroboration"
+ICON_BATTERY = "icon-battery"
+
 _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 # "query succeeded and legitimately returned None/empty" (e.g. no rows
 # recorded yet), which must render very differently.
@@ -527,13 +539,27 @@ def _battery_trend_section_html(battery_html):
     `_source_fault_block()` already follow; re-escaping it here would
     double-encode and print the raw tags as visible text instead of
     rendering them.
+
+    06.6.1-04 (D-02): the battery icon sits inside this <h2>, before the
+    heading text, and carries no tint class — deliberately asymmetric
+    with the tile icons. This section is a page section, not a status
+    tile, so there is no status modifier for a tint rule to hang off;
+    the icon correctly inherits the heading's own colour through
+    currentColor instead. This also resolves a wording drift in
+    06.6.1-UI-SPEC.md's Layout Contract: it says "each of the 4 Overview
+    tiles" gains an icon, written before plan 06.6.1-03 moved Battery
+    trend out of the grid. All four Health signals still carry their
+    icon — three on tiles, one here on the section heading — and the
+    icon set stays at the contract's five.
     """
     return (
         '<section class="%s">'
-        '<h2 class="text-heading">%s</h2>'
+        '<h2 class="text-heading">%s%s</h2>'
         "%s"
         "</section>"
-    ) % (BATTERY_SECTION_CLASS, escape_html(BATTERY_SECTION_HEADING), battery_html)
+    ) % (
+        BATTERY_SECTION_CLASS, layout.icon_html(ICON_BATTERY),
+        escape_html(BATTERY_SECTION_HEADING), battery_html)
 
 
 def _battery_section(trend_rows):
@@ -671,11 +697,13 @@ def render(ctx):
     # takes it) — it just no longer paints a stat-tile border, since the
     # battery-trend chart moved out of this grid entirely (D-02).
     tiles_html = (
-        layout.stat_tile(DEVICE_FRESHNESS_LABEL, device_html, device_state)
-        + layout.stat_tile(PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state)
+        layout.stat_tile(
+            DEVICE_FRESHNESS_LABEL, device_html, device_state, icon=ICON_DEVICE)
+        + layout.stat_tile(
+            PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state, icon=ICON_PIPELINE)
         + layout.stat_tile(
             "Corroboration", corroboration_html,
-            "warn" if disagreement_warn else "ok")
+            "warn" if disagreement_warn else "ok", icon=ICON_CORROBORATION)
     )
 
     return (
