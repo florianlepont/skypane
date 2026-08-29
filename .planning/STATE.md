@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: "06.5"
 current_phase_name: interactive-battery-trend-chart-with-overall-status
 status: executing
-stopped_at: "06.5-03 (real-phone verification) in progress: tap-reveals-reading (D-02) confirmed working on a real phone; badge/thumb-target/no-layout-jump items still pending. Real-device testing also found a mobile nav-bar CSS bug (fixed, commit b90ed88) and surfaced a batch of design feedback, captured and discussed as Phase 06.6.1 (visual polish pass) — 06.6.1-CONTEXT.md written, decisions locked (D-01..D-06), including D-05: next step is /gsd-sketch for a prototype pass, THEN /gsd-ui-phase for a formal UI-SPEC.md (same rigor as 06.3), NOT /gsd-plan-phase directly."
-last_updated: "2026-08-29T19:02:43.146Z"
+stopped_at: "06.5-03 real-phone verification: tap-reveals-reading (D-02) confirmed on a real phone; badge/thumb-target/no-layout-jump items still pending. Real-device testing also surfaced Phase 06.6.1 (visual polish pass) — now fully spec'd: discuss-phase (D-01..D-06) → 3 /gsd-sketch explorations (winners: 001-B full editorial, 002-C header-dropdown hamburger, 003-B inline-compact History table) → wrapped into skill sketch-findings-skypane → /gsd-ui-phase produced 06.6.1-UI-SPEC.md, approved 6/6 dimensions by gsd-ui-checker. Next actionable for 06.6.1 is /gsd-plan-phase. 06.5-03's remaining checklist items and 06.6.1's planning+execution are both still open."
+last_updated: "2026-08-29T20:00:16.089Z"
 last_activity: 2026-08-29
-last_activity_desc: "Phase 06.6.1 context gathered via discuss-phase; next step is /gsd-sketch per D-05, not /gsd-plan-phase"
+last_activity_desc: "Phase 06.6.1 UI-SPEC approved (6/6 dimensions) via sketch → ui-phase pipeline"
 progress:
   total_phases: 15
   completed_phases: 11
@@ -282,10 +282,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-29T19:02:43.132Z
-Stopped at: Phase 06.6.1 context gathered - next step is /gsd-sketch per D-05, not /gsd-plan-phase
+Last session: 2026-08-29T20:00:16.075Z
+Stopped at: Phase 06.6.1 UI-SPEC approved (6/6 dimensions)
 
-Resume file: .planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-CONTEXT.md
+Resume file: .planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-UI-SPEC.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
