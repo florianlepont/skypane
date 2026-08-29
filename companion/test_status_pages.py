@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 36
+EXPECTED_CHECK_COUNT = 38
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -404,7 +404,13 @@ def main():
         "an empty/single-reading battery trend renders an ok badge and no anomaly banner (Assumption A1 regression guard)",
         _battery_empty_history_ok_badge_no_anomaly_banner)
 
-    def _battery_drop_drives_both_badge_and_banner():
+    # 06.6.1-UI-SPEC.md's "Anomaly detail list (removed)" row: the <ul>
+    # detail list this check used to assert on is gone this plan, so the
+    # abnormal-drop copy must now be ABSENT from the rendered page while
+    # collect_anomalies() called directly still returns it — the badge
+    # and banner assertions (the check's real meaning: one signal drives
+    # both) are kept exactly as they were.
+    def _battery_drop_drives_badge_and_banner_detail_copy_not_rendered():
         tmp = _mkstate("h-battery-drop-badge")
         try:
             now = _now()
@@ -420,14 +426,72 @@ def main():
             count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
             if count != 1:
                 return False, "expected the anomaly banner copy exactly once, found %d" % count
-            if "A battery reading shows an abnormal drop." not in rendered:
-                return False, "expected the abnormal-drop copy in the anomaly list"
+            if "A battery reading shows an abnormal drop." in rendered:
+                return False, "the abnormal-drop detail copy must no longer be rendered on the page"
+            if health_page.collect_anomalies("ok", "ok", "error", False) != [
+                    "A battery reading shows an abnormal drop."]:
+                return False, "collect_anomalies() must still compute the abnormal-drop item directly"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a real battery drop drives both the badge (error) and the pre-existing anomaly banner",
-        _battery_drop_drives_both_badge_and_banner)
+        "a real battery drop drives both the badge (error) and the banner; the detail copy is no longer rendered",
+        _battery_drop_drives_badge_and_banner_detail_copy_not_rendered)
+
+    def _anomaly_detail_list_markup_is_gone():
+        tmp = _mkstate("h-no-list-markup")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if rendered.count("<ul") != 0:
+                return False, "expected zero <ul occurrences — the anomaly detail list must be gone"
+            if rendered.count("<li") != 0:
+                return False, "expected zero <li occurrences — the anomaly detail list must be gone"
+            count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+            if count != 1:
+                return False, "expected the anomaly banner copy exactly once, found %d" % count
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an unhealthy fixture renders the anomaly banner with zero <ul/<li list markup",
+        _anomaly_detail_list_markup_is_gone)
+
+    def _none_of_the_four_anomaly_item_strings_render():
+        tmp = _mkstate("h-all-four-anomalies")
+        try:
+            now = _now()
+            # Trip all four D-14 signals at once: stale device, stale
+            # pipeline, an abnormal battery drop, and a disagreement
+            # recorded within the corroboration window.
+            _seed_device_health(tmp, [
+                (_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4200),
+                (_ago(health_page.STALE_DEVICE_ERROR_S + 30),
+                 4200 - health_page.BATTERY_DROP_WARN_MV),
+            ])
+            _seed_meta(tmp, **{
+                history_db.META_LAST_PIPELINE_RUN:
+                    _ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc123", "corroborated": False}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            expected_items = health_page.collect_anomalies("error", "error", "error", True)
+            if len(expected_items) != 4:
+                return False, "expected collect_anomalies() to return all four items, got %r" % (expected_items,)
+            count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+            if count != 1:
+                return False, "expected the anomaly banner copy exactly once, found %d" % count
+            for item in expected_items:
+                if item in rendered:
+                    return False, "anomaly item copy leaked into the rendered page: %r" % item
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with all four D-14 signals unhealthy, none of collect_anomalies()'s four item strings is rendered",
+        _none_of_the_four_anomaly_item_strings_render)
 
     # This check's scope is narrower than it first appears — it exercises
     # only battery_sparkline_svg()'s own return value, which still never

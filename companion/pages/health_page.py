@@ -127,8 +127,11 @@ SOURCE_FAULT_BODY = (
 
 # --- D-14 anomaly banner -----------------------------------------------------
 
-# 06-UI-SPEC.md's Copywriting Contract, verbatim.
-ANOMALY_BANNER_TEXT = "⚠ Something needs attention — see the flagged item(s) below."
+# 06.6.1-UI-SPEC.md's Copywriting Contract, verbatim. Revised from 06's
+# "...see the flagged item(s) below." — 06.6.1-03 removed the bulleted
+# detail-list markup this text used to point at, so the two edits (copy
+# + list removal) are deliberately coupled: change one, change the other.
+ANOMALY_BANNER_TEXT = "⚠ Something needs attention — check the tiles below."
 
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
 PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
@@ -378,6 +381,16 @@ def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_
     list means "render no anomaly banner at all" (D-21's uncluttered
     all-clear); render() is the only caller that decides what to do with
     the result.
+
+    Since 06.6.1-03: render() no longer renders this list's contents
+    anywhere on the page (the redundant bulleted detail-list markup was
+    removed — the Overview tiles already carry the same information via
+    colour) — only its emptiness is consumed, to decide whether the
+    banner appears at all. The four item strings below deliberately
+    survive anyway: they remain the readable, greppable definition of
+    what counts as an anomaly, and anomaly_active() (added the same
+    plan) routes its verdict through this exact function so a future
+    reader must not "clean up" these strings as dead code.
     """
     anomalies = []
     if device_state != "ok":
@@ -551,11 +564,7 @@ def render(ctx):
 
     anomalies = collect_anomalies(
         device_state, pipeline_state, battery_state, disagreement_warn)
-    banner_html = ""
-    if anomalies:
-        items_html = "".join(
-            '<li class="text-body">%s</li>' % escape_html(item) for item in anomalies)
-        banner_html = layout.anomaly_banner(ANOMALY_BANNER_TEXT) + "<ul>%s</ul>" % items_html
+    banner_html = layout.anomaly_banner(ANOMALY_BANNER_TEXT) if anomalies else ""
 
     tiles_html = (
         layout.stat_tile(DEVICE_FRESHNESS_LABEL, device_html, device_state)
