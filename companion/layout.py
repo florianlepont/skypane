@@ -30,6 +30,37 @@ NAV_TABS = (
     ("/preview", "Preview"),
 )
 
+# --- 06.6.1-05: hamburger nav DOM contract (D-06) -----------------------
+#
+# The exact literals companion/static/nav-dropdown.js looks up via
+# getElementById()/classList. Duplicated here rather than imported from
+# that JS file — there is no such import path, a Python module cannot
+# import a JS file — so if any of these three drifts from the JS file's
+# own literals, the menu silently stops opening on a phone with no
+# automated signal from either file in isolation. The Task 3 three-file
+# DOM contract guard (06.6.1-05-PLAN.md) reads the JS source and the
+# stylesheet from disk and requires all three to appear in both AND in
+# the rendered page.
+NAV_TOGGLE_ID = "site-nav-toggle"
+MOBILE_NAV_ID = "mobile-nav"
+MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
+
+# The fixed accessible name for the hamburger toggle button
+# (06.6.1-UI-SPEC.md's Copywriting Contract). State is communicated
+# entirely through aria-expanded, which is the correct ARIA disclosure
+# pattern — swapping this label to a close verb on open would make the
+# announced name change under the user mid-interaction. Do not add logic
+# that varies it.
+NAV_TOGGLE_LABEL = "Open menu"
+
+# Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
+# rather than imported because companion/pages/__init__.py's boundary —
+# and a plain import cycle, since app.py imports this module — forbids
+# the reverse direction, exactly as health_page.BATTERY_TREND_SCRIPT_SRC's
+# own comment already states for its own route pair. The Task 3 checks
+# assert the equality.
+NAV_DROPDOWN_SCRIPT_SRC = "/static/nav-dropdown.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 _STATUS_DOT_CLASSES = {
@@ -217,9 +248,11 @@ def _nav_links(active):
     per NAV_TABS entry, in NAV_TABS order.
 
     This is the single place NAV_TABS is iterated and its route/label
-    pair escaped; both _nav_html() (horizontal nav) and sidebar_nav()
-    (vertical nav) consume this instead of re-iterating NAV_TABS and
-    re-implementing the same escaping/active-state logic twice. The
+    pair escaped; sidebar_nav() (vertical, >=960px) and _mobile_nav_html()
+    (hamburger dropdown, <960px, 06.6.1-05) both consume this instead of
+    re-iterating NAV_TABS and re-implementing the same escaping/
+    active-state logic twice — two renderers, one shared link-building
+    helper, never a third independent iteration of NAV_TABS. The
     unescaped route `slug` (06.6.1-04) is now part of what this function
     single-sources too, so a renderer can identify a specific link (e.g.
     the Health nav-tab notification dot's target) without re-deriving
@@ -233,12 +266,14 @@ def _nav_links(active):
     return links
 
 
-def _nav_html(active):
-    links = []
-    for is_active, route, label, _slug in _nav_links(active):
-        css_class = "nav-tab nav-tab--active" if is_active else "nav-tab"
-        links.append('<a class="%s" href="%s">%s</a>' % (css_class, route, label))
-    return "\n".join(links)
+# 06.6.1-05 (D-06, superseding D-00): the horizontally-scrollable nav
+# strip's renderer used to live here. Real-device testing found the
+# pattern hid most tabs behind an undiscoverable swipe even after its own
+# flexbox sizing bug was fixed, so it was replaced rather than repaired a
+# second time — see companion/static/style.css's own header comment for
+# the full flexbox history. There are now exactly two live nav
+# renderers, sidebar_nav() and _mobile_nav_html() below, both fed by
+# _nav_links() above.
 
 
 def _health_alert_markup():
@@ -323,6 +358,53 @@ def _theme_form_html(resolved_theme):
         % "".join(options))
 
 
+def _mobile_nav_html(active, theme_form_html, health_alert=False):
+    """The hamburger toggle button plus the dropdown panel it controls —
+    the <960px nav renderer (D-06, 06.6.1-UI-SPEC.md's Layout Contract).
+
+    Consumes _nav_links(), the module's single iteration-and-escaping
+    site for NAV_TABS, exactly like sidebar_nav() does — this is that
+    helper's second consumer, not a third independent implementation.
+
+    `theme_form_html` is taken as a parameter rather than built here via
+    _theme_form_html(), so page_shell() keeps building it exactly once
+    and passing the same string to both copies — this is what makes the
+    "both theme-form copies present" check meaningful rather than an
+    accident.
+
+    The panel is always rendered without MOBILE_NAV_OPEN_CLASS — the
+    server never renders it open. A server-rendered open state would
+    flash the menu open on every page load; companion/static/
+    nav-dropdown.js is what adds/removes the class client-side, keyed off
+    the toggle's own aria-expanded attribute (the single source of truth
+    for the open state, never a second variable to keep in sync).
+    """
+    links = []
+    for is_active, route, label, slug in _nav_links(active):
+        css_class = (
+            "mobile-nav__link mobile-nav__link--active"
+            if is_active else "mobile-nav__link")
+        alert_html = (
+            _health_alert_markup()
+            if health_alert and slug == HEALTH_NAV_SLUG else "")
+        links.append(
+            '<a class="%s" href="%s">%s%s</a>'
+            % (css_class, route, label, alert_html))
+    toggle_html = (
+        '<button type="button" id="%s" class="site-nav-toggle" '
+        'aria-label="%s" aria-expanded="false" aria-controls="%s">%s</button>'
+    ) % (
+        NAV_TOGGLE_ID, escape_html(NAV_TOGGLE_LABEL), MOBILE_NAV_ID,
+        icon_html("icon-hamburger", size=24))
+    panel_html = (
+        '<div id="%s" class="mobile-nav">'
+        '<nav class="mobile-nav__nav" aria-label="Primary navigation">%s</nav>'
+        "%s"
+        "</div>"
+    ) % (MOBILE_NAV_ID, "".join(links), theme_form_html)
+    return toggle_html + panel_html
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=False):
@@ -334,29 +416,44 @@ def page_shell(
     output of this module's other builders, which already escape).
 
     `health_alert` (06.6.1-04, keyword-with-default, placed last so no
-    positional call site shifts) is threaded through to sidebar_nav().
-    It is a display signal only, defaulting off, so any caller without a
-    request context — login, 404, the preview-image error pages — draws
-    no dot, which is correct rather than merely convenient.
+    positional call site shifts) is threaded through to sidebar_nav() and
+    (06.6.1-05) _mobile_nav_html(). It is a display signal only,
+    defaulting off, so any caller without a request context — login, 404,
+    the preview-image error pages — draws no dot, which is correct rather
+    than merely convenient.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
-    nav_html = _nav_html(active)
     sidebar_html = sidebar_nav(active, health_alert=health_alert)
     theme_form_html = _theme_form_html(resolved_theme)
+    mobile_nav_html = _mobile_nav_html(
+        active, theme_form_html, health_alert=health_alert)
     flash_html = flash or ""
     banner_html = banner or ""
 
     # The <aside> deliberately precedes the <header> in source order: at
     # desktop width, where CSS hides the header entirely, a keyboard user
     # tabs into the visible sidebar navigation first, with no invisible
-    # stops before it. Both nav copies and both theme-form copies are
-    # always present in the DOM — companion/static/style.css's 960px
-    # media query is the only thing that decides which copy is visible,
-    # never anything in this function (no inline styles, no
-    # boolean-hidden attribute, no ARIA visibility hint). 06.6.1-04:
-    # ICON_DEFS_HTML is emitted here unconditionally, once per document,
-    # immediately inside <body> and before the dashboard-shell div — the
-    # only definition site for every icon in the app.
+    # stops before it. Both nav copies (the sidebar and, 06.6.1-05, the
+    # hamburger dropdown) are always present in the DOM —
+    # companion/static/style.css's 960px media query is the only thing
+    # that decides which copy is visible, never anything in this function
+    # (no inline styles, no boolean-hidden attribute, no ARIA visibility
+    # hint). Because the two nav landmarks share the same "Primary
+    # navigation" label and are toggled by the same CSS rule (never by
+    # this function), exactly one navigation landmark is exposed to the
+    # accessibility tree at any given viewport width — the 960px rule
+    # removes the losing copy with display:none, which takes it out of
+    # the layout, the tab order and the accessibility tree together, not
+    # merely out of view. 06.6.1-04: ICON_DEFS_HTML is emitted here
+    # unconditionally, once per document, immediately inside <body> and
+    # before the dashboard-shell div — the only definition site for every
+    # icon in the app. 06.6.1-05: the theme form is now rendered once in
+    # the sidebar and once inside the hamburger dropdown panel (built by
+    # _mobile_nav_html() above from the same theme_form_html string) —
+    # it is no longer rendered a third time directly in the header, which
+    # is what removes D-00's crush-bug root cause instead of re-tuning it
+    # a second time. A single deferred <script> tag, referencing
+    # NAV_DROPDOWN_SCRIPT_SRC, is emitted immediately before </body>.
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en" data-ui-theme="%s">\n'
@@ -376,13 +473,13 @@ def page_shell(
         "</aside>\n"
         '<header class="site-header">\n'
         '<span class="site-title">%s</span>\n'
-        '<nav class="nav-bar">%s</nav>\n'
         "%s\n"
         "</header>\n"
         '<main class="page-content dashboard-main">\n'
         "%s\n%s\n%s\n"
         "</main>\n"
         "</div>\n"
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -393,9 +490,9 @@ def page_shell(
         sidebar_html,
         theme_form_html,
         escape_html(SITE_TITLE),
-        nav_html,
-        theme_form_html,
+        mobile_nav_html,
         flash_html, banner_html, body,
+        NAV_DROPDOWN_SCRIPT_SRC,
     )
 
 
