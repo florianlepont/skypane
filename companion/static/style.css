@@ -224,7 +224,7 @@ a:hover {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-lg);
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-lg);
   background: var(--color-secondary);
   margin-bottom: var(--space-xl);
 }
@@ -287,6 +287,7 @@ a:hover {
   padding: 0 var(--space-sm);
   background: transparent;
   border: 1px solid var(--color-secondary);
+  border-radius: var(--radius-control);
   color: var(--color-text);
   font-size: var(--font-label-size);
   cursor: pointer;
@@ -330,8 +331,15 @@ a:hover {
   color: var(--color-accent);
 }
 
+/* 06.6.1 (D-02/D-04, Reconciliation 1): top/bottom padding is promoted to
+ * 2xl (48px, was zero top / lg bottom) for the airier global direction.
+ * Sides deliberately stay at lg (24px), not the spec table's 3xl — 64px of
+ * side padding on a 375px phone viewport would leave a 247px content
+ * column, directly contradicting D-22's mobile floor. The 2xl/3xl pair the
+ * spec asks for instead lands on .dashboard-main below (the >=960px
+ * content-column level the spec actually names). */
 .page-content {
-  padding: 0 var(--space-lg) var(--space-lg);
+  padding: var(--space-xl) var(--space-lg) var(--space-2xl);
 }
 
 /* Status dot: a 12px circle plus a Label-size text description */
@@ -405,6 +413,7 @@ select {
   padding: var(--space-sm);
   background: var(--color-secondary);
   border: 1px solid var(--color-secondary);
+  border-radius: var(--radius-control);
   color: var(--color-text);
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
@@ -417,6 +426,7 @@ button {
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
   border: none;
+  border-radius: var(--radius-control);
   cursor: pointer;
   background: var(--color-secondary);
   color: var(--color-text);
@@ -524,13 +534,28 @@ button:disabled {
  * off-grid and forcing horizontal scroll on the page itself. With it, the
  * existing .data-table-wrap { overflow-x: auto } absorbs the width
  * instead, which is exactly what that wrapper is for. */
+/* D-02: the visible hairline outline is deliberately traded for a resting
+ * shadow — do not "restore" the border on top of the shadow, or cards end
+ * up with both. The status-coloured top border is unaffected: it is a
+ * from a different property (border-top) than the now-transparent general
+ * border, so both can coexist without fighting each other. */
 .stat-tile {
   min-width: 0;
   padding: var(--space-md);
   background: var(--color-dominant);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-top: 3px solid var(--color-accent);
-  border-radius: 2px;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow .15s, transform .15s;
+}
+
+/* :focus-within alongside :hover on purpose: several tiles now contain
+ * focusable children (the sparkline hit targets from Phase 06.5), and a
+ * keyboard user should get the same lift affordance a mouse user gets. */
+.stat-tile:hover, .stat-tile:focus-within {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
 }
 
 .stat-tile--ok {
@@ -549,8 +574,59 @@ button:disabled {
   border-top-color: var(--color-accent);
 }
 
+/* 06.6.1: the caption is the one Label-role text this contract deliberately
+ * renders in serif (a narrow, named exception — not a licence to extend
+ * serif to other Label text elsewhere). The two explicit resets below
+ * state that the small-caps uppercase treatment is intentionally
+ * abandoned here, not accidentally lost. */
 .stat-tile__caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   margin: 0 0 var(--space-sm);
+  font-family: var(--font-serif);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Icon section (06.6.1 Component Patterns — icon <defs> block). A
+ * display:none sprite container still resolves <use> references, which is
+ * the whole point of the technique: this rule hides the definitions
+ * without disabling them. */
+.icon-defs {
+  display: none;
+}
+
+/* Plan 04 also emits explicit width/height attributes on each <svg class
+ * ="icon"> instance, so an icon is correctly sized even if this rule is
+ * ever lost — belt and braces, matching how the battery sparkline already
+ * carries both attributes and a CSS override (see .stat-tile svg below). */
+.icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  vertical-align: middle;
+}
+
+/* Icon tint: because the SVG instances use stroke="currentColor" with
+ * fill="none", a single `color` property drives the icon's stroke with no
+ * second colour mapping to keep in sync with the top-border modifiers
+ * above. The icon and the top accent read from the same modifier class,
+ * which is what makes them incapable of disagreeing. */
+.stat-tile__icon {
+  color: var(--color-accent);
+}
+
+.stat-tile--ok .stat-tile__icon {
+  color: var(--color-status-ok);
+}
+
+.stat-tile--warn .stat-tile__icon {
+  color: var(--color-status-warn);
+}
+
+.stat-tile--error .stat-tile__icon {
+  color: var(--color-status-error);
 }
 
 .stat-tile__value {
@@ -567,14 +643,41 @@ button:disabled {
   height: auto;
 }
 
+/* Battery-trend section (06.6.1): moves out of .dashboard-grid entirely
+ * into its own full-width card, same treatment as .stat-tile. Two
+ * deliberate omissions vs. .stat-tile — do not "complete" the pattern by
+ * adding either back: no border-top status accent (this is not a status
+ * tile, it doesn't carry an ok/warn/error verdict of its own), and no
+ * hover lift/transform (it contains an interactive chart, and lifting the
+ * container under the pointer while the user is aiming at an 8px-radius
+ * chart hit target is actively unhelpful). */
+.battery-trend-section {
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid transparent;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+  margin-bottom: var(--space-2xl);
+}
+
+/* Mirrors .stat-tile svg's override above — the sparkline still carries
+ * fixed width/height attributes and now lives outside the grid. */
+.battery-trend-section svg {
+  width: 100%;
+  height: auto;
+}
+
 /* Dashboard grid (D-02): same auto-fit/minmax idiom .gallery-grid already
  * establishes as this file's responsive-grid precedent, with a wider
- * 240px floor and the lg gap. No breakpoint is needed for the grid
- * itself: it collapses to one column on narrow viewports on its own. */
+ * 240px floor. 06.6.1 promotes the gap from lg (24px) to xl (32px) per
+ * D-02/D-04's airier-layout direction. No breakpoint is needed for the
+ * grid itself: it collapses to one column on narrow viewports on its
+ * own. */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-lg);
+  gap: var(--space-xl);
   margin-bottom: var(--space-2xl);
 }
 
@@ -584,7 +687,8 @@ button:disabled {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
   border: 1px solid var(--color-border);
-  border-radius: 2px;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
 /* health_page.py's source-fault block combines page-section with banner
@@ -708,12 +812,15 @@ button:disabled {
    * mechanisms would need an extra wrapper element in page_shell(), and
    * this single-element form delivers the same visible result. Below the
    * breakpoint the base .page-content padding rule above governs
-   * unchanged. */
+   * unchanged. 06.6.1 (D-02/D-04, Reconciliation 1): vertical padding is
+   * now 2xl (48px) on both top and bottom — this is where the UI-SPEC's
+   * 2xl/3xl promotion actually lands, at the >=960px content-column
+   * level the spec names, rather than on the base .page-content rule. */
   .dashboard-main {
     min-width: 0;
     max-width: 1440px;
     margin: 0 auto;
-    padding: var(--space-lg) var(--space-3xl) var(--space-2xl);
+    padding: var(--space-2xl) var(--space-3xl);
   }
 
   /* Config page (D-01/D-02): the Theme and Runway fieldsets render side by
