@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 003 — History table density</title>
+<link rel="stylesheet" href="../themes/default.css">
+<style>
+  #variant-nav{position:fixed;top:0;left:0;right:0;z-index:9998;background:#fff;border-bottom:1px solid #e2e6ee;padding:8px 16px;display:flex;gap:8px;font-family:system-ui,sans-serif;align-items:center;flex-wrap:wrap}
+  .variant-tab{border:1px solid #d8dce4;background:#f7f8fb;color:#333;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+  .variant-tab.active{background:#12151B;color:#fff;border-color:#12151B}
+  body{padding-top:56px;background:#FBF9F6}
+  .variant{display:none}
+  .variant.active{display:block}
+  #sketch-tools{position:fixed;bottom:12px;right:12px;z-index:9999;font-family:system-ui;font-size:12px;background:rgba(0,0,0,0.7);color:white;padding:8px 12px;border-radius:8px;opacity:0.4;transition:opacity 0.2s}
+  #sketch-tools:hover{opacity:1}
+
+  .laptop-frame{width:1280px;max-width:100%;margin:24px auto;border:1px solid var(--color-border);border-radius:10px;padding:0;box-shadow:0 8px 24px rgba(0,0,0,0.08)}
+  .laptop-frame__chrome{background:#F3EEE7;padding:8px 14px;border-radius:10px 10px 0 0;font-size:11px;color:#8a8378;font-family:system-ui;display:flex;align-items:center;gap:6px}
+  .laptop-frame__chrome::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:#e0a04a}
+  .laptop-frame__body{padding:var(--space-xl);background:#fff;border-radius:0 0 10px 10px}
+  .laptop-frame__body h1{font-family:var(--font-serif);margin:0 0 var(--space-lg)}
+
+  .before-after{display:flex;gap:var(--space-xs);align-items:center;font-family:system-ui;font-size:12px;color:#8a8378;margin-bottom:var(--space-md)}
+  .fits-badge{font-weight:600;padding:2px 8px;border-radius:999px}
+  .fits-badge--yes{background:#DCFCE7;color:#166534}
+  .fits-badge--no{background:#FEE2E2;color:#991B1B}
+
+  table.hist{width:100%;border-collapse:collapse;font-size:var(--font-label-size)}
+  table.hist th{text-align:left;padding:var(--space-sm) var(--space-md);color:var(--color-text-muted);font-weight:var(--weight-regular);border-bottom:1px solid var(--color-border);white-space:nowrap}
+  table.hist td{padding:var(--space-sm) var(--space-md);border-bottom:1px solid var(--color-border);vertical-align:top}
+  table.hist tr:nth-child(even) td{background:rgba(0,0,0,0.015)}
+  .mono{font-family:var(--font-mono)}
+  .cell-primary{font-family:var(--font-mono);font-weight:600}
+  .cell-secondary{font-family:var(--font-mono);color:var(--color-text-muted);font-size:12px}
+  .cell-inline-sep{color:var(--color-text-muted);margin:0 4px}
+  .corrob{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .dot--ok{background:var(--color-status-ok)}
+  .dot--warn{background:var(--color-status-warn)}
+</style>
+</head>
+<body>
+
+<div id="variant-nav">
+  <button class="variant-tab active" onclick="showVariant('a')">A: Stacked cells</button>
+  <button class="variant-tab" onclick="showVariant('b')">B: Inline compact</button>
+  <button class="variant-tab" onclick="showVariant('c')">C: Max density</button>
+</div>
+
+<!-- ===================== VARIANT A: Stacked cells ===================== -->
+<div id="variant-a" class="variant active">
+  <div class="laptop-frame">
+    <div class="laptop-frame__chrome">13" MacBook — 1280px content width</div>
+    <div class="laptop-frame__body">
+      <h1>History</h1>
+      <div class="before-after">7 columns (was 9) — Callsign+Hex and Type+Airline merged, stacked vertically <span class="fits-badge fits-badge--yes">Fits, no scroll</span></div>
+      <table class="hist">
+        <thead><tr><th>Timestamp</th><th>Callsign</th><th>Type</th><th>Route</th><th>State</th><th>Corroboration</th><th>Runway</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">3m ago</td>
+            <td><div class="cell-primary">AFR123</div><div class="cell-secondary">39d301</div></td>
+            <td><div>A320</div><div class="cell-secondary">Air France</div></td>
+            <td>ORY → TLS</td>
+            <td>DEPARTING</td>
+            <td><span class="corrob"><span class="dot dot--ok"></span>Agreement</span></td>
+            <td class="mono">3</td>
+          </tr>
+          <tr>
+            <td class="mono">22m ago</td>
+            <td><div class="cell-primary">TVF456</div><div class="cell-secondary">4ca87f</div></td>
+            <td><div>A21N</div><div class="cell-secondary">Transavia</div></td>
+            <td>NCE → ORY</td>
+            <td>ARRIVING</td>
+            <td><span class="corrob"><span class="dot dot--warn"></span>Disagreement</span></td>
+            <td class="mono">06-24</td>
+          </tr>
+          <tr>
+            <td class="mono">40m ago</td>
+            <td><div class="cell-primary">EZY789</div><div class="cell-secondary">0a1234</div></td>
+            <td><div>A319</div><div class="cell-secondary">—</div></td>
+            <td>—</td>
+            <td>DEPARTING</td>
+            <td><span class="corrob"><span class="dot dot--ok"></span>Single-source</span></td>
+            <td class="mono">02-20</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== VARIANT B: Inline compact ===================== -->
+<div id="variant-b" class="variant">
+  <div class="laptop-frame">
+    <div class="laptop-frame__chrome">13" MacBook — 1280px content width</div>
+    <div class="laptop-frame__body">
+      <h1>History</h1>
+      <div class="before-after">7 columns — Callsign · Hex and Type · Airline on one line each <span class="fits-badge fits-badge--yes">Fits, no scroll</span></div>
+      <table class="hist">
+        <thead><tr><th>Timestamp</th><th>Callsign</th><th>Type</th><th>Route</th><th>State</th><th>Corroboration</th><th>Runway</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">3m ago</td>
+            <td><span class="cell-primary">AFR123</span><span class="cell-inline-sep">·</span><span class="cell-secondary">39d301</span></td>
+            <td>A320<span class="cell-inline-sep">·</span><span class="cell-secondary">Air France</span></td>
+            <td>ORY → TLS</td>
+            <td>DEPARTING</td>
+            <td><span class="corrob"><span class="dot dot--ok"></span>Agreement</span></td>
+            <td class="mono">3</td>
+          </tr>
+          <tr>
+            <td class="mono">22m ago</td>
+            <td><span class="cell-primary">TVF456</span><span class="cell-inline-sep">·</span><span class="cell-secondary">4ca87f</span></td>
+            <td>A21N<span class="cell-inline-sep">·</span><span class="cell-secondary">Transavia</span></td>
+            <td>NCE → ORY</td>
+            <td>ARRIVING</td>
+            <td><span class="corrob"><span class="dot dot--warn"></span>Disagreement</span></td>
+            <td class="mono">06-24</td>
+          </tr>
+          <tr>
+            <td class="mono">40m ago</td>
+            <td><span class="cell-primary">EZY789</span><span class="cell-inline-sep">·</span><span class="cell-secondary">0a1234</span></td>
+            <td>A319</td>
+            <td>—</td>
+            <td>DEPARTING</td>
+            <td><span class="corrob"><span class="dot dot--ok"></span>Single-source</span></td>
+            <td class="mono">02-20</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== VARIANT C: Max density ===================== -->
+<div id="variant-c" class="variant">
+  <div class="laptop-frame">
+    <div class="laptop-frame__chrome">13" MacBook — 1280px content width</div>
+    <div class="laptop-frame__body">
+      <h1>History</h1>
+      <div class="before-after">6 columns — also merges State into Route ("ORY → TLS · DEPARTING") <span class="fits-badge fits-badge--yes">Fits with room to spare</span></div>
+      <table class="hist">
+        <thead><tr><th>Timestamp</th><th>Callsign</th><th>Type</th><th>Route / State</th><th>Corroboration</th><th>Runway</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">3m ago</td>
+            <td><div class="cell-primary">AFR123</div><div class="cell-secondary">39d301</div></td>
+            <td><div>A320</div><div class="cell-secondary">Air France</div></td>
+            <td>ORY → TLS<span class="cell-inline-sep">·</span>DEPARTING</td>
+            <td><span class="corrob"><span class="dot dot--ok"></span>Agreement</span></td>
+            <td class="mono">3</td>
+          </tr>
+          <tr>
+            <td class="mono">22m ago</td>
+            <td><div class="cell-primary">TVF456</div><div class="cell-secondary">4ca87f</div></td>
+            <td><div>A21N</div><div class="cell-secondary">Transavia</div></td>
+            <td>NCE → ORY<span class="cell-inline-sep">·</span>ARRIVING</td>
+            <td><span class="corrob"><span class="dot dot--warn"></span>Disagreement</span></td>
+            <td class="mono">06-24</td>
+          </tr>
+          <tr>
+            <td class="mono">40m ago</td>
+            <td><div class="cell-primary">EZY789</div><div class="cell-secondary">0a1234</div></td>
+            <td><div>A319</div><div class="cell-secondary">—</div></td>
+            <td>—<span class="cell-inline-sep">·</span>DEPARTING</td>
+            <td><span class="corrob"><span class="dot dot--ok"></span>Single-source</span></td>
+            <td class="mono">02-20</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-family:system-ui;font-size:12px;color:var(--color-text-muted);margin-top:var(--space-md)">Not part of 06.6.1-CONTEXT.md's locked decision (D-... only asked for Callsign+Hex and Type+Airline) — shown here as a "how far could we push it" reference point, not a proposal to adopt as-is.</p>
+    </div>
+  </div>
+</div>
+
+<div id="sketch-tools">Theme: <select onchange="document.querySelector('link[href*=themes]').href='../themes/'+this.value+'.css'"><option value="default">Default</option></select></div>
+
+<script>
+function showVariant(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>
