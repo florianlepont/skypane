@@ -6,14 +6,14 @@ current_phase: 06.6.1
 current_phase_name: companion-visual-polish-pass
 status: executing
 stopped_at: Completed 06.6.1-01-PLAN.md (CSS token layer, card relief, hamburger-nav CSS)
-last_updated: "2026-08-29T21:15:03.618Z"
+last_updated: "2026-08-29T21:30:51.732Z"
 last_activity: 2026-08-29
 last_activity_desc: Phase 06.6.1 execution started
 progress:
   total_phases: 15
   completed_phases: 11
   total_plans: 63
-  completed_plans: 54
+  completed_plans: 55
   percent: 73
 ---
 
@@ -128,6 +128,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.4 P01 | ~20min | 3 tasks | 5 files (+1 new: companion/static/RUNWAY-IMAGES.md) |
 | Phase 06.5 P02 | 20min | 2 tasks | 2 files |
 | Phase 06.6.1 P01 | 25min | 3 tasks | 1 files |
+| Phase 06.6.1 P02 | 20min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -236,6 +237,7 @@ Recent decisions affecting current work:
 - [Phase 06.5]: 06.5-02: SVG role changed img->group so per-point interactive hit targets stay reachable to assistive tech
 - [Phase ?]: 06.6.1-01: 2xl/3xl spacing promotion lands on .dashboard-main (>=960px), not base .page-content, to protect D-22's mobile floor
 - [Phase ?]: 06.6.1-01: horizontal nav strip deleted outright (not hidden) - the mobile hamburger dropdown is the sole <960px nav renderer, superseding D-00's crush-bug fix
+- [Phase 06.6.1]: History's flight table cut from 9 to 7 columns via _merged_cell(); Timestamp cell left untouched per the soft-conflict note with sibling plan 06.6-03
 
 ### Pending Todos
 
@@ -286,7 +288,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-29T21:15:03.603Z
+Last session: 2026-08-29T21:28:00.618Z
 Stopped at: Completed 06.6.1-01-PLAN.md (CSS token layer, card relief, hamburger-nav CSS)
 
 Resume file: .planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-01-PLAN.md
