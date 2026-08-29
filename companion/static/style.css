@@ -162,6 +162,7 @@ a {
 /* Nav bar */
 .site-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-lg);
   padding: var(--space-md) var(--space-lg);
@@ -169,11 +170,19 @@ a {
   margin-bottom: var(--space-xl);
 }
 
+/* `flex: 1 1 200px` (not the bare `flex: 1` this replaced) gives .nav-bar a
+ * real hypothesis size to defend during the wrap algorithm's line-fitting
+ * check — without it, .nav-bar's `overflow-x: auto` zeroes its automatic
+ * minimum (CSS Flexbox 4.5), so it silently loses all its width to
+ * .theme-form (which has no such minimum override) instead of wrapping
+ * onto its own row. That collapsed .nav-bar to ~26px on a 375px viewport,
+ * hiding every tab but a sliver of "Config" with no visible affordance
+ * that Health/Airlines/History/Preview still existed off-screen. */
 .nav-bar {
   display: flex;
   gap: var(--space-md);
   overflow-x: auto;
-  flex: 1;
+  flex: 1 1 200px;
 }
 
 /* Below ~480px the nav becomes a horizontally-scrollable strip — no
