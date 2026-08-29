@@ -7,16 +7,20 @@
  * separate from the physical frame's own design system — the frame's
  * vendored fonts and PALETTE_RGB values must still never be pulled in here.
  *
- * Accent is reserved to exactly five uses: primary buttons, the active
- * nav-tab/sidebar-link indicator, links, the focused-input outline, and a
- * stat tile's top border when no ok/warn/error status applies to that
- * tile. Do not broaden this list without updating 06.3-UI-SPEC.md's Color
- * section — everything else interactive uses neutral gray, never accent
- * blue.
+ * Accent is reserved to exactly these uses (06.6.1-UI-SPEC.md Color
+ * section): primary buttons, the active sidebar-link/dropdown-link
+ * indicator, links, the focused-input outline, a stat tile's icon tint and
+ * top accent when no ok/warn/error status applies, and the hamburger
+ * toggle's active state. Do not broaden this list without updating
+ * 06.6.1-UI-SPEC.md's Color section — everything else interactive uses
+ * neutral gray, never a repurposed accent colour.
  *
- * Border is structural only — card outlines, the sidebar/content divider,
- * and fieldset borders. It is never used as an interactive-state signal
- * and never substitutes for the accent or status colours.
+ * Border is structural only — the sidebar/content divider, fieldset
+ * borders, table borders, and the mobile-nav dropdown's own edge. It is
+ * never used as an interactive-state signal and never substitutes for the
+ * accent or status colours. Since 06.6.1 (D-02) it is also no longer used
+ * for card outlines — .stat-tile/.page-section/.battery-trend-section
+ * carry --shadow-card instead of a --color-border hairline.
  *
  * Theme resolution (CFG-09): `prefers-color-scheme` supplies the default;
  * an explicit `data-ui-theme="light"`/`data-ui-theme="dark"` attribute on
@@ -25,7 +29,9 @@
  * override rule of its own, so the media query keeps governing.
  *
  * Zero external references anywhere in this file: no CSS url function,
- * no custom font-face declaration, no remote asset of any kind.
+ * no custom font-face declaration, no remote asset of any kind. This
+ * stays true even after 06.6.1 added a serif font family and card
+ * shadows — --font-serif is a system font stack, not a web font.
  */
 
 :root {
@@ -48,12 +54,31 @@
 
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* 06.6.1 (D-03): headings-only warm serif. A system stack on purpose —
+   * the file's zero-external-reference constraint forbids loading a web
+   * font, and that stays literally true with this token. */
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+
+  /* 06.6.1 (D-02): mode-independent structural tokens. --radius-card
+   * deliberately revises 06.3's "0-4px sharp/minimal" rule — softer
+   * rounding is part of D-02's visible-relief direction, not a
+   * contradiction of the earlier spec. */
+  --radius-card: 10px;
+  --radius-control: 8px;
 
   /* Light mode (default) */
-  --color-dominant: #FAFBFD;
-  --color-secondary: #EEF1F7;
+  --color-dominant: #FBF9F6;
+  --color-secondary: #F3EEE7;
   --color-border: #E2E6EE;
-  --color-accent: #3454D1;
+  /* 06.6.1 (D-04): terracotta/red-orange, hue ~16°, deliberately separated
+   * from --color-status-warn's golden amber (~32°) so an accent-coloured
+   * control and a warning dot never read as the same signal at a glance.
+   * Do not shift this toward a more golden orange without re-verifying
+   * that separation — D-04 names that substitution as forbidden. */
+  --color-accent: #E8622C;
+  --color-accent-hover: #D2521F;
+  --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-destructive: #DC2626;
   --color-text: #12151B;
   --color-status-ok: #16A34A;
@@ -66,7 +91,10 @@
     --color-dominant: #0D0F14;
     --color-secondary: #1A1E27;
     --color-border: #262B36;
-    --color-accent: #6E93FF;
+    --color-accent: #FF8A5C;
+    --color-accent-hover: #FF9E77;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
     --color-destructive: #F87171;
     --color-text: #F1F3F6;
     --color-status-ok: #4ADE80;
@@ -77,10 +105,13 @@
 
 /* CFG-09 explicit overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
-  --color-dominant: #FAFBFD;
-  --color-secondary: #EEF1F7;
+  --color-dominant: #FBF9F6;
+  --color-secondary: #F3EEE7;
   --color-border: #E2E6EE;
-  --color-accent: #3454D1;
+  --color-accent: #E8622C;
+  --color-accent-hover: #D2521F;
+  --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-destructive: #DC2626;
   --color-text: #12151B;
   --color-status-ok: #16A34A;
@@ -92,7 +123,10 @@ html[data-ui-theme="dark"] {
   --color-dominant: #0D0F14;
   --color-secondary: #1A1E27;
   --color-border: #262B36;
-  --color-accent: #6E93FF;
+  --color-accent: #FF8A5C;
+  --color-accent-hover: #FF9E77;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
   --color-destructive: #F87171;
   --color-text: #F1F3F6;
   --color-status-ok: #4ADE80;
@@ -134,13 +168,34 @@ body {
 
 .text-heading {
   font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-regular);
   line-height: 1.2;
 }
 
+/* 06.6.1 (D-03): headings move onto var(--font-serif). This is a
+ * headings-only treatment — body text, table cells, form controls, nav
+ * links and monospace content stay on --font-ui, never var(--font-serif).
+ * That boundary is the whole substance of D-03; do not extend serif
+ * beyond h1/h2/h3/.text-heading/.site-title/.sidebar-title/
+ * .stat-tile__caption (the one named Label-role exception, see the
+ * stat-tile section below). */
+h1,
+h2,
+h3,
+.text-heading {
+  font-family: var(--font-serif);
+  font-weight: var(--weight-regular);
+  letter-spacing: -0.01em;
+}
+
+/* 06.6.1 (D-01): the wordmark moves from the Display role to the Heading
+ * role — crafted typography instead of a default bold sans, with no logo
+ * asset introduced. --font-display-size now belongs to .stat-tile__value
+ * and .runway-option__number alone. */
 .site-title {
-  font-size: var(--font-display-size);
-  font-weight: var(--weight-semibold);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-regular);
+  font-family: var(--font-serif);
   line-height: 1.2;
   letter-spacing: 0.02em;
 }
@@ -157,6 +212,10 @@ select:focus-visible {
 
 a {
   color: var(--color-accent);
+}
+
+a:hover {
+  color: var(--color-accent-hover);
 }
 
 /* Nav bar */
@@ -372,6 +431,16 @@ button {
 button[type="submit"] {
   background: var(--color-accent);
   color: var(--color-dominant);
+}
+
+/* Not a bare .theme-option:hover: .theme-form .theme-option (0,2,0) is
+ * what currently keeps theme buttons out of this accent fill (see the
+ * comment above that rule), and a lower-specificity hover rule here would
+ * lose to this selector and repaint them — the exact 06.3-REVIEW.md
+ * finding this file already carries a comment about. If a theme-button
+ * hover state is wanted, write it as .theme-form .theme-option:hover. */
+button[type="submit"]:hover {
+  background: var(--color-accent-hover);
 }
 
 /* Disabled/cooldown state (CFG-07/D-17): reduced opacity, not-allowed
