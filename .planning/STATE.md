@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "06.6.1"
-current_phase_name: Companion visual polish pass
+current_phase: 06.6.1
+current_phase_name: companion-visual-polish-pass
 status: executing
-stopped_at: "Phase 06.6.1 execution started (6 plans, 4 waves). Wave 1 (01 CSS tokens, 02 History density, 03 Health cleanup) about to dispatch, no file overlap between them."
-last_updated: "2026-08-29T20:59:30.871Z"
+stopped_at: Completed 06.6.1-01-PLAN.md (CSS token layer, card relief, hamburger-nav CSS)
+last_updated: "2026-08-29T21:15:03.618Z"
 last_activity: 2026-08-29
-last_activity_desc: "Phase 06.6.1 execution started (Wave 1 of 4)"
+last_activity_desc: Phase 06.6.1 execution started
 progress:
   total_phases: 15
-  completed_phases: 12
+  completed_phases: 11
   total_plans: 63
-  completed_plans: 59
-  percent: 94
+  completed_plans: 54
+  percent: 73
 ---
 
 # Project State
@@ -127,6 +127,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.3 P05 | 25min | 2 tasks | 2 files |
 | Phase 06.4 P01 | ~20min | 3 tasks | 5 files (+1 new: companion/static/RUNWAY-IMAGES.md) |
 | Phase 06.5 P02 | 20min | 2 tasks | 2 files |
+| Phase 06.6.1 P01 | 25min | 3 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -233,6 +234,8 @@ Recent decisions affecting current work:
 - [Phase 06.5-01]: battery-trend.js uses getAttribute(data-mv/data-ts) instead of the dataset property — dataset on SVGElement has a narrower browser-support floor than getAttribute
 - [Phase 06.5]: 06.5-02: Battery trend badge state uses Assumption A1 (empty history stays ok, not warn), locked and documented in _battery_section()'s docstring
 - [Phase 06.5]: 06.5-02: SVG role changed img->group so per-point interactive hit targets stay reachable to assistive tech
+- [Phase ?]: 06.6.1-01: 2xl/3xl spacing promotion lands on .dashboard-main (>=960px), not base .page-content, to protect D-22's mobile floor
+- [Phase ?]: 06.6.1-01: horizontal nav strip deleted outright (not hidden) - the mobile hamburger dropdown is the sole <960px nav renderer, superseding D-00's crush-bug fix
 
 ### Pending Todos
 
@@ -283,8 +286,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-29T20:57:49.209Z
-Stopped at: Phase 06.6.1 planned (6 plans, 4 waves) and plan-checker verified — ready for execution
+Last session: 2026-08-29T21:15:03.603Z
+Stopped at: Completed 06.6.1-01-PLAN.md (CSS token layer, card relief, hamburger-nav CSS)
 
 Resume file: .planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-01-PLAN.md
 
