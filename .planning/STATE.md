@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "06.6"
-current_phase_name: Companion UI clarity pass - timestamps, poll-trigger cooldown, corroboration copy
+current_phase: "06.6.1"
+current_phase_name: Companion visual polish pass
 status: executing
-stopped_at: "Phase 06.5 fully closed out (3/3 plans, 2026-08-29) — 06.5-03's real-device verification confirmed D-02 (tap-reveals-reading) on a real iPhone/Safari, plus badge/thumb-target/no-layout-jump/desktop-hover/no-JS-fallback/empty-state all verified; gsd-verifier passed 19/19 must-haves (06.5-VERIFICATION.md). Phase 06.6.1 (visual polish pass) is fully spec'd (discuss-phase → 3 /gsd-sketch explorations → UI-SPEC.md approved 6/6) but not yet planned or executed — next actionable is either /gsd-plan-phase 06.6 (next in roadmap order) or /gsd-plan-phase 06.6.1 (already has its design contract ready)."
-last_updated: "2026-08-29T20:17:28.990Z"
+stopped_at: "Phase 06.6.1 planned (6 plans across 4 waves: 01 CSS tokens, 02 History density, 03 Health cleanup, 04 icons+nav-dot, 05 hamburger nav, 06 human sign-off checkpoint) and plan-checker verified — zero blockers, all D-01..D-06 covered, 5 pre-existing test breakages found and pre-fixed in-plan. Ready for /gsd-execute-phase 06.6.1. Sibling Phase 06.6 (clarity pass) also already has 3 plans from the original 2026-08-28 backlog session, not yet executed — soft file conflicts with 06.6.1 documented in each plan."
+last_updated: "2026-08-29T20:57:49.223Z"
 last_activity: 2026-08-29
-last_activity_desc: "Phase 06.5 complete (3/3 plans, verified 19/19), transitioned to Phase 06.6"
+last_activity_desc: "Phase 06.6.1 planned (6 plans, 4 waves) and plan-checker verified — ready for execution"
 progress:
   total_phases: 15
   completed_phases: 12
-  total_plans: 57
+  total_plans: 63
   completed_plans: 59
-  percent: 100
+  percent: 94
 ---
 
 # Project State
@@ -283,10 +283,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-29T20:00:16.075Z
-Stopped at: Phase 06.6.1 UI-SPEC approved (6/6 dimensions)
+Last session: 2026-08-29T20:57:49.209Z
+Stopped at: Phase 06.6.1 planned (6 plans, 4 waves) and plan-checker verified — ready for execution
 
-Resume file: .planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-UI-SPEC.md
+Resume file: .planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-01-PLAN.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
