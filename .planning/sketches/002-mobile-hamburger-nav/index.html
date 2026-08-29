@@ -66,9 +66,9 @@
 <body>
 
 <div id="variant-nav">
-  <button class="variant-tab active" onclick="showVariant('a')">A: Full-screen overlay</button>
+  <button class="variant-tab" onclick="showVariant('a')">A: Full-screen overlay</button>
   <button class="variant-tab" onclick="showVariant('b')">B: Slide-in drawer</button>
-  <button class="variant-tab" onclick="showVariant('c')">C: Header dropdown</button>
+  <button class="variant-tab active" onclick="showVariant('c')">C: Header dropdown ★ Selected</button>
   <span class="hint">Tap the ☰ icon in the phone frame — real open/close</span>
 </div>
 
@@ -78,7 +78,7 @@
 </defs></svg>
 
 <!-- ===================== VARIANT A: Full-screen overlay ===================== -->
-<div id="variant-a" class="variant active">
+<div id="variant-a" class="variant">
   <div class="phone-frame"><div class="phone-screen">
     <header class="site-header">
       <span class="site-title">SkyPane</span>
@@ -155,7 +155,7 @@
 </div>
 
 <!-- ===================== VARIANT C: Header dropdown ===================== -->
-<div id="variant-c" class="variant">
+<div id="variant-c" class="variant active">
   <div class="phone-frame"><div class="phone-screen">
     <header class="site-header" style="position:relative">
       <span class="site-title">SkyPane</span>

@@ -2,7 +2,7 @@
 sketch: 002
 name: mobile-hamburger-nav
 question: "How should the mobile nav menu open, and where does the theme picker live inside it?"
-winner: null
+winner: "C"
 tags: [navigation, mobile, interaction]
 ---
 
