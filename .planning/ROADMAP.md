@@ -28,8 +28,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6.2: LED enable/disable toggle** (INSERTED) - Allow the board's LEDs to be enabled/disabled from the companion interface (completed 2026-08-28).
 - [x] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves. (completed 2026-08-28)
 - [x] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan). (completed 2026-08-28)
-- [ ] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves.
+- [x] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves. (completed 2026-08-29)
 - [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, a live poll-trigger cooldown countdown, and a verified/pinned corroboration-copy drift guard. Planned 2026-08-28 (3 plans across 2 waves).
+- [ ] **Phase 6.6.1: Companion visual polish pass** (INSERTED) - Second visual-design pass on the companion app: serif headings and a crafted wordmark, a terracotta accent, card relief, airier spacing, a real mobile hamburger nav replacing the horizontal-scroll strip, Health density/redundancy cleanup with per-signal icons and a nav notification dot, a full-width battery chart, and History cut 9 columns to 7 — closing with a blocking real-phone visual sign-off. Planned 2026-08-29 (6 plans across 4 waves).
 - [x] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog) (completed 2026-08-28)
 
 ## Phase Details
@@ -305,14 +306,29 @@ Plans:
 
 ### Phase 06.6.1: Companion visual polish pass (INSERTED)
 
-**Goal:** [Urgent work - to be planned] Logo/branding in the header, a mobile hamburger nav (replacing the horizontally-scrollable strip that real-device testing found effectively hides Health/Airlines/History/Preview behind an undiscoverable swipe), smaller theme-toggle buttons on desktop, Health page density and redundancy cleanup (the anomaly-list text duplicates what the Overview stat tiles below it already say; Overview tiles could use icons), a small notification indicator on the Health nav tab when an anomaly is active, denser History table columns so it fits without horizontal scroll on a 13" laptop, and a full-width battery trend chart layout instead of its current narrow column. Raised from real-device testing during 06.5-03's phone verification — the developer had never actually looked at 06.3/06.4/06.5's shipped UI on real hardware before this, and found the automated visual sign-off missed real issues.
-**Requirements**: TBD
-**Depends on:** Phase 06.6
-**Plans:** 0 plans
+**Goal:** A second visual-design pass on the companion web app, evolving 06.3's shipped system rather than replacing it, driven by `06.6.1-UI-SPEC.md` (approved 6/6 by `gsd-ui-checker`) and three `/gsd-sketch` explorations. Five changes land together: (1) **a new token layer** — a warm system-serif family for headings and the "SkyPane" wordmark (body, tables, form controls and nav links stay sans-serif), a terracotta accent (`#E8622C` / `#FF8A5C`) replacing 06.3's blue and deliberately hue-separated from the amber warn-status colour, card shadows and softer radii replacing hairline outlines, warm off-white light-mode surfaces, and airier spacing globally; (2) **a real mobile hamburger menu** below 960px — a toggle in the header opening a push-down dropdown holding the five nav links and the relocated theme picker, closing on a second tap or Escape, with `aria-expanded` as the single source of truth for its state — replacing (and deleting) the horizontally-scrollable strip that real-device testing found hid Health/Airlines/History/Preview behind an undiscoverable swipe; (3) **Health density and redundancy cleanup** — the anomaly banner's detail list removed (the Overview tiles already carry the same information in colour), the battery-trend chart moved out of its 240px grid track into a full-width card section, and a five-symbol inline icon sprite giving each signal its own status-tinted icon; (4) **a notification dot on the Health nav link** whenever an anomaly is active, driven by a new never-raising cross-page `ctx` signal so no page module imports another; (5) **History cut from 9 columns to 7** by merging Callsign·Hex and Type·Airline into single one-line cells at today's row height. The phase closes with a blocking real-phone-and-real-browser sign-off — the step 06.3/06.4/06.5 all skipped in favour of computed-style inspection, which is precisely why this phase exists.
+**Requirements**: None — unmapped backlog phase (promoted from 999.3's follow-on feedback), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (wordmark typography, no logo asset), D-02 (card relief, warmer headings, richer colour, airier layout), D-03 (serif on headings only), D-04 (new accent, distinct from warn-status; global density change), D-05 (sketch → UI-SPEC → plan rigour, including a real human visual sign-off) and D-06 (hamburger nav below 960px) in `06.6.1-CONTEXT.md`, plus D-00 (the already-fixed nav crush bug, superseded here by deleting the element that had it). It is UI-only follow-on work to Phase 06.3's design system, which is Complete and is not reopened.
+**Depends on:** Phase 06.3 (the token/component system this phase evolves) and Phase 06.5 (the battery chart this phase relocates). **No formal ordering dependency on Phase 06.6** despite the roadmap position — the two are order-insensitive siblings that both touch `companion/layout.py`, `companion/pages/health_page.py`, `companion/pages/history_page.py` and two shared test harnesses. Every 06.6.1 plan locates its edit targets by function/symbol name rather than line number, leaves the section builders 06.6-01 rewires untouched, leaves History's Timestamp cell to 06.6-03, and recomputes each `EXPECTED_CHECK_COUNT` from the file's real on-disk value; whichever phase executes second re-reads the other's SUMMARY before assuming file structure — the same discipline 06.3/06.4/06.5 already used for their own mutual soft conflicts.
+**Plans:** 0/6 plans executed
 
 Plans:
+**Wave 1** *(three parallel plans, disjoint file ownership)*
 
-- [ ] TBD (run /gsd-plan-phase 06.6.1 to break down)
+- [ ] 06.6.1-01-PLAN.md — The whole design-token and component CSS layer: serif headings, terracotta accent, card relief, airier spacing, plus every class the later markup plans emit against and the removal of the nav strip's rules (D-00, D-01, D-02, D-03, D-04, D-06)
+- [ ] 06.6.1-02-PLAN.md — History's table cut 9 columns → 7 via merged one-line Callsign·Hex and Type·Airline cells, at unchanged row height (D-02)
+- [ ] 06.6.1-03-PLAN.md — Health's anomaly banner simplified, the battery chart moved to a full-width section, and `anomaly_active()` exposed as a never-raising cross-page signal (D-02, D-04)
+
+**Wave 2** *(blocked on 01 + 03)*
+
+- [ ] 06.6.1-04-PLAN.md — A five-symbol inline icon sprite, a whitelisted `icon_html()`, per-tile status-tinted icons, and the Health nav notification dot wired through `ctx` (D-02, D-04)
+
+**Wave 3** *(blocked on 01 + 04)*
+
+- [ ] 06.6.1-05-PLAN.md — The hamburger menu: `companion/static/nav-dropdown.js`, its pre-auth route, the header toggle + push-down dropdown, and deletion of the horizontal nav strip (D-00, D-06)
+
+**Wave 4** *(blocked on all)*
+
+- [ ] 06.6.1-06-PLAN.md — Blocking real-phone and real-desktop visual sign-off, closing the human-eyes gap that caused this phase (D-05)
 
 ### Phase 06.5: Interactive battery trend chart with overall status (INSERTED)
 
@@ -320,7 +336,7 @@ Plans:
 
 **Requirements**: None — unmapped backlog phase (promoted from 999.5, having absorbed 999.1/06.1), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (persistent status badge reusing `status_dot()`) and D-02 (hover **or** tap reveals the exact mV + timestamp, mobile included) in `06.5-CONTEXT.md`. It is UI-only follow-on work to CFG-03, already Complete (Phase 6, plan 06-08), which is not reopened.
 **Depends on:** Phase 6 (CFG-03's `_battery_section()`/`battery_sparkline_svg()`/`battery_status()`). Soft, order-insensitive relationship with Phase 06.3, which restructures the same file's `render()` into a stat-tile grid — `stat_tile()` passes `content_html` through byte-for-byte, so the badge and chart compose either way; `06.5-02-PLAN.md` and `06.3-04-PLAN.md` each carry a conditional note for whichever executes second.
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 **Wave 1**
@@ -333,7 +349,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06.5-03-PLAN.md — Wave 3: seeded live preview plus the real-phone tap/hover verification this project's stdlib harness structurally cannot automate
+- [x] 06.5-03-PLAN.md — Wave 3: seeded live preview plus the real-phone tap/hover verification this project's stdlib harness structurally cannot automate
 
 ### Phase 06.4: Runway picker - show runway number and airport map (INSERTED)
 
