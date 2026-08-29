@@ -303,6 +303,17 @@ Plans:
 
 - [ ] 06.6-03-PLAN.md — History's Timestamp column and Preview's Captured caption onto the shared helper, plus the D-03 corroboration verification and its cross-page drift guard (D-02, D-03)
 
+### Phase 06.6.1: Companion visual polish pass (INSERTED)
+
+**Goal:** [Urgent work - to be planned] Logo/branding in the header, a mobile hamburger nav (replacing the horizontally-scrollable strip that real-device testing found effectively hides Health/Airlines/History/Preview behind an undiscoverable swipe), smaller theme-toggle buttons on desktop, Health page density and redundancy cleanup (the anomaly-list text duplicates what the Overview stat tiles below it already say; Overview tiles could use icons), a small notification indicator on the Health nav tab when an anomaly is active, denser History table columns so it fits without horizontal scroll on a 13" laptop, and a full-width battery trend chart layout instead of its current narrow column. Raised from real-device testing during 06.5-03's phone verification — the developer had never actually looked at 06.3/06.4/06.5's shipped UI on real hardware before this, and found the automated visual sign-off missed real issues.
+**Requirements**: TBD
+**Depends on:** Phase 06.6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.6.1 to break down)
+
 ### Phase 06.5: Interactive battery trend chart with overall status (INSERTED)
 
 **Goal:** The companion Health page's Battery trend section stops being the one section without a verdict and the one chart a user cannot interrogate. It gains (a) a persistent `status_dot()` badge rendered exactly as Device check-in and ADS-B pipeline already render theirs (D-01, the ask absorbed from the superseded Phase 06.1), and (b) real interactivity: every plotted point becomes a finger-sized, keyboard-focusable hit target carrying its exact millivolt reading and timestamp, revealed in a reserved readout line on tap **or** hover, working on a real phone and not only under a desktop mouse (D-02, against `06-CONTEXT.md` D-22's mobile bar). Two open questions are closed rather than deferred: the CONTEXT-flagged no-JS-vs-scoped-JS tension resolves to **scoped JS** — one external, cacheable ~30-line vanilla file served from a pre-auth `/static/battery-trend.js` route mirroring `/static/style.css`, because tap-triggered `:focus` on a non-native-control SVG shape is unreliable on iOS Safari and D-02 cannot be met by CSS alone; and the empty-history badge state is locked to **`"ok"`**, matching `corroboration_status()`'s "unknown is not a failure" precedent and avoiding a real coupling where a `"warn"` would make `collect_anomalies()` tell a zero-reading deployment it had suffered an abnormal drop. The pre-existing sparkline no-script regression test is left intact and unweakened; a new additive page-level check asserts exactly one `<script>` tag and zero inline event handlers instead.

@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.5
+current_phase: "06.5"
 current_phase_name: interactive-battery-trend-chart-with-overall-status
 status: executing
-stopped_at: Completed 06.5-02-PLAN.md
-last_updated: "2026-08-28T22:32:36.315Z"
-last_activity: 2026-08-28
-last_activity_desc: Phase 06.5 execution started
+stopped_at: "06.5-01 and 06.5-02 complete (client JS/route + Health page badge/chart markup). 06.5-03 (real-phone verification) in progress: developer confirmed the tap-reveals-reading interaction (D-02) works on a real phone; badge/thumb-target/no-layout-jump items still pending confirmation. Real-device testing during 06.5-03 also surfaced defects 06.3's own automated visual sign-off missed: a mobile nav-bar CSS bug (fixed, commit b90ed88) plus a batch of design/polish feedback (logo, hamburger nav, theme-toggle sizing, Health density, History table density, battery chart width) captured as Phase 06.6.1, inserted after Phase 06.6 pending discuss-phase."
+last_updated: "2026-08-29T18:45:00.000Z"
+last_activity: 2026-08-29
+last_activity_desc: "Phase 06.6.1 inserted (visual polish pass) after real-device testing found issues 06.3's automated sign-off missed"
 progress:
-  total_phases: 14
-  completed_phases: 10
+  total_phases: 15
+  completed_phases: 11
   total_plans: 57
-  completed_plans: 52
-  percent: 91
+  completed_plans: 58
+  percent: 100
 ---
 
 # Project State
@@ -142,6 +142,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - **Renumbering (2026-08-27, user request):** The phase above was first added as Phase 7 by `/gsd-phase add`'s default (append to the end, depend on the immediately preceding phase — then Phase 6: Final On-Glass Verification). The user asked why it depended on Phase 6; told honestly that this was the tool's mechanical default and not a real technical or sequencing decision, they pointed out it also contradicted Phase 6's own stated intent to be "the project's true last step... done once everything else is finished," and asked for the web-interface phase to run first. Offered a lower-cost alternative (a decimal insertion, Phase 5.1, matching the precedent already set by Phase 3.1 — leaves the ~30 existing "Phase 6" references in completed phases' own artifacts untouched) versus the literal full renumber; the user chose the full renumber despite the cost being made explicit. Executed: `06-final-on-glass-verification/` ↔ new phase directory swapped (git mv for the tracked one, plain mv for the still-untracked one), `06-01-PLAN.md` → `07-01-PLAN.md` with its own frontmatter/threat-IDs/note-ID renumbered (`T-06-01-*` → `T-07-01-*`, `N-06-01-01` → `N-07-01-01`) and a new "Second Renumbering Note" added alongside its original 2026-08-26 Provenance Note (history preserved, not overwritten — the note now correctly says 03-04 became 06-01 at the time, then 06-01 became 07-01 now). ROADMAP.md fully updated: both phase sections swapped and renumbered in place (each carrying its own "Note on numbering" explaining why), the Phase 3/3.1 sections' live "moved to Phase 6" cross-references corrected to "Phase 7", Depends-on chain updated (new Phase 6 depends on Phase 5, Phase 7 now depends on Phase 6), Progress table and Execution Order line updated. REQUIREMENTS.md's CFG-01..05 references corrected from Phase 7 to Phase 6 throughout. **Deliberately left untouched**, matching this project's own established precedent (STATE.md's history stays append-only; the original Phase 3→6 move likewise left Phase 3's own artifacts alone): `03-VERIFICATION.md`, `03.1-01-PLAN.md`, `03-04-PLAN.md`/`03-04-SUMMARY.md`, and the `260827-hyy-*` quick-task files — these are point-in-time records of already-completed phases, accurate as of when they were written, and rewriting them would corrupt the historical record (e.g. `03.1-01-PLAN.md` cites the literal shell command `grep -c 'Phase 6' .planning/ROADMAP.md` it actually ran on 2026-08-27 — changing the string would misrepresent what was verified that day). An assistant session initially told the user ~8 files needed rewriting before catching this distinction from the Phase 4/5 swap precedent; corrected before touching those files. Net changed: 1 plan file (identity only, no substantive content), ROADMAP.md, REQUIREMENTS.md, this STATE.md entry, and two phase directory names.
 - **Phase 6 completed (2026-08-28), backlog promoted to decimal phases 6.1-6.6:** After 06-12's live verification (90-minute real ADS-B capture, live Caddy-log/network-posture confirmation, developer sign-off checkpoint), `gsd-tools query phase.complete "06"` was run. It has a real bug: it also flipped Phase 7's top-level roadmap checkbox to `[x]` and appended a false "(completed 2026-08-28)" — Phase 7 (Final On-Glass Verification) has not been touched. Caught and corrected by hand (Phase 7's own "## Phase Details" section, including its `Plans: 0/1` line, was untouched by the bug — only the top-level summary line was wrong). Separately, six backlog items — the two pre-existing (999.1 battery status, 999.2 LED toggle) plus four raised during 06-12's sign-off checkpoint itself (999.3 UI visual design/desktop layout, 999.4 runway picker number/map, 999.5 interactive battery chart, 999.6 timestamp/copy clarity) — were promoted via `gsd-tools query phase.insert 6 "..."` (called six times) into decimal phases 06.1-06.6, all inserted between Phase 6 and Phase 7 at the user's explicit request ("before phase 7... call it 6.1"), matching the exact reasoning that already got Phase 6 itself reordered ahead of Phase 7. The raw `phase.insert` CLI call does not touch the top-level `## Phases` bullet list (unlike Phase 3.1's insertion, which did) or run the fuller `insert-phase.md` workflow's `state.patch`/`state.add-roadmap-evolution` follow-up steps (the `state.patch` field names it tries — "Current Phase"/"Next recommended run" — don't match this project's STATE.md format, consistent with every other STATE.md field-matching failure already recorded above) — both done by hand instead: the six phases added to the top-level list between Phase 6 and Phase 7, and this entry substituting for the automated evolution log. The old `## Backlog` section and its six `999.x` placeholder directories (each holding only a `.gitkeep`) were deleted — their content now lives in the promoted phases' ROADMAP.md entries. `total_phases` becomes 14 (was 8, +6 insertions); `completed_phases` becomes 6 (Phase 7's erroneous 7th was the bug just described).
 - Phase 06.1 edited: Superseded and merged into Phase 06.5 (overlapping scope on health_page.py's battery section, confirmed by user before planning)
+- Phase 06.6.1 inserted after Phase 06.6: Companion visual polish pass (logo, mobile hamburger nav, theme-toggle sizing, Health density, History table density, battery chart layout) - raised from real-device testing during 06.5-03 (URGENT)
 
 ### Decisions
 
