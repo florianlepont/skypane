@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 002 — Mobile hamburger nav</title>
+<link rel="stylesheet" href="../themes/default.css">
+<style>
+  #variant-nav{position:fixed;top:0;left:0;right:0;z-index:9998;background:#fff;border-bottom:1px solid #e2e6ee;padding:8px 16px;display:flex;gap:8px;font-family:system-ui,sans-serif;align-items:center;flex-wrap:wrap}
+  .variant-tab{border:1px solid #d8dce4;background:#f7f8fb;color:#333;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+  .variant-tab.active{background:#12151B;color:#fff;border-color:#12151B}
+  .hint{font-size:11px;color:#888;margin-left:auto}
+  body{padding-top:64px;background:#FBF9F6}
+  .variant{display:none}
+  .variant.active{display:block}
+  #sketch-tools{position:fixed;bottom:12px;right:12px;z-index:9999;font-family:system-ui;font-size:12px;background:rgba(0,0,0,0.7);color:white;padding:8px 12px;border-radius:8px;opacity:0.4;transition:opacity 0.2s}
+  #sketch-tools:hover{opacity:1}
+
+  /* Phone-frame wrapper so the interaction feels real even on a desktop screen */
+  /* `transform` makes this the containing block for position:fixed descendants
+     (position:relative alone does NOT — a real gotcha, not just decoration) so
+     the menu overlay/drawer/dropdown stay confined to the phone frame in this
+     demo instead of escaping to cover the whole browser viewport. In the real
+     app there's no frame wrapper, so position:fixed correctly covers the real
+     (375px-wide) viewport as-is. */
+  .phone-frame{width:375px;max-width:100%;margin:24px auto;border:10px solid #1a1a1a;border-radius:36px;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,0.2);background:#FBF9F6;position:relative;height:700px;transform:translateZ(0)}
+  .phone-screen{height:100%;overflow-y:auto;position:relative}
+
+  .site-header{display:flex;align-items:center;justify-content:space-between;padding:var(--space-md) var(--space-lg);background:#F3EEE7;position:sticky;top:0;z-index:10}
+  .site-title{font-family:var(--font-serif);font-size:19px}
+  .hamburger-btn{background:none;border:none;cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;border-radius:6px;transition:background .15s}
+  .hamburger-btn:hover,.hamburger-btn:focus-visible{background:rgba(0,0,0,0.06)}
+  .hamburger-btn svg{width:24px;height:24px}
+
+  .page-content{padding:var(--space-lg)}
+  .page-content h1{font-family:var(--font-serif);margin:0 0 var(--space-md)}
+  .fake-card{background:#fff;border-radius:var(--radius-card);box-shadow:var(--shadow-card);padding:var(--space-lg);margin-bottom:var(--space-md);font-size:var(--font-body-size);color:var(--color-text-muted)}
+
+  .nav-link{display:flex;align-items:center;gap:var(--space-md);padding:var(--space-md) var(--space-lg);color:var(--color-text);text-decoration:none;font-size:18px;font-family:var(--font-serif);border-radius:var(--radius-control);transition:background .15s}
+  .nav-link:hover{background:rgba(0,0,0,0.04)}
+  .nav-link--active{color:var(--color-accent)}
+  .theme-row{display:flex;gap:var(--space-xs);padding:var(--space-lg)}
+  .theme-btn{flex:1;min-height:44px;border:1px solid var(--color-border);background:transparent;border-radius:var(--radius-control);cursor:pointer;font-size:14px}
+  .theme-btn--active{border-color:var(--color-accent);color:var(--color-accent)}
+
+  /* ===== VARIANT A: Full-screen overlay ===== */
+  #variant-a .menu-overlay{position:fixed;inset:0;background:var(--color-dominant);z-index:20;display:flex;flex-direction:column;transform:translateY(-100%);transition:transform .25s ease}
+  #variant-a .menu-overlay.open{transform:translateY(0)}
+  #variant-a .menu-overlay__head{display:flex;justify-content:space-between;align-items:center;padding:var(--space-md) var(--space-lg);border-bottom:1px solid var(--color-border)}
+  #variant-a .menu-overlay__nav{display:flex;flex-direction:column;padding:var(--space-md) var(--space-sm);flex:1}
+
+  /* ===== VARIANT B: Slide-in drawer ===== */
+  #variant-b .backdrop{position:fixed;inset:0;background:rgba(18,21,27,0.35);z-index:19;opacity:0;pointer-events:none;transition:opacity .2s}
+  #variant-b .backdrop.open{opacity:1;pointer-events:auto}
+  #variant-b .drawer{position:fixed;top:0;bottom:0;left:0;width:78%;max-width:300px;background:var(--color-dominant);z-index:20;box-shadow:4px 0 20px rgba(0,0,0,0.15);transform:translateX(-100%);transition:transform .25s ease;display:flex;flex-direction:column}
+  #variant-b .drawer.open{transform:translateX(0)}
+  #variant-b .drawer__head{padding:var(--space-lg);border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center}
+  #variant-b .drawer__nav{display:flex;flex-direction:column;padding:var(--space-sm);flex:1}
+
+  /* ===== VARIANT C: Header dropdown ===== */
+  #variant-c .dropdown{position:absolute;top:100%;left:0;right:0;background:var(--color-dominant);z-index:20;box-shadow:0 8px 20px rgba(0,0,0,0.1);border-bottom-left-radius:var(--radius-card);border-bottom-right-radius:var(--radius-card);max-height:0;overflow:hidden;transition:max-height .22s ease}
+  #variant-c .dropdown.open{max-height:420px}
+  #variant-c .dropdown__nav{display:flex;flex-direction:column;padding:var(--space-sm)}
+</style>
+</head>
+<body>
+
+<div id="variant-nav">
+  <button class="variant-tab active" onclick="showVariant('a')">A: Full-screen overlay</button>
+  <button class="variant-tab" onclick="showVariant('b')">B: Slide-in drawer</button>
+  <button class="variant-tab" onclick="showVariant('c')">C: Header dropdown</button>
+  <span class="hint">Tap the ☰ icon in the phone frame — real open/close</span>
+</div>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <g id="icon-hamburger"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+  <g id="icon-close"><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+</defs></svg>
+
+<!-- ===================== VARIANT A: Full-screen overlay ===================== -->
+<div id="variant-a" class="variant active">
+  <div class="phone-frame"><div class="phone-screen">
+    <header class="site-header">
+      <span class="site-title">SkyPane</span>
+      <button class="hamburger-btn" aria-label="Open menu" aria-expanded="false" onclick="document.getElementById('a-overlay').classList.add('open'); this.setAttribute('aria-expanded','true')">
+        <svg><use href="#icon-hamburger"/></svg>
+      </button>
+    </header>
+    <main class="page-content">
+      <h1>Health</h1>
+      <div class="fake-card">Battery trend, Overview tiles, etc. — page content behind the menu.</div>
+      <div class="fake-card">Second card for scroll context.</div>
+    </main>
+
+    <div class="menu-overlay" id="a-overlay">
+      <div class="menu-overlay__head">
+        <span class="site-title">SkyPane</span>
+        <button class="hamburger-btn" aria-label="Close menu" onclick="document.getElementById('a-overlay').classList.remove('open')">
+          <svg><use href="#icon-close"/></svg>
+        </button>
+      </div>
+      <nav class="menu-overlay__nav">
+        <a class="nav-link" href="#">Config</a>
+        <a class="nav-link nav-link--active" href="#">Health</a>
+        <a class="nav-link" href="#">Airlines</a>
+        <a class="nav-link" href="#">History</a>
+        <a class="nav-link" href="#">Preview</a>
+      </nav>
+      <div class="theme-row">
+        <button class="theme-btn theme-btn--active">Auto</button>
+        <button class="theme-btn">Light</button>
+        <button class="theme-btn">Dark</button>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===================== VARIANT B: Slide-in drawer ===================== -->
+<div id="variant-b" class="variant">
+  <div class="phone-frame"><div class="phone-screen">
+    <header class="site-header">
+      <span class="site-title">SkyPane</span>
+      <button class="hamburger-btn" aria-label="Open menu" aria-expanded="false" onclick="document.getElementById('b-drawer').classList.add('open'); document.getElementById('b-backdrop').classList.add('open'); this.setAttribute('aria-expanded','true')">
+        <svg><use href="#icon-hamburger"/></svg>
+      </button>
+    </header>
+    <main class="page-content">
+      <h1>Health</h1>
+      <div class="fake-card">Battery trend, Overview tiles, etc. — page content behind the drawer.</div>
+      <div class="fake-card">Second card for scroll context.</div>
+    </main>
+
+    <div class="backdrop" id="b-backdrop" onclick="document.getElementById('b-drawer').classList.remove('open'); this.classList.remove('open')"></div>
+    <div class="drawer" id="b-drawer">
+      <div class="drawer__head">
+        <span class="site-title">SkyPane</span>
+        <button class="hamburger-btn" aria-label="Close menu" onclick="document.getElementById('b-drawer').classList.remove('open'); document.getElementById('b-backdrop').classList.remove('open')">
+          <svg><use href="#icon-close"/></svg>
+        </button>
+      </div>
+      <nav class="drawer__nav">
+        <a class="nav-link" href="#">Config</a>
+        <a class="nav-link nav-link--active" href="#">Health</a>
+        <a class="nav-link" href="#">Airlines</a>
+        <a class="nav-link" href="#">History</a>
+        <a class="nav-link" href="#">Preview</a>
+      </nav>
+      <div class="theme-row" style="margin-top:auto">
+        <button class="theme-btn theme-btn--active">Auto</button>
+        <button class="theme-btn">Light</button>
+        <button class="theme-btn">Dark</button>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ===================== VARIANT C: Header dropdown ===================== -->
+<div id="variant-c" class="variant">
+  <div class="phone-frame"><div class="phone-screen">
+    <header class="site-header" style="position:relative">
+      <span class="site-title">SkyPane</span>
+      <button class="hamburger-btn" aria-label="Open menu" aria-expanded="false" onclick="document.getElementById('c-dropdown').classList.toggle('open'); this.setAttribute('aria-expanded', document.getElementById('c-dropdown').classList.contains('open'))">
+        <svg><use href="#icon-hamburger"/></svg>
+      </button>
+      <div class="dropdown" id="c-dropdown">
+        <nav class="dropdown__nav">
+          <a class="nav-link" href="#">Config</a>
+          <a class="nav-link nav-link--active" href="#">Health</a>
+          <a class="nav-link" href="#">Airlines</a>
+          <a class="nav-link" href="#">History</a>
+          <a class="nav-link" href="#">Preview</a>
+        </nav>
+        <div class="theme-row">
+          <button class="theme-btn theme-btn--active">Auto</button>
+          <button class="theme-btn">Light</button>
+          <button class="theme-btn">Dark</button>
+        </div>
+      </div>
+    </header>
+    <main class="page-content">
+      <h1>Health</h1>
+      <div class="fake-card">Battery trend, Overview tiles, etc. — page content behind the dropdown.</div>
+      <div class="fake-card">Second card for scroll context.</div>
+    </main>
+  </div></div>
+</div>
+
+<div id="sketch-tools">Theme: <select onchange="document.querySelector('link[href*=themes]').href='../themes/'+this.value+'.css'"><option value="default">Default</option></select></div>
+
+<script>
+function showVariant(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+// Escape closes any open panel
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('a-overlay')?.classList.remove('open');
+    document.getElementById('b-drawer')?.classList.remove('open');
+    document.getElementById('b-backdrop')?.classList.remove('open');
+    document.getElementById('c-dropdown')?.classList.remove('open');
+  }
+});
+</script>
+
+</body>
+</html>
