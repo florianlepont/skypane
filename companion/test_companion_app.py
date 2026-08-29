@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 64  # 62 + 2 (06.6.1-05 Task 1: nav-dropdown.js served pre-auth + ES5-safe dialect)
+EXPECTED_CHECK_COUNT = 68  # 62 + 2 (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3: toggle/dropdown/DOM-contract/no-JS)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -455,33 +455,38 @@ def main():
             "page_shell() renders one document with lang/viewport/stylesheet/title/five nav links",
             _page_shell_document_shape)
 
-        def _page_shell_marks_only_the_active_nav_tab():
+        def _page_shell_marks_only_the_active_dropdown_link():
             rendered = layout.page_shell(title="Health", active="health", body="")
-            # Scope to the horizontal <nav class="nav-bar"> only — page_shell()
-            # now also renders a vertical sidebar copy of the same links
-            # (06.3-01's dashboard-shell rework), so searching the whole
-            # document would match whichever copy comes first in source order.
-            nav_start = rendered.find('<nav class="nav-bar">')
+            # Scope to the dropdown's own <nav class="mobile-nav__nav" ...>
+            # only — page_shell() also renders a vertical sidebar copy of
+            # the same links (06.3-01's dashboard-shell rework), so
+            # searching the whole document would match whichever copy
+            # comes first in source order. This check was already
+            # rescoped once, in 06.3-01, for that same "two copies of the
+            # same links" reason; 06.6.1-05 rescopes it a second time, at
+            # the surviving hamburger dropdown that replaced the
+            # horizontal strip this check originally targeted.
+            nav_start = rendered.find('<nav class="mobile-nav__nav"')
             nav_end = rendered.find("</nav>", nav_start)
-            nav_bar_html = rendered[nav_start:nav_end]
+            dropdown_nav_html = rendered[nav_start:nav_end]
             for route, _ in layout.NAV_TABS:
                 slug = route.lstrip("/")
                 href_needle = 'href="%s"' % route
-                href_index = nav_bar_html.find(href_needle)
+                href_index = dropdown_nav_html.find(href_needle)
                 if href_index == -1:
-                    return False, "missing nav link for %r" % route
-                tag_start = nav_bar_html.rfind("<a", 0, href_index)
-                tag_end = nav_bar_html.find(">", href_index)
-                tag = nav_bar_html[tag_start:tag_end]
-                is_active_class_present = "nav-tab--active" in tag
+                    return False, "missing dropdown link for %r" % route
+                tag_start = dropdown_nav_html.rfind("<a", 0, href_index)
+                tag_end = dropdown_nav_html.find(">", href_index)
+                tag = dropdown_nav_html[tag_start:tag_end]
+                is_active_class_present = "mobile-nav__link--active" in tag
                 if slug == "health" and not is_active_class_present:
-                    return False, "expected the active tab (%r) to carry the active class" % route
+                    return False, "expected the active link (%r) to carry the active class" % route
                 if slug != "health" and is_active_class_present:
-                    return False, "expected a non-active tab (%r) to not carry the active class" % route
+                    return False, "expected a non-active link (%r) to not carry the active class" % route
             return True, ""
         check(
-            "the nav link matching `active` carries a distinguishing class, the others do not",
-            _page_shell_marks_only_the_active_nav_tab)
+            "the dropdown link matching `active` carries a distinguishing class, the others do not",
+            _page_shell_marks_only_the_active_dropdown_link)
 
         def _theme_resolution():
             rendered = layout.page_shell(title="Health", active="health", body="", ui_theme="dark")
@@ -586,7 +591,7 @@ def main():
             "caption, and passes content_html through unmodified",
             _stat_tile_status_classes_caption_escape_and_content_passthrough)
 
-        def _page_shell_renders_dashboard_shell_with_sidebar_and_duplicate_nav_theme():
+        def _page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
             rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")
             for needle in (
                 '<div class="dashboard-shell">',
@@ -595,17 +600,24 @@ def main():
             ):
                 if needle not in rendered:
                     return False, "expected %r in the rendered shell" % needle
-            if rendered.count('aria-label="Primary navigation"') != 1:
-                return False, "expected exactly one Primary navigation landmark"
-            if rendered.count('class="nav-bar"') != 1:
-                return False, "expected exactly one horizontal nav-bar"
+            # 06.6.1-05: two nav landmarks now exist — sidebar_nav() and
+            # the hamburger dropdown's _mobile_nav_html() — deliberately
+            # sharing the same "Primary navigation" aria-label
+            # (06.6.1-UI-SPEC.md's Layout Contract); CSS alone decides
+            # which is visible at a given width, so both are always in
+            # the DOM. This was "exactly one" before this plan, when the
+            # horizontal strip carried no landmark of its own.
+            if rendered.count('aria-label="Primary navigation"') != 2:
+                return False, "expected exactly two Primary navigation landmarks (sidebar + dropdown)"
+            if rendered.count('id="%s"' % layout.MOBILE_NAV_ID) != 1:
+                return False, "expected exactly one dropdown panel"
             if rendered.count('action="/ui-theme"') != 2:
                 return False, "expected both theme-form copies posting to /ui-theme"
             return True, ""
         check(
-            "page_shell() wraps header+sidebar+main in .dashboard-shell with both nav copies "
+            "page_shell() wraps header+sidebar+main in .dashboard-shell with both nav landmarks "
             "and both theme-form copies present",
-            _page_shell_renders_dashboard_shell_with_sidebar_and_duplicate_nav_theme)
+            _page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme)
 
         def _page_shell_escapes_hostile_body():
             escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")
@@ -708,7 +720,15 @@ def main():
             "the icon/icon-defs/STAT_TILE_ICON_CLASS class names all appear in companion/static/style.css",
             _icon_classes_match_stylesheet)
 
-        # --- 06.6.1-04 Task 3: Health nav-tab notification dot ---
+        # --- 06.6.1-04 Task 3 / 06.6.1-05: Health nav notification dot ---
+        #
+        # Retargeted a third time by 06.6.1-05, beyond the plan's own
+        # stated two — 06.6.1-05-PLAN.md's Task 3 read_first names only
+        # the active-link and dashboard-shell checks as broken by Task 2,
+        # but this one (from plan 06.6.1-04) also assumed a single nav
+        # renderer and needs the same one-dot-per-renderer update the
+        # plan's own Task 2 acceptance criteria already specifies
+        # ("exactly two notification dots, one inside each Health link").
 
         def _health_nav_notification_dot():
             on = layout.page_shell(
@@ -716,26 +736,32 @@ def main():
             off = layout.page_shell(
                 title="T", active="health", body="<p>b</p>", health_alert=False)
             default = layout.page_shell(title="T", active="health", body="<p>b</p>")
-            if on.count(layout.NAV_NOTIFICATION_CLASS) != 1:
-                return False, "expected the notification class exactly once when health_alert=True"
-            if on.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 1:
-                return False, "expected the alert suffix text exactly once when health_alert=True"
+            if on.count(layout.NAV_NOTIFICATION_CLASS) != 2:
+                return False, "expected the notification class exactly twice (one per nav renderer) when health_alert=True"
+            if on.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 2:
+                return False, "expected the alert suffix text exactly twice when health_alert=True"
             if off.count(layout.NAV_NOTIFICATION_CLASS) != 0:
                 return False, "expected zero notification-class occurrences when health_alert=False"
             if off.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 0:
                 return False, "expected zero alert-suffix occurrences when health_alert=False"
             if default != off:
                 return False, "expected the health_alert flag to default to off"
-            side = on[on.index("sidebar-nav"):]
-            href_index = side.index('href="/health"')
-            dot_index = side.index(layout.NAV_NOTIFICATION_CLASS)
-            anchor_close_index = side.index("</a>", href_index)
-            if not (href_index < dot_index < anchor_close_index):
+            side = on[on.index("sidebar-nav"):on.index("</aside>")]
+            side_href_index = side.index('href="/health"')
+            side_dot_index = side.index(layout.NAV_NOTIFICATION_CLASS)
+            side_anchor_close_index = side.index("</a>", side_href_index)
+            if not (side_href_index < side_dot_index < side_anchor_close_index):
                 return False, "expected the dot to sit inside the Health sidebar link"
+            dropdown = on[on.index('id="%s"' % layout.MOBILE_NAV_ID):on.index("</header>")]
+            drop_href_index = dropdown.index('href="/health"')
+            drop_dot_index = dropdown.index(layout.NAV_NOTIFICATION_CLASS)
+            drop_anchor_close_index = dropdown.index("</a>", drop_href_index)
+            if not (drop_href_index < drop_dot_index < drop_anchor_close_index):
+                return False, "expected the dot to sit inside the Health dropdown link"
             other_active = layout.page_shell(
                 title="T", active="config", body="", health_alert=True)
-            if other_active.count(layout.NAV_NOTIFICATION_CLASS) != 1:
-                return False, "expected exactly one link to carry the dot regardless of the active tab"
+            if other_active.count(layout.NAV_NOTIFICATION_CLASS) != 2:
+                return False, "expected exactly two dot occurrences (one per nav renderer) regardless of the active tab"
             css_path = os.path.join(HERE, "static", "style.css")
             with open(css_path) as fh:
                 css = fh.read()
@@ -745,8 +771,8 @@ def main():
                 return False, "expected the visually-hidden utility class to be styled"
             return True, ""
         check(
-            "the Health nav-tab notification dot appears only inside the Health sidebar link when health_alert=True, "
-            "nowhere when False/omitted, and never on another link",
+            "the Health notification dot appears inside the Health link in both nav renderers "
+            "when health_alert=True, nowhere when False/omitted, and never on another link",
             _health_nav_notification_dot)
 
         # --- 06.6.1-05 Task 1: nav-dropdown.js ES5-safe/side-effect-free dialect ---
@@ -778,6 +804,113 @@ def main():
             "nav-dropdown.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
             "fetch/XHR/timers/innerHTML/document.write/eval) — standing constraints on the file",
             _nav_dropdown_script_es5_safe_and_side_effect_free)
+
+        # --- 06.6.1-05 Task 3: toggle ARIA contract, dropdown contents, ---
+        # --- three-file DOM contract, no-JS floor                      ---
+
+        def _toggle_aria_contract_and_fixed_label():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            if 'type="button"' not in doc:
+                return False, "expected the toggle to be type=\"button\""
+            if ('id="%s"' % layout.NAV_TOGGLE_ID) not in doc:
+                return False, "expected the toggle id in the document"
+            if 'aria-expanded="false"' not in doc:
+                return False, "expected the toggle to render aria-expanded=\"false\""
+            if ('aria-controls="%s"' % layout.MOBILE_NAV_ID) not in doc:
+                return False, "expected aria-controls to name the panel id"
+            if layout.NAV_TOGGLE_LABEL not in doc:
+                return False, "expected the fixed toggle label in the document"
+            if "Close menu" in doc:
+                return False, "the toggle's accessible label must never swap to a close verb"
+            if layout.MOBILE_NAV_OPEN_CLASS in doc:
+                return False, "the panel must never render carrying the open class"
+            return True, ""
+        check(
+            "the hamburger toggle carries type=button/id/aria-expanded=false/aria-controls and the "
+            "fixed accessible label (never a close-verb variant), and the panel never renders open",
+            _toggle_aria_contract_and_fixed_label)
+
+        def _dropdown_contents_and_order():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
+            panel = doc[panel_start:doc.index("</header>")]
+            for route, _label in layout.NAV_TABS:
+                if ('href="%s"' % route) not in panel:
+                    return False, "missing dropdown href for %r" % route
+            if panel.count("mobile-nav__link--active") != 1:
+                return False, "expected exactly one active dropdown link"
+            theme_index = panel.find('action="/ui-theme"')
+            if theme_index == -1:
+                return False, "expected the theme form inside the dropdown"
+            for route, _label in layout.NAV_TABS:
+                href_index = panel.index('href="%s"' % route)
+                if href_index > theme_index:
+                    return False, "expected every nav link to precede the theme form in the dropdown"
+            return True, ""
+        check(
+            "the dropdown panel holds all five NAV_TABS links (exactly one active) followed by the "
+            "theme form, in that order",
+            _dropdown_contents_and_order)
+
+        def _three_file_nav_dom_contract_guard():
+            # Replicates the Python/CSS/JS drift guard 06.5-02 established
+            # for the battery chart — a menu that never opens on a phone
+            # would otherwise ship with every individual file still valid
+            # on its own and no automated signal.
+            js_path = os.path.join(HERE, "static", "nav-dropdown.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            for literal in (
+                layout.NAV_TOGGLE_ID, layout.MOBILE_NAV_ID,
+                layout.MOBILE_NAV_OPEN_CLASS,
+            ):
+                if literal not in js:
+                    return False, "DOM contract drift: %r is not looked up by nav-dropdown.js" % literal
+            for cls in (
+                "site-nav-toggle", "mobile-nav", "mobile-nav--open",
+                "mobile-nav__nav", "mobile-nav__link",
+            ):
+                if cls not in css:
+                    return False, "DOM contract drift: %r is not styled in style.css" % cls
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            for literal in (layout.NAV_TOGGLE_ID, layout.MOBILE_NAV_ID):
+                if literal not in doc:
+                    return False, "DOM contract drift: %r is not rendered" % literal
+            import companion.app as app_module
+            if app_module.NAV_SCRIPT_ROUTE != layout.NAV_DROPDOWN_SCRIPT_SRC:
+                return False, "nav script route drift: %r vs %r" % (
+                    app_module.NAV_SCRIPT_ROUTE, layout.NAV_DROPDOWN_SCRIPT_SRC)
+            return True, ""
+        check(
+            "companion.app.NAV_SCRIPT_ROUTE, layout's nav DOM-contract literals, nav-dropdown.js "
+            "and style.css all agree with each other and with a rendered document",
+            _three_file_nav_dom_contract_guard)
+
+        def _dropdown_survives_with_javascript_disabled():
+            # The no-JS floor: every link stays in the DOM and the
+            # accessibility tree with JavaScript disabled — only the
+            # expand/collapse interaction is lost. The dropdown's
+            # collapsed appearance comes from a CSS max-height transition
+            # (companion/static/style.css's .mobile-nav rule), a visual
+            # constraint, never a removal from the tree.
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
+            panel = doc[panel_start:doc.index("</header>")]
+            if " hidden" in panel or 'hidden="' in panel:
+                return False, "the no-JS floor requires the panel stay in the accessibility tree"
+            if "display:" in panel:
+                return False, "the no-JS floor requires the panel carry no inline display style"
+            for route, _label in layout.NAV_TABS:
+                if ('href="%s"' % route) not in panel:
+                    return False, "missing dropdown href for %r with JavaScript disabled" % route
+            return True, ""
+        check(
+            "with JavaScript disabled every nav link stays present in the dropdown panel's DOM "
+            "(the collapsed look is a CSS max-height constraint, not a hidden attribute or display:none)",
+            _dropdown_survives_with_javascript_disabled)
 
     finally:
         if previous_password is not None:
