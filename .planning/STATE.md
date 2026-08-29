@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.6.1
-current_phase_name: companion-visual-polish-pass
+current_phase: "06.6.1"
+current_phase_name: Companion visual polish pass
 status: executing
-stopped_at: Completed 06.6.1-03-PLAN.md (Health page redundancy removal, full-width battery section, anomaly_active() signal)
+stopped_at: "Phase 06.6.1 Wave 1 complete (3/6 plans): 01 CSS token layer, 02 History table density (9→7 cols), 03 Health redundancy removal + full-width battery section + anomaly_active() signal. Wave 2 (plan 04, icons + nav notification dot) about to dispatch, depends on 01+03."
 last_updated: "2026-08-29T21:51:19.962Z"
 last_activity: 2026-08-29
-last_activity_desc: Phase 06.6.1 Wave 1 plan 03 executed
+last_activity_desc: "Phase 06.6.1 Wave 1 complete (3/6 plans)"
 progress:
   total_phases: 15
   completed_phases: 11
   total_plans: 63
-  completed_plans: 56
-  percent: 89
+  completed_plans: 62
+  percent: 98
 ---
 
 # Project State
