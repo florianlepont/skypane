@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 38
+EXPECTED_CHECK_COUNT = 40
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -778,7 +778,7 @@ def main():
         "companion/pages/health_page.py never imports the stdlib html module directly",
         _health_page_never_imports_html_module)
 
-    def _health_page_renders_one_dashboard_grid_of_four_tiles():
+    def _health_page_renders_one_dashboard_grid_of_three_tiles_plus_battery_section():
         tmp = _mkstate("h-dashboard-grid")
         try:
             now = _now()
@@ -789,9 +789,9 @@ def main():
                 return False, (
                     "expected exactly one dashboard-grid div, got %d"
                     % rendered.count('<div class="dashboard-grid">'))
-            if rendered.count('class="stat-tile') != 4:
+            if rendered.count('class="stat-tile') != 3:
                 return False, (
-                    "expected exactly four stat-tile occurrences, got %d"
+                    "expected exactly three stat-tile occurrences, got %d"
                     % rendered.count('class="stat-tile'))
             if rendered.count(">Overview<") != 1:
                 return False, (
@@ -799,12 +799,66 @@ def main():
                     % rendered.count(">Overview<"))
             if 'class="page-section"' in rendered:
                 return False, "did not expect any page-section from the four signal sections"
+            if rendered.count(health_page.BATTERY_SECTION_CLASS) != 1:
+                return False, (
+                    "expected exactly one battery-trend section, got %d"
+                    % rendered.count(health_page.BATTERY_SECTION_CLASS))
+            grid_close_index = rendered.index('<div class="dashboard-grid">') + rendered[
+                rendered.index('<div class="dashboard-grid">'):].index("</div>")
+            if rendered.index(health_page.BATTERY_SECTION_CLASS) <= grid_close_index:
+                return False, "expected the battery-trend section to follow the dashboard-grid, not precede/overlap it"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a healthy fixture renders one dashboard-grid with exactly four stat tiles under one Overview heading",
-        _health_page_renders_one_dashboard_grid_of_four_tiles)
+        "a healthy fixture renders one dashboard-grid with exactly three stat tiles under one Overview heading, "
+        "plus a positioned battery-trend section after it",
+        _health_page_renders_one_dashboard_grid_of_three_tiles_plus_battery_section)
+
+    def _battery_section_keeps_everything_after_the_move():
+        tmp = _mkstate("h-battery-section-intact")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if ">%s<" % health_page.BATTERY_SECTION_HEADING not in rendered:
+                return False, "expected BATTERY_SECTION_HEADING inside an <h2>"
+            if health_page.BATTERY_STATUS_LABEL not in rendered:
+                return False, "expected the battery status badge label to survive the move"
+            if health_page.BATTERY_READOUT_ID not in rendered:
+                return False, "expected the readout element id to survive the move"
+            if rendered.count("<script") != 1:
+                return False, "expected exactly one <script occurrence, got %d" % rendered.count("<script")
+            if health_page.BATTERY_TREND_SCRIPT_SRC not in rendered:
+                return False, "expected BATTERY_TREND_SCRIPT_SRC in the rendered <script src>"
+            # Slice to the battery section's own boundaries — the three
+            # surviving tiles would make a whole-page "no stat-tile"
+            # search trivially fail.
+            section_start = rendered.index('<section class="%s">' % health_page.BATTERY_SECTION_CLASS)
+            section_html = rendered[section_start:]
+            if "stat-tile" in section_html:
+                return False, "the battery-trend section must carry no stat-tile class"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the battery-trend section keeps its badge, readout, and single script tag after moving out of the grid",
+        _battery_section_keeps_everything_after_the_move)
+
+    def _battery_section_class_is_styled_in_stylesheet():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        if health_page.BATTERY_SECTION_CLASS not in css_source:
+            return False, "companion/static/style.css no longer styles BATTERY_SECTION_CLASS"
+        return True, ""
+    check(
+        "health_page.BATTERY_SECTION_CLASS is guarded against silent drift from companion/static/style.css",
+        _battery_section_class_is_styled_in_stylesheet)
 
     def _health_page_section_builder_markup_survives_reframe():
         tmp = _mkstate("h-reframe-survives")

@@ -158,6 +158,17 @@ SPARKLINE_DOT_CLASS = "sparkline-dot"
 BATTERY_TREND_SCRIPT_SRC = "/static/battery-trend.js"
 BATTERY_READOUT_PLACEHOLDER = "Tap or hover a point on the chart to see its exact reading."
 
+# 06.6.1-03 (D-02): the battery-trend chart moved out of the Overview
+# dashboard-grid into its own full-width section, so its heading text is
+# now a named constant (was a literal passed straight to stat_tile())
+# rather than a tile caption — this is what lets a future plan attach an
+# icon to a known heading without re-typing the literal.
+BATTERY_SECTION_HEADING = "Battery trend"
+# Contract value shared with companion/static/style.css's
+# .battery-trend-section rule (plan 06.6.1-01, same wave); guarded
+# against silent drift by a cross-file check in test_status_pages.py.
+BATTERY_SECTION_CLASS = "battery-trend-section"
+
 _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 # "query succeeded and legitimately returned None/empty" (e.g. no rows
 # recorded yet), which must render very differently.
@@ -452,6 +463,27 @@ def _battery_readout_block():
         % (BATTERY_READOUT_ID, escape_html(BATTERY_READOUT_PLACEHOLDER)))
 
 
+def _battery_trend_section_html(battery_html):
+    """Wrap `_battery_section()`'s already-built markup in the full-width
+    `BATTERY_SECTION_CLASS` card section (D-02) that replaces its old
+    240px-floor grid tile.
+
+    `battery_html` is already-safe markup (badge, an already-escaped
+    table, an SVG, a script tag) and is interpolated verbatim, with no
+    call to `escape_html()` — the same "already-built markup passes
+    through untransformed" contract `stat_tile()` and
+    `_source_fault_block()` already follow; re-escaping it here would
+    double-encode and print the raw tags as visible text instead of
+    rendering them.
+    """
+    return (
+        '<section class="%s">'
+        '<h2 class="text-heading">%s</h2>'
+        "%s"
+        "</section>"
+    ) % (BATTERY_SECTION_CLASS, escape_html(BATTERY_SECTION_HEADING), battery_html)
+
+
 def _battery_section(trend_rows):
     """Return `(markup, state)` for the Battery trend tile.
 
@@ -566,10 +598,12 @@ def render(ctx):
         device_state, pipeline_state, battery_state, disagreement_warn)
     banner_html = layout.anomaly_banner(ANOMALY_BANNER_TEXT) if anomalies else ""
 
+    # battery_state is still consumed below (collect_anomalies() still
+    # takes it) — it just no longer paints a stat-tile border, since the
+    # battery-trend chart moved out of this grid entirely (D-02).
     tiles_html = (
         layout.stat_tile(DEVICE_FRESHNESS_LABEL, device_html, device_state)
         + layout.stat_tile(PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state)
-        + layout.stat_tile("Battery trend", battery_html, battery_state)
         + layout.stat_tile(
             "Corroboration", corroboration_html,
             "warn" if disagreement_warn else "ok")
@@ -581,4 +615,5 @@ def render(ctx):
         + banner_html
         + '<h2 class="text-heading">Overview</h2>'
         + '<div class="dashboard-grid">' + tiles_html + '</div>'
+        + _battery_trend_section_html(battery_html)
     )
