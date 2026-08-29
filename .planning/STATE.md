@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: "06.5"
 current_phase_name: interactive-battery-trend-chart-with-overall-status
 status: executing
-stopped_at: "06.5-01 and 06.5-02 complete (client JS/route + Health page badge/chart markup). 06.5-03 (real-phone verification) in progress: developer confirmed the tap-reveals-reading interaction (D-02) works on a real phone; badge/thumb-target/no-layout-jump items still pending confirmation. Real-device testing during 06.5-03 also surfaced defects 06.3's own automated visual sign-off missed: a mobile nav-bar CSS bug (fixed, commit b90ed88) plus a batch of design/polish feedback (logo, hamburger nav, theme-toggle sizing, Health density, History table density, battery chart width) captured as Phase 06.6.1, inserted after Phase 06.6 pending discuss-phase."
-last_updated: "2026-08-29T18:45:00.000Z"
+stopped_at: "06.5-03 (real-phone verification) in progress: tap-reveals-reading (D-02) confirmed working on a real phone; badge/thumb-target/no-layout-jump items still pending. Real-device testing also found a mobile nav-bar CSS bug (fixed, commit b90ed88) and surfaced a batch of design feedback, captured and discussed as Phase 06.6.1 (visual polish pass) — 06.6.1-CONTEXT.md written, decisions locked (D-01..D-06), including D-05: next step is /gsd-sketch for a prototype pass, THEN /gsd-ui-phase for a formal UI-SPEC.md (same rigor as 06.3), NOT /gsd-plan-phase directly."
+last_updated: "2026-08-29T19:02:43.146Z"
 last_activity: 2026-08-29
-last_activity_desc: "Phase 06.6.1 inserted (visual polish pass) after real-device testing found issues 06.3's automated sign-off missed"
+last_activity_desc: "Phase 06.6.1 context gathered via discuss-phase; next step is /gsd-sketch per D-05, not /gsd-plan-phase"
 progress:
   total_phases: 15
   completed_phases: 11
@@ -282,10 +282,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-28T22:32:36.301Z
-Stopped at: Completed 06.5-02-PLAN.md
+Last session: 2026-08-29T19:02:43.132Z
+Stopped at: Phase 06.6.1 context gathered - next step is /gsd-sketch per D-05, not /gsd-plan-phase
 
-Resume file: None
+Resume file: .planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-CONTEXT.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
