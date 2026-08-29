@@ -16,4 +16,4 @@ Goodreads — warm editorial feel, card-based browsing with visible relief, seri
 |---|------|----------------|--------|------|
 | 001 | health-page-direction | Does the new visual direction (serif headings, cards with relief, orange/amber accent, airier spacing) work on a real page? | B (Full editorial) | visual-direction, typography, color |
 | 002 | mobile-hamburger-nav | How should the mobile nav menu open, and where does the theme picker live inside it? | C (Header dropdown) | navigation, mobile, interaction |
-| 003 | history-table-density | Does merging Callsign+Hex and Type+Airline make the table fit a 13" laptop without horizontal scroll? | pending | data-density, table |
+| 003 | history-table-density | Does merging Callsign+Hex and Type+Airline make the table fit a 13" laptop without horizontal scroll? | B (Inline compact) | data-density, table |

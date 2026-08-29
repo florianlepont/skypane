@@ -2,7 +2,7 @@
 sketch: 003
 name: history-table-density
 question: "Does merging Callsign+Hex and Type+Airline make the table fit a 13-inch laptop without horizontal scroll?"
-winner: null
+winner: "B"
 tags: [data-density, table]
 ---
 
