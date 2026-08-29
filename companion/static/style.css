@@ -218,7 +218,25 @@ a:hover {
   color: var(--color-accent-hover);
 }
 
-/* Nav bar */
+/* Nav bar (header). 06.6.1 (D-00/D-06, Reconciliation 2): the horizontal
+ * `.nav-bar`/`.nav-tab` strip that used to render here below 960px is
+ * removed outright, not merely hidden — the hamburger dropdown below
+ * replaces its role at that breakpoint. Prior history, preserved for the
+ * record: `.nav-bar`'s `overflow-x: auto` zeroed its own automatic
+ * minimum width per CSS Flexbox 4.5, so it silently lost all its width to
+ * `.theme-form` (which had no such minimum override) instead of wrapping
+ * onto its own row — that collapsed the strip to ~26px on a 375px
+ * viewport, hiding every tab but a sliver of "Config". Commit `b90ed88`
+ * fixed that specific collapse (`flex: 1 1 200px` on `.nav-bar`,
+ * `flex-wrap: wrap` here). Real-device testing during 06.5-03 then found
+ * the horizontally-scrollable strip itself — even correctly sized — hid
+ * most tabs behind an undiscoverable swipe (only 3-4 of 5 tabs visible at
+ * once on a real phone). Rather than tuning the flex sizing a second
+ * time, this phase removes the pattern the bug lived in. The `relative`
+ * positioning below makes this header the dropdown's containing block
+ * (see `.mobile-nav` below) — the dropdown is positioned `absolute`,
+ * never fixed to the viewport, so it participates in normal flow and
+ * pushes page content down instead of overlaying it. */
 .site-header {
   display: flex;
   flex-wrap: wrap;
@@ -227,47 +245,129 @@ a:hover {
   padding: var(--space-lg);
   background: var(--color-secondary);
   margin-bottom: var(--space-xl);
+  position: relative;
 }
 
-/* `flex: 1 1 200px` (not the bare `flex: 1` this replaced) gives .nav-bar a
- * real hypothesis size to defend during the wrap algorithm's line-fitting
- * check — without it, .nav-bar's `overflow-x: auto` zeroes its automatic
- * minimum (CSS Flexbox 4.5), so it silently loses all its width to
- * .theme-form (which has no such minimum override) instead of wrapping
- * onto its own row. That collapsed .nav-bar to ~26px on a 375px viewport,
- * hiding every tab but a sliver of "Config" with no visible affordance
- * that Health/Airlines/History/Preview still existed off-screen. */
-.nav-bar {
-  display: flex;
-  gap: var(--space-md);
-  overflow-x: auto;
-  flex: 1 1 200px;
-}
-
-/* Below ~480px the nav becomes a horizontally-scrollable strip — no
- * hamburger menu needed for 5 tabs (D-22, 06-UI-SPEC.md Navigation). */
-@media (max-width: 480px) {
-  .nav-bar {
-    flex-wrap: nowrap;
-  }
-}
-
-.nav-tab {
-  display: inline-flex;
-  align-items: center;
+/* Hamburger toggle (06.6.1 D-06). Not type="submit", so the
+ * button[type="submit"] accent-fill rule does not reach it and no
+ * defensive override is needed here — if a later change ever makes it a
+ * submit button, this rule would lose, the same trap
+ * `.theme-form .theme-option` already documents. State is styled off
+ * aria-expanded, not a duplicate CSS class, so the visual state and the
+ * accessibility state are physically the same attribute and cannot
+ * drift. */
+.site-nav-toggle {
+  margin-left: auto;
   min-height: 44px;
   min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.site-nav-toggle[aria-expanded="true"] {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Dropdown panel. max-height (not display or height: auto) is used
+ * because neither of the latter can be transitioned; overflow: hidden is
+ * what makes the collapsed state actually hide its contents rather than
+ * merely clip them visually. */
+.mobile-nav {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--color-secondary);
+  box-shadow: var(--shadow-card-hover);
+  border-bottom-left-radius: var(--radius-card);
+  border-bottom-right-radius: var(--radius-card);
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .22s ease;
+}
+
+.mobile-nav--open {
+  max-height: 420px;
+}
+
+.mobile-nav__nav {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-sm);
+}
+
+/* The 44px floor is D-22. The explicit --font-ui is D-03's boundary
+ * stated in code: the sketch prototype rendered these links in serif at
+ * 18px and that detail was deliberately not carried into the contract —
+ * nav links stay Body-size sans-serif here, matching the sidebar. */
+.mobile-nav__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
   padding: 0 var(--space-sm);
   color: var(--color-text);
   text-decoration: none;
   font-size: var(--font-body-size);
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
+  font-family: var(--font-ui);
+  border-left: 3px solid transparent;
 }
 
-.nav-tab--active {
-  border-bottom-color: var(--color-accent);
+/* Same active-indicator idiom .sidebar-link--active already uses, so the
+ * two navigation renderings signal "you are here" identically. */
+.mobile-nav__link--active {
+  border-left-color: var(--color-accent);
   color: var(--color-accent);
+}
+
+/* The theme picker's new home, separated from the links by a hairline —
+ * this is where it relocates now that it is no longer squeezed into the
+ * header row, which is what removes D-00's root cause rather than
+ * re-fixing it. */
+.mobile-nav .theme-form {
+  padding: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+/* .site-header { display: none } inside the >=960px block below already
+ * removes the toggle and the dropdown along with their parent header — no
+ * additional hide rule is needed here, and none should be added. */
+
+/* Health nav-tab notification dot (06.6.1). Emitted with the existing
+ * .dot.dot--error classes (plan 04), so it inherits the circle shape, the
+ * destructive colour and the vertical alignment from .dot/.dot--error and
+ * only overrides size and spacing — deliberately reuses .dot--error
+ * rather than introducing a fourth status colour. margin-right: 0
+ * cancels .dot's own trailing margin because nothing follows it. */
+.nav-notification {
+  width: 8px;
+  height: 8px;
+  margin-left: var(--space-xs);
+  margin-right: 0;
+}
+
+/* Screen-reader-only utility, carries the Health nav label's " —
+ * attention needed" suffix. Must never be given display: none or
+ * visibility: hidden — either would remove the text from the
+ * accessibility tree and defeat its only purpose. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .theme-form {
@@ -484,7 +584,9 @@ button:disabled {
  * Wrapped in .data-table-wrap (scrolls horizontally, never crops) instead
  * of letting a wide table (History's timestamp/callsign/hex/airline/type
  * columns, Airlines' unresolved-prefix table) overflow the viewport on
- * phone widths — same fix .nav-bar already uses above. */
+ * phone widths — this wrap now stands on its own (the horizontal
+ * .nav-bar it used to be paired with is gone, see the header comment
+ * above). */
 .data-table-wrap {
   overflow-x: auto;
 }
@@ -510,6 +612,30 @@ button:disabled {
 
 .data-table tr.row-alt {
   background: var(--color-secondary);
+}
+
+/* History's merged-cell parts (06.6.1, D-06/data-density.md). No
+ * --color-text-muted token exists in this stylesheet, and the sketch's
+ * pattern that named one is deliberately not carried over — inventing a
+ * new token, or hard-coding a grey, would be wrong in one of the two
+ * themes. opacity on the existing --color-text gives the same muted read
+ * in both modes with no per-theme value to keep in sync. The 12px size on
+ * .cell-secondary is a legitimate secondary-data exception to the 4-size
+ * scale, scoped to this one class. */
+.cell-primary {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+}
+
+.cell-secondary {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.cell-inline-sep {
+  opacity: 0.7;
+  margin: 0 var(--space-xs);
 }
 
 /* Empty state */
@@ -760,19 +886,19 @@ button:disabled {
 }
 
 /* Desktop dashboard shell (D-02, 06.3-UI-SPEC.md Layout Contract). This is
- * the file's second and last width breakpoint — the 480px nav-scroll rule
- * above stays exactly as it is, untouched. companion/layout.py's
- * page_shell() renders both navigation copies (the horizontal .site-header
- * nav and the vertical .dashboard-sidebar nav) and both theme-form copies
- * into every response, because a stdlib HTTP server has no viewport
- * information at render time — this block is what chooses between them.
- * The losing copy is removed with `display: none`, which takes it out of
- * the layout flow, the tab order and the accessibility tree together —
- * that is what keeps a keyboard user from landing on invisible nav links
- * and keeps exactly one navigation landmark exposed at any given width.
- * Below 960px nothing here applies: the page renders exactly as it did
- * before this phase, fluid single column, top .nav-bar, with its own
- * 480px horizontal-scroll fallback intact (D-22's mobile floor). */
+ * the file's second and last width breakpoint. companion/layout.py's
+ * page_shell() renders navigation copies (the mobile hamburger dropdown
+ * inside .site-header and the vertical .dashboard-sidebar nav) and both
+ * theme-form copies into every response, because a stdlib HTTP server has
+ * no viewport information at render time — this block is what chooses
+ * between them. The losing copy is removed with `display: none`, which
+ * takes it out of the layout flow, the tab order and the accessibility
+ * tree together — that is what keeps a keyboard user from landing on
+ * invisible nav links and keeps exactly one navigation landmark exposed
+ * at any given width. Below 960px nothing here applies: the page renders
+ * fluid single column, header hamburger toggle + push-down dropdown
+ * (06.6.1 D-06, see the header comment above), no horizontal-scroll
+ * fallback needed since the strip that used to require one is gone. */
 @media (min-width: 960px) {
   .dashboard-shell {
     display: grid;
