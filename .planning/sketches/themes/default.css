@@ -1,0 +1,82 @@
+/* SkyPane companion — sketch theme, evolving companion/static/style.css's
+   real shipped tokens (06.3) toward the 06.6.1 direction: warm serif
+   headings, cards with visible relief, a new orange/amber accent kept
+   clearly distinct from --color-status-warn, airier spacing. */
+
+:root {
+  /* Spacing — unchanged scale from shipped style.css, used more generously */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Typography */
+  --font-label-size: 14px;
+  --font-body-size: 16px;
+  --font-heading-size: 22px;
+  --font-display-size: 28px;
+  --weight-regular: 400;
+  --weight-semibold: 600;
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* New: warm serif for headings only. Georgia is a safe, widely-available
+     serif with real personality — no web font loading needed for a sketch. */
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+
+  /* Color — unchanged from shipped style.css except --color-accent */
+  --color-dominant: #FAFBFD;
+  --color-secondary: #EEF1F7;
+  --color-border: #E2E6EE;
+  /* Was #3454D1 (blue) in 06.3. New warm accent — a coral/terracotta
+     orange, deliberately more RED (hue ~16) than --color-status-warn's
+     golden amber (hue ~32, #D97706) so the two never read as the same
+     color at a glance. */
+  --color-accent: #E8622C;
+  --color-accent-hover: #D2521F;
+  --color-destructive: #DC2626;
+  --color-text: #12151B;
+  --color-text-muted: #5B6472;
+  --color-status-ok: #16A34A;
+  --color-status-warn: #D97706;
+  --color-status-error: #DC2626;
+
+  /* New: card relief. Subtle — this is a utility tool, not a poster. */
+  --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
+  --radius-card: 10px;
+  --radius-control: 8px;
+}
+
+[data-theme="dark"] {
+  --color-dominant: #0D0F14;
+  --color-secondary: #1A1E27;
+  --color-border: #262B36;
+  --color-accent: #FF8A5C;
+  --color-accent-hover: #FF9E77;
+  --color-destructive: #F87171;
+  --color-text: #F1F3F6;
+  --color-text-muted: #9AA3B2;
+  --color-status-ok: #4ADE80;
+  --color-status-warn: #FBBF24;
+  --color-status-error: #F87171;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+body {
+  background: var(--color-dominant);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--font-body-size);
+  margin: 0;
+}
+
+h1, h2, h3, .text-heading {
+  font-family: var(--font-serif);
+  font-weight: var(--weight-regular);
+  letter-spacing: -0.01em;
+}
