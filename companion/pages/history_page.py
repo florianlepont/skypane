@@ -22,10 +22,17 @@ matching `data_table()`'s CSS classes exactly for visual consistency,
 escaping every other cell through `companion.layout.escape_html()`.
 Only the escaping had to be hand-rolled, not the scroll container: this
 table is still wrapped in the same horizontal-scroll container
-`data_table()` itself emits, so History's 9-column table matches
+`data_table()` itself emits, so History's 7-column table matches
 Airlines and Health's phone behaviour (D-03) — dropping that wrapper
 along with the escaping, when this table was first hand-built, was the
 original defect this module now closes.
+
+Callsign+Hex and Aircraft type+Airline are each rendered as one merged,
+one-line cell (`_merged_cell()`, 06.6.1 D-02/data-density.md sketch 003
+Variant B) instead of two separate columns — this cut the table from 9
+columns to 7 without changing row height, which is the property that
+was chosen over a stacked-cell layout specifically to keep scanning many
+rows fast.
 """
 import sqlite3
 
@@ -51,10 +58,27 @@ _HISTORY_UNAVAILABLE_TEXT = (
     "Health history is temporarily unavailable — check the companion "
     "service logs.")
 
+# 7 entries, left-to-right order unchanged from the previous 9-column
+# table so a returning user's scanning habit still works. "Callsign" and
+# "Type" are now merged columns: each carries a secondary value (hex,
+# airline) rendered on the same line via _merged_cell() (06.6.1 D-02).
 _HEADERS = (
-    "Timestamp", "Callsign", "Hex", "Aircraft type", "Airline", "Route",
-    "State", "Corroboration", "Runway",
+    "Timestamp", "Callsign", "Type", "Route", "State", "Corroboration",
+    "Runway",
 )
+
+# Class names styled by companion/static/style.css (plan 06.6.1-01, same
+# wave). Duplicated here rather than imported because a page module has
+# no import path to the stylesheet; companion/test_view_pages.py's
+# cross-file drift guard reads style.css from disk and requires all
+# three to appear there, so the two cannot silently diverge.
+CELL_PRIMARY_CLASS = "cell-primary"
+CELL_SECONDARY_CLASS = "cell-secondary"
+CELL_SEPARATOR_CLASS = "cell-inline-sep"
+
+# The middle-dot glyph, defined once so the separator can never be typed
+# as a hyphen or a bullet at one call site and a middle dot at another.
+CELL_SEPARATOR_TEXT = "·"
 
 # history_db's stored corroborated column (the TEXT form of
 # True/False/None) mapped to the same three (status, label) pairs
@@ -127,6 +151,33 @@ def format_event_row(row):
     }
 
 
+def _merged_cell(primary, secondary):
+    """Build one complete `<td>` holding `primary` and, when present, a
+    separator and `secondary` on the same line (06.6.1 D-02, sketch 003
+    Variant B "Inline compact").
+
+    `secondary` is only rendered when truthy: `format_event_row()`
+    legitimately yields an empty string for a missing hex or a missing
+    aircraft type, and rendering a separator with nothing after it would
+    read as truncated data rather than as absent data. That is the whole
+    reason this is a function rather than an inline format string used
+    twice.
+
+    Both arguments go through `escape_html()` here and nowhere else — do
+    not pre-escape at the call site as well, or values would be
+    double-encoded and print their entity forms as visible text (the
+    same trap `stat_tile()`'s docstring already documents for
+    `content_html`).
+    """
+    html = '<span class="%s">%s</span>' % (
+        CELL_PRIMARY_CLASS, escape_html(primary))
+    if secondary:
+        html += '<span class="%s">%s</span><span class="%s">%s</span>' % (
+            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+            CELL_SECONDARY_CLASS, escape_html(secondary))
+    return "<td>%s</td>" % html
+
+
 def _history_table_html(formatted_rows):
     if not formatted_rows:
         return layout.empty_state(_NO_FLIGHTS_HEADING, _NO_FLIGHTS_BODY)
@@ -138,10 +189,8 @@ def _history_table_html(formatted_rows):
         row_class = "row-alt" if index % 2 else "row"
         cells = (
             '<td class="mono">%s</td>' % escape_html(row["ts"]),
-            '<td class="mono">%s</td>' % escape_html(row["callsign"]),
-            '<td class="mono">%s</td>' % escape_html(row["hex"]),
-            "<td>%s</td>" % escape_html(row["aircraft_type_label"]),
-            "<td>%s</td>" % escape_html(row["airline_label"]),
+            _merged_cell(row["callsign"], row["hex"]),
+            _merged_cell(row["aircraft_type_label"], row["airline_label"]),
             "<td>%s</td>" % escape_html(row["route_label"]),
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
             "<td>%s</td>" % layout.status_dot(

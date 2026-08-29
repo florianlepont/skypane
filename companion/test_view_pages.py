@@ -345,19 +345,30 @@ def main():
         _no_airline_no_route_matches_render_fallback)
 
     def _mono_columns_present():
+        # 06.6.1-02: the merged Callsign+Hex cell moved its monospace
+        # treatment off a td[class="mono"] attribute and onto the
+        # cell-primary/cell-secondary span classes (both mono in
+        # style.css) - a plain "mono" attribute on the merged <td> would
+        # fight the 12px secondary size, per _merged_cell()'s docstring.
+        # Timestamp is the one remaining td[class="mono"] cell; callsign
+        # and hex are asserted via the merged-cell span classes instead.
         tmp = _mkstate("h-mono")
         try:
             _seed_runway_events(tmp, [
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "abc123", "callsign": "MONO1"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
-            if rendered.count('class="mono"') < 3:
-                return False, "expected at least 3 mono-styled cells (timestamp, callsign, hex)"
+            if rendered.count('class="mono"') < 1:
+                return False, "expected the timestamp cell to carry the monospace CSS class"
+            if ('class="%s"' % history_page.CELL_PRIMARY_CLASS) not in rendered:
+                return False, "expected the merged-cell primary span to carry its mono CSS class"
+            if ('class="%s"' % history_page.CELL_SECONDARY_CLASS) not in rendered:
+                return False, "expected the merged-cell secondary span to carry its mono CSS class"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "timestamp, callsign and hex columns carry the monospace CSS class",
+        "timestamp, callsign and hex columns carry monospace CSS classes",
         _mono_columns_present)
 
     def _hostile_callsign_escaped():
