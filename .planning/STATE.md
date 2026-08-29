@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: "06.6.1"
-current_phase_name: companion-visual-polish-pass
+current_phase_name: Companion visual polish pass
 status: executing
 stopped_at: "Phase 06.6.1 Wave 3 complete (5/6 plans): 05 shipped nav-dropdown.js, the hamburger toggle/dropdown, and retired the horizontal nav strip (D-06, supersedes D-00). Plan 06 (Wave 4, final) is a blocking human real-device verification checkpoint."
 last_updated: "2026-08-29T22:30:27.202Z"
