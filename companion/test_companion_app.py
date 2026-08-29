@@ -60,7 +60,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 61  # 56 + 5 (06.6.1-04 Task 1: icon sprite)
+EXPECTED_CHECK_COUNT = 62  # 56 + 5 (06.6.1-04 Task 1: icon sprite) + 1 (Task 3: nav notification dot)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -707,6 +707,47 @@ def main():
         check(
             "the icon/icon-defs/STAT_TILE_ICON_CLASS class names all appear in companion/static/style.css",
             _icon_classes_match_stylesheet)
+
+        # --- 06.6.1-04 Task 3: Health nav-tab notification dot ---
+
+        def _health_nav_notification_dot():
+            on = layout.page_shell(
+                title="T", active="health", body="<p>b</p>", health_alert=True)
+            off = layout.page_shell(
+                title="T", active="health", body="<p>b</p>", health_alert=False)
+            default = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            if on.count(layout.NAV_NOTIFICATION_CLASS) != 1:
+                return False, "expected the notification class exactly once when health_alert=True"
+            if on.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 1:
+                return False, "expected the alert suffix text exactly once when health_alert=True"
+            if off.count(layout.NAV_NOTIFICATION_CLASS) != 0:
+                return False, "expected zero notification-class occurrences when health_alert=False"
+            if off.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 0:
+                return False, "expected zero alert-suffix occurrences when health_alert=False"
+            if default != off:
+                return False, "expected the health_alert flag to default to off"
+            side = on[on.index("sidebar-nav"):]
+            href_index = side.index('href="/health"')
+            dot_index = side.index(layout.NAV_NOTIFICATION_CLASS)
+            anchor_close_index = side.index("</a>", href_index)
+            if not (href_index < dot_index < anchor_close_index):
+                return False, "expected the dot to sit inside the Health sidebar link"
+            other_active = layout.page_shell(
+                title="T", active="config", body="", health_alert=True)
+            if other_active.count(layout.NAV_NOTIFICATION_CLASS) != 1:
+                return False, "expected exactly one link to carry the dot regardless of the active tab"
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            if layout.NAV_NOTIFICATION_CLASS not in css:
+                return False, "expected the notification class to be styled"
+            if "visually-hidden" not in css:
+                return False, "expected the visually-hidden utility class to be styled"
+            return True, ""
+        check(
+            "the Health nav-tab notification dot appears only inside the Health sidebar link when health_alert=True, "
+            "nowhere when False/omitted, and never on another link",
+            _health_nav_notification_dot)
 
     finally:
         if previous_password is not None:

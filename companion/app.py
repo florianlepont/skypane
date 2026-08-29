@@ -316,6 +316,7 @@ class Handler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
         flash_key = params.get("flash", [None])[0]
         state_dir = self.args.state_dir
+        now = history_db.utc_now_iso()
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
@@ -324,7 +325,16 @@ class Handler(BaseHTTPRequestHandler):
             "poll_cooldown_remaining": poll_cooldown_remaining(state_dir),
             "gallery_entries": gallery_entries(state_dir),
             "runway_images": runway_images_available(),
-            "now": history_db.utc_now_iso(),
+            # 06.6.1-04: computed here, not by a nav renderer, because
+            # companion/pages/__init__.py forbids a page module importing
+            # another page module — this file already imports health_page
+            # legitimately (the runway_images entry above set the same
+            # precedent in Phase 06.4), so this is the boundary's intended
+            # crossing point. health_page.anomaly_active() is
+            # contractually never-raising *because* this line runs on
+            # every authenticated page render.
+            "health_anomaly_active": health_page.anomaly_active(state_dir, now),
+            "now": now,
         }
 
     # --- shared page fragments -------------------------------------------
@@ -452,7 +462,8 @@ class Handler(BaseHTTPRequestHandler):
         flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
         html_doc = layout.page_shell(
             title=_PAGE_TITLES[route], active=route.lstrip("/"), body=body,
-            ui_theme=ctx["ui_theme"], flash=flash_html)
+            ui_theme=ctx["ui_theme"], flash=flash_html,
+            health_alert=ctx["health_anomaly_active"])
         return self.send_html(200, html_doc)
 
     # --- GET -------------------------------------------------------------
@@ -484,7 +495,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="Config", active="config", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == "/health":
             if not self.require_session():
@@ -494,7 +506,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="Health", active="health", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == "/airlines":
             if not self.require_session():
@@ -504,7 +517,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="Airlines", active="airlines", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == "/history":
             if not self.require_session():
@@ -514,7 +528,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="History", active="history", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == "/preview":
             if not self.require_session():
@@ -524,7 +539,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="Preview", active="preview", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == PREVIEW_IMAGE_ROUTE:
             if not self.require_session():

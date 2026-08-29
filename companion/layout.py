@@ -126,6 +126,27 @@ ICON_DEFS_HTML = (
 # drifting apart.
 STAT_TILE_ICON_CLASS = "stat-tile__icon"
 
+# --- 06.6.1-04 Task 3: Health nav-tab notification dot (D-02) ---------
+#
+# The Health route's slug, matching what _nav_links() already computes
+# (`route.lstrip("/")`) — named once so a renderer can identify the
+# Health link without re-deriving it from an already-escaped route
+# string.
+HEALTH_NAV_SLUG = "health"
+
+# The dot's own class, layered on top of the existing .dot/.dot--error
+# classes (see _health_alert_markup()) rather than a new colour. Its
+# counterpart is companion/static/style.css's `.nav-notification` rule
+# — Task 3's test harness reads that stylesheet from disk and asserts
+# this class name actually appears in it.
+NAV_NOTIFICATION_CLASS = "nav-notification"
+
+# 06.6.1-UI-SPEC.md's Copywriting Contract, verbatim: appended (not
+# substituted) after the "Health" nav label text via a visually-hidden
+# span, so assistive tech announces "Health — attention needed" rather
+# than losing the word "Health" to an aria-label override.
+HEALTH_ALERT_SUFFIX_TEXT = " — attention needed"
+
 
 def icon_html(icon_id, size=20, extra_class=""):
     """A `<svg>` referencing one symbol from ICON_DEFS_HTML via `<use>`,
@@ -192,31 +213,67 @@ def ui_theme_from_cookie(cookies):
 
 
 def _nav_links(active):
-    """Return one (is_active, escaped_route, escaped_label) tuple per
-    NAV_TABS entry, in NAV_TABS order.
+    """Return one (is_active, escaped_route, escaped_label, slug) tuple
+    per NAV_TABS entry, in NAV_TABS order.
 
     This is the single place NAV_TABS is iterated and its route/label
     pair escaped; both _nav_html() (horizontal nav) and sidebar_nav()
     (vertical nav) consume this instead of re-iterating NAV_TABS and
-    re-implementing the same escaping/active-state logic twice.
+    re-implementing the same escaping/active-state logic twice. The
+    unescaped route `slug` (06.6.1-04) is now part of what this function
+    single-sources too, so a renderer can identify a specific link (e.g.
+    the Health nav-tab notification dot's target) without re-deriving
+    "which link is Health" from an already-escaped route string.
     """
     links = []
     for route, label in NAV_TABS:
         slug = route.lstrip("/")
         is_active = slug == active
-        links.append((is_active, escape_html(route), escape_html(label)))
+        links.append((is_active, escape_html(route), escape_html(label), slug))
     return links
 
 
 def _nav_html(active):
     links = []
-    for is_active, route, label in _nav_links(active):
+    for is_active, route, label, _slug in _nav_links(active):
         css_class = "nav-tab nav-tab--active" if is_active else "nav-tab"
         links.append('<a class="%s" href="%s">%s</a>' % (css_class, route, label))
     return "\n".join(links)
 
 
-def sidebar_nav(active):
+def _health_alert_markup():
+    """The Health nav-tab notification dot plus its visually-hidden
+    screen-reader suffix (06.6.1-UI-SPEC.md's Layout Contract / D-02),
+    built once so both `_nav_html()`-style and `sidebar_nav()` renderers
+    share exactly one markup source for it — today only `sidebar_nav()`
+    calls this (the horizontal `_nav_html()` renderer is retired by plan
+    06.6.1-05 rather than gaining this markup itself).
+
+    Reuses the existing `dot`/`dot--error` classes — the same visual
+    treatment the Battery/Device/Pipeline error state already uses —
+    plus NAV_NOTIFICATION_CLASS to override size/spacing only, rather
+    than introducing a fourth status colour.
+
+    Appends a visually-hidden text suffix rather than an `aria-label` on
+    the link: an `aria-label` would *replace* the link's accessible
+    name, so the announced text would become only the alert phrasing and
+    the word "Health" would be lost. An appended visually-hidden span
+    leaves the existing "Health" name intact and adds to it — this is
+    06.6.1-UI-SPEC.md's stated reason and a correctness point, not a
+    style preference.
+
+    The absence of this markup is deliberately the all-clear signal —
+    the same precedent the anomaly banner and CFG-05's source-fault
+    badge already set in this codebase: nothing is rendered when
+    everything is fine, so there is no "all good" chrome to ignore.
+    """
+    return (
+        '<span class="dot dot--error %s"></span>'
+        '<span class="visually-hidden">%s</span>'
+    ) % (NAV_NOTIFICATION_CLASS, escape_html(HEALTH_ALERT_SUFFIX_TEXT))
+
+
+def sidebar_nav(active, health_alert=False):
     """The vertical Primary-navigation landmark shown by page_shell()'s
     dashboard sidebar column at desktop width.
 
@@ -225,14 +282,26 @@ def sidebar_nav(active):
     a vertical arrangement. companion/static/style.css's 960px media
     query decides which of the two copies is visible at a given
     viewport width; this function has no opinion on visibility.
+
+    `health_alert` (06.6.1-04, keyword-with-default so no existing
+    positional call site changes meaning) appends _health_alert_markup()
+    after the label text of the link whose slug matches HEALTH_NAV_SLUG,
+    and only that link. The markup is already-built safe HTML and is
+    interpolated verbatim, exactly like status_dot()'s output is in
+    other builders — it is not routed through escape_html() again.
     """
     links = []
-    for is_active, route, label in _nav_links(active):
+    for is_active, route, label, slug in _nav_links(active):
         if is_active:
             css_class = "sidebar-link sidebar-link--active"
         else:
             css_class = "sidebar-link"
-        links.append('<a class="%s" href="%s">%s</a>' % (css_class, route, label))
+        alert_html = (
+            _health_alert_markup()
+            if health_alert and slug == HEALTH_NAV_SLUG else "")
+        links.append(
+            '<a class="%s" href="%s">%s%s</a>'
+            % (css_class, route, label, alert_html))
     return (
         '<nav class="sidebar-nav" aria-label="Primary navigation">%s</nav>'
         % "".join(links))
@@ -254,17 +323,25 @@ def _theme_form_html(resolved_theme):
         % "".join(options))
 
 
-def page_shell(title, active, body, ui_theme="auto", flash=None, banner=None):
+def page_shell(
+        title, active, body, ui_theme="auto", flash=None, banner=None,
+        health_alert=False):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and every nav label are escaped here. `body`, `flash` and
     `banner` are pre-built markup strings — the caller is responsible
     for having escaped their own dynamic parts (they are typically the
     output of this module's other builders, which already escape).
+
+    `health_alert` (06.6.1-04, keyword-with-default, placed last so no
+    positional call site shifts) is threaded through to sidebar_nav().
+    It is a display signal only, defaulting off, so any caller without a
+    request context — login, 404, the preview-image error pages — draws
+    no dot, which is correct rather than merely convenient.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     nav_html = _nav_html(active)
-    sidebar_html = sidebar_nav(active)
+    sidebar_html = sidebar_nav(active, health_alert=health_alert)
     theme_form_html = _theme_form_html(resolved_theme)
     flash_html = flash or ""
     banner_html = banner or ""
