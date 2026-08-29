@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 40
+EXPECTED_CHECK_COUNT = 42
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -859,6 +859,107 @@ def main():
     check(
         "health_page.BATTERY_SECTION_CLASS is guarded against silent drift from companion/static/style.css",
         _battery_section_class_is_styled_in_stylesheet)
+
+    def _anomaly_active_agrees_with_banner_both_directions():
+        # Compare the two booleans against each other, not against
+        # hard-coded expectations, so this pins *agreement* (the
+        # property that matters on screen) rather than restating the
+        # anomaly rules a third time. Includes both a healthy and an
+        # unhealthy fixture so the check cannot pass vacuously.
+        fixtures = []
+
+        healthy = _mkstate("h-agree-healthy")
+        now = _now()
+        _seed_device_health(healthy, [(_iso(now), 4200)])
+        _seed_meta(healthy, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+        fixtures.append((healthy, _iso(now)))
+
+        stale_device = _mkstate("h-agree-stale-device")
+        _seed_device_health(
+            stale_device, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+        _seed_meta(stale_device, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+        fixtures.append((stale_device, _iso(now)))
+
+        battery_drop = _mkstate("h-agree-battery-drop")
+        _seed_device_health(battery_drop, [
+            (_iso(now - timedelta(minutes=1)), 4200),
+            (_iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+        ])
+        _seed_meta(battery_drop, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+        fixtures.append((battery_drop, _iso(now)))
+
+        try:
+            for tmp, ts in fixtures:
+                verdict = health_page.anomaly_active(tmp, ts)
+                rendered = health_page.render(_ctx(tmp, now=ts))
+                banner_present = health_page.ANOMALY_BANNER_TEXT in rendered
+                if verdict != banner_present:
+                    return False, (
+                        "anomaly_active()=%r disagreed with the banner's presence=%r for %r"
+                        % (verdict, banner_present, tmp))
+            return True, ""
+        finally:
+            for tmp, _ts in fixtures:
+                shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "anomaly_active() and the anomaly banner's presence agree in both directions, across healthy and unhealthy fixtures",
+        _anomaly_active_agrees_with_banner_both_directions)
+
+    def _anomaly_active_never_raises_on_hostile_inputs():
+        # anomaly_active() runs on every authenticated page render via
+        # page_context() (companion/app.py) — it may never fault a page
+        # that has nothing to do with Health. Precedent:
+        # runway_images_available() (Phase 06.4)'s own never-raises
+        # contract for the same reason.
+        #
+        # Three of the four hostile inputs below make the database
+        # itself unopenable, which _safe_query() maps to _DB_UNAVAILABLE
+        # for every read — and every section builder's _DB_UNAVAILABLE
+        # branch returns state "ok", so collect_anomalies() correctly
+        # returns False for all three. A genuinely empty-but-writable
+        # directory is different: open_db() succeeds there (it creates
+        # the schema), so Device/Pipeline legitimately read as "warn"
+        # (D-12's documented "never seen" default) — the same "warn" a
+        # freshly-provisioned deployment already shows on the page via
+        # render() itself (confirmed by direct execution: render()
+        # already shows ANOMALY_BANNER_TEXT for a truly empty state_dir,
+        # unrelated to and predating this plan). That case is asserted
+        # for "does not raise" and "agrees with render()", not for a
+        # specific boolean value.
+        if health_page.anomaly_active("/nonexistent/definitely-not-here") is not False:
+            return False, "expected False for a non-existent state_dir path"
+
+        empty = tempfile.mkdtemp(prefix="skypane-status-pages-anomaly-empty-")
+        try:
+            empty_verdict = health_page.anomaly_active(empty)
+            if not isinstance(empty_verdict, bool):
+                return False, "expected a bool (no raise) for an empty temporary directory, got %r" % (empty_verdict,)
+            rendered = health_page.render(_ctx(empty))
+            if empty_verdict != (health_page.ANOMALY_BANNER_TEXT in rendered):
+                return False, "anomaly_active() disagreed with render()'s banner for an empty directory"
+            with history_db.open_db(empty):
+                pass
+            dbs = [f for f in os.listdir(empty) if f.endswith(".db")]
+            if not dbs:
+                return False, "expected a database file to have been created"
+            with open(os.path.join(empty, dbs[0]), "wb") as fh:
+                fh.write(b"not a sqlite file at all")
+            if health_page.anomaly_active(empty) is not False:
+                return False, "expected False for a corrupt database, not a raise"
+        finally:
+            shutil.rmtree(empty, ignore_errors=True)
+
+        fd, path = tempfile.mkstemp(prefix="skypane-status-pages-anomaly-file-")
+        os.close(fd)
+        try:
+            if health_page.anomaly_active(path) is not False:
+                return False, "expected False for a state_dir that is a regular file, not a directory"
+        finally:
+            os.unlink(path)
+        return True, ""
+    check(
+        "anomaly_active() runs on every page render and must never raise — missing/empty/file/corrupt-db inputs all degrade safely",
+        _anomaly_active_never_raises_on_hostile_inputs)
 
     def _health_page_section_builder_markup_survives_reframe():
         tmp = _mkstate("h-reframe-survives")

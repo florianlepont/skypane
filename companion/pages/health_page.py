@@ -25,6 +25,13 @@ Every database access goes through `_safe_query()`, which returns the
 database — each of the four sections below degrades independently to
 06-UI-SPEC.md's "Health data unavailable" copy rather than faulting the
 whole page.
+
+06.6.1-03: `anomaly_active()` is this module's one intentionally-public
+cross-page export, consumed by `companion/app.py`'s `page_context()`
+(threaded into `ctx["health_anomaly_active"]` for the nav-tab
+notification dot) — it exists specifically so no nav renderer has to
+import a page module, the constraint `companion/pages/__init__.py`
+states.
 """
 import sqlite3
 from datetime import datetime, timedelta
@@ -415,6 +422,51 @@ def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_
     return anomalies
 
 
+def anomaly_active(state_dir, now=None):
+    """`True` when any of the four D-14 signals `collect_anomalies()`
+    tracks is currently unhealthy for `state_dir`, `False` otherwise —
+    the cross-page signal `companion/app.py`'s `page_context()` threads
+    into `ctx` for every authenticated page (the "runway_images"
+    precedent, Phase 06.4), so the Health nav-tab notification dot can
+    be drawn without any nav renderer importing this page module
+    (forbidden by `companion/pages/__init__.py`).
+
+    Routes its verdict through `_read_health_inputs()` and the exact
+    same four section builders `render()` calls, keeping only their
+    state/flag return values and discarding the markup — deliberate,
+    not wasteful: it is what makes it structurally impossible for the
+    nav dot and the banner to disagree, since a second, cheaper
+    reimplementation of the anomaly rules would be a second copy of
+    them, and this module's whole D-14 design rests on there being one.
+
+    Wrapped in a broad `except Exception` that fails closed to `False`,
+    a deliberate departure from the narrow `(sqlite3.Error, OSError)`
+    catches used elsewhere in this file: `_safe_query()`'s narrow catch
+    protects one *section* of one page, whereas `page_context()` calls
+    this function on **every** authenticated page render, so an
+    unanticipated raise here would turn every page in the app into a
+    500 over a decorative nav dot — exactly the reasoning
+    `companion/app.py`'s `runway_images_available()` already established
+    for its own never-raises contract in Phase 06.4. Failing closed is
+    also the safe direction: a missing dot understates a problem the
+    Health page itself will still report in full, whereas a crashed app
+    reports nothing at all.
+    """
+    try:
+        if now is None:
+            now = history_db.utc_now_iso()
+        inputs = _read_health_inputs(state_dir, now)
+        _device_html, device_state = _device_section(inputs["device_health"], now)
+        _pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
+        _battery_html, battery_state = _battery_section(inputs["trend_rows"])
+        _corroboration_html, disagreement_warn = _corroboration_section(
+            inputs["corroboration_counts"])
+        return bool(collect_anomalies(
+            device_state, pipeline_state, battery_state, disagreement_warn))
+    except Exception:
+        return False
+
+
 def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(HEALTH_UNAVAILABLE_TEXT)
 
@@ -572,27 +624,44 @@ def _source_fault_block(source_fault_raw):
     ) % (escape_html(SOURCE_FAULT_HEADING), escape_html(SOURCE_FAULT_BODY))
 
 
+def _read_health_inputs(state_dir, now):
+    """The five `_safe_query()` reads `render()` and `anomaly_active()`
+    both need, single-sourced into one dict.
+
+    `render()` and `anomaly_active()` must be looking at the same five
+    values, or the Health nav-tab dot and the page's own anomaly banner
+    can disagree on screen — single-sourcing the *inputs* (not just the
+    section-builder calls that consume them) is what removes that whole
+    class of drift at the root, before it ever has a chance to appear.
+    """
+    cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
+    return {
+        "device_health": _safe_query(state_dir, history_db.latest_device_health),
+        "pipeline_ts": _safe_query(
+            state_dir,
+            lambda conn: history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)),
+        "source_fault_raw": _safe_query(
+            state_dir,
+            lambda conn: history_db.get_meta(conn, history_db.META_SOURCE_FAULT)),
+        "trend_rows": _safe_query(state_dir, battery_trend_rows),
+        "corroboration_counts": _safe_query(
+            state_dir,
+            lambda conn: history_db.corroboration_counts(conn, since=cutoff)),
+    }
+
+
 def render(ctx):
     state_dir = ctx["state_dir"]
     now = ctx.get("now") or history_db.utc_now_iso()
 
-    device_health = _safe_query(state_dir, history_db.latest_device_health)
-    pipeline_ts = _safe_query(
-        state_dir,
-        lambda conn: history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN))
-    source_fault_raw = _safe_query(
-        state_dir,
-        lambda conn: history_db.get_meta(conn, history_db.META_SOURCE_FAULT))
-    trend_rows = _safe_query(state_dir, battery_trend_rows)
-    cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
-    corroboration_counts = _safe_query(
-        state_dir,
-        lambda conn: history_db.corroboration_counts(conn, since=cutoff))
+    inputs = _read_health_inputs(state_dir, now)
+    source_fault_raw = inputs["source_fault_raw"]
 
-    device_html, device_state = _device_section(device_health, now)
-    pipeline_html, pipeline_state = _pipeline_section(pipeline_ts, now)
-    battery_html, battery_state = _battery_section(trend_rows)
-    corroboration_html, disagreement_warn = _corroboration_section(corroboration_counts)
+    device_html, device_state = _device_section(inputs["device_health"], now)
+    pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
+    battery_html, battery_state = _battery_section(inputs["trend_rows"])
+    corroboration_html, disagreement_warn = _corroboration_section(
+        inputs["corroboration_counts"])
 
     anomalies = collect_anomalies(
         device_state, pipeline_state, battery_state, disagreement_warn)
