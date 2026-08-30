@@ -50,6 +50,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth  # noqa: E402
+import companion.layout as layout  # noqa: E402
 from companion.pages import history_page, preview_page  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
@@ -57,8 +58,9 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 26  # 25 (pre-06.6-03) + 1 (06.6-03 Task 1: History
-# Timestamp column reads "ISO (Nm ago)")
+EXPECTED_CHECK_COUNT = 27  # 25 (pre-06.6-03) + 2 (06.6-03 Task 1: History
+# Timestamp column reads "ISO (Nm ago)"; Task 2: Preview's Captured
+# caption reads "Captured ISO (Nm ago)")
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -694,6 +696,48 @@ def main():
     check(
         "no panel file renders no preview image element, with an honest caption instead",
         _no_panel_no_image_element)
+
+    def _captured_caption_absolute_and_relative():
+        # D-02: Preview's Captured caption now reads
+        # "Captured ISO (Nm ago)" through the same shared
+        # companion.layout.absolute_and_relative() helper (06.6-01),
+        # keeping the existing "Captured " wording.
+        tmp = _mkstate("p-ts-relative")
+        try:
+            _write_panel_file(tmp)
+            rendered = preview_page.render(_preview_ctx(tmp))
+            if "Captured " not in rendered:
+                return False, "expected the caption to still begin 'Captured '"
+            if " ago)" not in rendered:
+                return False, "expected a parenthesised relative age ending ' ago)'"
+
+            # The no-panel-yet branch stays honest: no image element, no
+            # relative-age suffix, exact caption text unchanged.
+            empty_tmp = _mkstate("p-ts-absent")
+            try:
+                rendered_empty = preview_page.render(_preview_ctx(empty_tmp))
+            finally:
+                shutil.rmtree(empty_tmp, ignore_errors=True)
+            if preview_page._NO_PANEL_CAPTION not in rendered_empty:
+                return False, "expected the honest no-panel-yet caption to survive unchanged"
+            if " ago)" in rendered_empty:
+                return False, "did not expect a relative-age suffix with no panel file"
+
+            # The mixed Z / +00:00 suffix pair this page actually
+            # produces must yield a relative suffix, not degrade to
+            # absolute-only.
+            mixed = layout.absolute_and_relative(
+                "2026-08-28T13:58:02Z", "2026-08-28T13:58:32+00:00")
+            if not mixed.endswith("(30s ago)"):
+                return False, (
+                    "expected the Z/+00:00 mixed-suffix pair to subtract "
+                    "cleanly, got %r" % mixed)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Preview's Captured caption reads 'Captured ISO (Nm ago)', the no-panel branch stays honest with no relative suffix, and the Z/+00:00 mixed-suffix mtime pair subtracts cleanly",
+        _captured_caption_absolute_and_relative)
 
     def _zero_gallery_entries_empty_state():
         tmp = _mkstate("p-gallery-empty")
