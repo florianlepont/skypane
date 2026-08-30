@@ -17,7 +17,7 @@ page contains no such control and no form-input element of any kind — do
 not add one back as an "obvious improvement" without re-opening that
 discussion.
 """
-from companion.layout import empty_state, escape_html
+from companion.layout import absolute_and_relative, empty_state, escape_html
 from server import panel_preview
 
 # D-P2-03 / server/panel_preview.py's own module docstring: the preview
@@ -64,7 +64,14 @@ def preview_section(ctx):
         image_html = (
             '<img class="preview-image" src="%s" '
             'alt="Current panel preview">' % _PREVIEW_IMAGE_ROUTE)
-        caption_text = PREVIEW_CAPTION % mtime_iso
+        # panel_file_mtime_iso() returns a Z-suffixed ISO string while
+        # ctx["now"] is +00:00-suffixed; datetime.fromisoformat() parses
+        # both into timezone-aware values on this project's interpreter
+        # (verified during planning against server/.venv/bin/python3,
+        # CPython 3.11.15 — the Z suffix has been accepted since 3.11),
+        # so subtracting them raises nothing and no normalising shim is
+        # needed.
+        caption_text = PREVIEW_CAPTION % absolute_and_relative(mtime_iso, ctx.get("now"))
     else:
         image_html = ""
         caption_text = _NO_PANEL_CAPTION
