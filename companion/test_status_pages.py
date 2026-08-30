@@ -44,7 +44,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth  # noqa: E402
+from companion import auth, layout  # noqa: E402
 from companion.pages import airlines_page, health_page  # noqa: E402
 from server import history_db  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
@@ -52,7 +52,7 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 25
+EXPECTED_CHECK_COUNT = 44  # 42 + 2 (06.6.1-04 Task 2: Health icons + Airlines iconless)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -282,29 +282,42 @@ def main():
             non_healthy = rendered.count("dot--warn") + rendered.count("dot--error")
             if non_healthy != 1:
                 return False, "expected exactly one warn/error status class, got %d" % non_healthy
-            if rendered.count("dot--ok") != 1:
-                return False, "expected exactly one healthy status class, got %d" % rendered.count("dot--ok")
+            # Two healthy dots are expected here: the fresh pipeline's, and
+            # the Battery badge's (D-01) — a single seeded reading has no
+            # consecutive pair to compare, so battery_status() correctly
+            # returns "ok".
+            if rendered.count("dot--ok") != 2:
+                return False, (
+                    "expected exactly two healthy status classes "
+                    "(pipeline + battery badge), got %d" % rendered.count("dot--ok"))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a stale device and a fresh pipeline produce one non-healthy row and one healthy row, not a blended verdict",
+        "a stale device and a fresh pipeline produce one non-healthy row and two healthy rows, not a blended verdict",
         _independent_thresholds_one_warn_one_ok)
 
-    def _battery_empty_state_no_svg():
+    # 06.6.1-04: "no <svg" stopped being a valid proxy for "no sparkline"
+    # the moment the page gained four icon instances (D-02) — a plain
+    # <svg> count would now always be non-zero. Retargeted to assert on
+    # the sparkline specifically (zero <polyline, zero SPARKLINE_DOT_CLASS),
+    # which is what this check always actually meant.
+    def _battery_empty_state_no_sparkline():
         tmp = _mkstate("h-battery-empty")
         try:
             rendered = health_page.render(_ctx(tmp))
             if "No battery readings yet." not in rendered:
                 return False, "expected the battery good-news empty-state heading"
-            if "<svg" in rendered:
-                return False, "did not expect an <svg with zero battery rows"
+            if "<polyline" in rendered:
+                return False, "did not expect a sparkline <polyline with zero battery rows"
+            if health_page.SPARKLINE_DOT_CLASS in rendered:
+                return False, "did not expect a sparkline dot with zero battery rows"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "zero battery rows render the good-news empty state and no <svg",
-        _battery_empty_state_no_svg)
+        "zero battery rows render the good-news empty state and no sparkline",
+        _battery_empty_state_no_sparkline)
 
     def _battery_trend_shows_all_readings_and_one_sparkline():
         tmp = _mkstate("h-battery-trend")
@@ -320,8 +333,15 @@ def main():
             for _ts, mv in readings:
                 if str(mv) not in rendered:
                     return False, "expected battery_mv=%d to appear (a trend, not just the latest)" % mv
-            if rendered.count("<svg") != 1:
-                return False, "expected exactly one <svg, got %d" % rendered.count("<svg")
+            # 06.6.1-04: the page now also carries four icon <svg>
+            # instances (D-02), so a bare "<svg" count of 1 no longer
+            # proves "one sparkline" — subtract the icon <use>
+            # references (one per icon <svg>) to isolate the sparkline's
+            # own non-icon <svg>. The <polyline> count below is the
+            # check's real, unweakened meaning and is unchanged.
+            non_icon_svg_count = rendered.count("<svg") - rendered.count("<use")
+            if non_icon_svg_count != 1:
+                return False, "expected exactly one non-icon <svg, got %d" % non_icon_svg_count
             if rendered.count("<polyline") != 1:
                 return False, "expected exactly one <polyline, got %d" % rendered.count("<polyline")
             return True, ""
@@ -331,6 +351,168 @@ def main():
         "three battery rows render the full trend (not just the latest value) and exactly one <svg><polyline>",
         _battery_trend_shows_all_readings_and_one_sparkline)
 
+    def _battery_badge_present_and_healthy_on_normal_trend():
+        tmp = _mkstate("h-battery-badge-ok")
+        try:
+            now = _now()
+            readings = [
+                (_iso(now - timedelta(minutes=1)), 4200),
+                (_iso(now), 4190),
+            ]
+            _seed_device_health(tmp, readings)
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if health_page.BATTERY_STATUS_LABEL not in rendered:
+                return False, "expected the battery status badge label to appear"
+            # Three healthy dots: device, pipeline (both fresh) and battery.
+            if rendered.count("dot--ok") != 3:
+                return False, "expected exactly three healthy status classes, got %d" % rendered.count("dot--ok")
+            if "dot--warn" in rendered or "dot--error" in rendered:
+                return False, "did not expect any non-healthy status class in this fixture"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Battery trend renders a healthy status_dot() badge on a normal trend (D-01)",
+        _battery_badge_present_and_healthy_on_normal_trend)
+
+    def _battery_empty_history_ok_badge_no_anomaly_banner():
+        # 06.5-RESEARCH.md Pitfall 2: the empty-history branch must stay
+        # "ok" (Assumption A1), or a freshly-provisioned device with zero
+        # readings would display "A battery reading shows an abnormal
+        # drop." — factually wrong copy. This check is a permanent
+        # regression guard against that switch.
+        #
+        # Direct unit-level proof that _battery_section([]) itself never
+        # produces an error badge or the abnormal-drop copy:
+        markup, state = health_page._battery_section([])
+        if state != "ok":
+            return False, "expected _battery_section([]) to return state 'ok', got %r" % (state,)
+        if health_page.BATTERY_STATUS_LABEL not in markup:
+            return False, "expected the battery status badge label in the empty-history markup"
+        if "dot--error" in markup or "dot--warn" in markup:
+            return False, "did not expect a non-healthy status class in the empty-history markup"
+        # Page-level proof that a fresh device with no meaningful battery
+        # readings (device/pipeline both healthy, no drop possible) never
+        # surfaces the abnormal-drop anomaly or the banner it drives —
+        # device_health and battery trend share one table, so a page-level
+        # "zero device_health rows at all" fixture would also make Device
+        # check-in read as stale for an unrelated reason; this fixture
+        # isolates the battery-specific guarantee instead.
+        tmp = _mkstate("h-battery-empty-badge")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if "dot--error" in rendered:
+                return False, "did not expect an error status class with a single battery reading"
+            if health_page.ANOMALY_BANNER_TEXT in rendered:
+                return False, "did not expect the anomaly banner with a single, healthy battery reading"
+            if "A battery reading shows an abnormal drop." in rendered:
+                return False, "did not expect the abnormal-drop copy with a single battery reading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an empty/single-reading battery trend renders an ok badge and no anomaly banner (Assumption A1 regression guard)",
+        _battery_empty_history_ok_badge_no_anomaly_banner)
+
+    # 06.6.1-UI-SPEC.md's "Anomaly detail list (removed)" row: the <ul>
+    # detail list this check used to assert on is gone this plan, so the
+    # abnormal-drop copy must now be ABSENT from the rendered page while
+    # collect_anomalies() called directly still returns it — the badge
+    # and banner assertions (the check's real meaning: one signal drives
+    # both) are kept exactly as they were.
+    def _battery_drop_drives_badge_and_banner_detail_copy_not_rendered():
+        tmp = _mkstate("h-battery-drop-badge")
+        try:
+            now = _now()
+            readings = [
+                (_iso(now - timedelta(minutes=1)), 4200),
+                (_iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+            ]
+            _seed_device_health(tmp, readings)
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if "dot--error" not in rendered:
+                return False, "expected an error status class for a drop >= BATTERY_DROP_WARN_MV"
+            count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+            if count != 1:
+                return False, "expected the anomaly banner copy exactly once, found %d" % count
+            if "A battery reading shows an abnormal drop." in rendered:
+                return False, "the abnormal-drop detail copy must no longer be rendered on the page"
+            if health_page.collect_anomalies("ok", "ok", "error", False) != [
+                    "A battery reading shows an abnormal drop."]:
+                return False, "collect_anomalies() must still compute the abnormal-drop item directly"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a real battery drop drives both the badge (error) and the banner; the detail copy is no longer rendered",
+        _battery_drop_drives_badge_and_banner_detail_copy_not_rendered)
+
+    def _anomaly_detail_list_markup_is_gone():
+        tmp = _mkstate("h-no-list-markup")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if rendered.count("<ul") != 0:
+                return False, "expected zero <ul occurrences — the anomaly detail list must be gone"
+            if rendered.count("<li") != 0:
+                return False, "expected zero <li occurrences — the anomaly detail list must be gone"
+            count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+            if count != 1:
+                return False, "expected the anomaly banner copy exactly once, found %d" % count
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an unhealthy fixture renders the anomaly banner with zero <ul/<li list markup",
+        _anomaly_detail_list_markup_is_gone)
+
+    def _none_of_the_four_anomaly_item_strings_render():
+        tmp = _mkstate("h-all-four-anomalies")
+        try:
+            now = _now()
+            # Trip all four D-14 signals at once: stale device, stale
+            # pipeline, an abnormal battery drop, and a disagreement
+            # recorded within the corroboration window.
+            _seed_device_health(tmp, [
+                (_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4200),
+                (_ago(health_page.STALE_DEVICE_ERROR_S + 30),
+                 4200 - health_page.BATTERY_DROP_WARN_MV),
+            ])
+            _seed_meta(tmp, **{
+                history_db.META_LAST_PIPELINE_RUN:
+                    _ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc123", "corroborated": False}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            expected_items = health_page.collect_anomalies("error", "error", "error", True)
+            if len(expected_items) != 4:
+                return False, "expected collect_anomalies() to return all four items, got %r" % (expected_items,)
+            count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
+            if count != 1:
+                return False, "expected the anomaly banner copy exactly once, found %d" % count
+            for item in expected_items:
+                if item in rendered:
+                    return False, "anomaly item copy leaked into the rendered page: %r" % item
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with all four D-14 signals unhealthy, none of collect_anomalies()'s four item strings is rendered",
+        _none_of_the_four_anomaly_item_strings_render)
+
+    # This check's scope is narrower than it first appears — it exercises
+    # only battery_sparkline_svg()'s own return value, which still never
+    # gains a script/url/image reference after Task 2's D-02 markup was
+    # added. The page-level "exactly one scoped script" guarantee is
+    # carried by _page_allows_exactly_one_scoped_script_no_inline_handlers()
+    # below, added additively rather than by relaxing this one.
     def _sparkline_has_no_external_reference():
         rows = [
             {"ts": "t1", "battery_mv": 4200},
@@ -345,6 +527,142 @@ def main():
     check(
         "battery_sparkline_svg() emits no url(, <image, or <script — no external reference at all",
         _sparkline_has_no_external_reference)
+
+    def _sparkline_svg_has_per_point_interactive_markup():
+        rows = [
+            {"ts": "2024-01-03T00:00:00", "battery_mv": 4050},
+            {"ts": "2024-01-02T00:00:00", "battery_mv": 4100},
+            {"ts": "2024-01-01T00:00:00", "battery_mv": 4200},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        if svg.count(health_page.SPARKLINE_HIT_CLASS) != 3:
+            return False, "expected exactly 3 hit-target circles, got %d" % svg.count(health_page.SPARKLINE_HIT_CLASS)
+        if svg.count(health_page.SPARKLINE_DOT_CLASS) != 3:
+            return False, "expected exactly 3 cosmetic dot circles, got %d" % svg.count(health_page.SPARKLINE_DOT_CLASS)
+        if svg.count("data-mv=") != 3:
+            return False, "expected exactly 3 data-mv attributes, got %d" % svg.count("data-mv=")
+        if svg.count("data-ts=") != 3:
+            return False, "expected exactly 3 data-ts attributes, got %d" % svg.count("data-ts=")
+        if svg.count("<title") != 3:
+            return False, "expected exactly 3 <title elements, got %d" % svg.count("<title")
+        if svg.count('tabindex="0"') != 3:
+            return False, "expected exactly 3 tabindex=\"0\" hit targets, got %d" % svg.count('tabindex="0"')
+        if svg.count("<polyline") != 1:
+            return False, "expected exactly 1 <polyline, got %d" % svg.count("<polyline")
+        for _ts, mv in [(r["ts"], r["battery_mv"]) for r in rows]:
+            if ('data-mv="%d"' % mv) not in svg:
+                return False, "expected battery_mv=%d to appear inside a data-mv attribute" % mv
+        oldest_index = svg.find("2024-01-01T00:00:00")
+        middle_index = svg.find("2024-01-02T00:00:00")
+        newest_index = svg.find("2024-01-03T00:00:00")
+        if not (oldest_index < middle_index < newest_index):
+            return False, "expected timestamps in chronological (oldest-first) order, matching the polyline's own ordering"
+        return True, ""
+    check(
+        "battery_sparkline_svg() emits per-point interactive hit targets with data-mv/data-ts/<title>, in chronological order",
+        _sparkline_svg_has_per_point_interactive_markup)
+
+    def _page_allows_exactly_one_scoped_script_no_inline_handlers():
+        tmp = _mkstate("h-script-scope")
+        try:
+            base = _now()
+            _seed_device_health(tmp, [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if rendered.count("<script") != 1:
+                return False, "expected exactly one <script tag, got %d" % rendered.count("<script")
+            if health_page.BATTERY_TREND_SCRIPT_SRC not in rendered:
+                return False, "expected BATTERY_TREND_SCRIPT_SRC in the rendered <script src>"
+            for forbidden in ("onclick=", "onmouseover=", "ontouchstart=", "onfocus=", "onload="):
+                if forbidden in rendered:
+                    return False, "found forbidden inline event-handler attribute %r" % forbidden
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a chart-bearing page emits exactly one scoped <script src> and zero inline event-handler attributes",
+        _page_allows_exactly_one_scoped_script_no_inline_handlers)
+
+    def _empty_battery_history_stays_script_free():
+        tmp = _mkstate("h-empty-script-free")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            if "<script" in rendered:
+                return False, "did not expect any <script tag with zero battery rows"
+            # 06.6.1-04: "no <svg" stopped being a valid proxy for "no
+            # sparkline" once the page gained four icon instances (D-02)
+            # — retargeted to the sparkline-specific markers, same fix
+            # as _battery_empty_state_no_sparkline() above. The
+            # <script>/readout assertions below are unaffected and are
+            # this check's real, unchanged subject.
+            if "<polyline" in rendered:
+                return False, "did not expect a sparkline <polyline with zero battery rows"
+            if health_page.SPARKLINE_DOT_CLASS in rendered:
+                return False, "did not expect a sparkline dot with zero battery rows"
+            if health_page.BATTERY_READOUT_ID in rendered:
+                return False, "did not expect the readout element id with zero battery rows"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the empty-history battery path stays script-free — no <script, no <svg, no readout element",
+        _empty_battery_history_stays_script_free)
+
+    def _hostile_timestamp_is_escaped_in_chart_markup():
+        tmp = _mkstate("h-hostile-ts")
+        try:
+            base = _now()
+            hostile_ts = '2024-01-01T00:00:00Z"><script>alert(1)</script>'
+            _seed_device_health(tmp, [
+                (hostile_ts, 4200),
+                (_iso(base), 4190),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if hostile_ts in rendered:
+                return False, "the raw hostile timestamp fragment survived unescaped into the output"
+            if '"><script>alert(1)</script>' in rendered:
+                return False, "the raw quote-and-tag fragment survived unescaped into a double-quoted attribute"
+            escaped_ts = health_page.escape_html(hostile_ts)
+            if escaped_ts not in rendered:
+                return False, "expected the escaped form of the hostile timestamp to appear"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a hostile timestamp reaching data-ts/<title> is escaped, never interpolated raw",
+        _hostile_timestamp_is_escaped_in_chart_markup)
+
+    def _cross_file_contract_drift_guard():
+        import companion.app as app_module
+        if app_module.SCRIPT_ROUTE != health_page.BATTERY_TREND_SCRIPT_SRC:
+            return False, "companion.app.SCRIPT_ROUTE and health_page.BATTERY_TREND_SCRIPT_SRC have drifted apart"
+        js_path = os.path.join(HERE, "static", "battery-trend.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+        if health_page.BATTERY_READOUT_ID not in js_source:
+            return False, "battery-trend.js no longer references BATTERY_READOUT_ID's literal value"
+        if health_page.SPARKLINE_HIT_CLASS not in js_source:
+            return False, "battery-trend.js no longer references SPARKLINE_HIT_CLASS's literal value"
+        tmp = _mkstate("h-contract-drift")
+        try:
+            base = _now()
+            _seed_device_health(tmp, [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if health_page.BATTERY_READOUT_ID not in rendered:
+                return False, "expected BATTERY_READOUT_ID in a rendered chart-bearing page"
+            if health_page.SPARKLINE_HIT_CLASS not in rendered:
+                return False, "expected SPARKLINE_HIT_CLASS in a rendered chart-bearing page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Python/CSS/JS three-file contract (route + DOM literals) is guarded against silent drift",
+        _cross_file_contract_drift_guard)
 
     def _battery_drop_flags_anomaly_gentle_decline_does_not():
         # battery_status() takes newest-first rows (matching
@@ -481,6 +799,266 @@ def main():
     check(
         "companion/pages/health_page.py never imports the stdlib html module directly",
         _health_page_never_imports_html_module)
+
+    def _health_page_renders_one_dashboard_grid_of_three_tiles_plus_battery_section():
+        tmp = _mkstate("h-dashboard-grid")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if rendered.count('<div class="dashboard-grid">') != 1:
+                return False, (
+                    "expected exactly one dashboard-grid div, got %d"
+                    % rendered.count('<div class="dashboard-grid">'))
+            if rendered.count('class="stat-tile') != 3:
+                return False, (
+                    "expected exactly three stat-tile occurrences, got %d"
+                    % rendered.count('class="stat-tile'))
+            if rendered.count(">Overview<") != 1:
+                return False, (
+                    "expected exactly one Overview group heading, got %d"
+                    % rendered.count(">Overview<"))
+            if 'class="page-section"' in rendered:
+                return False, "did not expect any page-section from the four signal sections"
+            if rendered.count(health_page.BATTERY_SECTION_CLASS) != 1:
+                return False, (
+                    "expected exactly one battery-trend section, got %d"
+                    % rendered.count(health_page.BATTERY_SECTION_CLASS))
+            grid_close_index = rendered.index('<div class="dashboard-grid">') + rendered[
+                rendered.index('<div class="dashboard-grid">'):].index("</div>")
+            if rendered.index(health_page.BATTERY_SECTION_CLASS) <= grid_close_index:
+                return False, "expected the battery-trend section to follow the dashboard-grid, not precede/overlap it"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a healthy fixture renders one dashboard-grid with exactly three stat tiles under one Overview heading, "
+        "plus a positioned battery-trend section after it",
+        _health_page_renders_one_dashboard_grid_of_three_tiles_plus_battery_section)
+
+    def _battery_section_keeps_everything_after_the_move():
+        tmp = _mkstate("h-battery-section-intact")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if ">%s<" % health_page.BATTERY_SECTION_HEADING not in rendered:
+                return False, "expected BATTERY_SECTION_HEADING inside an <h2>"
+            if health_page.BATTERY_STATUS_LABEL not in rendered:
+                return False, "expected the battery status badge label to survive the move"
+            if health_page.BATTERY_READOUT_ID not in rendered:
+                return False, "expected the readout element id to survive the move"
+            if rendered.count("<script") != 1:
+                return False, "expected exactly one <script occurrence, got %d" % rendered.count("<script")
+            if health_page.BATTERY_TREND_SCRIPT_SRC not in rendered:
+                return False, "expected BATTERY_TREND_SCRIPT_SRC in the rendered <script src>"
+            # Slice to the battery section's own boundaries — the three
+            # surviving tiles would make a whole-page "no stat-tile"
+            # search trivially fail.
+            section_start = rendered.index('<section class="%s">' % health_page.BATTERY_SECTION_CLASS)
+            section_html = rendered[section_start:]
+            if "stat-tile" in section_html:
+                return False, "the battery-trend section must carry no stat-tile class"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the battery-trend section keeps its badge, readout, and single script tag after moving out of the grid",
+        _battery_section_keeps_everything_after_the_move)
+
+    def _battery_section_class_is_styled_in_stylesheet():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        if health_page.BATTERY_SECTION_CLASS not in css_source:
+            return False, "companion/static/style.css no longer styles BATTERY_SECTION_CLASS"
+        return True, ""
+    check(
+        "health_page.BATTERY_SECTION_CLASS is guarded against silent drift from companion/static/style.css",
+        _battery_section_class_is_styled_in_stylesheet)
+
+    def _anomaly_active_agrees_with_banner_both_directions():
+        # Compare the two booleans against each other, not against
+        # hard-coded expectations, so this pins *agreement* (the
+        # property that matters on screen) rather than restating the
+        # anomaly rules a third time. Includes both a healthy and an
+        # unhealthy fixture so the check cannot pass vacuously.
+        fixtures = []
+
+        healthy = _mkstate("h-agree-healthy")
+        now = _now()
+        _seed_device_health(healthy, [(_iso(now), 4200)])
+        _seed_meta(healthy, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+        fixtures.append((healthy, _iso(now)))
+
+        stale_device = _mkstate("h-agree-stale-device")
+        _seed_device_health(
+            stale_device, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+        _seed_meta(stale_device, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+        fixtures.append((stale_device, _iso(now)))
+
+        battery_drop = _mkstate("h-agree-battery-drop")
+        _seed_device_health(battery_drop, [
+            (_iso(now - timedelta(minutes=1)), 4200),
+            (_iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+        ])
+        _seed_meta(battery_drop, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+        fixtures.append((battery_drop, _iso(now)))
+
+        try:
+            for tmp, ts in fixtures:
+                verdict = health_page.anomaly_active(tmp, ts)
+                rendered = health_page.render(_ctx(tmp, now=ts))
+                banner_present = health_page.ANOMALY_BANNER_TEXT in rendered
+                if verdict != banner_present:
+                    return False, (
+                        "anomaly_active()=%r disagreed with the banner's presence=%r for %r"
+                        % (verdict, banner_present, tmp))
+            return True, ""
+        finally:
+            for tmp, _ts in fixtures:
+                shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "anomaly_active() and the anomaly banner's presence agree in both directions, across healthy and unhealthy fixtures",
+        _anomaly_active_agrees_with_banner_both_directions)
+
+    def _anomaly_active_never_raises_on_hostile_inputs():
+        # anomaly_active() runs on every authenticated page render via
+        # page_context() (companion/app.py) — it may never fault a page
+        # that has nothing to do with Health. Precedent:
+        # runway_images_available() (Phase 06.4)'s own never-raises
+        # contract for the same reason.
+        #
+        # Three of the four hostile inputs below make the database
+        # itself unopenable, which _safe_query() maps to _DB_UNAVAILABLE
+        # for every read — and every section builder's _DB_UNAVAILABLE
+        # branch returns state "ok", so collect_anomalies() correctly
+        # returns False for all three. A genuinely empty-but-writable
+        # directory is different: open_db() succeeds there (it creates
+        # the schema), so Device/Pipeline legitimately read as "warn"
+        # (D-12's documented "never seen" default) — the same "warn" a
+        # freshly-provisioned deployment already shows on the page via
+        # render() itself (confirmed by direct execution: render()
+        # already shows ANOMALY_BANNER_TEXT for a truly empty state_dir,
+        # unrelated to and predating this plan). That case is asserted
+        # for "does not raise" and "agrees with render()", not for a
+        # specific boolean value.
+        if health_page.anomaly_active("/nonexistent/definitely-not-here") is not False:
+            return False, "expected False for a non-existent state_dir path"
+
+        empty = tempfile.mkdtemp(prefix="skypane-status-pages-anomaly-empty-")
+        try:
+            empty_verdict = health_page.anomaly_active(empty)
+            if not isinstance(empty_verdict, bool):
+                return False, "expected a bool (no raise) for an empty temporary directory, got %r" % (empty_verdict,)
+            rendered = health_page.render(_ctx(empty))
+            if empty_verdict != (health_page.ANOMALY_BANNER_TEXT in rendered):
+                return False, "anomaly_active() disagreed with render()'s banner for an empty directory"
+            with history_db.open_db(empty):
+                pass
+            dbs = [f for f in os.listdir(empty) if f.endswith(".db")]
+            if not dbs:
+                return False, "expected a database file to have been created"
+            with open(os.path.join(empty, dbs[0]), "wb") as fh:
+                fh.write(b"not a sqlite file at all")
+            if health_page.anomaly_active(empty) is not False:
+                return False, "expected False for a corrupt database, not a raise"
+        finally:
+            shutil.rmtree(empty, ignore_errors=True)
+
+        fd, path = tempfile.mkstemp(prefix="skypane-status-pages-anomaly-file-")
+        os.close(fd)
+        try:
+            if health_page.anomaly_active(path) is not False:
+                return False, "expected False for a state_dir that is a regular file, not a directory"
+        finally:
+            os.unlink(path)
+        return True, ""
+    check(
+        "anomaly_active() runs on every page render and must never raise — missing/empty/file/corrupt-db inputs all degrade safely",
+        _anomaly_active_never_raises_on_hostile_inputs)
+
+    def _health_page_section_builder_markup_survives_reframe():
+        tmp = _mkstate("h-reframe-survives")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=2)), 4200),
+                (_iso(base - timedelta(minutes=1)), 4190),
+                (_iso(base), 4180),
+            ]
+            _seed_device_health(tmp, readings)
+            _seed_runway_events(tmp, [
+                dict(
+                    ts=_iso(base), hex="abc123", confirmed_state="DEPARTING",
+                    corroborated="True"),
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if "dot--" not in rendered:
+                return False, "expected at least one dot-- status class to survive the reframe"
+            if '<table class="data-table">' not in rendered:
+                return False, "expected the battery table to survive the reframe"
+            if "<svg" not in rendered:
+                return False, "expected the battery sparkline svg to survive the reframe"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "battery and corroboration section-builder markup (dot, table, svg) survives the stat-tile reframe untouched",
+        _health_page_section_builder_markup_survives_reframe)
+
+    def _health_page_four_icons_correctly_placed_and_tinted():
+        four = (
+            health_page.ICON_DEVICE, health_page.ICON_PIPELINE,
+            health_page.ICON_CORROBORATION, health_page.ICON_BATTERY)
+        if len(set(four)) != 4:
+            return False, "expected the four Health icon constants to be distinct: %r" % (four,)
+        for icon_id in four:
+            if icon_id not in layout.ICON_IDS:
+                return False, "%r is not a member of layout.ICON_IDS" % icon_id
+        tmp = _mkstate("h-icons")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            if rendered.count("<use") != 4:
+                return False, "expected exactly four <use occurrences, got %d" % rendered.count("<use")
+            for icon_id in four:
+                count = rendered.count("#" + icon_id)
+                if count != 1:
+                    return False, "expected %r exactly once, got %d" % (icon_id, count)
+            if rendered.count(layout.STAT_TILE_ICON_CLASS) != 3:
+                return False, "expected exactly the three tile icons to carry the tint class, got %d" % (
+                    rendered.count(layout.STAT_TILE_ICON_CLASS))
+            section_start = rendered.index(health_page.BATTERY_SECTION_CLASS)
+            icon_index = rendered.index("#" + health_page.ICON_BATTERY)
+            heading_close = rendered.index("</h2>", section_start)
+            if not (section_start < icon_index < heading_close):
+                return False, "expected the battery icon to sit inside the section heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health renders exactly four icon instances — three tinted tile icons plus one heading icon, all whitelisted",
+        _health_page_four_icons_correctly_placed_and_tinted)
+
+    def _airlines_page_stays_iconless():
+        tmp = _mkstate("a-iconless")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            if rendered.count("<use") != 0:
+                return False, "expected zero <use occurrences on Airlines this phase"
+            if rendered.count("<svg") != 0:
+                return False, "expected zero <svg occurrences on Airlines this phase"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Airlines page stays iconless — icons are scoped to Health this phase",
+        _airlines_page_stays_iconless)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py
@@ -666,6 +1244,37 @@ def main():
     check(
         "companion/pages/airlines_page.py never references enrich.py's prefix-derivation internals",
         _airlines_page_source_never_rederives_enrich_logic)
+
+    def _airlines_page_renders_one_dashboard_grid_of_two_tiles():
+        tmp = _mkstate("a-dashboard-grid")
+        try:
+            registry = {
+                "ABC": {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            rendered = airlines_page.render(_ctx(tmp))
+            if rendered.count('<div class="dashboard-grid">') != 1:
+                return False, (
+                    "expected exactly one dashboard-grid div, got %d"
+                    % rendered.count('<div class="dashboard-grid">'))
+            if rendered.count('class="stat-tile') != 2:
+                return False, (
+                    "expected exactly two stat-tile occurrences, got %d"
+                    % rendered.count('class="stat-tile'))
+            if rendered.count('<h2 class="text-heading">Coverage</h2>') != 1:
+                return False, (
+                    "expected exactly one Coverage group heading, got %d"
+                    % rendered.count('<h2 class="text-heading">Coverage</h2>'))
+            if "stat-tile--warn" not in rendered:
+                return False, "expected the registry tile to carry stat-tile--warn with a non-empty registry"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a non-empty registry renders one dashboard-grid with exactly two stat tiles under one Coverage heading, registry tile stat-tile--warn",
+        _airlines_page_renders_one_dashboard_grid_of_two_tiles)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,

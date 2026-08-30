@@ -1,14 +1,26 @@
 /*
  * SkyPane companion service — hand-written stylesheet, no build step, no
- * framework, no web font, no icon font (06-UI-SPEC.md Design System). This
- * is a deliberately separate, lower-investment visual register from the
- * physical frame's own design system (D-21) — the frame's vendored fonts
- * and PALETTE_RGB values must never be pulled in here.
+ * framework, no web font, no icon font (06-UI-SPEC.md Design System).
+ * 06.3-CONTEXT.md's D-01 supersedes 06-CONTEXT.md's D-21 for the companion
+ * app: this stylesheet now carries its own full visual identity (colour,
+ * type, spacing, card treatment, dashboard layout), while staying entirely
+ * separate from the physical frame's own design system — the frame's
+ * vendored fonts and PALETTE_RGB values must still never be pulled in here.
  *
- * Accent is reserved to exactly four uses: primary buttons, the active
- * nav-tab indicator, links, and the focused-input outline. Do not broaden
- * this list without updating 06-UI-SPEC.md's Color section — everything
- * else interactive uses neutral gray, never accent blue.
+ * Accent is reserved to exactly these uses (06.6.1-UI-SPEC.md Color
+ * section): primary buttons, the active sidebar-link/dropdown-link
+ * indicator, links, the focused-input outline, a stat tile's icon tint and
+ * top accent when no ok/warn/error status applies, and the hamburger
+ * toggle's active state. Do not broaden this list without updating
+ * 06.6.1-UI-SPEC.md's Color section — everything else interactive uses
+ * neutral gray, never a repurposed accent colour.
+ *
+ * Border is structural only — the sidebar/content divider, fieldset
+ * borders, table borders, and the mobile-nav dropdown's own edge. It is
+ * never used as an interactive-state signal and never substitutes for the
+ * accent or status colours. Since 06.6.1 (D-02) it is also no longer used
+ * for card outlines — .stat-tile/.page-section/.battery-trend-section
+ * carry --shadow-card instead of a --color-border hairline.
  *
  * Theme resolution (CFG-09): `prefers-color-scheme` supplies the default;
  * an explicit `data-ui-theme="light"`/`data-ui-theme="dark"` attribute on
@@ -17,7 +29,9 @@
  * override rule of its own, so the media query keeps governing.
  *
  * Zero external references anywhere in this file: no CSS url function,
- * no custom font-face declaration, no remote asset of any kind.
+ * no custom font-face declaration, no remote asset of any kind. This
+ * stays true even after 06.6.1 added a serif font family and card
+ * shadows — --font-serif is a system font stack, not a web font.
  */
 
 :root {
@@ -28,6 +42,7 @@
   --space-lg: 24px;
   --space-xl: 32px;
   --space-2xl: 48px;
+  --space-3xl: 64px;
 
   /* Typography scale: exactly 4 sizes, 2 weights */
   --font-label-size: 14px;
@@ -39,11 +54,31 @@
 
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* 06.6.1 (D-03): headings-only warm serif. A system stack on purpose —
+   * the file's zero-external-reference constraint forbids loading a web
+   * font, and that stays literally true with this token. */
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+
+  /* 06.6.1 (D-02): mode-independent structural tokens. --radius-card
+   * deliberately revises 06.3's "0-4px sharp/minimal" rule — softer
+   * rounding is part of D-02's visible-relief direction, not a
+   * contradiction of the earlier spec. */
+  --radius-card: 10px;
+  --radius-control: 8px;
 
   /* Light mode (default) */
-  --color-dominant: #FFFFFF;
-  --color-secondary: #F1F3F6;
-  --color-accent: #2563EB;
+  --color-dominant: #FBF9F6;
+  --color-secondary: #F3EEE7;
+  --color-border: #E2E6EE;
+  /* 06.6.1 (D-04): terracotta/red-orange, hue ~16°, deliberately separated
+   * from --color-status-warn's golden amber (~32°) so an accent-coloured
+   * control and a warning dot never read as the same signal at a glance.
+   * Do not shift this toward a more golden orange without re-verifying
+   * that separation — D-04 names that substitution as forbidden. */
+  --color-accent: #E8622C;
+  --color-accent-hover: #D2521F;
+  --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-destructive: #DC2626;
   --color-text: #12151B;
   --color-status-ok: #16A34A;
@@ -53,9 +88,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-dominant: #12151B;
-    --color-secondary: #1C2028;
-    --color-accent: #5B8DEF;
+    --color-dominant: #0D0F14;
+    --color-secondary: #1A1E27;
+    --color-border: #262B36;
+    --color-accent: #FF8A5C;
+    --color-accent-hover: #FF9E77;
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
     --color-destructive: #F87171;
     --color-text: #F1F3F6;
     --color-status-ok: #4ADE80;
@@ -66,9 +105,13 @@
 
 /* CFG-09 explicit overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
-  --color-dominant: #FFFFFF;
-  --color-secondary: #F1F3F6;
-  --color-accent: #2563EB;
+  --color-dominant: #FBF9F6;
+  --color-secondary: #F3EEE7;
+  --color-border: #E2E6EE;
+  --color-accent: #E8622C;
+  --color-accent-hover: #D2521F;
+  --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-destructive: #DC2626;
   --color-text: #12151B;
   --color-status-ok: #16A34A;
@@ -77,9 +120,13 @@ html[data-ui-theme="light"] {
 }
 
 html[data-ui-theme="dark"] {
-  --color-dominant: #12151B;
-  --color-secondary: #1C2028;
-  --color-accent: #5B8DEF;
+  --color-dominant: #0D0F14;
+  --color-secondary: #1A1E27;
+  --color-border: #262B36;
+  --color-accent: #FF8A5C;
+  --color-accent-hover: #FF9E77;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
   --color-destructive: #F87171;
   --color-text: #F1F3F6;
   --color-status-ok: #4ADE80;
@@ -121,14 +168,36 @@ body {
 
 .text-heading {
   font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-regular);
   line-height: 1.2;
 }
 
+/* 06.6.1 (D-03): headings move onto var(--font-serif). This is a
+ * headings-only treatment — body text, table cells, form controls, nav
+ * links and monospace content stay on --font-ui, never var(--font-serif).
+ * That boundary is the whole substance of D-03; do not extend serif
+ * beyond h1/h2/h3/.text-heading/.site-title/.sidebar-title/
+ * .stat-tile__caption (the one named Label-role exception, see the
+ * stat-tile section below). */
+h1,
+h2,
+h3,
+.text-heading {
+  font-family: var(--font-serif);
+  font-weight: var(--weight-regular);
+  letter-spacing: -0.01em;
+}
+
+/* 06.6.1 (D-01): the wordmark moves from the Display role to the Heading
+ * role — crafted typography instead of a default bold sans, with no logo
+ * asset introduced. --font-display-size now belongs to .stat-tile__value
+ * and .runway-option__number alone. */
 .site-title {
-  font-size: var(--font-display-size);
-  font-weight: var(--weight-semibold);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-regular);
+  font-family: var(--font-serif);
   line-height: 1.2;
+  letter-spacing: 0.02em;
 }
 
 /* Visible focus outline on every focusable element — never removed without
@@ -145,47 +214,164 @@ a {
   color: var(--color-accent);
 }
 
-/* Nav bar */
+a:hover {
+  color: var(--color-accent-hover);
+}
+
+/* Nav bar (header). 06.6.1 (D-00/D-06, Reconciliation 2): the horizontal
+ * `.nav-bar`/`.nav-tab` strip that used to render here below 960px is
+ * removed outright, not merely hidden — the hamburger dropdown below
+ * replaces its role at that breakpoint. Prior history, preserved for the
+ * record: `.nav-bar`'s `overflow-x: auto` zeroed its own automatic
+ * minimum width per CSS Flexbox 4.5, so it silently lost all its width to
+ * `.theme-form` (which had no such minimum override) instead of wrapping
+ * onto its own row — that collapsed the strip to ~26px on a 375px
+ * viewport, hiding every tab but a sliver of "Config". Commit `b90ed88`
+ * fixed that specific collapse (`flex: 1 1 200px` on `.nav-bar`,
+ * `flex-wrap: wrap` here). Real-device testing during 06.5-03 then found
+ * the horizontally-scrollable strip itself — even correctly sized — hid
+ * most tabs behind an undiscoverable swipe (only 3-4 of 5 tabs visible at
+ * once on a real phone). Rather than tuning the flex sizing a second
+ * time, this phase removes the pattern the bug lived in. `.mobile-nav`
+ * relies on `flex-wrap` here to drop onto its own full-width row below
+ * the title/toggle row — it stays in normal document flow (see
+ * `.mobile-nav` below) rather than being taken out of it, which is what
+ * lets its `max-height` transition actually push page content down
+ * instead of overlaying it. An earlier version of this rule used
+ * `position: absolute` on `.mobile-nav` for that same goal; absolute
+ * positioning removes an element from flow entirely, so it could only
+ * ever overlay, never push — a real defect found on real-device
+ * verification (06.6.1-06-SUMMARY.md), fixed here. */
 .site-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-lg);
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-lg);
   background: var(--color-secondary);
   margin-bottom: var(--space-xl);
 }
 
-.nav-bar {
-  display: flex;
-  gap: var(--space-md);
-  overflow-x: auto;
-  flex: 1;
-}
-
-/* Below ~480px the nav becomes a horizontally-scrollable strip — no
- * hamburger menu needed for 5 tabs (D-22, 06-UI-SPEC.md Navigation). */
-@media (max-width: 480px) {
-  .nav-bar {
-    flex-wrap: nowrap;
-  }
-}
-
-.nav-tab {
-  display: inline-flex;
-  align-items: center;
+/* Hamburger toggle (06.6.1 D-06). Not type="submit", so the
+ * button[type="submit"] accent-fill rule does not reach it and no
+ * defensive override is needed here — if a later change ever makes it a
+ * submit button, this rule would lose, the same trap
+ * `.theme-form .theme-option` already documents. State is styled off
+ * aria-expanded, not a duplicate CSS class, so the visual state and the
+ * accessibility state are physically the same attribute and cannot
+ * drift. */
+.site-nav-toggle {
+  margin-left: auto;
   min-height: 44px;
   min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.site-nav-toggle[aria-expanded="true"] {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Dropdown panel. max-height (not display or height: auto) is used
+ * because neither of the latter can be transitioned; overflow: hidden is
+ * what makes the collapsed state actually hide its contents rather than
+ * merely clip them visually. `flex-basis: 100%` (not `position: absolute`
+ * — see .site-header's comment above) is what forces this onto its own
+ * full-width row below the title/toggle row within the wrapping flex
+ * header, while staying in normal flow so the max-height transition
+ * genuinely pushes .page-content down instead of overlaying it. */
+.mobile-nav {
+  flex-basis: 100%;
+  background: var(--color-secondary);
+  box-shadow: var(--shadow-card-hover);
+  border-bottom-left-radius: var(--radius-card);
+  border-bottom-right-radius: var(--radius-card);
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .22s ease;
+}
+
+.mobile-nav--open {
+  max-height: 420px;
+}
+
+.mobile-nav__nav {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-sm);
+}
+
+/* The 44px floor is D-22. The explicit --font-ui is D-03's boundary
+ * stated in code: the sketch prototype rendered these links in serif at
+ * 18px and that detail was deliberately not carried into the contract —
+ * nav links stay Body-size sans-serif here, matching the sidebar. */
+.mobile-nav__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
   padding: 0 var(--space-sm);
   color: var(--color-text);
   text-decoration: none;
   font-size: var(--font-body-size);
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
+  font-family: var(--font-ui);
+  border-left: 3px solid transparent;
 }
 
-.nav-tab--active {
-  border-bottom-color: var(--color-accent);
+/* Same active-indicator idiom .sidebar-link--active already uses, so the
+ * two navigation renderings signal "you are here" identically. */
+.mobile-nav__link--active {
+  border-left-color: var(--color-accent);
   color: var(--color-accent);
+}
+
+/* The theme picker's new home, separated from the links by a hairline —
+ * this is where it relocates now that it is no longer squeezed into the
+ * header row, which is what removes D-00's root cause rather than
+ * re-fixing it. */
+.mobile-nav .theme-form {
+  padding: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
+/* .site-header { display: none } inside the >=960px block below already
+ * removes the toggle and the dropdown along with their parent header — no
+ * additional hide rule is needed here, and none should be added. */
+
+/* Health nav-tab notification dot (06.6.1). Emitted with the existing
+ * .dot.dot--error classes (plan 04), so it inherits the circle shape, the
+ * destructive colour and the vertical alignment from .dot/.dot--error and
+ * only overrides size and spacing — deliberately reuses .dot--error
+ * rather than introducing a fourth status colour. margin-right: 0
+ * cancels .dot's own trailing margin because nothing follows it. */
+.nav-notification {
+  width: 8px;
+  height: 8px;
+  margin-left: var(--space-xs);
+  margin-right: 0;
+}
+
+/* Screen-reader-only utility, carries the Health nav label's " —
+ * attention needed" suffix. Must never be given display: none or
+ * visibility: hidden — either would remove the text from the
+ * accessibility tree and defeat its only purpose. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .theme-form {
@@ -193,24 +379,71 @@ a {
   gap: var(--space-xs);
 }
 
-.theme-option {
+/* Doubled `.theme-form .theme-option` (specificity 0,2,0) rather than the
+ * bare class (0,1,0): theme-option buttons are `<button type="submit">`,
+ * so the later `button[type="submit"]` rule (0,1,1) would otherwise win
+ * on `background` regardless of source order, painting every theme
+ * button — active or not — with the same accent fill and making the
+ * active indicator below effectively invisible. */
+.theme-form .theme-option {
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-sm);
   background: transparent;
   border: 1px solid var(--color-secondary);
+  border-radius: var(--radius-control);
   color: var(--color-text);
   font-size: var(--font-label-size);
   cursor: pointer;
 }
 
-.theme-option--active {
+.theme-form .theme-option--active {
   border-color: var(--color-accent);
   color: var(--color-accent);
 }
 
+/* Dashboard sidebar (D-02, >=960px only). Base state is hidden — the
+ * 960px @media block below turns it on. Using `display` (rather than a
+ * transparency or CSS-visibility approach) keeps the hidden copy out of
+ * the tab order and the accessibility tree at mobile width, so a phone
+ * user tabbing through the page never lands on an invisible link and the
+ * page never exposes two navigation landmarks at once. */
+.dashboard-sidebar {
+  display: none;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--font-body-size);
+  border-left: 3px solid transparent;
+  letter-spacing: 0.02em;
+}
+
+.sidebar-link--active {
+  border-left-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* 06.6.1 (D-02/D-04, Reconciliation 1): top/bottom padding is promoted to
+ * 2xl (48px, was zero top / lg bottom) for the airier global direction.
+ * Sides deliberately stay at lg (24px), not the spec table's 3xl — 64px of
+ * side padding on a 375px phone viewport would leave a 247px content
+ * column, directly contradicting D-22's mobile floor. The 2xl/3xl pair the
+ * spec asks for instead lands on .dashboard-main below (the >=960px
+ * content-column level the spec actually names). */
 .page-content {
-  padding: 0 var(--space-lg) var(--space-lg);
+  padding: var(--space-xl) var(--space-lg) var(--space-2xl);
 }
 
 /* Status dot: a 12px circle plus a Label-size text description */
@@ -260,7 +493,7 @@ a {
 
 /* Forms and fieldsets */
 fieldset {
-  border: 1px solid var(--color-secondary);
+  border: 1px solid var(--color-border);
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
 }
@@ -284,6 +517,7 @@ select {
   padding: var(--space-sm);
   background: var(--color-secondary);
   border: 1px solid var(--color-secondary);
+  border-radius: var(--radius-control);
   color: var(--color-text);
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
@@ -296,15 +530,31 @@ button {
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
   border: none;
+  border-radius: var(--radius-control);
   cursor: pointer;
   background: var(--color-secondary);
   color: var(--color-text);
 }
 
-/* Primary button — the one non-nav, non-link accent use. */
+/* Primary-action buttons (Save Settings, Trigger Poll Now, Save LED
+ * Setting, Sign In) — accent fill. Theme-picker buttons are also
+ * type="submit" but are excluded via the higher-specificity
+ * `.theme-form .theme-option` rule above, which is what actually keeps
+ * them out of this accent treatment, not their absence from this
+ * selector's match set. */
 button[type="submit"] {
   background: var(--color-accent);
   color: var(--color-dominant);
+}
+
+/* Not a bare .theme-option:hover: .theme-form .theme-option (0,2,0) is
+ * what currently keeps theme buttons out of this accent fill (see the
+ * comment above that rule), and a lower-specificity hover rule here would
+ * lose to this selector and repaint them — the exact 06.3-REVIEW.md
+ * finding this file already carries a comment about. If a theme-button
+ * hover state is wanted, write it as .theme-form .theme-option:hover. */
+button[type="submit"]:hover {
+  background: var(--color-accent-hover);
 }
 
 /* Disabled/cooldown state (CFG-07/D-17): reduced opacity, not-allowed
@@ -314,11 +564,33 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Runway picker (06.4): number prominence + optional airport diagram. */
+.runway-option {
+  margin-bottom: var(--space-lg);
+}
+
+.runway-option__number {
+  font-size: var(--font-display-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+}
+
+.runway-option__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border, var(--color-secondary));
+}
+
 /* Data table: Secondary-background header row, alternating rows.
  * Wrapped in .data-table-wrap (scrolls horizontally, never crops) instead
  * of letting a wide table (History's timestamp/callsign/hex/airline/type
  * columns, Airlines' unresolved-prefix table) overflow the viewport on
- * phone widths — same fix .nav-bar already uses above. */
+ * phone widths — this wrap now stands on its own (the horizontal
+ * .nav-bar it used to be paired with is gone, see the header comment
+ * above). */
 .data-table-wrap {
   overflow-x: auto;
 }
@@ -346,6 +618,30 @@ button:disabled {
   background: var(--color-secondary);
 }
 
+/* History's merged-cell parts (06.6.1, D-06/data-density.md). No
+ * --color-text-muted token exists in this stylesheet, and the sketch's
+ * pattern that named one is deliberately not carried over — inventing a
+ * new token, or hard-coding a grey, would be wrong in one of the two
+ * themes. opacity on the existing --color-text gives the same muted read
+ * in both modes with no per-theme value to keep in sync. The 12px size on
+ * .cell-secondary is a legitimate secondary-data exception to the 4-size
+ * scale, scoped to this one class. */
+.cell-primary {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+}
+
+.cell-secondary {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.cell-inline-sep {
+  opacity: 0.7;
+  margin: 0 var(--space-xs);
+}
+
 /* Empty state */
 .empty-state {
   padding: var(--space-lg);
@@ -356,6 +652,196 @@ button:disabled {
 .preview-image {
   max-width: 100%;
   height: auto;
+}
+
+/* Stat tile: a card with a status-coloured top border. `min-width: 0` is
+ * the first declaration and is load-bearing — a grid item's default
+ * minimum size is its content's intrinsic width, and the Battery-trend
+ * tile contains a .data-table carrying `min-width: max-content` (see
+ * above), deliberately, so tables never crop. Without `min-width: 0` that
+ * intrinsic width propagates up and stretches the tile's whole
+ * dashboard-grid track far past the 240px floor, pushing sibling tiles
+ * off-grid and forcing horizontal scroll on the page itself. With it, the
+ * existing .data-table-wrap { overflow-x: auto } absorbs the width
+ * instead, which is exactly what that wrapper is for. */
+/* D-02: the visible hairline outline is deliberately traded for a resting
+ * shadow — do not "restore" the border on top of the shadow, or cards end
+ * up with both. The status-coloured top border is unaffected: it is a
+ * from a different property (border-top) than the now-transparent general
+ * border, so both can coexist without fighting each other. */
+.stat-tile {
+  min-width: 0;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid transparent;
+  border-top: 3px solid var(--color-accent);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow .15s, transform .15s;
+}
+
+/* :focus-within alongside :hover on purpose: several tiles now contain
+ * focusable children (the sparkline hit targets from Phase 06.5), and a
+ * keyboard user should get the same lift affordance a mouse user gets. */
+.stat-tile:hover, .stat-tile:focus-within {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+.stat-tile--ok {
+  border-top-color: var(--color-status-ok);
+}
+
+.stat-tile--warn {
+  border-top-color: var(--color-status-warn);
+}
+
+.stat-tile--error {
+  border-top-color: var(--color-status-error);
+}
+
+.stat-tile--accent {
+  border-top-color: var(--color-accent);
+}
+
+/* 06.6.1: the caption is the one Label-role text this contract deliberately
+ * renders in serif (a narrow, named exception — not a licence to extend
+ * serif to other Label text elsewhere). The two explicit resets below
+ * state that the small-caps uppercase treatment is intentionally
+ * abandoned here, not accidentally lost. */
+.stat-tile__caption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-sm);
+  font-family: var(--font-serif);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Icon section (06.6.1 Component Patterns — icon <defs> block). A
+ * display:none sprite container still resolves <use> references, which is
+ * the whole point of the technique: this rule hides the definitions
+ * without disabling them. */
+.icon-defs {
+  display: none;
+}
+
+/* Plan 04 also emits explicit width/height attributes on each <svg class
+ * ="icon"> instance, so an icon is correctly sized even if this rule is
+ * ever lost — belt and braces, matching how the battery sparkline already
+ * carries both attributes and a CSS override (see .battery-trend-section
+ * svg below). */
+.icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  vertical-align: middle;
+}
+
+/* Icon tint: because the SVG instances use stroke="currentColor" with
+ * fill="none", a single `color` property drives the icon's stroke with no
+ * second colour mapping to keep in sync with the top-border modifiers
+ * above. The icon and the top accent read from the same modifier class,
+ * which is what makes them incapable of disagreeing. */
+.stat-tile__icon {
+  color: var(--color-accent);
+}
+
+.stat-tile--ok .stat-tile__icon {
+  color: var(--color-status-ok);
+}
+
+.stat-tile--warn .stat-tile__icon {
+  color: var(--color-status-warn);
+}
+
+.stat-tile--error .stat-tile__icon {
+  color: var(--color-status-error);
+}
+
+.stat-tile__value {
+  font-size: var(--font-display-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+}
+
+/* No `.stat-tile svg { width:100%; height:auto }` rule here (deliberate,
+ * not an oversight). That rule existed pre-06.6.1 to shrink the battery
+ * sparkline's fixed width="300" height="60" SVG to fit inside a tile —
+ * but 06.6.1's own plan 03 moved the sparkline out of .stat-tile entirely
+ * (see .battery-trend-section svg below, which now owns that job). Left
+ * in place, the old rule's `svg` element selector (specificity 0,1,1)
+ * unintentionally matched plan 04's new `<svg class="icon">` elements
+ * too, beating `.icon`'s own sizing (specificity 0,1,0) regardless of
+ * source order and stretching every icon to fill its tile — a real
+ * defect found on real-device verification (06.6.1-06-SUMMARY.md).
+ * `.icon`'s explicit width/height (both the CSS rule and icon_html()'s
+ * own belt-and-braces HTML attributes) are sufficient without it. */
+
+/* Battery-trend section (06.6.1): moves out of .dashboard-grid entirely
+ * into its own full-width card, same treatment as .stat-tile. Two
+ * deliberate omissions vs. .stat-tile — do not "complete" the pattern by
+ * adding either back: no border-top status accent (this is not a status
+ * tile, it doesn't carry an ok/warn/error verdict of its own), and no
+ * hover lift/transform (it contains an interactive chart, and lifting the
+ * container under the pointer while the user is aiming at an 8px-radius
+ * chart hit target is actively unhelpful). */
+.battery-trend-section {
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid transparent;
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+  margin-bottom: var(--space-2xl);
+}
+
+/* The sparkline still carries fixed width/height attributes and needs
+ * this override to shrink to the section's width — but the section's
+ * heading also carries an `icon-battery` `<svg class="icon">` now
+ * (06.6.1 plan 04/06 gap fix), and a bare `svg` element selector would
+ * catch that too, reproducing the exact `.stat-tile svg` collision
+ * already fixed above (06.6.1-06-SUMMARY.md) in a second location this
+ * rule was never updated for. `:not(.icon)` excludes it explicitly
+ * rather than relying on the sparkline being the only match by luck. */
+.battery-trend-section svg:not(.icon) {
+  width: 100%;
+  height: auto;
+}
+
+/* Dashboard grid (D-02): same auto-fit/minmax idiom .gallery-grid already
+ * establishes as this file's responsive-grid precedent, with a wider
+ * 240px floor. 06.6.1 promotes the gap from lg (24px) to xl (32px) per
+ * D-02/D-04's airier-layout direction. No breakpoint is needed for the
+ * grid itself: it collapses to one column on narrow viewports on its
+ * own. */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-xl);
+  margin-bottom: var(--space-2xl);
+}
+
+/* Page section card treatment: gives the below-breakpoint stacked
+ * sections the same card treatment as the dashboard's tiles. */
+.page-section {
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* health_page.py's source-fault block combines page-section with banner
+ * banner--anomaly. .page-section's `border` shorthand above resets all
+ * four sides, including the left edge banner--anomaly needs destructive-
+ * coloured — at equal (0,1,0) specificity the later rule wins regardless
+ * of which one "means" to own that edge. This combined selector (0,2,0)
+ * restores the destructive left border deterministically, independent of
+ * source order. */
+.page-section.banner--anomaly {
+  border-left-color: var(--color-destructive);
 }
 
 /* Gallery grid (CFG-11) — collapses to fewer columns automatically on
@@ -370,4 +856,130 @@ button:disabled {
   width: 100%;
   height: auto;
   display: block;
+}
+
+/* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
+ * readout line. */
+
+/* Cosmetic marker only — never receives pointer events, or it would steal
+ * them from the larger .sparkline-hit target painted at the same
+ * coordinates. */
+.sparkline-dot {
+  fill: currentColor;
+  pointer-events: none;
+}
+
+/* A transparent fill is still opaque for SVG hit-testing, which is exactly
+ * why this enlarged, invisible circle works as the real tap/click target
+ * (06.5-RESEARCH.md Pattern 2). */
+.sparkline-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+/* Deliberately var(--color-text), not var(--color-accent): this file's
+ * header comment reserves accent to exactly five uses, and a chart-point
+ * highlight is not one of them. */
+.sparkline-hit:hover,
+.sparkline-hit--active {
+  fill: var(--color-text);
+  fill-opacity: 0.15;
+}
+
+/* This one does use accent, because it is the header's already-listed
+ * "focused-input outline" use — not a violation of the reservation above. */
+.sparkline-hit:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Reserves a fixed-height line so the first reveal never shifts the page
+ * (06.5-RESEARCH.md, Open Question 1's recommendation — the layout-jump
+ * pitfall on mobile). */
+.battery-readout {
+  min-height: 1.4em;
+  margin: var(--space-xs) 0 0;
+}
+
+/* Desktop dashboard shell (D-02, 06.3-UI-SPEC.md Layout Contract). This is
+ * the file's second and last width breakpoint. companion/layout.py's
+ * page_shell() renders navigation copies (the mobile hamburger dropdown
+ * inside .site-header and the vertical .dashboard-sidebar nav) and both
+ * theme-form copies into every response, because a stdlib HTTP server has
+ * no viewport information at render time — this block is what chooses
+ * between them. The losing copy is removed with `display: none`, which
+ * takes it out of the layout flow, the tab order and the accessibility
+ * tree together — that is what keeps a keyboard user from landing on
+ * invisible nav links and keeps exactly one navigation landmark exposed
+ * at any given width. Below 960px nothing here applies: the page renders
+ * fluid single column, header hamburger toggle + push-down dropdown
+ * (06.6.1 D-06, see the header comment above), no horizontal-scroll
+ * fallback needed since the strip that used to require one is gone. */
+@media (min-width: 960px) {
+  .dashboard-shell {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    column-gap: var(--space-xl);
+    align-items: start;
+  }
+
+  .dashboard-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    min-height: 100vh;
+    padding: var(--space-lg) var(--space-md);
+    background: var(--color-secondary);
+    border-right: 1px solid var(--color-border);
+  }
+
+  .dashboard-sidebar .theme-form {
+    margin-top: auto;
+  }
+
+  /* The sidebar carries the title, the nav and the theme toggle at this
+   * width, so the entire header row is removed rather than just its nav —
+   * leaving the header's title visible alongside the sidebar's would
+   * duplicate it on screen. The sidebar replaces the horizontal nav-bar
+   * here; a supplement was considered and rejected. */
+  .site-header {
+    display: none;
+  }
+
+  /* The cap and `margin: 0 auto` centre the content column; the 3xl
+   * horizontal padding is the 64px minimum side gutter, so content never
+   * runs edge-to-edge on an ultra-wide monitor. 3xl serves as the main
+   * column's horizontal padding rather than as a separate outer gutter
+   * element: expressing the cap and the gutter as two independent
+   * mechanisms would need an extra wrapper element in page_shell(), and
+   * this single-element form delivers the same visible result. Below the
+   * breakpoint the base .page-content padding rule above governs
+   * unchanged. 06.6.1 (D-02/D-04, Reconciliation 1): vertical padding is
+   * now 2xl (48px) on both top and bottom — this is where the UI-SPEC's
+   * 2xl/3xl promotion actually lands, at the >=960px content-column
+   * level the spec names, rather than on the base .page-content rule. */
+  .dashboard-main {
+    min-width: 0;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: var(--space-2xl) var(--space-3xl);
+  }
+
+  /* Config page (D-01/D-02): the Theme and Runway fieldsets render side by
+   * side, Save Settings stays a full-width row beneath both. */
+  .config-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    align-items: start;
+  }
+
+  .config-form fieldset {
+    margin-bottom: 0;
+  }
+
+  .config-form > button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
 }

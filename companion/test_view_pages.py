@@ -57,7 +57,7 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 19
+EXPECTED_CHECK_COUNT = 25  # 20 (pre-06.6.1-02) + 5 (06.6.1-02, merged History cells)
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -345,19 +345,30 @@ def main():
         _no_airline_no_route_matches_render_fallback)
 
     def _mono_columns_present():
+        # 06.6.1-02: the merged Callsign+Hex cell moved its monospace
+        # treatment off a td[class="mono"] attribute and onto the
+        # cell-primary/cell-secondary span classes (both mono in
+        # style.css) - a plain "mono" attribute on the merged <td> would
+        # fight the 12px secondary size, per _merged_cell()'s docstring.
+        # Timestamp is the one remaining td[class="mono"] cell; callsign
+        # and hex are asserted via the merged-cell span classes instead.
         tmp = _mkstate("h-mono")
         try:
             _seed_runway_events(tmp, [
                 {"ts": "2026-08-27T10:00:00+00:00", "hex": "abc123", "callsign": "MONO1"},
             ])
             rendered = history_page.render(_history_ctx(tmp))
-            if rendered.count('class="mono"') < 3:
-                return False, "expected at least 3 mono-styled cells (timestamp, callsign, hex)"
+            if rendered.count('class="mono"') < 1:
+                return False, "expected the timestamp cell to carry the monospace CSS class"
+            if ('class="%s"' % history_page.CELL_PRIMARY_CLASS) not in rendered:
+                return False, "expected the merged-cell primary span to carry its mono CSS class"
+            if ('class="%s"' % history_page.CELL_SECONDARY_CLASS) not in rendered:
+                return False, "expected the merged-cell secondary span to carry its mono CSS class"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "timestamp, callsign and hex columns carry the monospace CSS class",
+        "timestamp, callsign and hex columns carry monospace CSS classes",
         _mono_columns_present)
 
     def _hostile_callsign_escaped():
@@ -415,6 +426,184 @@ def main():
     check(
         "companion/pages/history_page.py never redefines _TYPE_DISPLAY_LABELS locally",
         _history_page_never_redefines_type_labels)
+
+    def _history_table_wrapped_for_horizontal_scroll_dot_survives():
+        # D-03/D-22 regression pin: History's own hand-built table gained
+        # the same .data-table-wrap horizontal-scroll wrapper Airlines and
+        # Health already had (mirrors test_companion_app.py's
+        # _data_table_wrapped_for_horizontal_scroll() check for
+        # layout.data_table() itself), and the Corroboration cell's
+        # unescaped status_dot() embedding must survive the wrap untouched.
+        tmp = _mkstate("h-wrap")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "d5", "callsign": "WRAP1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if '<div class="data-table-wrap">' not in rendered:
+                return False, "expected the flight table to be wrapped in .data-table-wrap"
+            if '<table class="data-table">' not in rendered:
+                return False, "expected the .data-table itself to still be present"
+            if "dot--" not in rendered:
+                return False, "expected the Corroboration cell's status_dot() dot class to survive the wrap"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's flight table gains the .data-table-wrap horizontal-scroll wrapper Airlines/Health already have, without disturbing the Corroboration status dot",
+        _history_table_wrapped_for_horizontal_scroll_dot_survives)
+
+    def _seven_columns_named_and_ordered():
+        # 06.6.1-02 (D-02): proves the 9->7 column reduction shipped - the
+        # header labels come from history_page._HEADERS itself (the
+        # contract), not a re-typed literal list.
+        tmp = _mkstate("h-7col")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "d6", "callsign": "SEVEN1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            th_count = len(re.findall(r"<th>", rendered))
+            if th_count != 7:
+                return False, "expected exactly 7 <th> cells, got %d" % th_count
+            positions = []
+            for header in history_page._HEADERS:
+                idx = rendered.find("<th>%s</th>" % header)
+                if idx == -1:
+                    return False, "expected header %r to appear as a <th>" % header
+                positions.append(idx)
+            if positions != sorted(positions):
+                return False, "expected the 7 headers in history_page._HEADERS' own left-to-right order"
+            if "<th>Hex</th>" in rendered or "<th>Airline</th>" in rendered:
+                return False, "did not expect standalone Hex/Airline header cells after the merge"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History renders exactly the 7 headers in history_page._HEADERS, in order, with no standalone Hex/Airline column",
+        _seven_columns_named_and_ordered)
+
+    def _merged_values_survive_in_same_cell():
+        # The merge removed *columns*, not *data* - and both halves must
+        # land inside the same <td>, which a count-only check cannot prove.
+        tmp = _mkstate("h-merge-data")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "39d301",
+                    "callsign": "AFR123", "aircraft_type": "A320",
+                    "airline": "AFR",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            expected_type_label = panel_render._TYPE_DISPLAY_LABELS.get("A320", "A320")
+            expected_airline_label = panel_render.display_airline_name("AFR")
+            for value in ("AFR123", "39d301", expected_type_label, expected_airline_label):
+                if value not in rendered:
+                    return False, "expected merged value %r to still appear somewhere" % value
+            idx = rendered.find("AFR123")
+            td_start = rendered.rfind("<td>", 0, idx)
+            td_end = rendered.find("</td>", idx)
+            if td_start == -1 or td_end == -1:
+                return False, "could not locate the callsign's enclosing <td>"
+            cell = rendered[td_start:td_end]
+            if "39d301" not in cell:
+                return False, "expected the hex value inside the same <td> as the callsign"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the callsign and hex merged values both appear, inside the same <td>",
+        _merged_values_survive_in_same_cell)
+
+    def _merged_cells_stay_one_line():
+        # Row-height contract (Variant A guard, data-density.md's "What to
+        # Avoid"): the merged cells must stay on one line - Variant A
+        # ("Stacked cells") was rejected specifically because a taller row
+        # works against fast scanning. A future two-line "improvement"
+        # must fail this check, not read as progress.
+        tmp = _mkstate("h-oneline")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "d7", "callsign": "LINE1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tbody_match = re.search(r"<tbody>(.*)</tbody>", rendered, re.S)
+            if not tbody_match:
+                return False, "expected a <tbody> element in the rendered table"
+            tbody = tbody_match.group(1)
+            if "<br" in tbody:
+                return False, "did not expect a <br> inside the table body (one-line cell contract)"
+            if "<div" in tbody or "<p " in tbody:
+                return False, "did not expect a block-level element inside a <td> (one-line cell contract)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the merged Callsign/Hex and Type/Airline cells stay on one line - no <br>, no block-level child",
+        _merged_cells_stay_one_line)
+
+    def _merged_cell_hostile_values_escaped():
+        tmp = _mkstate("h-merge-hostile")
+        try:
+            hostile_callsign = '<b>AFR"1</b>'
+            hostile_hex = '<i>39"d</i>'
+            hostile_type = '<u>A32"0</u>'
+            hostile_airline = '<s>AFR"L</s>'
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": hostile_hex,
+                    "callsign": hostile_callsign, "aircraft_type": hostile_type,
+                    "airline": hostile_airline,
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for raw in (hostile_callsign, hostile_hex, hostile_type, hostile_airline):
+                if raw in rendered:
+                    return False, "an unescaped merged-cell value reached the rendered output: %r" % raw
+            if "&lt;" not in rendered:
+                return False, "expected at least one escaped '<' from the hostile merged-cell fixtures"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "hostile values in both merged cells (Callsign/Hex, Type/Airline) render escaped",
+        _merged_cell_hostile_values_escaped)
+
+    def _merged_cell_classes_agree_with_stylesheet():
+        # Cross-file drift guard (same pattern 06.5-02 established for the
+        # Python/CSS/JS trio): if history_page.py's class constants
+        # (cell-primary, cell-secondary, cell-inline-sep) and style.css's
+        # selectors ever diverge, the merged cells silently render as
+        # unstyled plain text instead of failing loudly. Read by symbol
+        # below (history_page.CELL_*_CLASS), never re-typed as literals.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        for name in (
+            history_page.CELL_PRIMARY_CLASS, history_page.CELL_SECONDARY_CLASS,
+            history_page.CELL_SEPARATOR_CLASS,
+        ):
+            if name not in css:
+                return False, "class %r is emitted by history_page but not styled in style.css" % name
+        tmp = _mkstate("h-class-agree")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "d8", "callsign": "CLS1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for name in (
+                history_page.CELL_PRIMARY_CLASS, history_page.CELL_SECONDARY_CLASS,
+                history_page.CELL_SEPARATOR_CLASS,
+            ):
+                if ('class="%s"' % name) not in rendered:
+                    return False, "expected class %r to appear in the rendered History page" % name
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "history_page's CELL_PRIMARY_CLASS/CELL_SECONDARY_CLASS/CELL_SEPARATOR_CLASS all appear in style.css and in the rendered page",
+        _merged_cell_classes_agree_with_stylesheet)
 
     # ======================================================================
     # Section 2: companion/pages/preview_page.py

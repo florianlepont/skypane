@@ -197,15 +197,17 @@ def _stats_section(state_dir):
 def render(ctx):
     state_dir = ctx["state_dir"]
     rows = unresolved_rows(state_dir)
+    registry_status = coverage_status(rows)
+
+    tiles_html = (
+        layout.stat_tile(
+            "Unresolved prefixes", _registry_section(rows), registry_status)
+        + layout.stat_tile(
+            "Resolution statistics", _stats_section(state_dir), None)
+    )
 
     return (
         '<h1 class="text-heading">Airlines</h1>'
-        '<section class="page-section">'
-        '<h2 class="text-heading">Unresolved prefixes</h2>'
-        "%s"
-        "</section>"
-        '<section class="page-section">'
-        '<h2 class="text-heading">Resolution statistics</h2>'
-        "%s"
-        "</section>"
-    ) % (_registry_section(rows), _stats_section(state_dir))
+        '<h2 class="text-heading">Coverage</h2>'
+        '<div class="dashboard-grid">' + tiles_html + '</div>'
+    )

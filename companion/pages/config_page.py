@@ -19,6 +19,14 @@ THEME_HELPER_TEXT = (
     "options on real hardware.")
 RUNWAY_HELPER_TEXT = (
     "Applies on the device's next scheduled poll — not immediately.")
+
+# The single definition of this route prefix in the repository (06.4).
+# companion/app.py rebinds it (RUNWAY_IMAGE_ROUTE_PREFIX =
+# config_page.RUNWAY_IMAGE_ROUTE_PREFIX) rather than re-typing the
+# literal, exactly as it already does for the FLASH_KEY_* constants —
+# app.py imports this module, so the reverse import would be a cycle.
+RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
+RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
 LED_HELPER_TEXT = (
     "Controls the board's built-in bring-up LED. It's lit only during the "
     "device's brief active wake window and isn't visible from the "
@@ -85,23 +93,42 @@ def theme_fieldset(current_theme_id):
     ) % ("".join(options), escape_html(THEME_HELPER_TEXT))
 
 
-def runway_fieldset(current_runway_id):
+def runway_fieldset(current_runway_id, images_available=()):
     """One radio input per `device_config.RUNWAYS` entry (exactly three
     today), in registry order, with `current_runway_id` marked selected —
     plus the CFG-12 helper text stating the change applies on the
     device's next scheduled poll, not immediately (D-28).
+
+    Each option's number/heading label is promoted into a Display-size
+    `<span>` (D-01). When `runway_id` is a member of `images_available`
+    (the `ctx["runway_images"]` set companion/app.py computes — this
+    module never touches the filesystem itself), an `<img>` pointing at
+    the session-gated `/runway-image/{id}.png` route is also rendered.
+    `images_available` defaults to `()` — "no images available" — the
+    safe D-03 fallback, which is also what every pre-06.4 single-argument
+    call site still gets.
     """
     options = []
     for runway_id in device_config.RUNWAY_IDS:
         checked = " checked" if runway_id == current_runway_id else ""
-        options.append(
-            "<label>"
-            '<input type="radio" name="tracked_runway" value="%s"%s> %s'
-            "</label>"
-            % (
-                escape_html(runway_id), checked,
-                escape_html(device_config.runway_label(runway_id)),
+        label = device_config.runway_label(runway_id)
+        escaped_id = escape_html(runway_id)
+        image_html = ""
+        if runway_id in images_available:
+            image_html = (
+                '<img class="runway-option__image" src="%s%s.png" alt="%s">'
+                % (
+                    RUNWAY_IMAGE_ROUTE_PREFIX, escaped_id,
+                    escape_html(RUNWAY_IMAGE_ALT_TEMPLATE % label),
+                )
             )
+        options.append(
+            '<label class="runway-option">'
+            '<input type="radio" name="tracked_runway" value="%s"%s>'
+            '<span class="runway-option__number">%s</span>'
+            "%s"
+            "</label>"
+            % (escaped_id, checked, escape_html(label), image_html)
         )
     return (
         "<fieldset>"
@@ -189,7 +216,7 @@ def render(ctx):
     # moving it into the fieldset grid (06.2-01-PLAN.md Task 2, step 5).
     return (
         '<h1 class="text-heading">Config</h1>'
-        '<form method="post" action="/config">'
+        '<form class="config-form" method="post" action="/config">'
         "%s"
         "%s"
         '<button type="submit">Save Settings</button>'
@@ -201,7 +228,7 @@ def render(ctx):
         "%s"
     ) % (
         theme_fieldset(current_theme_id),
-        runway_fieldset(current_runway_id),
+        runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
         poll_trigger_section(cooldown_remaining),
         led_section(current_led_enabled),
     )

@@ -28,6 +28,22 @@ Every page module in this package exposes:
           gallery tile URLs without importing companion/app.py itself
           (that would also be a cycle); every gallery URL preview_page
           builds is constructed only from a name in this list
+        - runway_images: the set of `device_config.RUNWAY_IDS` members
+          that currently have a real airport-diagram file on disk
+          (companion/app.py's own `runway_images_available()`, computed
+          once per request) — added by phase 06.4 so config_page can
+          decide whether to emit an `<img>` tag for a given runway
+          without ever performing filesystem access itself, matching this
+          module's presentation-only contract
+        - health_anomaly_active: a boolean, True when any of Health's
+          four D-14 signals is currently unhealthy
+          (companion/pages/health_page.py's own `anomaly_active()`,
+          computed once per request) — added by plan 06.6.1-04 so
+          companion/app.py can thread `health_alert=` into every
+          ctx-bearing `layout.page_shell()` call and draw the Health
+          nav-tab notification dot from every tab, without any nav
+          renderer or other page module importing health_page.py
+          directly (forbidden by this module's own contract)
         - now: a UTC ISO-8601 timestamp string for this request
 
     handle_post(form, ctx) -> str

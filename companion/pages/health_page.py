@@ -25,6 +25,13 @@ Every database access goes through `_safe_query()`, which returns the
 database — each of the four sections below degrades independently to
 06-UI-SPEC.md's "Health data unavailable" copy rather than faulting the
 whole page.
+
+06.6.1-03: `anomaly_active()` is this module's one intentionally-public
+cross-page export, consumed by `companion/app.py`'s `page_context()`
+(threaded into `ctx["health_anomaly_active"]` for the nav-tab
+notification dot) — it exists specifically so no nav renderer has to
+import a page module, the constraint `companion/pages/__init__.py`
+states.
 """
 import sqlite3
 from datetime import datetime, timedelta
@@ -127,11 +134,59 @@ SOURCE_FAULT_BODY = (
 
 # --- D-14 anomaly banner -----------------------------------------------------
 
-# 06-UI-SPEC.md's Copywriting Contract, verbatim.
-ANOMALY_BANNER_TEXT = "⚠ Something needs attention — see the flagged item(s) below."
+# 06.6.1-UI-SPEC.md's Copywriting Contract, verbatim. Revised from 06's
+# "...see the flagged item(s) below." — 06.6.1-03 removed the bulleted
+# detail-list markup this text used to point at, so the two edits (copy
+# + list removal) are deliberately coupled: change one, change the other.
+ANOMALY_BANNER_TEXT = "⚠ Something needs attention — check the tiles below."
 
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
 PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
+# Deliberately not "Battery trend" (render()'s section/tile caption for
+# this same content) — reusing that string would make every substring
+# assertion in the test harness ambiguous about which of the two it
+# matched (D-01).
+BATTERY_STATUS_LABEL = "Battery readings"
+
+# D-02: per-point interactive hit-target contract. BATTERY_READOUT_ID and
+# SPARKLINE_HIT_CLASS are looked up by companion/static/battery-trend.js
+# and styled by companion/static/style.css — the value is duplicated
+# rather than imported from those files because there is nothing in this
+# Python module to import from (they are static assets, not Python).
+# companion/test_status_pages.py's cross-file contract check asserts
+# both literals actually appear in battery-trend.js's shipped source.
+BATTERY_READOUT_ID = "battery-readout"
+SPARKLINE_HIT_CLASS = "sparkline-hit"
+SPARKLINE_DOT_CLASS = "sparkline-dot"
+# Must equal companion/app.py's SCRIPT_ROUTE — duplicated, not imported,
+# because companion/pages/__init__.py's contract forbids a page module
+# importing companion.app (app.py imports pages, so importing back would
+# be circular). The test harness asserts the two stay equal.
+BATTERY_TREND_SCRIPT_SRC = "/static/battery-trend.js"
+BATTERY_READOUT_PLACEHOLDER = "Tap or hover a point on the chart to see its exact reading."
+
+# 06.6.1-03 (D-02): the battery-trend chart moved out of the Overview
+# dashboard-grid into its own full-width section, so its heading text is
+# now a named constant (was a literal passed straight to stat_tile())
+# rather than a tile caption — this is what lets a future plan attach an
+# icon to a known heading without re-typing the literal.
+BATTERY_SECTION_HEADING = "Battery trend"
+# Contract value shared with companion/static/style.css's
+# .battery-trend-section rule (plan 06.6.1-01, same wave); guarded
+# against silent drift by a cross-file check in test_status_pages.py.
+BATTERY_SECTION_CLASS = "battery-trend-section"
+
+# 06.6.1-04 (D-02): one icon id per Health signal, each a member of
+# layout.ICON_IDS — the whitelist itself is what keeps a typo here from
+# ever becoming a raw-markup injection: icon_html() renders nothing at
+# all for an id it doesn't recognise, which is safe but invisible, so
+# this module's own test harness separately asserts every one of these
+# four constants is a genuine ICON_IDS member (a typo therefore fails a
+# check loudly instead of silently rendering no icon).
+ICON_DEVICE = "icon-device"
+ICON_PIPELINE = "icon-pipeline"
+ICON_CORROBORATION = "icon-corroboration"
+ICON_BATTERY = "icon-battery"
 
 _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 # "query succeeded and legitimately returned None/empty" (e.g. no rows
@@ -232,23 +287,36 @@ def battery_trend_rows(conn):
 def battery_sparkline_svg(rows):
     """A minimal, dependency-free inline SVG sparkline built server-side
     from `rows` (newest-first, `battery_trend_rows()`'s own shape) — a
-    fixed viewBox, exactly one `<polyline>`, no text, no external
-    reference (`url(`, `<image`, `<script`) of any kind, consistent with
-    the zero-new-dependencies constraint (T-06-08-SC).
+    fixed viewBox, exactly one `<polyline>`, no external reference
+    (`url(`, `<image`, or a script tag) of any kind, consistent with the
+    zero-new-dependencies constraint (T-06-08-SC). D-02: each plotted
+    point also carries a cosmetic marker plus a transparent, enlarged,
+    keyboard-focusable hit target with `data-mv`/`data-ts` attributes and
+    a `<title>` tooltip, so the exact reading is available on hover/tap
+    with no JavaScript at all. Deliberately does **not** emit a
+    script tag or the readout element itself — those are
+    `_battery_section()`'s job — so this function's own no-external-
+    reference guarantee (asserted directly against its return value by
+    `companion/test_status_pages.py`) stays true unweakened.
 
     Returns `""` (no sparkline at all) when fewer than two rows carry a
     numeric `battery_mv` — a single point cannot show a trend. Rows with
     a missing/non-numeric `battery_mv` are dropped rather than plotted,
     which can compress the effective time axis; this is a presentational
-    simplification, not a claim about even reading spacing.
+    simplification, not a claim about even reading spacing. Each row's
+    timestamp is paired with its `battery_mv` value before filtering, so
+    a dropped row also drops its own timestamp — never zipping two
+    independently-filtered lists, which would otherwise silently shift
+    every later point's timestamp by one.
     """
     chronological = list(reversed(rows))
-    values = [
-        row.get("battery_mv") for row in chronological
+    pairs = [
+        (row.get("battery_mv"), row.get("ts")) for row in chronological
         if isinstance(row.get("battery_mv"), int) and not isinstance(row.get("battery_mv"), bool)
     ]
-    if len(values) < 2:
+    if len(pairs) < 2:
         return ""
+    values = [value for value, _ts in pairs]
 
     width, height, padding = 300, 60, 4
     usable_w = width - 2 * padding
@@ -258,17 +326,42 @@ def battery_sparkline_svg(rows):
     step = usable_w / (len(values) - 1)
 
     points = []
-    for index, value in enumerate(values):
+    markers = []
+    hit_targets = []
+    for index, (value, ts) in enumerate(pairs):
         x = padding + index * step
         y = padding + usable_h - ((value - lo) / span) * usable_h
         points.append("%.1f,%.1f" % (x, y))
 
+        markers.append(
+            '<circle class="%s" cx="%.1f" cy="%.1f" r="3" aria-hidden="true"/>'
+            % (SPARKLINE_DOT_CLASS, x, y))
+
+        # "%d mV — %s" (escaped ts) — byte-identical in shape to the
+        # readout string companion/static/battery-trend.js composes from
+        # these same data-mv/data-ts attributes, so hover text and tap
+        # readout never read differently.
+        label = "%d mV — %s" % (value, escape_html(ts))
+        hit_targets.append(
+            '<circle class="%s" cx="%.1f" cy="%.1f" r="8" tabindex="0" '
+            'role="button" data-mv="%d" data-ts="%s" aria-label="%s">'
+            "<title>%s</title></circle>"
+            % (SPARKLINE_HIT_CLASS, x, y, value, escape_html(ts), label, label))
+
+    # Document order matters: SVG paints in document order and pointer
+    # events go to the topmost element, so the transparent hit targets
+    # must come last (after the cosmetic markers) or the cosmetic dots
+    # would intercept taps meant for the hit targets underneath.
     return (
         '<svg viewBox="0 0 %d %d" width="%d" height="%d" '
-        'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Battery trend">'
+        'xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Battery trend">'
         '<polyline points="%s" fill="none" stroke="currentColor" stroke-width="2"/>'
+        "%s%s"
         "</svg>"
-    ) % (width, height, width, height, " ".join(points))
+    ) % (
+        width, height, width, height, " ".join(points),
+        "".join(markers), "".join(hit_targets),
+    )
 
 
 def battery_status(rows):
@@ -318,6 +411,16 @@ def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_
     list means "render no anomaly banner at all" (D-21's uncluttered
     all-clear); render() is the only caller that decides what to do with
     the result.
+
+    Since 06.6.1-03: render() no longer renders this list's contents
+    anywhere on the page (the redundant bulleted detail-list markup was
+    removed — the Overview tiles already carry the same information via
+    colour) — only its emptiness is consumed, to decide whether the
+    banner appears at all. The four item strings below deliberately
+    survive anyway: they remain the readable, greppable definition of
+    what counts as an anomaly, and anomaly_active() (added the same
+    plan) routes its verdict through this exact function so a future
+    reader must not "clean up" these strings as dead code.
     """
     anomalies = []
     if device_state != "ok":
@@ -331,17 +434,53 @@ def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_
     return anomalies
 
 
+def anomaly_active(state_dir, now=None):
+    """`True` when any of the four D-14 signals `collect_anomalies()`
+    tracks is currently unhealthy for `state_dir`, `False` otherwise —
+    the cross-page signal `companion/app.py`'s `page_context()` threads
+    into `ctx` for every authenticated page (the "runway_images"
+    precedent, Phase 06.4), so the Health nav-tab notification dot can
+    be drawn without any nav renderer importing this page module
+    (forbidden by `companion/pages/__init__.py`).
+
+    Routes its verdict through `_read_health_inputs()` and the exact
+    same four section builders `render()` calls, keeping only their
+    state/flag return values and discarding the markup — deliberate,
+    not wasteful: it is what makes it structurally impossible for the
+    nav dot and the banner to disagree, since a second, cheaper
+    reimplementation of the anomaly rules would be a second copy of
+    them, and this module's whole D-14 design rests on there being one.
+
+    Wrapped in a broad `except Exception` that fails closed to `False`,
+    a deliberate departure from the narrow `(sqlite3.Error, OSError)`
+    catches used elsewhere in this file: `_safe_query()`'s narrow catch
+    protects one *section* of one page, whereas `page_context()` calls
+    this function on **every** authenticated page render, so an
+    unanticipated raise here would turn every page in the app into a
+    500 over a decorative nav dot — exactly the reasoning
+    `companion/app.py`'s `runway_images_available()` already established
+    for its own never-raises contract in Phase 06.4. Failing closed is
+    also the safe direction: a missing dot understates a problem the
+    Health page itself will still report in full, whereas a crashed app
+    reports nothing at all.
+    """
+    try:
+        if now is None:
+            now = history_db.utc_now_iso()
+        inputs = _read_health_inputs(state_dir, now)
+        _device_html, device_state = _device_section(inputs["device_health"], now)
+        _pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
+        _battery_html, battery_state = _battery_section(inputs["trend_rows"])
+        _corroboration_html, disagreement_warn = _corroboration_section(
+            inputs["corroboration_counts"])
+        return bool(collect_anomalies(
+            device_state, pipeline_state, battery_state, disagreement_warn))
+    except Exception:
+        return False
+
+
 def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(HEALTH_UNAVAILABLE_TEXT)
-
-
-def _section(name, content_html):
-    return (
-        '<section class="page-section">'
-        '<h2 class="text-heading">%s</h2>'
-        "%s"
-        "</section>"
-    ) % (escape_html(name), content_html)
 
 
 def _device_section(device_health, now):
@@ -373,19 +512,105 @@ def _pipeline_section(pipeline_ts, now):
     return row, state
 
 
+def _battery_badge_block(state):
+    return '<p class="text-body">%s</p>' % layout.status_dot(state, BATTERY_STATUS_LABEL)
+
+
+def _battery_readout_block():
+    """The reserved-height readout line `companion/static/battery-trend.js`
+    writes into on hover/tap/keyboard reveal. `role="status"` already
+    implies a polite live region, so no separate `aria-live` attribute is
+    added.
+    """
+    return (
+        '<p id="%s" class="battery-readout text-label mono" role="status">%s</p>'
+        % (BATTERY_READOUT_ID, escape_html(BATTERY_READOUT_PLACEHOLDER)))
+
+
+def _battery_trend_section_html(battery_html):
+    """Wrap `_battery_section()`'s already-built markup in the full-width
+    `BATTERY_SECTION_CLASS` card section (D-02) that replaces its old
+    240px-floor grid tile.
+
+    `battery_html` is already-safe markup (badge, an already-escaped
+    table, an SVG, a script tag) and is interpolated verbatim, with no
+    call to `escape_html()` — the same "already-built markup passes
+    through untransformed" contract `stat_tile()` and
+    `_source_fault_block()` already follow; re-escaping it here would
+    double-encode and print the raw tags as visible text instead of
+    rendering them.
+
+    06.6.1-04 (D-02): the battery icon sits inside this <h2>, before the
+    heading text, and carries no tint class — deliberately asymmetric
+    with the tile icons. This section is a page section, not a status
+    tile, so there is no status modifier for a tint rule to hang off;
+    the icon correctly inherits the heading's own colour through
+    currentColor instead. This also resolves a wording drift in
+    06.6.1-UI-SPEC.md's Layout Contract: it says "each of the 4 Overview
+    tiles" gains an icon, written before plan 06.6.1-03 moved Battery
+    trend out of the grid. All four Health signals still carry their
+    icon — three on tiles, one here on the section heading — and the
+    icon set stays at the contract's five.
+    """
+    return (
+        '<section class="%s">'
+        '<h2 class="text-heading">%s%s</h2>'
+        "%s"
+        "</section>"
+    ) % (
+        BATTERY_SECTION_CLASS, layout.icon_html(ICON_BATTERY),
+        escape_html(BATTERY_SECTION_HEADING), battery_html)
+
+
 def _battery_section(trend_rows):
+    """Return `(markup, state)` for the Battery trend tile.
+
+    `state` drives two independent consumers from one value: the
+    `status_dot()` badge rendered by this function, and
+    `collect_anomalies()`'s abnormal-drop signal in `render()`.
+
+    The empty-history branch (`not trend_rows`) deliberately returns
+    `"ok"`, not `"warn"` — unlike Device/Pipeline's never-seen state,
+    which does map to `"warn"` via `staleness_status()`. Two reasons:
+    (1) precedent — `corroboration_status()` already maps its own
+    unknown state (`"None"`, single-source) to `"ok"`, on the rationale
+    that an absence of information is not a failure; a device that has
+    simply never reported a battery reading is the same shape of
+    unknown, not a staleness signal like Device/Pipeline's silence.
+    (2) a real coupling — `render()` passes this function's second
+    return value straight into `collect_anomalies()`, which appends the
+    literal copy "A battery reading shows an abnormal drop." for any
+    non-`"ok"` battery state. A `"warn"` here would make a freshly
+    provisioned deployment with zero readings display a banner
+    asserting an abnormal drop that never happened. Keeping `"ok"`
+    keeps one value honest for both consumers, so `render()` needs no
+    decoupling.
+    """
     if trend_rows is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     if not trend_rows:
-        return layout.empty_state(
+        return _battery_badge_block("ok") + layout.empty_state(
             "No battery readings yet.",
             "No battery telemetry recorded yet — check back after the "
             "device's next poll."), "ok"
+    state = battery_status(trend_rows)
     table_rows = [(row.get("ts"), row.get("battery_mv")) for row in trend_rows]
     table_html = layout.data_table(
         ["Timestamp", "Battery (mV)"], table_rows, mono_columns=(0, 1))
     sparkline_html = battery_sparkline_svg(trend_rows) if len(trend_rows) >= 2 else ""
-    return table_html + sparkline_html, battery_status(trend_rows)
+    # The script tag and readout element are emitted only when a chart
+    # actually exists (sparkline_html is non-empty) — a single-reading
+    # device, or one whose only rows have non-numeric millivolts, gets no
+    # chart and therefore no script, keeping "exactly one script tag, and
+    # zero on the empty/no-chart path" testable and true. The tag's own
+    # deferred-execution attribute is what makes a DOMContentLoaded
+    # wrapper unnecessary in the script.
+    chart_block = ""
+    if sparkline_html:
+        chart_block = (
+            sparkline_html + _battery_readout_block()
+            + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
+    return _battery_badge_block(state) + table_html + chart_block, state
 
 
 def _corroboration_section(counts):
@@ -425,46 +650,67 @@ def _source_fault_block(source_fault_raw):
     ) % (escape_html(SOURCE_FAULT_HEADING), escape_html(SOURCE_FAULT_BODY))
 
 
+def _read_health_inputs(state_dir, now):
+    """The five `_safe_query()` reads `render()` and `anomaly_active()`
+    both need, single-sourced into one dict.
+
+    `render()` and `anomaly_active()` must be looking at the same five
+    values, or the Health nav-tab dot and the page's own anomaly banner
+    can disagree on screen — single-sourcing the *inputs* (not just the
+    section-builder calls that consume them) is what removes that whole
+    class of drift at the root, before it ever has a chance to appear.
+    """
+    cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
+    return {
+        "device_health": _safe_query(state_dir, history_db.latest_device_health),
+        "pipeline_ts": _safe_query(
+            state_dir,
+            lambda conn: history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)),
+        "source_fault_raw": _safe_query(
+            state_dir,
+            lambda conn: history_db.get_meta(conn, history_db.META_SOURCE_FAULT)),
+        "trend_rows": _safe_query(state_dir, battery_trend_rows),
+        "corroboration_counts": _safe_query(
+            state_dir,
+            lambda conn: history_db.corroboration_counts(conn, since=cutoff)),
+    }
+
+
 def render(ctx):
     state_dir = ctx["state_dir"]
     now = ctx.get("now") or history_db.utc_now_iso()
 
-    device_health = _safe_query(state_dir, history_db.latest_device_health)
-    pipeline_ts = _safe_query(
-        state_dir,
-        lambda conn: history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN))
-    source_fault_raw = _safe_query(
-        state_dir,
-        lambda conn: history_db.get_meta(conn, history_db.META_SOURCE_FAULT))
-    trend_rows = _safe_query(state_dir, battery_trend_rows)
-    cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
-    corroboration_counts = _safe_query(
-        state_dir,
-        lambda conn: history_db.corroboration_counts(conn, since=cutoff))
+    inputs = _read_health_inputs(state_dir, now)
+    source_fault_raw = inputs["source_fault_raw"]
 
-    device_html, device_state = _device_section(device_health, now)
-    pipeline_html, pipeline_state = _pipeline_section(pipeline_ts, now)
-    battery_html, battery_state = _battery_section(trend_rows)
-    corroboration_html, disagreement_warn = _corroboration_section(corroboration_counts)
+    device_html, device_state = _device_section(inputs["device_health"], now)
+    pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
+    battery_html, battery_state = _battery_section(inputs["trend_rows"])
+    corroboration_html, disagreement_warn = _corroboration_section(
+        inputs["corroboration_counts"])
 
     anomalies = collect_anomalies(
         device_state, pipeline_state, battery_state, disagreement_warn)
-    banner_html = ""
-    if anomalies:
-        items_html = "".join(
-            '<li class="text-body">%s</li>' % escape_html(item) for item in anomalies)
-        banner_html = layout.anomaly_banner(ANOMALY_BANNER_TEXT) + "<ul>%s</ul>" % items_html
+    banner_html = layout.anomaly_banner(ANOMALY_BANNER_TEXT) if anomalies else ""
 
-    sections_html = (
-        _section("Device check-in", device_html)
-        + _section("ADS-B pipeline", pipeline_html)
-        + _section("Battery trend", battery_html)
-        + _section("Corroboration", corroboration_html)
+    # battery_state is still consumed below (collect_anomalies() still
+    # takes it) — it just no longer paints a stat-tile border, since the
+    # battery-trend chart moved out of this grid entirely (D-02).
+    tiles_html = (
+        layout.stat_tile(
+            DEVICE_FRESHNESS_LABEL, device_html, device_state, icon=ICON_DEVICE)
+        + layout.stat_tile(
+            PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state, icon=ICON_PIPELINE)
+        + layout.stat_tile(
+            "Corroboration", corroboration_html,
+            "warn" if disagreement_warn else "ok", icon=ICON_CORROBORATION)
     )
 
     return (
         '<h1 class="text-heading">Health</h1>'
         + _source_fault_block(source_fault_raw)
         + banner_html
-        + sections_html
+        + '<h2 class="text-heading">Overview</h2>'
+        + '<div class="dashboard-grid">' + tiles_html + '</div>'
+        + _battery_trend_section_html(battery_html)
     )

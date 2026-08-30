@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 001 — Health page direction</title>
+<link rel="stylesheet" href="../themes/default.css">
+<style>
+  /* ---- variant tab bar (sketch tooling, not part of the design) ---- */
+  #variant-nav{position:fixed;top:0;left:0;right:0;z-index:9998;background:#fff;border-bottom:1px solid #e2e6ee;padding:8px 16px;display:flex;gap:8px;font-family:system-ui,sans-serif;align-items:center}
+  .variant-tab{border:1px solid #d8dce4;background:#f7f8fb;color:#333;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+  .variant-tab.active{background:#12151B;color:#fff;border-color:#12151B}
+  body{padding-top:52px}
+  .variant{display:none}
+  .variant.active{display:block}
+  #sketch-tools{position:fixed;bottom:12px;right:12px;z-index:9999;font-family:system-ui;font-size:12px;background:rgba(0,0,0,0.7);color:white;padding:8px 12px;border-radius:8px;opacity:0.4;transition:opacity 0.2s}
+  #sketch-tools:hover{opacity:1}
+  #sketch-tools select{margin-left:6px}
+
+  /* ---- shared page-shell scaffolding (mirrors companion/layout.py's real markup shape) ----
+     Matches the real companion/static/style.css: below 960px .dashboard-shell has NO
+     display override (plain block flow, header on top then content), only becoming a
+     grid at >=960px. All unconditional base rules are declared first; the >=960px
+     media-query overrides come LAST in this stylesheet on purpose — an earlier version
+     of this sketch put the media query before the unconditional `.site-header{display:flex}`
+     rule, and since both have equal specificity, source order decided the winner
+     regardless of the media condition, so `.site-header{display:none}` never actually
+     applied at desktop width. Same class of ordering bug this project's real CSS has
+     already hit once (06.3's `.page-section`/`.banner--anomaly` cascade bug). */
+  .dashboard-sidebar{display:none}
+  .sidebar-title{font-family:var(--font-serif);font-size:20px;display:block;margin-bottom:var(--space-xl)}
+  .sidebar-nav{display:flex;flex-direction:column;gap:var(--space-xs)}
+  .sidebar-link{display:block;padding:var(--space-sm) var(--space-md);border-radius:var(--radius-control);color:var(--color-text);text-decoration:none;font-size:var(--font-body-size)}
+  .sidebar-link--active{background:var(--color-dominant);color:var(--color-accent);font-weight:var(--weight-semibold)}
+  .site-header{display:flex;align-items:center;gap:var(--space-lg);padding:var(--space-md) var(--space-lg);background:var(--color-secondary)}
+  .site-title{font-family:var(--font-serif);font-size:20px}
+  .page-content{padding:var(--space-xl) var(--space-2xl);max-width:1100px}
+  .page-content h1{margin:0 0 var(--space-lg) 0}
+
+  /* ---- Overview grid ---- */
+  .overview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-lg);margin-bottom:var(--space-2xl)}
+  .stat-tile{background:var(--color-dominant);border:1px solid var(--color-border);padding:var(--space-lg);border-radius:var(--radius-card)}
+  .stat-tile__head{display:flex;align-items:center;gap:var(--space-sm);margin-bottom:var(--space-sm)}
+  .stat-tile__icon{width:20px;height:20px;flex-shrink:0}
+  .stat-tile__caption{font-size:var(--font-label-size);color:var(--color-text-muted);text-transform:uppercase;letter-spacing:0.04em;margin:0}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+  .dot--ok{background:var(--color-status-ok)}
+  .dot--warn{background:var(--color-status-warn)}
+  .dot--error{background:var(--color-status-error)}
+  .stat-tile__body{font-size:var(--font-body-size)}
+  .stat-tile__meta{font-family:var(--font-mono);font-size:var(--font-label-size);color:var(--color-text-muted);margin-top:4px}
+
+  .banner{padding:var(--space-md) var(--space-lg);border-radius:var(--radius-control);margin-bottom:var(--space-xl);font-size:var(--font-body-size)}
+  .banner--anomaly{background:#FEF2F0;border-left:4px solid var(--color-destructive);color:#7A2318}
+
+  .battery-section{background:var(--color-dominant);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:var(--space-xl);margin-bottom:var(--space-2xl)}
+  .battery-section__head{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-lg)}
+  .battery-section h2{margin:0;font-size:var(--font-heading-size)}
+  .battery-readout{font-family:var(--font-mono);font-size:var(--font-label-size);color:var(--color-text-muted);min-height:1.2em;margin-top:var(--space-md)}
+  .chart-wrap{width:100%;overflow-x:auto}
+  .chart-wrap svg{width:100%;height:180px;display:block}
+
+  .table-preview{width:100%;border-collapse:collapse;font-size:var(--font-label-size)}
+  .table-preview th{text-align:left;padding:var(--space-sm);color:var(--color-text-muted);font-weight:var(--weight-regular);border-bottom:1px solid var(--color-border)}
+  .table-preview td{padding:var(--space-sm);border-bottom:1px solid var(--color-border);font-family:var(--font-mono)}
+
+  /* ============ VARIANT A: Minimal warmth ============ */
+  #variant-a .stat-tile{transition:box-shadow .15s}
+  #variant-a .stat-tile:hover{box-shadow:var(--shadow-card)}
+  #variant-a .stat-tile__icon{color:var(--color-text-muted)}
+  #variant-a .page-content h1{font-family:var(--font-serif)}
+  #variant-a .battery-section{border-radius:6px}
+  #variant-a .battery-section__accent{width:3px;background:var(--color-accent);align-self:stretch;margin-right:var(--space-md)}
+
+  /* ============ VARIANT B: Full editorial ============ */
+  #variant-b{background:#FBF9F6}
+  #variant-b .dashboard-sidebar,#variant-b .site-header{background:#F3EEE7}
+  #variant-b .stat-tile{box-shadow:var(--shadow-card);border-color:transparent;transition:box-shadow .15s, transform .15s}
+  #variant-b .stat-tile:hover{box-shadow:var(--shadow-card-hover);transform:translateY(-1px)}
+  #variant-b .stat-tile__caption{font-family:var(--font-serif);font-size:15px;text-transform:none;letter-spacing:0;color:var(--color-text)}
+  #variant-b .stat-tile__icon{color:var(--color-accent)}
+  #variant-b .battery-section{box-shadow:var(--shadow-card);border-color:transparent}
+  #variant-b .battery-section h2{font-family:var(--font-serif)}
+  #variant-b .page-content{padding:var(--space-2xl) var(--space-3xl)}
+  #variant-b .overview-grid{gap:var(--space-xl)}
+
+  /* ============ VARIANT C: Structured warmth ============ */
+  #variant-c .stat-tile{border-left:4px solid var(--color-border);border-radius:6px}
+  #variant-c .stat-tile[data-status="ok"]{border-left-color:var(--color-status-ok)}
+  #variant-c .stat-tile[data-status="warn"]{border-left-color:var(--color-status-warn)}
+  #variant-c .stat-tile__icon{color:inherit}
+  #variant-c .stat-tile[data-status="ok"] .stat-tile__icon{color:var(--color-status-ok)}
+  #variant-c .stat-tile[data-status="warn"] .stat-tile__icon{color:var(--color-status-warn)}
+  #variant-c .page-content h1{font-family:var(--font-serif)}
+  #variant-c .battery-section{border-left:4px solid var(--color-accent);border-radius:6px}
+
+  /* >=960px overrides — declared LAST so they win the cascade over the equal-specificity
+     unconditional rules above, regardless of source order elsewhere in the file. */
+  @media (min-width:960px){
+    .dashboard-shell{display:grid;grid-template-columns:220px minmax(0,1fr);column-gap:var(--space-xl);align-items:start}
+    .dashboard-sidebar{display:flex;flex-direction:column;min-height:100vh}
+    .site-header{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div id="variant-nav">
+  <button class="variant-tab" onclick="showVariant('a')">A: Minimal warmth</button>
+  <button class="variant-tab active" onclick="showVariant('b')">B: Full editorial ★ Selected</button>
+  <button class="variant-tab" onclick="showVariant('c')">C: Structured warmth</button>
+</div>
+
+<!-- ============================================================ -->
+<!-- Shared icon defs (reused across variants) -->
+<!-- ============================================================ -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="icon-checkin">
+      <circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M10 6v4l3 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </g>
+    <g id="icon-pipeline">
+      <path d="M4 14 L4 10 Q4 6 8 6 L14 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M11 3 L14 6 L11 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="4" cy="16" r="1.6" fill="currentColor"/>
+    </g>
+    <g id="icon-corrob">
+      <circle cx="7" cy="10" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <circle cx="12" cy="10" r="5" fill="none" stroke="currentColor" stroke-width="1.6" opacity="0.55"/>
+    </g>
+    <g id="icon-battery">
+      <rect x="2" y="7" width="13" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <rect x="15.5" y="9" width="2" height="3" rx="0.6" fill="currentColor"/>
+      <path d="M4 12 L6.5 9 L8.5 11 L11.5 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </defs>
+</svg>
+
+<!-- ============================================================ -->
+<!-- VARIANT A -->
+<!-- ============================================================ -->
+<div id="variant-a" class="variant">
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <span class="sidebar-title">SkyPane</span>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link" href="#">Config</a>
+        <a class="sidebar-link sidebar-link--active" href="#">Health</a>
+        <a class="sidebar-link" href="#">Airlines</a>
+        <a class="sidebar-link" href="#">History</a>
+        <a class="sidebar-link" href="#">Preview</a>
+      </nav>
+    </aside>
+    <header class="site-header"><span class="site-title">SkyPane</span></header>
+    <main class="page-content">
+      <h1>Health</h1>
+
+      <div class="banner banner--anomaly">⚠ Something needs attention — see the flagged item(s) below.</div>
+
+      <div class="overview-grid">
+        <div class="stat-tile" data-status="warn">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-checkin"/></svg><p class="stat-tile__caption">Device check-in</p></div>
+          <div class="stat-tile__body"><span class="dot dot--warn"></span>Stale</div>
+          <div class="stat-tile__meta">Last seen 47 min ago</div>
+        </div>
+        <div class="stat-tile" data-status="ok">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-pipeline"/></svg><p class="stat-tile__caption">ADS-B pipeline</p></div>
+          <div class="stat-tile__body"><span class="dot dot--ok"></span>Healthy</div>
+          <div class="stat-tile__meta">Last run 3 min ago</div>
+        </div>
+        <div class="stat-tile" data-status="warn">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-corrob"/></svg><p class="stat-tile__caption">Corroboration</p></div>
+          <div class="stat-tile__body"><span class="dot dot--warn"></span>Disagreement</div>
+          <div class="stat-tile__meta">Recent cycle</div>
+        </div>
+      </div>
+
+      <section class="battery-section" style="display:flex">
+        <div class="battery-section__accent"></div>
+        <div style="flex:1">
+          <div class="battery-section__head">
+            <h2>Battery trend</h2>
+            <span><span class="dot dot--ok"></span>Battery readings</span>
+          </div>
+          <div class="chart-wrap">
+            <svg viewBox="0 0 640 160" preserveAspectRatio="none">
+              <polyline fill="none" stroke="var(--color-accent)" stroke-width="2" points="10,40 65,48 120,44 175,56 230,60 285,70 340,66 395,78 450,74 505,86 560,82 615,92"/>
+              <circle cx="560" cy="82" r="5" fill="var(--color-accent)"/>
+            </svg>
+          </div>
+          <div class="battery-readout">tap or hover a point…</div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT B -->
+<!-- ============================================================ -->
+<div id="variant-b" class="variant active">
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <span class="sidebar-title">SkyPane</span>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link" href="#">Config</a>
+        <a class="sidebar-link sidebar-link--active" href="#">Health</a>
+        <a class="sidebar-link" href="#">Airlines</a>
+        <a class="sidebar-link" href="#">History</a>
+        <a class="sidebar-link" href="#">Preview</a>
+      </nav>
+    </aside>
+    <header class="site-header"><span class="site-title">SkyPane</span></header>
+    <main class="page-content">
+      <h1>Health</h1>
+
+      <div class="banner banner--anomaly">⚠ Something needs attention — see the flagged item(s) below.</div>
+
+      <div class="overview-grid">
+        <div class="stat-tile" data-status="warn">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-checkin"/></svg><p class="stat-tile__caption">Device check-in</p></div>
+          <div class="stat-tile__body"><span class="dot dot--warn"></span>Stale</div>
+          <div class="stat-tile__meta">Last seen 47 min ago</div>
+        </div>
+        <div class="stat-tile" data-status="ok">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-pipeline"/></svg><p class="stat-tile__caption">ADS-B pipeline</p></div>
+          <div class="stat-tile__body"><span class="dot dot--ok"></span>Healthy</div>
+          <div class="stat-tile__meta">Last run 3 min ago</div>
+        </div>
+        <div class="stat-tile" data-status="warn">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-corrob"/></svg><p class="stat-tile__caption">Corroboration</p></div>
+          <div class="stat-tile__body"><span class="dot dot--warn"></span>Disagreement</div>
+          <div class="stat-tile__meta">Recent cycle</div>
+        </div>
+      </div>
+
+      <section class="battery-section">
+        <div class="battery-section__head">
+          <h2>Battery trend</h2>
+          <span><span class="dot dot--ok"></span>Battery readings</span>
+        </div>
+        <div class="chart-wrap">
+          <svg viewBox="0 0 640 160" preserveAspectRatio="none">
+            <polyline fill="none" stroke="var(--color-accent)" stroke-width="2.5" points="10,40 65,48 120,44 175,56 230,60 285,70 340,66 395,78 450,74 505,86 560,82 615,92"/>
+            <circle cx="560" cy="82" r="5" fill="var(--color-accent)"/>
+          </svg>
+        </div>
+        <div class="battery-readout">tap or hover a point…</div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- VARIANT C -->
+<!-- ============================================================ -->
+<div id="variant-c" class="variant">
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <span class="sidebar-title">SkyPane</span>
+      <nav class="sidebar-nav">
+        <a class="sidebar-link" href="#">Config</a>
+        <a class="sidebar-link sidebar-link--active" href="#">Health</a>
+        <a class="sidebar-link" href="#">Airlines</a>
+        <a class="sidebar-link" href="#">History</a>
+        <a class="sidebar-link" href="#">Preview</a>
+      </nav>
+    </aside>
+    <header class="site-header"><span class="site-title">SkyPane</span></header>
+    <main class="page-content">
+      <h1>Health</h1>
+
+      <div class="banner banner--anomaly">⚠ Something needs attention — see the flagged item(s) below.</div>
+
+      <div class="overview-grid">
+        <div class="stat-tile" data-status="warn">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-checkin"/></svg><p class="stat-tile__caption">Device check-in</p></div>
+          <div class="stat-tile__body"><span class="dot dot--warn"></span>Stale</div>
+          <div class="stat-tile__meta">Last seen 47 min ago</div>
+        </div>
+        <div class="stat-tile" data-status="ok">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-pipeline"/></svg><p class="stat-tile__caption">ADS-B pipeline</p></div>
+          <div class="stat-tile__body"><span class="dot dot--ok"></span>Healthy</div>
+          <div class="stat-tile__meta">Last run 3 min ago</div>
+        </div>
+        <div class="stat-tile" data-status="warn">
+          <div class="stat-tile__head"><svg class="stat-tile__icon"><use href="#icon-corrob"/></svg><p class="stat-tile__caption">Corroboration</p></div>
+          <div class="stat-tile__body"><span class="dot dot--warn"></span>Disagreement</div>
+          <div class="stat-tile__meta">Recent cycle</div>
+        </div>
+      </div>
+
+      <section class="battery-section">
+        <div class="battery-section__head">
+          <h2>Battery trend</h2>
+          <span><span class="dot dot--ok"></span>Battery readings</span>
+        </div>
+        <div class="chart-wrap">
+          <svg viewBox="0 0 640 160" preserveAspectRatio="none">
+            <polyline fill="none" stroke="var(--color-accent)" stroke-width="2" points="10,40 65,48 120,44 175,56 230,60 285,70 340,66 395,78 450,74 505,86 560,82 615,92"/>
+            <circle cx="560" cy="82" r="5" fill="var(--color-accent)"/>
+          </svg>
+        </div>
+        <div class="battery-readout">tap or hover a point…</div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="sketch-tools">
+  Theme:
+  <select onchange="document.querySelector('link[href*=themes]').href='../themes/'+this.value+'.css'">
+    <option value="default">Default</option>
+  </select>
+  &nbsp;|&nbsp;
+  <button onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme==='dark'?'light':'dark'" style="background:none;border:1px solid #666;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer">Toggle dark</button>
+</div>
+
+<script>
+function showVariant(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

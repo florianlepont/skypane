@@ -70,6 +70,16 @@ MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06
 
 LOGIN_ROUTE = "/login"
 STYLE_ROUTE = "/static/style.css"
+# Authoritative route value — companion/pages/health_page.py's
+# BATTERY_TREND_SCRIPT_SRC (plan 06.5-02) must equal this exactly; that
+# plan adds a check asserting the two stay in sync. Do not edit one
+# without the other.
+SCRIPT_ROUTE = "/static/battery-trend.js"
+# Authoritative route value — companion/layout.py's NAV_DROPDOWN_SCRIPT_SRC
+# (plan 06.6.1-05) must equal this exactly; that plan's Task 3 asserts the
+# two stay in sync, mirroring SCRIPT_ROUTE/BATTERY_TREND_SCRIPT_SRC's own
+# established pair above.
+NAV_SCRIPT_ROUTE = "/static/nav-dropdown.js"
 CONFIG_ROUTE = "/config"
 LED_ROUTE = "/config-led"
 POLL_ROUTE = "/poll-now"
@@ -77,6 +87,10 @@ THEME_ROUTE = "/ui-theme"
 LOGOUT_ROUTE = "/logout"
 PREVIEW_IMAGE_ROUTE = "/preview.png"
 GALLERY_ROUTE_PREFIX = "/gallery/"
+# Single definition site is companion/pages/config_page.py (app.py imports
+# that module, so the reverse import would be a cycle) — rebound here
+# exactly like the FLASH_KEY_* constants below.
+RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -107,6 +121,9 @@ FLASH_MESSAGES = {
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
+_BATTERY_TREND_JS_PATH = os.path.join(_HERE, "static", "battery-trend.js")
+_NAV_DROPDOWN_JS_PATH = os.path.join(_HERE, "static", "nav-dropdown.js")
+_RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
 # analogue) — D-01/D-02 mean there are no distinct users for a per-session
@@ -190,6 +207,35 @@ def gallery_bytes(state_dir, requested):
     except OSError:
         return None
     return None
+
+
+def _runway_image_filename(runway_id):
+    """The single, mechanical place the on-disk naming convention (D-03's
+    asset contract) is expressed: `runway-{runway_id}.png`.
+    """
+    return "runway-%s.png" % runway_id
+
+
+def _runway_image_path(runway_id, image_dir=_RUNWAY_IMAGE_DIR):
+    return os.path.join(image_dir, _runway_image_filename(runway_id))
+
+
+def runway_images_available(image_dir=_RUNWAY_IMAGE_DIR):
+    """The subset of `device_config.RUNWAY_IDS` that currently has a real
+    `runway-{id}.png` file on disk. A missing `image_dir`, a missing
+    individual file, or any other OS-level error while checking
+    (permissions, a symlink loop) is not an error — it is D-03's
+    documented graceful-fallback state, so this never raises:
+    `os.path.isfile()` itself already swallows `OSError`/`ValueError`
+    and returns `False`. The result is bounded by the fixed `RUNWAY_IDS`
+    registry (iterated, never `os.scandir()`-ed), so it can never report
+    an image for an id that isn't a real runway.
+    """
+    available = set()
+    for runway_id in device_config.RUNWAY_IDS:
+        if os.path.isfile(_runway_image_path(runway_id, image_dir)):
+            available.add(runway_id)
+    return available
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -292,6 +338,7 @@ class Handler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
         flash_key = params.get("flash", [None])[0]
         state_dir = self.args.state_dir
+        now = history_db.utc_now_iso()
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
@@ -299,7 +346,17 @@ class Handler(BaseHTTPRequestHandler):
             "flash": _resolve_flash_text(flash_key, state_dir),
             "poll_cooldown_remaining": poll_cooldown_remaining(state_dir),
             "gallery_entries": gallery_entries(state_dir),
-            "now": history_db.utc_now_iso(),
+            "runway_images": runway_images_available(),
+            # 06.6.1-04: computed here, not by a nav renderer, because
+            # companion/pages/__init__.py forbids a page module importing
+            # another page module — this file already imports health_page
+            # legitimately (the runway_images entry above set the same
+            # precedent in Phase 06.4), so this is the boundary's intended
+            # crossing point. health_page.anomaly_active() is
+            # contractually never-raising *because* this line runs on
+            # every authenticated page render.
+            "health_anomaly_active": health_page.anomaly_active(state_dir, now),
+            "now": now,
         }
 
     # --- shared page fragments -------------------------------------------
@@ -352,6 +409,50 @@ class Handler(BaseHTTPRequestHandler):
         # legitimately shared-cacheable.
         return self.send_bytes(200, "text/css", payload, cache_seconds=300, public=True)
 
+    def _serve_script_file(self, abs_path):
+        """Serve one fixed JavaScript file, pre-auth, structurally
+        identical to _serve_stylesheet() above. Unlike
+        _serve_gallery_image(), this resolves a single fixed module
+        constant (`abs_path` is always one of this module's own path
+        constants — _BATTERY_TREND_JS_PATH or _NAV_DROPDOWN_JS_PATH — never
+        a client-supplied segment) and never joins a request-derived
+        segment into a filesystem path, so it has no path-traversal
+        surface. Shared body for _serve_battery_trend_script() and
+        _serve_nav_dropdown_script() below.
+
+        `public=True`: this route is pre-auth and content-identical for
+        every client (like `_serve_stylesheet()`, opted in the same way),
+        so shared/intermediary caching is safe — matches
+        `send_bytes()`'s WR-02 fix (quick task 260829-0rl), which made
+        `private` the default for every OTHER route and left this one an
+        accidental straggler only because this method predates that
+        parameter existing at all.
+        """
+        try:
+            with open(abs_path, "rb") as fh:
+                payload = fh.read()
+        except OSError:
+            return self.send_html(404, self._not_found_page())
+        # text/javascript is the sole current-standard MIME type for
+        # JavaScript per RFC 9239 (2022), which obsoletes RFC 4329's older
+        # application/-prefixed form — deliberately not used here.
+        return self.send_bytes(200, "text/javascript", payload, cache_seconds=300, public=True)
+
+    def _serve_battery_trend_script(self):
+        """Serve companion/static/battery-trend.js, pre-auth. Thin
+        delegate onto _serve_script_file() — kept as its own named method
+        (rather than inlined at the do_GET call site) since an existing
+        check references it by name.
+        """
+        return self._serve_script_file(_BATTERY_TREND_JS_PATH)
+
+    def _serve_nav_dropdown_script(self):
+        """Serve companion/static/nav-dropdown.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_battery_trend_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_NAV_DROPDOWN_JS_PATH)
+
     def _serve_preview_image(self):
         state_dir = self.args.state_dir
         raw = panel_preview.read_panel_file(state_dir)
@@ -382,6 +483,24 @@ class Handler(BaseHTTPRequestHandler):
         # default rather than opting into shared cacheability.
         return self.send_bytes(200, "image/png", payload, cache_seconds=3600)
 
+    def _serve_runway_image(self, runway_id):
+        # Membership test FIRST, before any path is ever constructed
+        # (validate-then-join, never sanitise-then-join — T-06.4-02). An
+        # unknown id and an unreadable file both return this same 404, so
+        # a caller can never distinguish "not a real runway" from "no
+        # image for a real runway" — leaking nothing about the
+        # filesystem beyond the RUNWAY_IDS set the authenticated /config
+        # page already renders in full to the same caller.
+        if runway_id not in device_config.RUNWAY_IDS:
+            return self.send_html(404, self._not_found_page())
+        path = _runway_image_path(runway_id)
+        try:
+            with open(path, "rb") as fh:
+                payload = fh.read()
+        except OSError:
+            return self.send_html(404, self._not_found_page())
+        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -399,7 +518,8 @@ class Handler(BaseHTTPRequestHandler):
         flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
         html_doc = layout.page_shell(
             title=_PAGE_TITLES[route], active=route.lstrip("/"), body=body,
-            ui_theme=ctx["ui_theme"], flash=flash_html)
+            ui_theme=ctx["ui_theme"], flash=flash_html,
+            health_alert=ctx["health_anomaly_active"])
         return self.send_html(200, html_doc)
 
     # --- GET -------------------------------------------------------------
@@ -416,6 +536,17 @@ class Handler(BaseHTTPRequestHandler):
         if path == STYLE_ROUTE:
             return self._serve_stylesheet()
 
+        # Pre-auth, matching /static/style.css: a static asset carries no
+        # per-user or sensitive data, so gating it would add a session
+        # round-trip for zero benefit (06.5-RESEARCH.md, Security Domain,
+        # V2/V4 both "no"). NAV_SCRIPT_ROUTE (06.6.1-05) below is the same
+        # reasoning, not a second justification.
+        if path == SCRIPT_ROUTE:
+            return self._serve_battery_trend_script()
+
+        if path == NAV_SCRIPT_ROUTE:
+            return self._serve_nav_dropdown_script()
+
         if path == "/config":
             if not self.require_session():
                 return None
@@ -424,7 +555,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="Config", active="config", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == "/health":
             if not self.require_session():
@@ -434,7 +566,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="Health", active="health", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == "/airlines":
             if not self.require_session():
@@ -444,7 +577,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="Airlines", active="airlines", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == "/history":
             if not self.require_session():
@@ -454,7 +588,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="History", active="history", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == "/preview":
             if not self.require_session():
@@ -464,7 +599,8 @@ class Handler(BaseHTTPRequestHandler):
             flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
             return self.send_html(200, layout.page_shell(
                 title="Preview", active="preview", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html))
+                ui_theme=ctx["ui_theme"], flash=flash_html,
+                health_alert=ctx["health_anomaly_active"]))
 
         if path == PREVIEW_IMAGE_ROUTE:
             if not self.require_session():
@@ -475,6 +611,12 @@ class Handler(BaseHTTPRequestHandler):
             if not self.require_session():
                 return None
             return self._serve_gallery_image(path[len(GALLERY_ROUTE_PREFIX):])
+
+        if path.startswith(RUNWAY_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
+            if not self.require_session():
+                return None
+            runway_id = path[len(RUNWAY_IMAGE_ROUTE_PREFIX):-len(".png")]
+            return self._serve_runway_image(runway_id)
 
         if path == LOGOUT_ROUTE:
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())

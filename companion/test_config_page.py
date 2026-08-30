@@ -46,7 +46,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 23
+EXPECTED_CHECK_COUNT = 34
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -221,6 +221,24 @@ def main():
     check(
         "render() emits exactly three fieldsets and a Save Settings submit button",
         _render_shape_three_fieldsets_and_save_button)
+
+    def _settings_form_carries_config_form_class_hook():
+        # D-01 stable class hook: the settings form (POST /config) needs a
+        # class attribute so plan 06.3-02's desktop two-column fieldset
+        # grid rule (companion/static/style.css's 960px breakpoint) can
+        # target it without a brittle attribute selector.
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if 'class="config-form"' not in rendered:
+            return False, "expected the settings form to carry class=\"config-form\""
+        if '<form class="config-form" method="post" action="/config">' not in rendered:
+            return False, "expected the config-form class, method=\"post\", and action=\"/config\" on the same form tag"
+        return True, ""
+    check(
+        "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
+        _settings_form_carries_config_form_class_hook)
 
     def _theme_fieldset_one_radio_per_registry_entry():
         rendered = config_page.theme_fieldset("sky")
@@ -532,6 +550,118 @@ def main():
         "handle_led_post with a crafted non-checkbox value returns FLASH_SAVE_FAILED and leaves device_config.json byte-identical",
         _handle_led_post_crafted_value_rejected)
 
+    # ------------------------------------------------------------------
+    # Runway-image existence detection (Task 1, D-03) - each check uses
+    # its own tempfile.mkdtemp() image_dir and never touches the real
+    # companion/static/ (06.4-RESEARCH.md Pitfall 1).
+    # ------------------------------------------------------------------
+
+    def _runway_images_available_empty_dir_yields_empty_set():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-runway-images-")
+        try:
+            result = companion_app.runway_images_available(image_dir=tmpdir)
+            if result != set():
+                return False, "expected an empty set for an empty directory, got %r" % (result,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "runway_images_available() returns the empty set when the image directory has no files",
+        _runway_images_available_empty_dir_yields_empty_set)
+
+    def _runway_images_available_detects_single_present_file():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-runway-images-")
+        try:
+            with open(os.path.join(tmpdir, "runway-3.png"), "wb") as fh:
+                fh.write(b"not-a-real-png-just-test-bytes")
+            result = companion_app.runway_images_available(image_dir=tmpdir)
+            if result != {"3"}:
+                return False, "expected {'3'}, got %r" % (result,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "runway_images_available() returns exactly {'3'} when only runway-3.png exists",
+        _runway_images_available_detects_single_present_file)
+
+    def _runway_images_available_missing_dir_yields_empty_set_no_raise():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-runway-images-")
+        nonexistent = os.path.join(tmpdir, "does-not-exist")
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        result = companion_app.runway_images_available(image_dir=nonexistent)
+        if result != set():
+            return False, "expected an empty set for a non-existent directory, got %r" % (result,)
+        return True, ""
+    check(
+        "runway_images_available() returns the empty set (does not raise) when image_dir does not exist",
+        _runway_images_available_missing_dir_yields_empty_set_no_raise)
+
+    def _runway_images_available_bounded_by_registry_not_directory_listing():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-runway-images-")
+        try:
+            with open(os.path.join(tmpdir, "runway-99.png"), "wb") as fh:
+                fh.write(b"not-a-registry-member")
+            with open(os.path.join(tmpdir, "style.css"), "w") as fh:
+                fh.write("/* not a runway image */")
+            result = companion_app.runway_images_available(image_dir=tmpdir)
+            if result != set():
+                return False, (
+                    "expected an empty set (non-registry files must be ignored), got %r"
+                    % (result,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "runway_images_available() ignores files that are not RUNWAY_IDS members, proving it is registry-bounded not directory-listing-bounded",
+        _runway_images_available_bounded_by_registry_not_directory_listing)
+
+    # ------------------------------------------------------------------
+    # runway_fieldset() image emission (Task 2, D-01/D-03) - unit checks
+    # against the string output only, no filesystem/subprocess involved.
+    # ------------------------------------------------------------------
+
+    def _runway_fieldset_emits_img_only_for_available_runway():
+        rendered = config_page.runway_fieldset("3", {"3"})
+        if rendered.count("<img") != 1:
+            return False, "expected exactly one <img occurrence, got %d" % rendered.count("<img")
+        if "/runway-image/3.png" not in rendered:
+            return False, "expected the src to point at /runway-image/3.png"
+        if "runway-image/06-24" in rendered or "runway-image/02-20" in rendered:
+            return False, "expected no image reference for runways not in images_available"
+        return True, ""
+    check(
+        "runway_fieldset(images_available={'3'}) emits exactly one <img, for runway 3 only",
+        _runway_fieldset_emits_img_only_for_available_runway)
+
+    def _runway_fieldset_graceful_fallback_no_images():
+        rendered = config_page.runway_fieldset("3", set())
+        if "<img" in rendered:
+            return False, "expected zero <img occurrences with an empty images_available set"
+        if rendered.count('name="tracked_runway"') != 3:
+            return False, "expected all three runway radios still present"
+        for runway_id in device_config.RUNWAY_IDS:
+            if escape_html(device_config.runway_label(runway_id)) not in rendered:
+                return False, "expected the label text for runway %r" % (runway_id,)
+        return True, ""
+    check(
+        "runway_fieldset(images_available=set()) renders zero <img tags and all three number/heading labels (D-03 graceful fallback)",
+        _runway_fieldset_graceful_fallback_no_images)
+
+    def _render_forwards_ctx_runway_images_key():
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3"},
+            "poll_cooldown_remaining": 0,
+            "runway_images": {"06-24"},
+        })
+        if "/runway-image/06-24.png" not in rendered:
+            return False, "expected render() to forward ctx['runway_images'] into the <img> src"
+        if rendered.count("<img") != 1:
+            return False, "expected exactly one <img occurrence, got %d" % rendered.count("<img")
+        return True, ""
+    check(
+        "render() forwards ctx['runway_images'] to runway_fieldset() rather than relying on the parameter default",
+        _render_forwards_ctx_runway_images_key)
+
     # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py
     # subprocess, logs in, posts a valid theme-and-runway pair, follows
@@ -621,6 +751,53 @@ def main():
         check(
             "an unauthenticated POST /config-led redirects to /login and writes nothing",
             _led_post_unauthenticated_redirects_to_login_and_writes_nothing)
+
+        def _runway_image_route_requires_session():
+            status, headers, _ = http_request(base + "/runway-image/3.png")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if location != "/login":
+                return False, "expected a Location of /login, got %r" % location
+            return True, ""
+        check(
+            "an unauthenticated GET /runway-image/3.png redirects to /login",
+            _runway_image_route_requires_session)
+
+        def _runway_image_route_honest_present_or_absent():
+            path = companion_app._runway_image_path("3")
+            status, headers, _ = http_request(
+                base + "/runway-image/3.png", cookie=session_cookie)
+            if os.path.isfile(path):
+                if status != 200:
+                    return False, "expected 200 when the file exists, got %d" % status
+                if headers.get("Content-Type") != "image/png":
+                    return False, "expected Content-Type image/png, got %r" % headers.get("Content-Type")
+            else:
+                if status != 404:
+                    return False, "expected 404 when the file is absent (D-02 shipped state), got %d" % status
+            return True, ""
+        check(
+            "a session-authenticated GET /runway-image/3.png returns the branch matching real on-disk state (never 500)",
+            _runway_image_route_honest_present_or_absent)
+
+        def _runway_image_route_path_traversal_rejected():
+            adversarial_paths = [
+                "/runway-image/..%2F..%2Fetc%2Fpasswd.png",
+                "/runway-image/../../../etc/passwd.png",
+                "/runway-image/style.png",
+            ]
+            for adversarial_path in adversarial_paths:
+                status, _headers, _ = http_request(
+                    base + adversarial_path, cookie=session_cookie)
+                if status not in (404,):
+                    return False, (
+                        "expected 404 for adversarial path %r, got %d"
+                        % (adversarial_path, status))
+            return True, ""
+        check(
+            "session-authenticated GET requests for three adversarial runway-image paths all return 404, never 200/500",
+            _runway_image_route_path_traversal_rejected)
 
     finally:
         harness.stop()
