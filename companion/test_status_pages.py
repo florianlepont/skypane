@@ -27,6 +27,7 @@ tempfile, time, urllib). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_status_pages.py
 """
+import inspect
 import os
 import shutil
 import socket
@@ -52,7 +53,9 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 44  # 42 + 2 (06.6.1-04 Task 2: Health icons + Airlines iconless)
+# 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion
+# checks) + 1 (06.6-01 Task 2: Battery Trend absolute+relative timestamp check)
+EXPECTED_CHECK_COUNT = 47
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -272,6 +275,53 @@ def main():
         "staleness_status() returns ok/warn/error at the right boundaries, warn for a never-seen signal",
         _staleness_status_boundaries)
 
+    def _layout_absolute_and_relative_covers_every_documented_case():
+        if layout.absolute_and_relative(
+                "2026-08-28T13:58:02+00:00", "2026-08-28T14:01:02+00:00") != (
+                "2026-08-28T13:58:02+00:00 (3m ago)"):
+            return False, "expected the +00:00/+00:00 pair to format as absolute-first with a 3m relative age"
+        if not layout.absolute_and_relative(
+                "2026-08-28T13:58:02Z", "2026-08-28T13:58:32+00:00").endswith("(30s ago)"):
+            return False, "expected the Z/+00:00 pair to parse and subtract cleanly, ending in (30s ago)"
+        if layout.absolute_and_relative(None, "2026-08-28T14:01:02+00:00") != "no reading yet":
+            return False, "expected the default fallback for a falsy timestamp"
+        if layout.absolute_and_relative(
+                "", "2026-08-28T14:01:02+00:00", fallback="") != "":
+            return False, "expected the explicit empty-string fallback to be honoured"
+        if layout.absolute_and_relative(
+                "not-a-date", "2026-08-28T14:01:02+00:00") != "not-a-date":
+            return False, "expected an unparseable timestamp to degrade to the absolute string, not raise"
+        if layout.absolute_and_relative("2026-08-28T13:58:02+00:00", None) != (
+                "2026-08-28T13:58:02+00:00"):
+            return False, "expected a missing now_ts to still return the absolute value unchanged"
+        return True, ""
+    check(
+        "layout.absolute_and_relative() covers every documented case: ordering, Z-suffix parsing, "
+        "default/explicit fallback, unparseable-timestamp degradation, missing now_ts",
+        _layout_absolute_and_relative_covers_every_documented_case)
+
+    def _timestamp_helpers_promoted_not_duplicated():
+        for name in ("_parse_iso", "_age_seconds", "_relative_age_text"):
+            if hasattr(health_page, name):
+                return False, "health_page still defines %r — helpers were copied, not promoted" % name
+        tmp = _mkstate("h-promotion-regression")
+        try:
+            now = _now()
+            ts = _iso(now - timedelta(minutes=3))
+            _seed_device_health(tmp, [(ts, 4200)])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if ts not in rendered:
+                return False, "expected the seeded ISO string to appear on the rendered page"
+            if " ago)" not in rendered:
+                return False, "expected a parenthesised relative age suffix on the rendered page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "health_page's private timestamp helpers are gone (a move, not a copy) and the Device row still "
+        "renders the absolute-plus-relative format",
+        _timestamp_helpers_promoted_not_duplicated)
+
     def _independent_thresholds_one_warn_one_ok():
         tmp = _mkstate("h-independent")
         try:
@@ -350,6 +400,36 @@ def main():
     check(
         "three battery rows render the full trend (not just the latest value) and exactly one <svg><polyline>",
         _battery_trend_shows_all_readings_and_one_sparkline)
+
+    def _battery_trend_timestamps_show_absolute_and_relative():
+        # D-02 regression guard: the Battery Trend table's Timestamp
+        # column must match the Device/ADS-B pipeline rows' shape —
+        # "ISO (Nm ago)" — and _battery_section() must stay
+        # single-argument (06.5-02's own pinned automated gate).
+        if len(inspect.signature(health_page._battery_section).parameters) != 1:
+            return False, "_battery_section must stay single-argument (06.5-02 pins its call site)"
+        tmp = _mkstate("h-battery-trend-timestamps")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=2)), 4200),
+                (_iso(base - timedelta(minutes=1)), 4190),
+                (_iso(base), 4180),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            for ts, _mv in readings:
+                if (ts + " (") not in rendered:
+                    return False, "expected %r followed by ' (' in the rendered Battery Trend table" % ts
+            if " ago)" not in rendered:
+                return False, "expected at least one parenthesised relative age in the Battery Trend table"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Battery Trend's Timestamp column shows 'ISO (Nm ago)', matching the Device/pipeline rows (D-02), "
+        "and _battery_section() stays single-argument",
+        _battery_trend_timestamps_show_absolute_and_relative)
 
     def _battery_badge_present_and_healthy_on_normal_trend():
         tmp = _mkstate("h-battery-badge-ok")
