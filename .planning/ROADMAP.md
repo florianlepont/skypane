@@ -304,6 +304,17 @@ Plans:
 
 - [x] 06.6-03-PLAN.md — History's Timestamp column and Preview's Captured caption onto the shared helper, plus the D-03 corroboration verification and its cross-page drift guard (D-02, D-03)
 
+### Phase 06.6.2: Companion UX, accessibility, and responsive hardening (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 06.6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.6.2 to break down)
+
 ### Phase 06.6.1: Companion visual polish pass (INSERTED)
 
 **Goal:** A second visual-design pass on the companion web app, evolving 06.3's shipped system rather than replacing it, driven by `06.6.1-UI-SPEC.md` (approved 6/6 by `gsd-ui-checker`) and three `/gsd-sketch` explorations. Five changes land together: (1) **a new token layer** — a warm system-serif family for headings and the "SkyPane" wordmark (body, tables, form controls and nav links stay sans-serif), a terracotta accent (`#E8622C` / `#FF8A5C`) replacing 06.3's blue and deliberately hue-separated from the amber warn-status colour, card shadows and softer radii replacing hairline outlines, warm off-white light-mode surfaces, and airier spacing globally; (2) **a real mobile hamburger menu** below 960px — a toggle in the header opening a push-down dropdown holding the five nav links and the relocated theme picker, closing on a second tap or Escape, with `aria-expanded` as the single source of truth for its state — replacing (and deleting) the horizontally-scrollable strip that real-device testing found hid Health/Airlines/History/Preview behind an undiscoverable swipe; (3) **Health density and redundancy cleanup** — the anomaly banner's detail list removed (the Overview tiles already carry the same information in colour), the battery-trend chart moved out of its 240px grid track into a full-width card section, and a five-symbol inline icon sprite giving each signal its own status-tinted icon; (4) **a notification dot on the Health nav link** whenever an anomaly is active, driven by a new never-raising cross-page `ctx` signal so no page module imports another; (5) **History cut from 9 columns to 7** by merging Callsign·Hex and Type·Airline into single one-line cells at today's row height. The phase closes with a blocking real-phone-and-real-browser sign-off — the step 06.3/06.4/06.5 all skipped in favour of computed-style inspection, which is precisely why this phase exists.
