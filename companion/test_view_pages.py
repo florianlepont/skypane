@@ -57,7 +57,8 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 25  # 20 (pre-06.6.1-02) + 5 (06.6.1-02, merged History cells)
+EXPECTED_CHECK_COUNT = 26  # 25 (pre-06.6-03) + 1 (06.6-03 Task 1: History
+# Timestamp column reads "ISO (Nm ago)")
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -100,12 +101,16 @@ def _seed_gallery(state_dir, names):
         _write_gallery_png(os.path.join(gallery_dir, name))
 
 
-def _history_ctx(state_dir):
-    return {"state_dir": state_dir}
+def _history_ctx(state_dir, now=None):
+    return {"state_dir": state_dir, "now": now or history_db.utc_now_iso()}
 
 
-def _preview_ctx(state_dir, gallery_entries=None):
-    return {"state_dir": state_dir, "gallery_entries": gallery_entries or []}
+def _preview_ctx(state_dir, gallery_entries=None, now=None):
+    return {
+        "state_dir": state_dir,
+        "gallery_entries": gallery_entries or [],
+        "now": now or history_db.utc_now_iso(),
+    }
 
 
 def _img_alt_values(rendered):
@@ -604,6 +609,56 @@ def main():
     check(
         "history_page's CELL_PRIMARY_CLASS/CELL_SECONDARY_CLASS/CELL_SEPARATOR_CLASS all appear in style.css and in the rendered page",
         _merged_cell_classes_agree_with_stylesheet)
+
+    def _timestamp_column_absolute_and_relative():
+        # D-02: History's Timestamp column now reads "ISO (Nm ago)"
+        # through the shared companion.layout.absolute_and_relative()
+        # helper (06.6-01), matching Health's Device/pipeline rows.
+        tmp = _mkstate("h-ts-relative")
+        try:
+            seeded_ts = "2026-08-28T13:58:02+00:00"
+            three_min_later = "2026-08-28T14:01:02+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, now=three_min_later))
+            expected = "%s (3m ago)" % seeded_ts
+            if expected not in rendered:
+                return False, "expected %r in the rendered History page" % expected
+
+            # A one-argument format_event_row() call degrades to the raw
+            # stored timestamp, unchanged — no hypothetical existing
+            # caller that hasn't been updated to pass `now` breaks.
+            one_arg = history_page.format_event_row({"ts": seeded_ts})
+            if one_arg["ts"] != seeded_ts:
+                return False, (
+                    "expected a one-argument format_event_row() call to "
+                    "return the raw timestamp unchanged, got %r" % one_arg["ts"])
+
+            # A row with no stored timestamp still produces an empty
+            # Timestamp cell, not the shared helper's "no reading yet"
+            # default.
+            no_ts = history_page.format_event_row({}, three_min_later)
+            if no_ts["ts"] != "":
+                return False, (
+                    "expected a missing timestamp to render an empty "
+                    "cell, got %r" % no_ts["ts"])
+
+            # render(ctx) with no "now" key still renders without raising
+            # and still shows a relative suffix (falls back to
+            # history_db.utc_now_iso()).
+            rendered_no_now = history_page.render({"state_dir": tmp})
+            if " ago)" not in rendered_no_now:
+                return False, (
+                    "expected a relative-age suffix even when ctx carries "
+                    "no 'now' key (render() must fall back to "
+                    "history_db.utc_now_iso())")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Timestamp column reads 'ISO (Nm ago)', format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
+        _timestamp_column_absolute_and_relative)
 
     # ======================================================================
     # Section 2: companion/pages/preview_page.py
