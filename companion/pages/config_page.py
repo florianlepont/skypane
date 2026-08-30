@@ -291,7 +291,11 @@ def poll_trigger_section(cooldown_remaining):
     ever call `poll_loop.run_once()` — so a user who re-enables the
     button by hand in devtools still cannot poll early.
     """
-    if cooldown_remaining:
+    # `> 0`, not truthy: must agree with _poll_cooldown_script()'s own
+    # `remaining <= 0` early-return, or a negative value would take this
+    # branch (natively disabling the button) while the script inertly
+    # no-ops, leaving no way to re-enable it client-side.
+    if cooldown_remaining > 0:
         cooldown_text = POLL_COOLDOWN_HELPER_TEXT.format(n=cooldown_remaining)
         return (
             '<form method="post" action="/poll-now">'

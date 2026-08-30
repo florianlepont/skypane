@@ -259,13 +259,19 @@ def parse_iso(ts):
 
 def age_seconds(ts, now_ts):
     """The number of seconds between `ts` and `now_ts` (both parsed via
-    parse_iso()), or None when either side fails to parse.
+    parse_iso()), or None when either side fails to parse — including
+    when one side is timezone-naive and the other timezone-aware, which
+    parse_iso() alone cannot catch since each string parses fine on its
+    own; only the subtraction raises.
     """
     parsed = parse_iso(ts)
     now_parsed = parse_iso(now_ts)
     if parsed is None or now_parsed is None:
         return None
-    return (now_parsed - parsed).total_seconds()
+    try:
+        return (now_parsed - parsed).total_seconds()
+    except TypeError:
+        return None
 
 
 def relative_age_text(age_seconds):
