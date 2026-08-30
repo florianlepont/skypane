@@ -22,6 +22,7 @@ Usage:
 """
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -46,7 +47,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 34
+EXPECTED_CHECK_COUNT = 35
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -315,6 +316,66 @@ def main():
     check(
         "poll_trigger_section(17) renders a disabled button and the remaining-seconds copy",
         _poll_trigger_disabled_with_remaining_seconds)
+
+    def _poll_trigger_live_countdown_seeded_from_server_value():
+        # D-01: the disabled branch must ship exactly one inline <script>,
+        # carrying id="poll-trigger-btn"/id="poll-cooldown-text", the
+        # unchanged server-rendered no-JS copy, and every value the
+        # script needs emitted through config_page._js_literal() — never
+        # a hardcoded quoted string, so this check stays correct if the
+        # id/token constants are ever changed deliberately.
+        d17 = config_page.poll_trigger_section(17)
+        d5 = config_page.poll_trigger_section(5)
+        z = config_page.poll_trigger_section(0)
+
+        if d17.count("<script") != 1:
+            return False, "expected exactly one <script occurrence at cooldown=17, got %d" % d17.count("<script")
+        if z.count("<script") != 0:
+            return False, "expected zero <script occurrences at cooldown=0"
+        if ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) not in d17:
+            return False, "expected the button's id attribute"
+        if ('id="%s"' % config_page.POLL_COOLDOWN_TEXT_ID) not in d17:
+            return False, "expected the paragraph's id attribute"
+
+        visible_copy = escape_html(
+            config_page.POLL_COOLDOWN_HELPER_TEXT.format(n=17))
+        if visible_copy not in d17:
+            return False, "expected the unchanged, server-rendered no-JS copy"
+
+        body17_match = re.search(r"<script>(.*?)</script>", d17, re.S)
+        if not body17_match:
+            return False, "expected a <script>...</script> body to extract"
+        body17 = body17_match.group(1)
+
+        expected_literals = [
+            config_page._js_literal(17),
+            config_page._js_literal(config_page.POLL_TRIGGER_BUTTON_ID),
+            config_page._js_literal(config_page.POLL_COOLDOWN_TEXT_ID),
+            config_page._js_literal(config_page.POLL_COOLDOWN_TEMPLATE_TOKEN),
+            config_page._js_literal(
+                config_page.POLL_COOLDOWN_HELPER_TEXT.format(
+                    n=config_page.POLL_COOLDOWN_TEMPLATE_TOKEN)),
+        ]
+        for literal in expected_literals:
+            if literal not in body17:
+                return False, "expected seeded literal %r in the script body" % (literal,)
+
+        body5_match = re.search(r"<script>(.*?)</script>", d5, re.S)
+        if not body5_match:
+            return False, "expected a <script>...</script> body to extract at cooldown=5"
+        body5 = body5_match.group(1)
+        if body5 == body17:
+            return False, "expected a different seed to produce a different script body"
+        if config_page._js_literal(5) not in body5:
+            return False, "expected the seed to come from the argument (5), not a hardcoded value"
+
+        if "</" in config_page._js_literal("</script>"):
+            return False, "expected _js_literal() to break the script-closing sequence"
+
+        return True, ""
+    check(
+        "poll_trigger_section() ships a live countdown script on the disabled branch, seeded exclusively via _js_literal(), leaving the zero-cooldown branch script-free (D-01)",
+        _poll_trigger_live_countdown_seeded_from_server_value)
 
     def _valid_save_writes_both_and_returns_saved_key():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
