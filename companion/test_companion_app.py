@@ -60,7 +60,11 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 68  # 62 + 2 (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3: toggle/dropdown/DOM-contract/no-JS)
+EXPECTED_CHECK_COUNT = 69  # 68 (06.6.1's own additions: 62 + 2 (06.6.1-05
+# Task 1: nav-dropdown.js) + 4 (Task 3: toggle/dropdown/DOM-contract/no-JS))
+# + 1 (2026-08-29 quick task 260829-0rl, merged independently via origin/main
+# PR #19: the gallery route's private caching-scope regression check, WR-02
+# from 06.4-REVIEW.md) — see that check for detail.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -985,9 +989,22 @@ def main():
                 return False, "expected a text/css content type, got %r" % content_type
             if not body:
                 return False, "expected a non-empty stylesheet body"
+            cache_control = headers.get("Cache-Control", "")
+            directives = [part.strip() for part in cache_control.split(",")]
+            if "public" not in directives:
+                return False, (
+                    "expected a shared-cacheable (public) Cache-Control scope, "
+                    "got %r" % cache_control)
+            if "max-age=300" not in directives:
+                return False, (
+                    "expected a 300-second max-age on the stylesheet's "
+                    "Cache-Control header, got %r" % cache_control)
             return True, ""
         check(
-            "GET /static/style.css succeeds without a session and returns a CSS content type",
+            "GET /static/style.css succeeds without a session, returns a CSS "
+            "content type, and stays shared-cacheable (public, max-age=300) — "
+            "this route is a deliberate D-02 gate exemption with no per-user "
+            "content",
             _stylesheet_public)
 
         # --- battery-trend script: public, no session required (06.5-01, D-02) ---
@@ -1152,6 +1169,42 @@ def main():
         # --- gallery path-traversal rejection, with a canary file one level up ---
 
         os.makedirs(harness.state_path("gallery"), exist_ok=True)
+
+        def _gallery_response_is_never_shared_cacheable():
+            gallery_filename = "260829-0rl-cache-control-fixture.png"
+            gallery_path = os.path.join(
+                harness.state_path("gallery"), gallery_filename)
+            with open(gallery_path, "wb") as fh:
+                fh.write(PNG_SIGNATURE + b"not-a-real-panel-just-a-fixture")
+            status, headers, _body = http_request(
+                base + "/gallery/" + gallery_filename, cookie=session_cookie)
+            if status != 200:
+                return False, (
+                    "expected 200 for a gallery fixture written to %r, got %d "
+                    "(a 404 here means the fixture landed in the wrong "
+                    "directory, not that the caching header is wrong)"
+                    % (gallery_path, status))
+            cache_control = headers.get("Cache-Control", "")
+            directives = [part.strip() for part in cache_control.split(",")]
+            if "public" in directives:
+                return False, (
+                    "an authenticated gallery image must never be advertised "
+                    "as storable by a shared cache — got Cache-Control: %r"
+                    % cache_control)
+            if "private" not in directives:
+                return False, (
+                    "expected the non-shared (private) Cache-Control scope on "
+                    "an authenticated gallery response, got %r" % cache_control)
+            if "max-age=3600" not in directives:
+                return False, (
+                    "expected a 3600-second max-age on the gallery response, "
+                    "got %r" % cache_control)
+            return True, ""
+        check(
+            "an authenticated gallery image is never advertised as storable "
+            "by a shared/intermediary cache (WR-02)",
+            _gallery_response_is_never_shared_cacheable)
+
         canary_marker = "TOP-SECRET-CANARY-MARKER-DO-NOT-SERVE"
         with open(harness.state_path("canary.txt"), "w") as fh:
             fh.write(canary_marker)
