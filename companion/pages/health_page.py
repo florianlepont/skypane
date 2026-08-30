@@ -560,7 +560,18 @@ def _battery_section(trend_rows):
             "No battery telemetry recorded yet — check back after the "
             "device's next poll."), "ok"
     state = battery_status(trend_rows)
-    table_rows = [(row.get("ts"), row.get("battery_mv")) for row in trend_rows]
+    # 06.6-01 (D-02): now is computed locally, rather than threaded in as
+    # a parameter, because _battery_section()'s single-argument call site
+    # (`battery_html, battery_state = _battery_section(trend_rows)`) is
+    # pinned by sibling phase 06.5's own automated gate — widening the
+    # signature would break that gate in whichever order the two phases
+    # execute. history_db.utc_now_iso() is the same call render() already
+    # makes for its own `now`.
+    now = history_db.utc_now_iso()
+    table_rows = [
+        (layout.absolute_and_relative(row.get("ts"), now, fallback=""), row.get("battery_mv"))
+        for row in trend_rows
+    ]
     table_html = layout.data_table(
         ["Timestamp", "Battery (mV)"], table_rows, mono_columns=(0, 1))
     sparkline_html = battery_sparkline_svg(trend_rows) if len(trend_rows) >= 2 else ""

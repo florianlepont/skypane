@@ -27,6 +27,7 @@ tempfile, time, urllib). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_status_pages.py
 """
+import inspect
 import os
 import shutil
 import socket
@@ -52,8 +53,9 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-# 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion checks)
-EXPECTED_CHECK_COUNT = 46
+# 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion
+# checks) + 1 (06.6-01 Task 2: Battery Trend absolute+relative timestamp check)
+EXPECTED_CHECK_COUNT = 47
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -398,6 +400,36 @@ def main():
     check(
         "three battery rows render the full trend (not just the latest value) and exactly one <svg><polyline>",
         _battery_trend_shows_all_readings_and_one_sparkline)
+
+    def _battery_trend_timestamps_show_absolute_and_relative():
+        # D-02 regression guard: the Battery Trend table's Timestamp
+        # column must match the Device/ADS-B pipeline rows' shape —
+        # "ISO (Nm ago)" — and _battery_section() must stay
+        # single-argument (06.5-02's own pinned automated gate).
+        if len(inspect.signature(health_page._battery_section).parameters) != 1:
+            return False, "_battery_section must stay single-argument (06.5-02 pins its call site)"
+        tmp = _mkstate("h-battery-trend-timestamps")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=2)), 4200),
+                (_iso(base - timedelta(minutes=1)), 4190),
+                (_iso(base), 4180),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            for ts, _mv in readings:
+                if (ts + " (") not in rendered:
+                    return False, "expected %r followed by ' (' in the rendered Battery Trend table" % ts
+            if " ago)" not in rendered:
+                return False, "expected at least one parenthesised relative age in the Battery Trend table"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Battery Trend's Timestamp column shows 'ISO (Nm ago)', matching the Device/pipeline rows (D-02), "
+        "and _battery_section() stays single-argument",
+        _battery_trend_timestamps_show_absolute_and_relative)
 
     def _battery_badge_present_and_healthy_on_normal_trend():
         tmp = _mkstate("h-battery-badge-ok")
