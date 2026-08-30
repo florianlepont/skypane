@@ -51,16 +51,17 @@ if REPO_ROOT not in sys.path:
 
 from companion import auth  # noqa: E402
 import companion.layout as layout  # noqa: E402
-from companion.pages import history_page, preview_page  # noqa: E402
+from companion.pages import health_page, history_page, preview_page  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 27  # 25 (pre-06.6-03) + 2 (06.6-03 Task 1: History
+EXPECTED_CHECK_COUNT = 28  # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History
 # Timestamp column reads "ISO (Nm ago)"; Task 2: Preview's Captured
-# caption reads "Captured ISO (Nm ago)")
+# caption reads "Captured ISO (Nm ago)"; Task 3: corroboration copy
+# cross-page drift guard, D-03)
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -661,6 +662,42 @@ def main():
     check(
         "History's Timestamp column reads 'ISO (Nm ago)', format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
         _timestamp_column_absolute_and_relative)
+
+    def _corroboration_copy_agrees_with_health_page():
+        # D-03: health_page._CORROBORATION_ROWS is the canonical
+        # (stored, label, status, explanation) table; history_page's own
+        # hand-maintained _CORROBORATION_LABELS must stay equal to it,
+        # key by key, so the two pages read consistently and so a future
+        # edit to either table cannot silently drift from the other.
+        health_rows = {
+            stored: (status, label)
+            for stored, label, status, _explanation in health_page._CORROBORATION_ROWS
+        }
+        history_labels = history_page._CORROBORATION_LABELS
+
+        if set(health_rows) != {"True", "None", "False"}:
+            return False, "expected health_page._CORROBORATION_ROWS to cover exactly True/None/False"
+        if set(history_labels) != {"True", "None", "False"}:
+            return False, "expected history_page._CORROBORATION_LABELS to cover exactly True/None/False"
+
+        for key in ("True", "None", "False"):
+            if history_labels[key] != health_rows[key]:
+                return False, (
+                    "corroboration copy drifted for %r: history_page has %r, "
+                    "health_page has %r" % (key, history_labels[key], health_rows[key]))
+
+        # D-03/D-15: the single-source, uncorroborated "None" state is a
+        # genuinely unknown state, not a failure — it must stay "ok" in
+        # both tables, never a warning or an error.
+        if history_labels["None"][0] != "ok":
+            return False, "expected history_page's 'None' (single-source) status to be 'ok', not a failure"
+        if health_rows["None"][0] != "ok":
+            return False, "expected health_page's 'None' (single-source) status to be 'ok', not a failure"
+
+        return True, ""
+    check(
+        "history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS key-by-key, and the single-source 'None' state is never labelled a failure in either table",
+        _corroboration_copy_agrees_with_health_page)
 
     # ======================================================================
     # Section 2: companion/pages/preview_page.py
