@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "5"
-current_phase_name: Battery Life & Low-Battery Indicator
+current_phase: 5
+current_phase_name: "only remaining open item: 05-01 Tasks 2-3, the unattended multi-day discharge run, deliberately deferred since 2026-08-27"
 status: blocked
-stopped_at: "The entire 06.x backlog (06.2 through 06.6.1) plus Phase 7 are now complete and merged to main (PR #20, commit fa6dacc + this branch's subsequent Phase 06.6 work). phase.complete's next-phase suggestion after closing 06.6 ('06.6.1') is wrong — that phase already completed earlier this same session. Every phase in ROADMAP.md is [x] complete except Phase 5, whose sole remaining item (05-01 Tasks 2-3: an unattended multi-day discharge run, DEVICE-05) has been deliberately deferred to end of project since 2026-08-27. That deferred point may now genuinely be reached — flag to the developer rather than assume; starting a multi-day physical hardware test is not a decision to make unilaterally."
-last_updated: "2026-08-30T07:29:49.957Z"
+stopped_at: Phase 06.6.2 context gathered
+last_updated: "2026-08-30T19:59:36.946Z"
 last_activity: 2026-08-30
-last_activity_desc: Phase 06.6 complete (3/3 plans, verified 8/8); entire 06.x backlog now closed
+last_activity_desc: Phase 06.6 complete, transitioned to Phase 06.6.1
 progress:
-  total_phases: 15
+  total_phases: 16
   completed_phases: 14
   total_plans: 63
   completed_plans: 63
-  percent: 100
+  percent: 88
 ---
 
 # Project State
@@ -29,6 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 5 — Battery Life & Low-Battery Indicator (only remaining open item: 05-01 Tasks 2-3, the unattended multi-day discharge run, deliberately deferred since 2026-08-27)
+
+**Phase 06.6.2 (Companion UX, accessibility, and responsive hardening) inserted 2026-08-30**, after Phase 06.6, not yet planned. Seeded from `06.6.2-companion-ux-accessibility-and-responsive-hardening`'s sibling audit document `.planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-UX-AUDIT.md` (added to `main` in commit `188b00e`, rebased into this branch), a hands-on post-release UI/UX/accessibility/responsive audit of the live companion app performed after Phase 06.6.1's visual-polish pass. 18 findings (4 High: UXA-01 populated History overflows the desktop document and hides its meaning on mobile, UXA-02 the closed mobile nav menu stays exposed to the accessibility tree/focus order, UXA-03 login loses the requested deep link and offers no visible logout, UXA-04 the light-theme accent fails WCAG AA text contrast; 9 Medium; 5 Low), plus 11 open product decisions (language policy, mobile History pattern, save-button dirty-state behavior, etc.) the audit explicitly reserves for `/gsd-discuss-phase` rather than guessing, and a 4-wave suggested implementation sequence. Does not invalidate `06.6.1-VERIFICATION.md`, which correctly verified that phase against its own locked decisions — this is a follow-up hardening pass, not a reopening. `roadmap.phase-op` gave this phase number `06.6.2` when inserted after `06.6` (matching the audit's own suggested follow-up numbering); its ROADMAP.md `Depends on:` line reads "Phase 06.6" as a mechanical consequence of that insertion point, though the audited surface is genuinely 06.6.1's shipped UI — the real dependency should be confirmed/corrected when `/gsd-discuss-phase 06.6.2` runs. Not yet current_phase — Phase 5's deferred discharge run remains the project's actual open item; this is queued backlog, next step `/gsd-discuss-phase 06.6.2`.
 
 **Phase 7 (Final On-Glass Verification) — COMPLETE, 2026-08-28**, done independently on `main` (PR #18) while this branch executed the 06.x backlog; merged into this branch just now (no code conflict — only this file). Launched at the developer's explicit request ahead of the 06.x backlog. 07-01 (the phase's only plan) executed across 3 tasks: Task 1 (CLI forcing flags + 02-UI-SPEC.md addendum, commit 0cc4ae1); Task 2 (blocking on-glass verification battery, steps A-H, run interactively with the developer over SSH against the real deployed VPS); Task 3 (findings recorded to hardware/BRINGUP-LOG.md, commit 6bd4126). Real findings, not a rubber-stamp: PT Serif Regular legibility, bezel clipping, state distinction, two-flight composition, and wordmark detail all confirmed "parfait" on real glass with no changes needed. Yellow/Red palette confirmed close enough as-is. Blue/Green, however, failed hard on real glass — D-21's sky-tone values had only ever been screen-confirmed, never checked against real ink — triggering two live deviations, both developer-approved in real time: (1) `panel_format.PALETTE_RGB`'s Blue/Green darkened across two iterations (110,180,225)/(140,195,130) → (45,95,155)/(50,105,65), confirmed "c'est parfait"; (2) the flat D-21 background fill replaced with `dither.dithered_state_background()` (Floyd-Steinberg dither toward White, 2-color palette to avoid a real mid-session bug where the 6-color quantizer picked the wrong ink once Blue/Green were both dark) after the developer found even the corrected flat fill too dark at full-panel coverage (simultaneous-contrast effect) — followed by a third fix, `_paint_text_backing()`, painting a clean undithered plate behind every text run after the dithered speckle hurt legibility behind white text. `server/test_poll_loop.py`'s pinned default-config digest was re-pinned twice (documented, same pattern as the prior D-26-outline re-pin). Full suite green throughout (90% coverage). Session also found and fixed an unrelated production issue: the VPS's `inkframe-poll.timer` (legacy, pre-SkyPane-rename) was left running and failing every 30s since a stale mid-migration state, while the real `skypane-poll.timer` was healthy — the legacy timer was stopped and disabled. Carried-forward open items (see `07-01-SUMMARY.md`): A-02-02-01's real +200ft/min departure threshold still unvalidated against real sensor data (visual path only); the wall-mounted re-check of ROADMAP criteria 1/4 remains open (D-03, not a blocker); ROADMAP criterion 7's "2-3 alternate Blue/Green theme variants for CFG-01" was only partially fulfilled — the single default "sky" theme was corrected, no additional selectable theme variants were built (open for a future phase if wanted); the `inkframe-*`/`skypane-*` naming drift in this plan's own example commands (documentation only).
 
@@ -156,6 +158,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - **Phase 6 completed (2026-08-28), backlog promoted to decimal phases 6.1-6.6:** After 06-12's live verification (90-minute real ADS-B capture, live Caddy-log/network-posture confirmation, developer sign-off checkpoint), `gsd-tools query phase.complete "06"` was run. It has a real bug: it also flipped Phase 7's top-level roadmap checkbox to `[x]` and appended a false "(completed 2026-08-28)" — Phase 7 (Final On-Glass Verification) has not been touched. Caught and corrected by hand (Phase 7's own "## Phase Details" section, including its `Plans: 0/1` line, was untouched by the bug — only the top-level summary line was wrong). Separately, six backlog items — the two pre-existing (999.1 battery status, 999.2 LED toggle) plus four raised during 06-12's sign-off checkpoint itself (999.3 UI visual design/desktop layout, 999.4 runway picker number/map, 999.5 interactive battery chart, 999.6 timestamp/copy clarity) — were promoted via `gsd-tools query phase.insert 6 "..."` (called six times) into decimal phases 06.1-06.6, all inserted between Phase 6 and Phase 7 at the user's explicit request ("before phase 7... call it 6.1"), matching the exact reasoning that already got Phase 6 itself reordered ahead of Phase 7. The raw `phase.insert` CLI call does not touch the top-level `## Phases` bullet list (unlike Phase 3.1's insertion, which did) or run the fuller `insert-phase.md` workflow's `state.patch`/`state.add-roadmap-evolution` follow-up steps (the `state.patch` field names it tries — "Current Phase"/"Next recommended run" — don't match this project's STATE.md format, consistent with every other STATE.md field-matching failure already recorded above) — both done by hand instead: the six phases added to the top-level list between Phase 6 and Phase 7, and this entry substituting for the automated evolution log. The old `## Backlog` section and its six `999.x` placeholder directories (each holding only a `.gitkeep`) were deleted — their content now lives in the promoted phases' ROADMAP.md entries. `total_phases` becomes 14 (was 8, +6 insertions); `completed_phases` becomes 6 (Phase 7's erroneous 7th was the bug just described).
 - Phase 06.1 edited: Superseded and merged into Phase 06.5 (overlapping scope on health_page.py's battery section, confirmed by user before planning)
 - Phase 06.6.1 inserted after Phase 06.6: Companion visual polish pass (logo, mobile hamburger nav, theme-toggle sizing, Health density, History table density, battery chart layout) - raised from real-device testing during 06.5-03 (URGENT)
+- Phase 06.6.2 inserted after Phase 06.6: Companion UX/accessibility/responsive hardening — seeded from 06.6.1-UX-AUDIT.md (18 findings, 4 High; 11 open product decisions to resolve in discuss-phase before planning) (URGENT)
 
 ### Decisions
 
@@ -304,10 +307,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-29T22:30:27.195Z
-Stopped at: Phase 06.6.1 Wave 3 complete (5/6 plans): 05 shipped nav-dropdown.js, the hamburger toggle/dropdown, and retired the horizontal nav strip (D-06, supersedes D-00). Plan 06 (Wave 4, final) is a blocking human real-device verification checkpoint.
+Last session: 2026-08-30T19:59:36.938Z
+Stopped at: Phase 06.6.2 context gathered
 
-Resume file: None
+Resume file: .planning/phases/06.6.2-companion-ux-accessibility-and-responsive-hardening/06.6.2-CONTEXT.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
