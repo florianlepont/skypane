@@ -52,7 +52,8 @@ import server.poll_loop as poll_loop  # noqa: E402
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 44  # 42 + 2 (06.6.1-04 Task 2: Health icons + Airlines iconless)
+# 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion checks)
+EXPECTED_CHECK_COUNT = 46
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -271,6 +272,53 @@ def main():
     check(
         "staleness_status() returns ok/warn/error at the right boundaries, warn for a never-seen signal",
         _staleness_status_boundaries)
+
+    def _layout_absolute_and_relative_covers_every_documented_case():
+        if layout.absolute_and_relative(
+                "2026-08-28T13:58:02+00:00", "2026-08-28T14:01:02+00:00") != (
+                "2026-08-28T13:58:02+00:00 (3m ago)"):
+            return False, "expected the +00:00/+00:00 pair to format as absolute-first with a 3m relative age"
+        if not layout.absolute_and_relative(
+                "2026-08-28T13:58:02Z", "2026-08-28T13:58:32+00:00").endswith("(30s ago)"):
+            return False, "expected the Z/+00:00 pair to parse and subtract cleanly, ending in (30s ago)"
+        if layout.absolute_and_relative(None, "2026-08-28T14:01:02+00:00") != "no reading yet":
+            return False, "expected the default fallback for a falsy timestamp"
+        if layout.absolute_and_relative(
+                "", "2026-08-28T14:01:02+00:00", fallback="") != "":
+            return False, "expected the explicit empty-string fallback to be honoured"
+        if layout.absolute_and_relative(
+                "not-a-date", "2026-08-28T14:01:02+00:00") != "not-a-date":
+            return False, "expected an unparseable timestamp to degrade to the absolute string, not raise"
+        if layout.absolute_and_relative("2026-08-28T13:58:02+00:00", None) != (
+                "2026-08-28T13:58:02+00:00"):
+            return False, "expected a missing now_ts to still return the absolute value unchanged"
+        return True, ""
+    check(
+        "layout.absolute_and_relative() covers every documented case: ordering, Z-suffix parsing, "
+        "default/explicit fallback, unparseable-timestamp degradation, missing now_ts",
+        _layout_absolute_and_relative_covers_every_documented_case)
+
+    def _timestamp_helpers_promoted_not_duplicated():
+        for name in ("_parse_iso", "_age_seconds", "_relative_age_text"):
+            if hasattr(health_page, name):
+                return False, "health_page still defines %r — helpers were copied, not promoted" % name
+        tmp = _mkstate("h-promotion-regression")
+        try:
+            now = _now()
+            ts = _iso(now - timedelta(minutes=3))
+            _seed_device_health(tmp, [(ts, 4200)])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if ts not in rendered:
+                return False, "expected the seeded ISO string to appear on the rendered page"
+            if " ago)" not in rendered:
+                return False, "expected a parenthesised relative age suffix on the rendered page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "health_page's private timestamp helpers are gone (a move, not a copy) and the Device row still "
+        "renders the absolute-plus-relative format",
+        _timestamp_helpers_promoted_not_duplicated)
 
     def _independent_thresholds_one_warn_one_ok():
         tmp = _mkstate("h-independent")

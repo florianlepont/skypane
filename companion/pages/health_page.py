@@ -34,7 +34,7 @@ import a page module, the constraint `companion/pages/__init__.py`
 states.
 """
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from companion.layout import escape_html
 import companion.layout as layout
@@ -207,39 +207,11 @@ def _safe_query(state_dir, fn):
         return _DB_UNAVAILABLE
 
 
-def _parse_iso(ts):
-    if not isinstance(ts, str):
-        return None
-    try:
-        return datetime.fromisoformat(ts)
-    except ValueError:
-        return None
-
-
-def _age_seconds(ts, now_ts):
-    parsed = _parse_iso(ts)
-    now_parsed = _parse_iso(now_ts)
-    if parsed is None or now_parsed is None:
-        return None
-    return (now_parsed - parsed).total_seconds()
-
-
 def _cutoff_iso(now_ts, days):
-    now_parsed = _parse_iso(now_ts)
+    now_parsed = layout.parse_iso(now_ts)
     if now_parsed is None:
         return None
     return (now_parsed - timedelta(days=days)).isoformat(timespec="seconds")
-
-
-def _relative_age_text(age_seconds):
-    age_seconds = max(0, int(age_seconds))
-    if age_seconds < 60:
-        return "%ds ago" % age_seconds
-    if age_seconds < 3600:
-        return "%dm ago" % (age_seconds // 60)
-    if age_seconds < 86400:
-        return "%dh ago" % (age_seconds // 3600)
-    return "%dd ago" % (age_seconds // 86400)
 
 
 def _meta_flag_true(value):
@@ -487,12 +459,9 @@ def _device_section(device_health, now):
     if device_health is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     ts = (device_health or {}).get("ts")
-    age = _age_seconds(ts, now)
+    age = layout.age_seconds(ts, now)
     state = staleness_status(age, STALE_DEVICE_WARN_S, STALE_DEVICE_ERROR_S)
-    detail = (
-        "no reading yet" if ts is None
-        else "%s (%s)" % (escape_html(ts), escape_html(_relative_age_text(age)))
-    )
+    detail = escape_html(layout.absolute_and_relative(ts, now))
     row = '<p class="text-body">%s %s</p>' % (
         layout.status_dot(state, DEVICE_FRESHNESS_LABEL), detail)
     return row, state
@@ -501,12 +470,9 @@ def _device_section(device_health, now):
 def _pipeline_section(pipeline_ts, now):
     if pipeline_ts is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
-    age = _age_seconds(pipeline_ts, now)
+    age = layout.age_seconds(pipeline_ts, now)
     state = staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
-    detail = (
-        "no reading yet" if pipeline_ts is None
-        else "%s (%s)" % (escape_html(pipeline_ts), escape_html(_relative_age_text(age)))
-    )
+    detail = escape_html(layout.absolute_and_relative(pipeline_ts, now))
     row = '<p class="text-body">%s %s</p>' % (
         layout.status_dot(state, PIPELINE_FRESHNESS_LABEL), detail)
     return row, state
