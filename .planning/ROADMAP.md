@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6.3: Companion UI visual design & desktop layout pass** (INSERTED) - More visual personality, a true desktop dashboard layout (sidebar nav + multi-column stat tiles), and History's missing mobile table-crop fix. Planned: 5 plans across 3 waves. (completed 2026-08-28)
 - [x] **Phase 6.4: Runway picker — show runway number + airport map** (INSERTED) - Clearer runway numbering plus a small airport diagram on the Config page. Planned 2026-08-28 (1 plan). (completed 2026-08-28)
 - [x] **Phase 6.5: Interactive battery trend chart with overall status** (INSERTED) - Replace the static sparkline with an interactive chart and an at-a-glance status indicator. 3 plans across 3 waves. (completed 2026-08-29)
-- [ ] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, a live poll-trigger cooldown countdown, and a verified/pinned corroboration-copy drift guard. Planned 2026-08-28 (3 plans across 2 waves).
+- [x] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, a live poll-trigger cooldown countdown, and a verified/pinned corroboration-copy drift guard. Planned 2026-08-28 (3 plans across 2 waves). (completed 2026-08-30)
 - [x] **Phase 6.6.1: Companion visual polish pass** (INSERTED) - Second visual-design pass on the companion app: serif headings and a crafted wordmark, a terracotta accent, card relief, airier spacing, a real mobile hamburger nav replacing the horizontal-scroll strip, Health density/redundancy cleanup with per-signal icons and a nav notification dot, a full-width battery chart, and History cut 9 columns to 7. Planned 2026-08-29 (6 plans across 4 waves). All 6 plans executed 2026-08-30; the blocking real-phone sign-off (plan 06) found 2 confirmed, root-caused CSS defects (`.mobile-nav`'s `position:absolute` prevented the push-down behavior D-06 requires; `.stat-tile svg`'s `width:100%` rule unintentionally stretched the new icon SVGs) — see `06.6.1-06-SUMMARY.md`. Both fixed directly (developer chose a quick fix over formal gap-closure planning, since both root causes were already precisely identified), re-verified live in-browser and by `gsd-verifier` (46/46 must-haves, `06.6.1-VERIFICATION.md`). (completed 2026-08-30)
 - [x] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog) (completed 2026-08-28)
 
@@ -292,17 +292,17 @@ Plans:
 
 **Requirements**: None — unmapped backlog phase (promoted from 999.6), not tied to a REQUIREMENTS.md REQ-ID. Traced instead against this phase's own locked decisions D-01 (live ticking countdown), D-02 (extend the existing absolute+relative timestamp format to the three spots that lack it) and D-03 (corroboration copy, verify-only) in `06.6-CONTEXT.md`. All three fixes trace back to developer feedback captured during Phase 6's live sign-off (06-12).
 **Depends on:** Phase 6. Soft, order-insensitive relationships with siblings 06.3, 06.4 and 06.5, which are planned-but-unexecuted against these same files — every 06.6 task locates its edit target by function/symbol name rather than line number, keeps `_battery_section(trend_rows)` single-argument (06.5-02 pins that call-site literal in its own gate), and leaves `_history_table_html()`'s return block to 06.3-03.
-**Plans:** 3 plans (2 waves)
+**Plans:** 3/3 plans complete
 
 Plans:
 **Wave 1**
 
-- [ ] 06.6-01-PLAN.md — Promote the timestamp helpers into `companion/layout.py` as public `parse_iso()`/`age_seconds()`/`relative_age_text()`/`absolute_and_relative()`, rewire `health_page.py` onto them, and reformat Health's Battery Trend table (D-02)
-- [ ] 06.6-02-PLAN.md — Live, server-seeded poll-cooldown countdown as an inline `<script>` in `poll_trigger_section()`, with `json.dumps()` seeding and a permanent sink-safety gate (D-01)
+- [x] 06.6-01-PLAN.md — Promote the timestamp helpers into `companion/layout.py` as public `parse_iso()`/`age_seconds()`/`relative_age_text()`/`absolute_and_relative()`, rewire `health_page.py` onto them, and reformat Health's Battery Trend table (D-02)
+- [x] 06.6-02-PLAN.md — Live, server-seeded poll-cooldown countdown as an inline `<script>` in `poll_trigger_section()`, with `json.dumps()` seeding and a permanent sink-safety gate (D-01)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 06.6-03-PLAN.md — History's Timestamp column and Preview's Captured caption onto the shared helper, plus the D-03 corroboration verification and its cross-page drift guard (D-02, D-03)
+- [x] 06.6-03-PLAN.md — History's Timestamp column and Preview's Captured caption onto the shared helper, plus the D-03 corroboration verification and its cross-page drift guard (D-02, D-03)
 
 ### Phase 06.6.1: Companion visual polish pass (INSERTED)
 

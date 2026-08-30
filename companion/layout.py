@@ -1,8 +1,8 @@
 """companion/layout.py — the escaped page shell and 06-UI-SPEC.md's
 component library for the SkyPane companion service.
 
-stdlib `html` only — no imports from server/, and nothing from
-companion.auth beyond the UI-theme cookie name.
+stdlib `html` and `datetime` only — no imports from server/, and
+nothing from companion.auth beyond the UI-theme cookie name.
 
 06-RESEARCH.md's Pitfall 2: stdlib string formatting has no
 autoescaping, so every interpolation site is a manual opt-in.
@@ -14,6 +14,7 @@ this one helper. That single-helper discipline is what makes the
 escaping obligation auditable with one grep across the whole package.
 """
 import html
+from datetime import datetime
 
 from companion.auth import UI_THEME_COOKIE_NAME
 
@@ -227,6 +228,98 @@ def escape_html(value):
     if not isinstance(value, str):
         value = str(value)
     return html.escape(value, quote=True)
+
+
+# --- 06.6-01: shared "absolute + relative" timestamp helpers (D-02) ----
+#
+# Promoted verbatim (in logic) from companion/pages/health_page.py's own
+# private copies, which is why this section exists here rather than in
+# each page module: companion/pages/__init__.py forbids one page module
+# importing another, so a helper every page module needs to reach must
+# live in this shared layer instead. health_page.py's Device check-in
+# and ADS-B pipeline rows already ship the "ISO (Nm ago)" format this
+# promotes; 06.6-03 (History + Preview, wave 2) consumes these same four
+# functions rather than duplicating the logic a third time.
+
+
+def parse_iso(ts):
+    """Parse `ts` as an ISO-8601 datetime, or return None.
+
+    Never raises: a non-`str` input or a string `datetime.fromisoformat()`
+    cannot parse both degrade to None rather than propagating a
+    TypeError/ValueError into a page render.
+    """
+    if not isinstance(ts, str):
+        return None
+    try:
+        return datetime.fromisoformat(ts)
+    except ValueError:
+        return None
+
+
+def age_seconds(ts, now_ts):
+    """The number of seconds between `ts` and `now_ts` (both parsed via
+    parse_iso()), or None when either side fails to parse — including
+    when one side is timezone-naive and the other timezone-aware, which
+    parse_iso() alone cannot catch since each string parses fine on its
+    own; only the subtraction raises.
+    """
+    parsed = parse_iso(ts)
+    now_parsed = parse_iso(now_ts)
+    if parsed is None or now_parsed is None:
+        return None
+    try:
+        return (now_parsed - parsed).total_seconds()
+    except TypeError:
+        return None
+
+
+def relative_age_text(age_seconds):
+    """"Ns ago"/"Nm ago"/"Nh ago"/"Nd ago" using the s/m/h/d threshold
+    ladder this app already ships on the Device/Pipeline rows. A
+    negative age (clock skew) is clamped to 0 rather than read as
+    "in the future".
+    """
+    age_seconds = max(0, int(age_seconds))
+    if age_seconds < 60:
+        return "%ds ago" % age_seconds
+    if age_seconds < 3600:
+        return "%dm ago" % (age_seconds // 60)
+    if age_seconds < 86400:
+        return "%dh ago" % (age_seconds // 3600)
+    return "%dd ago" % (age_seconds // 86400)
+
+
+def absolute_and_relative(ts, now_ts, fallback="no reading yet"):
+    """"<ts> (<relative age> ago)" — the house "absolute + relative"
+    timestamp format (D-02), already shipped on this page's Device
+    check-in and ADS-B pipeline rows and now shared for every caller.
+
+    Returns `fallback` when `ts` is falsy (None or empty string); returns
+    `ts` unchanged (absolute only, no relative suffix) when age_seconds()
+    cannot parse either side — an unparseable or missing `now_ts` — never
+    raising. This is a deliberate hardening over the pre-promotion
+    health_page.py path, where an empty-string `ts` would have reached
+    the relative-age helper as `None` and raised a TypeError mid-render.
+
+    The return value is plain, unescaped text — the same contract
+    status_dot()'s `label` parameter already carries. Every caller must
+    keep escaping it: wrap it in escape_html() directly, or hand it to a
+    builder such as data_table() that already escapes every cell it is
+    given.
+
+    Absolute-first ordering (the ISO string first, the relative age in
+    parentheses) is this app's shipped, canonical convention and must
+    not be reversed — 06.3-UI-SPEC.md's Typography section shows a
+    relative-first example, but that is illustrative prose no 06.3 plan
+    task implements or depends on (06.6-RESEARCH.md Open Question 1).
+    """
+    if not ts:
+        return fallback
+    age = age_seconds(ts, now_ts)
+    if age is None:
+        return ts
+    return "%s (%s)" % (ts, relative_age_text(age))
 
 
 def ui_theme_from_cookie(cookies):

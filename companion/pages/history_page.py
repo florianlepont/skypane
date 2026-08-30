@@ -111,10 +111,14 @@ def history_rows(conn):
     return history_db.recent_runway_events(conn, limit=HISTORY_ROW_LIMIT)
 
 
-def format_event_row(row):
+def format_event_row(row, now=None):
     """Turn one `runway_events` database row into the display cells this
     page renders. Never raises: every lookup degrades to a documented
     fallback rather than an empty cell or an exception.
+
+    `now` is the reference instant (a UTC ISO-8601 string) used to render
+    the Timestamp cell's relative-age suffix; omitting it degrades to an
+    absolute-only timestamp rather than raising.
     """
     aircraft_type = row.get("aircraft_type")
     if isinstance(aircraft_type, str) and aircraft_type:
@@ -138,7 +142,7 @@ def format_event_row(row):
         row.get("corroborated"), _DEFAULT_CORROBORATION)
 
     return {
-        "ts": row.get("ts") or "",
+        "ts": layout.absolute_and_relative(row.get("ts"), now, fallback=""),
         "callsign": row.get("callsign") or "",
         "hex": row.get("hex") or "",
         "aircraft_type_label": aircraft_type_label,
@@ -212,11 +216,12 @@ def _history_table_html(formatted_rows):
 
 def render(ctx):
     state_dir = ctx["state_dir"]
+    now = ctx.get("now") or history_db.utc_now_iso()
     rows = _safe_query(state_dir, history_rows)
 
     if rows is _DB_UNAVAILABLE:
         body = '<p class="text-body">%s</p>' % escape_html(_HISTORY_UNAVAILABLE_TEXT)
     else:
-        body = _history_table_html([format_event_row(row) for row in rows])
+        body = _history_table_html([format_event_row(row, now) for row in rows])
 
     return '<h1 class="text-heading">History</h1>' + body

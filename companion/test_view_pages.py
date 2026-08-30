@@ -50,14 +50,18 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth  # noqa: E402
-from companion.pages import history_page, preview_page  # noqa: E402
+import companion.layout as layout  # noqa: E402
+from companion.pages import health_page, history_page, preview_page  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 25  # 20 (pre-06.6.1-02) + 5 (06.6.1-02, merged History cells)
+EXPECTED_CHECK_COUNT = 28  # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History
+# Timestamp column reads "ISO (Nm ago)"; Task 2: Preview's Captured
+# caption reads "Captured ISO (Nm ago)"; Task 3: corroboration copy
+# cross-page drift guard, D-03)
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -100,12 +104,16 @@ def _seed_gallery(state_dir, names):
         _write_gallery_png(os.path.join(gallery_dir, name))
 
 
-def _history_ctx(state_dir):
-    return {"state_dir": state_dir}
+def _history_ctx(state_dir, now=None):
+    return {"state_dir": state_dir, "now": now or history_db.utc_now_iso()}
 
 
-def _preview_ctx(state_dir, gallery_entries=None):
-    return {"state_dir": state_dir, "gallery_entries": gallery_entries or []}
+def _preview_ctx(state_dir, gallery_entries=None, now=None):
+    return {
+        "state_dir": state_dir,
+        "gallery_entries": gallery_entries or [],
+        "now": now or history_db.utc_now_iso(),
+    }
 
 
 def _img_alt_values(rendered):
@@ -605,6 +613,92 @@ def main():
         "history_page's CELL_PRIMARY_CLASS/CELL_SECONDARY_CLASS/CELL_SEPARATOR_CLASS all appear in style.css and in the rendered page",
         _merged_cell_classes_agree_with_stylesheet)
 
+    def _timestamp_column_absolute_and_relative():
+        # D-02: History's Timestamp column now reads "ISO (Nm ago)"
+        # through the shared companion.layout.absolute_and_relative()
+        # helper (06.6-01), matching Health's Device/pipeline rows.
+        tmp = _mkstate("h-ts-relative")
+        try:
+            seeded_ts = "2026-08-28T13:58:02+00:00"
+            three_min_later = "2026-08-28T14:01:02+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, now=three_min_later))
+            expected = "%s (3m ago)" % seeded_ts
+            if expected not in rendered:
+                return False, "expected %r in the rendered History page" % expected
+
+            # A one-argument format_event_row() call degrades to the raw
+            # stored timestamp, unchanged — no hypothetical existing
+            # caller that hasn't been updated to pass `now` breaks.
+            one_arg = history_page.format_event_row({"ts": seeded_ts})
+            if one_arg["ts"] != seeded_ts:
+                return False, (
+                    "expected a one-argument format_event_row() call to "
+                    "return the raw timestamp unchanged, got %r" % one_arg["ts"])
+
+            # A row with no stored timestamp still produces an empty
+            # Timestamp cell, not the shared helper's "no reading yet"
+            # default.
+            no_ts = history_page.format_event_row({}, three_min_later)
+            if no_ts["ts"] != "":
+                return False, (
+                    "expected a missing timestamp to render an empty "
+                    "cell, got %r" % no_ts["ts"])
+
+            # render(ctx) with no "now" key still renders without raising
+            # and still shows a relative suffix (falls back to
+            # history_db.utc_now_iso()).
+            rendered_no_now = history_page.render({"state_dir": tmp})
+            if " ago)" not in rendered_no_now:
+                return False, (
+                    "expected a relative-age suffix even when ctx carries "
+                    "no 'now' key (render() must fall back to "
+                    "history_db.utc_now_iso())")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Timestamp column reads 'ISO (Nm ago)', format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
+        _timestamp_column_absolute_and_relative)
+
+    def _corroboration_copy_agrees_with_health_page():
+        # D-03: health_page._CORROBORATION_ROWS is the canonical
+        # (stored, label, status, explanation) table; history_page's own
+        # hand-maintained _CORROBORATION_LABELS must stay equal to it,
+        # key by key, so the two pages read consistently and so a future
+        # edit to either table cannot silently drift from the other.
+        health_rows = {
+            stored: (status, label)
+            for stored, label, status, _explanation in health_page._CORROBORATION_ROWS
+        }
+        history_labels = history_page._CORROBORATION_LABELS
+
+        if set(health_rows) != {"True", "None", "False"}:
+            return False, "expected health_page._CORROBORATION_ROWS to cover exactly True/None/False"
+        if set(history_labels) != {"True", "None", "False"}:
+            return False, "expected history_page._CORROBORATION_LABELS to cover exactly True/None/False"
+
+        for key in ("True", "None", "False"):
+            if history_labels[key] != health_rows[key]:
+                return False, (
+                    "corroboration copy drifted for %r: history_page has %r, "
+                    "health_page has %r" % (key, history_labels[key], health_rows[key]))
+
+        # D-03/D-15: the single-source, uncorroborated "None" state is a
+        # genuinely unknown state, not a failure — it must stay "ok" in
+        # both tables, never a warning or an error.
+        if history_labels["None"][0] != "ok":
+            return False, "expected history_page's 'None' (single-source) status to be 'ok', not a failure"
+        if health_rows["None"][0] != "ok":
+            return False, "expected health_page's 'None' (single-source) status to be 'ok', not a failure"
+
+        return True, ""
+    check(
+        "history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS key-by-key, and the single-source 'None' state is never labelled a failure in either table",
+        _corroboration_copy_agrees_with_health_page)
+
     # ======================================================================
     # Section 2: companion/pages/preview_page.py
     # ======================================================================
@@ -639,6 +733,48 @@ def main():
     check(
         "no panel file renders no preview image element, with an honest caption instead",
         _no_panel_no_image_element)
+
+    def _captured_caption_absolute_and_relative():
+        # D-02: Preview's Captured caption now reads
+        # "Captured ISO (Nm ago)" through the same shared
+        # companion.layout.absolute_and_relative() helper (06.6-01),
+        # keeping the existing "Captured " wording.
+        tmp = _mkstate("p-ts-relative")
+        try:
+            _write_panel_file(tmp)
+            rendered = preview_page.render(_preview_ctx(tmp))
+            if "Captured " not in rendered:
+                return False, "expected the caption to still begin 'Captured '"
+            if " ago)" not in rendered:
+                return False, "expected a parenthesised relative age ending ' ago)'"
+
+            # The no-panel-yet branch stays honest: no image element, no
+            # relative-age suffix, exact caption text unchanged.
+            empty_tmp = _mkstate("p-ts-absent")
+            try:
+                rendered_empty = preview_page.render(_preview_ctx(empty_tmp))
+            finally:
+                shutil.rmtree(empty_tmp, ignore_errors=True)
+            if preview_page._NO_PANEL_CAPTION not in rendered_empty:
+                return False, "expected the honest no-panel-yet caption to survive unchanged"
+            if " ago)" in rendered_empty:
+                return False, "did not expect a relative-age suffix with no panel file"
+
+            # The mixed Z / +00:00 suffix pair this page actually
+            # produces must yield a relative suffix, not degrade to
+            # absolute-only.
+            mixed = layout.absolute_and_relative(
+                "2026-08-28T13:58:02Z", "2026-08-28T13:58:32+00:00")
+            if not mixed.endswith("(30s ago)"):
+                return False, (
+                    "expected the Z/+00:00 mixed-suffix pair to subtract "
+                    "cleanly, got %r" % mixed)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Preview's Captured caption reads 'Captured ISO (Nm ago)', the no-panel branch stays honest with no relative suffix, and the Z/+00:00 mixed-suffix mtime pair subtracts cleanly",
+        _captured_caption_absolute_and_relative)
 
     def _zero_gallery_entries_empty_state():
         tmp = _mkstate("p-gallery-empty")
