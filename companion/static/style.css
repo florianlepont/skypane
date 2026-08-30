@@ -730,7 +730,8 @@ button:disabled {
 /* Plan 04 also emits explicit width/height attributes on each <svg class
  * ="icon"> instance, so an icon is correctly sized even if this rule is
  * ever lost — belt and braces, matching how the battery sparkline already
- * carries both attributes and a CSS override (see .stat-tile svg below). */
+ * carries both attributes and a CSS override (see .battery-trend-section
+ * svg below). */
 .icon {
   width: 20px;
   height: 20px;
