@@ -47,7 +47,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 35
+EXPECTED_CHECK_COUNT = 37
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -376,6 +376,52 @@ def main():
     check(
         "poll_trigger_section() ships a live countdown script on the disabled branch, seeded exclusively via _js_literal(), leaving the zero-cooldown branch script-free (D-01)",
         _poll_trigger_live_countdown_seeded_from_server_value)
+
+    def _poll_trigger_zero_cooldown_still_ships_no_script():
+        # Additive regression guard, deliberately separate from the
+        # pre-existing _poll_trigger_enabled_at_zero_cooldown check
+        # above (left unmodified) — pins the no-script property that
+        # check never asserted.
+        rendered = config_page.poll_trigger_section(0)
+        if "Trigger Poll Now" not in rendered:
+            return False, "expected the Trigger Poll Now button copy"
+        if "disabled" in rendered:
+            return False, "expected no disabled attribute at zero cooldown"
+        if "<script" in rendered:
+            return False, "expected zero <script occurrences at zero cooldown"
+        return True, ""
+    check(
+        "poll_trigger_section(0) still ships no <script> element of any kind (additive D-01 regression guard)",
+        _poll_trigger_zero_cooldown_still_ships_no_script)
+
+    # The whole forbidden-sink family in one place, so a future reader
+    # can see it at a glance (06.5-01-PLAN.md's own sink-safety gate for
+    # companion/static/battery-trend.js established this pattern first).
+    _FORBIDDEN_SCRIPT_SINKS = (
+        "innerHTML", "outerHTML", "insertAdjacentHTML",
+        "document.write", "eval(", "fetch(", "XMLHttpRequest",
+    )
+    _REQUIRED_SCRIPT_OPERATIONS = (
+        "use strict", "textContent", "removeAttribute",
+        "setInterval", "clearInterval",
+    )
+
+    def _poll_cooldown_script_has_no_forbidden_sink():
+        rendered = config_page.poll_trigger_section(17)
+        body_match = re.search(r"<script>(.*?)</script>", rendered, re.S)
+        if not body_match:
+            return False, "expected a <script>...</script> body to extract"
+        body = body_match.group(1)
+        for forbidden in _FORBIDDEN_SCRIPT_SINKS:
+            if forbidden in body:
+                return False, "forbidden sink found in the inline script: %r" % (forbidden,)
+        for required in _REQUIRED_SCRIPT_OPERATIONS:
+            if required not in body:
+                return False, "expected required operation %r in the inline script" % (required,)
+        return True, ""
+    check(
+        "the inline countdown script contains none of the forbidden HTML-writing/eval/network sinks and does contain strict mode plus the permitted DOM/timer operations",
+        _poll_cooldown_script_has_no_forbidden_sink)
 
     def _valid_save_writes_both_and_returns_saved_key():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
