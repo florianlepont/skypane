@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: "06.6.1"
 current_phase_name: Companion visual polish pass
 status: executing
-stopped_at: "Phase 06.6.1 Wave 3 complete (5/6 plans): 05 shipped nav-dropdown.js, the hamburger toggle/dropdown, and retired the horizontal nav strip (D-06, supersedes D-00). Plan 06 (Wave 4, final) is a blocking human real-device verification checkpoint."
-last_updated: "2026-08-29T22:30:27.202Z"
-last_activity: 2026-08-29
-last_activity_desc: Phase 06.6.1 execution started
+stopped_at: "Phase 06.6.1 all 6 plans executed. Plan 06's real-device sign-off (iPhone Safari + developer's desktop browser) closed D-05's verification gap and found 2 confirmed, root-caused CSS defects — not fixed inside the checkpoint per its own discipline: (1) .mobile-nav's position:absolute prevents the hamburger panel from pushing content down as D-06 requires (it overlays instead) — traces back to an internally-inconsistent statement in .claude/skills/sketch-findings-skypane/references/mobile-navigation.md that plan 05 followed; (2) .stat-tile svg's width:100% rule (pre-existing, meant only for the battery sparkline) unintentionally captures the new icon <svg class=icon> elements too and wins on specificity, stretching them to fill the tile. Full findings in 06.6.1-06-SUMMARY.md. Next step: /gsd-plan-phase 06.6.1 --gaps to plan the two fixes, then re-verify and complete."
+last_updated: "2026-08-30T06:10:00.000Z"
+last_activity: 2026-08-30
+last_activity_desc: "Phase 06.6.1 real-device sign-off complete — 2 confirmed gaps, not yet phase-complete"
 progress:
   total_phases: 15
   completed_phases: 11
   total_plans: 63
-  completed_plans: 59
-  percent: 94
+  completed_plans: 60
+  percent: 95
 ---
 
 # Project State
