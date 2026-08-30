@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "06.6"
-current_phase_name: companion-ui-clarity-pass-timestamps-poll-trigger-cooldown-c
-status: executing
-stopped_at: "Phase 06.6.1 fully complete (6/6 plans, 2026-08-30): real-device sign-off on iPhone/Safari found 2 confirmed CSS defects (.mobile-nav position:absolute preventing push-down; .stat-tile svg colliding with the new icon SVGs), both fixed directly (commit b3bba02) and re-verified live plus by gsd-verifier (46/46 must-haves). phase.complete's own next_phase suggestion ('07 — Final On-Glass Verification') is wrong — that phase is already complete (2026-08-28); the actual next unexecuted phase in roadmap order is 06.6 (Companion UI clarity pass, already fully planned, 3 plans/2 waves, not yet executed)."
-last_updated: "2026-08-30T06:53:30.744Z"
+current_phase: "5"
+current_phase_name: Battery Life & Low-Battery Indicator
+status: blocked
+stopped_at: "The entire 06.x backlog (06.2 through 06.6.1) plus Phase 7 are now complete and merged to main (PR #20, commit fa6dacc + this branch's subsequent Phase 06.6 work). phase.complete's next-phase suggestion after closing 06.6 ('06.6.1') is wrong — that phase already completed earlier this same session. Every phase in ROADMAP.md is [x] complete except Phase 5, whose sole remaining item (05-01 Tasks 2-3: an unattended multi-day discharge run, DEVICE-05) has been deliberately deferred to end of project since 2026-08-27. That deferred point may now genuinely be reached — flag to the developer rather than assume; starting a multi-day physical hardware test is not a decision to make unilaterally."
+last_updated: "2026-08-30T07:29:49.957Z"
 last_activity: 2026-08-30
-last_activity_desc: Phase 06.6 execution started
+last_activity_desc: Phase 06.6 complete (3/3 plans, verified 8/8); entire 06.x backlog now closed
 progress:
   total_phases: 15
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 63
-  completed_plans: 60
-  percent: 95
+  completed_plans: 63
+  percent: 100
 ---
 
 # Project State
@@ -24,11 +24,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 06.6 — companion-ui-clarity-pass-timestamps-poll-trigger-cooldown-c
+**Current focus:** The 06.x backlog and Phase 7 are complete. Only Phase 5's deliberately-deferred multi-day battery discharge run (DEVICE-05) remains open project-wide — flag its readiness to the developer rather than starting it unprompted.
 
 ## Current Position
 
-Phase: 06.6 (companion-ui-clarity-pass-timestamps-poll-trigger-cooldown-c) — EXECUTING
+Phase: 5 — Battery Life & Low-Battery Indicator (only remaining open item: 05-01 Tasks 2-3, the unattended multi-day discharge run, deliberately deferred since 2026-08-27)
 
 **Phase 7 (Final On-Glass Verification) — COMPLETE, 2026-08-28**, done independently on `main` (PR #18) while this branch executed the 06.x backlog; merged into this branch just now (no code conflict — only this file). Launched at the developer's explicit request ahead of the 06.x backlog. 07-01 (the phase's only plan) executed across 3 tasks: Task 1 (CLI forcing flags + 02-UI-SPEC.md addendum, commit 0cc4ae1); Task 2 (blocking on-glass verification battery, steps A-H, run interactively with the developer over SSH against the real deployed VPS); Task 3 (findings recorded to hardware/BRINGUP-LOG.md, commit 6bd4126). Real findings, not a rubber-stamp: PT Serif Regular legibility, bezel clipping, state distinction, two-flight composition, and wordmark detail all confirmed "parfait" on real glass with no changes needed. Yellow/Red palette confirmed close enough as-is. Blue/Green, however, failed hard on real glass — D-21's sky-tone values had only ever been screen-confirmed, never checked against real ink — triggering two live deviations, both developer-approved in real time: (1) `panel_format.PALETTE_RGB`'s Blue/Green darkened across two iterations (110,180,225)/(140,195,130) → (45,95,155)/(50,105,65), confirmed "c'est parfait"; (2) the flat D-21 background fill replaced with `dither.dithered_state_background()` (Floyd-Steinberg dither toward White, 2-color palette to avoid a real mid-session bug where the 6-color quantizer picked the wrong ink once Blue/Green were both dark) after the developer found even the corrected flat fill too dark at full-panel coverage (simultaneous-contrast effect) — followed by a third fix, `_paint_text_backing()`, painting a clean undithered plate behind every text run after the dithered speckle hurt legibility behind white text. `server/test_poll_loop.py`'s pinned default-config digest was re-pinned twice (documented, same pattern as the prior D-26-outline re-pin). Full suite green throughout (90% coverage). Session also found and fixed an unrelated production issue: the VPS's `inkframe-poll.timer` (legacy, pre-SkyPane-rename) was left running and failing every 30s since a stale mid-migration state, while the real `skypane-poll.timer` was healthy — the legacy timer was stopped and disabled. Carried-forward open items (see `07-01-SUMMARY.md`): A-02-02-01's real +200ft/min departure threshold still unvalidated against real sensor data (visual path only); the wall-mounted re-check of ROADMAP criteria 1/4 remains open (D-03, not a blocker); ROADMAP criterion 7's "2-3 alternate Blue/Green theme variants for CFG-01" was only partially fulfilled — the single default "sky" theme was corrected, no additional selectable theme variants were built (open for a future phase if wanted); the `inkframe-*`/`skypane-*` naming drift in this plan's own example commands (documentation only).
 
@@ -42,7 +42,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 Status: Executing Phase 06.6
 Also merged 2026-08-28: origin/main's Phase 05 DEVICE-04 completion and the missed-flights-not-displayed debug session's two remaining mechanisms — B (`detect.py` now corroborates ADS-B sources on candidate SETS rather than final picks, and the D-P2-01 sort key tie-breaks on `hex` instead of the observer-local `seen_pos`) and C (`poll_loop.py` paces the display slot to the device's ~90s redraw floor through a bounded-age FIFO queue). Both compose with Phase 6's runway parameterisation: the pavement gate applies to whichever runway is selected, and corroboration runs on that runway's candidates. Also merged 2026-08-28 (second merge, this one): origin/main's Phase 7 (Final On-Glass Verification, PR #18) — panel palette re-tuning (Blue/Green darkened, dithered state background, text backing plate) and the legacy `inkframe-poll.timer` cleanup, described in the Phase 7 paragraph above.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-08-30 — Phase 06.6 execution started
+Last activity: 2026-08-30 — Phase 06.6 complete, transitioned to Phase 06.6.1
 
 **State at end of this session (2026-08-28), on branch `claude/debug-skypane-0c21a9`:** two more items completed on that branch, both unrelated to Phase 06's companion-app work, merged forward from a session that started as a live-device debugging conversation. Quick task 260828-b0d: corrected an unverified manufacturer citation about panel refresh cadence in `firmware/main/Kconfig.projbuild`, `firmware/main/panel_guard.h`, and `server/poll_loop.py`'s `MAX_STALENESS_S` comment, replacing it with the real Good Display GDEP133C02 datasheet finding (the datasheet's only refresh-frequency guidance is a 24h *minimum* against ghosting, not a maximum-rate wear limit as previously claimed) — zero behavioral/numeric change, proven by pre/post digests. Debug session `illustration-crop-text-margin` (resolved, two passes): the user reported the gap between the aircraft illustration and its flight-info text looked inconsistent across airlines; root cause was `draw_illustration()` anchoring layout to each PNG's full source rectangle rather than its actually-painted (opaque) pixels, while every vendored file carries a soft drop-shadow band the renderer already discards before painting — measured gap varied 17-154px by airline. Pass 1 fixed the vertical text gap (user-confirmed via preview renders); pass 2, requested as a follow-up, fixed horizontal centering (main aircraft up to 7.5px off canvas centre), the previous card's right-alignment (up to 26px between the two aircraft's visible edges), and a previously-unreported previous-card vertical-centering drift (5.5-28.5px, found while re-measuring for pass 2) — all three fixed the same way, via the `IllustrationPlacement.content` tight bbox. Card *sizing* deliberately still derives from the full rectangle so one aircraft's rendered size never depends on which airline preceded it. Neither fix has been confirmed on real Spectra 6 glass yet; both are server-side/comment-only so no firmware reflash is needed once deployed. This also means `server/plane/render.py`'s render output changed again since Phase 06's own digest re-pin (see `06-12`'s CI-fix commit) — a second, independent `_DEFAULT_CONFIG_DIGEST` re-pin landed on `main` for the same reason (real pixel output moved, not a platform artifact this time); reconciled during this merge, see git history for the merged value.
 
@@ -62,7 +62,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 **Velocity:**
 
-- Total plans completed: 46
+- Total plans completed: 49
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -80,6 +80,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 06.4 | 1 | - | - |
 | 06.5 | 3 | - | - |
 | 06.6.1 | 6 | - | - |
+| 06.6 | 3 | - | - |
 
 **Recent Trend:**
 
