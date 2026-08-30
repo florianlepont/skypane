@@ -232,11 +232,16 @@ a:hover {
  * the horizontally-scrollable strip itself — even correctly sized — hid
  * most tabs behind an undiscoverable swipe (only 3-4 of 5 tabs visible at
  * once on a real phone). Rather than tuning the flex sizing a second
- * time, this phase removes the pattern the bug lived in. The `relative`
- * positioning below makes this header the dropdown's containing block
- * (see `.mobile-nav` below) — the dropdown is positioned `absolute`,
- * never fixed to the viewport, so it participates in normal flow and
- * pushes page content down instead of overlaying it. */
+ * time, this phase removes the pattern the bug lived in. `.mobile-nav`
+ * relies on `flex-wrap` here to drop onto its own full-width row below
+ * the title/toggle row — it stays in normal document flow (see
+ * `.mobile-nav` below) rather than being taken out of it, which is what
+ * lets its `max-height` transition actually push page content down
+ * instead of overlaying it. An earlier version of this rule used
+ * `position: absolute` on `.mobile-nav` for that same goal; absolute
+ * positioning removes an element from flow entirely, so it could only
+ * ever overlay, never push — a real defect found on real-device
+ * verification (06.6.1-06-SUMMARY.md), fixed here. */
 .site-header {
   display: flex;
   flex-wrap: wrap;
@@ -245,7 +250,6 @@ a:hover {
   padding: var(--space-lg);
   background: var(--color-secondary);
   margin-bottom: var(--space-xl);
-  position: relative;
 }
 
 /* Hamburger toggle (06.6.1 D-06). Not type="submit", so the
@@ -278,13 +282,13 @@ a:hover {
 /* Dropdown panel. max-height (not display or height: auto) is used
  * because neither of the latter can be transitioned; overflow: hidden is
  * what makes the collapsed state actually hide its contents rather than
- * merely clip them visually. */
+ * merely clip them visually. `flex-basis: 100%` (not `position: absolute`
+ * — see .site-header's comment above) is what forces this onto its own
+ * full-width row below the title/toggle row within the wrapping flex
+ * header, while staying in normal flow so the max-height transition
+ * genuinely pushes .page-content down instead of overlaying it. */
 .mobile-nav {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 20;
+  flex-basis: 100%;
   background: var(--color-secondary);
   box-shadow: var(--shadow-card-hover);
   border-bottom-left-radius: var(--radius-card);
@@ -761,13 +765,18 @@ button:disabled {
   line-height: 1.2;
 }
 
-/* The battery sparkline is emitted with fixed width="300" height="60"
- * attributes alongside its viewBox; without this override it cannot
- * shrink inside a 240px-floor tile. */
-.stat-tile svg {
-  width: 100%;
-  height: auto;
-}
+/* No `.stat-tile svg { width:100%; height:auto }` rule here (deliberate,
+ * not an oversight). That rule existed pre-06.6.1 to shrink the battery
+ * sparkline's fixed width="300" height="60" SVG to fit inside a tile —
+ * but 06.6.1's own plan 03 moved the sparkline out of .stat-tile entirely
+ * (see .battery-trend-section svg below, which now owns that job). Left
+ * in place, the old rule's `svg` element selector (specificity 0,1,1)
+ * unintentionally matched plan 04's new `<svg class="icon">` elements
+ * too, beating `.icon`'s own sizing (specificity 0,1,0) regardless of
+ * source order and stretching every icon to fill its tile — a real
+ * defect found on real-device verification (06.6.1-06-SUMMARY.md).
+ * `.icon`'s explicit width/height (both the CSS rule and icon_html()'s
+ * own belt-and-braces HTML attributes) are sufficient without it. */
 
 /* Battery-trend section (06.6.1): moves out of .dashboard-grid entirely
  * into its own full-width card, same treatment as .stat-tile. Two
