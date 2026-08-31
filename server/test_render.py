@@ -2435,8 +2435,9 @@ def main():
     )
 
     # 78. Combining a route override (--airline/--city/--no-route) with --out
-    # prints the reminder line naming inkframe-poll.timer as the unit that
-    # must be restarted afterward (T-07-01-01).
+    # prints the reminder line naming skypane-poll.timer (Phase 8 08-05: the
+    # unit was previously misnamed after a pre-rename service) as the unit
+    # that must be restarted afterward (T-07-01-01).
     def _synthetic_reminder_printed_when_override_combined_with_out():
         out_fh = tempfile.NamedTemporaryFile(suffix=".bin", delete=False)
         out_fh.close()
@@ -2448,11 +2449,11 @@ def main():
         if rc != 0:
             return False, "render.main() exited %r, expected 0" % (rc,)
         stdout_text = buf.getvalue()
-        if "inkframe-poll.timer" not in stdout_text:
-            return False, "expected a synthetic-panel reminder naming inkframe-poll.timer, got stdout: %r" % (stdout_text,)
+        if "skypane-poll.timer" not in stdout_text:
+            return False, "expected a synthetic-panel reminder naming skypane-poll.timer, got stdout: %r" % (stdout_text,)
         return True, ""
     check(
-        "combining --no-route with --out prints the inkframe-poll.timer restart reminder (T-07-01-01)",
+        "combining --no-route with --out prints the skypane-poll.timer restart reminder (T-07-01-01)",
         _synthetic_reminder_printed_when_override_combined_with_out,
     )
 

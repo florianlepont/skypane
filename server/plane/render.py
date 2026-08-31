@@ -1694,12 +1694,18 @@ def main(argv=None):
         print("wrote %s (%d bytes, state=%s)" % (args.out, len(data), args.state))
         print("sha256 %s" % digest)
         # T-07-01-01: a forced render's most common failure is a human
-        # forgetting to restart inkframe-poll.timer afterward - the tool
-        # doing the forcing is the right place to say so.
+        # forgetting to restart skypane-poll.timer afterward - the tool
+        # doing the forcing is the right place to say so. (Phase 8 08-05:
+        # this reminder previously named a pre-rename unit that does not
+        # exist on the deployed host - a legacy unit under that old name
+        # was found running and failing on the VPS during Phase 7 and had
+        # to be stopped and disabled (.planning/STATE.md), so the stale
+        # name was not merely outdated, it was actively misleading. The
+        # real unit is deploy/skypane-poll.timer.)
         if args.airline or args.city or args.no_route:
             print(
                 "REMINDER: this panel is SYNTHETIC (--airline/--city/--no-route was used) - "
-                "restart inkframe-poll.timer after testing, or the frame stays frozen on this "
+                "restart skypane-poll.timer after testing, or the frame stays frozen on this "
                 "test image indefinitely."
             )
 
