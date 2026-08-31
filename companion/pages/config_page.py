@@ -14,6 +14,7 @@ only renders the button/copy for it.
 import json
 
 from companion.layout import escape_html
+import companion.layout as layout
 from server import device_config
 
 THEME_HELPER_TEXT = (
@@ -404,8 +405,8 @@ def render(ctx):
     # instead, leaving that grid rule untouched. Do not "fix" this by
     # moving it into the fieldset grid (06.2-01-PLAN.md Task 2, step 5).
     return (
-        '<h1 class="text-heading">Config</h1>'
-        '<form class="config-form" method="post" action="/config">'
+        layout.page_header("Config")
+        + '<form class="config-form" method="post" action="/config">'
         "%s"
         "%s"
         '<button type="submit">Save Settings</button>'

@@ -55,7 +55,7 @@ APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
 # 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion
 # checks) + 1 (06.6-01 Task 2: Battery Trend absolute+relative timestamp check)
-EXPECTED_CHECK_COUNT = 47
+EXPECTED_CHECK_COUNT = 48  # 47 + 1 (06.6.2-04: Health page_header() shared component check)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -879,6 +879,25 @@ def main():
     check(
         "companion/pages/health_page.py never imports the stdlib html module directly",
         _health_page_never_imports_html_module)
+
+    def _health_page_opens_with_shared_page_header():
+        # 06.6.2-04 (D-16): Health's top-level heading now goes through
+        # layout.page_header() instead of an independent bare <h1>.
+        tmp = _mkstate("h-page-header")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if '<h1 class="page-title">Health</h1>' not in rendered:
+                return False, "expected the page_header()-rendered <h1 class=\"page-title\">Health</h1>"
+            if '<h1 class="text-heading">' in rendered:
+                return False, "expected no bare <h1 class=\"text-heading\"> heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health opens with the shared layout.page_header() component, not a bare <h1>",
+        _health_page_opens_with_shared_page_header)
 
     def _health_page_renders_one_dashboard_grid_of_three_tiles_plus_battery_section():
         tmp = _mkstate("h-dashboard-grid")

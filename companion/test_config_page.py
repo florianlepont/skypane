@@ -47,7 +47,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 38  # 37 + 1 (06.6.2-02: _poll_submit_script() sink/_js_literal() check)
+EXPECTED_CHECK_COUNT = 39  # 38 + 1 (06.6.2-04: page_header() shared component check)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -222,6 +222,22 @@ def main():
     check(
         "render() emits exactly three fieldsets and a Save Settings submit button",
         _render_shape_three_fieldsets_and_save_button)
+
+    def _render_opens_with_shared_page_header():
+        # 06.6.2-04 (D-16): Config's top-level heading now goes through
+        # layout.page_header() instead of an independent bare <h1>.
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if '<h1 class="page-title">Config</h1>' not in rendered:
+            return False, "expected the page_header()-rendered <h1 class=\"page-title\">Config</h1>"
+        if '<h1 class="text-heading">' in rendered:
+            return False, "expected no bare <h1 class=\"text-heading\"> heading"
+        return True, ""
+    check(
+        "Config opens with the shared layout.page_header() component, not a bare <h1>",
+        _render_opens_with_shared_page_header)
 
     def _settings_form_carries_config_form_class_hook():
         # D-01 stable class hook: the settings form (POST /config) needs a

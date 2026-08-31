@@ -684,7 +684,7 @@ def render(ctx):
     )
 
     return (
-        '<h1 class="text-heading">Health</h1>'
+        layout.page_header("Health")
         + _source_fault_block(source_fault_raw)
         + banner_html
         + '<h2 class="text-heading">Overview</h2>'
