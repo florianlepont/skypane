@@ -72,16 +72,30 @@ Non-negotiable for the real build:
   fixed pixel offset added at the existing anchor point, not a change to
   which pixel is measured.
 
+- **Black/Yellow/Red are approved as additional candidate optional
+  themes**, alongside White (default) and Blue/Green — developer
+  confirmed interest in the full 6-colour set, not just White/Blue/Green.
+
+### On-glass verification is a required gate, not optional (developer, explicit)
+
+Every judgment recorded in this spike — colours, font weight, text
+content, the previous-card nudge — was made from on-screen preview PNGs
+only. The developer explicitly does not consider any of it finally
+validated until it is re-checked on the real Spectra 6 panel, regardless
+of how confident the on-screen result looks. This is not a new rule
+invented for this spike: it repeats Phase 7's own precedent
+(`hardware/BRINGUP-LOG.md`), where monitor-preview colour/legibility
+calls were overturned by real ink twice (Blue/Green hue, and the
+backing-plate legibility fix itself, both mid-session on-glass
+corrections to something the screen had said was fine). **Whatever plan
+implements this spike's decisions must include a real on-glass
+verification pass as a blocking step before the milestone can be
+considered done** — not a "nice to have Later" follow-up.
+
 Not yet decided / open for the planning phase:
 - Whether `PTSerif-Regular.ttf` stays vendored-but-unused (matching the
   Zilla Slab/Inter "retained for provenance" precedent in
   `server/assets/fonts/VENDOR.md`) or is removed outright.
-- Real Spectra 6 glass has not yet confirmed Bold's legibility — only
-  on-screen preview PNGs (same caveat Phase 7's own history carries for
-  every colour/legibility judgment made off real glass).
-- Additional background colour candidates (Black/Yellow/Red flat fills)
-  were rendered and shown (`renders/colours/`) but never explicitly
-  confirmed or rejected by the developer — still open.
 - Whether the main card's line 1 needs the same 20px-style optical
   nudge (it doesn't today: line 1/2 are centre-anchored there, which
   doesn't exhibit this failure mode the same way right-anchored text
