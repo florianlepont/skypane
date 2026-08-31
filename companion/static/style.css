@@ -824,17 +824,28 @@ select {
 }
 
 button {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-md);
-  font-size: var(--font-body-size);
+  height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
   font-family: var(--font-ui);
-  border: none;
-  border-radius: var(--radius-control);
+  border-radius: 6px;
   cursor: pointer;
-  background: var(--color-secondary);
+  /* 06.6.4 (D-01b): near-invisible at rest, revealed on hover below.
+   * Expressed through the file's own color-mix(in srgb,
+   * var(--color-text) N%, transparent) idiom (see .sidebar-link--active,
+   * .banner) instead of CONTEXT.md's light-only rgba literals.
+   * --color-text resolves near-black in light mode and near-white in
+   * dark mode, so this one declaration produces a dark wash on light
+   * surfaces and a light wash on dark surfaces with no per-theme
+   * override block — numerically equivalent to CONTEXT.md's light-mode
+   * values and closes D-01b's own open "dark-mode analogue needed"
+   * question. */
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
   color: var(--color-text);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 
 /* Primary-action buttons (Save Settings, Trigger Poll Now, Save LED
@@ -842,10 +853,18 @@ button {
  * type="submit" but are excluded via the higher-specificity
  * `.theme-form .theme-option` rule above, which is what actually keeps
  * them out of this accent treatment, not their absence from this
- * selector's match set. */
+ * selector's match set. 06.6.4 (D-01a): a subtle inset top highlight
+ * plus a soft drop shadow reads as "lit and slightly raised" instead of
+ * a flat fill; border-color is explicitly neutralized since the base
+ * `button` rule above now paints a text-tinted hairline that would
+ * otherwise sit on top of the accent fill and read muddy. Both shadow
+ * value pairs are theme-neutral black/white alphas by design — no
+ * dark-mode variant is needed. */
 button[type="submit"] {
   background: var(--color-accent);
   color: var(--color-on-accent);
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(18,21,27,.14);
 }
 
 /* Not a bare .theme-option:hover: .theme-form .theme-option (0,2,0) is
@@ -853,9 +872,22 @@ button[type="submit"] {
  * comment above that rule), and a lower-specificity hover rule here would
  * lose to this selector and repaint them — the exact 06.3-REVIEW.md
  * finding this file already carries a comment about. If a theme-button
- * hover state is wanted, write it as .theme-form .theme-option:hover. */
+ * hover state is wanted, write it as .theme-form .theme-option:hover.
+ * 06.6.4 (D-01a): deeper shadow pair on hover, border-color repeated so
+ * the primary button's edge stays neutralized even once the quiet-hover
+ * rule below (equal specificity) exists. */
 button[type="submit"]:hover {
   background: var(--color-accent-hover);
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 2px 5px rgba(18,21,27,.18);
+}
+
+/* 06.6.4 (D-01b): every button — primary and quiet alike — depresses 1px
+ * while pressed. Placed here, before button:disabled below, so a
+ * disabled button's own treatment stays the later, winning declaration
+ * set. */
+button:active {
+  transform: translateY(1px);
 }
 
 /* 06.6.2-05 (D-17): Sign out (_logout_form_html()) is a quiet/ghost
