@@ -6,14 +6,14 @@ current_phase: 06.6.2
 current_phase_name: companion-ux-accessibility-and-responsive-hardening
 status: executing
 stopped_at: Phase 06.6.2 context gathered
-last_updated: "2026-08-31T07:29:23.921Z"
+last_updated: "2026-08-31T07:39:42.835Z"
 last_activity: 2026-08-31
 last_activity_desc: Phase 06.6.2 execution started
 progress:
   total_phases: 17
   completed_phases: 14
   total_plans: 71
-  completed_plans: 63
+  completed_plans: 64
   percent: 82
 ---
 
@@ -141,6 +141,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.1 P03 | 20min | 3 tasks | 2 files |
 | Phase 06.6.1 P04 | 20min | 3 tasks | 6 files |
 | Phase 06.6.1 P05 | 45min | 3 tasks | 4 files |
+| Phase 06.6.2 P01 | 10min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -257,6 +258,8 @@ Recent decisions affecting current work:
 - [Phase ?]: 06.6.1-04: battery-trend heading icon carries no tint class (page section, not a status tile) — inherits heading colour via currentColor
 - [Phase ?]: 06.6.1-04: Health nav-tab alert suffix appended via visually-hidden span, never aria-label, so the link's accessible name is added-to not replaced
 - [Phase 06.6.1-05]: Horizontal nav strip renderer deleted outright (D-06, supersedes D-00); hamburger dropdown + toggle are the sole <960px nav, sharing sidebar_nav()'s Primary navigation landmark label so CSS alone keeps exactly one landmark exposed at any width.
+- [Phase ?]: 06.6.2-01: light-mode accent darkened #E8622C -> #B13F16 (hover #963610) to fix UXA-04's failing WCAG AA text contrast, staying hue-separated from --color-status-warn's amber
+- [Phase ?]: 06.6.2-01: --color-dominant's meaning changed from page-bg+card-surface to card-surface-only; new --color-canvas token is the page background across all 4 CSS token blocks (D-14)
 
 ### Pending Todos
 
@@ -308,7 +311,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-30T19:59:36.938Z
+Last session: 2026-08-31T07:39:37.638Z
 Stopped at: Phase 06.6.2 context gathered
 
 Resume file: .planning/phases/06.6.2-companion-ux-accessibility-and-responsive-hardening/06.6.2-CONTEXT.md
