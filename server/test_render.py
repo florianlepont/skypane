@@ -36,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 88
+EXPECTED_CHECK_COUNT = 93
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -1785,16 +1785,188 @@ def main():
             )
         prev_line1 = "%s from %s" % (TEST_PREVIOUS_ROUTE["callsign_iata"], TEST_PREVIOUS_ROUTE["origin_city"])
         anchor_x = next(xy[0] for t, xy, _a in text_calls if t == prev_line1)
-        if anchor_x != prev_right:
+        expected_anchor_x = prev_right - render.PREVIOUS_TEXT_LEFT_OFFSET_PX
+        if anchor_x != expected_anchor_x:
             return False, (
-                "the previous flight text is right-aligned to x=%d, but its aircraft's visible right edge is at "
-                "x=%d - text and illustration are on different vertical lines" % (anchor_x, prev_right)
+                "the previous flight text is right-aligned to x=%d, but its aircraft's visible right edge minus "
+                "PREVIOUS_TEXT_LEFT_OFFSET_PX (%d) is x=%d - text and illustration are not aligned per D-12"
+                % (anchor_x, render.PREVIOUS_TEXT_LEFT_OFFSET_PX, expected_anchor_x)
             )
         return True, ""
     check(
         "the previous aircraft's visible right edge lands exactly on the main aircraft's visible right edge, and the "
-        "previous text right-aligns to that same shared line, for two files with very different right padding",
+        "previous text right-aligns to that same shared line minus the D-12 optical offset, for two files with very "
+        "different right padding",
         _previous_card_and_text_align_to_the_main_aircrafts_visible_right_edge,
+    )
+
+    # 54. Both of the previous card's text lines share one anchor x, equal to
+    # the previous aircraft's measured opaque right edge minus
+    # PREVIOUS_TEXT_LEFT_OFFSET_PX (D-12). A different check from 52 above:
+    # 52 pins line 1's anchor against a specific worst-case padding pair; this
+    # one confirms line 1 and line 2 agree with EACH OTHER, using the default
+    # illustration pairing.
+    def _previous_card_both_lines_share_one_anchor_at_the_optical_offset():
+        _main_placement, prev_placement, text_calls = _render_two_cards(
+            "transavia-france.png", "vueling-airlines.png")
+        prev_line1 = "%s from %s" % (TEST_PREVIOUS_ROUTE["callsign_iata"], TEST_PREVIOUS_ROUTE["origin_city"])
+        type_label = render._TYPE_DISPLAY_LABELS[TEST_PREVIOUS_FLIGHT["aircraft_type"]]
+        prev_line2 = "%s · %s" % (TEST_PREVIOUS_ROUTE["airline_name"], type_label)
+        line1_x = next(xy[0] for t, xy, _a in text_calls if t == prev_line1)
+        line2_x = next(xy[0] for t, xy, _a in text_calls if t == prev_line2)
+        if line1_x != line2_x:
+            return False, "previous card's two lines anchor at different x (%d vs %d) - they must share one anchor" % (line1_x, line2_x)
+        expected_x = prev_placement.content[2] - render.PREVIOUS_TEXT_LEFT_OFFSET_PX
+        if line1_x != expected_x:
+            return False, (
+                "previous card's shared anchor x=%d, expected the aircraft's visible right edge minus "
+                "PREVIOUS_TEXT_LEFT_OFFSET_PX = %d" % (line1_x, expected_x)
+            )
+        return True, ""
+    check(
+        "the previous card's two text lines share one anchor x, equal to the previous aircraft's measured opaque "
+        "right edge minus PREVIOUS_TEXT_LEFT_OFFSET_PX (D-12)",
+        _previous_card_both_lines_share_one_anchor_at_the_optical_offset,
+    )
+
+    # 55. The main card is NOT offset - its lines stay centred on the canvas
+    # midpoint with anchor='ma', unaffected by the previous card's D-12
+    # correction.
+    def _main_card_text_remains_centred_not_offset():
+        with _TextSpy(render) as spy:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+            )
+        main_line1 = "%s to %s" % (TEST_ROUTE["callsign_iata"], TEST_ROUTE["destination_city"])
+        type_label = render._TYPE_DISPLAY_LABELS[TEST_FLIGHT["aircraft_type"]]
+        main_line2 = "%s · %s" % (TEST_ROUTE["airline_name"], type_label)
+        center_x = panel_format.WIDTH // 2
+        for text in (main_line1, main_line2):
+            calls = [(xy, a) for t, xy, a in spy.calls if t == text]
+            if not calls:
+                return False, "main line %r was not drawn" % (text,)
+            xy, anchor = calls[0]
+            if xy[0] != center_x or anchor != "ma":
+                return False, (
+                    "main line %r drawn at x=%r anchor=%r, expected centre x=%d anchor='ma' - the main card must "
+                    "not receive the previous card's optical offset (D-12)" % (text, xy[0], anchor, center_x)
+                )
+        return True, ""
+    check(
+        "the main card's text lines stay centred on the canvas midpoint with anchor='ma', unaffected by the "
+        "previous card's optical offset (D-12)",
+        _main_card_text_remains_centred_not_offset,
+    )
+
+    # 56. Tier-3 promotion on the main card: an airline-only route omits
+    # line 1 entirely, promoting line 2 into the y-position line 1 would
+    # have used, with no empty-string draw call.
+    def _tier3_promotion_on_main_card():
+        import server.plane.enrich as enrich
+
+        route = enrich.airline_only_route("Air France")
+        flight = {"hex": "111111", "callsign": "AFR9001", "aircraft_type": "B738"}
+        with _TextSpy(render) as spy:
+            render.build_canvas(flight, "departing", route=route)
+        with _PlacementSpy(render) as placements:
+            render.build_canvas(flight, "departing", route=route)
+        main_placement = placements.placements[0]
+        expected_line2 = "%s · %s" % ("Air France", render._TYPE_DISPLAY_LABELS["B738"])
+        main_region_calls = [(t, xy) for t, xy, _a in spy.calls if xy[1] >= main_placement.content[3]]
+        texts_in_region = [t for t, _xy in main_region_calls]
+        if "" in texts_in_region:
+            return False, "an empty-string draw call was made for the omitted line 1: %r" % (main_region_calls,)
+        if texts_in_region != [expected_line2]:
+            return False, "expected exactly one text draw (%r) in the main block region, got %r" % (expected_line2, texts_in_region)
+        expected_y = main_placement.content[3] + render.MAIN_TEXT_GAP_PX
+        actual_y = main_region_calls[0][1][1]
+        if actual_y != expected_y:
+            return False, (
+                "line 2's y is %d, expected %d (main_placement.content[3] + MAIN_TEXT_GAP_PX, the y line 1 would "
+                "have used)" % (actual_y, expected_y)
+            )
+        return True, ""
+    check(
+        "an airline-only route on the main card omits line 1 entirely, promoting line 2 to line 1's y-position, "
+        "with no empty-string draw call (D-10 tier 3)",
+        _tier3_promotion_on_main_card,
+    )
+
+    # 57. Tier-3 promotion on the previous card. Deliberately a separate
+    # check from 56, not a parameterisation of it - this is the one that
+    # catches the omitted-line fix being implemented in only one of the two
+    # drawing functions.
+    def _tier3_promotion_on_previous_card():
+        import server.plane.enrich as enrich
+
+        prev_route = enrich.airline_only_route("Vueling Airlines")
+        prev_flight = {"hex": "222222", "callsign": "VLG9002", "aircraft_type": "A320"}
+        with _TextSpy(render) as spy:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                previous_flight=prev_flight, previous_route=prev_route, previous_state="arriving",
+            )
+        with _PlacementSpy(render) as placements:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                previous_flight=prev_flight, previous_route=prev_route, previous_state="arriving",
+            )
+        _main_placement, prev_placement = placements.placements
+        expected_line2 = "%s · %s" % ("Vueling Airlines", render._TYPE_DISPLAY_LABELS["A320"])
+        # Previous-card text draws are right-aligned ('ra'); the top-right
+        # tag also uses 'ra' but sits far above the previous card's region,
+        # so combining the anchor filter with the y-floor isolates exactly
+        # this card's own draws.
+        prev_region_calls = [(t, xy) for t, xy, a in spy.calls if a == "ra" and xy[1] >= prev_placement.content[3]]
+        texts_in_region = [t for t, _xy in prev_region_calls]
+        if "" in texts_in_region:
+            return False, "an empty-string draw call was made for the previous card's omitted line 1: %r" % (prev_region_calls,)
+        if texts_in_region != [expected_line2]:
+            return False, "expected exactly one text draw (%r) in the previous block region, got %r" % (expected_line2, texts_in_region)
+        expected_y = prev_placement.content[3] + render.PREVIOUS_TEXT_GAP_PX
+        actual_y = prev_region_calls[0][1][1]
+        if actual_y != expected_y:
+            return False, (
+                "previous card's line 2 y is %d, expected %d (prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX)"
+                % (actual_y, expected_y)
+            )
+        return True, ""
+    check(
+        "an airline-only route on the previous card omits its own line 1, promoting line 2 to line 1's y-position "
+        "using the previous card's own gap constant, with no empty-string draw call (D-10 tier 3) - the check that "
+        "catches the change implemented in only one of the two functions",
+        _tier3_promotion_on_previous_card,
+    )
+
+    # 58. Tier 3 on both cards simultaneously, confirming the two
+    # independent branches compose without interfering.
+    def _tier3_on_both_cards_simultaneously():
+        import server.plane.enrich as enrich
+
+        main_route = enrich.airline_only_route("Air France")
+        prev_route = enrich.airline_only_route("Vueling Airlines")
+        main_flight = {"hex": "333333", "callsign": "AFR9003", "aircraft_type": "B738"}
+        prev_flight = {"hex": "444444", "callsign": "VLG9004", "aircraft_type": "A320"}
+        with _TextSpy(render) as spy:
+            render.build_canvas(
+                main_flight, "departing", route=main_route,
+                previous_flight=prev_flight, previous_route=prev_route, previous_state="arriving",
+            )
+        texts = [t for t, _xy, _a in spy.calls]
+        expected_main_line2 = "%s · %s" % ("Air France", render._TYPE_DISPLAY_LABELS["B738"])
+        expected_prev_line2 = "%s · %s" % ("Vueling Airlines", render._TYPE_DISPLAY_LABELS["A320"])
+        if expected_main_line2 not in texts:
+            return False, "expected the main card's promoted line 2 %r among the text draws, got %r" % (expected_main_line2, texts)
+        if expected_prev_line2 not in texts:
+            return False, "expected the previous card's promoted line 2 %r among the text draws, got %r" % (expected_prev_line2, texts)
+        if "" in texts:
+            return False, "an empty-string draw call was made somewhere: %r" % (texts,)
+        return True, ""
+    check(
+        "both cards independently omit line 1 and promote line 2 on a simultaneous airline-only render, without "
+        "interfering with each other (D-10 tier 3)",
+        _tier3_on_both_cards_simultaneously,
     )
 
     # 53. The previous card's VISIBLE vertical midpoint sits on the

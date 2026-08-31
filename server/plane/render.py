@@ -298,6 +298,24 @@ PREVIOUS_ILLUSTRATION_WIDTH_FRAC = 0.57  # of the MAIN illustration's own render
 PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC = 0.7528
 PREVIOUS_LINE_GAP_PX = 34  # line 2's top below line 1's own TOP (not bottom)
 
+# D-12 (Phase 8 08-04): the previous card's two text lines are right-aligned
+# this many pixels LEFT of the aircraft's measured opaque right edge
+# (prev_placement.content[2]) - an intentional optical correction on top of
+# a measurement that was already exact, not a fix to the measurement itself.
+# Direct pixel instrumentation confirmed the unshifted anchor lands exactly
+# on the measured opaque right edge with zero delta - the anchor was never
+# wrong. The correction compensates for a human-perception effect instead:
+# the aircraft's rightmost painted pixel typically sits on a thin raked
+# tail-fin tip, not on the visual mass of the fuselage the eye actually
+# anchors on, so text right-aligned to the true edge reads as floating
+# slightly right of where the aircraft "is". Tuned live with the developer
+# from 15px (`.planning/spikes/001-panel-theme-colours/renders/
+# 96-prev-text-nudged-left-15px.png`, rejected as not quite enough) to 20px
+# (`97-prev-text-nudged-left-20px.png`, confirmed). Tuned against one
+# illustration file only - plan 08-05 does a wider spot-check and plan
+# 08-06 confirms it on real glass.
+PREVIOUS_TEXT_LEFT_OFFSET_PX = 20
+
 # --- Aircraft-to-text gaps (debug session illustration-crop-text-margin) ----
 # Both constants are measured from the illustration's OPAQUE-PIXEL bottom edge
 # (`IllustrationPlacement.content`), never from the source PNG's full rectangle.
@@ -1063,6 +1081,15 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     the gap a constant by construction. See `MAIN_TEXT_GAP_PX` for how its
     value is derived from the render D-26 actually confirmed.
 
+    D-10 tier 3 (Phase 8 08-04): when `_flight_line1_text()` returns `""`
+    (the sentinel meaning line 1 is omitted), no font is computed for it, no
+    bbox is computed or asserted, and nothing is drawn - line 2 is promoted
+    into line 1's slot instead, starting at the same
+    `main_placement.content[3] + MAIN_TEXT_GAP_PX` expression line 1's own
+    `top_y` would have used. The returned pair's first slot is `None` in
+    that case; both call sites already discard the return value, and `None`
+    is more honest than an invented empty bbox.
+
     `main_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
 
@@ -1077,15 +1104,19 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     line1_text = _flight_line1_text(flight, state, route)
     line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
 
-    line1_font = fit_text_size(PT_SERIF_BOLD, MAIN_LINE1_FONT[1], line1_text, safe_width, MAIN_LINE1_MIN_SIZE)
-    line2_font = fit_text_size(PT_SERIF_BOLD, MAIN_LINE2_FONT[1], line2_text, safe_width, MAIN_LINE2_MIN_SIZE)
-
     top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
-    line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
-    _assert_within_canvas(line1_bbox, "main flight text line 1")
-    draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
 
-    line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
+    if line1_text:
+        line1_font = fit_text_size(PT_SERIF_BOLD, MAIN_LINE1_FONT[1], line1_text, safe_width, MAIN_LINE1_MIN_SIZE)
+        line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
+        _assert_within_canvas(line1_bbox, "main flight text line 1")
+        draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
+        line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
+    else:
+        line1_bbox = None
+        line2_top = top_y
+
+    line2_font = fit_text_size(PT_SERIF_BOLD, MAIN_LINE2_FONT[1], line2_text, safe_width, MAIN_LINE2_MIN_SIZE)
     line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
     _assert_within_canvas(line2_bbox, "main flight text line 2")
     draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
@@ -1101,16 +1132,30 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     sits 21-99px below the aircraft at this card's scale, which made the gap
     vary from 43px to 121px across the vendored set.
 
-    Horizontal alignment uses `prev_placement.content[2]` - the previous
+    Horizontal alignment uses `prev_placement.content[2]` MINUS
+    `PREVIOUS_TEXT_LEFT_OFFSET_PX` (D-12, Phase 8 08-04) - the previous
     aircraft's visible right edge, which `_build_active_canvas()` has already
-    placed on the MAIN aircraft's visible right edge. So the main aircraft, the
-    previous aircraft and this text block all share one visible vertical line.
-    Reading `.rect[2]` instead would put the text 3-17px right of the aircraft
-    it belongs to, varying per file (pass 2 of the debug session).
+    placed on the MAIN aircraft's visible right edge, nudged left by a fixed,
+    developer-confirmed optical correction (see that constant's own comment
+    for why the raw measured edge is not itself the bug). So the main
+    aircraft, the previous aircraft and this text block all still share one
+    visible reference line, offset by that one constant. Reading `.rect[2]`
+    instead of `.content[2]` would put the text 3-17px right of the aircraft
+    it belongs to, varying per file (pass 2 of the debug session) - a
+    separate, unrelated defect from the D-12 offset applied on top of it.
 
     Line 2 starts `PREVIOUS_LINE_GAP_PX` below line 1's own TOP, not its bottom
     (D-26's tighter confirmed stacking). No `PREVIOUS ·` prefix - explicitly
     removed after the live sketch pass.
+
+    D-10 tier 3 (Phase 8 08-04): when `_flight_line1_text()` returns `""`
+    (line 1 omitted), no font is computed for it, no bbox is computed or
+    asserted, and nothing is drawn - line 2 is promoted into line 1's slot,
+    starting at this function's OWN `prev_placement.content[3] +
+    PREVIOUS_TEXT_GAP_PX` expression (not `draw_main_text_block()`'s
+    equivalent - the two functions position line 2 from opposite edges of
+    line 1 and must not share a helper for this, see that function's own
+    docstring). The returned pair's first slot is `None` in that case.
 
     `prev_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
@@ -1120,21 +1165,25 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     `draw_top_labels()`'s docstring for the same note.
     """
     draw = ImageDraw.Draw(canvas)
-    right_x = prev_placement.content[2]
+    right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
     available_width = right_x - SAFE_BOX[0]
 
     line1_text = _flight_line1_text(flight, state, route)
     line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
-    line1_font = fit_text_size(PT_SERIF_BOLD, PREVIOUS_LINE1_FONT[1], line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE)
-    line2_font = fit_text_size(PT_SERIF_BOLD, PREVIOUS_LINE2_FONT[1], line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE)
-
     top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
-    line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
-    _assert_within_canvas(line1_bbox, "previous flight text line 1")
-    draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
 
-    line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
+    if line1_text:
+        line1_font = fit_text_size(PT_SERIF_BOLD, PREVIOUS_LINE1_FONT[1], line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE)
+        line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
+        _assert_within_canvas(line1_bbox, "previous flight text line 1")
+        draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
+        line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
+    else:
+        line1_bbox = None
+        line2_top = top_y
+
+    line2_font = fit_text_size(PT_SERIF_BOLD, PREVIOUS_LINE2_FONT[1], line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE)
     line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
     _assert_within_canvas(line2_bbox, "previous flight text line 2")
     draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
