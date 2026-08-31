@@ -6,15 +6,15 @@ current_phase: 5
 current_phase_name: "only remaining open item: 05-01 Tasks 2-3, the unattended multi-day discharge run, deliberately deferred since 2026-08-27"
 status: blocked
 stopped_at: Phase 06.6.2 context gathered
-last_updated: "2026-08-30T19:59:36.946Z"
+last_updated: "2026-08-31T06:48:37.728Z"
 last_activity: 2026-08-30
 last_activity_desc: Phase 06.6 complete, transitioned to Phase 06.6.1
 progress:
-  total_phases: 16
+  total_phases: 17
   completed_phases: 14
   total_plans: 63
   completed_plans: 63
-  percent: 88
+  percent: 82
 ---
 
 # Project State
@@ -159,6 +159,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - Phase 06.1 edited: Superseded and merged into Phase 06.5 (overlapping scope on health_page.py's battery section, confirmed by user before planning)
 - Phase 06.6.1 inserted after Phase 06.6: Companion visual polish pass (logo, mobile hamburger nav, theme-toggle sizing, Health density, History table density, battery chart layout) - raised from real-device testing during 06.5-03 (URGENT)
 - Phase 06.6.2 inserted after Phase 06.6: Companion UX/accessibility/responsive hardening — seeded from 06.6.1-UX-AUDIT.md (18 findings, 4 High; 11 open product decisions to resolve in discuss-phase before planning) (URGENT)
+- Phase 06.6.3 inserted after Phase 06.6.2: Companion per-page redesign — split out of 06.6.2 (planner's phase-split recommendation, developer-approved) to keep both phases within this project's own per-phase context-budget precedent (URGENT)
 
 ### Decisions
 
