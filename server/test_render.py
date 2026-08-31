@@ -36,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 80
+EXPECTED_CHECK_COUNT = 82
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -123,6 +123,34 @@ class _TextSpy:
 
     def __exit__(self, exc_type, exc, tb):
         self._render_mod.ImageDraw.ImageDraw.text = self._orig
+        return False
+
+
+class _RectangleSpy:
+    """Captures every ImageDraw.ImageDraw.rectangle() call made while
+    building one canvas - list of (bounds, fill, outline, width). Mirrors
+    `_TextSpy`'s monkeypatch-and-restore technique, applied to the
+    rectangle-drawing seam instead of the text-drawing one (D-05 regression
+    guard: proves no background-filled rectangle is painted behind text).
+    """
+
+    def __init__(self, render_mod):
+        self._render_mod = render_mod
+        self.calls = []
+        self._orig = None
+
+    def __enter__(self):
+        self._orig = self._render_mod.ImageDraw.ImageDraw.rectangle
+
+        def _spy(draw_self, xy, fill=None, outline=None, width=1):
+            self.calls.append((tuple(xy), fill, outline, width))
+            return self._orig(draw_self, xy, fill=fill, outline=outline, width=width)
+
+        self._render_mod.ImageDraw.ImageDraw.rectangle = _spy
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._render_mod.ImageDraw.ImageDraw.rectangle = self._orig
         return False
 
 
@@ -726,6 +754,43 @@ def main():
     check(
         "no PTSerif-Regular.ttf glyph is drawn anywhere on an active-state panel, in either state (D-06) - behavioural, catches a half-applied fit_text_size() call site",
         _no_regular_weight_glyph_on_an_active_panel,
+    )
+
+    # 24d. The text-backing-plate helper (D-05) no longer exists on the
+    # module at all - the removal is complete, not partial.
+    def _paint_text_backing_helper_is_gone():
+        if hasattr(render, "_paint_text_backing"):
+            return False, "server.plane.render still carries _paint_text_backing - D-05 requires its complete removal"
+        return True, ""
+    check("_paint_text_backing() no longer exists on server.plane.render (D-05)", _paint_text_backing_helper_is_gone)
+
+    # 24e. No rectangle filled with the state's own background index is ever
+    # painted (i.e. no background-filled "backing plate" behind text, on any
+    # theme). Captured via _RectangleSpy across every registered theme and
+    # both active states - driven from the theme registry so a future sixth
+    # theme is exercised automatically, matching the per-theme dominance
+    # check's own pattern above. Observed set for a plain two-flight active
+    # render (no battery-low icon, no source-fault badge): EMPTY - draw_frame()
+    # is not called from this render path (removed 2026-08-28, quick task
+    # 260828-k5r) and the text-backing-plate is now gone too, so this check
+    # currently passes vacuously per-render and exists purely as a
+    # regression guard against either being reintroduced.
+    def _no_background_filled_rectangle_behind_text_on_any_theme():
+        for theme_id in render.device_config.THEME_IDS:
+            for state, prev_state in (("departing", "arriving"), ("arriving", "departing")):
+                bg_idx = render.state_background_index(state, theme_id=theme_id)
+                with _RectangleSpy(render) as spy:
+                    render.build_canvas(
+                        TEST_FLIGHT, state, route=TEST_ROUTE, theme_id=theme_id,
+                        previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state=prev_state,
+                    )
+                for bounds, fill, _outline, _width in spy.calls:
+                    if fill == bg_idx:
+                        return False, "theme=%r state=%r: a rectangle at %r was filled with bg_idx=%r - a background-filled plate exists (D-05 regression)" % (theme_id, state, bounds, bg_idx)
+        return True, ""
+    check(
+        "no rectangle filled with the state's own background index is painted, on any registered theme, in either active state (D-05)",
+        _no_background_filled_rectangle_behind_text_on_any_theme,
     )
 
     # 25. A genuinely long real destination/origin city+airline name

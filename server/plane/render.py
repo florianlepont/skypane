@@ -556,29 +556,33 @@ def draw_battery_icon(canvas, draw, ink_idx):
     return total
 
 
-def _paint_text_backing(draw, bbox, bg_idx, pad=4):
-    """Paint a small solid `bg_idx` rectangle behind a text bbox, expanded by
-    `pad` on every side (glyph antialiasing/overshoot margin). Phase 7 07-01:
-    once the state background became a dithered lighten-toward-White blend
-    (dither.dithered_state_background()), the scattered White speckle it
-    introduces right behind white-ink text visibly hurt legibility (developer
-    on-glass finding) - painting a clean, undithered backing plate exactly
-    behind each text run keeps the surrounding field lighter while giving
-    every glyph the same flat, high-contrast backdrop the D-21 flat fill used
-    to provide everywhere.
-    """
-    draw.rectangle(
-        (bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad),
-        fill=bg_idx,
-    )
+# A small solid backing-plate rectangle used to be painted behind every text
+# run here (added Phase 7 07-01, after the state background became a
+# dithered lighten-toward-White blend and its scattered White speckle
+# visibly hurt legibility right behind white-ink text - a real on-glass
+# finding, not a style choice). Phase 8 (D-05) removes that mechanism
+# entirely, on every theme, substituting nothing: the plate itself is a
+# taste target the developer wanted gone, and D-06's font-weight switch (see
+# the typography block above) takes over its legibility job with a heavier
+# stroke instead. A stroke outline (1/2/3px) and an offset drop-shadow were
+# both spiked as replacements and both read as legible, but both were
+# rejected by the developer on visual grounds before font weight was tried
+# - see `.planning/spikes/001-panel-theme-colours/README.md` and
+# `server/assets/fonts/VENDOR.md`'s PT Serif supersession note for the full
+# record, so neither is re-litigated here without new information.
 
 
 def draw_top_labels(canvas, state, ink_idx, bg_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
-    (top-right, `runway_tag_text(runway_id)`), both PT Serif Regular at the
-    small sizes D-26 confirmed, both at the existing `MARGIN` inset (inside
-    the frame, not on it) - no icon glyph, no letter-spacing/tracking (that
-    was the old, larger zone-1 treatment; superseded).
+    (top-right, `runway_tag_text(runway_id)`), both PT Serif Bold (D-06) at
+    the small sizes D-26 confirmed, both at the existing `MARGIN` inset
+    (inside the frame, not on it) - no icon glyph, no letter-spacing/
+    tracking (that was the old, larger zone-1 treatment; superseded).
+
+    `bg_idx` is deliberately retained as a parameter even though D-05
+    removed its only use here (the text-backing-plate call) - a future
+    per-state or per-role background could need it again, and PATTERNS.md
+    instructs against a signature change this phase never asked for.
     """
     draw = ImageDraw.Draw(canvas)
     label_font = _font(STATE_LABEL_FONT)
@@ -594,12 +598,10 @@ def draw_top_labels(canvas, state, ink_idx, bg_idx, runway_id=device_config.DEFA
     label_text = STATE_LABEL_TEXT[state]
     label_bbox = draw.textbbox((MARGIN, MARGIN), label_text, font=label_font, anchor="la")
     _assert_within_canvas(label_bbox, "state label")
-    _paint_text_backing(draw, label_bbox, bg_idx)
     draw.text((MARGIN, MARGIN), label_text, font=label_font, fill=ink_idx, anchor="la")
 
     tag_bbox = draw.textbbox((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, anchor="ra")
     _assert_within_canvas(tag_bbox, "top-right tag")
-    _paint_text_backing(draw, tag_bbox, bg_idx)
     draw.text((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, fill=ink_idx, anchor="ra")
 
 
@@ -1001,6 +1003,10 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
 
     `main_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
+
+    `bg_idx` is deliberately retained as a parameter even though D-05
+    removed its only use here (the text-backing-plate call) - see
+    `draw_top_labels()`'s docstring for the same note.
     """
     draw = ImageDraw.Draw(canvas)
     center_x = WIDTH // 2
@@ -1015,13 +1021,11 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
     line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
     _assert_within_canvas(line1_bbox, "main flight text line 1")
-    _paint_text_backing(draw, line1_bbox, bg_idx)
     draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
 
     line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
     line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
     _assert_within_canvas(line2_bbox, "main flight text line 2")
-    _paint_text_backing(draw, line2_bbox, bg_idx)
     draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
 
     return line1_bbox, line2_bbox
@@ -1048,6 +1052,10 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
 
     `prev_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
+
+    `bg_idx` is deliberately retained as a parameter even though D-05
+    removed its only use here (the text-backing-plate call) - see
+    `draw_top_labels()`'s docstring for the same note.
     """
     draw = ImageDraw.Draw(canvas)
     right_x = prev_placement.content[2]
@@ -1062,13 +1070,11 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
     line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
     _assert_within_canvas(line1_bbox, "previous flight text line 1")
-    _paint_text_backing(draw, line1_bbox, bg_idx)
     draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
 
     line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
     line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
     _assert_within_canvas(line2_bbox, "previous flight text line 2")
-    _paint_text_backing(draw, line2_bbox, bg_idx)
     draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
 
     return line1_bbox, line2_bbox
