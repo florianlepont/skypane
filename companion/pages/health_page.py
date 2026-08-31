@@ -134,11 +134,26 @@ SOURCE_FAULT_BODY = (
 
 # --- D-14 anomaly banner -----------------------------------------------------
 
-# 06.6.1-UI-SPEC.md's Copywriting Contract, verbatim. Revised from 06's
-# "...see the flagged item(s) below." — 06.6.1-03 removed the bulleted
-# detail-list markup this text used to point at, so the two edits (copy
-# + list removal) are deliberately coupled: change one, change the other.
-ANOMALY_BANNER_TEXT = "⚠ Something needs attention — check the tiles below."
+# 06.6.1-UI-SPEC.md's Copywriting Contract, verbatim except for the
+# leading "⚠ " glyph. Revised from 06's "...see the flagged item(s)
+# below." — 06.6.1-03 removed the bulleted detail-list markup this text
+# used to point at, so the two edits (copy + list removal) are
+# deliberately coupled: change one, change the other.
+#
+# 06.6.2-06 (UXA-14): the leading "⚠ " glyph moved out of this constant
+# and into _SEVERITY_BANNER_PREFIXES/_anomaly_banner_text() below, so the
+# rendered banner can name its real severity ("⚠ Warning: "/"⚠ Error: ")
+# while this constant remains a literal substring of whatever renders —
+# every existing `ANOMALY_BANNER_TEXT in rendered` / `.count(...)` check
+# in test_status_pages.py keeps passing unmodified.
+ANOMALY_BANNER_TEXT = "Something needs attention — check the tiles below."
+
+# 06.6.2-06 (UXA-14): severity-specific prefixes prepended to
+# ANOMALY_BANNER_TEXT by _anomaly_banner_text() below. Any severity not
+# in this dict (there is none today — overall_severity() only ever
+# returns "ok"/"warn"/"error", and "ok" never reaches this function)
+# falls back to the old bare "⚠ " glyph.
+_SEVERITY_BANNER_PREFIXES = {"warn": "⚠ Warning: ", "error": "⚠ Error: "}
 
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
 PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
@@ -390,9 +405,16 @@ def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_
     colour) — only its emptiness is consumed, to decide whether the
     banner appears at all. The four item strings below deliberately
     survive anyway: they remain the readable, greppable definition of
-    what counts as an anomaly, and anomaly_active() (added the same
-    plan) routes its verdict through this exact function so a future
-    reader must not "clean up" these strings as dead code.
+    what counts as an anomaly.
+
+    Since 06.6.2-06 (UXA-14): anomaly_active()/health_severity() no
+    longer route their verdict through this exact function directly —
+    they route through overall_severity(), which derives a real
+    "ok"/"warn"/"error" severity from the same four state/flag inputs
+    this function takes. This function itself is unchanged and remains
+    the readable, greppable definition of what counts as an anomaly (and
+    test_status_pages.py still calls it directly) — only its role as the
+    presence-gate inside render() was replaced.
     """
     anomalies = []
     if device_state != "ok":
@@ -406,14 +428,46 @@ def collect_anomalies(device_state, pipeline_state, battery_state, disagreement_
     return anomalies
 
 
-def anomaly_active(state_dir, now=None):
-    """`True` when any of the four D-14 signals `collect_anomalies()`
-    tracks is currently unhealthy for `state_dir`, `False` otherwise —
-    the cross-page signal `companion/app.py`'s `page_context()` threads
-    into `ctx` for every authenticated page (the "runway_images"
-    precedent, Phase 06.4), so the Health nav-tab notification dot can
-    be drawn without any nav renderer importing this page module
-    (forbidden by `companion/pages/__init__.py`).
+def overall_severity(device_state, pipeline_state, battery_state, disagreement_warn):
+    """Derive one "ok"/"warn"/"error" severity from the same four D-14
+    signals `collect_anomalies()` tracks — the precedence table UXA-14's
+    own acceptance criteria require documenting explicitly:
+
+        1. "error" wins: if any of `device_state`/`pipeline_state`/
+           `battery_state` equals "error", the overall severity is
+           "error", regardless of anything else.
+        2. Otherwise "warn": if any of the three states equals "warn",
+           or `disagreement_warn` is true, the overall severity is
+           "warn".
+        3. Otherwise "ok".
+
+    Deliberate scope boundary: `_source_fault_block()`'s own
+    always-rendered-when-true section is NOT folded into this
+    precedence. It is not one of the four D-14 signals
+    `collect_anomalies()` tracks (source-fault is a distinct CFG-05
+    signal, rendered as its own block above the Overview grid), and
+    folding it in here would silently change what `anomaly_active()` has
+    always meant for existing callers. If a future phase wants
+    source-fault to also drive nav/banner severity, that is a new
+    decision, not an oversight of this function.
+    """
+    states = (device_state, pipeline_state, battery_state)
+    if "error" in states:
+        return "error"
+    if "warn" in states or disagreement_warn:
+        return "warn"
+    return "ok"
+
+
+def health_severity(state_dir, now=None):
+    """The `ctx["health_severity"]` source of truth — "ok"/"warn"/"error"
+    for `state_dir`, derived from the same four D-14 signals
+    `collect_anomalies()`/`overall_severity()` track. The cross-page
+    signal `companion/app.py`'s `page_context()` threads into `ctx` for
+    every authenticated page (the "runway_images" precedent, Phase
+    06.4), so the Health nav-tab notification dot and the anomaly banner
+    can be drawn from one value without any nav renderer importing this
+    page module (forbidden by `companion/pages/__init__.py`).
 
     Routes its verdict through `_read_health_inputs()` and the exact
     same four section builders `render()` calls, keeping only their
@@ -423,18 +477,18 @@ def anomaly_active(state_dir, now=None):
     reimplementation of the anomaly rules would be a second copy of
     them, and this module's whole D-14 design rests on there being one.
 
-    Wrapped in a broad `except Exception` that fails closed to `False`,
-    a deliberate departure from the narrow `(sqlite3.Error, OSError)`
+    Wrapped in a broad `except Exception` that fails closed to "ok", a
+    deliberate departure from the narrow `(sqlite3.Error, OSError)`
     catches used elsewhere in this file: `_safe_query()`'s narrow catch
     protects one *section* of one page, whereas `page_context()` calls
     this function on **every** authenticated page render, so an
     unanticipated raise here would turn every page in the app into a
     500 over a decorative nav dot — exactly the reasoning
     `companion/app.py`'s `runway_images_available()` already established
-    for its own never-raises contract in Phase 06.4. Failing closed is
-    also the safe direction: a missing dot understates a problem the
-    Health page itself will still report in full, whereas a crashed app
-    reports nothing at all.
+    for its own never-raises contract in Phase 06.4. Failing closed to
+    "ok" is also the safe direction: a missing dot understates a problem
+    the Health page itself will still report in full, whereas a crashed
+    app reports nothing at all.
     """
     try:
         if now is None:
@@ -445,10 +499,31 @@ def anomaly_active(state_dir, now=None):
         _battery_html, battery_state = _battery_section(inputs["trend_rows"])
         _corroboration_html, disagreement_warn = _corroboration_section(
             inputs["corroboration_counts"])
-        return bool(collect_anomalies(
-            device_state, pipeline_state, battery_state, disagreement_warn))
+        return overall_severity(
+            device_state, pipeline_state, battery_state, disagreement_warn)
     except Exception:
-        return False
+        return "ok"
+
+
+def anomaly_active(state_dir, now=None):
+    """`True` when the current severity for `state_dir` is not "ok",
+    `False` otherwise — the boolean shape existing callers (including
+    test_status_pages.py's direct calls) already expect. Since 06.6.2-06
+    (UXA-14), this is a thin wrapper: it routes through
+    `health_severity()`/`overall_severity()` rather than directly
+    through `collect_anomalies()`, so this module's D-14 anomaly rules
+    have exactly one implementation, not two.
+    """
+    return health_severity(state_dir, now) != "ok"
+
+
+def _anomaly_banner_text(severity):
+    """The full anomaly-banner text for a non-"ok" `severity`: the
+    severity-specific "⚠ Warning: "/"⚠ Error: " prefix (falling back to
+    a bare "⚠ " for any unrecognised value) followed by
+    ANOMALY_BANNER_TEXT verbatim.
+    """
+    return _SEVERITY_BANNER_PREFIXES.get(severity, "⚠ ") + ANOMALY_BANNER_TEXT
 
 
 def _unavailable_block():
@@ -666,9 +741,11 @@ def render(ctx):
     corroboration_html, disagreement_warn = _corroboration_section(
         inputs["corroboration_counts"])
 
-    anomalies = collect_anomalies(
+    severity = overall_severity(
         device_state, pipeline_state, battery_state, disagreement_warn)
-    banner_html = layout.anomaly_banner(ANOMALY_BANNER_TEXT) if anomalies else ""
+    banner_html = (
+        layout.anomaly_banner(_anomaly_banner_text(severity), severity)
+        if severity != "ok" else "")
 
     # battery_state is still consumed below (collect_anomalies() still
     # takes it) — it just no longer paints a stat-tile border, since the
