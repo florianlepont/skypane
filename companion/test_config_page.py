@@ -47,12 +47,14 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 45  # 42 + 3 net (06.6.3-03 Task 2, D-04/D-05): the old
-# "theme_fieldset() emits one radio per THEMES registry entry" check was
-# replaced outright (its own assumption — a radio always renders — is no
-# longer true for the real single-theme registry) by two new checks (the
-# read-only branch + the multi-theme fallback), plus two new runway-card
-# checks (visually-hidden radio/selected-class, per-card image rendering)
+# 06.6.3-03: 39 (pre-plan baseline) -> 42 (Task 1: D-02/D-06 LED copy
+# rename + heading-dedup checks, +3) -> 45 (Task 2: D-04/D-05 theme/runway
+# checks, net +3 — the old "theme_fieldset() emits one radio per THEMES
+# registry entry" check was replaced outright, its own assumption no
+# longer true for the real single-theme registry, by two new checks plus
+# two new runway-card checks) -> 46 (Task 3: D-03 dirty-state bar
+# nesting/ordering check, +1).
+EXPECTED_CHECK_COUNT = 46
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -264,12 +266,40 @@ def main():
         })
         if 'class="config-form"' not in rendered:
             return False, "expected the settings form to carry class=\"config-form\""
-        if '<form class="config-form" method="post" action="/config">' not in rendered:
-            return False, "expected the config-form class, method=\"post\", and action=\"/config\" on the same form tag"
+        # 06.6.3-03 (D-03): the form tag also carries data-dirty-form now,
+        # the DOM-attribute hook dirty-state.js (06.6.3-01) reads.
+        if '<form class="config-form" data-dirty-form method="post" action="/config">' not in rendered:
+            return False, "expected the config-form class, data-dirty-form, method=\"post\", and action=\"/config\" on the same form tag"
         return True, ""
     check(
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
         _settings_form_carries_config_form_class_hook)
+
+    def _render_dirty_bar_nested_inside_form_after_fieldsets_before_bottom_button():
+        # D-03 (06.6.3-03 Task 3): the dirty-state bar is a genuine
+        # descendant of the same <form> the always-visible bottom Save
+        # Settings button belongs to — not a sibling, not a second form —
+        # sitting between the two fieldsets and that bottom button.
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if rendered.count('<form class="config-form"') != 1:
+            return False, "expected exactly one config-form <form>, no duplicate"
+        form_start = rendered.index('<form class="config-form"')
+        form_end = rendered.index("</form>", form_start)
+        segment = rendered[form_start:form_end]
+        for marker in ("data-dirty-bar", "data-dirty-count", "data-dirty-cancel"):
+            if marker not in segment:
+                return False, "expected %r inside the config-form <form>...</form> segment" % (marker,)
+        if "Save Settings" not in segment:
+            return False, "expected the always-visible bottom Save Settings button inside the same form"
+        if segment.index("data-dirty-bar") > segment.index("Save Settings"):
+            return False, "expected the dirty-bar to appear before the bottom Save Settings button in document order"
+        return True, ""
+    check(
+        "render()'s dirty-state bar is nested inside the config-form <form>, before the always-visible bottom Save Settings button, with no duplicate form (D-03)",
+        _render_dirty_bar_nested_inside_form_after_fieldsets_before_bottom_button)
 
     def _theme_fieldset_single_theme_renders_read_only_status_with_real_swatch_hex():
         # D-04, Task 2 Test 1: with the real (unmodified) single-member

@@ -474,9 +474,26 @@ def render(ctx):
     # own sibling page-section it stacks below like the Poll section
     # instead, leaving that grid rule untouched. Do not "fix" this by
     # moving it into the fieldset grid (06.2-01-PLAN.md Task 2, step 5).
+    # D-03: data-dirty-form and the dirty-bar markup below are a JS-only
+    # enhancement layered on top of this always-server-rendered form —
+    # dirty-state.js (06.6.3-01) reads these exact attributes. The
+    # dirty-bar is a genuine descendant of this <form>, sitting between
+    # the two fieldsets and the always-visible bottom Save Settings
+    # button (the no-JS fallback path, unchanged) — never a sibling, so
+    # its own <button type="submit"> submits natively via normal DOM
+    # nesting, no form= attribute needed.
+    dirty_bar_html = (
+        '<div class="dirty-bar" data-dirty-bar hidden role="status">'
+        "<span data-dirty-count>1 unsaved change</span>"
+        '<button type="submit" class="dirty-bar__save">Save settings</button>'
+        '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>Cancel</button>'
+        "</div>"
+    )
+
     return (
         layout.page_header("Config")
-        + '<form class="config-form" method="post" action="/config">'
+        + '<form class="config-form" data-dirty-form method="post" action="/config">'
+        "%s"
         "%s"
         "%s"
         '<button type="submit">Save Settings</button>'
@@ -489,6 +506,7 @@ def render(ctx):
     ) % (
         theme_fieldset(current_theme_id),
         runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
+        dirty_bar_html,
         poll_trigger_section(cooldown_remaining),
         led_section(current_led_enabled),
     )
