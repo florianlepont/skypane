@@ -243,7 +243,7 @@ def _merged_cell(primary, secondary):
     return "<td>%s</td>" % html
 
 
-def _history_table_html(formatted_rows):
+def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
         return layout.empty_state(_NO_FLIGHTS_HEADING, _NO_FLIGHTS_BODY)
 
@@ -252,8 +252,15 @@ def _history_table_html(formatted_rows):
     body_rows = []
     for index, row in enumerate(formatted_rows):
         row_class = "row-alt" if index % 2 else "row"
+        # D-09: layout.concise_timestamp_html() already returns
+        # already-safe <span class="mono" title="..."> markup - this
+        # file hand-rolls its own <td> cells (it does not call
+        # layout.data_table()), so the return value is interpolated
+        # directly with no wrapping escape_html() call, matching
+        # _merged_cell()'s own documented "do not double-escape
+        # already-safe markup" discipline.
         cells = (
-            '<td class="mono">%s</td>' % escape_html(row["ts"]),
+            "<td>%s</td>" % layout.concise_timestamp_html(row["raw_ts"], now),
             _merged_cell(row["callsign"], row["hex"]),
             _merged_cell(row["aircraft_type_label"], row["airline_label"]),
             "<td>%s</td>" % escape_html(row["route_label"]),
@@ -275,7 +282,7 @@ def _history_table_html(formatted_rows):
     ) % (header_cells, "".join(body_rows))
 
 
-def _history_cards_html(formatted_rows):
+def _history_cards_html(formatted_rows, now=None):
     """Mobile compact-card representation (D-07) - one `<li>` per row,
     built from the exact same `formatted_rows` list _history_table_html()
     consumes, never a second independently-derived data pass. Returns
@@ -299,12 +306,17 @@ def _history_cards_html(formatted_rows):
         return ""
     items = []
     for row in formatted_rows:
+        # D-09: the identical layout.concise_timestamp_html() call the
+        # desktop cell uses (same raw_ts, same now) - the desktop table
+        # and the mobile card always render byte-identical timestamp
+        # markup for the same row. Already-safe markup, interpolated
+        # verbatim, never re-escaped.
         primary = (
             '<div class="history-card__primary">'
             '<span class="cell-primary mono">%s</span>'
             '<span class="history-card__time">%s</span>'
             "</div>"
-        ) % (escape_html(row["callsign"]), escape_html(row["ts"]))
+        ) % (escape_html(row["callsign"]), layout.concise_timestamp_html(row["raw_ts"], now))
         secondary = (
             '<div class="history-card__secondary">'
             "<span>%s</span>"
@@ -351,6 +363,8 @@ def render(ctx):
         # is empty, _history_cards_html() returns "" and
         # _history_table_html() alone supplies the unchanged
         # empty_state() block - no empty <ul> alongside it.
-        body = _history_cards_html(formatted_rows) + _history_table_html(formatted_rows)
+        body = (
+            _history_cards_html(formatted_rows, now)
+            + _history_table_html(formatted_rows, now))
 
     return layout.page_header("History") + body
