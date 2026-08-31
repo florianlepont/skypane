@@ -36,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 93
+EXPECTED_CHECK_COUNT = 97
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -2422,6 +2422,110 @@ def main():
     check(
         "combining --no-route with --out prints the inkframe-poll.timer restart reminder (T-07-01-01)",
         _synthetic_reminder_printed_when_override_combined_with_out,
+    )
+
+    # --- Phase 8 08-04 Task 3: every content-ladder tier reachable from the
+    # CLI, so plan 08-06's on-glass session is one copy-pasteable command
+    # per tier. -------------------------------------------------------------
+
+    # 79. The default preview (no forcing flags) draws a tier-1 line
+    # containing the preview route's real identifier.
+    def _cli_default_preview_draws_tier1_with_identifier():
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp.close()
+        with _TextSpy(render) as spy:
+            rc = render.main(["--state", "departing", "--preview", tmp.name])
+        if rc != 0:
+            return False, "render.main() exited %r, expected 0" % (rc,)
+        texts = [t for t, _xy, _a in spy.calls]
+        expected = "%s to %s" % (render._PREVIEW_ROUTE["callsign_iata"], render._PREVIEW_ROUTE["destination_city"])
+        if expected not in texts:
+            return False, "expected the default preview's tier-1 line %r among the text draws, got %r" % (expected, texts)
+        return True, ""
+    check(
+        "the default CLI preview (no forcing flags) draws a tier-1 line containing the preview route's real "
+        "identifier (D-10 tier 1)",
+        _cli_default_preview_draws_tier1_with_identifier,
+    )
+
+    # 80. --no-identifier forces the default preview into tier 2.
+    def _cli_no_identifier_flag_forces_tier2():
+        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp.close()
+        with _TextSpy(render) as spy:
+            rc = render.main(["--state", "departing", "--no-identifier", "--preview", tmp.name])
+        if rc != 0:
+            return False, "render.main() exited %r, expected 0" % (rc,)
+        texts = [t for t, _xy, _a in spy.calls]
+        expected = "To %s" % (render._PREVIEW_ROUTE["destination_city"],)
+        if expected not in texts:
+            return False, "expected --no-identifier's tier-2 line %r among the text draws, got %r" % (expected, texts)
+        if any(render._PREVIEW_ROUTE["callsign_iata"] in t for t in texts):
+            return False, "the preview route's identifier leaked into a drawn text despite --no-identifier: %r" % (texts,)
+        return True, ""
+    check(
+        "--no-identifier forces the default preview into tier 2 (title-case direction + city, no identifier) "
+        "(D-10 tier 2)",
+        _cli_no_identifier_flag_forces_tier2,
+    )
+
+    # 81. --no-identifier combined with --no-route still produces tier 4,
+    # and combined with --preview-airline-only still produces tier 3 with
+    # no line 1 - the two no-op interactions, pinned so a later refactor
+    # cannot make them raise.
+    def _cli_no_identifier_is_a_noop_with_no_route_and_airline_only():
+        tmp1 = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp1.close()
+        tmp2 = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+        tmp2.close()
+        with _TextSpy(render) as spy_no_route:
+            rc1 = render.main(["--state", "departing", "--no-identifier", "--no-route", "--preview", tmp1.name])
+        with _TextSpy(render) as spy_airline_only:
+            rc2 = render.main(["--state", "departing", "--no-identifier", "--preview-airline-only", "--preview", tmp2.name])
+        if rc1 != 0 or rc2 != 0:
+            return False, "render.main() exited %r/%r, expected 0/0" % (rc1, rc2)
+        texts_no_route = [t for t, _xy, _a in spy_no_route.calls]
+        texts_airline_only = [t for t, _xy, _a in spy_airline_only.calls]
+        if "Departing" not in texts_no_route:
+            return False, "expected tier-4 'Departing' with --no-identifier + --no-route (a no-op combo), got %r" % (texts_no_route,)
+        if "" in texts_airline_only:
+            return False, "an empty-string draw call was made with --no-identifier + --preview-airline-only: %r" % (texts_airline_only,)
+        if render._PREVIEW_ROUTE["airline_name"] not in texts_airline_only:
+            return False, (
+                "expected tier-3 line 2 (airline name alone) with --no-identifier + --preview-airline-only "
+                "(a no-op combo), got %r" % (texts_airline_only,)
+            )
+        return True, ""
+    check(
+        "--no-identifier combined with --no-route still produces tier 4, and combined with --preview-airline-only "
+        "still produces tier 3 with no line 1 - both are no-ops (D-10)",
+        _cli_no_identifier_is_a_noop_with_no_route_and_airline_only,
+    )
+
+    # 82. The CLI-level D-08 counterpart of Task 1's library-level guard: no
+    # CLI path at any of the four tiers draws the raw callsign.
+    def _cli_never_draws_raw_callsign_across_all_four_tiers():
+        combos = [
+            [],  # tier 1, default
+            ["--no-identifier"],  # tier 2
+            ["--preview-airline-only"],  # tier 3
+            ["--no-route"],  # tier 4
+        ]
+        for extra in combos:
+            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+            tmp.close()
+            with _TextSpy(render) as spy:
+                rc = render.main(["--state", "departing", "--callsign", "DISTINCTCLI99"] + extra + ["--preview", tmp.name])
+            if rc != 0:
+                return False, "render.main() exited %r for flags %r, expected 0" % (rc, extra)
+            texts = [t for t, _xy, _a in spy.calls]
+            if any("DISTINCTCLI99" in t for t in texts):
+                return False, "the raw callsign 'DISTINCTCLI99' leaked into a drawn text with flags %r (D-08): %r" % (extra, texts)
+        return True, ""
+    check(
+        "no CLI path at any of the four content-ladder tiers draws the raw callsign passed via --callsign (D-08 "
+        "CLI-level guard)",
+        _cli_never_draws_raw_callsign_across_all_four_tiers,
     )
 
     total = len(results)

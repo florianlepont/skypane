@@ -1499,12 +1499,16 @@ def render_panel(
 # CLI has no live enrichment lookup of its own (that's poll_loop.py's job);
 # these are plausible-looking hits so `--preview` without `--no-route` shows
 # the resolved-route text layout rather than always previewing the fallback.
+# `callsign_iata` (Phase 8 08-04, D-10 tier 1) is a synthetic sample value in
+# both dicts, in each route's own airline's real IATA prefix - not a real
+# adsbdb-resolved identifier - so a plain preview exercises tier 1 end to end.
 _PREVIEW_ROUTE = {
     "airline_name": "Air France",
     "origin_iata": "ORY",
     "origin_city": "Paris",
     "destination_iata": "JFK",
     "destination_city": "New York",
+    "callsign_iata": "AF1006",
 }
 _PREVIEW_PREVIOUS_ROUTE = {
     "airline_name": "Vueling Airlines",
@@ -1512,6 +1516,7 @@ _PREVIEW_PREVIOUS_ROUTE = {
     "origin_city": "Paris",
     "destination_iata": "BCN",
     "destination_city": "Barcelona",
+    "callsign_iata": "VY1234",
 }
 
 
@@ -1568,10 +1573,20 @@ def build_parser():
     parser.add_argument(
         "--preview-airline-only",
         action="store_true",
-        help="Manual QA only (D-06, quick task 260827-hyy): preview the airline-only intermediate "
-             "render state (airline known via the callsign's ICAO prefix, destination genuinely "
-             "unknown - bare callsign on line 1, '{airline} · {type}' on line 2, the airline's own "
-             "illustration). Takes precedence over --no-route when both are given.",
+        help="Manual QA only (D-06, quick task 260827-hyy; tier updated Phase 8 08-04 D-10): preview "
+             "the airline-only intermediate render state (airline known via the callsign's ICAO "
+             "prefix, destination genuinely unknown - line 1 is omitted entirely (D-10 tier 3), only "
+             "'{airline} · {type}' is drawn, at the airline's own illustration). Takes precedence "
+             "over --no-route when both are given.",
+    )
+    parser.add_argument(
+        "--no-identifier",
+        action="store_true",
+        help="Manual QA only (D-10 tier 2, Phase 8 08-04): strip the preview route's callsign_iata "
+             "identifier so a departing/arriving preview forces tier 2 (title-case direction word + "
+             "city, no identifier) instead of the default tier 1. No effect when the route is "
+             "already None (--no-route won) or when --preview-airline-only is also given (that route "
+             "has no cities and lands on tier 3 regardless) - both combinations are harmless no-ops.",
     )
     parser.add_argument(
         "--theme", choices=device_config.THEME_IDS, default=device_config.DEFAULT_THEME_ID,
@@ -1619,6 +1634,16 @@ def main(argv=None):
             route = None
         else:
             route = _PREVIEW_ROUTE
+        # D-10 tier 2 (Phase 8 08-04): --no-identifier strips callsign_iata
+        # so a departing/arriving preview forces tier 2. No-op when route is
+        # already None (--no-route won, nothing to strip) or when it is the
+        # airline-only route (--preview-airline-only won; that route's
+        # callsign_iata is already None and it has no cities regardless, so
+        # stripping it again changes nothing). Never mutates _PREVIEW_ROUTE
+        # itself.
+        if args.no_identifier and route is not None:
+            route = dict(route)
+            route["callsign_iata"] = None
         # D-04 (Phase 7 07-01): --airline/--city override _PREVIEW_ROUTE's own
         # fields so a long/real name is a flag rather than a hand-built dict.
         # --no-route continues to win over both - route is already None above
@@ -1641,6 +1666,9 @@ def main(argv=None):
                 previous_route = None
             else:
                 previous_route = _PREVIEW_PREVIOUS_ROUTE
+            if args.no_identifier and previous_route is not None:
+                previous_route = dict(previous_route)
+                previous_route["callsign_iata"] = None
             previous_state = runway_config.STATE_ARRIVING if args.state == runway_config.STATE_DEPARTING else runway_config.STATE_DEPARTING
 
     canvas = build_canvas(
