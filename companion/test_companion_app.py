@@ -619,7 +619,7 @@ def main():
             for needle in (
                 '<div class="dashboard-shell">',
                 '<aside class="dashboard-sidebar">',
-                '<main class="page-content dashboard-main" id="main-content">',
+                '<main class="page-content dashboard-main" id="main-content" tabindex="-1">',
             ):
                 if needle not in rendered:
                     return False, "expected %r in the rendered shell" % needle
@@ -641,6 +641,21 @@ def main():
             "page_shell() wraps header+sidebar+main in .dashboard-shell with both nav landmarks "
             "and both theme-form copies present",
             _page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme)
+
+        def _page_shell_skip_link_target_is_focusable():
+            # CR-01: the skip link's href="#main-content" target must
+            # itself be focusable (tabindex="-1") or activating the link
+            # scrolls the viewport without moving keyboard focus, per the
+            # HTML fragment-navigation focusing steps (WCAG SCR28/G1).
+            rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")
+            if '<a class="skip-link" href="#main-content">Skip to content</a>' not in rendered:
+                return False, "expected the skip link to point at #main-content"
+            if 'id="main-content" tabindex="-1"' not in rendered:
+                return False, "expected the skip link's target to carry tabindex=\"-1\""
+            return True, ""
+        check(
+            "page_shell()'s skip link target carries tabindex=\"-1\" so it actually receives focus",
+            _page_shell_skip_link_target_is_focusable)
 
         def _page_shell_escapes_hostile_body():
             escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")

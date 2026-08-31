@@ -764,7 +764,7 @@ def page_shell(
         '<span class="site-title">%s</span>\n'
         "%s\n"
         "</header>\n"
-        '<main class="page-content dashboard-main" id="%s">\n'
+        '<main class="page-content dashboard-main" id="%s" tabindex="-1">\n'
         "%s\n%s\n%s\n"
         "</main>\n"
         "</div>\n"
