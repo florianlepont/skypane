@@ -17,14 +17,15 @@ This module is a **leaf**: it imports only the Python stdlib plus
 `server.plane.render`, or `server.poll_loop` - those modules (will) import
 this one, and the reverse direction would be a cycle.
 
-Adding a theme (Phase 7 and beyond): append one entry to `THEMES` keyed by
+Adding a theme (Phase 8 and beyond): append one entry to `THEMES` keyed by
 a new short id, supplying `departing_index`, `arriving_index`, `ink_index`,
 and `label`. No structural change to this module and no call-site change
 anywhere else is required - `THEME_IDS`, `normalise_theme_id()`, and every
 presentation accessor below derive from `THEMES` itself. This is the
 concrete discharge of 03-CONTEXT.md's D-11 carried-forward obligation:
-Phase 7's on-glass session is where additional real, hardware-validated
-theme entries actually get added.
+Phase 8 is where additional theme entries actually got added, following
+the real-glass-then-registry sequence Phase 7's on-glass session
+established for "sky".
 
 This module is print-free by design - never log or print the config
 file's contents. There is no secret in it, but it must stay safe to import
@@ -45,35 +46,149 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server.panel_format import IDX_BLUE, IDX_GREEN, IDX_WHITE
+from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW
 
-DEFAULT_THEME_ID = "sky"
+DEFAULT_THEME_ID = "white"
 DEFAULT_RUNWAY_ID = "3"
 DEFAULT_LED_ENABLED = True  # D-02: matches the LED's current hardcoded always-on behaviour, so nothing changes until a user opts out
 
 # --- Theme registry ----------------------------------------------------
 #
-# D-09/D-10/D-11 (06-CONTEXT.md): the "sky" entry below is the *only*
-# theme today. Its Blue/Green hues were confirmed against on-screen
-# previews only through D-21 (03-CONTEXT.md) - Phase 7's on-glass session
-# (07-01, hardware/BRINGUP-LOG.md's "Phase 7 On-Glass Verification" entry)
-# was the first time this design met real glass, and it found both hues
-# genuinely too dark/saturated on the real panel versus the monitor
-# preview. panel_format.PALETTE_RGB's Blue/Green triples were darkened
-# accordingly (see that module's own comment block for the before/after
-# values) - this THEMES dict references panel_format.IDX_BLUE/IDX_GREEN
-# indirectly and needed no change itself, since the real-glass tuning
-# lives entirely in the RGB triples those indices point at. Any additional
-# selectable theme entries should be real-glass-validated the same way
-# before landing here. Never write a bare palette integer here - always
-# reference panel_format's named IDX_* constants, matching that module's
-# own stated discipline.
+# D-09/D-10/D-11 (06-CONTEXT.md): the "sky" entry below was the *only*
+# theme through Phase 7. Its Blue/Green hues were confirmed against
+# on-screen previews only through D-21 (03-CONTEXT.md) - Phase 7's
+# on-glass session (07-01, hardware/BRINGUP-LOG.md's "Phase 7 On-Glass
+# Verification" entry) was the first time this design met real glass, and
+# it found both hues genuinely too dark/saturated on the real panel versus
+# the monitor preview. panel_format.PALETTE_RGB's Blue/Green triples were
+# darkened accordingly (see that module's own comment block for the
+# before/after values) - this THEMES dict references
+# panel_format.IDX_BLUE/IDX_GREEN indirectly and needed no change itself,
+# since the real-glass tuning lives entirely in the RGB triples those
+# indices point at. Any additional selectable theme entries should be
+# real-glass-validated the same way before landing here. Never write a
+# bare palette integer here - always reference panel_format's named IDX_*
+# constants, matching that module's own stated discipline.
+#
+# Phase 8, on-glass session (2026-08-31, 08-06): the registry widened from
+# five entries to eleven, and its shape grew two fields - "dithered" (bool)
+# and "weight" ("regular"/"bold") - after the developer, looking at the
+# real deployed panel, asked to see every one of the 6 real Spectra 6 ink
+# colours in two forms each: a flat, undithered field ("pure") and the
+# same ink dithered ~40% toward White ("light", the treatment Phase 7
+# introduced for Blue/Green because a flat saturated field read too
+# dark/harsh at full-panel coverage). Both forms were shown live and
+# individually confirmed on real ink for every colour before this dict was
+# written - none of it is a guess.
+#
+# The `weight` field exists because "dithered" alone does not predict
+# which font weight reads best: White/Black/Yellow/Red/Green/Blue's flat
+# ("pure") fields all confirmed Regular - no dithered speckle to fight, so
+# Bold's only job (D-06's original legibility rescue) is unnecessary and
+# reads as needlessly heavy. Black/Red/Green/Blue's dithered ("light"/
+# "grey") fields confirmed Bold is still needed there, matching the
+# original D-06 finding for "sky". Yellow is the one exception: even
+# dithered, Yellow's field is light/high-luminance enough that Regular
+# stayed legible and was confirmed preferred over Bold - "yellow_light" is
+# therefore the only dithered entry with weight "regular". Never assume a
+# pattern across entries; read each one's own dithered/weight pair.
+#
+# "sky" (the old two-tone Blue-departing/Green-arriving pairing) is
+# retired outright, not merely renamed - the developer explicitly chose
+# separate single-colour themes over any paired departing/arriving
+# combination (matching D-02's original single-colour precedent for
+# Black/Yellow/Red, now applied to every colour). A stale
+# `device_config.json` with `"theme": "sky"` on a previously-deployed host
+# degrades safely to `DEFAULT_THEME_ID` via `normalise_theme_id()`'s
+# existing unrecognised-value fallback - no migration needed.
 THEMES = {
-    "sky": {
-        "departing_index": IDX_BLUE,
+    "white": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "White",
+        "dithered": False,
+        "weight": "regular",
+    },
+    "black": {
+        "departing_index": IDX_BLACK,
+        "arriving_index": IDX_BLACK,
+        "ink_index": IDX_WHITE,
+        "label": "Black",
+        "dithered": False,
+        "weight": "regular",
+    },
+    "grey": {
+        "departing_index": IDX_BLACK,
+        "arriving_index": IDX_BLACK,
+        "ink_index": IDX_WHITE,
+        "label": "Grey",
+        "dithered": True,
+        "weight": "bold",
+    },
+    "yellow": {
+        "departing_index": IDX_YELLOW,
+        "arriving_index": IDX_YELLOW,
+        "ink_index": IDX_BLACK,
+        "label": "Yellow",
+        "dithered": False,
+        "weight": "regular",
+    },
+    "yellow_light": {
+        "departing_index": IDX_YELLOW,
+        "arriving_index": IDX_YELLOW,
+        "ink_index": IDX_BLACK,
+        "label": "Yellow Light",
+        "dithered": True,
+        "weight": "regular",
+    },
+    "red": {
+        "departing_index": IDX_RED,
+        "arriving_index": IDX_RED,
+        "ink_index": IDX_WHITE,
+        "label": "Red",
+        "dithered": False,
+        "weight": "regular",
+    },
+    "red_light": {
+        "departing_index": IDX_RED,
+        "arriving_index": IDX_RED,
+        "ink_index": IDX_WHITE,
+        "label": "Red Light",
+        "dithered": True,
+        "weight": "bold",
+    },
+    "green": {
+        "departing_index": IDX_GREEN,
         "arriving_index": IDX_GREEN,
         "ink_index": IDX_WHITE,
-        "label": "Sky (default)",
+        "label": "Green",
+        "dithered": False,
+        "weight": "regular",
+    },
+    "green_light": {
+        "departing_index": IDX_GREEN,
+        "arriving_index": IDX_GREEN,
+        "ink_index": IDX_WHITE,
+        "label": "Green Light",
+        "dithered": True,
+        "weight": "bold",
+    },
+    "blue": {
+        "departing_index": IDX_BLUE,
+        "arriving_index": IDX_BLUE,
+        "ink_index": IDX_WHITE,
+        "label": "Blue",
+        "dithered": False,
+        "weight": "regular",
+    },
+    "blue_light": {
+        "departing_index": IDX_BLUE,
+        "arriving_index": IDX_BLUE,
+        "ink_index": IDX_WHITE,
+        "label": "Blue Light",
+        "dithered": True,
+        "weight": "bold",
     },
 }
 
@@ -254,6 +369,24 @@ def theme_ink_index(theme_id):
 
 def theme_label(theme_id):
     return THEMES[theme_id]["label"]
+
+
+def theme_dithered(theme_id):
+    """Whether `theme_id`'s background field is dithered ~40% toward White
+    (the "light"/"grey" treatment) rather than a flat, undithered fill.
+    Phase 8 08-06 on-glass finding - see THEMES' own module comment for the
+    full rationale.
+    """
+    return THEMES[theme_id]["dithered"]
+
+
+def theme_weight(theme_id):
+    """The PT Serif static weight `theme_id`'s active-state text roles use
+    - `"regular"` or `"bold"`. Not derivable from `theme_dithered()` alone;
+    see THEMES' own module comment for why (Yellow Light is the one
+    dithered entry that still uses Regular).
+    """
+    return THEMES[theme_id]["weight"]
 
 
 def runway_tag_text(runway_id):

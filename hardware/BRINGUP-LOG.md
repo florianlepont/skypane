@@ -315,6 +315,167 @@ text was drafted. Every command actually run this session used the real
 example commands were left as-is since correcting them was out of scope for
 this task.
 
+### Phase 8 On-Glass Verification (2026-08-31, plan 08-06)
+
+**This session put every visual and textual change Phase 8 made — the new
+White default, PT Serif Bold replacing the removed text-backing-plate, the
+four-tier content ladder, the previous card's 20px nudge, and (well beyond
+D-13's stated minimum of one) essentially the full 11-entry theme registry —
+in front of the real deployed Spectra 6 panel for the first time.** Driven
+interactively over SSH against the live production VPS
+(`ubuntu@92.222.92.167`), with `skypane-poll.timer` stopped for each forced
+render and restarted at the end, per the same method Phase 7 established.
+Method note, same standard as the Phase 7 entry above: these are
+uninstrumented visual judgments made by one person, on one panel, under
+whatever lighting the room had — not measurement-grade, and not claimed to
+be.
+
+**Step A — the White default, both states.** Confirmed clean white with no
+visible cast, judged against the empty state's own long-standing white
+reference. Departing and arriving remain distinguishable at a glance by the
+DEPARTING/ARRIVING label and to/from phrasing alone, even though both states
+now share the same background colour — the developer confirmed this
+explicitly rather than it being assumed.
+
+**Step B — PT Serif Bold legibility with no backing plate. Not derived from
+Phase 7's finding, which judged Regular weight with a plate present.** The
+initial universal-Bold render read, in the developer's words, "très
+agressif" on real ink — most visible on the White default, where Bold's
+extra weight against the highest-contrast combination the panel can produce
+felt heavier than intended. This reopened D-05/D-06 with the developer's
+explicit instruction and was resolved by decoupling font weight from a
+single blanket value into a new per-theme `weight` registry field
+(`"regular"` or `"bold"`): every flat, undithered theme (White, Black,
+Yellow, Red, Green, Blue) uses Regular; every dithered theme (Grey, Yellow
+Light excepted — see below — Red Light, Green Light, Blue Light) keeps Bold,
+since the dithered speckle needs the extra weight to stay crisp against it.
+Yellow Light is the one deliberate exception: dithered but Regular, because
+Bold read too heavy against it specifically. Re-rendered and re-confirmed on
+glass after the change ("c'est mieux", then "beaucoup mieux" after an
+additional 10%-only reduction to the main card's primary line — every other
+text role's size was explicitly restored to its prior value in the same
+correction). The previous card's smallest line (its second line, 16px→20px
+this phase) was included in this pass and read clean. **Direct answer on
+whether the plate is missed: no — "ah non pas du tout."**
+
+**Step C — the Sky theme.** Superseded mid-session, not merely re-confirmed:
+Sky (the Blue-departing/Green-arriving two-tone pairing) was retired
+outright on the developer's explicit instruction ("Pas de sky, parles de
+bleu clair, vert clair" / "thèmes séparés") once Blue and Green were each
+individually validated as standalone single-colour themes with their own
+pure/light pair. No id named `"sky"` remains in the registry. This is a
+locked-decision reopening (theme removal is out of the plan's bounded-
+correction scope) done with the developer's own recorded words as the
+in-session-correction-scope's own precedent requires.
+
+**Step E — the coloured themes, on dithered ink for the first time. All six
+Spectra 6 inks shown, none skipped** — well past D-13's stated minimum of
+one:
+- **Black (pure, flat)** — "parfait comme ça ! on valide." A real bug was
+  caught and fixed here: the flat Black render initially showed visible
+  grey, not black. Root cause: `dither.dithered_state_background()`'s fixed
+  40%-toward-white blend (tuned for Phase 7's Blue/Green finding) was being
+  applied unconditionally to every non-white theme, including ones that
+  should render flat. Fixed by making flat-vs-dithered a per-theme registry
+  bool (`dithered`) rather than a blanket behaviour. Re-confirmed against
+  the real committed registry code after the fix ("confirmé").
+- **Grey** — the dithered Black render the bug above had actually produced
+  turned out to be independently liked: "Le gris était top aussi (avec
+  texte en gras)" — kept as its own explicit, separately selectable theme
+  rather than discarded as a bug. Re-confirmed against the real committed
+  registry code ("confirmé").
+- **Yellow (pure, flat)** — "validé."
+- **Yellow Light (dithered)** — initially shown with Bold text, judged "très
+  agressif," re-shown with Regular: "c'est beaucoup mieux comme ça."
+- **Red (pure, flat)** — "incroyable !"
+- **Red Light (dithered)** — "validé."
+- **Green (pure, flat)** — "top."
+- **Green Light (dithered)** — "ok !"
+- **Blue (pure, flat)** — "incroyable aussi."
+- **Blue Light (dithered)** — re-confirmed against the real committed
+  registry code after the Sky-retirement rewrite ("confirmé").
+
+No livery-against-field failure was reported for any theme; no theme was
+reported as technically legible but unwanted. Nine of the eleven colour
+entries were validated via direct comparison renders (monkeypatching the
+production drawing/dithering functions in a throwaway script, never editing
+`render.py` itself, using the exact same palette indices and dithering path
+the final registry now wires up) before the registry rewrite landed; Grey
+and Blue Light were explicitly re-rendered and re-confirmed against the
+final, committed 11-entry registry as a direct sanity check that the
+consolidation introduced no wiring bug. The full automated suite (`server/
+test_render.py`, 99/99) renders and palette-validates all 11 registered
+themes programmatically as a standing regression guard, which is the
+remaining assurance for the seven colour entries not individually
+re-rendered against the final registry on glass.
+
+**Step F — the content ladder, all four tiers, on the real deployed
+renderer.** Tier 1 (identifier + city) and tier 2 (city only, no
+identifier) both confirmed. **Tier 3 confirmed as a genuinely absent first
+line on both the main card and the previous card** — two separate
+observations, since the two cards are positioned by independent code paths.
+No raw ADS-B callsign appeared on any of the four tiers. Tier 4 prompted its
+own locked-decision reopening: the original title-case state word
+("Departing"/"Arriving") was found to duplicate the all-caps DEPARTING/
+ARRIVING top-left label with no added information; developer instruction
+(given via an explicit choice among options, not a vague ask) replaced it
+with a fixed `"Unknown flight"` string, identical for both states, re-
+rendered and re-confirmed on glass ("parfait").
+
+**Step D — the previous card's alignment and caption size.** "Tout est
+bon" — no outlier illustration was flagged during this session; plan
+08-05's own six-airframe spot-check (narrowbody x2, turboprop, small twin,
+regional jet, widebody) had already found no outlier and a 5–12px padding
+spread with no re-tuning needed, so none was specifically re-tested here.
+
+**Step G — the whole composition, at distance, wall-mounted.** The frame is
+mounted on the wall (not a desk judgment) at the time of this check. With
+White as the default and no backing plates anywhere, the panel still reads
+as ambient art rather than a data dump — confirmed directly, no reservation
+recorded per the developer's own instruction.
+
+**Teardown — confirmed, not just enabled.** `sudo systemctl start
+skypane-poll.timer` was run, `is-active` returned `active`, and a real poll
+cycle appeared afterward in the journal with genuine live-detected data
+(hex=39de41, callsign=TVF36VX, theme=white). Live detection is confirmed
+resumed, not just the unit enabled.
+
+**Every correction applied in session, before → after → reason:**
+
+| Change | Before | After | Reason |
+|---|---|---|---|
+| Font weight | One blanket `PTSerif-Bold.ttf` for every text role, every theme | Per-theme `weight` registry field: Regular on every flat theme, Bold on every dithered theme except Yellow Light (Regular) | Uniform Bold read "très agressif" on real ink, most visibly on White |
+| Main card's primary line size | Reduced 10% from the post-Bold-fix size | (unchanged from the 10%-reduced value; every *other* text role explicitly restored to its prior size) | Fine-tuning pass on the same legibility concern, developer-directed |
+| Background dithering | `dithered_state_background()`'s lighten blend applied unconditionally to every non-white theme | Per-theme `dithered` registry bool — flat themes render flat, dithered themes dither | A flat "Black" theme was rendering visibly grey; the Blue/Green-tuned blend was never meant to apply universally |
+| Theme registry shape | 5 entries (white, black, yellow, red, sky) | 11 entries (white, black, grey, yellow, yellow_light, red, red_light, green, green_light, blue, blue_light) | Developer wanted every palette colour as both a pure flat variant and a dithered light variant, each individually validated |
+| Sky theme | `"sky"` — Blue departing / Green arriving two-tone pairing | Retired entirely; Blue and Green now exist as fully separate single-colour themes (each with a pure and light variant) | Explicit developer instruction: "Pas de sky, parles de bleu clair, vert clair" / "thèmes séparés" |
+| Tier-4 fallback text | Title-case state word, `"Departing"` or `"Arriving"` | Fixed string `"Unknown flight"`, identical for both states | Duplicated the all-caps top-left label with no added information; developer instruction given via explicit choice |
+
+**Backing plate — direct answer, not missed.** "Ah non pas du tout." No
+reinstatement of any plate, outline or shadow was requested or applied.
+
+**Open items carried forward, not closed by this session:**
+- A-02-02-01's real +200ft/min departure threshold remains unvalidated
+  against real sensor data (visual departing/arriving path only) — every
+  real detection observed so far across Phase 7 and Phase 8 has still been
+  an arrival.
+- The digest re-pin this phase required three rounds (08-05, then again
+  here) as rendering code kept changing through the on-glass session
+  itself; the final pinned value in `server/test_poll_loop.py` was read
+  from a real CI run (PR #22, reopened, run 33399696789), not recomputed
+  locally, per that file's own standing rule.
+- DEVICE-05's unattended multi-day battery discharge run is still deferred
+  to end-of-project, unrelated to this phase.
+- The wall-mounted re-check Phase 7 left open (D-03, ROADMAP criteria 1/4)
+  is **now closed by this session's Step G** — the frame was observed
+  wall-mounted, not on a desk.
+- ROADMAP Phase 7 success criterion 7 (additional selectable CFG-01 theme
+  variants beyond the single corrected "sky" default) is **now discharged,
+  and dramatically exceeded** — the criterion envisioned "2-3 alternate
+  Blue/Green theme variants"; this phase instead shipped 11 fully separate,
+  individually-validated single-colour themes spanning the whole Spectra 6
+  palette.
+
 ## Flashing Tooling
 
 `esptool` was installed via Homebrew (not pip), keeping Phase 1's

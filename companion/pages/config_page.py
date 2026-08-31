@@ -17,8 +17,8 @@ from companion.layout import escape_html
 from server import device_config
 
 THEME_HELPER_TEXT = (
-    "More themes will be added once Phase 7 validates additional color "
-    "options on real hardware.")
+    "Every colour is a pure flat variant plus a lighter, dithered variant, "
+    "each individually validated on real Spectra 6 glass (Phase 8).")
 RUNWAY_HELPER_TEXT = (
     "Applies on the device's next scheduled poll — not immediately.")
 

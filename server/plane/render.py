@@ -35,10 +35,16 @@ silhouette, Zilla Slab):
   `dither.dither_to_full_panel_palette()` - never simplified to a flat
   silhouette. No quiet-zone rectangles anywhere: D-21's flat background
   needs no protection against text sitting on a dithered pixel.
-- **D-27**: every text role uses PT Serif **Regular**, not Bold -
-  deliberately reintroduces a thin-hairline e-ink legibility risk not yet
-  verified on real glass (see `server/assets/fonts/VENDOR.md`'s "Known
-  risk" note; Wave 4's on-glass checkpoint must re-check this).
+- **D-27 (superseded by Phase 8's D-06, see below)**: every text role used
+  PT Serif Regular, not Bold. Phase 7's on-glass checkpoint confirmed
+  Regular legible at every role, on real glass, before and after the
+  text-backing-plate fix (`hardware/BRINGUP-LOG.md`). Phase 8 then
+  switched every active-state role to Bold anyway, for an unrelated
+  reason: D-06 removed the backing plate itself (D-05), and the heavier
+  Bold stroke is what takes over that plate's legibility job against the
+  dithered background - see `server/assets/fonts/VENDOR.md`'s PT Serif
+  entry for the full supersession record and plan 08-06 for this phase's
+  own on-glass re-check of the new weight.
 
 **Colour and CFG-01 (D-09/D-10/D-11, 06-CONTEXT.md)**: the panel's
 DEPARTING/ARRIVING background and ink colours have never been calibrated
@@ -46,11 +52,11 @@ against real glass - they are the same on-screen-only-confirmed values
 D-21 recorded (`server/panel_format.py`'s "confirmed against on-screen
 previews only" note). Phase 7's on-glass session is the first place that
 calibration actually happens. CFG-01 therefore ships a theme picker whose
-registry (`server/device_config.py`'s `THEMES`) currently holds exactly
-one entry, `"sky"`. Adding Phase 7's real, hardware-validated theme
-variants is a single `THEMES` dict entry in `server/device_config.py` -
-see that module's own docstring for the extension procedure - with no
-change to this module at all.
+registry (`server/device_config.py`'s `THEMES`) now holds five entries -
+`white` (the default), `black`, `yellow`, `red`, and `sky` (Phase 8 plan
+08-01) - added as a single `THEMES` dict entry per theme in
+`server/device_config.py`, exactly the single-dict-entry extension this
+paragraph originally promised, with no change to this module at all.
 
 The old 64px "inviolable" SAFE_BOX margin (Phase 2) is still enforced for
 the top-row labels, which D-26 explicitly pins to that same MARGIN inset.
@@ -120,16 +126,37 @@ PT_SERIF_BOLD = os.path.join(FONT_DIR, "PTSerif-Bold.ttf")
 
 # D-26's exact confirmed sizes, per role. (font_path, size, weight) - weight
 # is documentation only (the path already selects the correct static weight
-# file). D-27: every active-state role is Regular; the empty state's
-# heading keeps a Bold weight for continuity with Phase 2's hero-caption
-# boldness (not itself a D-26 subject - the empty state's copy is
-# unchanged by this phase).
-STATE_LABEL_FONT = (PT_SERIF_REGULAR, 20, 400)
-TOP_TAG_FONT = (PT_SERIF_REGULAR, 18, 400)
-MAIN_LINE1_FONT = (PT_SERIF_REGULAR, 44, 400)
-MAIN_LINE2_FONT = (PT_SERIF_REGULAR, 22, 400)
-PREVIOUS_LINE1_FONT = (PT_SERIF_REGULAR, 28, 400)
-PREVIOUS_LINE2_FONT = (PT_SERIF_REGULAR, 16, 400)
+# file). Phase 8 (dated 2026-08-31, D-06): every active-state role's *base*
+# weight is Bold, not Regular - the functional replacement for the removed
+# text-backing-plate (`_paint_text_backing()`, deleted this same phase -
+# see D-05): the heavier stroke is what carries legibility against a
+# dithered state background. The spike
+# (`.planning/spikes/001-panel-theme-colours/README.md`) confirmed Bold
+# legible at every size on the panel, including the smallest caption
+# (`PREVIOUS_LINE2_FONT`). A stroke outline (at 1/2/3px widths) and an
+# offset drop-shadow were both built and both read as legible in that
+# spike, and were both rejected by the developer on visual grounds before
+# font weight was tried - recorded here so a future reader does not
+# re-litigate either without new information.
+#
+# On-glass correction (08-06, same date): Bold read as needlessly heavy on
+# the White theme's flat field, where Bold's only job - resisting dithered
+# speckle - never applies (White is never dithered). `_role_font()` /
+# `_role_fit_text_size()` below substitute Regular for these role tuples'
+# path specifically when `bg_idx == IDX_WHITE`; every dithered theme
+# (confirmed on Sky) keeps Bold. These tuples themselves stay the Bold
+# specification - the dithered-theme case - and are never read directly by
+# the draw_*() functions below; always go through `_role_font()` /
+# `_role_fit_text_size()`, which resolve the weight from `bg_idx`.
+# MAIN_LINE1_FONT's size also dropped 44 -> 40 on the same on-glass pass,
+# independent of the weight question - confirmed too large at 44 regardless
+# of weight, and this reduction applies to every theme.
+STATE_LABEL_FONT = (PT_SERIF_BOLD, 20, 700)
+TOP_TAG_FONT = (PT_SERIF_BOLD, 18, 700)
+MAIN_LINE1_FONT = (PT_SERIF_BOLD, 40, 700)
+MAIN_LINE2_FONT = (PT_SERIF_BOLD, 22, 700)
+PREVIOUS_LINE1_FONT = (PT_SERIF_BOLD, 28, 700)
+PREVIOUS_LINE2_FONT = (PT_SERIF_BOLD, 20, 700)
 EMPTY_HEADING_FONT = (PT_SERIF_BOLD, 72, 700)
 EMPTY_BODY_FONT = (PT_SERIF_REGULAR, 40, 400)
 
@@ -161,9 +188,10 @@ _FIT_STEP_PX = 2
 # must never read these two dicts directly - call
 # state_background_index()/state_ink_index() instead, which resolve
 # through device_config.THEMES, the single registry the companion Config
-# page's picker also reads. Do not delete these constants and do not
-# change their values - the default ("sky") theme's colours are exactly
-# the pre-Phase-6 values.
+# page's picker also reads. Do not delete these constants - their values
+# are computed directly from `device_config.DEFAULT_THEME_ID` (Phase 8:
+# "white", not the original "sky") at import time, so they always agree
+# with whatever the registry currently calls the default.
 STATE_BACKGROUND = {
     runway_config.STATE_DEPARTING: device_config.theme_background_index(
         runway_config.STATE_DEPARTING, device_config.DEFAULT_THEME_ID
@@ -281,6 +309,24 @@ PREVIOUS_ILLUSTRATION_WIDTH_FRAC = 0.57  # of the MAIN illustration's own render
 PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC = 0.7528
 PREVIOUS_LINE_GAP_PX = 34  # line 2's top below line 1's own TOP (not bottom)
 
+# D-12 (Phase 8 08-04): the previous card's two text lines are right-aligned
+# this many pixels LEFT of the aircraft's measured opaque right edge
+# (prev_placement.content[2]) - an intentional optical correction on top of
+# a measurement that was already exact, not a fix to the measurement itself.
+# Direct pixel instrumentation confirmed the unshifted anchor lands exactly
+# on the measured opaque right edge with zero delta - the anchor was never
+# wrong. The correction compensates for a human-perception effect instead:
+# the aircraft's rightmost painted pixel typically sits on a thin raked
+# tail-fin tip, not on the visual mass of the fuselage the eye actually
+# anchors on, so text right-aligned to the true edge reads as floating
+# slightly right of where the aircraft "is". Tuned live with the developer
+# from 15px (`.planning/spikes/001-panel-theme-colours/renders/
+# 96-prev-text-nudged-left-15px.png`, rejected as not quite enough) to 20px
+# (`97-prev-text-nudged-left-20px.png`, confirmed). Tuned against one
+# illustration file only - plan 08-05 does a wider spot-check and plan
+# 08-06 confirms it on real glass.
+PREVIOUS_TEXT_LEFT_OFFSET_PX = 20
+
 # --- Aircraft-to-text gaps (debug session illustration-crop-text-margin) ----
 # Both constants are measured from the illustration's OPAQUE-PIXEL bottom edge
 # (`IllustrationPlacement.content`), never from the source PNG's full rectangle.
@@ -360,6 +406,45 @@ def fit_text_size(font_path, initial_size, text, max_width, min_size):
     return _font((font_path, min_size, None))
 
 
+def _role_weight_path(weight):
+    """Resolve `weight` (`device_config.theme_weight()`'s return value,
+    `"regular"` or `"bold"`) to the matching PT Serif static-weight file.
+
+    Not derivable from `bg_idx` alone (08-06 on-glass finding, widened
+    same session): the same palette index can back two different themes
+    with two different weights - `IDX_BLACK` is both "black" (flat,
+    Regular) and "grey" (dithered, Bold) - so the active theme's own
+    `weight` field is threaded through explicitly by
+    `_build_active_canvas()` rather than re-derived from the background
+    index here. The empty state is untouched by this - it never calls
+    this helper.
+    """
+    if weight == "regular":
+        return PT_SERIF_REGULAR
+    if weight == "bold":
+        return PT_SERIF_BOLD
+    raise ValueError("unknown weight %r (expected 'regular' or 'bold')" % (weight,))
+
+
+def _role_font(role_spec, weight):
+    """`_font()` for one of the six active-state role tuples
+    (`STATE_LABEL_FONT`, `TOP_TAG_FONT`, ...), resolving the role's weight
+    via `_role_weight_path()` rather than reading the tuple's own
+    (always-Bold) path directly.
+    """
+    _path, size, role_weight = role_spec
+    return _font((_role_weight_path(weight), size, role_weight))
+
+
+def _role_fit_text_size(role_spec, text, max_width, min_size, weight):
+    """`fit_text_size()` for one of the six active-state role tuples,
+    resolving the role's weight the same way `_role_font()` does, instead
+    of the caller hardcoding a bare `PT_SERIF_BOLD` path.
+    """
+    _path, size, _role_weight = role_spec
+    return fit_text_size(_role_weight_path(weight), size, text, max_width, min_size)
+
+
 def _assert_in_safe_box(bbox, label):
     left, top, right, bottom = bbox
     sb_left, sb_top, sb_right, sb_bottom = SAFE_BOX
@@ -415,7 +500,7 @@ def draw_frame(canvas, ink_idx):
     return box
 
 
-def draw_source_fault_badge(canvas, ink_idx):
+def draw_source_fault_badge(canvas, ink_idx, weight="bold"):
     """CFG-05: draw a small triangular alert glyph (outline + exclamation
     stroke) with `SOURCE_FAULT_TEXT` beside it, bottom-centre inside the
     frame `draw_frame()` returns. Uses `ink_idx` only - `ImageDraw.polygon()`
@@ -432,12 +517,22 @@ def draw_source_fault_badge(canvas, ink_idx):
     see `render_panel()`'s own docstring for the rule that makes this
     requirement correct rather than a false-alarm trap (T-06-06-02,
     `.planning/seeds/on-device-fault-icon.md`).
+
+    `weight` (Phase 8 code-review WR-01): the caption is an active-state
+    text role like any other, so it must resolve its PT Serif weight from
+    the active theme via `_role_font()` rather than hardcoding Bold - the
+    same "très agressif on White" on-glass finding that made every other
+    role theme-conditional applies here too. Defaults to `"bold"` only
+    because `_build_empty_canvas()`'s call site is deliberately not
+    theme-dependent (it already mixes weights on its own heading/body
+    text) and passes that literal explicitly rather than relying on the
+    default; `_build_active_canvas()` passes its own resolved `weight`.
     """
     draw = ImageDraw.Draw(canvas)
     frame_inset = round(WIDTH * FRAME_INSET_FRAC)
     frame_bottom = HEIGHT - frame_inset
 
-    caption_font = _font(TOP_TAG_FONT)
+    caption_font = _role_font(TOP_TAG_FONT, weight)
     glyph_size = SOURCE_FAULT_GLYPH_PX
     gap = SPACE_XS
 
@@ -476,9 +571,14 @@ def draw_source_fault_badge(canvas, ink_idx):
         [(stroke_x, top + glyph_size * 0.3), (stroke_x, top + glyph_size * 0.65)],
         fill=ink_idx, width=2,
     )
-    draw.line(
-        [(stroke_x, top + glyph_size * 0.8), (stroke_x, top + glyph_size * 0.8)],
-        fill=ink_idx, width=2,
+    # A zero-length ImageDraw.line() paints a single pixel regardless of
+    # `width` - Pillow doesn't expand a degenerate segment - so the dot is
+    # drawn as a small filled ellipse instead (code-review WR-02).
+    dot_r = 2
+    dot_y = top + glyph_size * 0.8
+    draw.ellipse(
+        [(stroke_x - dot_r, dot_y - dot_r), (stroke_x + dot_r, dot_y + dot_r)],
+        fill=ink_idx,
     )
     draw.text((text_left, mid_y), SOURCE_FAULT_TEXT, font=caption_font, fill=ink_idx, anchor="lm")
 
@@ -539,33 +639,40 @@ def draw_battery_icon(canvas, draw, ink_idx):
     return total
 
 
-def _paint_text_backing(draw, bbox, bg_idx, pad=4):
-    """Paint a small solid `bg_idx` rectangle behind a text bbox, expanded by
-    `pad` on every side (glyph antialiasing/overshoot margin). Phase 7 07-01:
-    once the state background became a dithered lighten-toward-White blend
-    (dither.dithered_state_background()), the scattered White speckle it
-    introduces right behind white-ink text visibly hurt legibility (developer
-    on-glass finding) - painting a clean, undithered backing plate exactly
-    behind each text run keeps the surrounding field lighter while giving
-    every glyph the same flat, high-contrast backdrop the D-21 flat fill used
-    to provide everywhere.
-    """
-    draw.rectangle(
-        (bbox[0] - pad, bbox[1] - pad, bbox[2] + pad, bbox[3] + pad),
-        fill=bg_idx,
-    )
+# A small solid backing-plate rectangle used to be painted behind every text
+# run here (added Phase 7 07-01, after the state background became a
+# dithered lighten-toward-White blend and its scattered White speckle
+# visibly hurt legibility right behind white-ink text - a real on-glass
+# finding, not a style choice). Phase 8 (D-05) removes that mechanism
+# entirely, on every theme, substituting nothing: the plate itself is a
+# taste target the developer wanted gone, and D-06's font-weight switch (see
+# the typography block above) takes over its legibility job with a heavier
+# stroke instead. A stroke outline (1/2/3px) and an offset drop-shadow were
+# both spiked as replacements and both read as legible, but both were
+# rejected by the developer on visual grounds before font weight was tried
+# - see `.planning/spikes/001-panel-theme-colours/README.md` and
+# `server/assets/fonts/VENDOR.md`'s PT Serif supersession note for the full
+# record, so neither is re-litigated here without new information.
 
 
-def draw_top_labels(canvas, state, ink_idx, bg_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
+def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
-    (top-right, `runway_tag_text(runway_id)`), both PT Serif Regular at the
-    small sizes D-26 confirmed, both at the existing `MARGIN` inset (inside
-    the frame, not on it) - no icon glyph, no letter-spacing/tracking (that
-    was the old, larger zone-1 treatment; superseded).
+    (top-right, `runway_tag_text(runway_id)`), at the small sizes D-26
+    confirmed, both at the existing `MARGIN` inset (inside the frame, not
+    on it) - no icon glyph, no letter-spacing/tracking (that was the old,
+    larger zone-1 treatment; superseded).
+
+    `weight` (`device_config.theme_weight()`'s return value) selects each
+    role's PT Serif weight via `_role_font()` - not derivable from `bg_idx`
+    alone, since the same index can back both a Regular and a Bold theme
+    (08-06 on-glass finding, widened same session; see `_role_weight_path()`).
+    `bg_idx` itself is retained per D-05's original note here - still no
+    direct use in this function beyond being available to callers/future
+    roles.
     """
     draw = ImageDraw.Draw(canvas)
-    label_font = _font(STATE_LABEL_FONT)
-    tag_font = _font(TOP_TAG_FONT)
+    label_font = _role_font(STATE_LABEL_FONT, weight)
+    tag_font = _role_font(TOP_TAG_FONT, weight)
     tag_text = runway_tag_text(runway_id)
 
     # _assert_within_canvas(), not the strict _assert_in_safe_box(): real
@@ -577,12 +684,10 @@ def draw_top_labels(canvas, state, ink_idx, bg_idx, runway_id=device_config.DEFA
     label_text = STATE_LABEL_TEXT[state]
     label_bbox = draw.textbbox((MARGIN, MARGIN), label_text, font=label_font, anchor="la")
     _assert_within_canvas(label_bbox, "state label")
-    _paint_text_backing(draw, label_bbox, bg_idx)
     draw.text((MARGIN, MARGIN), label_text, font=label_font, fill=ink_idx, anchor="la")
 
     tag_bbox = draw.textbbox((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, anchor="ra")
     _assert_within_canvas(tag_bbox, "top-right tag")
-    _paint_text_backing(draw, tag_bbox, bg_idx)
     draw.text((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, fill=ink_idx, anchor="ra")
 
 
@@ -845,23 +950,89 @@ def draw_illustration(canvas, resized_rgba, left, top):
 
 
 def _flight_line1_text(flight, state, route):
-    """`"{callsign} to|from {city}"`, or bare `callsign` when `route` has no
-    city for this state. This is not only a full enrichment miss (D-06,
-    quick task 260827-hyy): `route` may legitimately be an airline-only
-    route (`enrich.resolve_route()`'s `"airline_only"` source /
-    `enrich.airline_only_route()`) that carries a real airline name but
-    `None` for every city field - in that case line 1 correctly stays the
-    bare callsign, because the origin/destination really are unknown; it
-    does not fabricate a city from the callsign's ICAO prefix. D-26:
-    ordinary lowercase "to"/"from" as sentence text, not the old tracked-
-    caps Label-role prefix.
+    """D-08/D-09/D-10's four-tier content ladder for the main line, evaluated
+    strictly in this order, returning on the first match. The raw ADS-B
+    ICAO callsign is never reachable at any tier (D-08) - an earlier draft
+    of this ladder kept a bare-callsign floor below tier 4 and the
+    developer explicitly asked for it removed, even from the fallback
+    cases (`.planning/spikes/001-panel-theme-colours/README.md`, steps
+    11-13).
+
+    - **Tier 1** - `route`'s `callsign_iata` (D-09) and
+      `enrich.city_for_state(route, state)` are both usable: returns
+      `"{identifier} to|from {city}"`, lowercase direction word (ordinary
+      sentence text, not the old tracked-caps Label-role prefix).
+    - **Tier 2** - a city is known but no identifier: returns
+      `"To|From {city}"`, TITLE-case direction word. The casing differs
+      from tier 1 deliberately: tier 1's word sits mid-sentence after an
+      identifier, tier 2's word starts the line.
+    - **Tier 3** - `route` carries a truthy `airline_name` but no usable
+      city or identifier (the `enrich.airline_only_route()` shape, or any
+      hand-edited/corrupt route with the same profile): returns `""`, the
+      sentinel meaning *line 1 is omitted entirely*. Draw callers
+      (`draw_main_text_block()`/`draw_previous_text_block()`) must promote
+      line 2 into line 1's slot on this signal - implemented independently
+      in both functions, since they position line 2 from opposite edges of
+      line 1 (bottom vs. top).
+    - **Tier 4** - `route` is `None`, is not a dict, or carries no airline
+      name either: returns the fixed string `"Unknown flight"` (D-10,
+      revised on-glass during plan 08-06's verification session - the
+      original TITLE-case state word duplicated the all-caps
+      DEPARTING/ARRIVING top-left label, a different element this
+      function does not touch, so it carried no information the label
+      didn't already show). Identical text for both states - the
+      top-left label is what distinguishes departing from arriving here.
+      Line 2 independently falls to `ROUTE_FALLBACK_TEXT` in this case,
+      unchanged existing behaviour.
+
+    Residual ordering note: a route carrying an identifier but no city
+    falls through tier 1 and lands on tier 3 if it has an airline, or tier
+    4 if it does not. `_parse_route()` (which requires all five core
+    fields together) can never produce this shape, but a hand-edited or
+    corrupt persisted cache entry could - this is a stated decision, not an
+    accident.
+
+    `flight` is retained in the signature even though this body no longer
+    reads a callsign or hex from it - both call sites pass it positionally,
+    and removing it would be a signature change this rewrite never asked
+    for.
+
+    Never raises: every read is guarded, and a non-string/blank-after-
+    stripping `callsign_iata`, a non-dict `route`, or a hostile
+    `route.get()` all degrade a tier rather than propagate.
     """
-    callsign = flight.get("callsign") or (flight.get("hex") or "").upper() or "?"
-    city = enrich.city_for_state(route, state) if route is not None else None
+    fallback_word = "Unknown flight"
+    if not isinstance(route, dict):
+        return fallback_word
+
+    try:
+        identifier_raw = route.get("callsign_iata")
+    except Exception:
+        identifier_raw = None
+    identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
+
+    try:
+        city = enrich.city_for_state(route, state)
+    except Exception:
+        city = None
+    if not isinstance(city, str) or not city.strip():
+        city = None
+
+    if identifier and city:
+        direction_lower = "to" if state == runway_config.STATE_DEPARTING else "from"
+        return "%s %s %s" % (identifier, direction_lower, city)
     if city:
-        direction = "to" if state == runway_config.STATE_DEPARTING else "from"
-        return "%s %s %s" % (callsign, direction, city)
-    return callsign
+        direction_title = "To" if state == runway_config.STATE_DEPARTING else "From"
+        return "%s %s" % (direction_title, city)
+
+    try:
+        airline_name = route.get("airline_name")
+    except Exception:
+        airline_name = None
+    if isinstance(airline_name, str) and airline_name.strip():
+        return ""
+
+    return fallback_word
 
 
 # Friendly human-readable labels for the ICAO type designators detect.py's
@@ -969,7 +1140,7 @@ def _flight_line2_text(route, aircraft_type=None):
     return "%s" % (display_name,)
 
 
-def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx):
+def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
     """D-26 main flight text: two centred lines starting `MAIN_TEXT_GAP_PX`
     below the main illustration's OPAQUE bottom edge
     (`main_placement.content[3]`) - the aircraft's last actually-painted pixel
@@ -982,8 +1153,24 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     the gap a constant by construction. See `MAIN_TEXT_GAP_PX` for how its
     value is derived from the render D-26 actually confirmed.
 
+    D-10 tier 3 (Phase 8 08-04): when `_flight_line1_text()` returns `""`
+    (the sentinel meaning line 1 is omitted), no font is computed for it, no
+    bbox is computed or asserted, and nothing is drawn - line 2 is promoted
+    into line 1's slot instead, starting at the same
+    `main_placement.content[3] + MAIN_TEXT_GAP_PX` expression line 1's own
+    `top_y` would have used. The returned pair's first slot is `None` in
+    that case; both call sites already discard the return value, and `None`
+    is more honest than an invented empty bbox.
+
     `main_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
+
+    `weight` (`device_config.theme_weight()`'s return value) selects each
+    line's PT Serif weight via `_role_fit_text_size()` - not derivable
+    from `bg_idx` alone, since the same index can back both a Regular and
+    a Bold theme (08-06 on-glass finding, widened same session; see
+    `_role_weight_path()`). `bg_idx` itself is retained per D-05's
+    original note here.
     """
     draw = ImageDraw.Draw(canvas)
     center_x = WIDTH // 2
@@ -992,25 +1179,27 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     line1_text = _flight_line1_text(flight, state, route)
     line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
 
-    line1_font = fit_text_size(PT_SERIF_REGULAR, MAIN_LINE1_FONT[1], line1_text, safe_width, MAIN_LINE1_MIN_SIZE)
-    line2_font = fit_text_size(PT_SERIF_REGULAR, MAIN_LINE2_FONT[1], line2_text, safe_width, MAIN_LINE2_MIN_SIZE)
-
     top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
-    line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
-    _assert_within_canvas(line1_bbox, "main flight text line 1")
-    _paint_text_backing(draw, line1_bbox, bg_idx)
-    draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
 
-    line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
+    if line1_text:
+        line1_font = _role_fit_text_size(MAIN_LINE1_FONT, line1_text, safe_width, MAIN_LINE1_MIN_SIZE, weight)
+        line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
+        _assert_within_canvas(line1_bbox, "main flight text line 1")
+        draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
+        line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
+    else:
+        line1_bbox = None
+        line2_top = top_y
+
+    line2_font = _role_fit_text_size(MAIN_LINE2_FONT, line2_text, safe_width, MAIN_LINE2_MIN_SIZE, weight)
     line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
     _assert_within_canvas(line2_bbox, "main flight text line 2")
-    _paint_text_backing(draw, line2_bbox, bg_idx)
     draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
 
     return line1_bbox, line2_bbox
 
 
-def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx):
+def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight):
     """D-26 previous flight text: two right-aligned lines. Line 1 starts
     `PREVIOUS_TEXT_GAP_PX` below the previous illustration's OPAQUE bottom edge
     (`prev_placement.content[3]`), for the same reason
@@ -1018,40 +1207,63 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     sits 21-99px below the aircraft at this card's scale, which made the gap
     vary from 43px to 121px across the vendored set.
 
-    Horizontal alignment uses `prev_placement.content[2]` - the previous
+    Horizontal alignment uses `prev_placement.content[2]` MINUS
+    `PREVIOUS_TEXT_LEFT_OFFSET_PX` (D-12, Phase 8 08-04) - the previous
     aircraft's visible right edge, which `_build_active_canvas()` has already
-    placed on the MAIN aircraft's visible right edge. So the main aircraft, the
-    previous aircraft and this text block all share one visible vertical line.
-    Reading `.rect[2]` instead would put the text 3-17px right of the aircraft
-    it belongs to, varying per file (pass 2 of the debug session).
+    placed on the MAIN aircraft's visible right edge, nudged left by a fixed,
+    developer-confirmed optical correction (see that constant's own comment
+    for why the raw measured edge is not itself the bug). So the main
+    aircraft, the previous aircraft and this text block all still share one
+    visible reference line, offset by that one constant. Reading `.rect[2]`
+    instead of `.content[2]` would put the text 3-17px right of the aircraft
+    it belongs to, varying per file (pass 2 of the debug session) - a
+    separate, unrelated defect from the D-12 offset applied on top of it.
 
     Line 2 starts `PREVIOUS_LINE_GAP_PX` below line 1's own TOP, not its bottom
     (D-26's tighter confirmed stacking). No `PREVIOUS ·` prefix - explicitly
     removed after the live sketch pass.
 
+    D-10 tier 3 (Phase 8 08-04): when `_flight_line1_text()` returns `""`
+    (line 1 omitted), no font is computed for it, no bbox is computed or
+    asserted, and nothing is drawn - line 2 is promoted into line 1's slot,
+    starting at this function's OWN `prev_placement.content[3] +
+    PREVIOUS_TEXT_GAP_PX` expression (not `draw_main_text_block()`'s
+    equivalent - the two functions position line 2 from opposite edges of
+    line 1 and must not share a helper for this, see that function's own
+    docstring). The returned pair's first slot is `None` in that case.
+
     `prev_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
+
+    `weight` (`device_config.theme_weight()`'s return value) selects each
+    line's PT Serif weight via `_role_fit_text_size()` - not derivable
+    from `bg_idx` alone, since the same index can back both a Regular and
+    a Bold theme (08-06 on-glass finding, widened same session; see
+    `_role_weight_path()`). `bg_idx` itself is retained per D-05's
+    original note here.
     """
     draw = ImageDraw.Draw(canvas)
-    right_x = prev_placement.content[2]
+    right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
     available_width = right_x - SAFE_BOX[0]
 
     line1_text = _flight_line1_text(flight, state, route)
     line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
-    line1_font = fit_text_size(PT_SERIF_REGULAR, PREVIOUS_LINE1_FONT[1], line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE)
-    line2_font = fit_text_size(PT_SERIF_REGULAR, PREVIOUS_LINE2_FONT[1], line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE)
-
     top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
-    line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
-    _assert_within_canvas(line1_bbox, "previous flight text line 1")
-    _paint_text_backing(draw, line1_bbox, bg_idx)
-    draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
 
-    line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
+    if line1_text:
+        line1_font = _role_fit_text_size(PREVIOUS_LINE1_FONT, line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE, weight)
+        line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
+        _assert_within_canvas(line1_bbox, "previous flight text line 1")
+        draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
+        line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
+    else:
+        line1_bbox = None
+        line2_top = top_y
+
+    line2_font = _role_fit_text_size(PREVIOUS_LINE2_FONT, line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE, weight)
     line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
     _assert_within_canvas(line2_bbox, "previous flight text line 2")
-    _paint_text_backing(draw, line2_bbox, bg_idx)
     draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
 
     return line1_bbox, line2_bbox
@@ -1110,7 +1322,7 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
     # is in, including the empty state - the empty canvas uses EMPTY_INK,
     # matching every other element it already draws.
     if source_fault:
-        draw_source_fault_badge(canvas, EMPTY_INK)
+        draw_source_fault_badge(canvas, EMPTY_INK, weight="bold")
 
     if battery_low:
         draw_battery_icon(canvas, draw, EMPTY_INK)
@@ -1172,12 +1384,27 @@ def _build_active_canvas(
     bg_idx = state_background_index(state, theme_id=theme_id)
     fg_idx = state_ink_index(state, theme_id=theme_id)
 
+    # Phase 8 08-06 on-glass session: whether the background is dithered
+    # and which weight the text roles use are both properties of the
+    # active theme (`device_config.theme_dithered()`/`theme_weight()`),
+    # resolved once here and threaded through - see THEMES' own module
+    # comment in device_config.py for the full on-glass rationale and why
+    # neither is a fixed function of bg_idx alone.
+    normalised_theme_id = device_config.normalise_theme_id(theme_id)
+    theme_dithered = device_config.theme_dithered(normalised_theme_id)
+    weight = device_config.theme_weight(normalised_theme_id)
+
     # D-21 gave a flat single-color background field, but Phase 7 07-01's
-    # on-glass session found the raw ink too dark/saturated at full-panel
-    # coverage - reopened per that plan's own scope note. A dithered blend
-    # toward White (dither.dithered_state_background()) is the only way to
-    # visually lighten a fixed physical ink; bg_idx stays the dominant index.
-    canvas = dither.dithered_state_background(bg_idx)
+    # on-glass session found the raw Blue/Green ink too dark/saturated at
+    # full-panel coverage - reopened per that plan's own scope note. A
+    # dithered blend toward White (dither.dithered_state_background()) is
+    # the only way to visually lighten a fixed physical ink; bg_idx stays
+    # the dominant index. Phase 8 08-06 on-glass session: this treatment is
+    # no longer universal - a theme with `dithered: False` (every "pure"
+    # colour, confirmed on real glass to need no lightening) gets a flat
+    # fill instead (`panel_format.new_canvas()`), matching what the empty
+    # state and the White theme have always used.
+    canvas = dither.dithered_state_background(bg_idx) if theme_dithered else pf.new_canvas(bg_idx)
 
     # D-26's thin outline is no longer drawn (removed 2026-08-28 by developer
     # request, quick task 260828-k5r). FRAME_INSET_FRAC deliberately survives
@@ -1188,7 +1415,7 @@ def _build_active_canvas(
 
     # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
     # at the existing MARGIN inset (inside the frame, not on it).
-    draw_top_labels(canvas, state, fg_idx, bg_idx, runway_id=runway_id)
+    draw_top_labels(canvas, state, fg_idx, bg_idx, weight, runway_id=runway_id)
 
     # D-25/D-26 main flight: the current detection's real per-airline
     # illustration, always nose-left (D-24 - no mirroring).
@@ -1210,7 +1437,7 @@ def _build_active_canvas(
         # footprint is the right thing to bound - unchanged by the
         # illustration-crop-text-margin fix.
         _assert_within_canvas(main_placement.rect, "main aircraft illustration")
-        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx)
+        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx, weight)
 
     # D-25/D-26 previous flight: a real second flight card - the detection
     # immediately preceding this one (poll_loop.py's two-deep history).
@@ -1243,12 +1470,12 @@ def _build_active_canvas(
             prev_top = _top_for_centered_content(prev_resized, HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC)
             prev_placement = draw_illustration(canvas, prev_resized, prev_left, prev_top)
             _assert_within_canvas(prev_placement.rect, "previous aircraft illustration")
-            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx)
+            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx, weight)
 
     # CFG-05: the source-fault badge, drawn last so it sits on top of
     # everything else, using the state's own resolved ink index.
     if source_fault:
-        draw_source_fault_badge(canvas, fg_idx)
+        draw_source_fault_badge(canvas, fg_idx, weight=weight)
 
     if battery_low:
         draw_battery_icon(canvas, ImageDraw.Draw(canvas), fg_idx)
@@ -1365,12 +1592,16 @@ def render_panel(
 # CLI has no live enrichment lookup of its own (that's poll_loop.py's job);
 # these are plausible-looking hits so `--preview` without `--no-route` shows
 # the resolved-route text layout rather than always previewing the fallback.
+# `callsign_iata` (Phase 8 08-04, D-10 tier 1) is a synthetic sample value in
+# both dicts, in each route's own airline's real IATA prefix - not a real
+# adsbdb-resolved identifier - so a plain preview exercises tier 1 end to end.
 _PREVIEW_ROUTE = {
     "airline_name": "Air France",
     "origin_iata": "ORY",
     "origin_city": "Paris",
     "destination_iata": "JFK",
     "destination_city": "New York",
+    "callsign_iata": "AF1006",
 }
 _PREVIEW_PREVIOUS_ROUTE = {
     "airline_name": "Vueling Airlines",
@@ -1378,6 +1609,7 @@ _PREVIEW_PREVIOUS_ROUTE = {
     "origin_city": "Paris",
     "destination_iata": "BCN",
     "destination_city": "Barcelona",
+    "callsign_iata": "VY1234",
 }
 
 
@@ -1434,10 +1666,20 @@ def build_parser():
     parser.add_argument(
         "--preview-airline-only",
         action="store_true",
-        help="Manual QA only (D-06, quick task 260827-hyy): preview the airline-only intermediate "
-             "render state (airline known via the callsign's ICAO prefix, destination genuinely "
-             "unknown - bare callsign on line 1, '{airline} · {type}' on line 2, the airline's own "
-             "illustration). Takes precedence over --no-route when both are given.",
+        help="Manual QA only (D-06, quick task 260827-hyy; tier updated Phase 8 08-04 D-10): preview "
+             "the airline-only intermediate render state (airline known via the callsign's ICAO "
+             "prefix, destination genuinely unknown - line 1 is omitted entirely (D-10 tier 3), only "
+             "'{airline} · {type}' is drawn, at the airline's own illustration). Takes precedence "
+             "over --no-route when both are given.",
+    )
+    parser.add_argument(
+        "--no-identifier",
+        action="store_true",
+        help="Manual QA only (D-10 tier 2, Phase 8 08-04): strip the preview route's callsign_iata "
+             "identifier so a departing/arriving preview forces tier 2 (title-case direction word + "
+             "city, no identifier) instead of the default tier 1. No effect when the route is "
+             "already None (--no-route won) or when --preview-airline-only is also given (that route "
+             "has no cities and lands on tier 3 regardless) - both combinations are harmless no-ops.",
     )
     parser.add_argument(
         "--theme", choices=device_config.THEME_IDS, default=device_config.DEFAULT_THEME_ID,
@@ -1485,6 +1727,16 @@ def main(argv=None):
             route = None
         else:
             route = _PREVIEW_ROUTE
+        # D-10 tier 2 (Phase 8 08-04): --no-identifier strips callsign_iata
+        # so a departing/arriving preview forces tier 2. No-op when route is
+        # already None (--no-route won, nothing to strip) or when it is the
+        # airline-only route (--preview-airline-only won; that route's
+        # callsign_iata is already None and it has no cities regardless, so
+        # stripping it again changes nothing). Never mutates _PREVIEW_ROUTE
+        # itself.
+        if args.no_identifier and route is not None:
+            route = dict(route)
+            route["callsign_iata"] = None
         # D-04 (Phase 7 07-01): --airline/--city override _PREVIEW_ROUTE's own
         # fields so a long/real name is a flag rather than a hand-built dict.
         # --no-route continues to win over both - route is already None above
@@ -1507,6 +1759,9 @@ def main(argv=None):
                 previous_route = None
             else:
                 previous_route = _PREVIEW_PREVIOUS_ROUTE
+            if args.no_identifier and previous_route is not None:
+                previous_route = dict(previous_route)
+                previous_route["callsign_iata"] = None
             previous_state = runway_config.STATE_ARRIVING if args.state == runway_config.STATE_DEPARTING else runway_config.STATE_DEPARTING
 
     canvas = build_canvas(
@@ -1532,12 +1787,18 @@ def main(argv=None):
         print("wrote %s (%d bytes, state=%s)" % (args.out, len(data), args.state))
         print("sha256 %s" % digest)
         # T-07-01-01: a forced render's most common failure is a human
-        # forgetting to restart inkframe-poll.timer afterward - the tool
-        # doing the forcing is the right place to say so.
+        # forgetting to restart skypane-poll.timer afterward - the tool
+        # doing the forcing is the right place to say so. (Phase 8 08-05:
+        # this reminder previously named a pre-rename unit that does not
+        # exist on the deployed host - a legacy unit under that old name
+        # was found running and failing on the VPS during Phase 7 and had
+        # to be stopped and disabled (.planning/STATE.md), so the stale
+        # name was not merely outdated, it was actively misleading. The
+        # real unit is deploy/skypane-poll.timer.)
         if args.airline or args.city or args.no_route:
             print(
                 "REMINDER: this panel is SYNTHETIC (--airline/--city/--no-route was used) - "
-                "restart inkframe-poll.timer after testing, or the frame stays frozen on this "
+                "restart skypane-poll.timer after testing, or the frame stays frozen on this "
                 "test image indefinitely."
             )
 

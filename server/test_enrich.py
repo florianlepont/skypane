@@ -27,7 +27,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 45
+EXPECTED_CHECK_COUNT = 50
 
 
 def load_fixture(name):
@@ -936,6 +936,148 @@ def main():
         "note_unresolved_prefix() records exactly the callsigns resolve_route() classifies 'miss' and none it "
         "classifies 'airline_only', on the same real production condition (an adsbdb 404)",
         _note_unresolved_prefix_agrees_with_resolve_route,
+    )
+
+    # --- Phase 8 plan 08-02 (D-09): callsign_iata threaded through
+    # _parse_route()/_route_from_entry()/airline_only_route(). This field
+    # is adsbdb's IATA-formatted flight identifier (e.g. "AF1234") -
+    # reliable for legacy/full-service carriers, where the ICAO and IATA
+    # callsigns denote the same real published flight number, and not
+    # reliably meaningful for rotating-callsign carriers (see
+    # .planning/notes/adsbdb-callsign-lookup-legacy-vs-rotating.md) - these
+    # checks pin its presence/optionality/persistence, not its universal
+    # correctness. ---------------------------------------------------------
+
+    # 46. Parsed from a real hit: two distinct real fixtures, not one, so a
+    #     hardcoded value could not pass by accident.
+    def _callsign_iata_parsed_from_real_hits():
+        route_tvf = enrich._parse_route(hit_body)
+        if route_tvf is None or route_tvf.get("callsign_iata") != "TO16VB":
+            return False, "TVF16VB fixture: callsign_iata = %r, expected 'TO16VB'" % (
+                route_tvf.get("callsign_iata") if route_tvf else None,
+            )
+        route_aia = enrich._parse_route(aia_hit_body)
+        if route_aia is None or route_aia.get("callsign_iata") != "U36412":
+            return False, "AIA6412 fixture: callsign_iata = %r, expected 'U36412'" % (
+                route_aia.get("callsign_iata") if route_aia else None,
+            )
+        return True, ""
+    check(
+        "_parse_route() reads callsign_iata from two real fixtures (TVF16VB -> 'TO16VB', AIA6412 -> 'U36412') (D-09)",
+        _callsign_iata_parsed_from_real_hits,
+    )
+
+    # 47. Optional, never route-fatal: absent, empty, whitespace-only and
+    #     non-string values must all still resolve a full route with
+    #     callsign_iata degraded to None - this is the check that would
+    #     catch the single most damaging mistake available in Task 1
+    #     (accidentally making the field required).
+    def _callsign_iata_optional_never_route_fatal():
+        absent = copy.deepcopy(hit_body)
+        del absent["response"]["flightroute"]["callsign_iata"]
+        route = enrich._parse_route(absent)
+        if route is None:
+            return False, "a body with callsign_iata absent must still resolve a full route, got None"
+        if route.get("callsign_iata") is not None:
+            return False, "callsign_iata absent from the body should parse to None, got %r" % (route.get("callsign_iata"),)
+
+        for hostile in ("", "   ", 42, [], {}):
+            body = copy.deepcopy(hit_body)
+            body["response"]["flightroute"]["callsign_iata"] = hostile
+            route = enrich._parse_route(body)
+            if route is None:
+                return False, "a hostile callsign_iata value %r must still resolve a full route, got None" % (hostile,)
+            if route.get("callsign_iata") is not None:
+                return False, "hostile callsign_iata value %r should degrade to None, got %r" % (hostile, route.get("callsign_iata"))
+        return True, ""
+    check(
+        "callsign_iata is optional and never route-fatal: absent/empty/whitespace/non-string values all still "
+        "resolve a full route with callsign_iata degraded to None (D-09, T-08-02-01/T-08-02-02)",
+        _callsign_iata_optional_never_route_fatal,
+    )
+
+    # 48. Cache round-trip parity: a callsign resolved via a stub transport,
+    #     then resolved again with no transport available (so the second
+    #     answer can only come from the cache) must agree on callsign_iata -
+    #     both the plain hit path and the airline-name-correction path
+    #     (AIA6412: adsbdb misattributes it to "Avies", corrected to
+    #     "Amelia" - the correction seam's shallow-copy path must not drop
+    #     the field).
+    def _callsign_iata_cache_round_trip_parity():
+        cache = {}
+        transport = make_transport(200, hit_body)
+        first = enrich.lookup_route("TVF16VB", cache, transport=transport)
+        second = enrich.lookup_route("TVF16VB", cache, transport=None)
+        if first is None or second is None or first.get("callsign_iata") != second.get("callsign_iata") != "TO16VB":
+            return False, "plain hit: fresh vs cache-only callsign_iata mismatch: %r vs %r" % (
+                first.get("callsign_iata") if first else None, second.get("callsign_iata") if second else None,
+            )
+
+        cache2 = {}
+        aia_transport = make_transport(200, aia_hit_body)
+        corrected_fresh = enrich.resolve_route("AIA6412", cache2, transport=aia_transport)[0]
+        corrected_cached = enrich.resolve_route("AIA6412", cache2, transport=None)[0]
+        if corrected_fresh is None or corrected_fresh.get("airline_name") != "Amelia":
+            return False, "expected the AIA6412 correction seam to still apply on the fresh call, got %r" % (corrected_fresh,)
+        if corrected_cached is None or corrected_cached.get("airline_name") != "Amelia":
+            return False, "expected the AIA6412 correction seam to still apply on the cache-only call, got %r" % (corrected_cached,)
+        if corrected_fresh.get("callsign_iata") != corrected_cached.get("callsign_iata") != "U36412":
+            return False, "correction-seam path: fresh vs cache-only callsign_iata mismatch: %r vs %r" % (
+                corrected_fresh.get("callsign_iata"), corrected_cached.get("callsign_iata"),
+            )
+        return True, ""
+    check(
+        "a callsign resolved twice, the second time with no transport available, agrees on callsign_iata both on "
+        "the plain hit path (TVF16VB) and the airline-name-correction path (AIA6412, Avies->Amelia) - proving "
+        "both _route_from_entry() and apply_airline_name_correction()'s shallow copy preserve the field (D-09)",
+        _callsign_iata_cache_round_trip_parity,
+    )
+
+    # 49. Shape parity across all three builders, derived rather than
+    #     hardcoded so a future seventh field is caught automatically.
+    def _shape_parity_across_all_three_builders():
+        parsed = enrich._parse_route(hit_body)
+        if parsed is None:
+            return False, "setup failure: expected the real TVF16VB fixture to resolve a full route"
+        expected_keys = set(parsed.keys())
+
+        cache_entry = dict(parsed)
+        cache_entry["found"] = True
+        from_entry = enrich._route_from_entry(cache_entry)
+        if set(from_entry.keys()) != expected_keys:
+            return False, "_route_from_entry() key set %r != _parse_route()'s key set %r" % (set(from_entry.keys()), expected_keys)
+
+        airline_only = enrich.airline_only_route("Any Airline")
+        if set(airline_only.keys()) != expected_keys:
+            return False, "airline_only_route() key set %r != _parse_route()'s key set %r" % (set(airline_only.keys()), expected_keys)
+        return True, ""
+    check(
+        "_parse_route(), _route_from_entry() and airline_only_route() all agree on one key set, derived from a "
+        "real _parse_route() result rather than hardcoded (D-09)",
+        _shape_parity_across_all_three_builders,
+    )
+
+    # 50. D-08 guard: the raw ICAO callsign must never be smuggled into the
+    #     route dict via this new field or any other key. Structural, not
+    #     behavioural - the cheapest place to make D-08 hard to violate by
+    #     accident is at the boundary where the route dict is built, before
+    #     any renderer sees it. Do not "helpfully" add the raw callsign
+    #     back to this dict for convenience (D-08).
+    def _raw_icao_callsign_never_smuggled_in():
+        route = enrich._parse_route(hit_body)
+        if route is None:
+            return False, "setup failure: expected the real TVF16VB fixture to resolve a full route"
+        if "callsign" in route or "callsign_icao" in route:
+            return False, "_parse_route()'s returned dict must never carry a 'callsign' or 'callsign_icao' key (D-08): %r" % (sorted(route),)
+        raw_icao_callsign = hit_body["response"]["flightroute"]["callsign_icao"]
+        for key, value in route.items():
+            if value == raw_icao_callsign:
+                return False, "route key %r == the raw ICAO callsign %r - D-08 forbids it reaching the route dict" % (key, raw_icao_callsign)
+        return True, ""
+    check(
+        "_parse_route()'s returned dict has no 'callsign'/'callsign_icao' key and no value equal to the raw ICAO "
+        "callsign string - the raw callsign is structurally absent, not just unused by the renderer (D-08)",
+        _raw_icao_callsign_never_smuggled_in,
     )
 
     total = len(results)

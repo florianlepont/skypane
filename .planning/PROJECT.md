@@ -88,4 +88,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-08-27 after Phase 4 completion (CI/CD, Documentation & Legal Compliance — verification closed retroactively, 10/10 must-haves)*
+*Last updated: 2026-08-31 after Phase 8 completion (Panel theme rework — unmapped polish phase, no Requirements-list change; on-glass verified 6/6 must-haves, `08-VERIFICATION.md`). Requirement 1's display quality was refined (White default, no backing-plate, real IATA flight identifier instead of raw ADS-B callsign, 11-theme CFG-01 picker) but the requirement's own wording is unchanged, so no Active→Validated move applies.*
