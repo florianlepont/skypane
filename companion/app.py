@@ -308,11 +308,26 @@ class Handler(BaseHTTPRequestHandler):
 
     # --- response helpers -------------------------------------------
 
+    def _send_hardening_headers(self):
+        """WR-02: baseline hardening headers applied to every response.
+
+        This is an authenticated admin panel (device config, poll
+        trigger, LED control) reachable from the public internet per
+        this module's own docstring — with no X-Frame-Options/CSP an
+        authenticated page can be framed by a third-party site for
+        clickjacking, and with no X-Content-Type-Options a MIME-sniffing
+        quirk is one upstream misconfiguration away from an XSS vector.
+        """
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "same-origin")
+
     def send_html(self, code, html_str):
         body = html_str.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self._send_hardening_headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -336,6 +351,7 @@ class Handler(BaseHTTPRequestHandler):
                 "Cache-Control", "%s, max-age=%d" % (scope, cache_seconds))
         else:
             self.send_header("Cache-Control", "no-store")
+        self._send_hardening_headers()
         self.end_headers()
         self.wfile.write(payload)
 
