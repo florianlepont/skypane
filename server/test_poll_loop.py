@@ -190,7 +190,31 @@ EXPECTED_CHECK_COUNT = 43
 # Read verbatim from CI's own FAIL output (PR #22,
 # github.com/florianlepont/skypane/actions/runs/33384226781), per the
 # standing rule above - not recomputed locally on this Mac.
-_DEFAULT_CONFIG_DIGEST = "ce9235f6ceaf2fc4563f5eae7ee63f51bb962bc68fb67860682e315e4b8e8479"
+#
+# Fifth re-pin (Phase 8 08-06, on-glass verification session): three more
+# rounds of pixel movement landed after the fourth re-pin above, all found
+# and corrected live against the real deployed panel during the blocking
+# on-glass session, not from further screen-only iteration:
+#   1. font weight decoupled from a blanket PT Serif Bold into a per-theme
+#      "regular"/"bold" registry field (08-06) - White (and every flat,
+#      undithered theme) reverted to Regular after Bold read "very
+#      aggressive" on real ink; dithered themes kept Bold;
+#   2. the THEMES registry widened from 5 entries to 11 - Sky (the Blue/
+#      Green two-tone pairing) retired outright, replaced by fully separate
+#      single-colour themes with an explicit "pure"/"light" (dithered) pair
+#      for yellow, red, green and blue, plus a new standalone Grey theme -
+#      also catches the on-glass discovery that dithering's fixed 40%
+#      lighten fraction was applied unconditionally, silently turning a
+#      flat "Black" theme visibly grey;
+#   3. the tier-4 content-ladder fallback text changed from the title-case
+#      state word ("Departing"/"Arriving", which only duplicated the
+#      all-caps top-left label) to a fixed "Unknown flight" string,
+#      identical for both states (08-06, developer instruction given
+#      on-glass after step F).
+# Read verbatim from CI's own FAIL output (PR #22, reopened,
+# github.com/florianlepont/skypane/actions/runs/33399696789), per the
+# standing rule above - not recomputed locally on this Mac.
+_DEFAULT_CONFIG_DIGEST = "eb137945fde6d8a3b25245547e58398ff3e62ebab8269f7b60806bc1a8c80b02"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
