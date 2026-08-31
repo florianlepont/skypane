@@ -60,7 +60,10 @@ STARTUP_DEADLINE_S = 10.0
 # no-decision-ID-leak, Device/pipeline concise-timestamp format)
 # 54 + 0 (06.6.3-04 Task 2: roving tabindex — an existing pinned check was
 # retargeted in place, not counted as new)
-EXPECTED_CHECK_COUNT = 54  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
+# 54 + 1 (06.6.3-04 Task 3: freshness Refresh action + stale-view banner) —
+# the pre-existing four-icon check is retargeted in place (five icon
+# instances now: four Health signals + one Refresh action), not counted as new
+EXPECTED_CHECK_COUNT = 55  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -532,6 +535,33 @@ def main():
     check(
         "the Device check-in and ADS-B pipeline rows render via the D-09 concise timestamp format",
         _device_and_pipeline_rows_use_concise_timestamp_format)
+
+    def _health_freshness_refresh_and_stale_banner_present():
+        tmp = _mkstate("h-freshness")
+        try:
+            now_iso = _iso(_now())
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+            if rendered.count("data-loaded-at") != 1:
+                return False, "expected exactly one data-loaded-at attribute"
+            if ('data-loaded-at="%s"' % now_iso) not in rendered:
+                return False, "expected data-loaded-at to carry the real, request-scoped now ISO value"
+            if rendered.count("data-stale-banner") != 1:
+                return False, "expected exactly one data-stale-banner attribute"
+            seg_start = rendered.index("data-stale-banner")
+            seg = rendered[max(0, seg_start - 80):seg_start + 40]
+            if "hidden" not in seg:
+                return False, "expected the stale-view banner to carry the bare hidden attribute by default"
+            if "may be out of date" not in rendered:
+                return False, "expected the stale-view banner's copy"
+            if rendered.count('<h1 class="page-title"') != 1:
+                return False, "expected page_header() to be called exactly once"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health carries a real Refresh action with a live data-loaded-at timestamp and a hidden-by-default "
+        "stale-view banner (D-12/UXA-13)",
+        _health_freshness_refresh_and_stale_banner_present)
 
     def _battery_badge_present_and_healthy_on_normal_trend():
         tmp = _mkstate("h-battery-badge-ok")
@@ -1227,6 +1257,12 @@ def main():
         _health_page_section_builder_markup_survives_reframe)
 
     def _health_page_four_icons_correctly_placed_and_tinted():
+        # 06.6.3-04 (D-12): render() now also emits a fifth icon instance
+        # — the freshness/Refresh action's icon-refresh — alongside the
+        # four Health-signal icons this check has pinned since 06.6.1-04.
+        # The five-count assertion below accounts for that fifth,
+        # unrelated icon; every other assertion in this check still
+        # targets only the original four Health-signal icons.
         four = (
             health_page.ICON_DEVICE, health_page.ICON_PIPELINE,
             health_page.ICON_CORROBORATION, health_page.ICON_BATTERY)
@@ -1238,8 +1274,8 @@ def main():
         tmp = _mkstate("h-icons")
         try:
             rendered = health_page.render(_ctx(tmp))
-            if rendered.count("<use") != 4:
-                return False, "expected exactly four <use occurrences, got %d" % rendered.count("<use")
+            if rendered.count("<use") != 5:
+                return False, "expected exactly five <use occurrences (four Health + one Refresh), got %d" % rendered.count("<use")
             for icon_id in four:
                 count = rendered.count("#" + icon_id)
                 if count != 1:
@@ -1256,7 +1292,8 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health renders exactly four icon instances — three tinted tile icons plus one heading icon, all whitelisted",
+        "Health renders exactly five icon instances — three tinted tile icons, one heading icon, and one Refresh "
+        "action icon, all whitelisted",
         _health_page_four_icons_correctly_placed_and_tinted)
 
     def _airlines_page_stays_iconless():

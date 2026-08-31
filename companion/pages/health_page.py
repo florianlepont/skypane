@@ -856,6 +856,21 @@ def _read_health_inputs(state_dir, now):
     }
 
 
+# D-12/UXA-13: the stale-view banner is static, non-dynamic markup — no
+# request-specific or user-controlled data ever reaches it — so it is a
+# module-level constant rather than something built with escape_html()
+# at each render() call site. Hidden by default at render time;
+# companion/static/freshness.js (06.6.3-01's output) is the sole
+# consumer that ever clears the `hidden` attribute, and only past its
+# own client-side 10-minute threshold — the authoritative ok/warn/error
+# severity computed elsewhere on this page is never touched by this.
+_STALE_VIEW_BANNER_HTML = (
+    '<p class="banner banner--warn" data-stale-banner hidden role="status">'
+    "This view may be out of date. "
+    '<a href="/health">Refresh</a> to see the latest.'
+    "</p>")
+
+
 def render(ctx):
     state_dir = ctx["state_dir"]
     now = ctx.get("now") or history_db.utc_now_iso()
@@ -896,8 +911,19 @@ def render(ctx):
             "warn" if disagreement_warn else "ok", icon=ICON_CORROBORATION)
     )
 
+    # D-12: an explicit Refresh action (a plain link/reload, no JS
+    # dependency) carrying data-loaded-at for companion/static/
+    # freshness.js to read — `now` is already computed once per request
+    # by companion/app.py's page_context(). escape_html() is required
+    # here (unlike _STALE_VIEW_BANNER_HTML above): `now` is real,
+    # request-scoped data, not a static literal.
+    freshness_html = (
+        '<a href="/health" class="freshness-refresh" data-loaded-at="%s">%sRefresh</a>'
+        % (escape_html(now), layout.icon_html("icon-refresh")))
+
     return (
-        layout.page_header("Health")
+        layout.page_header("Health", freshness_html=freshness_html)
+        + _STALE_VIEW_BANNER_HTML
         + _source_fault_block(source_fault_raw)
         + banner_html
         + '<h2 class="text-heading">Overview</h2>'
