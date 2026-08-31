@@ -718,26 +718,47 @@ a:hover {
   vertical-align: middle;
 }
 
-/* Banners: full-width, 4px left border, appear only when there is
- * something to say (no "all clear" banner — its absence is the signal).
+/* Banners: a near-neutral card surface, a hairline border and a 3px
+ * coloured left edge, appear only when there is something to say (no
+ * "all clear" banner — its absence is the signal).
  *
- * Every severity also carries a 10% wash of its own edge colour over the
- * secondary surface, via the same color-mix idiom .sidebar-link--active
- * already establishes in this file. Before this, all three severities
- * shared one flat --color-secondary background and differed only in the
- * 4px stripe — so "something is wrong" was a thin red line sitting on
- * the same surface as everything else, competing for meaning with the
- * accent-filled primary button rather than reading as its own region.
- * 10% is deliberately restrained: enough to tint the region, far too
- * little to move body text off its contrast floor in either theme (the
- * mix is 90% --color-secondary, the surface every AA text pair in
- * test_contrast_check.py is already pinned against). */
+ * 06.6.4 (D-04) replaced the prior 10%-wash treatment: colour is now a
+ * punctual signal carried by exactly two things — the 3px left edge and
+ * a small `::before` status dot — rather than a tinted background
+ * region. The surface is the same --color-dominant card token every
+ * card in this file now rests on (06.6.4-01, D-03), so a banner reads
+ * as "a card that happens to have a coloured edge and a dot", not as
+ * its own distinct tinted zone competing with the accent-filled primary
+ * button for attention. Body-text contrast on that surface is pinned by
+ * an automated check (companion/test_contrast_check.py's live_pairs,
+ * 06.6.4-03) rather than argued in prose the way the wash's rationale
+ * used to be — a token change here now fails a test, not a reading. */
 .banner {
-  padding: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-sm) var(--space-md);
   margin-bottom: var(--space-lg);
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-secondary));
-  border-left: 4px solid var(--color-accent);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
   font-size: var(--font-body-size);
+}
+
+/* The status dot: a presentational pseudo-element, not a reuse of the
+ * .dot component above. The banner builders (companion/layout.py's
+ * flash_banner()/anomaly_banner()) emit a single <div> whose only child
+ * is escaped plain text — no dot element exists in the markup, and
+ * D-04a forbids touching banner content, so the dot has to live in CSS.
+ * `flex: none` is required or the dot collapses under the flex
+ * container's default shrink-to-fit behaviour. */
+.banner::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
 }
 
 /* Reads --color-status-error, not the former --color-destructive. Those
@@ -751,7 +772,10 @@ a:hover {
  * one token. */
 .banner--anomaly {
   border-left-color: var(--color-status-error);
-  background: color-mix(in srgb, var(--color-status-error) 10%, var(--color-secondary));
+}
+
+.banner--anomaly::before {
+  background: var(--color-status-error);
 }
 
 /* 06.6.2-06 (UXA-14): the warning-only counterpart to .banner--anomaly,
@@ -760,7 +784,10 @@ a:hover {
  * less-alarming treatment instead of always the maximal error red. */
 .banner--warn {
   border-left-color: var(--color-status-warn);
-  background: color-mix(in srgb, var(--color-status-warn) 10%, var(--color-secondary));
+}
+
+.banner--warn::before {
+  background: var(--color-status-warn);
 }
 
 /* The flash banner is the neutral/confirmation case and keeps the base
@@ -769,7 +796,10 @@ a:hover {
  * place — a reader adding a fourth severity sees the pattern to follow. */
 .banner--flash {
   border-left-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-secondary));
+}
+
+.banner--flash::before {
+  background: var(--color-accent);
 }
 
 /* Forms and fieldsets */
