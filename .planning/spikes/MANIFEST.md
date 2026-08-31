@@ -8,6 +8,13 @@ default background, keeping Blue/Green as optional selectable themes, and
 replacing the current solid text-backing-plate rectangle (found ugly by
 the developer) with a box-free legibility technique.
 
+**Continuation (spike 002, 2026-08-31, after Phase 8 shipped):** two
+smaller polish ideas Claude itself surfaced mid-session when asked what
+else could make the panel "read as a real, beautiful board" —
+letter-spacing on the two smallest top labels, and re-checking the
+illustration-to-text vertical spacing now that White's final render is
+real and deployed. See `002-small-labels-and-white-rhythm/README.md`.
+
 ## Requirements
 
 Design decisions confirmed by the developer during spiking (spike 001).
@@ -111,3 +118,5 @@ Not yet decided / open for the planning phase:
 | # | Name | Type | Validates | Verdict | Tags |
 |---|------|------|-----------|---------|------|
 | 001 | panel-theme-colours | comparison | White vs. Blue/Green backgrounds, box-free text-legibility techniques, flight-identifier text content, and previous-card text sizing/alignment | VALIDATED — see Requirements above for the full confirmed decision set | render, theme, palette, legibility, e-ink, typography |
+| 002a | small-caps-labels | standard | Letter-spacing (tracking) treatment for the top-left state label and top-right runway tag, on both a flat and a dithered theme | PENDING — checkpoint presented, awaiting developer reaction | render, typography, tracking, letter-spacing, e-ink |
+| 002b | white-vertical-rhythm | standard | Whether the illustration-to-text empty space reads differently on the White default than it did on the previously-shipped dithered colour fields | PENDING — checkpoint presented, awaiting developer reaction | render, layout, white-theme, e-ink |
