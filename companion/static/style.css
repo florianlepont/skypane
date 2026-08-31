@@ -474,29 +474,46 @@ a:hover {
   padding: var(--space-sm);
 }
 
-/* The 44px floor is D-22. The explicit --font-ui is D-03's boundary
- * stated in code: the sketch prototype rendered these links in serif at
- * 18px and that detail was deliberately not carried into the contract —
- * nav links stay Body-size sans-serif here, matching the sidebar. */
+/* The 44px floor was D-22's original guarantee for this rule; D-05
+ * (06.6.4-04) deliberately trades it away — see the floor register
+ * comment above the base `button` rule (06.6.4-02) for the full list of
+ * selectors that gave up the floor this phase. The explicit --font-ui is
+ * still D-03's boundary stated in code: the sketch prototype rendered
+ * these links in serif at 18px and that detail was deliberately not
+ * carried into the contract — nav links stay Label-size sans-serif here,
+ * matching the sidebar. */
 .mobile-nav__link {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  min-height: 44px;
+  height: 32px;
   padding: 0 var(--space-sm);
   color: var(--color-text);
   text-decoration: none;
-  font-size: var(--font-body-size);
+  font-size: var(--font-label-size);
   font-family: var(--font-ui);
-  border-left: 3px solid transparent;
+  border-radius: var(--radius-control);
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
-/* Same active-indicator idiom .sidebar-link--active already uses, so the
- * two navigation renderings signal "you are here" identically. */
+/* Same tinted-pill active idiom .sidebar-link--active already uses (D-05),
+ * so the two navigation renderings signal "you are here" identically.
+ * This is now the single active cue — the left rule this modifier used to
+ * declare is dropped, and the icon plus the accent text colour are what
+ * carry the signal alongside the pill. */
 .mobile-nav__link--active {
-  border-left-color: var(--color-accent);
   color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-radius: var(--radius-control);
+  font-weight: var(--weight-semibold);
+}
+
+/* D-05: a bare hover selector here would outrank .mobile-nav__link--active
+ * (equal specificity, later in source) and replace the active tint with a
+ * neutral wash the moment the pointer crossed it — :not()-scoping is what
+ * keeps the two states from ever colliding. */
+.mobile-nav__link:not(.mobile-nav__link--active):hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
 /* 06.6.2-05 (D-17): the theme picker's home, now grouped with the
@@ -654,13 +671,13 @@ a:hover {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  min-height: 44px;
+  height: 32px;
   padding: 0 var(--space-sm);
   color: var(--color-text);
   text-decoration: none;
-  font-size: var(--font-body-size);
-  border-left: 3px solid transparent;
+  font-size: var(--font-label-size);
   letter-spacing: 0.02em;
+  border-radius: var(--radius-control);
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
@@ -668,16 +685,24 @@ a:hover {
   flex: none;
 }
 
-/* D-17: the active link is no longer signalled by the 3px left rule
- * alone (kept as a secondary cue, not removed outright) — a tinted
- * pill/surface plus strong text is the primary "you are here" signal
- * now, matching the audit's request to stop relying on the line alone. */
+/* D-05 (06.6.4-04): the left rule D-17 kept as a secondary cue is
+ * dropped outright — the tinted pill is now the sole "you are here"
+ * signal, with the icon and the accent text colour carrying it alongside.
+ * A second cue (the old left rule) doubled the signal without adding
+ * information; a single signal is what D-05 asks both nav renderers to
+ * agree on. */
 .sidebar-link--active {
-  border-left-color: var(--color-accent);
-  border-left-width: 2px;
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border-radius: var(--radius-control);
+  font-weight: var(--weight-semibold);
+}
+
+/* D-05: :not()-scoped for the same reason as .mobile-nav__link's hover
+ * rule above — an unscoped hover here would outrank the active modifier
+ * and erase the tint the instant the pointer crossed the active tab. */
+.sidebar-link:not(.sidebar-link--active):hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
 /* 06.6.1 (D-02/D-04, Reconciliation 1): top/bottom padding is promoted to
