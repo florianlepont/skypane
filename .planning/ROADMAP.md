@@ -309,7 +309,7 @@ Plans:
 **Goal:** Carry Phase 06.6.2's foundation (tokens, page-header pattern, sidebar, severity function, contrast checker) into a real recomposition of every companion page: Config's dirty-state save bar, read-only Theme status and runway cards; Health's roving-tabindex battery chart, specific anomaly summary, and disclosure-collapsed readings; History's mobile compact cards, filtering, and copy-to-clipboard; Airlines' filtering and simplified hierarchy; Preview's centered matte treatment, freshness signal, and task-oriented gallery captions. Split out 2026-08-31 from Phase 06.6.2 for context-budget reasons (see 06.6.2's Goal) — carries the nine per-page CONTEXT.md decisions and audit findings that need 06.6.2's shared primitives to land cleanly, avoiding double-touching the same page files.
 **Requirements**: None — unmapped backlog phase. Traced against `06.6.3-CONTEXT.md`'s own locked decisions D-02 through D-05, D-06 (heading-dedup half), D-07 through D-10, D-12, D-13, D-18, D-20, D-22, D-23, plus the audit's UXA-01 (mobile-card half), UXA-05, UXA-06, UXA-11, UXA-13, UXA-16, UXA-17, UXA-18, and UXA-08 (Config-specific half).
 **Depends on:** Phase 06.6.2 (consumes its design tokens, `page_header()`, sidebar footer region, and severity function)
-**Plans:** 2/8 plans executed
+**Plans:** 3/8 plans executed
 
 Plans:
 **Wave 1** *(parallel, no shared files)*
@@ -319,7 +319,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1; parallel with each other, disjoint files)*
 
-- [ ] 06.6.3-03-PLAN.md — Config: D-02/D-06 LED rename+dedup, D-04 read-only Theme swatch, D-05 Runway selectable cards, D-03 dirty-state save bar
+- [x] 06.6.3-03-PLAN.md — Config: D-02/D-06 LED rename+dedup, D-04 read-only Theme swatch, D-05 Runway selectable cards, D-03 dirty-state save bar
 - [ ] 06.6.3-04-PLAN.md — Health: D-08 readings disclosure + chart reorder, UXA-06 specific anomaly copy, UXA-05 corroboration copy fix, D-13/UXA-11 roving-tabindex chart, D-12/UXA-13 freshness + stale-view banner
 - [ ] 06.6.3-05-PLAN.md — History: D-07/UXA-01 mobile compact cards, UXA-05 confirmed_state/runway labels, D-09 concise timestamps, D-20 filter bar, D-23 copy-to-clipboard
 
