@@ -622,6 +622,59 @@ def _mobile_nav_html(active, theme_form_html, health_alert=None):
     return toggle_html + panel_html
 
 
+def login_shell(body, ui_theme="auto"):
+    """A dedicated, minimal HTML5 document for the pre-authentication
+    login page — 06.6.2-07 (UXA-03).
+
+    This function exists specifically because page_shell() always
+    renders the full authenticated sidebar/mobile-nav/theme-form-footer
+    regardless of the `active=""` value login's old call site passed —
+    that is UXA-03's root cause (a real, reproduced production defect:
+    the login page visually implied the whole site's navigation was
+    usable before signing in). login_shell() is a deliberately
+    separate, smaller sibling of page_shell(), not a parameterized
+    branch inside it — it shares page_shell()'s outer document
+    structure (doctype, `<html lang="en" data-ui-theme="...">`,
+    `<head>` with charset/viewport/title/stylesheet link/
+    FAVICON_LINK_HTML, reusing that constant rather than duplicating
+    the data-URI literal) but its `<body>` contains only the login
+    card: no ICON_DEFS_HTML sprite (nothing on this page uses an
+    icon), no skip link (there is no nav to skip past), no sidebar, no
+    mobile-nav dropdown, no NAV_DROPDOWN_SCRIPT_SRC script tag.
+
+    `body` is the caller's own already-built, already-escaped markup —
+    the same "caller has escaped its own dynamic parts" contract every
+    other body-accepting builder in this module follows (page_shell(),
+    stat_tile(), etc.) — and is interpolated verbatim into
+    `<div class="login-card">`.
+    """
+    resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en" data-ui-theme="%s">\n'
+        "<head>\n"
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        "<title>Login - %s</title>\n"
+        '<link rel="stylesheet" href="/static/style.css">\n'
+        "%s\n"
+        "</head>\n"
+        "<body>\n"
+        '<div class="login-shell">\n'
+        '<div class="login-card">\n'
+        "%s\n"
+        "</div>\n"
+        "</div>\n"
+        "</body>\n"
+        "</html>\n"
+    ) % (
+        escape_html(resolved_theme),
+        escape_html(SITE_TITLE),
+        FAVICON_LINK_HTML,
+        body,
+    )
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None):

@@ -1170,3 +1170,26 @@ html[data-ui-theme="dark"] .battery-trend-section {
     justify-self: start;
   }
 }
+
+/* 06.6.2-07 (UXA-03): the dedicated login shell's own component pair —
+ * .login-shell/.login-card are not reused by any other page. A centered,
+ * bounded card at desktop width; a full-width card with comfortable
+ * padding on mobile, via the same responsive min()/width:100% shape used
+ * elsewhere in this file rather than a media query. */
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-xl);
+}
