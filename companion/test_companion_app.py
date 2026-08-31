@@ -61,12 +61,15 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 70  # 69 (68: 06.6.1's own additions: 62 + 2 (06.6.1-05
-# Task 1: nav-dropdown.js) + 4 (Task 3: toggle/dropdown/DOM-contract/no-JS))
-# + 1 (2026-08-29 quick task 260829-0rl, merged independently via origin/main
-# PR #19: the gallery route's private caching-scope regression check, WR-02
-# from 06.4-REVIEW.md)) + 1 (06.6.2-02: the genuine two-thread concurrent
-# POST /poll-now check proving _POLL_LOCK serializes execution).
+EXPECTED_CHECK_COUNT = 71  # 70 (69 (68: 06.6.1's own additions: 62 + 2
+# (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3:
+# toggle/dropdown/DOM-contract/no-JS)) + 1 (2026-08-29 quick task 260829-0rl,
+# merged independently via origin/main PR #19: the gallery route's private
+# caching-scope regression check, WR-02 from 06.4-REVIEW.md)) + 1
+# (06.6.2-02: the genuine two-thread concurrent POST /poll-now check
+# proving _POLL_LOCK serializes execution)) + 1 (06.6.2-03 Task 2: the new
+# nav-dropdown.js progressive-enhancement state-machine check — the
+# existing no-JS check was rewritten in place, not counted as new).
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -896,12 +899,12 @@ def main():
             _three_file_nav_dom_contract_guard)
 
         def _dropdown_survives_with_javascript_disabled():
-            # The no-JS floor: every link stays in the DOM and the
-            # accessibility tree with JavaScript disabled — only the
-            # expand/collapse interaction is lost. The dropdown's
-            # collapsed appearance comes from a CSS max-height transition
-            # (companion/static/style.css's .mobile-nav rule), a visual
-            # constraint, never a removal from the tree.
+            # UXA-02/UXA-12's joint fix, verified against the
+            # server-rendered document only (this harness has no real
+            # browser). The SSR default must be unclipped/complete — the
+            # `.js .mobile-nav` CSS clipping rule and nav-dropdown.js's
+            # `panel.hidden` toggling only ever apply once client-side
+            # script has run, never from the server.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
             panel = doc[panel_start:doc.index("</header>")]
@@ -912,11 +915,50 @@ def main():
             for route, _label in layout.NAV_TABS:
                 if ('href="%s"' % route) not in panel:
                     return False, "missing dropdown href for %r with JavaScript disabled" % route
+            html_tag_end = doc.index(">", doc.index("<html"))
+            html_tag = doc[:html_tag_end]
+            if 'class="js"' in html_tag or ' js"' in html_tag or ' js ' in html_tag:
+                return False, "server-rendered <html> tag must never carry the .js marker class"
             return True, ""
         check(
             "with JavaScript disabled every nav link stays present in the dropdown panel's DOM "
-            "(the collapsed look is a CSS max-height constraint, not a hidden attribute or display:none)",
+            "(the collapsed look is a CSS max-height constraint, not a hidden attribute or "
+            "display:none) and the server-rendered <html> tag carries no .js marker class",
             _dropdown_survives_with_javascript_disabled)
+
+        def _nav_dropdown_js_progressive_enhancement_state_machine():
+            # UXA-02/UXA-12's joint fix, client-side half. The .js marker
+            # add must run before the dropdown-specific element lookup
+            # (so pages without a dropdown still get the marker), and the
+            # hidden-attribute/transitionend/reduced-motion state machine
+            # must be present exactly as the plan specifies.
+            js_path = os.path.join(
+                os.path.dirname(__file__), "static", "nav-dropdown.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            marker_idx = js.index('className += " js"')
+            toggle_idx = js.index('getElementById("site-nav-toggle")')
+            if marker_idx >= toggle_idx:
+                return False, ".js marker class must be added before the dropdown lookup"
+            for needle in (
+                "panel.hidden = true", "panel.hidden = false",
+                "transitionend", "matchMedia", "prefers-reduced-motion",
+            ):
+                if needle not in js:
+                    return False, "nav-dropdown.js is missing %r" % needle
+            css_path = os.path.join(
+                os.path.dirname(__file__), "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            for needle in (".js .mobile-nav {", ".js .mobile-nav--open {"):
+                if needle not in css:
+                    return False, "style.css is missing %r" % needle
+            return True, ""
+        check(
+            "nav-dropdown.js adds the .js marker class before its dropdown element lookup and "
+            "implements the hidden-attribute/transitionend/reduced-motion state machine, matched "
+            "by style.css's .js-scoped clipping rules",
+            _nav_dropdown_js_progressive_enhancement_state_machine)
 
     finally:
         if previous_password is not None:

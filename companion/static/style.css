@@ -319,27 +319,48 @@ a:hover {
   border-color: var(--color-accent);
 }
 
-/* Dropdown panel. max-height (not display or height: auto) is used
- * because neither of the latter can be transitioned; overflow: hidden is
- * what makes the collapsed state actually hide its contents rather than
- * merely clip them visually. `flex-basis: 100%` (not `position: absolute`
- * — see .site-header's comment above) is what forces this onto its own
+/* Dropdown panel. `flex-basis: 100%` (not `position: absolute` — see
+ * .site-header's comment above) is what forces this onto its own
  * full-width row below the title/toggle row within the wrapping flex
- * header, while staying in normal flow so the max-height transition
- * genuinely pushes .page-content down instead of overlaying it. */
+ * header, while staying in normal flow. The clipping half of this
+ * component (max-height/overflow/transition) has moved to the `.js
+ * .mobile-nav` rule below — UXA-02/UXA-12's joint fix. Without the `.js`
+ * class ever present (no JavaScript, or the script failed to load), this
+ * base rule alone renders the panel in its natural, unclipped, fully
+ * visible document flow — this is UXA-12's floor. The two rules must
+ * never be edited independently. */
 .mobile-nav {
   flex-basis: 100%;
   background: var(--color-secondary);
   box-shadow: var(--shadow-card-hover);
   border-bottom-left-radius: var(--radius-card);
   border-bottom-right-radius: var(--radius-card);
+}
+
+/* max-height (not display or height: auto) is used because neither of the
+ * latter can be transitioned; overflow: hidden is what makes the
+ * collapsed state actually hide its contents rather than merely clip them
+ * visually. Scoped under `.js` (added unconditionally by
+ * nav-dropdown.js's first statement) so the clipping only ever applies
+ * once client-side script has proven it is running — nav-dropdown.js's
+ * own `panel.hidden` toggling (UXA-02's floor) is what removes the closed
+ * panel from the accessibility tree and tab order once JS confirms it is
+ * closed; this CSS rule alone only ever governs the visual/animated
+ * state. */
+.js .mobile-nav {
   max-height: 0;
   overflow: hidden;
   transition: max-height .22s ease;
 }
 
-.mobile-nav--open {
+.js .mobile-nav--open {
   max-height: 420px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .mobile-nav {
+    transition: none;
+  }
 }
 
 .mobile-nav__nav {
