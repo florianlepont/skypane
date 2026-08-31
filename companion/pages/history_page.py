@@ -38,6 +38,7 @@ import sqlite3
 
 from companion.layout import escape_html
 import companion.layout as layout
+from server import device_config
 from server import history_db
 from server.plane import render as panel_render
 
@@ -95,6 +96,55 @@ _DEFAULT_CORROBORATION = ("warn", "Unknown")
 _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # distinguishes "query raised" from "query succeeded, legitimately empty".
 
+# UXA-05/06.6.3-RESEARCH.md Pitfall 1: the audit's own evidence names
+# "on_runway"/"approaching"/"departed" as the raw confirmed_state values
+# leaking into this page, but server/plane/runway_config.py's
+# infer_runway_config() - the only function that ever writes a
+# confirmed_state value to history_db - only ever produces exactly
+# "departing" or "arriving" (or leaves the prior value unchanged). Any
+# other non-empty value (a future state this codebase hasn't invented
+# yet, or legacy test data) degrades to a title-cased, underscore-
+# stripped rendering of the raw string via _confirmed_state_label()
+# below, never a bare raw value and never the literal word "None".
+_CONFIRMED_STATE_LABELS = {
+    "departing": "Departing",
+    "arriving": "Arriving",
+}
+
+
+def _confirmed_state_label(raw):
+    """Map a runway_events.confirmed_state raw value to its presentation
+    label (UXA-05). Falsy input (None or "") renders as an empty string,
+    matching the pre-existing empty-cell behaviour this replaces - never
+    the literal word "None". A recognised value ("departing"/"arriving")
+    maps via _CONFIRMED_STATE_LABELS; anything else falls back to a
+    title-cased, underscore-stripped rendering of the raw string
+    (06.6.3-RESEARCH.md Pitfall 1's documented fallback), so a future or
+    unexpected state still reads as a human label instead of a raw
+    machine value.
+    """
+    if not raw:
+        return ""
+    label = _CONFIRMED_STATE_LABELS.get(raw)
+    if label is not None:
+        return label
+    return raw.replace("_", " ").title()
+
+
+def _runway_label(raw):
+    """Map a runway_events.tracked_runway raw id to
+    server.device_config.runway_label()'s human label (UXA-05), e.g. "3"
+    -> "Runway 3 (07/25)". Only ever looks the id up when it is a real
+    device_config.RUNWAY_IDS member - an unrecognised id (a stale/
+    foreign value on an old row) degrades to the raw id unchanged rather
+    than raising, matching this module's "never raise, degrade to a
+    documented fallback" discipline throughout. Falsy input renders as
+    an empty string, same as before this helper existed.
+    """
+    if raw and raw in device_config.RUNWAY_IDS:
+        return device_config.runway_label(raw)
+    return raw or ""
+
 
 def _safe_query(state_dir, fn):
     try:
@@ -142,16 +192,27 @@ def format_event_row(row, now=None):
         row.get("corroborated"), _DEFAULT_CORROBORATION)
 
     return {
+        # Plain-text "ISO (Nm ago)" form, kept under its own distinct key
+        # for any future plain-text-only need (mirrors
+        # absolute_and_relative()'s own no-markup contract). No renderer
+        # in this module uses this key for the visible Timestamp cell/
+        # mobile primary-line time any more - both go through raw_ts +
+        # layout.concise_timestamp_html() instead (D-09).
         "ts": layout.absolute_and_relative(row.get("ts"), now, fallback=""),
+        # The raw, unformatted ISO timestamp string - the input
+        # layout.concise_timestamp_html() needs (it builds its own
+        # concise markup from the raw value plus a reference `now`, not
+        # from absolute_and_relative()'s already-composed text).
+        "raw_ts": row.get("ts") or "",
         "callsign": row.get("callsign") or "",
         "hex": row.get("hex") or "",
         "aircraft_type_label": aircraft_type_label,
         "airline_label": airline_label,
         "route_label": route_label,
-        "confirmed_state": row.get("confirmed_state") or "",
+        "confirmed_state": _confirmed_state_label(row.get("confirmed_state")),
         "corroboration_status": corroboration_status,
         "corroboration_label": corroboration_label,
-        "tracked_runway": row.get("tracked_runway") or "",
+        "tracked_runway": _runway_label(row.get("tracked_runway")),
     }
 
 
@@ -214,6 +275,67 @@ def _history_table_html(formatted_rows):
     ) % (header_cells, "".join(body_rows))
 
 
+def _history_cards_html(formatted_rows):
+    """Mobile compact-card representation (D-07) - one `<li>` per row,
+    built from the exact same `formatted_rows` list _history_table_html()
+    consumes, never a second independently-derived data pass. Returns
+    the empty string for an empty list, so render() shows only the
+    unchanged empty_state() block in that case, never an empty
+    `<ul class="history-cards">` sitting beside it.
+
+    companion/static/style.css's breakpoint toggle (`.history-cards ~
+    .data-table-wrap`) requires this `<ul>` to render as a DOM sibling
+    immediately before the desktop table - render() below preserves
+    that ordering; do not move this call after _history_table_html()'s.
+
+    Every seven-category UXA-01 acceptance requirement (callsign, time,
+    route, state, aircraft/airline, corroboration, runway, hex, full
+    timestamp) is reachable: the primary/secondary lines carry
+    callsign/time/route/state; the nested `<details>` disclosure carries
+    the rest, matching the Battery readings table's own native-disclosure
+    pattern (no custom JS toggler).
+    """
+    if not formatted_rows:
+        return ""
+    items = []
+    for row in formatted_rows:
+        primary = (
+            '<div class="history-card__primary">'
+            '<span class="cell-primary mono">%s</span>'
+            '<span class="history-card__time">%s</span>'
+            "</div>"
+        ) % (escape_html(row["callsign"]), escape_html(row["ts"]))
+        secondary = (
+            '<div class="history-card__secondary">'
+            "<span>%s</span>"
+            "<span>%s</span>"
+            "</div>"
+        ) % (escape_html(row["route_label"]), escape_html(row["confirmed_state"]))
+        details = (
+            '<details class="history-card__details">'
+            "<summary>More details</summary>"
+            "<dl>"
+            "<dt>Aircraft</dt><dd>%s %s %s</dd>"
+            "<dt>Corroboration</dt><dd>%s</dd>"
+            "<dt>Runway</dt><dd>%s</dd>"
+            '<dt>Hex</dt><dd class="mono">%s</dd>'
+            '<dt>Full timestamp</dt><dd class="mono">%s</dd>'
+            "</dl>"
+            "</details>"
+        ) % (
+            escape_html(row["aircraft_type_label"]),
+            escape_html(CELL_SEPARATOR_TEXT),
+            escape_html(row["airline_label"]),
+            layout.status_dot(row["corroboration_status"], row["corroboration_label"]),
+            escape_html(row["tracked_runway"]),
+            escape_html(row["hex"]),
+            escape_html(row["raw_ts"]),
+        )
+        items.append(
+            '<li class="history-card">%s%s%s</li>' % (primary, secondary, details))
+    return '<ul class="history-cards">%s</ul>' % "".join(items)
+
+
 def render(ctx):
     state_dir = ctx["state_dir"]
     now = ctx.get("now") or history_db.utc_now_iso()
@@ -222,6 +344,13 @@ def render(ctx):
     if rows is _DB_UNAVAILABLE:
         body = '<p class="text-body">%s</p>' % escape_html(_HISTORY_UNAVAILABLE_TEXT)
     else:
-        body = _history_table_html([format_event_row(row, now) for row in rows])
+        formatted_rows = [format_event_row(row, now) for row in rows]
+        # Cards render before the table - companion/static/style.css's
+        # `.history-cards ~ .data-table-wrap` sibling-combinator toggle
+        # (06.6.3-02) depends on this exact DOM order. When formatted_rows
+        # is empty, _history_cards_html() returns "" and
+        # _history_table_html() alone supplies the unchanged
+        # empty_state() block - no empty <ul> alongside it.
+        body = _history_cards_html(formatted_rows) + _history_table_html(formatted_rows)
 
     return layout.page_header("History") + body
