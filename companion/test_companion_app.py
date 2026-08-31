@@ -61,7 +61,8 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 79  # 73 (72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
+EXPECTED_CHECK_COUNT = 80  # 06.6.2-08 code-review fix CR-01 added 1 regression check
+# (skip-link tabindex="-1"); previously 79 = 73 (72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
 # (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3:
 # toggle/dropdown/DOM-contract/no-JS)) + 1 (2026-08-29 quick task 260829-0rl,
 # merged independently via origin/main PR #19: the gallery route's private
