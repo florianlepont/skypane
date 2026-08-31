@@ -584,9 +584,17 @@ a:hover {
   top: 0;
 }
 
+/* D-06 (06.6.4-04): the shared segmented-control container. D-06a's
+ * premise check (this plan's Task 2) confirmed _theme_form_html() already
+ * wraps all three option buttons in exactly this one <form> element, so
+ * the container role is implemented entirely here — no markup change. */
 .theme-form {
   display: flex;
-  gap: var(--space-xs);
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
 }
 
 /* Doubled `.theme-form .theme-option` (specificity 0,2,0) rather than the
@@ -594,25 +602,51 @@ a:hover {
  * so the later `button[type="submit"]` rule (0,1,1) would otherwise win
  * on `background` regardless of source order, painting every theme
  * button — active or not — with the same accent fill and making the
- * active indicator below effectively invisible. */
+ * active indicator below effectively invisible. This is also why
+ * `box-shadow: none` below is load-bearing rather than decorative: plan
+ * 02 gave every submit button an inset top highlight, and without this
+ * override each segment would render as a raised chip inside the new
+ * bordered container instead of a flush segment. */
 .theme-form .theme-option {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-sm);
+  height: 28px;
+  /* Without flex: 1 1 auto the three intrinsic-width buttons pack to the
+   * left of the now full-width bordered container, reading as a box
+   * containing buttons rather than as one control — D-06's whole point. */
+  flex: 1 1 auto;
+  padding: 0 12px;
   background: transparent;
-  /* --color-border, not --color-secondary: same "quiet control edge"
-   * role as input/select and .logout-form button, same token. */
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  color: var(--color-text);
-  font-size: var(--font-label-size);
+  border: none;
+  box-shadow: none;
+  border-radius: 6px;
+  /* 70% (not D-06's suggested 60%) to match this file's one existing
+   * muted-secondary strength exactly — the same 0.7 the merged-cell and
+   * history-card secondary rules use — so the app has a single muted read
+   * rather than two, with more contrast headroom on the sidebar surface. */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: 13px;
+  font-weight: var(--weight-regular);
   cursor: pointer;
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
+/* Same tinted-pill active idiom the nav links use (D-05) — byte-for-byte
+ * the same three properties, which is what D-06 means by reusing rather
+ * than reinventing the active language. No border-color to clear: the
+ * per-segment border is gone, the container now owns the boundary. */
 .theme-form .theme-option--active {
-  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+
+/* :not()-scoped at the doubled specificity above, for the same reason as
+ * the nav hovers: an unscoped/lower-specificity hover here could never
+ * even reach these buttons past `button[type="submit"]`, but scoping
+ * against the active modifier keeps the pattern uniform and is what the
+ * pre-existing doubled-specificity comment above already tells a future
+ * author to do if a hover state is ever wanted here. */
+.theme-form .theme-option:not(.theme-option--active):hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
 /* Read-only theme status (06.6.3 D-04) — a plain <div> replacing the old
