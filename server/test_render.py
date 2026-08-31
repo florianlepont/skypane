@@ -814,20 +814,30 @@ def main():
         _white_theme_uses_only_regular_weight,
     )
 
-    def _sky_theme_uses_only_bold_weight():
-        requested_paths = _spy_requested_font_paths("sky")
-        if not requested_paths:
-            return False, "no font was requested at all - the spy did not capture anything"
-        regular_hits = [p for p in requested_paths if p.endswith("PTSerif-Regular.ttf")]
-        if regular_hits:
-            return False, "PTSerif-Regular.ttf was requested %d time(s) on a Sky-theme (dithered) active-state panel - expected zero (D-06): %r" % (len(regular_hits), regular_hits)
-        bold_hits = [p for p in requested_paths if p.endswith("PTSerif-Bold.ttf")]
-        if not bold_hits:
-            return False, "PTSerif-Bold.ttf was never requested while rendering a Sky-theme active-state panel"
+    # 24c-ii. Same behavioural contract, generalised across every registry
+    # entry (Phase 8 08-06, widened same session: 5 themes -> 11, each with
+    # its own `dithered`/`weight` pair - see device_config.THEMES' own
+    # module comment). Each theme's requested font paths must match its
+    # own declared `theme_weight()` exactly - never the other weight.
+    def _every_theme_uses_only_its_declared_weight():
+        for theme_id in render.device_config.THEME_IDS:
+            requested_paths = _spy_requested_font_paths(theme_id)
+            if not requested_paths:
+                return False, "%r: no font was requested at all - the spy did not capture anything" % (theme_id,)
+            declared_weight = render.device_config.theme_weight(theme_id)
+            wrong_suffix = "PTSerif-Regular.ttf" if declared_weight == "bold" else "PTSerif-Bold.ttf"
+            right_suffix = "PTSerif-Bold.ttf" if declared_weight == "bold" else "PTSerif-Regular.ttf"
+            wrong_hits = [p for p in requested_paths if p.endswith(wrong_suffix)]
+            if wrong_hits:
+                return False, "%r (declared weight %r): %s was requested %d time(s) - expected zero: %r" % (
+                    theme_id, declared_weight, wrong_suffix, len(wrong_hits), wrong_hits)
+            right_hits = [p for p in requested_paths if p.endswith(right_suffix)]
+            if not right_hits:
+                return False, "%r (declared weight %r): %s was never requested" % (theme_id, declared_weight, right_suffix)
         return True, ""
     check(
-        "the dithered Sky theme's active-state roles request only PTSerif-Bold.ttf, never Regular (D-06, unchanged by the 08-06 White-only correction)",
-        _sky_theme_uses_only_bold_weight,
+        "every one of the 11 registry themes requests only its own declared weight (08-06 on-glass correction, widened same session)",
+        _every_theme_uses_only_its_declared_weight,
     )
 
     # 24d. The text-backing-plate helper (D-05) no longer exists on the
@@ -2066,23 +2076,31 @@ def main():
 
     # 55. build_canvas(theme_id="white") and build_canvas() with no theme
     # produce identical canvases (D-01: White is now the default) - AND
-    # build_canvas(theme_id="sky") genuinely differs from that default,
-    # keeping D-03's "Sky is retained and still distinct" claim honest.
-    # Without the second half, this check would still pass even if Sky had
-    # been deleted from the registry entirely.
-    def _white_theme_canvas_matches_default_and_sky_differs():
+    # every OTHER registry theme genuinely differs from that default canvas
+    # by canvas content alone. "sky" (the old two-tone Blue/Green pairing)
+    # was retired outright in the same 08-06 on-glass session that widened
+    # the registry to 11 single-colour entries - this check is generalised
+    # across whatever THEME_IDS actually holds today rather than naming one
+    # theme, so it can never again go stale if the registry's membership
+    # changes. Without the loop half, this check would still pass even if
+    # every non-white theme had been deleted from the registry entirely.
+    def _white_theme_canvas_matches_default_and_others_differ():
         default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
         white_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="white")
         if list(default_canvas.getdata()) != list(white_canvas.getdata()):
             return False, "build_canvas(theme_id='white') differs from build_canvas() with no theme_id - White must be the default"
-        sky_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="sky")
-        if list(default_canvas.getdata()) == list(sky_canvas.getdata()):
-            return False, "build_canvas(theme_id='sky') is identical to the default canvas - Sky must still be a genuinely distinct theme (D-03)"
+        default_data = list(default_canvas.getdata())
+        for theme_id in render.device_config.THEME_IDS:
+            if theme_id == "white":
+                continue
+            other_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
+            if default_data == list(other_canvas.getdata()):
+                return False, "build_canvas(theme_id=%r) is identical to the White default canvas - every registered theme must be genuinely distinct" % (theme_id,)
         return True, ""
     check(
-        "build_canvas(theme_id='white') matches the no-theme default (D-01), and build_canvas(theme_id='sky') genuinely "
-        "differs from it (D-03 - Sky is retained and still distinct, not silently deleted)",
-        _white_theme_canvas_matches_default_and_sky_differs,
+        "build_canvas(theme_id='white') matches the no-theme default (D-01), and every other registered theme genuinely "
+        "differs from it - none is a silent no-op",
+        _white_theme_canvas_matches_default_and_others_differ,
     )
 
     # 56. An unrecognised theme id degrades to the default theme's canvas

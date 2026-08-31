@@ -1565,7 +1565,7 @@ def main():
             def _poll_loop_never_writes_device_config():
                 cfg_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cfgwrite-")
                 try:
-                    device_config.save_device_config(cfg_dir, theme="sky", tracked_runway="3")
+                    device_config.save_device_config(cfg_dir, theme="black", tracked_runway="3")
                     path = device_config.device_config_path(cfg_dir)
                     with open(path, "rb") as fh:
                         before = fh.read()

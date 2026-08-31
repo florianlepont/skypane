@@ -188,9 +188,10 @@ _FIT_STEP_PX = 2
 # must never read these two dicts directly - call
 # state_background_index()/state_ink_index() instead, which resolve
 # through device_config.THEMES, the single registry the companion Config
-# page's picker also reads. Do not delete these constants and do not
-# change their values - the default ("sky") theme's colours are exactly
-# the pre-Phase-6 values.
+# page's picker also reads. Do not delete these constants - their values
+# are computed directly from `device_config.DEFAULT_THEME_ID` (Phase 8:
+# "white", not the original "sky") at import time, so they always agree
+# with whatever the registry currently calls the default.
 STATE_BACKGROUND = {
     runway_config.STATE_DEPARTING: device_config.theme_background_index(
         runway_config.STATE_DEPARTING, device_config.DEFAULT_THEME_ID
@@ -405,34 +406,43 @@ def fit_text_size(font_path, initial_size, text, max_width, min_size):
     return _font((font_path, min_size, None))
 
 
-def _role_weight_path(bg_idx):
-    """Resolve which PT Serif static weight an active-state text role uses
-    for `bg_idx`. White (`IDX_WHITE`) is never dithered, so Bold's whole
-    job - resisting dithered speckle - never applies there; Regular reads
-    cleaner on real glass (08-06 on-glass finding). Every other theme's
-    background is dithered and keeps Bold, confirmed separately on Sky.
-    The empty state is untouched by this - it never calls this helper.
+def _role_weight_path(weight):
+    """Resolve `weight` (`device_config.theme_weight()`'s return value,
+    `"regular"` or `"bold"`) to the matching PT Serif static-weight file.
+
+    Not derivable from `bg_idx` alone (08-06 on-glass finding, widened
+    same session): the same palette index can back two different themes
+    with two different weights - `IDX_BLACK` is both "black" (flat,
+    Regular) and "grey" (dithered, Bold) - so the active theme's own
+    `weight` field is threaded through explicitly by
+    `_build_active_canvas()` rather than re-derived from the background
+    index here. The empty state is untouched by this - it never calls
+    this helper.
     """
-    return PT_SERIF_REGULAR if bg_idx == IDX_WHITE else PT_SERIF_BOLD
+    if weight == "regular":
+        return PT_SERIF_REGULAR
+    if weight == "bold":
+        return PT_SERIF_BOLD
+    raise ValueError("unknown weight %r (expected 'regular' or 'bold')" % (weight,))
 
 
-def _role_font(role_spec, bg_idx):
+def _role_font(role_spec, weight):
     """`_font()` for one of the six active-state role tuples
     (`STATE_LABEL_FONT`, `TOP_TAG_FONT`, ...), resolving the role's weight
-    from `bg_idx` via `_role_weight_path()` rather than reading the tuple's
-    own (always-Bold) path directly.
+    via `_role_weight_path()` rather than reading the tuple's own
+    (always-Bold) path directly.
     """
-    _path, size, weight = role_spec
-    return _font((_role_weight_path(bg_idx), size, weight))
+    _path, size, role_weight = role_spec
+    return _font((_role_weight_path(weight), size, role_weight))
 
 
-def _role_fit_text_size(role_spec, text, max_width, min_size, bg_idx):
+def _role_fit_text_size(role_spec, text, max_width, min_size, weight):
     """`fit_text_size()` for one of the six active-state role tuples,
-    resolving the role's weight from `bg_idx` the same way `_role_font()`
-    does, instead of the caller hardcoding a bare `PT_SERIF_BOLD` path.
+    resolving the role's weight the same way `_role_font()` does, instead
+    of the caller hardcoding a bare `PT_SERIF_BOLD` path.
     """
-    _path, size, _weight = role_spec
-    return fit_text_size(_role_weight_path(bg_idx), size, text, max_width, min_size)
+    _path, size, _role_weight = role_spec
+    return fit_text_size(_role_weight_path(weight), size, text, max_width, min_size)
 
 
 def _assert_in_safe_box(bbox, label):
@@ -630,21 +640,24 @@ def draw_battery_icon(canvas, draw, ink_idx):
 # record, so neither is re-litigated here without new information.
 
 
-def draw_top_labels(canvas, state, ink_idx, bg_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
+def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
     (top-right, `runway_tag_text(runway_id)`), at the small sizes D-26
     confirmed, both at the existing `MARGIN` inset (inside the frame, not
     on it) - no icon glyph, no letter-spacing/tracking (that was the old,
     larger zone-1 treatment; superseded).
 
-    `bg_idx` selects each role's weight via `_role_font()` (Bold on a
-    dithered theme, Regular on the flat White field - 08-06 on-glass
-    finding) - no longer merely retained for a hypothetical future need,
-    per D-05's original note here.
+    `weight` (`device_config.theme_weight()`'s return value) selects each
+    role's PT Serif weight via `_role_font()` - not derivable from `bg_idx`
+    alone, since the same index can back both a Regular and a Bold theme
+    (08-06 on-glass finding, widened same session; see `_role_weight_path()`).
+    `bg_idx` itself is retained per D-05's original note here - still no
+    direct use in this function beyond being available to callers/future
+    roles.
     """
     draw = ImageDraw.Draw(canvas)
-    label_font = _role_font(STATE_LABEL_FONT, bg_idx)
-    tag_font = _role_font(TOP_TAG_FONT, bg_idx)
+    label_font = _role_font(STATE_LABEL_FONT, weight)
+    tag_font = _role_font(TOP_TAG_FONT, weight)
     tag_text = runway_tag_text(runway_id)
 
     # _assert_within_canvas(), not the strict _assert_in_safe_box(): real
@@ -1108,7 +1121,7 @@ def _flight_line2_text(route, aircraft_type=None):
     return "%s" % (display_name,)
 
 
-def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx):
+def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
     """D-26 main flight text: two centred lines starting `MAIN_TEXT_GAP_PX`
     below the main illustration's OPAQUE bottom edge
     (`main_placement.content[3]`) - the aircraft's last actually-painted pixel
@@ -1133,10 +1146,12 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     `main_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
 
-    `bg_idx` selects each line's weight via `_role_fit_text_size()` (Bold
-    on a dithered theme, Regular on the flat White field - 08-06 on-glass
-    finding) - no longer merely retained for a hypothetical future need,
-    per D-05's original note here.
+    `weight` (`device_config.theme_weight()`'s return value) selects each
+    line's PT Serif weight via `_role_fit_text_size()` - not derivable
+    from `bg_idx` alone, since the same index can back both a Regular and
+    a Bold theme (08-06 on-glass finding, widened same session; see
+    `_role_weight_path()`). `bg_idx` itself is retained per D-05's
+    original note here.
     """
     draw = ImageDraw.Draw(canvas)
     center_x = WIDTH // 2
@@ -1148,7 +1163,7 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
 
     if line1_text:
-        line1_font = _role_fit_text_size(MAIN_LINE1_FONT, line1_text, safe_width, MAIN_LINE1_MIN_SIZE, bg_idx)
+        line1_font = _role_fit_text_size(MAIN_LINE1_FONT, line1_text, safe_width, MAIN_LINE1_MIN_SIZE, weight)
         line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
         _assert_within_canvas(line1_bbox, "main flight text line 1")
         draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
@@ -1157,7 +1172,7 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         line1_bbox = None
         line2_top = top_y
 
-    line2_font = _role_fit_text_size(MAIN_LINE2_FONT, line2_text, safe_width, MAIN_LINE2_MIN_SIZE, bg_idx)
+    line2_font = _role_fit_text_size(MAIN_LINE2_FONT, line2_text, safe_width, MAIN_LINE2_MIN_SIZE, weight)
     line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
     _assert_within_canvas(line2_bbox, "main flight text line 2")
     draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
@@ -1165,7 +1180,7 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     return line1_bbox, line2_bbox
 
 
-def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx):
+def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight):
     """D-26 previous flight text: two right-aligned lines. Line 1 starts
     `PREVIOUS_TEXT_GAP_PX` below the previous illustration's OPAQUE bottom edge
     (`prev_placement.content[3]`), for the same reason
@@ -1201,10 +1216,12 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     `prev_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
 
-    `bg_idx` selects each line's weight via `_role_fit_text_size()` (Bold
-    on a dithered theme, Regular on the flat White field - 08-06 on-glass
-    finding) - no longer merely retained for a hypothetical future need,
-    per D-05's original note here.
+    `weight` (`device_config.theme_weight()`'s return value) selects each
+    line's PT Serif weight via `_role_fit_text_size()` - not derivable
+    from `bg_idx` alone, since the same index can back both a Regular and
+    a Bold theme (08-06 on-glass finding, widened same session; see
+    `_role_weight_path()`). `bg_idx` itself is retained per D-05's
+    original note here.
     """
     draw = ImageDraw.Draw(canvas)
     right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
@@ -1216,7 +1233,7 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
 
     if line1_text:
-        line1_font = _role_fit_text_size(PREVIOUS_LINE1_FONT, line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE, bg_idx)
+        line1_font = _role_fit_text_size(PREVIOUS_LINE1_FONT, line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE, weight)
         line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
         _assert_within_canvas(line1_bbox, "previous flight text line 1")
         draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
@@ -1225,7 +1242,7 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
         line1_bbox = None
         line2_top = top_y
 
-    line2_font = _role_fit_text_size(PREVIOUS_LINE2_FONT, line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE, bg_idx)
+    line2_font = _role_fit_text_size(PREVIOUS_LINE2_FONT, line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE, weight)
     line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
     _assert_within_canvas(line2_bbox, "previous flight text line 2")
     draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
@@ -1348,12 +1365,27 @@ def _build_active_canvas(
     bg_idx = state_background_index(state, theme_id=theme_id)
     fg_idx = state_ink_index(state, theme_id=theme_id)
 
+    # Phase 8 08-06 on-glass session: whether the background is dithered
+    # and which weight the text roles use are both properties of the
+    # active theme (`device_config.theme_dithered()`/`theme_weight()`),
+    # resolved once here and threaded through - see THEMES' own module
+    # comment in device_config.py for the full on-glass rationale and why
+    # neither is a fixed function of bg_idx alone.
+    normalised_theme_id = device_config.normalise_theme_id(theme_id)
+    theme_dithered = device_config.theme_dithered(normalised_theme_id)
+    weight = device_config.theme_weight(normalised_theme_id)
+
     # D-21 gave a flat single-color background field, but Phase 7 07-01's
-    # on-glass session found the raw ink too dark/saturated at full-panel
-    # coverage - reopened per that plan's own scope note. A dithered blend
-    # toward White (dither.dithered_state_background()) is the only way to
-    # visually lighten a fixed physical ink; bg_idx stays the dominant index.
-    canvas = dither.dithered_state_background(bg_idx)
+    # on-glass session found the raw Blue/Green ink too dark/saturated at
+    # full-panel coverage - reopened per that plan's own scope note. A
+    # dithered blend toward White (dither.dithered_state_background()) is
+    # the only way to visually lighten a fixed physical ink; bg_idx stays
+    # the dominant index. Phase 8 08-06 on-glass session: this treatment is
+    # no longer universal - a theme with `dithered: False` (every "pure"
+    # colour, confirmed on real glass to need no lightening) gets a flat
+    # fill instead (`panel_format.new_canvas()`), matching what the empty
+    # state and the White theme have always used.
+    canvas = dither.dithered_state_background(bg_idx) if theme_dithered else pf.new_canvas(bg_idx)
 
     # D-26's thin outline is no longer drawn (removed 2026-08-28 by developer
     # request, quick task 260828-k5r). FRAME_INSET_FRAC deliberately survives
@@ -1364,7 +1396,7 @@ def _build_active_canvas(
 
     # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
     # at the existing MARGIN inset (inside the frame, not on it).
-    draw_top_labels(canvas, state, fg_idx, bg_idx, runway_id=runway_id)
+    draw_top_labels(canvas, state, fg_idx, bg_idx, weight, runway_id=runway_id)
 
     # D-25/D-26 main flight: the current detection's real per-airline
     # illustration, always nose-left (D-24 - no mirroring).
@@ -1386,7 +1418,7 @@ def _build_active_canvas(
         # footprint is the right thing to bound - unchanged by the
         # illustration-crop-text-margin fix.
         _assert_within_canvas(main_placement.rect, "main aircraft illustration")
-        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx)
+        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx, weight)
 
     # D-25/D-26 previous flight: a real second flight card - the detection
     # immediately preceding this one (poll_loop.py's two-deep history).
@@ -1419,7 +1451,7 @@ def _build_active_canvas(
             prev_top = _top_for_centered_content(prev_resized, HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC)
             prev_placement = draw_illustration(canvas, prev_resized, prev_left, prev_top)
             _assert_within_canvas(prev_placement.rect, "previous aircraft illustration")
-            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx)
+            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx, weight)
 
     # CFG-05: the source-fault badge, drawn last so it sits on top of
     # everything else, using the state's own resolved ink index.

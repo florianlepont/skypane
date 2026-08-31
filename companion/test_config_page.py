@@ -210,7 +210,7 @@ def main():
 
     def _render_shape_three_fieldsets_and_save_button():
         ctx = {
-            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
@@ -229,7 +229,7 @@ def main():
         # grid rule (companion/static/style.css's 960px breakpoint) can
         # target it without a brittle attribute selector.
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         if 'class="config-form"' not in rendered:
@@ -242,7 +242,7 @@ def main():
         _settings_form_carries_config_form_class_hook)
 
     def _theme_fieldset_one_radio_per_registry_entry():
-        rendered = config_page.theme_fieldset("sky")
+        rendered = config_page.theme_fieldset("black")
         radio_count = rendered.count('name="theme"')
         if radio_count != len(device_config.THEMES):
             return False, (
@@ -253,15 +253,20 @@ def main():
         "theme_fieldset() emits one radio per THEMES registry entry",
         _theme_fieldset_one_radio_per_registry_entry)
 
-    def _theme_fieldset_five_options_with_own_id_and_label():
-        # 08-CONTEXT.md D-01/D-02/D-03/D-04: proves the CFG-01 picker
-        # absorbed the four new themes purely through the registry - driven
-        # from THEME_IDS/theme_label(), not a hardcoded list, so this stays
-        # true for a future sixth theme with zero test-file change needed.
+    def _theme_fieldset_covers_every_registered_theme_with_own_id_and_label():
+        # 08-CONTEXT.md D-01/D-02/D-03/D-04, widened by the 08-06 on-glass
+        # session (5 themes -> 11): proves the CFG-01 picker absorbs every
+        # registered theme purely through the registry - driven from
+        # THEME_IDS/theme_label(), not a hardcoded list or count, so this
+        # stays true for a future twelfth theme with zero test-file change
+        # needed. Deliberately no `len(theme_ids) != N` assertion - that
+        # exact literal is what broke every time this registry's membership
+        # changed; the real invariant is "every id THEME_IDS actually
+        # holds renders its own radio+label", checked below instead.
         rendered = config_page.theme_fieldset("white")
         theme_ids = device_config.THEME_IDS
-        if len(theme_ids) != 5:
-            return False, "expected exactly 5 registered themes, found %d (%r)" % (len(theme_ids), theme_ids)
+        if not theme_ids:
+            return False, "THEME_IDS is empty - nothing to render"
         for theme_id in theme_ids:
             value_needle = 'value="%s"' % escape_html(theme_id)
             if value_needle not in rendered:
@@ -271,9 +276,9 @@ def main():
                 return False, "expected theme %r's plain label %r as visible text, not found" % (theme_id, label_needle)
         return True, ""
     check(
-        "theme_fieldset() renders exactly five radios, each carrying its own registry id as value and its own plain "
-        "label as visible text, with zero hardcoded ids/labels in the assertion itself",
-        _theme_fieldset_five_options_with_own_id_and_label)
+        "theme_fieldset() renders one radio per registered theme, each carrying its own registry id as value and its own plain "
+        "label as visible text, with zero hardcoded ids/labels/counts in the assertion itself",
+        _theme_fieldset_covers_every_registered_theme_with_own_id_and_label)
 
     def _theme_fieldset_default_selects_exactly_the_white_option():
         rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
@@ -299,7 +304,7 @@ def main():
 
     def _helper_texts_appear_escaped_verbatim():
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "3"},
+            "device_config": {"theme": "black", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
         })
         if escape_html(config_page.THEME_HELPER_TEXT) not in rendered:
@@ -315,14 +320,14 @@ def main():
 
     def _current_theme_and_runway_are_selected():
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "06-24"},
+            "device_config": {"theme": "black", "tracked_runway": "06-24"},
             "poll_cooldown_remaining": 0,
         })
         if 'value="06-24" checked' not in rendered:
             return False, "expected the non-default saved runway (06-24) to be marked selected"
         if 'value="3" checked' in rendered:
             return False, "expected runway 3 (not the saved value) to NOT be marked selected"
-        if 'value="sky" checked' not in rendered:
+        if 'value="black" checked' not in rendered:
             return False, "expected the saved theme (sky) to be marked selected"
         return True, ""
     check(
@@ -462,11 +467,11 @@ def main():
         try:
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
-                {"theme": "sky", "tracked_runway": "06-24"}, ctx)
+                {"theme": "black", "tracked_runway": "06-24"}, ctx)
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
-            if on_disk != {"theme": "sky", "tracked_runway": "06-24", "led_enabled": True}:
+            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": True}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -478,7 +483,7 @@ def main():
     def _nonmember_theme_writes_nothing():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3")
+            _write_device_config(tmpdir, "black", "3")
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
@@ -498,11 +503,11 @@ def main():
     def _nonmember_runway_writes_nothing():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3")
+            _write_device_config(tmpdir, "black", "3")
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
-                {"theme": "sky", "tracked_runway": "not-a-real-runway"}, ctx)
+                {"theme": "black", "tracked_runway": "not-a-real-runway"}, ctx)
             after = open(device_config.device_config_path(tmpdir), "rb").read()
             if flash_key != config_page.FLASH_SAVE_FAILED:
                 return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
@@ -518,9 +523,9 @@ def main():
     def _theme_only_post_carries_runway_forward():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "06-24")
+            _write_device_config(tmpdir, "black", "06-24")
             ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_post({"theme": "sky"}, ctx)
+            flash_key = config_page.handle_post({"theme": "black"}, ctx)
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
@@ -536,7 +541,7 @@ def main():
     def _path_traversal_theme_rejected():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3")
+            _write_device_config(tmpdir, "black", "3")
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
@@ -556,7 +561,7 @@ def main():
     def _sql_fragment_theme_rejected():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3")
+            _write_device_config(tmpdir, "black", "3")
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
@@ -585,7 +590,7 @@ def main():
             device_config.save_device_config = _raising_save
             try:
                 flash_key = config_page.handle_post(
-                    {"theme": "sky", "tracked_runway": "3"}, ctx)
+                    {"theme": "black", "tracked_runway": "3"}, ctx)
             finally:
                 device_config.save_device_config = original_save
             if flash_key != config_page.FLASH_SAVE_FAILED:
@@ -624,7 +629,7 @@ def main():
 
     def _render_has_second_form_for_led_route():
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         if 'action="/config"' not in rendered:
@@ -674,7 +679,7 @@ def main():
     def _handle_led_post_crafted_value_rejected():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3", led_enabled=True)
+            _write_device_config(tmpdir, "black", "3", led_enabled=True)
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_led_post(
@@ -790,7 +795,7 @@ def main():
 
     def _render_forwards_ctx_runway_images_key():
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "3"},
+            "device_config": {"theme": "black", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
             "runway_images": {"06-24"},
         })
@@ -822,7 +827,7 @@ def main():
             status, headers, _ = http_request(
                 base + "/config", method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode(
-                    {"theme": "sky", "tracked_runway": "06-24"}).encode())
+                    {"theme": "black", "tracked_runway": "06-24"}).encode())
             if status != 303:
                 return False, "expected a 303 redirect on save, got %d" % status
             location = headers.get("Location", "")
