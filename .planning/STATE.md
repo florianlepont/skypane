@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: "5"
-current_phase_name: Battery Life & Low-Battery Indicator
+current_phase: 5
+current_phase_name: "only remaining open item: 05-01 Tasks 2-3, the unattended multi-day discharge run, deliberately deferred since 2026-08-27"
 status: blocked
-stopped_at: "The entire 06.x backlog (06.2 through 06.6.1) plus Phase 7 are now complete and merged to main (PR #20, commit fa6dacc + this branch's subsequent Phase 06.6 work). phase.complete's next-phase suggestion after closing 06.6 ('06.6.1') is wrong — that phase already completed earlier this same session. Every phase in ROADMAP.md is [x] complete except Phase 5, whose sole remaining item (05-01 Tasks 2-3: an unattended multi-day discharge run, DEVICE-05) has been deliberately deferred to end of project since 2026-08-27. That deferred point may now genuinely be reached — flag to the developer rather than assume; starting a multi-day physical hardware test is not a decision to make unilaterally."
-last_updated: "2026-08-30T07:29:49.957Z"
+stopped_at: Phase 8 context gathered
+last_updated: "2026-08-31T08:41:05.780Z"
 last_activity: 2026-08-30
-last_activity_desc: Phase 06.6 complete (3/3 plans, verified 8/8); entire 06.x backlog now closed
+last_activity_desc: Phase 06.6 complete, transitioned to Phase 06.6.1
 progress:
-  total_phases: 15
+  total_phases: 16
   completed_phases: 14
   total_plans: 63
   completed_plans: 63
-  percent: 100
+  percent: 88
 ---
 
 # Project State
@@ -305,10 +305,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-29T22:30:27.195Z
-Stopped at: Phase 06.6.1 Wave 3 complete (5/6 plans): 05 shipped nav-dropdown.js, the hamburger toggle/dropdown, and retired the horizontal nav strip (D-06, supersedes D-00). Plan 06 (Wave 4, final) is a blocking human real-device verification checkpoint.
+Last session: 2026-08-31T08:41:05.770Z
+Stopped at: Phase 8 context gathered
 
-Resume file: None
+Resume file: .planning/phases/08-panel-theme-rework-white-default-theme-black-yellow-red-blue/08-CONTEXT.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
