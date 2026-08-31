@@ -462,6 +462,13 @@ class Handler(BaseHTTPRequestHandler):
         flash_key = params.get("flash", [None])[0]
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
+        # WR-04: compute once per request (fail-closed to None on any
+        # unanticipated exception — see health_page.safe_health_state()'s
+        # docstring) and thread both the derived severity and the full
+        # state dict into ctx, so health_page.render() can reuse the
+        # exact same DB-read snapshot instead of re-deriving it from a
+        # second, non-atomic set of reads when the user is on /health.
+        health_state = health_page.safe_health_state(state_dir, now)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
@@ -482,16 +489,23 @@ class Handler(BaseHTTPRequestHandler):
             # another page module — this file already imports health_page
             # legitimately (the runway_images entry above set the same
             # precedent in Phase 06.4), so this is the boundary's intended
-            # crossing point. health_page.health_severity() is
-            # contractually never-raising *because* this line runs on
-            # every authenticated page render.
+            # crossing point. health_page.safe_health_state() (called
+            # above to build `health_state`) is contractually
+            # never-raising *because* this line runs on every
+            # authenticated page render.
             #
             # 06.6.2-06 (UXA-14): this key was previously a boolean
             # named for the old anomaly_active() call; it is now the
-            # "ok"/"warn"/"error" severity string, sourced from
-            # health_page.health_severity() — every consumer below moved
-            # together in this same commit.
-            "health_severity": health_page.health_severity(state_dir, now),
+            # "ok"/"warn"/"error" severity string. WR-04: sourced from
+            # the single `health_state` computed above (falling back to
+            # "ok" when that computation failed) rather than a second,
+            # independent health_page.health_severity() call — every
+            # consumer below moved together in the earlier commit that
+            # introduced this key, and this one collapses the
+            # once-per-page-render duplicate DB read that commit left
+            # behind.
+            "health_severity": health_state["severity"] if health_state else "ok",
+            "health_state": health_state,
             "now": now,
         }
 

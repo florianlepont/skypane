@@ -459,6 +459,76 @@ def overall_severity(device_state, pipeline_state, battery_state, disagreement_w
     return "ok"
 
 
+def compute_health_state(state_dir, now=None):
+    """WR-04: the single computation both `health_severity()`'s callers
+    (the nav-tab dot) and `render()`'s callers (the full Health page)
+    need — one call to `_read_health_inputs()` (five `_safe_query()`/
+    `open_db()` reads) plus the four section builders, packaged into one
+    dict. Previously `health_severity()` and `render()` each ran this
+    same sequence independently against fresh DB connections at two
+    different wall-clock instants; a write landing between the two
+    (e.g. the systemd poll timer firing mid-request) could make the nav
+    dot and the on-page banner disagree despite this module's own
+    "structurally impossible" claim, and every authenticated page paid
+    for the duplicated SQLite work regardless of which page was being
+    viewed. `companion/app.py`'s `page_context()` now calls this (via
+    `safe_health_state()`) exactly once per request and threads the
+    result through `ctx["health_state"]` for `render()` to reuse — see
+    that function's docstring for the fail-closed wrapper this one does
+    not itself provide.
+    """
+    if now is None:
+        now = history_db.utc_now_iso()
+    inputs = _read_health_inputs(state_dir, now)
+    device_html, device_state = _device_section(inputs["device_health"], now)
+    pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
+    battery_html, battery_state = _battery_section(inputs["trend_rows"])
+    corroboration_html, disagreement_warn = _corroboration_section(
+        inputs["corroboration_counts"])
+    severity = overall_severity(
+        device_state, pipeline_state, battery_state, disagreement_warn)
+    return {
+        "now": now,
+        "source_fault_raw": inputs["source_fault_raw"],
+        "device_html": device_html,
+        "device_state": device_state,
+        "pipeline_html": pipeline_html,
+        "pipeline_state": pipeline_state,
+        "battery_html": battery_html,
+        "battery_state": battery_state,
+        "corroboration_html": corroboration_html,
+        "disagreement_warn": disagreement_warn,
+        "severity": severity,
+    }
+
+
+def safe_health_state(state_dir, now=None):
+    """Fail-closed wrapper around `compute_health_state()` — `None` on
+    any unanticipated exception, never a raise.
+
+    Wrapped in a broad `except Exception`, a deliberate departure from
+    the narrow `(sqlite3.Error, OSError)` catches used elsewhere in this
+    file: `_safe_query()`'s narrow catch protects one *section* of one
+    page, whereas `page_context()` calls this function on **every**
+    authenticated page render, so an unanticipated raise here would turn
+    every page in the app into a 500 over a decorative nav dot —
+    exactly the reasoning `companion/app.py`'s
+    `runway_images_available()` already established for its own
+    never-raises contract in Phase 06.4. `None` (rather than a
+    partially-populated dict) is deliberate too: `health_severity()`
+    below treats it as "ok" (failing closed — a missing dot understates
+    a problem the Health page itself will still report in full, rather
+    than a crashed app reporting nothing at all), and `render()` treats
+    it as "no precomputed state available", falling back to its own
+    fresh `compute_health_state()` call rather than rendering from a
+    dict with missing keys.
+    """
+    try:
+        return compute_health_state(state_dir, now)
+    except Exception:
+        return None
+
+
 def health_severity(state_dir, now=None):
     """The `ctx["health_severity"]` source of truth — "ok"/"warn"/"error"
     for `state_dir`, derived from the same four D-14 signals
@@ -469,40 +539,20 @@ def health_severity(state_dir, now=None):
     can be drawn from one value without any nav renderer importing this
     page module (forbidden by `companion/pages/__init__.py`).
 
-    Routes its verdict through `_read_health_inputs()` and the exact
-    same four section builders `render()` calls, keeping only their
-    state/flag return values and discarding the markup — deliberate,
-    not wasteful: it is what makes it structurally impossible for the
-    nav dot and the banner to disagree, since a second, cheaper
-    reimplementation of the anomaly rules would be a second copy of
-    them, and this module's whole D-14 design rests on there being one.
-
-    Wrapped in a broad `except Exception` that fails closed to "ok", a
-    deliberate departure from the narrow `(sqlite3.Error, OSError)`
-    catches used elsewhere in this file: `_safe_query()`'s narrow catch
-    protects one *section* of one page, whereas `page_context()` calls
-    this function on **every** authenticated page render, so an
-    unanticipated raise here would turn every page in the app into a
-    500 over a decorative nav dot — exactly the reasoning
-    `companion/app.py`'s `runway_images_available()` already established
-    for its own never-raises contract in Phase 06.4. Failing closed to
-    "ok" is also the safe direction: a missing dot understates a problem
-    the Health page itself will still report in full, whereas a crashed
-    app reports nothing at all.
+    Routes its verdict through `safe_health_state()` (in turn
+    `compute_health_state()` and the exact same four section builders
+    `render()` calls), keeping only the severity and discarding the
+    markup — deliberate, not wasteful: it is what makes it structurally
+    impossible for the nav dot and the banner to disagree *when fed the
+    same precomputed state*, since a second, cheaper reimplementation of
+    the anomaly rules would be a second copy of them, and this module's
+    whole D-14 design rests on there being one. Callers that already
+    hold a `compute_health_state()`/`safe_health_state()` result (i.e.
+    `page_context()`) should read `state["severity"]` directly instead
+    of calling this function a second time — see WR-04.
     """
-    try:
-        if now is None:
-            now = history_db.utc_now_iso()
-        inputs = _read_health_inputs(state_dir, now)
-        _device_html, device_state = _device_section(inputs["device_health"], now)
-        _pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
-        _battery_html, battery_state = _battery_section(inputs["trend_rows"])
-        _corroboration_html, disagreement_warn = _corroboration_section(
-            inputs["corroboration_counts"])
-        return overall_severity(
-            device_state, pipeline_state, battery_state, disagreement_warn)
-    except Exception:
-        return "ok"
+    state = safe_health_state(state_dir, now)
+    return state["severity"] if state else "ok"
 
 
 def anomaly_active(state_dir, now=None):
@@ -732,17 +782,24 @@ def render(ctx):
     state_dir = ctx["state_dir"]
     now = ctx.get("now") or history_db.utc_now_iso()
 
-    inputs = _read_health_inputs(state_dir, now)
-    source_fault_raw = inputs["source_fault_raw"]
+    # WR-04: reuse the state page_context() already computed (via
+    # safe_health_state()) and threaded into ctx["health_state"] for
+    # every authenticated route, rather than re-deriving it from a
+    # second, non-atomic set of DB reads. Falls back to a fresh
+    # compute_health_state() call when ctx carries no precomputed state
+    # — e.g. a test or caller that builds ctx directly without going
+    # through page_context() — preserving this function's previous
+    # standalone behaviour for those callers.
+    state = ctx.get("health_state") or compute_health_state(state_dir, now)
+    source_fault_raw = state["source_fault_raw"]
 
-    device_html, device_state = _device_section(inputs["device_health"], now)
-    pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
-    battery_html, battery_state = _battery_section(inputs["trend_rows"])
-    corroboration_html, disagreement_warn = _corroboration_section(
-        inputs["corroboration_counts"])
+    device_html, device_state = state["device_html"], state["device_state"]
+    pipeline_html, pipeline_state = state["pipeline_html"], state["pipeline_state"]
+    battery_html, battery_state = state["battery_html"], state["battery_state"]
+    corroboration_html, disagreement_warn = (
+        state["corroboration_html"], state["disagreement_warn"])
 
-    severity = overall_severity(
-        device_state, pipeline_state, battery_state, disagreement_warn)
+    severity = state["severity"]
     banner_html = (
         layout.anomaly_banner(_anomaly_banner_text(severity), severity)
         if severity != "ok" else "")
