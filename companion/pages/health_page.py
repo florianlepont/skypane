@@ -329,11 +329,21 @@ def battery_sparkline_svg(rows):
         # these same data-mv/data-ts attributes, so hover text and tap
         # readout never read differently.
         label = "%d mV — %s" % (value, escape_html(ts))
+        # D-13/UXA-11: roving tabindex — only the chronologically-latest
+        # (rightmost) point is a normal Tab stop; every other point is
+        # removed from the natural Tab order (tabindex="-1") and instead
+        # reachable via companion/static/battery-trend.js's arrow-key
+        # moveFocusTo() handler. `pairs` is already in chronological
+        # order and the x-coordinate math above already places the last
+        # index rightmost, so this one condition identifies both
+        # "latest" and "rightmost" simultaneously.
+        is_latest = index == len(pairs) - 1
+        tabindex = "0" if is_latest else "-1"
         hit_targets.append(
-            '<circle class="%s" cx="%.1f" cy="%.1f" r="8" tabindex="0" '
+            '<circle class="%s" cx="%.1f" cy="%.1f" r="8" tabindex="%s" '
             'role="button" data-mv="%d" data-ts="%s" aria-label="%s">'
             "<title>%s</title></circle>"
-            % (SPARKLINE_HIT_CLASS, x, y, value, escape_html(ts), label, label))
+            % (SPARKLINE_HIT_CLASS, x, y, tabindex, value, escape_html(ts), label, label))
 
     # Document order matters: SVG paints in document order and pointer
     # events go to the topmost element, so the transparent hit targets

@@ -58,6 +58,8 @@ STARTUP_DEADLINE_S = 10.0
 # 49 (pre-06.6.3-04) + 5 (06.6.3-04 Task 1: readings-disclosure ordering, D-10
 # window label, specific anomaly-category banner, corroboration
 # no-decision-ID-leak, Device/pipeline concise-timestamp format)
+# 54 + 0 (06.6.3-04 Task 2: roving tabindex — an existing pinned check was
+# retargeted in place, not counted as new)
 EXPECTED_CHECK_COUNT = 54  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
 
 
@@ -725,8 +727,13 @@ def main():
             return False, "expected exactly 3 data-ts attributes, got %d" % svg.count("data-ts=")
         if svg.count("<title") != 3:
             return False, "expected exactly 3 <title elements, got %d" % svg.count("<title")
-        if svg.count('tabindex="0"') != 3:
-            return False, "expected exactly 3 tabindex=\"0\" hit targets, got %d" % svg.count('tabindex="0"')
+        # 06.6.3-04 (D-13/UXA-11): roving tabindex — exactly one hit
+        # target is a normal Tab stop (the chronologically-latest point),
+        # the rest are removed from the natural Tab order.
+        if svg.count('tabindex="0"') != 1:
+            return False, "expected exactly 1 tabindex=\"0\" hit target (roving tabindex), got %d" % svg.count('tabindex="0"')
+        if svg.count('tabindex="-1"') != 2:
+            return False, "expected exactly 2 tabindex=\"-1\" hit targets, got %d" % svg.count('tabindex="-1"')
         if svg.count("<polyline") != 1:
             return False, "expected exactly 1 <polyline, got %d" % svg.count("<polyline")
         for _ts, mv in [(r["ts"], r["battery_mv"]) for r in rows]:
@@ -737,9 +744,17 @@ def main():
         newest_index = svg.find("2024-01-03T00:00:00")
         if not (oldest_index < middle_index < newest_index):
             return False, "expected timestamps in chronological (oldest-first) order, matching the polyline's own ordering"
+        # The tabindex="0" hit target must belong to the newest point
+        # (data-ts="2024-01-03..."), not merely appear somewhere.
+        newest_circle_start = svg.rfind("<circle", 0, newest_index)
+        newest_circle_end = svg.index(">", newest_index)
+        newest_circle = svg[newest_circle_start:newest_circle_end]
+        if 'tabindex="0"' not in newest_circle:
+            return False, "expected the chronologically-latest point's hit target to carry tabindex=\"0\""
         return True, ""
     check(
-        "battery_sparkline_svg() emits per-point interactive hit targets with data-mv/data-ts/<title>, in chronological order",
+        "battery_sparkline_svg() emits per-point interactive hit targets with data-mv/data-ts/<title>, in "
+        "chronological order, with roving tabindex on the latest point only",
         _sparkline_svg_has_per_point_interactive_markup)
 
     def _page_allows_exactly_one_scoped_script_no_inline_handlers():

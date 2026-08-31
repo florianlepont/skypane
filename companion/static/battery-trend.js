@@ -72,6 +72,30 @@
     }
   }
 
+  // D-13/UXA-11: roving tabindex. companion/pages/health_page.py's
+  // battery_sparkline_svg() emits exactly one hit target with
+  // tabindex="0" (the chronologically-latest point, rightmost in
+  // `points`) and tabindex="-1" on every other one, so Tab visits the
+  // chart exactly once instead of once per reading. moveFocusTo()
+  // clamps to [0, points.length - 1] — it never wraps at either end —
+  // sets every point's tabindex attribute via setAttribute() (never the
+  // dataset/property form, matching this file's own getAttribute()-not-
+  // dataset discipline), then calls .focus() on the newly-current
+  // point. .focus() fires the "focus" listener registered below, which
+  // already calls reveal(), so no duplicate reveal() call is needed
+  // here.
+  function moveFocusTo(index) {
+    if (index < 0) {
+      index = 0;
+    } else if (index > points.length - 1) {
+      index = points.length - 1;
+    }
+    for (var k = 0; k < points.length; k++) {
+      points[k].setAttribute("tabindex", k === index ? "0" : "-1");
+    }
+    points[index].focus();
+  }
+
   // Classic indexed for loop with a per-iteration closure (an inner IIFE),
   // so the ES5-safe subset holds and no let/const/arrow function is
   // required.
@@ -99,6 +123,27 @@
         if (evt.key === "Enter" || evt.key === " ") {
           evt.preventDefault();
           reveal(point);
+        }
+      });
+      // D-13/UXA-11: a separate keydown listener (not merged into the
+      // Enter/Space listener above) for roving-tabindex chart
+      // navigation. Array.prototype.indexOf.call() is used rather than
+      // an ES6 array-conversion helper (ES5-safe against a NodeList —
+      // no conversion is needed, just an index lookup).
+      point.addEventListener("keydown", function (evt) {
+        var currentIndex = Array.prototype.indexOf.call(points, point);
+        if (evt.key === "ArrowRight" || evt.key === "ArrowDown") {
+          evt.preventDefault();
+          moveFocusTo(currentIndex + 1);
+        } else if (evt.key === "ArrowLeft" || evt.key === "ArrowUp") {
+          evt.preventDefault();
+          moveFocusTo(currentIndex - 1);
+        } else if (evt.key === "Home") {
+          evt.preventDefault();
+          moveFocusTo(0);
+        } else if (evt.key === "End") {
+          evt.preventDefault();
+          moveFocusTo(points.length - 1);
         }
       });
     })(points[i]);
