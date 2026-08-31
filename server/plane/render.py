@@ -864,23 +864,85 @@ def draw_illustration(canvas, resized_rgba, left, top):
 
 
 def _flight_line1_text(flight, state, route):
-    """`"{callsign} to|from {city}"`, or bare `callsign` when `route` has no
-    city for this state. This is not only a full enrichment miss (D-06,
-    quick task 260827-hyy): `route` may legitimately be an airline-only
-    route (`enrich.resolve_route()`'s `"airline_only"` source /
-    `enrich.airline_only_route()`) that carries a real airline name but
-    `None` for every city field - in that case line 1 correctly stays the
-    bare callsign, because the origin/destination really are unknown; it
-    does not fabricate a city from the callsign's ICAO prefix. D-26:
-    ordinary lowercase "to"/"from" as sentence text, not the old tracked-
-    caps Label-role prefix.
+    """D-08/D-09/D-10's four-tier content ladder for the main line, evaluated
+    strictly in this order, returning on the first match. The raw ADS-B
+    ICAO callsign is never reachable at any tier (D-08) - an earlier draft
+    of this ladder kept a bare-callsign floor below tier 4 and the
+    developer explicitly asked for it removed, even from the fallback
+    cases (`.planning/spikes/001-panel-theme-colours/README.md`, steps
+    11-13).
+
+    - **Tier 1** - `route`'s `callsign_iata` (D-09) and
+      `enrich.city_for_state(route, state)` are both usable: returns
+      `"{identifier} to|from {city}"`, lowercase direction word (ordinary
+      sentence text, not the old tracked-caps Label-role prefix).
+    - **Tier 2** - a city is known but no identifier: returns
+      `"To|From {city}"`, TITLE-case direction word. The casing differs
+      from tier 1 deliberately: tier 1's word sits mid-sentence after an
+      identifier, tier 2's word starts the line.
+    - **Tier 3** - `route` carries a truthy `airline_name` but no usable
+      city or identifier (the `enrich.airline_only_route()` shape, or any
+      hand-edited/corrupt route with the same profile): returns `""`, the
+      sentinel meaning *line 1 is omitted entirely*. Draw callers
+      (`draw_main_text_block()`/`draw_previous_text_block()`) must promote
+      line 2 into line 1's slot on this signal - implemented independently
+      in both functions, since they position line 2 from opposite edges of
+      line 1 (bottom vs. top).
+    - **Tier 4** - `route` is `None`, is not a dict, or carries no airline
+      name either: returns the TITLE-case state word, `"Departing"` or
+      `"Arriving"` - deliberately unlike the all-caps DEPARTING/ARRIVING
+      top-left label, a different element this function does not touch.
+      Line 2 independently falls to `ROUTE_FALLBACK_TEXT` in this case,
+      unchanged existing behaviour.
+
+    Residual ordering note: a route carrying an identifier but no city
+    falls through tier 1 and lands on tier 3 if it has an airline, or tier
+    4 if it does not. `_parse_route()` (which requires all five core
+    fields together) can never produce this shape, but a hand-edited or
+    corrupt persisted cache entry could - this is a stated decision, not an
+    accident.
+
+    `flight` is retained in the signature even though this body no longer
+    reads a callsign or hex from it - both call sites pass it positionally,
+    and removing it would be a signature change this rewrite never asked
+    for.
+
+    Never raises: every read is guarded, and a non-string/blank-after-
+    stripping `callsign_iata`, a non-dict `route`, or a hostile
+    `route.get()` all degrade a tier rather than propagate.
     """
-    callsign = flight.get("callsign") or (flight.get("hex") or "").upper() or "?"
-    city = enrich.city_for_state(route, state) if route is not None else None
+    fallback_word = "Departing" if state == runway_config.STATE_DEPARTING else "Arriving"
+    if not isinstance(route, dict):
+        return fallback_word
+
+    try:
+        identifier_raw = route.get("callsign_iata")
+    except Exception:
+        identifier_raw = None
+    identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
+
+    try:
+        city = enrich.city_for_state(route, state)
+    except Exception:
+        city = None
+    if not isinstance(city, str) or not city.strip():
+        city = None
+
+    if identifier and city:
+        direction_lower = "to" if state == runway_config.STATE_DEPARTING else "from"
+        return "%s %s %s" % (identifier, direction_lower, city)
     if city:
-        direction = "to" if state == runway_config.STATE_DEPARTING else "from"
-        return "%s %s %s" % (callsign, direction, city)
-    return callsign
+        direction_title = "To" if state == runway_config.STATE_DEPARTING else "From"
+        return "%s %s" % (direction_title, city)
+
+    try:
+        airline_name = route.get("airline_name")
+    except Exception:
+        airline_name = None
+    if isinstance(airline_name, str) and airline_name.strip():
+        return ""
+
+    return fallback_word
 
 
 # Friendly human-readable labels for the ICAO type designators detect.py's
