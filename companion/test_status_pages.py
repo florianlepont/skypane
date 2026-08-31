@@ -55,7 +55,10 @@ APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
 # 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion
 # checks) + 1 (06.6-01 Task 2: Battery Trend absolute+relative timestamp check)
-EXPECTED_CHECK_COUNT = 49  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
+# 49 (pre-06.6.3-04) + 5 (06.6.3-04 Task 1: readings-disclosure ordering, D-10
+# window label, specific anomaly-category banner, corroboration
+# no-decision-ID-leak, Device/pipeline concise-timestamp format)
+EXPECTED_CHECK_COUNT = 54  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -401,11 +404,14 @@ def main():
         "three battery rows render the full trend (not just the latest value) and exactly one <svg><polyline>",
         _battery_trend_shows_all_readings_and_one_sparkline)
 
-    def _battery_trend_timestamps_show_absolute_and_relative():
-        # D-02 regression guard: the Battery Trend table's Timestamp
-        # column must match the Device/ADS-B pipeline rows' shape —
-        # "ISO (Nm ago)" — and _battery_section() must stay
-        # single-argument (06.5-02's own pinned automated gate).
+    def _battery_trend_timestamps_show_concise_format():
+        # 06.6.3-04 (D-09): the Battery Trend table's Timestamp column now
+        # renders via layout.concise_timestamp_html() — a <span
+        # class="mono" title="<full ISO>"> with the full ISO demoted to
+        # the title attribute, not the old bare "ISO (Nm ago)" plain-text
+        # shape (which this check pinned before D-09) — and
+        # _battery_section() must stay single-argument (06.5-02's own
+        # pinned automated gate).
         if len(inspect.signature(health_page._battery_section).parameters) != 1:
             return False, "_battery_section must stay single-argument (06.5-02 pins its call site)"
         tmp = _mkstate("h-battery-trend-timestamps")
@@ -419,17 +425,111 @@ def main():
             _seed_device_health(tmp, readings)
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
             for ts, _mv in readings:
-                if (ts + " (") not in rendered:
-                    return False, "expected %r followed by ' (' in the rendered Battery Trend table" % ts
+                if ('<span class="mono" title="%s">' % ts) not in rendered:
+                    return False, (
+                        "expected %r inside a concise_timestamp_html() title attribute "
+                        "in the rendered Battery Trend table" % ts)
             if " ago)" not in rendered:
                 return False, "expected at least one parenthesised relative age in the Battery Trend table"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Battery Trend's Timestamp column shows 'ISO (Nm ago)', matching the Device/pipeline rows (D-02), "
-        "and _battery_section() stays single-argument",
-        _battery_trend_timestamps_show_absolute_and_relative)
+        "Battery Trend's Timestamp column shows the D-09 concise format (full ISO demoted to title), "
+        "matching the Device/pipeline rows, and _battery_section() stays single-argument",
+        _battery_trend_timestamps_show_concise_format)
+
+    def _battery_readings_collapsed_behind_closed_disclosure_after_chart():
+        # D-08: the readings table is collapsed behind a closed-by-default
+        # <details> disclosure, and the chart (when present) precedes it
+        # in both DOM and visual order.
+        tmp = _mkstate("h-readings-disclosure")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=2)), 4200),
+                (_iso(base - timedelta(minutes=1)), 4190),
+                (_iso(base), 4180),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if '<details class="readings-disclosure"' not in rendered:
+                return False, "expected a readings-disclosure <details> element"
+            details_tag = rendered[rendered.index('<details class="readings-disclosure"'):]
+            details_open_tag = details_tag[:details_tag.index(">") + 1]
+            if " open" in details_open_tag:
+                return False, "expected the readings disclosure to be closed by default"
+            if "View 3 readings" not in rendered:
+                return False, "expected the disclosure summary to name the real plotted-row count"
+            svg_index = rendered.index("<svg")
+            details_index = rendered.index('<details class="readings-disclosure"')
+            if not (svg_index < details_index):
+                return False, "expected the chart to precede the collapsed readings table"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the readings table is collapsed behind a closed-by-default disclosure, and the chart precedes it (D-08)",
+        _battery_readings_collapsed_behind_closed_disclosure_after_chart)
+
+    def _battery_trend_heading_shows_d10_window_label():
+        tmp = _mkstate("h-d10-label")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            if "Latest 20 readings" not in rendered:
+                return False, "expected the D-10 'Latest 20 readings' window label in the Battery trend heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Battery trend heading shows the D-10 'Latest 20 readings' window label",
+        _battery_trend_heading_shows_d10_window_label)
+
+    def _anomaly_banner_names_real_categories_not_generic_only():
+        tmp = _mkstate("h-anomaly-specific")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc123", "corroborated": False}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if "ADS-B sources disagreed" not in rendered:
+                return False, "expected the anomaly banner to name the real failing category"
+            if health_page.ANOMALY_BANNER_TEXT not in rendered:
+                return False, "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the anomaly banner names the real failing category (a disagreement), not only the generic "
+        "fallback text (UXA-06)",
+        _anomaly_banner_names_real_categories_not_generic_only)
+
+    def _corroboration_copy_has_no_decision_id_leak():
+        for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
+            if "(D-" in explanation:
+                return False, "found a decision-ID leak in a corroboration row's explanation: %r" % explanation
+        return True, ""
+    check(
+        "no corroboration row's explanation leaks a bare decision-ID parenthetical (UXA-05)",
+        _corroboration_copy_has_no_decision_id_leak)
+
+    def _device_and_pipeline_rows_use_concise_timestamp_format():
+        tmp = _mkstate("h-concise-device-pipeline")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if rendered.count('<span class="mono" title=') < 2:
+                return False, "expected at least two concise_timestamp_html() spans (Device + Pipeline rows)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Device check-in and ADS-B pipeline rows render via the D-09 concise timestamp format",
+        _device_and_pipeline_rows_use_concise_timestamp_format)
 
     def _battery_badge_present_and_healthy_on_normal_trend():
         tmp = _mkstate("h-battery-badge-ok")

@@ -110,7 +110,7 @@ _CORROBORATION_ROWS = (
      "disagreement; no corroboration was available to check against."),
     ("False", "Disagreement", "warn",
      "The two sources named different aircraft, so nothing was selected "
-     "that cycle (D-04: the panel is left unchanged, not blanked)."),
+     "that cycle — the panel image was kept from the previous cycle."),
 )
 
 # --- CFG-05 landing context --------------------------------------------------
@@ -148,12 +148,12 @@ SOURCE_FAULT_BODY = (
 # in test_status_pages.py keeps passing unmodified.
 ANOMALY_BANNER_TEXT = "Something needs attention — check the tiles below."
 
-# 06.6.2-06 (UXA-14): severity-specific prefixes prepended to
-# ANOMALY_BANNER_TEXT by _anomaly_banner_text() below. Any severity not
-# in this dict (there is none today — overall_severity() only ever
-# returns "ok"/"warn"/"error", and "ok" never reaches this function)
-# falls back to the old bare "⚠ " glyph.
-_SEVERITY_BANNER_PREFIXES = {"warn": "⚠ Warning: ", "error": "⚠ Error: "}
+# 06.6.2-06 (UXA-14) / 06.6.3-04 (UXA-06/D-18): the noun each severity's
+# count-aware banner lead-in pluralizes ("1 warning: " / "2 warnings: ").
+# Any severity not in this dict (there is none today — overall_severity()
+# only ever returns "ok"/"warn"/"error", and "ok" never reaches this
+# function) falls back to the generic "issue" noun.
+_SEVERITY_BANNER_NOUNS = {"warn": "warning", "error": "error"}
 
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
 PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
@@ -487,6 +487,11 @@ def compute_health_state(state_dir, now=None):
         inputs["corroboration_counts"])
     severity = overall_severity(
         device_state, pipeline_state, battery_state, disagreement_warn)
+    # UXA-06/D-18: threaded through to render() so _anomaly_banner_text()
+    # can name the real failing category or categories rather than
+    # recomputing collect_anomalies() a second time from scratch.
+    anomalies = collect_anomalies(
+        device_state, pipeline_state, battery_state, disagreement_warn)
     return {
         "now": now,
         "source_fault_raw": inputs["source_fault_raw"],
@@ -498,6 +503,7 @@ def compute_health_state(state_dir, now=None):
         "battery_state": battery_state,
         "corroboration_html": corroboration_html,
         "disagreement_warn": disagreement_warn,
+        "anomalies": anomalies,
         "severity": severity,
     }
 
@@ -567,13 +573,53 @@ def anomaly_active(state_dir, now=None):
     return health_severity(state_dir, now) != "ok"
 
 
-def _anomaly_banner_text(severity):
-    """The full anomaly-banner text for a non-"ok" `severity`: the
-    severity-specific "⚠ Warning: "/"⚠ Error: " prefix (falling back to
-    a bare "⚠ " for any unrecognised value) followed by
-    ANOMALY_BANNER_TEXT verbatim.
+def _anomaly_category_text(anomalies):
+    """A comma-joined, human-readable naming of `anomalies`
+    (`collect_anomalies()`'s own literal strings, in order) — UXA-06's
+    fix for the anomaly banner naming its real failing category or
+    categories instead of a generic "check the tiles below".
+
+    Each item's trailing period is dropped (`rstrip(".")`) so the
+    phrases read as one joined clause rather than a run of complete
+    sentences, and every item after the first has its leading letter
+    lower-cased to match normal mid-sentence capitalisation — the
+    first item keeps its original (sentence-initial) case. This is a
+    light, mechanical transformation of `collect_anomalies()`'s own
+    four literal strings (not an independently-maintained copy), so
+    the two can never drift apart.
     """
-    return _SEVERITY_BANNER_PREFIXES.get(severity, "⚠ ") + ANOMALY_BANNER_TEXT
+    phrases = []
+    for index, anomaly in enumerate(anomalies):
+        phrase = anomaly.rstrip(".")
+        if index > 0 and phrase:
+            phrase = phrase[0].lower() + phrase[1:]
+        phrases.append(phrase)
+    return ", ".join(phrases)
+
+
+def _anomaly_banner_text(severity, anomalies):
+    """The full anomaly-banner text for a non-"ok" `severity`, given the
+    already-computed `anomalies` list (`collect_anomalies()`'s own
+    return value, threaded through by `compute_health_state()`).
+
+    UXA-06: names the real failing category or categories instead of
+    the old generic "check the tiles below" copy. Format: "⚠ {N}
+    {warning(s)|error(s)}: {comma-joined category phrases} —
+    {ANOMALY_BANNER_TEXT}" — ANOMALY_BANNER_TEXT is kept as a trailing
+    fallback tail (not removed) specifically so every existing
+    `ANOMALY_BANNER_TEXT in rendered` presence/absence check in
+    test_status_pages.py keeps passing unmodified; the em-dash
+    separator (rather than a period) is deliberate too, so the
+    category text is never immediately followed by a period that
+    would reconstruct one of collect_anomalies()'s own exact literal
+    strings verbatim inside the rendered page.
+    """
+    noun = _SEVERITY_BANNER_NOUNS.get(severity, "issue")
+    count = len(anomalies)
+    plural = "" if count == 1 else "s"
+    category_text = _anomaly_category_text(anomalies)
+    return "⚠ %d %s%s: %s — %s" % (
+        count, noun, plural, category_text, ANOMALY_BANNER_TEXT)
 
 
 def _unavailable_block():
@@ -586,7 +632,10 @@ def _device_section(device_health, now):
     ts = (device_health or {}).get("ts")
     age = layout.age_seconds(ts, now)
     state = staleness_status(age, STALE_DEVICE_WARN_S, STALE_DEVICE_ERROR_S)
-    detail = escape_html(layout.absolute_and_relative(ts, now))
+    # D-09: concise_timestamp_html() already returns pre-escaped-safe
+    # markup — wrapping it in escape_html() a second time would
+    # double-encode it and print the raw tags as visible text.
+    detail = layout.concise_timestamp_html(ts, now)
     row = '<p class="text-body">%s %s</p>' % (
         layout.status_dot(state, DEVICE_FRESHNESS_LABEL), detail)
     return row, state
@@ -597,7 +646,10 @@ def _pipeline_section(pipeline_ts, now):
         return _unavailable_block(), "ok"
     age = layout.age_seconds(pipeline_ts, now)
     state = staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
-    detail = escape_html(layout.absolute_and_relative(pipeline_ts, now))
+    # D-09: concise_timestamp_html() already returns pre-escaped-safe
+    # markup — wrapping it in escape_html() a second time would
+    # double-encode it and print the raw tags as visible text.
+    detail = layout.concise_timestamp_html(pipeline_ts, now)
     row = '<p class="text-body">%s %s</p>' % (
         layout.status_dot(state, PIPELINE_FRESHNESS_LABEL), detail)
     return row, state
@@ -645,12 +697,13 @@ def _battery_trend_section_html(battery_html):
     """
     return (
         '<section class="%s">'
-        '<h2 class="text-heading">%s%s</h2>'
+        '<h2 class="text-heading">%s%s<span class="text-label">'
+        "— Latest %d readings</span></h2>"
         "%s"
         "</section>"
     ) % (
         BATTERY_SECTION_CLASS, layout.icon_html(ICON_BATTERY),
-        escape_html(BATTERY_SECTION_HEADING), battery_html)
+        escape_html(BATTERY_SECTION_HEADING), BATTERY_TREND_LIMIT, battery_html)
 
 
 def _battery_section(trend_rows):
@@ -693,12 +746,24 @@ def _battery_section(trend_rows):
     # execute. history_db.utc_now_iso() is the same call render() already
     # makes for its own `now`.
     now = history_db.utc_now_iso()
+    # D-09: the Timestamp column is now already-safe raw HTML (the
+    # concise "HH:MM UTC (relative)" span, full ISO demoted to its
+    # `title` attribute) — raw_columns=(0,) tells data_table() not to
+    # re-escape it (that would double-encode and print the tags as
+    # visible text). mono_columns keeps only the numeric mV column
+    # monospaced; concise_timestamp_html()'s own <span class="mono">
+    # already carries the mono styling for column 0.
     table_rows = [
-        (layout.absolute_and_relative(row.get("ts"), now, fallback=""), row.get("battery_mv"))
+        (layout.concise_timestamp_html(row.get("ts"), now, fallback=""), row.get("battery_mv"))
         for row in trend_rows
     ]
     table_html = layout.data_table(
-        ["Timestamp", "Battery (mV)"], table_rows, mono_columns=(0, 1))
+        ["Timestamp", "Battery (mV)"], table_rows, mono_columns=(1,), raw_columns=(0,))
+    # D-08: the raw readings table is collapsed behind a closed-by-default
+    # native <details> disclosure — no custom JS toggler needed.
+    disclosure_html = (
+        '<details class="readings-disclosure"><summary>View %d readings</summary>%s</details>'
+        % (len(trend_rows), table_html))
     sparkline_html = battery_sparkline_svg(trend_rows) if len(trend_rows) >= 2 else ""
     # The script tag and readout element are emitted only when a chart
     # actually exists (sparkline_html is non-empty) — a single-reading
@@ -712,7 +777,10 @@ def _battery_section(trend_rows):
         chart_block = (
             sparkline_html + _battery_readout_block()
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
-    return _battery_badge_block(state) + table_html + chart_block, state
+    # D-08: the chart (when present) comes before the collapsed table in
+    # both DOM and visual order — a reorder from the pre-06.6.3 shape
+    # (badge, table, chart).
+    return _battery_badge_block(state) + chart_block + disclosure_html, state
 
 
 def _corroboration_section(counts):
@@ -800,8 +868,9 @@ def render(ctx):
         state["corroboration_html"], state["disagreement_warn"])
 
     severity = state["severity"]
+    anomalies = state["anomalies"]
     banner_html = (
-        layout.anomaly_banner(_anomaly_banner_text(severity), severity)
+        layout.anomaly_banner(_anomaly_banner_text(severity, anomalies), severity)
         if severity != "ok" else "")
 
     # battery_state is still consumed below (collect_anomalies() still
