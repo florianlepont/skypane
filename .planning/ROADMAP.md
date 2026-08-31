@@ -309,11 +309,28 @@ Plans:
 **Goal:** Carry Phase 06.6.2's foundation (tokens, page-header pattern, sidebar, severity function, contrast checker) into a real recomposition of every companion page: Config's dirty-state save bar, read-only Theme status and runway cards; Health's roving-tabindex battery chart, specific anomaly summary, and disclosure-collapsed readings; History's mobile compact cards, filtering, and copy-to-clipboard; Airlines' filtering and simplified hierarchy; Preview's centered matte treatment, freshness signal, and task-oriented gallery captions. Split out 2026-08-31 from Phase 06.6.2 for context-budget reasons (see 06.6.2's Goal) — carries the nine per-page CONTEXT.md decisions and audit findings that need 06.6.2's shared primitives to land cleanly, avoiding double-touching the same page files.
 **Requirements**: None — unmapped backlog phase. Traced against `06.6.3-CONTEXT.md`'s own locked decisions D-02 through D-05, D-06 (heading-dedup half), D-07 through D-10, D-12, D-13, D-18, D-20, D-22, D-23, plus the audit's UXA-01 (mobile-card half), UXA-05, UXA-06, UXA-11, UXA-13, UXA-16, UXA-17, UXA-18, and UXA-08 (Config-specific half).
 **Depends on:** Phase 06.6.2 (consumes its design tokens, `page_header()`, sidebar footer region, and severity function)
-**Plans:** 0 plans
+**Plans:** 8 plans across 4 waves
 
 Plans:
+**Wave 1** *(parallel, no shared files)*
 
-- [ ] TBD (run /gsd-plan-phase 06.6.3 to break down)
+- [ ] 06.6.3-01-PLAN.md — Shared foundation: `layout.concise_timestamp_html()`, `data_table(raw_columns=)`, 4 new icons, and 4 new pre-auth static JS files (dirty-state, list-filter, copy-button, freshness) wired through `app.py`
+- [ ] 06.6.3-02-PLAN.md — Shared foundation CSS: every new class this phase's five page plans reference (theme status, runway cards, dirty-bar, disclosures, history cards, filter bar, copy button, matte frame), landed once so no later plan touches `style.css`
+
+**Wave 2** *(blocked on Wave 1; parallel with each other, disjoint files)*
+
+- [ ] 06.6.3-03-PLAN.md — Config: D-02/D-06 LED rename+dedup, D-04 read-only Theme swatch, D-05 Runway selectable cards, D-03 dirty-state save bar
+- [ ] 06.6.3-04-PLAN.md — Health: D-08 readings disclosure + chart reorder, UXA-06 specific anomaly copy, UXA-05 corroboration copy fix, D-13/UXA-11 roving-tabindex chart, D-12/UXA-13 freshness + stale-view banner
+- [ ] 06.6.3-05-PLAN.md — History: D-07/UXA-01 mobile compact cards, UXA-05 confirmed_state/runway labels, D-09 concise timestamps, D-20 filter bar, D-23 copy-to-clipboard
+
+**Wave 3** *(blocked on Wave 2's shared-test-file plans; parallel with each other)*
+
+- [ ] 06.6.3-06-PLAN.md — Airlines: D-18 headline promotion + simplified hierarchy, D-09 raw_columns timestamps, D-20 filter bar
+- [ ] 06.6.3-07-PLAN.md — Preview: D-18 matte frame, UXA-16 sizing/loading hints, D-22 gallery caption reverse-parse, D-10 window label, D-12 freshness + stale-view banner
+
+**Wave 4** *(blocked on all)*
+
+- [ ] 06.6.3-08-PLAN.md — Full-suite gate plus a blocking local browser/keyboard/phone verification checkpoint across all five redesigned pages, closing this phase's two carried-forward deferred items (real assistive-technology testing, production authenticated walkthrough)
 
 ### Phase 06.6.2: Companion UX, accessibility, and responsive hardening (INSERTED)
 
