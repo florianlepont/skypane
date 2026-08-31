@@ -171,7 +171,26 @@ EXPECTED_CHECK_COUNT = 43
 # different digest than this Mac for the identical code, confirming a real
 # font-rendering difference between this dev machine and the CI container.
 # Read verbatim from CI's own FAIL output, not recomputed locally.
-_DEFAULT_CONFIG_DIGEST = "49b8ba45f16b017e630bebf3c4b2f48a14d57ebbf932820eee9576502759d822"
+#
+# Fourth re-pin (Phase 8 08-05): this phase's rendering changes moved every
+# pixel on the panel by FOUR independent, compounding causes, all landed
+# across plans 08-01 through 08-04 before this plan reconciles the suite:
+#   1. the new default theme - White (bg_idx=IDX_WHITE), replacing Sky
+#      (Blue/Green) as DEFAULT_THEME_ID (08-01, D-01/D-02);
+#   2. every active-state text role switched from PT Serif Regular (weight
+#      400) to PT Serif Bold (weight 700), plus PREVIOUS_LINE2_FONT grown
+#      16px->20px (08-03, D-06/D-11);
+#   3. the text-backing-plate rectangle (_paint_text_backing()) removed
+#      outright on every theme, with nothing substituted (08-03, D-05);
+#   4. line 1's text rewritten as a four-tier content ladder (identifier+
+#      city / city-only / airline-only-omit-line-1 / nothing-resolved),
+#      structurally unable to reach the raw ADS-B callsign, plus the
+#      previous card's new PREVIOUS_TEXT_LEFT_OFFSET_PX=20 optical
+#      alignment correction (08-04, D-08/D-09/D-10/D-12).
+# Read verbatim from CI's own FAIL output (PR #22,
+# github.com/florianlepont/skypane/actions/runs/33384226781), per the
+# standing rule above - not recomputed locally on this Mac.
+_DEFAULT_CONFIG_DIGEST = "ce9235f6ceaf2fc4563f5eae7ee63f51bb962bc68fb67860682e315e4b8e8479"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
