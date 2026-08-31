@@ -5,7 +5,7 @@ type: comparison
 validates: "Given the real render pipeline (fonts, palette, layout, dither), when the panel background colour and the text-legibility technique are varied, then the developer can pick a direction by eye before any plan is written"
 verdict: VALIDATED
 related: []
-tags: [render, theme, palette, legibility, e-ink]
+tags: [render, theme, palette, legibility, e-ink, typography]
 ---
 
 # Spike 001: Panel background colour + text-legibility technique
@@ -168,3 +168,105 @@ spike. Confirmed direction, ready to hand to a real plan:
   legibility calls landing differently on real ink twice (Blue/Green
   hue, and the backing-plate fix itself) — an on-glass re-check belongs
   in whatever plan implements this.
+
+## Round 2 — flight-identifier text content and previous-card sizing
+
+Follow-up requested by the developer in the same conversation, after
+Round 1's colour/font direction was confirmed: explore the remaining
+palette colours as flat fills (`renders/colours/`, `explore_colours.py`),
+then a set of text-content questions about the "AFR1234"-style callsign
+shown on both flight cards, plus a reported alignment/sizing issue on the
+previous-flight card.
+
+### Investigation Trail (continued)
+
+10. Rendered all 6 Spectra 6 palette colours (Black/White/Yellow/Red/
+    Blue/Green) as flat, non-dithered full-panel backgrounds with the
+    Round 1 fix (PT Serif Bold, no backing plate) —
+    `renders/colours/*-flat-BOLD-noplate.png` + `contact_sheet.png`.
+    Flagged, not silently glossed over: dithering was added in Phase 7
+    specifically because the flat Blue/Green fill looked too dark/
+    saturated on real glass at full coverage, so these flat renders may
+    reproduce that same issue on real ink — never confirmed either way
+    by the developer in this session (still open, see Requirements).
+11. Developer asked whether the displayed callsign ("AFR1234") could
+    instead show the real published flight number. Traced the actual
+    data flow (`server/plane/enrich.py`, `server/fixtures/adsbdb_hit_*.
+    json`): the adsbdb response already carries a `callsign_iata` field
+    (IATA-formatted, e.g. "AF1234") that `_parse_route()` fetches and
+    discards. Read `.planning/notes/adsbdb-callsign-lookup-legacy-vs-
+    rotating.md`: for legacy carriers this IATA field genuinely equals
+    the real flight number (their ICAO callsign already is one);  for
+    rotating-callsign carriers (Transavia et al.) neither callsign form
+    reliably corresponds to one, a structural limitation of any
+    callsign-keyed source, not a coverage gap — a real fix needs a live
+    schedule/FIDS API instead, out of scope for this round.
+12. Developer's decision, twice narrowed over the conversation: never
+    display the raw ICAO callsign, anywhere. First pass showed a
+    fallback ladder that still fell back to the bare callsign when no
+    IATA id existed (`80/81-*-nocallsign.png`, `90-*-iata-flightnum.
+    png`) — developer pushed back and asked for it removed even in the
+    fallback cases, landing on the 4-tier ladder recorded in
+    `MANIFEST.md`'s Round 2 Requirements (IATA+city → city-only →
+    airline-name-only with line 1 omitted → "Departing"/"Arriving" +
+    "Route unavailable"). Rendered and confirmed each tier separately:
+    `91-*` (IATA id + type present), `92-*` (full miss), `93-*`/`94-*`
+    (airline-only, line 1 omitted, both the previous-card and main-card
+    slots).
+13. Separately, developer noticed the aircraft type label
+    (`_TYPE_DISPLAY_LABELS`) was missing from these mockups and asked if
+    that was intentional — it was not: the throwaway preview fixture in
+    this spike's ad hoc scripts simply never set `aircraft_type` on the
+    flight dict. `_flight_line2_text()` itself was never touched;
+    re-rendered with `aircraft_type` set to confirm (`91-*.png` onward
+    all show "Air France · A320" correctly).
+14. Developer reported the previous-flight card's text looked shifted
+    right of the aircraft it belongs to. Rather than eyeball it,
+    instrumented `draw_previous_text_block()` to print the exact pixel
+    values: `prev_placement.content[2]` (the illustration's measured
+    opaque-pixel right edge) and the rendered text's own `textbbox`
+    right edge were IDENTICAL (1091px, delta 0) for the reference
+    Vueling fixture — confirmed mathematically exact, not a bug.
+    Rendered a vertical guide line at that exact x-coordinate
+    (`95-alignment-guide-and-bigger-subline.png`) so the developer could
+    judge against ground truth rather than a screenshot. Working theory,
+    stated as a theory: the aircraft's rightmost pixel sits on a thin,
+    raked tail-fin tip, not the visual mass of the fuselage/tail body —
+    the eye anchors on the latter, so the mathematically-exact version
+    reads as shifted right. Developer confirmed the effect was still
+    perceptible after seeing the guide and asked for an intentional
+    optical correction rather than the strict measurement.
+15. Iterated the optical-correction offset live: 15px left
+    (`96-prev-text-nudged-left-15px.png`) → developer asked for "a tiny
+    bit more" → 20px left (`97-prev-text-nudged-left-20px.png`) →
+    confirmed. Applied to both of the previous card's lines (keeps them
+    both right-aligned to the same shifted edge); the main card's
+    centre-anchored text was not touched — centred text doesn't exhibit
+    this failure mode the same way, since it isn't pinned to one raked
+    edge, so no equivalent nudge was requested or applied there.
+16. Same pass bumped `PREVIOUS_LINE2_FONT` from 16px to 20px per the
+    developer's request ("légèrement augmenter la taille de la
+    sous-ligne") — confirmed alongside the alignment nudge in the same
+    renders (95/96/97), never shown in isolation since the two changes
+    were requested back-to-back and are visually independent (one is
+    font size, the other is horizontal position).
+
+### Round 2 Results
+
+**Confirmed, added to `MANIFEST.md`'s Requirements:**
+- Raw ICAO callsign never displayed; `callsign_iata` (currently
+  discarded by `enrich._parse_route()`) becomes the displayed flight
+  identifier when present, with a 4-tier content fallback ladder that
+  never re-introduces the raw callsign at any tier.
+- `PREVIOUS_LINE2_FONT`: 16px → 20px.
+- Previous card's text block: 20px intentional left offset from
+  `prev_placement.content[2]`, an optical correction on top of the
+  already-correct mathematical anchor — not a change to which edge is
+  measured.
+
+**Still open:**
+- The Black/Yellow/Red flat-background candidates were shown but never
+  reacted to.
+- Whether the 20px optical nudge (tuned against one illustration file)
+  holds up visually across the other ~42 vendored illustration files,
+  whose tail shapes/rake angles vary.
