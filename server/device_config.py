@@ -17,14 +17,15 @@ This module is a **leaf**: it imports only the Python stdlib plus
 `server.plane.render`, or `server.poll_loop` - those modules (will) import
 this one, and the reverse direction would be a cycle.
 
-Adding a theme (Phase 7 and beyond): append one entry to `THEMES` keyed by
+Adding a theme (Phase 8 and beyond): append one entry to `THEMES` keyed by
 a new short id, supplying `departing_index`, `arriving_index`, `ink_index`,
 and `label`. No structural change to this module and no call-site change
 anywhere else is required - `THEME_IDS`, `normalise_theme_id()`, and every
 presentation accessor below derive from `THEMES` itself. This is the
 concrete discharge of 03-CONTEXT.md's D-11 carried-forward obligation:
-Phase 7's on-glass session is where additional real, hardware-validated
-theme entries actually get added.
+Phase 8 is where additional theme entries actually got added, following
+the real-glass-then-registry sequence Phase 7's on-glass session
+established for "sky".
 
 This module is print-free by design - never log or print the config
 file's contents. There is no secret in it, but it must stay safe to import
@@ -45,35 +46,71 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server.panel_format import IDX_BLUE, IDX_GREEN, IDX_WHITE
+from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW
 
-DEFAULT_THEME_ID = "sky"
+DEFAULT_THEME_ID = "white"
 DEFAULT_RUNWAY_ID = "3"
 DEFAULT_LED_ENABLED = True  # D-02: matches the LED's current hardcoded always-on behaviour, so nothing changes until a user opts out
 
 # --- Theme registry ----------------------------------------------------
 #
-# D-09/D-10/D-11 (06-CONTEXT.md): the "sky" entry below is the *only*
-# theme today. Its Blue/Green hues were confirmed against on-screen
-# previews only through D-21 (03-CONTEXT.md) - Phase 7's on-glass session
-# (07-01, hardware/BRINGUP-LOG.md's "Phase 7 On-Glass Verification" entry)
-# was the first time this design met real glass, and it found both hues
-# genuinely too dark/saturated on the real panel versus the monitor
-# preview. panel_format.PALETTE_RGB's Blue/Green triples were darkened
-# accordingly (see that module's own comment block for the before/after
-# values) - this THEMES dict references panel_format.IDX_BLUE/IDX_GREEN
-# indirectly and needed no change itself, since the real-glass tuning
-# lives entirely in the RGB triples those indices point at. Any additional
-# selectable theme entries should be real-glass-validated the same way
-# before landing here. Never write a bare palette integer here - always
-# reference panel_format's named IDX_* constants, matching that module's
-# own stated discipline.
+# D-09/D-10/D-11 (06-CONTEXT.md): the "sky" entry below was the *only*
+# theme through Phase 7. Its Blue/Green hues were confirmed against
+# on-screen previews only through D-21 (03-CONTEXT.md) - Phase 7's
+# on-glass session (07-01, hardware/BRINGUP-LOG.md's "Phase 7 On-Glass
+# Verification" entry) was the first time this design met real glass, and
+# it found both hues genuinely too dark/saturated on the real panel versus
+# the monitor preview. panel_format.PALETTE_RGB's Blue/Green triples were
+# darkened accordingly (see that module's own comment block for the
+# before/after values) - this THEMES dict references
+# panel_format.IDX_BLUE/IDX_GREEN indirectly and needed no change itself,
+# since the real-glass tuning lives entirely in the RGB triples those
+# indices point at. Any additional selectable theme entries should be
+# real-glass-validated the same way before landing here. Never write a
+# bare palette integer here - always reference panel_format's named IDX_*
+# constants, matching that module's own stated discipline.
+#
+# Phase 8 (2026-08-31, 08-CONTEXT.md D-01/D-02/D-03/D-04): the "white",
+# "black", "yellow" and "red" entries below were added, and "white" became
+# the new DEFAULT_THEME_ID. All four were chosen from the interactive
+# spike at .planning/spikes/001-panel-theme-colours/, judged on-screen
+# against rendered preview PNGs only - exactly like "sky"'s original D-21
+# selection, none of the four has been seen on real Spectra 6 ink yet.
+# Plan 08-06's blocking on-glass session is where that real-ink check
+# happens; until then, treat these four the same way "sky" was treated
+# before 07-01 - plausible, not confirmed. "sky" itself is untouched in
+# behaviour by this change, it only stops being the default and its label
+# drops the now-inaccurate "(default)" suffix.
 THEMES = {
+    "white": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "White",
+    },
+    "black": {
+        "departing_index": IDX_BLACK,
+        "arriving_index": IDX_BLACK,
+        "ink_index": IDX_WHITE,
+        "label": "Black",
+    },
+    "yellow": {
+        "departing_index": IDX_YELLOW,
+        "arriving_index": IDX_YELLOW,
+        "ink_index": IDX_BLACK,
+        "label": "Yellow",
+    },
+    "red": {
+        "departing_index": IDX_RED,
+        "arriving_index": IDX_RED,
+        "ink_index": IDX_WHITE,
+        "label": "Red",
+    },
     "sky": {
         "departing_index": IDX_BLUE,
         "arriving_index": IDX_GREEN,
         "ink_index": IDX_WHITE,
-        "label": "Sky (default)",
+        "label": "Sky",
     },
 }
 
