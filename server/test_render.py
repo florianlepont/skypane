@@ -36,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 98
+EXPECTED_CHECK_COUNT = 99
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -763,14 +763,18 @@ def main():
         return True, ""
     check("PREVIOUS_LINE2_FONT's size is 20px (D-11) with its overflow floor unchanged", _previous_line2_font_grew_to_20px)
 
-    # 24c. Behavioural check: no glyph is drawn in the Regular file anywhere
-    # on an active-state panel, in either state - this is the check that
-    # catches the four fit_text_size() call sites being left on Regular even
-    # after the role-constant tuples were repointed at Bold (T-08-03-01).
+    # 24c. Behavioural check, revised on-glass (08-06): the active weight is
+    # theme-conditional, not universal. On the flat White theme (never
+    # dithered), every active-state role must request PTSerif-Regular.ttf
+    # and never PTSerif-Bold.ttf - Bold's whole job (resisting dithered
+    # speckle) never applies there, and it read as needlessly heavy on
+    # real ink. On a dithered theme (Sky), the original D-06 contract
+    # holds: every role must request PTSerif-Bold.ttf and never Regular.
     # Monkeypatches render._font, the seam both the direct role-constant
-    # lookups (draw_top_labels()) and fit_text_size() itself call through,
-    # so it captures every font path actually requested.
-    def _no_regular_weight_glyph_on_an_active_panel():
+    # lookups (draw_top_labels()) and fit_text_size() itself call through
+    # via _role_font()/_role_fit_text_size(), so it captures every font
+    # path actually requested.
+    def _spy_requested_font_paths(theme_id):
         requested_paths = []
         orig_font = render._font
 
@@ -783,25 +787,47 @@ def main():
             render.build_canvas(
                 TEST_FLIGHT, "departing", route=TEST_ROUTE,
                 previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+                theme_id=theme_id,
             )
             render.build_canvas(
                 TEST_FLIGHT, "arriving", route=TEST_ROUTE,
                 previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="departing",
+                theme_id=theme_id,
             )
         finally:
             render._font = orig_font
+        return requested_paths
+
+    def _white_theme_uses_only_regular_weight():
+        requested_paths = _spy_requested_font_paths("white")
+        if not requested_paths:
+            return False, "no font was requested at all - the spy did not capture anything"
+        bold_hits = [p for p in requested_paths if p.endswith("PTSerif-Bold.ttf")]
+        if bold_hits:
+            return False, "PTSerif-Bold.ttf was requested %d time(s) on a White-theme active-state panel - expected zero, White is never dithered (08-06): %r" % (len(bold_hits), bold_hits)
+        regular_hits = [p for p in requested_paths if p.endswith("PTSerif-Regular.ttf")]
+        if not regular_hits:
+            return False, "PTSerif-Regular.ttf was never requested while rendering a White-theme active-state panel"
+        return True, ""
+    check(
+        "the White theme's active-state roles request only PTSerif-Regular.ttf, never Bold (08-06 on-glass correction)",
+        _white_theme_uses_only_regular_weight,
+    )
+
+    def _sky_theme_uses_only_bold_weight():
+        requested_paths = _spy_requested_font_paths("sky")
         if not requested_paths:
             return False, "no font was requested at all - the spy did not capture anything"
         regular_hits = [p for p in requested_paths if p.endswith("PTSerif-Regular.ttf")]
         if regular_hits:
-            return False, "PTSerif-Regular.ttf was requested %d time(s) on an active-state panel - expected zero (D-06): %r" % (len(regular_hits), regular_hits)
+            return False, "PTSerif-Regular.ttf was requested %d time(s) on a Sky-theme (dithered) active-state panel - expected zero (D-06): %r" % (len(regular_hits), regular_hits)
         bold_hits = [p for p in requested_paths if p.endswith("PTSerif-Bold.ttf")]
         if not bold_hits:
-            return False, "PTSerif-Bold.ttf was never requested while rendering an active-state panel"
+            return False, "PTSerif-Bold.ttf was never requested while rendering a Sky-theme active-state panel"
         return True, ""
     check(
-        "no PTSerif-Regular.ttf glyph is drawn anywhere on an active-state panel, in either state (D-06) - behavioural, catches a half-applied fit_text_size() call site",
-        _no_regular_weight_glyph_on_an_active_panel,
+        "the dithered Sky theme's active-state roles request only PTSerif-Bold.ttf, never Regular (D-06, unchanged by the 08-06 White-only correction)",
+        _sky_theme_uses_only_bold_weight,
     )
 
     # 24d. The text-backing-plate helper (D-05) no longer exists on the

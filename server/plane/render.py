@@ -126,24 +126,34 @@ PT_SERIF_BOLD = os.path.join(FONT_DIR, "PTSerif-Bold.ttf")
 
 # D-26's exact confirmed sizes, per role. (font_path, size, weight) - weight
 # is documentation only (the path already selects the correct static weight
-# file). Phase 8 (dated 2026-08-31, D-06): every active-state role is now
-# Bold, not Regular. This is the functional replacement for the removed
+# file). Phase 8 (dated 2026-08-31, D-06): every active-state role's *base*
+# weight is Bold, not Regular - the functional replacement for the removed
 # text-backing-plate (`_paint_text_backing()`, deleted this same phase -
-# see D-05), not a taste change: the heavier stroke is what now carries
-# legibility against the dithered state background. The spike
+# see D-05): the heavier stroke is what carries legibility against a
+# dithered state background. The spike
 # (`.planning/spikes/001-panel-theme-colours/README.md`) confirmed Bold
 # legible at every size on the panel, including the smallest caption
 # (`PREVIOUS_LINE2_FONT`). A stroke outline (at 1/2/3px widths) and an
 # offset drop-shadow were both built and both read as legible in that
 # spike, and were both rejected by the developer on visual grounds before
 # font weight was tried - recorded here so a future reader does not
-# re-litigate either without new information. The empty state's heading
-# was already Bold, for continuity with Phase 2's hero-caption boldness
-# (not itself a D-06 subject - the empty state's copy is deliberately out
-# of scope for this phase).
+# re-litigate either without new information.
+#
+# On-glass correction (08-06, same date): Bold read as needlessly heavy on
+# the White theme's flat field, where Bold's only job - resisting dithered
+# speckle - never applies (White is never dithered). `_role_font()` /
+# `_role_fit_text_size()` below substitute Regular for these role tuples'
+# path specifically when `bg_idx == IDX_WHITE`; every dithered theme
+# (confirmed on Sky) keeps Bold. These tuples themselves stay the Bold
+# specification - the dithered-theme case - and are never read directly by
+# the draw_*() functions below; always go through `_role_font()` /
+# `_role_fit_text_size()`, which resolve the weight from `bg_idx`.
+# MAIN_LINE1_FONT's size also dropped 44 -> 40 on the same on-glass pass,
+# independent of the weight question - confirmed too large at 44 regardless
+# of weight, and this reduction applies to every theme.
 STATE_LABEL_FONT = (PT_SERIF_BOLD, 20, 700)
 TOP_TAG_FONT = (PT_SERIF_BOLD, 18, 700)
-MAIN_LINE1_FONT = (PT_SERIF_BOLD, 44, 700)
+MAIN_LINE1_FONT = (PT_SERIF_BOLD, 40, 700)
 MAIN_LINE2_FONT = (PT_SERIF_BOLD, 22, 700)
 PREVIOUS_LINE1_FONT = (PT_SERIF_BOLD, 28, 700)
 PREVIOUS_LINE2_FONT = (PT_SERIF_BOLD, 20, 700)
@@ -395,6 +405,36 @@ def fit_text_size(font_path, initial_size, text, max_width, min_size):
     return _font((font_path, min_size, None))
 
 
+def _role_weight_path(bg_idx):
+    """Resolve which PT Serif static weight an active-state text role uses
+    for `bg_idx`. White (`IDX_WHITE`) is never dithered, so Bold's whole
+    job - resisting dithered speckle - never applies there; Regular reads
+    cleaner on real glass (08-06 on-glass finding). Every other theme's
+    background is dithered and keeps Bold, confirmed separately on Sky.
+    The empty state is untouched by this - it never calls this helper.
+    """
+    return PT_SERIF_REGULAR if bg_idx == IDX_WHITE else PT_SERIF_BOLD
+
+
+def _role_font(role_spec, bg_idx):
+    """`_font()` for one of the six active-state role tuples
+    (`STATE_LABEL_FONT`, `TOP_TAG_FONT`, ...), resolving the role's weight
+    from `bg_idx` via `_role_weight_path()` rather than reading the tuple's
+    own (always-Bold) path directly.
+    """
+    _path, size, weight = role_spec
+    return _font((_role_weight_path(bg_idx), size, weight))
+
+
+def _role_fit_text_size(role_spec, text, max_width, min_size, bg_idx):
+    """`fit_text_size()` for one of the six active-state role tuples,
+    resolving the role's weight from `bg_idx` the same way `_role_font()`
+    does, instead of the caller hardcoding a bare `PT_SERIF_BOLD` path.
+    """
+    _path, size, _weight = role_spec
+    return fit_text_size(_role_weight_path(bg_idx), size, text, max_width, min_size)
+
+
 def _assert_in_safe_box(bbox, label):
     left, top, right, bottom = bbox
     sb_left, sb_top, sb_right, sb_bottom = SAFE_BOX
@@ -592,19 +632,19 @@ def draw_battery_icon(canvas, draw, ink_idx):
 
 def draw_top_labels(canvas, state, ink_idx, bg_idx, runway_id=device_config.DEFAULT_RUNWAY_ID):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
-    (top-right, `runway_tag_text(runway_id)`), both PT Serif Bold (D-06) at
-    the small sizes D-26 confirmed, both at the existing `MARGIN` inset
-    (inside the frame, not on it) - no icon glyph, no letter-spacing/
-    tracking (that was the old, larger zone-1 treatment; superseded).
+    (top-right, `runway_tag_text(runway_id)`), at the small sizes D-26
+    confirmed, both at the existing `MARGIN` inset (inside the frame, not
+    on it) - no icon glyph, no letter-spacing/tracking (that was the old,
+    larger zone-1 treatment; superseded).
 
-    `bg_idx` is deliberately retained as a parameter even though D-05
-    removed its only use here (the text-backing-plate call) - a future
-    per-state or per-role background could need it again, and PATTERNS.md
-    instructs against a signature change this phase never asked for.
+    `bg_idx` selects each role's weight via `_role_font()` (Bold on a
+    dithered theme, Regular on the flat White field - 08-06 on-glass
+    finding) - no longer merely retained for a hypothetical future need,
+    per D-05's original note here.
     """
     draw = ImageDraw.Draw(canvas)
-    label_font = _font(STATE_LABEL_FONT)
-    tag_font = _font(TOP_TAG_FONT)
+    label_font = _role_font(STATE_LABEL_FONT, bg_idx)
+    tag_font = _role_font(TOP_TAG_FONT, bg_idx)
     tag_text = runway_tag_text(runway_id)
 
     # _assert_within_canvas(), not the strict _assert_in_safe_box(): real
@@ -1093,9 +1133,10 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     `main_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
 
-    `bg_idx` is deliberately retained as a parameter even though D-05
-    removed its only use here (the text-backing-plate call) - see
-    `draw_top_labels()`'s docstring for the same note.
+    `bg_idx` selects each line's weight via `_role_fit_text_size()` (Bold
+    on a dithered theme, Regular on the flat White field - 08-06 on-glass
+    finding) - no longer merely retained for a hypothetical future need,
+    per D-05's original note here.
     """
     draw = ImageDraw.Draw(canvas)
     center_x = WIDTH // 2
@@ -1107,7 +1148,7 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
 
     if line1_text:
-        line1_font = fit_text_size(PT_SERIF_BOLD, MAIN_LINE1_FONT[1], line1_text, safe_width, MAIN_LINE1_MIN_SIZE)
+        line1_font = _role_fit_text_size(MAIN_LINE1_FONT, line1_text, safe_width, MAIN_LINE1_MIN_SIZE, bg_idx)
         line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
         _assert_within_canvas(line1_bbox, "main flight text line 1")
         draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
@@ -1116,7 +1157,7 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         line1_bbox = None
         line2_top = top_y
 
-    line2_font = fit_text_size(PT_SERIF_BOLD, MAIN_LINE2_FONT[1], line2_text, safe_width, MAIN_LINE2_MIN_SIZE)
+    line2_font = _role_fit_text_size(MAIN_LINE2_FONT, line2_text, safe_width, MAIN_LINE2_MIN_SIZE, bg_idx)
     line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
     _assert_within_canvas(line2_bbox, "main flight text line 2")
     draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
@@ -1160,9 +1201,10 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     `prev_placement` is a `draw_illustration()` return value. Returns
     (line1_bbox, line2_bbox).
 
-    `bg_idx` is deliberately retained as a parameter even though D-05
-    removed its only use here (the text-backing-plate call) - see
-    `draw_top_labels()`'s docstring for the same note.
+    `bg_idx` selects each line's weight via `_role_fit_text_size()` (Bold
+    on a dithered theme, Regular on the flat White field - 08-06 on-glass
+    finding) - no longer merely retained for a hypothetical future need,
+    per D-05's original note here.
     """
     draw = ImageDraw.Draw(canvas)
     right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
@@ -1174,7 +1216,7 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
 
     if line1_text:
-        line1_font = fit_text_size(PT_SERIF_BOLD, PREVIOUS_LINE1_FONT[1], line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE)
+        line1_font = _role_fit_text_size(PREVIOUS_LINE1_FONT, line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE, bg_idx)
         line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
         _assert_within_canvas(line1_bbox, "previous flight text line 1")
         draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
@@ -1183,7 +1225,7 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
         line1_bbox = None
         line2_top = top_y
 
-    line2_font = fit_text_size(PT_SERIF_BOLD, PREVIOUS_LINE2_FONT[1], line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE)
+    line2_font = _role_fit_text_size(PREVIOUS_LINE2_FONT, line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE, bg_idx)
     line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
     _assert_within_canvas(line2_bbox, "previous flight text line 2")
     draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
