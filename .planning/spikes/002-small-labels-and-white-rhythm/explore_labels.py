@@ -27,7 +27,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "server", ".."))
 
-from server.plane import render, runway_config
+from server.plane import render
 from server import device_config
 from PIL import ImageDraw
 
