@@ -22,6 +22,16 @@
  * for card outlines — .stat-tile/.page-section/.battery-trend-section
  * carry --shadow-card instead of a --color-border hairline.
  *
+ * 06.6.2 (D-14, UXA-04): the accent value changed for WCAG AA — light
+ * mode's --color-accent is now #B13F16 (was #E8622C), still hue-separated
+ * (~16°) from --color-status-warn's golden amber (~32°), so the same
+ * signal-confusion guarantee above holds at the new value. Three surface
+ * levels now exist in both themes — --color-canvas (page background),
+ * --color-dominant (primary card/control surface), --color-secondary
+ * (secondary/elevated/nav surface) — replacing the prior two-level model
+ * where --color-dominant did double duty as both the page background and
+ * the card surface.
+ *
  * Theme resolution (CFG-09): `prefers-color-scheme` supplies the default;
  * an explicit `data-ui-theme="light"`/`data-ui-theme="dark"` attribute on
  * <html> (set by companion/layout.py's page_shell(), posted to by the
@@ -67,20 +77,24 @@
   --radius-control: 8px;
 
   /* Light mode (default) */
-  --color-dominant: #FBF9F6;
-  --color-secondary: #F3EEE7;
-  --color-border: #E2E6EE;
-  /* 06.6.1 (D-04): terracotta/red-orange, hue ~16°, deliberately separated
-   * from --color-status-warn's golden amber (~32°) so an accent-coloured
-   * control and a warning dot never read as the same signal at a glance.
-   * Do not shift this toward a more golden orange without re-verifying
-   * that separation — D-04 names that substitution as forbidden. */
-  --color-accent: #E8622C;
-  --color-accent-hover: #D2521F;
+  --color-canvas: #F7F4EF;
+  --color-dominant: #FFFFFF;
+  --color-secondary: #EEE8DE;
+  --color-border: #DFD7C8;
+  /* 06.6.2 (D-14, UXA-04): terracotta/red-orange, hue ~16°, deliberately
+   * separated from --color-status-warn's golden amber (~32°) so an
+   * accent-coloured control and a warning dot never read as the same
+   * signal at a glance. Darkened from 06.6.1's #E8622C to meet WCAG AA
+   * text contrast (UXA-04) — do not shift this toward a more golden
+   * orange without re-verifying that hue separation, and do not revert
+   * to #E8622C without re-verifying contrast (companion/test_contrast_check.py
+   * pins both). */
+  --color-accent: #B13F16;
+  --color-accent-hover: #963610;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-destructive: #DC2626;
-  --color-text: #12151B;
+  --color-text: #17191F;
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
   --color-status-error: #DC2626;
@@ -88,9 +102,10 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-dominant: #0D0F14;
-    --color-secondary: #1A1E27;
-    --color-border: #262B36;
+    --color-canvas: #0C0F14;
+    --color-dominant: #151922;
+    --color-secondary: #1C222D;
+    --color-border: #2A3040;
     --color-accent: #FF8A5C;
     --color-accent-hover: #FF9E77;
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -105,24 +120,26 @@
 
 /* CFG-09 explicit overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
-  --color-dominant: #FBF9F6;
-  --color-secondary: #F3EEE7;
-  --color-border: #E2E6EE;
-  --color-accent: #E8622C;
-  --color-accent-hover: #D2521F;
+  --color-canvas: #F7F4EF;
+  --color-dominant: #FFFFFF;
+  --color-secondary: #EEE8DE;
+  --color-border: #DFD7C8;
+  --color-accent: #B13F16;
+  --color-accent-hover: #963610;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
   --color-destructive: #DC2626;
-  --color-text: #12151B;
+  --color-text: #17191F;
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
   --color-status-error: #DC2626;
 }
 
 html[data-ui-theme="dark"] {
-  --color-dominant: #0D0F14;
-  --color-secondary: #1A1E27;
-  --color-border: #262B36;
+  --color-canvas: #0C0F14;
+  --color-dominant: #151922;
+  --color-secondary: #1C222D;
+  --color-border: #2A3040;
   --color-accent: #FF8A5C;
   --color-accent-hover: #FF9E77;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -132,6 +149,19 @@ html[data-ui-theme="dark"] {
   --color-status-ok: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #F87171;
+}
+
+/* D-19: a single global reduced-motion override every transition in this
+ * file (and every later plan's new transitions) inherits for free — no
+ * later plan needs its own reduced-motion rule for a simple colour/
+ * border/shadow transition. Placed after the token blocks, before the
+ * universal box-sizing reset. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 * {
@@ -144,7 +174,7 @@ body {
   font-size: var(--font-body-size);
   font-weight: var(--weight-regular);
   line-height: 1.5;
-  background: var(--color-dominant);
+  background: var(--color-canvas);
   color: var(--color-text);
 }
 
@@ -212,6 +242,7 @@ select:focus-visible {
 
 a {
   color: var(--color-accent);
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
 a:hover {
@@ -272,6 +303,7 @@ a:hover {
   border-radius: var(--radius-control);
   color: var(--color-text);
   cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
 .site-nav-toggle[aria-expanded="true"] {
@@ -323,6 +355,7 @@ a:hover {
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
   border-left: 3px solid transparent;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
 /* Same active-indicator idiom .sidebar-link--active already uses, so the
@@ -395,6 +428,7 @@ a:hover {
   color: var(--color-text);
   font-size: var(--font-label-size);
   cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
 .theme-form .theme-option--active {
@@ -428,6 +462,7 @@ a:hover {
   font-size: var(--font-body-size);
   border-left: 3px solid transparent;
   letter-spacing: 0.02em;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
 .sidebar-link--active {
@@ -521,6 +556,10 @@ select {
   color: var(--color-text);
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
+  /* D-06: every native radio/checkbox site-wide renders with the
+   * terracotta accent instead of browser-default blue. */
+  accent-color: var(--color-accent);
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
 button {
@@ -534,6 +573,7 @@ button {
   cursor: pointer;
   background: var(--color-secondary);
   color: var(--color-text);
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
 /* Primary-action buttons (Save Settings, Trigger Poll Now, Save LED
@@ -808,6 +848,23 @@ button:disabled {
 .battery-trend-section svg:not(.icon) {
   width: 100%;
   height: auto;
+}
+
+/* D-14: dark-mode cards get a restrained visible border (tonal elevation
+ * alone doesn't read on an already-dark canvas) — light mode keeps its
+ * existing shadow-only treatment (border: 1px solid transparent), which
+ * already reads correctly against the new lighter canvas/dominant split,
+ * so no light-mode override is added here. */
+@media (prefers-color-scheme: dark) {
+  .stat-tile, .page-section, .battery-trend-section {
+    border-color: var(--color-border);
+  }
+}
+
+html[data-ui-theme="dark"] .stat-tile,
+html[data-ui-theme="dark"] .page-section,
+html[data-ui-theme="dark"] .battery-trend-section {
+  border-color: var(--color-border);
 }
 
 /* Dashboard grid (D-02): same auto-fit/minmax idiom .gallery-grid already
