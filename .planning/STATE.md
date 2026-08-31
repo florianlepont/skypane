@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.6.2
-current_phase_name: companion-ux-accessibility-and-responsive-hardening
+current_phase: 06.6.3
+current_phase_name: Companion per-page redesign — Config, Health, History, Airlines, Preview
 status: executing
-stopped_at: "06.6.2-08-PLAN.md Task 1 (full-suite gate) complete; blocked on Task 2's human-verify checkpoint (local browser/keyboard/contrast pass)"
-last_updated: "2026-08-31T09:50:00.000Z"
+stopped_at: Completed 06.6.2-07-PLAN.md
+last_updated: "2026-08-31T11:26:18.666Z"
 last_activity: 2026-08-31
-last_activity_desc: Phase 06.6.2 execution started
+last_activity_desc: Phase 06.6.2 complete, transitioned to Phase 06.6.3
 progress:
   total_phases: 17
-  completed_phases: 14
+  completed_phases: 15
   total_plans: 71
-  completed_plans: 70
-  percent: 99
+  completed_plans: 71
+  percent: 88
 ---
 
 # Project State
@@ -24,13 +24,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 06.6.2 — companion-ux-accessibility-and-responsive-hardening
+**Current focus:** Phase 06.6.3 — companion-per-page-redesign-config-health-history-airlines-p (06.6.2's foundation is complete, 8/8 plans, verified 17/17 must-haves)
 
 ## Current Position
 
-Phase: 06.6.2 (companion-ux-accessibility-and-responsive-hardening) — EXECUTING
+Phase: 06.6.3 — Companion per-page redesign — Config, Health, History, Airlines, Preview
 
-**Phase 06.6.2 (Companion UX, accessibility, and responsive hardening) inserted 2026-08-30**, after Phase 06.6, not yet planned. Seeded from `06.6.2-companion-ux-accessibility-and-responsive-hardening`'s sibling audit document `.planning/phases/06.6.1-companion-visual-polish-pass-logo-branding-mobile-hamburger-/06.6.1-UX-AUDIT.md` (added to `main` in commit `188b00e`, rebased into this branch), a hands-on post-release UI/UX/accessibility/responsive audit of the live companion app performed after Phase 06.6.1's visual-polish pass. 18 findings (4 High: UXA-01 populated History overflows the desktop document and hides its meaning on mobile, UXA-02 the closed mobile nav menu stays exposed to the accessibility tree/focus order, UXA-03 login loses the requested deep link and offers no visible logout, UXA-04 the light-theme accent fails WCAG AA text contrast; 9 Medium; 5 Low), plus 11 open product decisions (language policy, mobile History pattern, save-button dirty-state behavior, etc.) the audit explicitly reserves for `/gsd-discuss-phase` rather than guessing, and a 4-wave suggested implementation sequence. Does not invalidate `06.6.1-VERIFICATION.md`, which correctly verified that phase against its own locked decisions — this is a follow-up hardening pass, not a reopening. `roadmap.phase-op` gave this phase number `06.6.2` when inserted after `06.6` (matching the audit's own suggested follow-up numbering); its ROADMAP.md `Depends on:` line reads "Phase 06.6" as a mechanical consequence of that insertion point, though the audited surface is genuinely 06.6.1's shipped UI — the real dependency should be confirmed/corrected when `/gsd-discuss-phase 06.6.2` runs. Not yet current_phase — Phase 5's deferred discharge run remains the project's actual open item; this is queued backlog, next step `/gsd-discuss-phase 06.6.2`.
+**Phase 06.6.2 (Companion UX, accessibility, and responsive hardening) — COMPLETE, 2026-08-31.** Inserted 2026-08-30 after Phase 06.6, seeded from `06.6.1-UX-AUDIT.md`'s follow-up recommendation. Originally scoped all 23 CONTEXT.md decisions (the full hardening + visual-redesign workstream); the planner determined that combined scope exceeded this project's own largest prior single-phase precedent and returned a phase-split recommendation, which the developer approved — the 9 per-page decisions (D-02–D-05, D-06's heading-dedup half, D-07–D-10, D-12, D-13, D-18, D-20, D-22, D-23) moved to the new Phase 06.6.3, and this phase kept the 8 shared-foundation decisions (D-01, D-06's accent-color half, D-11, D-14–D-17, D-19, D-21). Planned 2026-08-31: 8 plans across 7 waves (`06.6.2-01` through `06.6.2-08`), all executed the same day. Plan 08's closing checkpoint — the developer's own real local-browser pass across all 9 checklist groups (viewport/overflow, mobile-nav accessibility, contrast, sidebar, logout, login deep-link, severity, poll lock, keyboard-only) — approved with all 9 passing; two live-investigated observations during the checkpoint resolved as non-blocking (a History mobile-scroll preference already covered by 06.6.3's D-07, and a sidebar-sticky false alarm traced to testing the wrong URL). A post-checkpoint code review (`06.6.2-REVIEW.md`) found 1 Critical (skip-link target not focusable — CR-01) and 4 Warnings (nav-dropdown re-open race, missing hardening response headers, unauthenticated slow-body DoS, duplicate Health-severity DB reads); all 5 fixed via `/gsd-code-review --fix` (`06.6.2-REVIEW-FIX.md`), plus one mechanical `EXPECTED_CHECK_COUNT` correction found while re-verifying. `gsd-verifier` confirmed 17/17 must-haves (`06.6.2-VERIFICATION.md`). One process note: the code-fixer agent's worktree-cleanup step mistakenly fast-forwarded the top-level `main` checkout (not this worktree) by 48 commits during its final merge step — caught immediately, fully recovered with the developer's explicit approval (`main` reset back to `188b00e`/`origin/main`, this worktree's branch fast-forwarded with the 5 fix commits, temp worktree/branch cleaned up), nothing was lost or pushed. Ready for Phase 06.6.3, which depends on this phase's tokens, `page_header()`, sidebar footer region, and severity function.
 
 **Phase 7 (Final On-Glass Verification) — COMPLETE, 2026-08-28**, done independently on `main` (PR #18) while this branch executed the 06.x backlog; merged into this branch just now (no code conflict — only this file). Launched at the developer's explicit request ahead of the 06.x backlog. 07-01 (the phase's only plan) executed across 3 tasks: Task 1 (CLI forcing flags + 02-UI-SPEC.md addendum, commit 0cc4ae1); Task 2 (blocking on-glass verification battery, steps A-H, run interactively with the developer over SSH against the real deployed VPS); Task 3 (findings recorded to hardware/BRINGUP-LOG.md, commit 6bd4126). Real findings, not a rubber-stamp: PT Serif Regular legibility, bezel clipping, state distinction, two-flight composition, and wordmark detail all confirmed "parfait" on real glass with no changes needed. Yellow/Red palette confirmed close enough as-is. Blue/Green, however, failed hard on real glass — D-21's sky-tone values had only ever been screen-confirmed, never checked against real ink — triggering two live deviations, both developer-approved in real time: (1) `panel_format.PALETTE_RGB`'s Blue/Green darkened across two iterations (110,180,225)/(140,195,130) → (45,95,155)/(50,105,65), confirmed "c'est parfait"; (2) the flat D-21 background fill replaced with `dither.dithered_state_background()` (Floyd-Steinberg dither toward White, 2-color palette to avoid a real mid-session bug where the 6-color quantizer picked the wrong ink once Blue/Green were both dark) after the developer found even the corrected flat fill too dark at full-panel coverage (simultaneous-contrast effect) — followed by a third fix, `_paint_text_backing()`, painting a clean undithered plate behind every text run after the dithered speckle hurt legibility behind white text. `server/test_poll_loop.py`'s pinned default-config digest was re-pinned twice (documented, same pattern as the prior D-26-outline re-pin). Full suite green throughout (90% coverage). Session also found and fixed an unrelated production issue: the VPS's `inkframe-poll.timer` (legacy, pre-SkyPane-rename) was left running and failing every 30s since a stale mid-migration state, while the real `skypane-poll.timer` was healthy — the legacy timer was stopped and disabled. Carried-forward open items (see `07-01-SUMMARY.md`): A-02-02-01's real +200ft/min departure threshold still unvalidated against real sensor data (visual path only); the wall-mounted re-check of ROADMAP criteria 1/4 remains open (D-03, not a blocker); ROADMAP criterion 7's "2-3 alternate Blue/Green theme variants for CFG-01" was only partially fulfilled — the single default "sky" theme was corrected, no additional selectable theme variants were built (open for a future phase if wanted); the `inkframe-*`/`skypane-*` naming drift in this plan's own example commands (documentation only).
 
@@ -58,7 +58,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 Status: Executing Phase 06.6.2
 Also merged 2026-08-28: origin/main's Phase 05 DEVICE-04 completion and the missed-flights-not-displayed debug session's two remaining mechanisms — B (`detect.py` now corroborates ADS-B sources on candidate SETS rather than final picks, and the D-P2-01 sort key tie-breaks on `hex` instead of the observer-local `seen_pos`) and C (`poll_loop.py` paces the display slot to the device's ~90s redraw floor through a bounded-age FIFO queue). Both compose with Phase 6's runway parameterisation: the pavement gate applies to whichever runway is selected, and corroboration runs on that runway's candidates. Also merged 2026-08-28 (second merge, this one): origin/main's Phase 7 (Final On-Glass Verification, PR #18) — panel palette re-tuning (Blue/Green darkened, dithered state background, text backing plate) and the legacy `inkframe-poll.timer` cleanup, described in the Phase 7 paragraph above.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-08-31 — Phase 06.6.2 execution started
+Last activity: 2026-08-31 — Phase 06.6.2 complete, transitioned to Phase 06.6.3
 
 **State at end of this session (2026-08-28), on branch `claude/debug-skypane-0c21a9`:** two more items completed on that branch, both unrelated to Phase 06's companion-app work, merged forward from a session that started as a live-device debugging conversation. Quick task 260828-b0d: corrected an unverified manufacturer citation about panel refresh cadence in `firmware/main/Kconfig.projbuild`, `firmware/main/panel_guard.h`, and `server/poll_loop.py`'s `MAX_STALENESS_S` comment, replacing it with the real Good Display GDEP133C02 datasheet finding (the datasheet's only refresh-frequency guidance is a 24h *minimum* against ghosting, not a maximum-rate wear limit as previously claimed) — zero behavioral/numeric change, proven by pre/post digests. Debug session `illustration-crop-text-margin` (resolved, two passes): the user reported the gap between the aircraft illustration and its flight-info text looked inconsistent across airlines; root cause was `draw_illustration()` anchoring layout to each PNG's full source rectangle rather than its actually-painted (opaque) pixels, while every vendored file carries a soft drop-shadow band the renderer already discards before painting — measured gap varied 17-154px by airline. Pass 1 fixed the vertical text gap (user-confirmed via preview renders); pass 2, requested as a follow-up, fixed horizontal centering (main aircraft up to 7.5px off canvas centre), the previous card's right-alignment (up to 26px between the two aircraft's visible edges), and a previously-unreported previous-card vertical-centering drift (5.5-28.5px, found while re-measuring for pass 2) — all three fixed the same way, via the `IllustrationPlacement.content` tight bbox. Card *sizing* deliberately still derives from the full rectangle so one aircraft's rendered size never depends on which airline preceded it. Neither fix has been confirmed on real Spectra 6 glass yet; both are server-side/comment-only so no firmware reflash is needed once deployed. This also means `server/plane/render.py`'s render output changed again since Phase 06's own digest re-pin (see `06-12`'s CI-fix commit) — a second, independent `_DEFAULT_CONFIG_DIGEST` re-pin landed on `main` for the same reason (real pixel output moved, not a platform artifact this time); reconciled during this merge, see git history for the merged value.
 
@@ -78,7 +78,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 **Velocity:**
 
-- Total plans completed: 49
+- Total plans completed: 57
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -97,6 +97,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 06.5 | 3 | - | - |
 | 06.6.1 | 6 | - | - |
 | 06.6 | 3 | - | - |
+| 06.6.2 | 8 | - | - |
 
 **Recent Trend:**
 
