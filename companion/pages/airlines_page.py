@@ -207,7 +207,7 @@ def render(ctx):
     )
 
     return (
-        '<h1 class="text-heading">Airlines</h1>'
-        '<h2 class="text-heading">Coverage</h2>'
+        layout.page_header("Airlines")
+        + '<h2 class="text-heading">Coverage</h2>'
         '<div class="dashboard-grid">' + tiles_html + '</div>'
     )

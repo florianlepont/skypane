@@ -55,7 +55,7 @@ APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
 # 44 (pre-06.6-01) + 2 (06.6-01 Task 1: layout timestamp-helper promotion
 # checks) + 1 (06.6-01 Task 2: Battery Trend absolute+relative timestamp check)
-EXPECTED_CHECK_COUNT = 48  # 47 + 1 (06.6.2-04: Health page_header() shared component check)
+EXPECTED_CHECK_COUNT = 49  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1343,6 +1343,23 @@ def main():
     check(
         "companion/pages/airlines_page.py never references enrich.py's prefix-derivation internals",
         _airlines_page_source_never_rederives_enrich_logic)
+
+    def _airlines_page_opens_with_shared_page_header():
+        # 06.6.2-04 (D-16): Airlines' top-level heading now goes through
+        # layout.page_header() instead of an independent bare <h1>.
+        tmp = _mkstate("a-page-header")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            if '<h1 class="page-title">Airlines</h1>' not in rendered:
+                return False, "expected the page_header()-rendered <h1 class=\"page-title\">Airlines</h1>"
+            if '<h1 class="text-heading">' in rendered:
+                return False, "expected no bare <h1 class=\"text-heading\"> heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Airlines opens with the shared layout.page_header() component, not a bare <h1>",
+        _airlines_page_opens_with_shared_page_header)
 
     def _airlines_page_renders_one_dashboard_grid_of_two_tiles():
         tmp = _mkstate("a-dashboard-grid")

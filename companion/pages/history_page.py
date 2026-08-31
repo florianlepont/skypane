@@ -224,4 +224,4 @@ def render(ctx):
     else:
         body = _history_table_html([format_event_row(row, now) for row in rows])
 
-    return '<h1 class="text-heading">History</h1>' + body
+    return layout.page_header("History") + body

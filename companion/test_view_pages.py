@@ -58,7 +58,9 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 28  # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History
+EXPECTED_CHECK_COUNT = 30  # 28 (pre-06.6.2-04) + 2 (06.6.2-04: History/Preview
+# page_header() shared component checks). Prior baseline: 25 (pre-06.6-03)
+# + 3 (06.6-03 Task 1: History
 # Timestamp column reads "ISO (Nm ago)"; Task 2: Preview's Captured
 # caption reads "Captured ISO (Nm ago)"; Task 3: corroboration copy
 # cross-page drift guard, D-03)
@@ -434,6 +436,23 @@ def main():
     check(
         "companion/pages/history_page.py never redefines _TYPE_DISPLAY_LABELS locally",
         _history_page_never_redefines_type_labels)
+
+    def _history_page_opens_with_shared_page_header():
+        # 06.6.2-04 (D-16): History's top-level heading now goes through
+        # layout.page_header() instead of an independent bare <h1>.
+        tmp = _mkstate("h-page-header")
+        try:
+            rendered = history_page.render(_history_ctx(tmp))
+            if '<h1 class="page-title">History</h1>' not in rendered:
+                return False, "expected the page_header()-rendered <h1 class=\"page-title\">History</h1>"
+            if '<h1 class="text-heading">' in rendered:
+                return False, "expected no bare <h1 class=\"text-heading\"> heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History opens with the shared layout.page_header() component, not a bare <h1>",
+        _history_page_opens_with_shared_page_header)
 
     def _history_table_wrapped_for_horizontal_scroll_dot_survives():
         # D-03/D-22 regression pin: History's own hand-built table gained
@@ -859,6 +878,23 @@ def main():
     check(
         "companion/pages/preview_page.py contains no <input element",
         _preview_page_no_input_element)
+
+    def _preview_page_opens_with_shared_page_header():
+        # 06.6.2-04 (D-16): Preview's top-level heading now goes through
+        # layout.page_header() instead of an independent bare <h1>.
+        tmp = _mkstate("p-page-header")
+        try:
+            rendered = preview_page.render(_preview_ctx(tmp))
+            if '<h1 class="page-title">Preview</h1>' not in rendered:
+                return False, "expected the page_header()-rendered <h1 class=\"page-title\">Preview</h1>"
+            if '<h1 class="text-heading">' in rendered:
+                return False, "expected no bare <h1 class=\"text-heading\"> heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Preview opens with the shared layout.page_header() component, not a bare <h1>",
+        _preview_page_opens_with_shared_page_header)
 
     def _every_image_has_nonempty_alt():
         tmp = _mkstate("p-alt")

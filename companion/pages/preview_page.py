@@ -18,6 +18,7 @@ not add one back as an "obvious improvement" without re-opening that
 discussion.
 """
 from companion.layout import absolute_and_relative, empty_state, escape_html
+import companion.layout as layout
 from server import panel_preview
 
 # D-P2-03 / server/panel_preview.py's own module docstring: the preview
@@ -110,8 +111,8 @@ def gallery_tiles(ctx):
 
 def render(ctx):
     return (
-        '<h1 class="text-heading">Preview</h1>'
-        '<section class="page-section">'
+        layout.page_header("Preview")
+        + '<section class="page-section">'
         '<h2 class="text-heading">Live preview</h2>'
         "%s"
         "</section>"
