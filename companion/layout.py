@@ -440,7 +440,7 @@ def _nav_links(active):
 # _nav_links() above.
 
 
-def _health_alert_markup():
+def _health_alert_markup(severity):
     """The Health nav-tab notification dot plus its visually-hidden
     screen-reader suffix (06.6.1-UI-SPEC.md's Layout Contract / D-02),
     built once so both `_nav_html()`-style and `sidebar_nav()` renderers
@@ -448,10 +448,12 @@ def _health_alert_markup():
     calls this (the horizontal `_nav_html()` renderer is retired by plan
     06.6.1-05 rather than gaining this markup itself).
 
-    Reuses the existing `dot`/`dot--error` classes — the same visual
-    treatment the Battery/Device/Pipeline error state already uses —
-    plus NAV_NOTIFICATION_CLASS to override size/spacing only, rather
-    than introducing a fourth status colour.
+    `severity` is `"warn"` or `"error"` — this function is only ever
+    called when the caller has already checked severity is not `"ok"`/
+    falsy (06.6.2-06, UXA-14). The dot class is looked up via the same
+    `_STATUS_DOT_CLASSES` dict `status_dot()` uses (reused, not
+    duplicated), so a warning-only Health state draws `dot--warn` rather
+    than always the maximal `dot--error` treatment.
 
     Appends a visually-hidden text suffix rather than an `aria-label` on
     the link: an `aria-label` would *replace* the link's accessible
@@ -466,13 +468,14 @@ def _health_alert_markup():
     badge already set in this codebase: nothing is rendered when
     everything is fine, so there is no "all good" chrome to ignore.
     """
+    dot_class = _STATUS_DOT_CLASSES.get(severity, _DEFAULT_STATUS_DOT_CLASS)
     return (
-        '<span class="dot dot--error %s"></span>'
+        '<span class="dot %s %s"></span>'
         '<span class="visually-hidden">%s</span>'
-    ) % (NAV_NOTIFICATION_CLASS, escape_html(HEALTH_ALERT_SUFFIX_TEXT))
+    ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(HEALTH_ALERT_SUFFIX_TEXT))
 
 
-def sidebar_nav(active, health_alert=False):
+def sidebar_nav(active, health_alert=None):
     """The vertical Primary-navigation landmark shown by page_shell()'s
     dashboard sidebar column at desktop width.
 
@@ -483,11 +486,14 @@ def sidebar_nav(active, health_alert=False):
     viewport width; this function has no opinion on visibility.
 
     `health_alert` (06.6.1-04, keyword-with-default so no existing
-    positional call site changes meaning) appends _health_alert_markup()
-    after the label text of the link whose slug matches HEALTH_NAV_SLUG,
-    and only that link. The markup is already-built safe HTML and is
-    interpolated verbatim, exactly like status_dot()'s output is in
-    other builders — it is not routed through escape_html() again.
+    positional call site changes meaning; 06.6.2-06/UXA-14 widened the
+    contract from a boolean to a severity string) is `None`/`"ok"` for
+    no dot, or `"warn"`/`"error"` to append `_health_alert_markup()`
+    (drawn with that exact severity) after the label text of the link
+    whose slug matches HEALTH_NAV_SLUG, and only that link. The markup
+    is already-built safe HTML and is interpolated verbatim, exactly
+    like status_dot()'s output is in other builders — it is not routed
+    through escape_html() again.
 
     06.6.2-05 (D-17/UXA-10): each link is prefixed with its
     NAV_ICON_IDS-mapped icon (icon_html()'s own whitelist-fallback
@@ -511,8 +517,8 @@ def sidebar_nav(active, health_alert=False):
         icon = icon_html(
             NAV_ICON_IDS.get(slug, ""), extra_class="sidebar-link__icon")
         alert_html = (
-            _health_alert_markup()
-            if health_alert and slug == HEALTH_NAV_SLUG else "")
+            _health_alert_markup(health_alert)
+            if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
         links.append(
             '<a class="%s" href="%s"%s>%s%s%s</a>'
             % (css_class, route, aria_current, icon, label, alert_html))
@@ -561,7 +567,7 @@ def _logout_form_html():
     )
 
 
-def _mobile_nav_html(active, theme_form_html, health_alert=False):
+def _mobile_nav_html(active, theme_form_html, health_alert=None):
     """The hamburger toggle button plus the dropdown panel it controls —
     the <960px nav renderer (D-06, 06.6.1-UI-SPEC.md's Layout Contract).
 
@@ -581,6 +587,11 @@ def _mobile_nav_html(active, theme_form_html, health_alert=False):
     nav-dropdown.js is what adds/removes the class client-side, keyed off
     the toggle's own aria-expanded attribute (the single source of truth
     for the open state, never a second variable to keep in sync).
+
+    `health_alert` (06.6.2-06/UXA-14): `None`/`"ok"` draws no dot;
+    `"warn"`/`"error"` draws `_health_alert_markup()` with that exact
+    severity after the Health link's label, mirroring sidebar_nav()'s
+    own contract exactly so the two nav renderers can never disagree.
     """
     links = []
     for is_active, route, label, slug in _nav_links(active):
@@ -588,8 +599,8 @@ def _mobile_nav_html(active, theme_form_html, health_alert=False):
             "mobile-nav__link mobile-nav__link--active"
             if is_active else "mobile-nav__link")
         alert_html = (
-            _health_alert_markup()
-            if health_alert and slug == HEALTH_NAV_SLUG else "")
+            _health_alert_markup(health_alert)
+            if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
         links.append(
             '<a class="%s" href="%s">%s%s</a>'
             % (css_class, route, label, alert_html))
@@ -613,7 +624,7 @@ def _mobile_nav_html(active, theme_form_html, health_alert=False):
 
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
-        health_alert=False):
+        health_alert=None):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and every nav label are escaped here. `body`, `flash` and
@@ -622,11 +633,13 @@ def page_shell(
     output of this module's other builders, which already escape).
 
     `health_alert` (06.6.1-04, keyword-with-default, placed last so no
-    positional call site shifts) is threaded through to sidebar_nav() and
-    (06.6.1-05) _mobile_nav_html(). It is a display signal only,
-    defaulting off, so any caller without a request context — login, 404,
-    the preview-image error pages — draws no dot, which is correct rather
-    than merely convenient.
+    positional call site shifts; 06.6.2-06/UXA-14 widened the contract
+    from a boolean to a severity string) is threaded through to
+    sidebar_nav() and (06.6.1-05) _mobile_nav_html(). It is `None`/`"ok"`
+    (no dot) or `"warn"`/`"error"` (a dot with that class), a display
+    signal only, defaulting to no dot, so any caller without a request
+    context — login, 404, the preview-image error pages — draws no dot,
+    which is correct rather than merely convenient.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     sidebar_html = sidebar_nav(active, health_alert=health_alert)
@@ -722,14 +735,43 @@ def page_shell(
     )
 
 
-def flash_banner(message):
-    """An accent-bordered confirmation block (D-07's save confirmation)."""
-    return '<div class="banner banner--flash">%s</div>' % escape_html(message)
+_FLASH_ROLES = {"status", "alert"}
 
 
-def anomaly_banner(message):
-    """A destructive/warning-bordered block for D-14's anomaly flagging."""
-    return '<div class="banner banner--anomaly">%s</div>' % escape_html(message)
+def flash_banner(message, role="status"):
+    """An accent-bordered confirmation block (D-07's save confirmation).
+
+    `role` (06.6.2-06, UXA-07) is validated against `_FLASH_ROLES`
+    (falling back to `"status"` for anything else) — the same
+    whitelist-with-safe-fallback discipline `status_dot()`'s `state`
+    parameter already uses — and rendered as the `<div>`'s ARIA `role`
+    attribute, so a save/poll failure announces as `role="alert"`
+    (assertive) while every other outcome stays `role="status"`
+    (polite), chosen by the caller's real severity rather than one role
+    for every outcome.
+    """
+    resolved_role = role if role in _FLASH_ROLES else "status"
+    return (
+        '<div class="banner banner--flash" role="%s">%s</div>'
+        % (resolved_role, escape_html(message)))
+
+
+def anomaly_banner(message, severity="error"):
+    """A warning/destructive-bordered block for D-14's anomaly flagging.
+
+    `severity` (06.6.2-06, UXA-14) chooses both the CSS class and the
+    ARIA role: `"error"` (the default, preserving every existing
+    positional/no-keyword call site's prior meaning) renders
+    `banner--anomaly`/`role="alert"`; anything else (in practice only
+    `"warn"`) renders the new `banner--warn`/`role="status"` — a
+    warning-only Health state is announced politely, not as an
+    assertive interruption.
+    """
+    css_class = "banner--anomaly" if severity == "error" else "banner--warn"
+    role = "alert" if severity == "error" else "status"
+    return (
+        '<div class="banner %s" role="%s">%s</div>'
+        % (css_class, role, escape_html(message)))
 
 
 def status_dot(state, label):

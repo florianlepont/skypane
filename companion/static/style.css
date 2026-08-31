@@ -610,6 +610,15 @@ a:hover {
   border-left-color: var(--color-destructive);
 }
 
+/* 06.6.2-06 (UXA-14): the warning-only counterpart to .banner--anomaly,
+ * so a warning-level Health state (e.g. only a corroboration
+ * disagreement, device/pipeline both fresh) renders a distinct,
+ * less-alarming border colour instead of always the maximal
+ * destructive/red treatment. */
+.banner--warn {
+  border-left-color: var(--color-status-warn);
+}
+
 .banner--flash {
   border-left-color: var(--color-accent);
 }
