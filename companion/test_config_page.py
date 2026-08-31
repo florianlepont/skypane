@@ -47,7 +47,12 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 42  # 39 + 3 (06.6.3-03 Task 1: D-02 LED copy rename + D-06 heading dedup checks)
+EXPECTED_CHECK_COUNT = 45  # 42 + 3 net (06.6.3-03 Task 2, D-04/D-05): the old
+# "theme_fieldset() emits one radio per THEMES registry entry" check was
+# replaced outright (its own assumption — a radio always renders — is no
+# longer true for the real single-theme registry) by two new checks (the
+# read-only branch + the multi-theme fallback), plus two new runway-card
+# checks (visually-hidden radio/selected-class, per-card image rendering)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -208,20 +213,29 @@ def main():
     # temporary state directory and a hand-built ctx dict.
     # ==================================================================
 
-    def _render_shape_three_fieldsets_and_save_button():
+    def _render_shape_read_only_theme_runway_cards_led_fieldset_and_save_button():
+        # 06.6.3-03: with the real (unmodified) single-member THEME_IDS
+        # registry, Theme renders as the read-only .theme-status block
+        # (no <fieldset>) and Runway renders as .runway-card labels (also
+        # no <fieldset>) — the sole remaining <fieldset> in render()'s
+        # output is the LED section's.
         ctx = {
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        if rendered.count("<fieldset") != 3:
-            return False, "expected exactly 3 <fieldset occurrences, got %d" % rendered.count("<fieldset")
+        if rendered.count("<fieldset") != 1:
+            return False, "expected exactly 1 <fieldset occurrence (LED only), got %d" % rendered.count("<fieldset")
+        if 'class="theme-status"' not in rendered:
+            return False, "expected the read-only theme-status block"
+        if rendered.count('<label class="runway-card') != 3:
+            return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if "Save Settings" not in rendered:
             return False, "expected the 'Save Settings' submit button copy"
         return True, ""
     check(
-        "render() emits exactly three fieldsets and a Save Settings submit button",
-        _render_shape_three_fieldsets_and_save_button)
+        "render() emits the read-only theme-status block, three runway-card labels, the LED fieldset, and a Save Settings submit button",
+        _render_shape_read_only_theme_runway_cards_led_fieldset_and_save_button)
 
     def _render_opens_with_shared_page_header():
         # 06.6.2-04 (D-16): Config's top-level heading now goes through
@@ -257,17 +271,60 @@ def main():
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
         _settings_form_carries_config_form_class_hook)
 
-    def _theme_fieldset_one_radio_per_registry_entry():
-        rendered = config_page.theme_fieldset("sky")
-        radio_count = rendered.count('name="theme"')
-        if radio_count != len(device_config.THEMES):
-            return False, (
-                "expected %d theme radios (len(THEMES)), got %d"
-                % (len(device_config.THEMES), radio_count))
+    def _theme_fieldset_single_theme_renders_read_only_status_with_real_swatch_hex():
+        # D-04, Task 2 Test 1: with the real (unmodified) single-member
+        # THEME_IDS registry, theme_fieldset() renders the read-only
+        # status block — zero <input> occurrences — showing "{label} ·
+        # current" and swatch chip hex values computed at test time from
+        # panel_format.PALETTE_RGB, not hardcoded expected strings.
+        rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
+        if "<input" in rendered:
+            return False, "expected zero <input occurrences in the read-only branch"
+        expected_label = "%s · current" % device_config.theme_label(device_config.DEFAULT_THEME_ID)
+        if expected_label not in rendered:
+            return False, "expected %r in the rendered output" % (expected_label,)
+        theme = device_config.THEMES[device_config.DEFAULT_THEME_ID]
+        departing_hex = config_page._palette_hex(theme["departing_index"])
+        arriving_hex = config_page._palette_hex(theme["arriving_index"])
+        if ("background:%s" % departing_hex) not in rendered:
+            return False, "expected the departing swatch hex %r derived from PALETTE_RGB" % (departing_hex,)
+        if ("background:%s" % arriving_hex) not in rendered:
+            return False, "expected the arriving swatch hex %r derived from PALETTE_RGB" % (arriving_hex,)
+        if "Phase 7" in rendered:
+            return False, "expected no leaked internal 'Phase 7' planning reference (UXA-05)"
         return True, ""
     check(
-        "theme_fieldset() emits one radio per THEMES registry entry",
-        _theme_fieldset_one_radio_per_registry_entry)
+        "theme_fieldset() renders the read-only theme-status block with real panel-color swatch hex values when THEME_IDS has one member (D-04)",
+        _theme_fieldset_single_theme_renders_read_only_status_with_real_swatch_hex)
+
+    def _theme_fieldset_falls_back_to_radio_group_when_multiple_themes_registered():
+        # D-04, Task 2 Test 2: a synthetic 2-member THEME_IDS (monkeypatched
+        # for the duration of this check only) makes theme_fieldset() fall
+        # back to the original editable radio-group markup — a len()
+        # check, not a hardcoded single-theme assumption.
+        original_themes = device_config.THEMES
+        original_ids = device_config.THEME_IDS
+        device_config.THEMES = dict(original_themes)
+        device_config.THEMES["dusk"] = {
+            "departing_index": original_themes[device_config.DEFAULT_THEME_ID]["departing_index"],
+            "arriving_index": original_themes[device_config.DEFAULT_THEME_ID]["arriving_index"],
+            "ink_index": original_themes[device_config.DEFAULT_THEME_ID]["ink_index"],
+            "label": "Dusk",
+        }
+        device_config.THEME_IDS = tuple(device_config.THEMES)
+        try:
+            rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
+        finally:
+            device_config.THEMES = original_themes
+            device_config.THEME_IDS = original_ids
+        if "<fieldset>" not in rendered or "<legend>Theme</legend>" not in rendered:
+            return False, "expected the original fieldset/legend radio-group markup once >1 theme is registered"
+        if rendered.count('name="theme"') != 2:
+            return False, "expected 2 theme radios, got %d" % rendered.count('name="theme"')
+        return True, ""
+    check(
+        "theme_fieldset() falls back to the editable radio group the moment a second theme is registered (D-04)",
+        _theme_fieldset_falls_back_to_radio_group_when_multiple_themes_registered)
 
     def _runway_fieldset_exactly_three_radios():
         rendered = config_page.runway_fieldset("3")
@@ -278,6 +335,41 @@ def main():
     check(
         "runway_fieldset() emits exactly three runway radio inputs",
         _runway_fieldset_exactly_three_radios)
+
+    def _runway_fieldset_cards_visually_hidden_radio_and_selected_class():
+        # D-05, Task 2 Test 3: three .runway-card <label>s, each wrapping a
+        # visually-hidden (not display:none) native radio, with only the
+        # "3" card carrying runway-card--selected.
+        rendered = config_page.runway_fieldset("3", images_available=())
+        if rendered.count('<label class="runway-card') != 3:
+            return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
+        if rendered.count("runway-card--selected") != 1:
+            return False, "expected exactly one runway-card--selected modifier"
+        if 'value="3" class="visually-hidden" checked' not in rendered:
+            return False, "expected the selected card's radio to carry class=\"visually-hidden\" and checked"
+        if "display:none" in rendered or "display: none" in rendered:
+            return False, "expected the radio hidden via the visually-hidden utility class, never display:none"
+        if rendered.count('class="visually-hidden"') < 3:
+            return False, "expected every card's radio to carry the visually-hidden class"
+        return True, ""
+    check(
+        "runway_fieldset('3') renders three selectable cards, each wrapping a visually-hidden radio, with only the '3' card selected (D-05)",
+        _runway_fieldset_cards_visually_hidden_radio_and_selected_class)
+
+    def _runway_fieldset_cards_image_rendering_per_card():
+        # D-05, Task 2 Test 4: an <img> renders inside exactly the cards
+        # named in images_available, none inside any other card.
+        rendered = config_page.runway_fieldset("3", images_available=("3", "06-24"))
+        if rendered.count("<img") != 2:
+            return False, "expected exactly 2 <img occurrences, got %d" % rendered.count("<img")
+        if "/runway-image/3.png" not in rendered or "/runway-image/06-24.png" not in rendered:
+            return False, "expected <img> src pointing at both supplied runway images"
+        if "/runway-image/02-20.png" in rendered:
+            return False, "expected no <img> for the runway not in images_available"
+        return True, ""
+    check(
+        "runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly those two cards, none in the third (D-05)",
+        _runway_fieldset_cards_image_rendering_per_card)
 
     def _helper_texts_appear_escaped_verbatim():
         rendered = config_page.render({
@@ -296,19 +388,27 @@ def main():
         _helper_texts_appear_escaped_verbatim)
 
     def _current_theme_and_runway_are_selected():
+        # 06.6.3-03: with THEME_IDS at its real single-member size, Theme
+        # has no radio at all (D-04's read-only status block) — the
+        # selection assertion is scoped to Runway's card markup, whose
+        # native radio's checked attribute now sits after a class
+        # attribute (`value="{id}" class="visually-hidden"{checked}>`),
+        # not immediately after value= like the old radio-group markup.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "06-24"},
             "poll_cooldown_remaining": 0,
         })
-        if 'value="06-24" checked' not in rendered:
+        if 'value="06-24" class="visually-hidden" checked' not in rendered:
             return False, "expected the non-default saved runway (06-24) to be marked selected"
-        if 'value="3" checked' in rendered:
+        if 'value="3" class="visually-hidden" checked' in rendered:
             return False, "expected runway 3 (not the saved value) to NOT be marked selected"
-        if 'value="sky" checked' not in rendered:
-            return False, "expected the saved theme (sky) to be marked selected"
+        if rendered.count("runway-card--selected") != 1:
+            return False, "expected exactly one runway-card--selected modifier"
+        if "Sky (default) · current" not in rendered:
+            return False, "expected the saved theme (sky) to be shown as the read-only current theme"
         return True, ""
     check(
-        "the currently-saved theme and (non-default) runway are the ones marked selected",
+        "the currently-saved theme is shown current and the (non-default) saved runway card is the one marked selected",
         _current_theme_and_runway_are_selected)
 
     def _poll_trigger_enabled_at_zero_cooldown():
@@ -922,7 +1022,7 @@ def main():
                 companion_app.FLASH_MESSAGES[companion_app.FLASH_KEY_SAVED])
             if confirmation.encode() not in body:
                 return False, "expected D-07's exact confirmation copy in the response body"
-            if b'value="06-24" checked' not in body:
+            if b'value="06-24" class="visually-hidden" checked' not in body:
                 return False, "expected the newly-saved runway (06-24) to be shown selected"
             return True, ""
         check(

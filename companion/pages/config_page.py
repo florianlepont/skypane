@@ -15,11 +15,17 @@ import json
 
 from companion.layout import escape_html
 import companion.layout as layout
-from server import device_config
+from server import device_config, panel_format
 
+# D-04: was "More themes will be added once Phase 7 validates additional
+# color options on real hardware." — UXA-05 flagged that wording as a
+# leaked internal planning reference (a phase number meaningless to an
+# operator). Reused verbatim by both theme_fieldset() branches (the
+# read-only status block and the >1-theme radio-group fallback) so the
+# sentence exists in exactly one place.
 THEME_HELPER_TEXT = (
-    "More themes will be added once Phase 7 validates additional color "
-    "options on real hardware.")
+    "Additional themes will appear here once more are validated on real "
+    "hardware.")
 RUNWAY_HELPER_TEXT = (
     "Applies on the device's next scheduled poll — not immediately.")
 
@@ -102,11 +108,50 @@ FLASH_POLL_FAILED = "poll_failed"
 FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
 
 
-def theme_fieldset(current_theme_id):
-    """One radio input per `device_config.THEMES` entry, in registry
-    order, with `current_theme_id` marked selected — plus the D-11 helper
-    text explaining today's single-option registry.
+def _palette_hex(index):
+    """`#RRGGBB`, computed from `server.panel_format.PALETTE_RGB`'s flat
+    int list at palette index `index` — never a hardcoded hex literal, so
+    a future re-tuning of the physical panel ink (07-01-PLAN.md's own
+    real-glass Blue/Green correction precedent) automatically updates
+    every swatch that calls this helper.
     """
+    r, g, b = panel_format.PALETTE_RGB[index * 3: index * 3 + 3]
+    return "#%02X%02X%02X" % (r, g, b)
+
+
+def theme_fieldset(current_theme_id):
+    """D-04: a read-only theme status block when exactly one theme is
+    registered (`len(device_config.THEME_IDS) == 1`, true today) — a
+    one-option radio group has no real decision value. Falls back to the
+    original editable radio-group markup automatically the moment a
+    second theme is registered; this is a `len()` check, not a hardcoded
+    single-theme assumption.
+    """
+    if len(device_config.THEME_IDS) == 1:
+        theme_id = (
+            current_theme_id if current_theme_id in device_config.THEMES
+            else device_config.THEME_IDS[0])
+        theme = device_config.THEMES[theme_id]
+        departing_hex = _palette_hex(theme["departing_index"])
+        arriving_hex = _palette_hex(theme["arriving_index"])
+        return (
+            '<div class="theme-status">'
+            '<p class="text-label">Theme</p>'
+            '<div class="theme-status__row">'
+            '<span class="theme-swatch" aria-hidden="true">'
+            '<span class="theme-swatch__chip" style="background:%s"></span>'
+            '<span class="theme-swatch__chip" style="background:%s"></span>'
+            "</span>"
+            '<span class="text-body">%s · current</span>'
+            "</div>"
+            '<p class="text-label">%s</p>'
+            "</div>"
+        ) % (
+            departing_hex, arriving_hex,
+            escape_html(device_config.theme_label(theme_id)),
+            escape_html(THEME_HELPER_TEXT),
+        )
+
     options = []
     for theme_id in device_config.THEME_IDS:
         checked = " checked" if theme_id == current_theme_id else ""
@@ -129,49 +174,63 @@ def theme_fieldset(current_theme_id):
 
 
 def runway_fieldset(current_runway_id, images_available=()):
-    """One radio input per `device_config.RUNWAYS` entry (exactly three
-    today), in registry order, with `current_runway_id` marked selected —
-    plus the CFG-12 helper text stating the change applies on the
-    device's next scheduled poll, not immediately (D-28).
+    """D-05: one selectable `.runway-card` per `device_config.RUNWAYS`
+    entry (exactly three today), in registry order — the entire card
+    (`<label>`) is the hit target, wrapping a visually-hidden (never
+    `display:none`) native radio input so keyboard/no-JS selection still
+    works natively. `current_runway_id` marks the matching card
+    `runway-card--selected`, computed server-side from the same
+    membership comparison the radio's own `checked` attribute uses —
+    never a client-side `:has()` CSS trick.
 
-    Each option's number/heading label is promoted into a Display-size
-    `<span>` (D-01). When `runway_id` is a member of `images_available`
-    (the `ctx["runway_images"]` set companion/app.py computes — this
-    module never touches the filesystem itself), an `<img>` pointing at
-    the session-gated `/runway-image/{id}.png` route is also rendered.
+    Each card also carries a `runway-card__check` icon-check glyph,
+    present in every card's markup — CSS shows it only on the selected
+    card via the `runway-card--selected` modifier, so no second
+    server-side conditional is needed for the icon itself.
+
+    When `runway_id` is a member of `images_available` (the
+    `ctx["runway_images"]` set companion/app.py computes — this module
+    never touches the filesystem itself), an `<img>` pointing at the
+    session-gated `/runway-image/{id}.png` route is also rendered.
     `images_available` defaults to `()` — "no images available" — the
     safe D-03 fallback, which is also what every pre-06.4 single-argument
-    call site still gets.
+    call site still gets. The CFG-12 helper text (applies on the
+    device's next scheduled poll, not immediately — D-28) renders once
+    after the card list.
     """
-    options = []
+    cards = []
     for runway_id in device_config.RUNWAY_IDS:
-        checked = " checked" if runway_id == current_runway_id else ""
+        selected = runway_id == current_runway_id
+        checked = " checked" if selected else ""
+        card_class = (
+            "runway-card runway-card--selected" if selected else "runway-card")
         label = device_config.runway_label(runway_id)
         escaped_id = escape_html(runway_id)
         image_html = ""
         if runway_id in images_available:
             image_html = (
-                '<img class="runway-option__image" src="%s%s.png" alt="%s">'
+                '<img class="runway-card__image" src="%s%s.png" alt="%s">'
                 % (
                     RUNWAY_IMAGE_ROUTE_PREFIX, escaped_id,
                     escape_html(RUNWAY_IMAGE_ALT_TEMPLATE % label),
                 )
             )
-        options.append(
-            '<label class="runway-option">'
-            '<input type="radio" name="tracked_runway" value="%s"%s>'
-            '<span class="runway-option__number">%s</span>'
+        cards.append(
+            '<label class="%s">'
+            '<input type="radio" name="tracked_runway" value="%s" class="visually-hidden"%s>'
+            '<span class="runway-card__number">%s</span>'
             "%s"
+            '<span class="runway-card__check">%s<span class="visually-hidden">Selected</span></span>'
             "</label>"
-            % (escaped_id, checked, escape_html(label), image_html)
+            % (
+                card_class, escaped_id, checked, escape_html(label),
+                image_html, layout.icon_html("icon-check"),
+            )
         )
     return (
-        "<fieldset>"
-        "<legend>Runway</legend>"
         "%s"
         '<p class="text-label">%s</p>'
-        "</fieldset>"
-    ) % ("".join(options), escape_html(RUNWAY_HELPER_TEXT))
+    ) % ("".join(cards), escape_html(RUNWAY_HELPER_TEXT))
 
 
 def led_fieldset(current_led_enabled):
