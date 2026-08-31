@@ -823,6 +823,21 @@ select {
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
+/* 06.6.4 (D-01c) — 44px touch-target floor register, exhaustive audit.
+ * Gave the floor up this phase: text buttons (this rule, 30px — D-01),
+ * nav links (.sidebar-link/.mobile-nav__link, 32px — D-05, plan
+ * 06.6.4-04), theme-picker segments (.theme-form .theme-option, 28px —
+ * D-06, plan 06.6.4-04), and the filter input (.filter-bar__field input,
+ * 32px — D-08, plan 06.6.4-05). The icon button (.copy-btn, D-02) is
+ * deliberately NOT in this list — it keeps a genuine 44x44 hit area via
+ * a `::before` pseudo-element, no accessibility trade-off. Kept the
+ * floor: the hamburger toggle (.site-nav-toggle), the global native
+ * `input, select` rule directly above, and the disclosure `summary` rule
+ * — none named by CONTEXT.md, all must stay intact. Criterion: WCAG
+ * 2.5.8 (Level AA, 24px) is met everywhere, including every selector
+ * that gave up the floor; it is 2.5.5 (Level AAA, 44px) that was
+ * consciously traded away on the four named selectors only, with the
+ * developer's recorded acceptance (06.6.4-CONTEXT.md Provenance note). */
 button {
   height: 30px;
   padding: 0 12px;
@@ -897,10 +912,16 @@ button:active {
  * `.theme-form .theme-option`'s comment above documents for its own
  * higher-specificity override — this rule is placed after
  * `button[type="submit"]` in source order, which is what actually wins
- * the cascade here, not merely coincidental proximity. */
+ * the cascade here, not merely coincidental proximity. 06.6.4 (D-01b):
+ * restates the base rule's quiet wash/border explicitly (equal
+ * specificity to the base rule too, same source-order reasoning) and
+ * adds `box-shadow: none` — this is a submit button and would otherwise
+ * inherit button[type="submit"]'s new inset highlight, making Sign out
+ * read as a primary action. */
 .logout-form button {
-  background: transparent;
-  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  box-shadow: none;
   color: var(--color-text);
 }
 
@@ -935,11 +956,32 @@ button:active {
  * `<button type="submit">`, already accent-filled by `button[type="submit"]`
  * above. `.dirty-bar__cancel` does need an explicit override, matching the
  * `.logout-form button` precedent immediately above (same equal-or-later
- * cascade weight, placed after `button[type="submit"]` in source order). */
+ * cascade weight, placed after `button[type="submit"]` in source order).
+ * 06.6.4 (D-01b): restates the base rule's quiet wash/border explicitly
+ * and adds `box-shadow: none` — this is also a submit button and would
+ * otherwise inherit the primary inset highlight, same reasoning as
+ * `.logout-form button` above. */
 .dirty-bar__cancel {
-  background: transparent;
-  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  box-shadow: none;
   color: var(--color-text);
+}
+
+/* 06.6.4 (D-01b): the quiet-button hover reveal. Placement here is
+ * load-bearing: this rule MUST sit after both `.logout-form button`
+ * (0,1,1) and `.dirty-bar__cancel` (0,1,0) above in source order.
+ * `button:hover` is itself (0,1,1) — equal to `.logout-form button`, so
+ * source order is what decides the winner there — and while it already
+ * out-specifies the bare-class `.dirty-bar__cancel`, keeping it after
+ * both here (rather than relying on that asymmetry) keeps the ordering
+ * rule uniform and easy to audit. Without this placement the two
+ * quietest controls in the app would have no hover feedback. The primary
+ * button is unaffected — its own hover rule above carries higher
+ * specificity and restates the neutralized border explicitly. */
+button:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
 }
 
 /* Icon-only compact action button (06.6.3 D-23, e.g. the copy buttons in
