@@ -58,10 +58,17 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 35  # 30 (pre-06.6.3-05) + 5 (06.6.3-05 Task 3: filter
-# bar markers present-once; data-filter-text on both representations;
-# desktop Callsign+Hex cell's 2 copy buttons + feedback siblings; mobile
-# details region's 3 copy buttons + feedback siblings; confirmed_state/
+EXPECTED_CHECK_COUNT = 41  # 35 (pre-06.6.3-07) + 6 (06.6.3-07 Task 3:
+# _gallery_name_to_iso() fixtures; matte-frame/sizing/caption re-asserted
+# against the full render() output; no-panel branch stays img/frame-less
+# in the full render() output; gallery sizing/links/D-10 window label
+# re-asserted against the full render() output; a malformed gallery
+# filename's caption-fallback re-asserted against the full render()
+# output; Preview's data-loaded-at/data-stale-banner markers). Prior
+# baseline: 30 (pre-06.6.3-05) + 5 (06.6.3-05 Task 3: filter bar markers
+# present-once; data-filter-text on both representations; desktop
+# Callsign+Hex cell's 2 copy buttons + feedback siblings; mobile details
+# region's 3 copy buttons + feedback siblings; confirmed_state/
 # tracked_runway presentation labels re-asserted against the full
 # render() output). Prior baseline: 28 (pre-06.6.2-04) + 2 (06.6.2-04:
 # History/Preview page_header() shared component checks). Before that:
@@ -1084,6 +1091,135 @@ def main():
     check(
         "every <img element on the Preview page carries a non-empty alt attribute",
         _every_image_has_nonempty_alt)
+
+    def _gallery_name_to_iso_fixtures():
+        # D-22/06.6.3-RESEARCH.md Pitfall 2: the well-formed reversal only
+        # touches the time+offset portion; a missing "T" separator or a
+        # malformed time+offset portion both degrade to None rather than
+        # raising.
+        well_formed = preview_page._gallery_name_to_iso(
+            "2026-08-30T19-20-42+00-00.png")
+        if well_formed != "2026-08-30T19:20:42+00:00":
+            return False, (
+                "expected the well-formed fixture to reverse to %r, got %r"
+                % ("2026-08-30T19:20:42+00:00", well_formed))
+        if preview_page._gallery_name_to_iso("not-a-real-name.png") is not None:
+            return False, "expected a filename with no 'T' separator to return None"
+        if preview_page._gallery_name_to_iso("2026-08-30Tgarbage.png") is not None:
+            return False, "expected a malformed time+offset portion to return None"
+        return True, ""
+    check(
+        "_gallery_name_to_iso() reverses a well-formed gallery filename and "
+        "returns None (never raising) on a missing 'T' separator or a "
+        "malformed time+offset portion",
+        _gallery_name_to_iso_fixtures)
+
+    def _preview_matte_frame_sizing_caption_full_render():
+        # D-18/UXA-16/D-09, re-asserted against the full render() output
+        # (not just the isolated preview_section() call).
+        tmp = _mkstate("p-frame-full")
+        try:
+            _write_panel_file(tmp)
+            rendered = preview_page.render(_preview_ctx(tmp))
+            if '<div class="preview-frame">' not in rendered:
+                return False, "expected the .preview-frame matte wrapper around the live-preview <img>"
+            if 'width="1200"' not in rendered or 'loading="eager"' not in rendered:
+                return False, "expected the live-preview <img> to carry width=1200/loading=eager"
+            if 'class="mono" title=' not in rendered:
+                return False, "expected the D-09 concise-timestamp caption markup"
+            if '&amp;lt;span' in rendered:
+                return False, "found a double-escaped caption artifact"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Preview's full render() output wraps the live-preview <img> in "
+        ".preview-frame, carries the correct sizing/loading hints, and the "
+        "concise D-09 caption markup is not double-escaped",
+        _preview_matte_frame_sizing_caption_full_render)
+
+    def _preview_no_panel_no_frame_full_render():
+        tmp = _mkstate("p-no-frame-full")
+        try:
+            rendered = preview_page.render(_preview_ctx(tmp))
+            if '<img' in rendered or 'preview-frame' in rendered:
+                return False, "did not expect an <img or .preview-frame occurrence with no panel file"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Preview's full render() output with no panel file contains no "
+        "<img and no .preview-frame occurrence",
+        _preview_no_panel_no_frame_full_render)
+
+    def _gallery_tiles_sizing_links_window_label_full_render():
+        # UXA-16/D-10, re-asserted against the full render() output.
+        tmp = _mkstate("p-gallery-full")
+        try:
+            names = [
+                "2026-08-30T19-20-42+00-00.png",
+                "2026-08-30T19-15-00+00-00.png",
+            ]
+            _seed_gallery(tmp, names)
+            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names))
+            if rendered.count('loading="lazy"') != 2:
+                return False, "expected exactly 2 lazy-loaded gallery <img> elements"
+            for name in names:
+                href = "/gallery/%s" % name
+                if ('<a href="%s">' % href) not in rendered:
+                    return False, "expected each gallery tile wrapped in a same-src <a href>"
+            if "Latest 12 renders" not in rendered:
+                return False, "expected the Gallery heading to state its real display window"
+            if "Captured" not in rendered:
+                return False, "expected at least one gallery caption to read 'Captured ...'"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Preview's full render() output gives every gallery tile the "
+        "correct lazy-loading/sizing hints and a same-src <a> link, and the "
+        "Gallery heading states its real 'Latest 12 renders' window",
+        _gallery_tiles_sizing_links_window_label_full_render)
+
+    def _gallery_malformed_filename_caption_fallback_full_render():
+        tmp = _mkstate("p-gallery-malformed")
+        try:
+            names = ["not-a-real-gallery-name.png"]
+            _seed_gallery(tmp, names)
+            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names))
+            if 'class="gallery-tile"' not in rendered:
+                return False, "expected a gallery tile to still render for a malformed filename"
+            if '<p class="text-label mono"></p>' in rendered:
+                return False, "did not expect a blank caption for a malformed filename"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a malformed gallery filename still renders a tile with a "
+        "non-empty raw-filename-derived caption, never raising",
+        _gallery_malformed_filename_caption_fallback_full_render)
+
+    def _preview_freshness_refresh_and_stale_banner_markers():
+        # D-12: independently gated from Health's own pair.
+        tmp = _mkstate("p-freshness")
+        try:
+            rendered = preview_page.render(_preview_ctx(tmp))
+            if rendered.count("data-loaded-at") != 1:
+                return False, "expected exactly one data-loaded-at marker"
+            if rendered.count("data-stale-banner") != 1:
+                return False, "expected exactly one data-stale-banner marker"
+            if '<p class="banner banner--warn" data-stale-banner hidden' not in rendered:
+                return False, "expected the stale-view banner to carry the bare hidden attribute"
+            if rendered.count('<h1 class="page-title">') != 1:
+                return False, "expected exactly one <h1 class=\"page-title\"> heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Preview carries exactly one data-loaded-at and one "
+        "hidden-by-default data-stale-banner marker, independently gated "
+        "from Health's own, with exactly one page-title heading",
+        _preview_freshness_refresh_and_stale_banner_markers)
 
     # ======================================================================
     # Section 3: one end-to-end check - a real companion/app.py subprocess,

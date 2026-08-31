@@ -198,8 +198,30 @@ def gallery_tiles(ctx):
 
 
 def render(ctx):
+    now = ctx.get("now")
+    # D-12: an explicit Refresh action carrying data-loaded-at for
+    # companion/static/freshness.js to read, plus a hidden-by-default
+    # stale-view banner past the same client-side threshold Health uses —
+    # independently gated from Health's own [data-loaded-at]/
+    # [data-stale-banner] pair (freshness.js queries the single such pair
+    # present on whichever page is currently loaded; Health and Preview
+    # are never rendered simultaneously in one document, so there is no
+    # risk of the two being confused). Mirrors health_page.py's own
+    # render()-level construction exactly.
+    freshness_html = (
+        '<a href="/preview" class="freshness-refresh" data-loaded-at="%s">%sRefresh</a>'
+        % (escape_html(now), layout.icon_html("icon-refresh")))
+    stale_banner_html = (
+        '<p class="banner banner--warn" data-stale-banner hidden role="status">'
+        "This view may be out of date. "
+        '<a href="/preview">Refresh</a> to see the latest.'
+        "</p>")
+
     return (
-        layout.page_header("Preview")
+        layout.page_header(
+            "Preview", purpose="What the physical frame is currently showing.",
+            freshness_html=freshness_html)
+        + stale_banner_html
         + '<section class="page-section">'
         '<h2 class="text-heading">Live preview</h2>'
         "%s"
