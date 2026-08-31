@@ -62,6 +62,15 @@ NAV_TOGGLE_LABEL = "Open menu"
 # assert the equality.
 NAV_DROPDOWN_SCRIPT_SRC = "/static/nav-dropdown.js"
 
+# 06.6.3: four more pre-auth static JS route constants, same
+# duplicated-not-imported contract as NAV_DROPDOWN_SCRIPT_SRC above —
+# each must equal companion/app.py's matching *_SCRIPT_ROUTE constant
+# exactly (that module's own Task 2 checks assert the equality).
+DIRTY_STATE_SCRIPT_SRC = "/static/dirty-state.js"
+LIST_FILTER_SCRIPT_SRC = "/static/list-filter.js"
+COPY_BUTTON_SCRIPT_SRC = "/static/copy-button.js"
+FRESHNESS_SCRIPT_SRC = "/static/freshness.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 _STATUS_DOT_CLASSES = {
@@ -101,6 +110,17 @@ ICON_IDS = (
     "icon-nav-airlines",
     "icon-nav-history",
     "icon-nav-preview",
+)
+
+# 06.6.3: four more icons for the per-page redesign plans (D-05/D-23/
+# D-12/D-20) grow the whitelist from ten to fourteen. Appended, not
+# reordered, so ICON_DEFS_HTML's own symbol-id/ICON_IDS agreement check
+# stays a straightforward set comparison.
+ICON_IDS = ICON_IDS + (
+    "icon-check",
+    "icon-copy",
+    "icon-refresh",
+    "icon-search",
 )
 
 # One shared inline sprite, emitted once per document by page_shell().
@@ -182,6 +202,31 @@ ICON_DEFS_HTML = (
     'stroke-linejoin="round">'
     '<path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z"/>'
     '<circle cx="10" cy="10" r="2.5"/>'
+    "</symbol>"
+    # 06.6.3: four more glyphs (D-05/D-23/D-12/D-20), same viewBox/stroke
+    # language as the ten above.
+    '<symbol id="icon-check" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M4 10.5l4 4 8-9"/>'
+    "</symbol>"
+    '<symbol id="icon-copy" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<rect x="3" y="3" width="10" height="10" rx="1.5"/>'
+    '<path d="M7 17h8a2 2 0 0 0 2-2V7"/>'
+    "</symbol>"
+    '<symbol id="icon-refresh" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M16 10a6 6 0 1 1-2-4.5"/>'
+    '<path d="M16 2.5v4h-4"/>'
+    "</symbol>"
+    '<symbol id="icon-search" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<circle cx="8.5" cy="8.5" r="5.5"/>'
+    '<path d="M13.5 13.5L17.5 17.5"/>'
     "</symbol>"
     "</defs>"
     "</svg>"
@@ -391,6 +436,44 @@ def absolute_and_relative(ts, now_ts, fallback="no reading yet"):
     if age is None:
         return ts
     return "%s (%s)" % (ts, relative_age_text(age))
+
+
+def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
+    """"<span class="mono" title="<full ISO>"><HH:MM> UTC (<relative>)</span>"
+    — D-09's concise-timestamp-by-default format (06.6.3-UI-SPEC.md's New
+    Component Contracts). The full ISO string is demoted to the `title`
+    attribute; the visible text is a concise clock time plus the existing
+    relative_age_text() suffix, preserving absolute_and_relative()'s
+    established absolute-first ordering convention (do not reverse to
+    relative-first).
+
+    THIS IS A RAW-MARKUP-PRODUCING FUNCTION: callers interpolate the
+    return value verbatim — never re-escape it — and place it only in
+    data_table()'s new raw_columns parameter, or directly in
+    already-safe markup (never in a data_table() column outside
+    raw_columns).
+
+    Returns the escaped `fallback` (a bare string, no markup — matching
+    absolute_and_relative()'s own no-markup fallback contract) when `ts`
+    is falsy. When `ts` fails to parse (or age_seconds() cannot compute,
+    e.g. a mismatched now_ts), returns a span with the raw value in both
+    the title and visible-text slots rather than raising.
+
+    absolute_and_relative() is not deleted by this function's addition —
+    it remains the right choice for any plain-text-only call site (e.g.
+    Preview's no-panel caption); do not replace those call sites with
+    this function.
+    """
+    if not ts:
+        return escape_html(fallback)
+    parsed = parse_iso(ts)
+    age = age_seconds(ts, now_ts)
+    if parsed is None or age is None:
+        return '<span class="mono" title="%s">%s</span>' % (
+            escape_html(ts), escape_html(ts))
+    clock = parsed.strftime("%H:%M")
+    return '<span class="mono" title="%s">%s UTC (%s)</span>' % (
+        escape_html(ts), escape_html(clock), escape_html(relative_age_text(age)))
 
 
 def ui_theme_from_cookie(cookies):
@@ -769,6 +852,10 @@ def page_shell(
         "</main>\n"
         "</div>\n"
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -785,6 +872,14 @@ def page_shell(
         SKIP_LINK_TARGET_ID,
         flash_html, banner_html, body,
         NAV_DROPDOWN_SCRIPT_SRC,
+        # 06.6.3: emitted unconditionally on every authenticated page,
+        # matching nav-dropdown.js/battery-trend.js's own "served
+        # everywhere, no-ops via guard clause" convention — never
+        # conditionally included per page.
+        DIRTY_STATE_SCRIPT_SRC,
+        LIST_FILTER_SCRIPT_SRC,
+        COPY_BUTTON_SCRIPT_SRC,
+        FRESHNESS_SCRIPT_SRC,
     )
 
 
@@ -936,13 +1031,31 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
     ) % (escape_html(title), purpose_html, freshness_block, action_block)
 
 
-def data_table(headers, rows, mono_columns=()):
+def data_table(headers, rows, mono_columns=(), raw_columns=()):
     """A header row plus alternating body rows, every value escaped.
 
     `mono_columns` names the zero-based column indices that get the
     monospace class (callsigns, hex codes, prefixes, timestamps, per
     06-UI-SPEC.md's Typography section). Returns empty_state()'s output
     instead of an empty table when `rows` is empty.
+
+    `raw_columns` (06.6.3, D-09) names the zero-based column indices
+    whose cell value is ALREADY-SAFE, pre-built HTML — the same
+    "already-built content passed through verbatim" contract
+    stat_tile()'s `content_html` parameter documents — and is
+    interpolated without a call to escape_html(). Every other column
+    (the default for all of them) is escaped exactly as before this
+    parameter existed; every pre-existing call site passing no
+    raw_columns argument is byte-identical. Only ever place the output
+    of a builder that already escapes internally (concise_timestamp_html(),
+    status_dot()) in a raw_columns cell — never a bare string; doing so
+    would reopen the exact XSS-shaped defect this module's single-
+    escaping-choke-point discipline otherwise closes (06.6.3-RESEARCH.md
+    Pitfall 3). `mono_columns` and `raw_columns` are orthogonal (one
+    controls a CSS class, the other controls escaping) and may safely
+    name the same index, though concise_timestamp_html()'s own
+    `<span class="mono">` makes a redundant mono_columns entry
+    pointless for that specific case.
     """
     if not rows:
         return empty_state("No data yet.", "Nothing to show here yet.")
@@ -956,7 +1069,8 @@ def data_table(headers, rows, mono_columns=()):
         cells = []
         for column_index, cell in enumerate(row):
             cell_class = ' class="mono"' if column_index in mono_columns else ""
-            cells.append("<td%s>%s</td>" % (cell_class, escape_html(cell)))
+            cell_html = cell if column_index in raw_columns else escape_html(cell)
+            cells.append("<td%s>%s</td>" % (cell_class, cell_html))
         body_rows.append('<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
 
     return (
