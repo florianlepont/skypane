@@ -204,3 +204,19 @@ vendored, with their pinned upstream commit, per-file sha256 digests and
 licence record intact — the same "retained for provenance, not deleted"
 treatment this file already gives the Inter and Zilla Slab entries above.
 No font file, digest, commit SHA or licence text changed.
+
+**Correction (2026-08-31, Phase 8 08-06, code-review follow-up): the
+"no longer referenced" claim above no longer holds.** Plan 08-06's
+blocking on-glass session found uniform Bold "très agressif" on real ink,
+most visibly on the new White default, and reopened D-06 mid-session with
+the developer's explicit instruction: font weight became a per-theme
+`server.device_config.THEMES` registry field (`"regular"` or `"bold"`)
+rather than a blanket value, resolved via `_role_font()`/
+`_role_weight_path()`. `PTSerif-Regular.ttf` is active again on every
+active-state role for 7 of the 11 registered themes (white, black,
+yellow, yellow_light, red, green, blue — every flat/undithered theme plus
+the one deliberate dithered exception, Yellow Light); `PTSerif-Bold.ttf`
+remains active on the other 4 (grey, red_light, green_light, blue_light).
+See `hardware/BRINGUP-LOG.md`'s Phase 8 on-glass entry, Step B, for the
+full on-glass record. `EMPTY_BODY_FONT` is unchanged by this correction —
+still Regular, still out of scope.

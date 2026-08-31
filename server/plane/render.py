@@ -500,7 +500,7 @@ def draw_frame(canvas, ink_idx):
     return box
 
 
-def draw_source_fault_badge(canvas, ink_idx):
+def draw_source_fault_badge(canvas, ink_idx, weight="bold"):
     """CFG-05: draw a small triangular alert glyph (outline + exclamation
     stroke) with `SOURCE_FAULT_TEXT` beside it, bottom-centre inside the
     frame `draw_frame()` returns. Uses `ink_idx` only - `ImageDraw.polygon()`
@@ -517,12 +517,22 @@ def draw_source_fault_badge(canvas, ink_idx):
     see `render_panel()`'s own docstring for the rule that makes this
     requirement correct rather than a false-alarm trap (T-06-06-02,
     `.planning/seeds/on-device-fault-icon.md`).
+
+    `weight` (Phase 8 code-review WR-01): the caption is an active-state
+    text role like any other, so it must resolve its PT Serif weight from
+    the active theme via `_role_font()` rather than hardcoding Bold - the
+    same "très agressif on White" on-glass finding that made every other
+    role theme-conditional applies here too. Defaults to `"bold"` only
+    because `_build_empty_canvas()`'s call site is deliberately not
+    theme-dependent (it already mixes weights on its own heading/body
+    text) and passes that literal explicitly rather than relying on the
+    default; `_build_active_canvas()` passes its own resolved `weight`.
     """
     draw = ImageDraw.Draw(canvas)
     frame_inset = round(WIDTH * FRAME_INSET_FRAC)
     frame_bottom = HEIGHT - frame_inset
 
-    caption_font = _font(TOP_TAG_FONT)
+    caption_font = _role_font(TOP_TAG_FONT, weight)
     glyph_size = SOURCE_FAULT_GLYPH_PX
     gap = SPACE_XS
 
@@ -561,9 +571,14 @@ def draw_source_fault_badge(canvas, ink_idx):
         [(stroke_x, top + glyph_size * 0.3), (stroke_x, top + glyph_size * 0.65)],
         fill=ink_idx, width=2,
     )
-    draw.line(
-        [(stroke_x, top + glyph_size * 0.8), (stroke_x, top + glyph_size * 0.8)],
-        fill=ink_idx, width=2,
+    # A zero-length ImageDraw.line() paints a single pixel regardless of
+    # `width` - Pillow doesn't expand a degenerate segment - so the dot is
+    # drawn as a small filled ellipse instead (code-review WR-02).
+    dot_r = 2
+    dot_y = top + glyph_size * 0.8
+    draw.ellipse(
+        [(stroke_x - dot_r, dot_y - dot_r), (stroke_x + dot_r, dot_y + dot_r)],
+        fill=ink_idx,
     )
     draw.text((text_left, mid_y), SOURCE_FAULT_TEXT, font=caption_font, fill=ink_idx, anchor="lm")
 
@@ -1307,7 +1322,7 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
     # is in, including the empty state - the empty canvas uses EMPTY_INK,
     # matching every other element it already draws.
     if source_fault:
-        draw_source_fault_badge(canvas, EMPTY_INK)
+        draw_source_fault_badge(canvas, EMPTY_INK, weight="bold")
 
     if battery_low:
         draw_battery_icon(canvas, draw, EMPTY_INK)
@@ -1460,7 +1475,7 @@ def _build_active_canvas(
     # CFG-05: the source-fault badge, drawn last so it sits on top of
     # everything else, using the state's own resolved ink index.
     if source_fault:
-        draw_source_fault_badge(canvas, fg_idx)
+        draw_source_fault_badge(canvas, fg_idx, weight=weight)
 
     if battery_low:
         draw_battery_icon(canvas, ImageDraw.Draw(canvas), fg_idx)

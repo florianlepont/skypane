@@ -36,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 99
+EXPECTED_CHECK_COUNT = 101
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -793,6 +793,26 @@ def main():
                 TEST_FLIGHT, "arriving", route=TEST_ROUTE,
                 previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="departing",
                 theme_id=theme_id,
+            )
+        finally:
+            render._font = orig_font
+        return requested_paths
+
+    def _spy_requested_font_paths_with_fault(theme_id):
+        # Same spy idiom as _spy_requested_font_paths(), but with
+        # source_fault=True so draw_source_fault_badge()'s caption font
+        # request is captured too (code-review WR-01's blind spot).
+        requested_paths = []
+        orig_font = render._font
+
+        def _spy_font(spec):
+            requested_paths.append(spec[0])
+            return orig_font(spec)
+
+        render._font = _spy_font
+        try:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE, source_fault=True, theme_id=theme_id,
             )
         finally:
             render._font = orig_font
@@ -2349,6 +2369,64 @@ def main():
             return False, "badge bbox %r is not contained within the frame bbox %r" % (badge_bbox, frame_box)
         return True, ""
     check("draw_source_fault_badge()'s bounding box stays inside the drawn frame", _badge_bbox_stays_inside_the_drawn_frame)
+
+    # 73. Code-review WR-01: the badge caption is an active-state text role
+    # like any other and must resolve its weight from the active theme, not
+    # hardcode Bold - the same per-theme font-path spy check #24c-ii already
+    # uses, now with source_fault=True so draw_source_fault_badge() is
+    # actually exercised (it never was before this check existed).
+    def _badge_caption_uses_its_theme_declared_weight():
+        for theme_id in render.device_config.THEME_IDS:
+            requested_paths = _spy_requested_font_paths_with_fault(theme_id)
+            if not requested_paths:
+                return False, "%r: no font was requested at all - the spy did not capture anything" % (theme_id,)
+            declared_weight = render.device_config.theme_weight(theme_id)
+            wrong_suffix = "PTSerif-Regular.ttf" if declared_weight == "bold" else "PTSerif-Bold.ttf"
+            wrong_hits = [p for p in requested_paths if p.endswith(wrong_suffix)]
+            if wrong_hits:
+                return False, "%r (declared weight %r): the fault badge requested %s %d time(s) - expected zero: %r" % (
+                    theme_id, declared_weight, wrong_suffix, len(wrong_hits), wrong_hits)
+        return True, ""
+    check(
+        "the source-fault badge's caption respects its theme's declared weight, same as every other active-state "
+        "role (code-review WR-01)",
+        _badge_caption_uses_its_theme_declared_weight,
+    )
+
+    # 74. Code-review WR-02: a zero-length ImageDraw.line() paints exactly
+    # one pixel regardless of `width` - Pillow does not expand a degenerate
+    # segment - so the exclamation mark's dot must be drawn as a small
+    # filled area (multiple pixels), not a single point. Uses the badge's
+    # own returned bbox (`left` = combined_bbox[0]) rather than duplicating
+    # its internal caption-width measurement.
+    def _badge_exclamation_dot_paints_more_than_one_pixel():
+        canvas = panel_format.new_canvas(IDX_BLUE)
+        badge_bbox = render.draw_source_fault_badge(canvas, IDX_WHITE)
+        left = badge_bbox[0]
+        frame_inset = round(render.WIDTH * render.FRAME_INSET_FRAC)
+        frame_bottom = render.HEIGHT - frame_inset
+        bottom = frame_bottom - render.MARGIN // 2
+        top = bottom - render.SOURCE_FAULT_GLYPH_PX
+        dot_y = round(top + render.SOURCE_FAULT_GLYPH_PX * 0.8)
+        stroke_x = round(left + render.SOURCE_FAULT_GLYPH_PX / 2)
+        pixels = canvas.load()
+        count = sum(
+            1
+            for dx in range(-3, 4)
+            for dy in range(-3, 4)
+            if pixels[stroke_x + dx, dot_y + dy] == IDX_WHITE
+        )
+        if count <= 1:
+            return False, (
+                "the exclamation dot painted only %d ink pixel(s) around (%d, %d) - expected a visible multi-pixel "
+                "dot, not a single point (code-review WR-02)" % (count, stroke_x, dot_y)
+            )
+        return True, ""
+    check(
+        "the source-fault badge's exclamation-mark dot paints a visible multi-pixel area, not a single point "
+        "(code-review WR-02)",
+        _badge_exclamation_dot_paints_more_than_one_pixel,
+    )
 
     # 73. All three runway ids combined with the single registered theme id
     # render without error across both active states - a small matrix, so
