@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.6.2
 current_phase_name: companion-ux-accessibility-and-responsive-hardening
 status: executing
-stopped_at: Completed 06.6.2-05-PLAN.md
-last_updated: "2026-08-31T08:30:28.944Z"
+stopped_at: Completed 06.6.2-06-PLAN.md
+last_updated: "2026-08-31T08:43:33.351Z"
 last_activity: 2026-08-31
 last_activity_desc: Phase 06.6.2 execution started
 progress:
   total_phases: 17
   completed_phases: 14
   total_plans: 71
-  completed_plans: 68
-  percent: 96
+  completed_plans: 69
+  percent: 97
 ---
 
 # Project State
@@ -154,6 +154,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.2 P03 | 15min | 2 tasks | 3 files |
 | Phase 06.6.2 P04 | 10min | 3 tasks | 10 files |
 | Phase 06.6.2 P05 | 20min | 3 tasks | 4 files |
+| Phase 06.6.2 P06 | ~25min | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -279,6 +280,8 @@ Recent decisions affecting current work:
 - [Phase ?]: font-page-title-size token (30px) placed between the existing 20px and 24px tokens in file order, per the plan explicit instruction
 - [Phase ?]: 06.6.2-05: .logout-form button overrides button[type="submit"]'s accent fill via equal-specificity source-order placement (after it in style.css), not a doubled selector -- the two rules share (0,1,1) specificity
 - [Phase ?]: 06.6.2-05: kept the sidebar-link--active 3px->2px left border as a secondary cue alongside the new color-mix() tinted-pill background, per the plan's explicit instruction not to remove it outright
+- [Phase ?]: overall_severity() precedence: error wins, else warn/disagreement, else ok; source-fault deliberately excluded from the precedence
+- [Phase ?]: ANOMALY_BANNER_TEXT drops only its leading glyph, not its full text, preserving every existing substring check in test_status_pages.py with zero edits to that file
 
 ### Pending Todos
 
@@ -330,8 +333,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-31T08:29:47.150Z
-Stopped at: Completed 06.6.2-05-PLAN.md
+Last session: 2026-08-31T08:43:33.342Z
+Stopped at: Completed 06.6.2-06-PLAN.md
 
 Resume file: None
 
