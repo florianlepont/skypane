@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.6.3
-current_phase_name: companion-per-page-redesign-config-health-history-airlines-p
+current_phase: 06.6.4
+current_phase_name: companion-sober-visual-refinement-linear-inspired-sobriety-p
 status: executing
-stopped_at: 06.6.3-08 Task 1 (full-suite gate) complete; awaiting Task 2 blocking human-verify checkpoint
-last_updated: "2026-08-31T15:40:44.940Z"
+stopped_at: Phase 06.6.4 inserted after 06.6.3 (urgent) — not yet planned. 06.6.3-08 Task 1 (full-suite gate) complete; Task 2's blocking human-verify checkpoint left unresolved when real-browser feedback ("catastrophique") redirected the session into 06.6.4's design-system work — to be revisited once 06.6.4 lands
+last_updated: "2026-08-31T22:16:56.347Z"
 last_activity: 2026-08-31
 last_activity_desc: Phase 06.6.3 execution started
 progress:
-  total_phases: 17
+  total_phases: 18
   completed_phases: 15
   total_plans: 79
   completed_plans: 78
-  percent: 99
+  percent: 83
 ---
 
 # Project State
@@ -24,11 +24,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 06.6.3 — companion-per-page-redesign-config-health-history-airlines-p
+**Current focus:** Phase 06.6.4 — companion-sober-visual-refinement-linear-inspired-sobriety-p (urgent insertion, not yet planned)
 
 ## Current Position
 
-Phase: 06.6.3 (companion-per-page-redesign-config-health-history-airlines-p) — EXECUTING
+Phase: 06.6.4 (companion-sober-visual-refinement-linear-inspired-sobriety-p) — NOT YET PLANNED. Inserted after Phase 06.6.3, whose own closing checkpoint (06.6.3-08 Task 2) is left open pending this phase — see Roadmap Evolution below.
 
 **Phase 06.6.2 (Companion UX, accessibility, and responsive hardening) — COMPLETE, 2026-08-31.** Inserted 2026-08-30 after Phase 06.6, seeded from `06.6.1-UX-AUDIT.md`'s follow-up recommendation. Originally scoped all 23 CONTEXT.md decisions (the full hardening + visual-redesign workstream); the planner determined that combined scope exceeded this project's own largest prior single-phase precedent and returned a phase-split recommendation, which the developer approved — the 9 per-page decisions (D-02–D-05, D-06's heading-dedup half, D-07–D-10, D-12, D-13, D-18, D-20, D-22, D-23) moved to the new Phase 06.6.3, and this phase kept the 8 shared-foundation decisions (D-01, D-06's accent-color half, D-11, D-14–D-17, D-19, D-21). Planned 2026-08-31: 8 plans across 7 waves (`06.6.2-01` through `06.6.2-08`), all executed the same day. Plan 08's closing checkpoint — the developer's own real local-browser pass across all 9 checklist groups (viewport/overflow, mobile-nav accessibility, contrast, sidebar, logout, login deep-link, severity, poll lock, keyboard-only) — approved with all 9 passing; two live-investigated observations during the checkpoint resolved as non-blocking (a History mobile-scroll preference already covered by 06.6.3's D-07, and a sidebar-sticky false alarm traced to testing the wrong URL). A post-checkpoint code review (`06.6.2-REVIEW.md`) found 1 Critical (skip-link target not focusable — CR-01) and 4 Warnings (nav-dropdown re-open race, missing hardening response headers, unauthenticated slow-body DoS, duplicate Health-severity DB reads); all 5 fixed via `/gsd-code-review --fix` (`06.6.2-REVIEW-FIX.md`), plus one mechanical `EXPECTED_CHECK_COUNT` correction found while re-verifying. `gsd-verifier` confirmed 17/17 must-haves (`06.6.2-VERIFICATION.md`). One process note: the code-fixer agent's worktree-cleanup step mistakenly fast-forwarded the top-level `main` checkout (not this worktree) by 48 commits during its final merge step — caught immediately, fully recovered with the developer's explicit approval (`main` reset back to `188b00e`/`origin/main`, this worktree's branch fast-forwarded with the 5 fix commits, temp worktree/branch cleaned up), nothing was lost or pushed. Ready for Phase 06.6.3, which depends on this phase's tokens, `page_header()`, sidebar footer region, and severity function.
 
@@ -71,7 +71,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 **06.6.3-08 Task 1 executed (2026-08-31), the full-suite gate for the phase's eighth and final plan (closing wave, depends on all seven prior plans 03-07).** `scripts/run-all-tests.sh` run against the fully composed worktree (7 prior plans of this phase, all already committed and clean at session start): 15/16 harnesses green, coverage 91% (above the pinned 83% threshold in pyproject.toml). The sole non-zero harness is the single pre-documented, already-accepted exception — `server/test_poll_loop.py`'s macOS-local Pillow/FreeType `panel.bin` digest mismatch (`44fe835e...` vs pinned `49b8ba45...`), confirmed unrelated since this phase's seven prior plans touch only `companion/` files (verified via `git log --oneline` across all ten of their commits) and zero `server/` files. Every companion `test_*.py` harness's on-disk `EXPECTED_CHECK_COUNT` matched its own real passed/total count from this run: `test_companion_app.py` 85/85, `test_config_page.py` 46/46, `test_status_pages.py` 58/58, `test_view_pages.py` 41/41. No file changes made — Task 1 is verification-only, matching the plan's own `files_modified: []`, so nothing was committed for this task. **Task 2 (`06.6.3-08-02`, `gate="blocking"`, `type="checkpoint:human-verify"`) is now the sole remaining item in this phase** — a 20-item local browser/keyboard/phone verification pass across Config/Health/History/Airlines/Preview plus a cross-cutting group (including the phase's own carried-forward deferred real assistive-technology pass and optional production walkthrough). Per the plan's own explicit instruction and this project's established precedent (06.6.1-06, 06.6.2-08, 06.3-05), this checkpoint must not be answered or inferred by the executor; the developer's verbatim verdict is required before `06.6.3-08-SUMMARY.md` can be written and the phase closed. `06.6.3-08-SUMMARY.md` does not exist yet — it is created only after the checkpoint resolves. `state.update-progress` was not invoked this session (Task 1 produced no commits to measure); `state.record-session` wrote the expected `percent: 88` corruption (`completed_phases/total_phases` = 15/17, the same recurring bug documented throughout this file's history) — corrected by hand back to `99` (78/79, unchanged from 06.6.3-07's session-end value, since this plan is not yet complete).
 
-Status: Executing Phase 06.6.3
+Status: Ready to execute
 Also merged 2026-08-28: origin/main's Phase 05 DEVICE-04 completion and the missed-flights-not-displayed debug session's two remaining mechanisms — B (`detect.py` now corroborates ADS-B sources on candidate SETS rather than final picks, and the D-P2-01 sort key tie-breaks on `hex` instead of the observer-local `seen_pos`) and C (`poll_loop.py` paces the display slot to the device's ~90s redraw floor through a bounded-age FIFO queue). Both compose with Phase 6's runway parameterisation: the pavement gate applies to whichever runway is selected, and corroboration runs on that runway's candidates. Also merged 2026-08-28 (second merge, this one): origin/main's Phase 7 (Final On-Glass Verification, PR #18) — panel palette re-tuning (Blue/Green darkened, dithered state background, text backing plate) and the legacy `inkframe-poll.timer` cleanup, described in the Phase 7 paragraph above.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
 Last activity: 2026-08-31 — Phase 06.6.3 execution started
@@ -205,6 +205,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - Phase 06.6.1 inserted after Phase 06.6: Companion visual polish pass (logo, mobile hamburger nav, theme-toggle sizing, Health density, History table density, battery chart layout) - raised from real-device testing during 06.5-03 (URGENT)
 - Phase 06.6.2 inserted after Phase 06.6: Companion UX/accessibility/responsive hardening — seeded from 06.6.1-UX-AUDIT.md (18 findings, 4 High; 11 open product decisions to resolve in discuss-phase before planning) (URGENT)
 - Phase 06.6.3 inserted after Phase 06.6.2: Companion per-page redesign — split out of 06.6.2 (planner's phase-split recommendation, developer-approved) to keep both phases within this project's own per-phase context-budget precedent (URGENT)
+- Phase 06.6.4 inserted after Phase 06.6.3: Companion sober visual refinement — real-browser reaction to 06.6.3's shipped UI ('catastrophique' UX/UI) led to an interactive design-system reference artifact this session, iterated toward a Linear-inspired sober treatment across colors/typography (closed gaps), then buttons/cards/banners/nav/stat-tiles/filter-bar/icon-buttons/segmented-control/tables. Developer validated all proposals; this phase applies them to the real companion CSS/markup. 06.6.3-08's own closing checkpoint (Task 2) was left unresolved when this feedback surfaced — to be revisited once this phase lands. (URGENT)
 
 ### Decisions
 

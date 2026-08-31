@@ -312,12 +312,28 @@ Plans:
 **Plans:** 0/6 plans executed
 
 Plans:
+**Wave 1**
 
 - [ ] 06.6.4-01-PLAN.md — Emphasis typography and the card hairline treatment across all six card components, plus removal of the two dark-mode card-edge overrides that would pin the border on during hover (D-03, D-03a, D-09)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 06.6.4-02-PLAN.md — Button system: 30px text buttons, primary inset highlight, quiet-at-rest secondaries with a hover reveal, pressed state, and the 28×28 icon button with a synthesized 44×44 hit area (D-01, D-01a, D-01b, D-01c, D-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 06.6.4-03-PLAN.md — Flat banner surface with a 3px coloured edge and status dot across all three severities, the combined card-and-banner reconciliation for Health's source-fault block, and a contrast guard for the new surface (D-04, D-04a)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 06.6.4-04-PLAN.md — Both nav renderers at 32px with a single tinted-pill active signal and `:not()`-scoped hover states, and the theme picker as a CSS-only segmented control (D-05, D-05a, D-06, D-06a)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 06.6.4-05-PLAN.md — Data-table shell (both header rules together, no zebra striping, hover row tint) and filter bar, with both Clear controls converged via the existing data attribute and zero page-module edits (D-07, D-07a, D-08)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
 - [ ] 06.6.4-06-PLAN.md — Closing wave: non-goal regression gate proving the typeface and every accent/status token held, full-suite gate, and the blocking developer real-browser verification in both themes (D-10, D-11)
 
 ### Phase 06.6.3: Companion per-page redesign — Config, Health, History, Airlines, Preview (INSERTED)
