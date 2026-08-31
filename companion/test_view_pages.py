@@ -58,12 +58,16 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 30  # 28 (pre-06.6.2-04) + 2 (06.6.2-04: History/Preview
-# page_header() shared component checks). Prior baseline: 25 (pre-06.6-03)
-# + 3 (06.6-03 Task 1: History
-# Timestamp column reads "ISO (Nm ago)"; Task 2: Preview's Captured
-# caption reads "Captured ISO (Nm ago)"; Task 3: corroboration copy
-# cross-page drift guard, D-03)
+EXPECTED_CHECK_COUNT = 35  # 30 (pre-06.6.3-05) + 5 (06.6.3-05 Task 3: filter
+# bar markers present-once; data-filter-text on both representations;
+# desktop Callsign+Hex cell's 2 copy buttons + feedback siblings; mobile
+# details region's 3 copy buttons + feedback siblings; confirmed_state/
+# tracked_runway presentation labels re-asserted against the full
+# render() output). Prior baseline: 28 (pre-06.6.2-04) + 2 (06.6.2-04:
+# History/Preview page_header() shared component checks). Before that:
+# 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History Timestamp column reads
+# "ISO (Nm ago)"; Task 2: Preview's Captured caption reads "Captured ISO
+# (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -528,12 +532,21 @@ def main():
             for value in ("AFR123", "39d301", expected_type_label, expected_airline_label):
                 if value not in rendered:
                     return False, "expected merged value %r to still appear somewhere" % value
-            idx = rendered.find("AFR123")
-            td_start = rendered.rfind("<td>", 0, idx)
-            td_end = rendered.find("</td>", idx)
-            if td_start == -1 or td_end == -1:
+            # Scope the same-<td> check to the desktop table's <tbody> -
+            # the mobile card representation (06.6.3-05) also renders
+            # "AFR123" earlier in the document (the primary line's
+            # <span>, outside any <td>), so a whole-document .find()
+            # would locate that occurrence instead of the table's.
+            tbody_match = re.search(r"<tbody>(.*)</tbody>", rendered, re.S)
+            if not tbody_match:
+                return False, "expected a <tbody> element in the rendered table"
+            tbody = tbody_match.group(1)
+            idx = tbody.find("AFR123")
+            td_start = tbody.rfind("<td>", 0, idx)
+            td_end = tbody.find("</td>", idx)
+            if idx == -1 or td_start == -1 or td_end == -1:
                 return False, "could not locate the callsign's enclosing <td>"
-            cell = rendered[td_start:td_end]
+            cell = tbody[td_start:td_end]
             if "39d301" not in cell:
                 return False, "expected the hex value inside the same <td> as the callsign"
             return True, ""
@@ -633,9 +646,12 @@ def main():
         _merged_cell_classes_agree_with_stylesheet)
 
     def _timestamp_column_absolute_and_relative():
-        # D-02: History's Timestamp column now reads "ISO (Nm ago)"
-        # through the shared companion.layout.absolute_and_relative()
-        # helper (06.6-01), matching Health's Device/pipeline rows.
+        # D-09 (06.6.3-05): History's Timestamp column/mobile primary
+        # line now read through the shared
+        # companion.layout.concise_timestamp_html() helper instead of
+        # the old bare "ISO (Nm ago)" text - reads the expected markup
+        # from the layout module itself, never a hand-typed literal, so
+        # the two cannot silently diverge.
         tmp = _mkstate("h-ts-relative")
         try:
             seeded_ts = "2026-08-28T13:58:02+00:00"
@@ -644,7 +660,7 @@ def main():
                 {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
             ])
             rendered = history_page.render(_history_ctx(tmp, now=three_min_later))
-            expected = "%s (3m ago)" % seeded_ts
+            expected = layout.concise_timestamp_html(seeded_ts, three_min_later)
             if expected not in rendered:
                 return False, "expected %r in the rendered History page" % expected
 
@@ -679,7 +695,7 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History's Timestamp column reads 'ISO (Nm ago)', format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
+        "History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
         _timestamp_column_absolute_and_relative)
 
     def _corroboration_copy_agrees_with_health_page():
@@ -717,6 +733,158 @@ def main():
     check(
         "history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS key-by-key, and the single-source 'None' state is never labelled a failure in either table",
         _corroboration_copy_agrees_with_health_page)
+
+    def _filter_bar_markers_present_once():
+        # D-20: exactly one of each list-filter.js attribute marker,
+        # only rendered when there is data to filter (a zero-row page
+        # renders no filter bar at all, matching the table/card
+        # renderers' own "no chrome with no data" rule).
+        tmp = _mkstate("h-filter-bar")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for marker in (
+                "data-filter-input", "data-filter-count", "data-filter-clear",
+                "data-filter-empty",
+            ):
+                count = rendered.count(marker)
+                if count != 1:
+                    return False, "expected exactly one %r marker, got %d" % (marker, count)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each",
+        _filter_bar_markers_present_once)
+
+    def _filter_text_attribute_on_both_representations():
+        # D-20/T-06.6.3-09: the same escaped, lowercased "callsign hex"
+        # value drives both the desktop <tr> and the mobile <li> for the
+        # same flight, so a filter query matches both representations
+        # identically.
+        tmp = _mkstate("h-filter-text")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "3944F0", "callsign": "AFR123"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            expected_attr = 'data-filter-text="afr123 3944f0"'
+            count = rendered.count(expected_attr)
+            if count != 2:
+                return False, (
+                    "expected %r to appear exactly twice (desktop <tr> + "
+                    "mobile <li>), got %d" % (expected_attr, count))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a real flight's data-filter-text attribute (lowercased escaped callsign+hex) appears on both the desktop <tr> and the mobile <li>",
+        _filter_text_attribute_on_both_representations)
+
+    def _desktop_callsign_hex_cell_two_copy_buttons():
+        # D-23: the dedicated Callsign+Hex cell function carries exactly
+        # 2 copy buttons (callsign, hex), each immediately followed by
+        # its data-copy-feedback sibling (copy-button.js's exact
+        # contract).
+        tmp = _mkstate("h-copy-desktop")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "cd01", "callsign": "CDONE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tbody_match = re.search(r"<tbody>(.*)</tbody>", rendered, re.S)
+            if not tbody_match:
+                return False, "expected a <tbody> element in the rendered table"
+            tbody = tbody_match.group(1)
+            idx = tbody.find("CDONE")
+            td_start = tbody.rfind("<td>", 0, idx)
+            td_end = tbody.find("</td>", idx)
+            if idx == -1 or td_start == -1 or td_end == -1:
+                return False, "could not locate the callsign's enclosing <td>"
+            cell = tbody[td_start:td_end]
+            if cell.count("data-copy-value") != 2:
+                return False, (
+                    "expected exactly 2 copy buttons in the desktop "
+                    "Callsign+Hex cell, got %d" % cell.count("data-copy-value"))
+            feedback_pairs = len(re.findall(r"</button><span[^>]*data-copy-feedback", cell))
+            if feedback_pairs != 2:
+                return False, (
+                    "expected each copy button to be immediately "
+                    "followed by its data-copy-feedback sibling, found %d pairs"
+                    % feedback_pairs)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the desktop Callsign+Hex cell contains exactly 2 copy buttons, each immediately followed by its data-copy-feedback sibling",
+        _desktop_callsign_hex_cell_two_copy_buttons)
+
+    def _mobile_details_three_copy_buttons():
+        # D-23: the mobile card's details region carries all 3 copy
+        # buttons (callsign, hex, full timestamp), each immediately
+        # followed by its data-copy-feedback sibling.
+        tmp = _mkstate("h-copy-mobile")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "cm01", "callsign": "CMONE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            details_match = re.search(
+                r'<details class="history-card__details">(.*?)</details>', rendered, re.S)
+            if not details_match:
+                return False, "expected a history-card__details block"
+            details = details_match.group(1)
+            if details.count("data-copy-value") != 3:
+                return False, (
+                    "expected exactly 3 copy buttons in the mobile "
+                    "details region, got %d" % details.count("data-copy-value"))
+            feedback_pairs = len(re.findall(r"</button><span[^>]*data-copy-feedback", details))
+            if feedback_pairs != 3:
+                return False, (
+                    "expected each mobile copy button to be immediately "
+                    "followed by its data-copy-feedback sibling, found %d pairs"
+                    % feedback_pairs)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the mobile card's details region contains exactly 3 copy buttons (callsign, hex, full timestamp), each immediately followed by its data-copy-feedback sibling",
+        _mobile_details_three_copy_buttons)
+
+    def _presentation_labels_in_full_render():
+        # UXA-05: Task 1's format_event_row()-level fixture, re-asserted
+        # against the full render() output (both the desktop cell and
+        # the mobile card), and confirms the audit's own incorrect
+        # literal state-value strings never appear.
+        tmp = _mkstate("h-labels")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "pl01", "callsign": "PL1",
+                    "confirmed_state": "departing", "tracked_runway": "3",
+                },
+                {
+                    "ts": "2026-08-27T10:01:00+00:00", "hex": "pl02", "callsign": "PL2",
+                    "confirmed_state": "taxiing",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for expected in ("Departing", "Runway 3 (07/25)", "Taxiing"):
+                if expected not in rendered:
+                    return False, "expected %r in the rendered History page" % expected
+            for wrong in ("on_runway", "approaching", 'departed"'):
+                if wrong in rendered:
+                    return False, (
+                        "did not expect the audit's own incorrect literal "
+                        "state value %r in the rendered History page" % wrong)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "confirmed_state/tracked_runway presentation labels (Task 1's format_event_row() fixture) also appear correctly through the full render() output",
+        _presentation_labels_in_full_render)
 
     # ======================================================================
     # Section 2: companion/pages/preview_page.py

@@ -96,6 +96,24 @@ _DEFAULT_CORROBORATION = ("warn", "Unknown")
 _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # distinguishes "query raised" from "query succeeded, legitimately empty".
 
+# D-20: the filter bar's copy (06.6.3-UI-SPEC.md's Copywriting Contract),
+# driven client-side by companion/static/list-filter.js's shared
+# [data-filter-input]/[data-filter-count]/[data-filter-clear]/
+# [data-filter-empty] attribute contract — reused verbatim by
+# 06.6.3-06's Airlines page (that plan supplies its own label/empty
+# copy, same contract).
+_FILTER_INPUT_ID = "history-filter-input"
+_FILTER_LABEL_TEXT = "Filter by callsign or hex"
+_FILTER_EMPTY_HEADING = "No matching flights"
+_FILTER_EMPTY_BODY_TEMPLATE = (
+    "Try a different search, or Clear filter to see all %d flights.")
+
+# D-23: the copy-to-clipboard accessible-name contract
+# (06.6.3-UI-SPEC.md's Copywriting Contract: "Copy {field}").
+_COPY_CALLSIGN_LABEL = "Copy callsign"
+_COPY_HEX_LABEL = "Copy hex ID"
+_COPY_TIMESTAMP_LABEL = "Copy timestamp"
+
 # UXA-05/06.6.3-RESEARCH.md Pitfall 1: the audit's own evidence names
 # "on_runway"/"approaching"/"departed" as the raw confirmed_state values
 # leaking into this page, but server/plane/runway_config.py's
@@ -243,6 +261,91 @@ def _merged_cell(primary, secondary):
     return "<td>%s</td>" % html
 
 
+def _filter_text_attr(row):
+    """The escaped, lowercased "{callsign} {hex}" pair for a row's
+    `data-filter-text` attribute, computed once per row and reused by
+    both the desktop `<tr>` and the mobile `<li>` for the same flight
+    (T-06.6.3-09's mitigation: `escape_html()` applied before
+    interpolation into the attribute, matching this codebase's single-
+    escaping-choke-point discipline even though a callsign/hex value is
+    unlikely to contain a quote character — 06.6.3-RESEARCH.md Pitfall 5).
+    """
+    combined = ("%s %s" % (row["callsign"], row["hex"])).strip().lower()
+    return escape_html(combined)
+
+
+def _copy_button_html(value, label):
+    """A D-23 copy-to-clipboard button plus its `data-copy-feedback`
+    sibling span — the exact shape `companion/static/copy-button.js`
+    requires (the feedback element must be the button's immediate next
+    sibling). `value` is escaped once here (T-06.6.3-11's mitigation:
+    built only from the same already-escaped row values this page
+    already renders, no separate unescaped derivation path); `label`
+    (the D-23 "Copy {field}" accessible name) is escaped the same way.
+    """
+    return (
+        '<button type="button" class="copy-btn" data-copy-value="%s" '
+        'aria-label="%s">%s</button>'
+        '<span class="visually-hidden" data-copy-feedback role="status" '
+        'aria-live="polite"></span>'
+    ) % (escape_html(value), escape_html(label), layout.icon_html("icon-copy"))
+
+
+def _callsign_hex_cell(callsign, hex_value):
+    """The desktop Callsign+Hex column's own cell builder — reproduces
+    `_merged_cell()`'s primary/separator/secondary markup exactly, then
+    appends a copy button after the callsign and, when a hex value is
+    present, another after the hex (D-23). This is a dedicated function
+    rather than a `_merged_cell()` parameter specifically so the
+    Type+Airline column (which also calls `_merged_cell()`) never gains
+    copy buttons — the two columns must not share this behaviour.
+    """
+    html = '<span class="%s">%s</span>%s' % (
+        CELL_PRIMARY_CLASS, escape_html(callsign),
+        _copy_button_html(callsign, _COPY_CALLSIGN_LABEL))
+    if hex_value:
+        html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
+            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+            CELL_SECONDARY_CLASS, escape_html(hex_value),
+            _copy_button_html(hex_value, _COPY_HEX_LABEL))
+    return "<td>%s</td>" % html
+
+
+def _filter_bar_html(total):
+    """D-20's filter bar — a `<label>` + `<input type="search"
+    data-filter-input>` (with `icon-search` inside, decorative), a live
+    `<span data-filter-count>`, a `Clear` control, and a hidden-by-
+    default `data-filter-empty` block. Entirely inert without JS —
+    `companion/static/list-filter.js`'s own early-return guard means the
+    full unfiltered table/card list underneath stays completely usable
+    if the script never loads.
+    """
+    count_text = "%d of %d shown" % (total, total)
+    empty_body = _FILTER_EMPTY_BODY_TEMPLATE % total
+    return (
+        '<div class="filter-bar">'
+        '<label class="text-label" for="%s">%s</label>'
+        '<div class="filter-bar__field">'
+        "%s"
+        '<input type="search" id="%s" data-filter-input>'
+        "</div>"
+        '<span class="filter-bar__count" data-filter-count>%s</span>'
+        '<button type="button" data-filter-clear>Clear</button>'
+        "</div>"
+        '<div class="empty-state" data-filter-empty hidden>'
+        '<p class="empty-state__heading text-heading">%s</p>'
+        '<p class="empty-state__body text-body">%s</p>'
+        "</div>"
+    ) % (
+        _FILTER_INPUT_ID, escape_html(_FILTER_LABEL_TEXT),
+        layout.icon_html("icon-search"),
+        _FILTER_INPUT_ID,
+        escape_html(count_text),
+        escape_html(_FILTER_EMPTY_HEADING),
+        escape_html(empty_body),
+    )
+
+
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
         return layout.empty_state(_NO_FLIGHTS_HEADING, _NO_FLIGHTS_BODY)
@@ -261,7 +364,7 @@ def _history_table_html(formatted_rows, now=None):
         # already-safe markup" discipline.
         cells = (
             "<td>%s</td>" % layout.concise_timestamp_html(row["raw_ts"], now),
-            _merged_cell(row["callsign"], row["hex"]),
+            _callsign_hex_cell(row["callsign"], row["hex"]),
             _merged_cell(row["aircraft_type_label"], row["airline_label"]),
             "<td>%s</td>" % escape_html(row["route_label"]),
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
@@ -269,8 +372,13 @@ def _history_table_html(formatted_rows, now=None):
                 row["corroboration_status"], row["corroboration_label"]),
             "<td>%s</td>" % escape_html(row["tracked_runway"]),
         )
+        # D-20: data-filter-text drives companion/static/list-filter.js's
+        # match — the same value the mobile <li> for this same row also
+        # carries (_history_cards_html() below), so a filter query
+        # matches both representations identically.
         body_rows.append(
-            '<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
+            '<tr class="%s" data-filter-text="%s">%s</tr>'
+            % (row_class, _filter_text_attr(row), "".join(cells)))
 
     return (
         '<div class="data-table-wrap">'
@@ -323,28 +431,41 @@ def _history_cards_html(formatted_rows, now=None):
             "<span>%s</span>"
             "</div>"
         ) % (escape_html(row["route_label"]), escape_html(row["confirmed_state"]))
+        # D-23: all three mobile copy buttons (callsign, hex, full
+        # timestamp) live inside this <details> disclosure — including
+        # the callsign one, which is already visible on the primary
+        # line above but is repeated here (as its own Callsign dt/dd
+        # pair) specifically to give the copy affordance a home
+        # alongside its Hex/Full-timestamp siblings, matching the
+        # "same button+feedback-sibling shape" contract everywhere.
         details = (
             '<details class="history-card__details">'
             "<summary>More details</summary>"
             "<dl>"
+            '<dt>Callsign</dt><dd class="mono">%s%s</dd>'
             "<dt>Aircraft</dt><dd>%s %s %s</dd>"
             "<dt>Corroboration</dt><dd>%s</dd>"
             "<dt>Runway</dt><dd>%s</dd>"
-            '<dt>Hex</dt><dd class="mono">%s</dd>'
-            '<dt>Full timestamp</dt><dd class="mono">%s</dd>'
+            '<dt>Hex</dt><dd class="mono">%s%s</dd>'
+            '<dt>Full timestamp</dt><dd class="mono">%s%s</dd>'
             "</dl>"
             "</details>"
         ) % (
+            escape_html(row["callsign"]),
+            _copy_button_html(row["callsign"], _COPY_CALLSIGN_LABEL),
             escape_html(row["aircraft_type_label"]),
             escape_html(CELL_SEPARATOR_TEXT),
             escape_html(row["airline_label"]),
             layout.status_dot(row["corroboration_status"], row["corroboration_label"]),
             escape_html(row["tracked_runway"]),
             escape_html(row["hex"]),
+            _copy_button_html(row["hex"], _COPY_HEX_LABEL),
             escape_html(row["raw_ts"]),
+            _copy_button_html(row["raw_ts"], _COPY_TIMESTAMP_LABEL),
         )
         items.append(
-            '<li class="history-card">%s%s%s</li>' % (primary, secondary, details))
+            '<li class="history-card" data-filter-text="%s">%s%s%s</li>'
+            % (_filter_text_attr(row), primary, secondary, details))
     return '<ul class="history-cards">%s</ul>' % "".join(items)
 
 
@@ -353,18 +474,27 @@ def render(ctx):
     now = ctx.get("now") or history_db.utc_now_iso()
     rows = _safe_query(state_dir, history_rows)
 
+    # D-10: the display-window label folded into the header's purpose
+    # sentence, using the real HISTORY_ROW_LIMIT constant rather than a
+    # hardcoded "50".
+    header = layout.page_header(
+        "History", purpose="Latest %d detected flights." % HISTORY_ROW_LIMIT)
+
     if rows is _DB_UNAVAILABLE:
         body = '<p class="text-body">%s</p>' % escape_html(_HISTORY_UNAVAILABLE_TEXT)
     else:
         formatted_rows = [format_event_row(row, now) for row in rows]
-        # Cards render before the table - companion/static/style.css's
-        # `.history-cards ~ .data-table-wrap` sibling-combinator toggle
-        # (06.6.3-02) depends on this exact DOM order. When formatted_rows
-        # is empty, _history_cards_html() returns "" and
-        # _history_table_html() alone supplies the unchanged
-        # empty_state() block - no empty <ul> alongside it.
-        body = (
-            _history_cards_html(formatted_rows, now)
-            + _history_table_html(formatted_rows, now))
+        if not formatted_rows:
+            # No filter bar over nothing to filter — matches the table/
+            # card renderers' own "no chrome when there's no data" rule.
+            body = _history_table_html(formatted_rows, now)
+        else:
+            # Cards render before the table - companion/static/style.css's
+            # `.history-cards ~ .data-table-wrap` sibling-combinator
+            # toggle (06.6.3-02) depends on this exact DOM order.
+            body = (
+                _filter_bar_html(len(formatted_rows))
+                + _history_cards_html(formatted_rows, now)
+                + _history_table_html(formatted_rows, now))
 
-    return layout.page_header("History") + body
+    return header + body
