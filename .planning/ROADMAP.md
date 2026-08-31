@@ -454,7 +454,7 @@ Plans:
 **Goal:** Glancing at the frame shows a clean white panel whose flight text is legible on real Spectra 6 ink with no box behind it, naming a real IATA flight number rather than a raw ADS-B callsign — with Black, Yellow, Red and the existing Sky theme selectable from the CFG-01 picker. Full scope, rationale, and the complete rendered decision trail are recorded in the spike this phase implements: `.planning/spikes/001-panel-theme-colours/README.md` and `.planning/spikes/MANIFEST.md`. Concretely: white becomes the new default theme with Black/Yellow/Red joining Blue/Green as optional CFG-01 themes; the text backing-plate is removed and replaced by PT Serif Bold everywhere; `adsbdb`'s `callsign_iata` is threaded through so the raw ADS-B callsign never displays; a previous-card text sizing/alignment fix; and a required, blocking on-glass verification pass before this phase can close.
 **Requirements**: None — unmapped polish/refinement phase, no REQ-ID in REQUIREMENTS.md maps to it. Traced instead against `08-CONTEXT.md`'s locked decisions D-01 through D-13, the same precedent Phase 06.4 set. Each plan's `requirements` frontmatter field carries the decision IDs it implements; the full coverage table lives in `08-01-PLAN.md`'s Multi-Source Coverage Audit.
 **Depends on:** Phase 7
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 **Wave 1**
@@ -472,7 +472,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 08-05-PLAN.md — Illustration spot-check for the optical offset, `panel.bin` digest re-pin, full-suite reconciliation, forced-panel reminder unit-name fix (D-12)
+- [x] 08-05-PLAN.md — Illustration spot-check for the optical offset, `panel.bin` digest re-pin, full-suite reconciliation, forced-panel reminder unit-name fix (D-12)
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
