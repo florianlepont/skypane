@@ -58,7 +58,10 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 41  # 35 (pre-06.6.3-07) + 6 (06.6.3-07 Task 3:
+EXPECTED_CHECK_COUNT = 42  # 41 (pre-06.6.4-05) + 1 (06.6.4-05 Task 3: the
+# shared [data-filter-clear] Clear-control contract - History renders the
+# attribute, style.css styles it by attribute, no class-keyed rule
+# competes). Prior baseline: 35 (pre-06.6.3-07) + 6 (06.6.3-07 Task 3:
 # _gallery_name_to_iso() fixtures; matte-frame/sizing/caption re-asserted
 # against the full render() output; no-panel branch stays img/frame-less
 # in the full render() output; gallery sizing/links/D-10 window label
@@ -765,6 +768,54 @@ def main():
     check(
         "History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each",
         _filter_bar_markers_present_once)
+
+    def _clear_control_shared_attribute_contract():
+        # 06.6.4-05 (D-08): History's Clear <button> and Airlines' Clear
+        # <a> converge on one shared style.css rule keyed by the
+        # [data-filter-clear] attribute both pages already emit, not a
+        # new shared class - so a future author adding a class to one
+        # page and not the other is exactly how the two Clear controls
+        # would silently diverge again. Pins all three legs of that
+        # contract: History's rendered output still carries the
+        # attribute, style.css styles it via the attribute selector, and
+        # style.css contains no competing class-keyed Clear-control rule.
+        tmp = _mkstate("h-clear-attr")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "ca01", "callsign": "CA1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if "data-filter-clear" not in rendered:
+                return False, "expected History's rendered filter bar to carry data-filter-clear"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        # Comments are stripped first: this task's own commit adds prose
+        # explaining the attribute-selector choice, and that prose must
+        # not trip the check it documents.
+        declarations = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        if "[data-filter-clear]" not in declarations:
+            return False, "expected a [data-filter-clear] rule in style.css"
+        for m in re.finditer(r"\n([^{\n]*\{[^}]*\})", declarations):
+            rule = m.group(1)
+            selector = rule.split("{", 1)[0]
+            if "[data-filter-clear]" in selector:
+                continue
+            if "clear" in selector.lower() and (
+                    "background: none" in rule or "text-decoration: underline" in rule):
+                return False, (
+                    "found a class-keyed Clear-control rule outside "
+                    "[data-filter-clear]: %r - the shared attribute "
+                    "contract must stay the only Clear-control styling "
+                    "site" % selector.strip())
+        return True, ""
+    check(
+        "the Clear control's shared [data-filter-clear] contract holds: History renders the "
+        "attribute, style.css styles it by attribute, and no class-keyed rule competes",
+        _clear_control_shared_attribute_contract)
 
     def _filter_text_attribute_on_both_representations():
         # D-20/T-06.6.3-09: the same escaped, lowercased "callsign hex"
