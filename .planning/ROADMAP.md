@@ -304,10 +304,21 @@ Plans:
 
 - [x] 06.6-03-PLAN.md — History's Timestamp column and Preview's Captured caption onto the shared helper, plus the D-03 corroboration verification and its cross-page drift guard (D-02, D-03)
 
+### Phase 06.6.3: Companion per-page redesign — Config, Health, History, Airlines, Preview (INSERTED)
+
+**Goal:** Carry Phase 06.6.2's foundation (tokens, page-header pattern, sidebar, severity function, contrast checker) into a real recomposition of every companion page: Config's dirty-state save bar, read-only Theme status and runway cards; Health's roving-tabindex battery chart, specific anomaly summary, and disclosure-collapsed readings; History's mobile compact cards, filtering, and copy-to-clipboard; Airlines' filtering and simplified hierarchy; Preview's centered matte treatment, freshness signal, and task-oriented gallery captions. Split out 2026-08-31 from Phase 06.6.2 for context-budget reasons (see 06.6.2's Goal) — carries the nine per-page CONTEXT.md decisions and audit findings that need 06.6.2's shared primitives to land cleanly, avoiding double-touching the same page files.
+**Requirements**: None — unmapped backlog phase. Traced against `06.6.3-CONTEXT.md`'s own locked decisions D-02 through D-05, D-06 (heading-dedup half), D-07 through D-10, D-12, D-13, D-18, D-20, D-22, D-23, plus the audit's UXA-01 (mobile-card half), UXA-05, UXA-06, UXA-11, UXA-13, UXA-16, UXA-17, UXA-18, and UXA-08 (Config-specific half).
+**Depends on:** Phase 06.6.2 (consumes its design tokens, `page_header()`, sidebar footer region, and severity function)
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.6.3 to break down)
+
 ### Phase 06.6.2: Companion UX, accessibility, and responsive hardening (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Ship the shared UX/accessibility/design-token foundation the rest of the companion redesign builds on: color/surface/typography/motion tokens, a WCAG contrast checker, the joint mobile-nav closed-state + no-JS fallback fix, desktop table containment, a shared page-header pattern and refined sidebar (incl. sticky), warning/error severity propagation, a dedicated login shell with deep-link return and logout→POST, poll-trigger concurrency locking, and programmatic feedback roles. Split out 2026-08-31 from a single oversized "companion UX hardening" phase — the planner found the combined scope (~16 dense plans touching the same handful of already-shipped files) exceeded this project's own largest prior single-phase precedent (Phase 6's 12 plans, which was mostly additive). Nothing from the original 23 CONTEXT.md decisions or the audit's 18 findings was dropped — nine per-page items (Config/Health/History/Airlines/Preview redesign) moved to the new Phase 06.6.3, which depends on this phase's shared primitives.
+**Requirements**: None — unmapped backlog phase (promoted from the 06.6.1-UX-AUDIT.md follow-up, itself promoted from real-device findings). Traced against `06.6.2-CONTEXT.md`'s own locked decisions D-01, D-06 (accent-color token half), D-11, D-14 through D-17, D-19, D-21, plus the audit's UXA-01 (desktop-containment half), UXA-02/03/04/07/09/10/14/15, and UXA-08 (accent-color half).
 **Depends on:** Phase 06.6
 **Plans:** 0 plans
 
