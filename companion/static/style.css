@@ -1202,13 +1202,13 @@ button:disabled {
   display: inline-flex;
 }
 
-/* Data table: Secondary-background header row, alternating rows.
- * Wrapped in .data-table-wrap (scrolls horizontally, never crops) instead
- * of letting a wide table (History's timestamp/callsign/hex/airline/type
- * columns, Airlines' unresolved-prefix table) overflow the viewport on
- * phone widths — this wrap now stands on its own (the horizontal
- * .nav-bar it used to be paired with is gone, see the header comment
- * above). */
+/* Data table: quiet uppercase label header, one row surface, hover-only
+ * row cue. Wrapped in .data-table-wrap (scrolls horizontally, never
+ * crops) instead of letting a wide table (History's timestamp/callsign/
+ * hex/airline/type columns, Airlines' unresolved-prefix table) overflow
+ * the viewport on phone widths — this wrap now stands on its own (the
+ * horizontal .nav-bar it used to be paired with is gone, see the header
+ * comment above). */
 .data-table-wrap {
   overflow-x: auto;
   max-width: 100%;
@@ -1220,42 +1220,81 @@ button:disabled {
   border-collapse: collapse;
 }
 
+/* 06.6.4 (D-07): the header used to fill a solid --color-secondary
+ * block; it now reads as a quiet uppercase label instead — no
+ * background at all, just a bottom hairline. The 70% text color-mix is
+ * this file's one muted-secondary strength (same value the theme
+ * segments and merged-cell parts use), not a new value invented here.
+ * This rule and .data-table-wrap th immediately below MUST always be
+ * edited together: they carry equal (0,1,1)/(0,2,0)-class specificity
+ * and the sticky rule sits later in source order, so leaving it on the
+ * old filled background would silently repaint the header the moment a
+ * long table scrolls, defeating this rule's own change. */
 .data-table th {
-  background: var(--color-secondary);
-  font-size: var(--font-label-size);
+  font-size: 11px;
   font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-align: left;
-  padding: var(--space-sm) var(--space-md);
+  padding: 0 var(--space-md) 10px;
+  border-bottom: 1px solid var(--color-border);
 }
 
 /* Sticky desktop table header (06.6.3, History/Airlines) — scoped to
  * .data-table-wrap's own scroll container, not the page, so it never
- * collides with the >=960px sticky sidebar (D-21). The explicit
- * `background` prevents body rows from visibly scrolling underneath a
- * see-through sticky header; `z-index: 1` keeps it above scrolled row
- * content without needing to compete with any higher-stacked element on
- * the page. */
+ * collides with the >=960px sticky sidebar (D-21). Position/top/z-index
+ * are unchanged by 06.6.4 (D-07 restyles the header, not the sticky
+ * behaviour); only the background token changed, from the elevated
+ * secondary surface to --color-canvas. The declaration itself must stay
+ * — an opaque background is the only thing stopping body rows showing
+ * through a stuck header — but it can no longer be the tinted elevated
+ * surface, or the quiet-label treatment .data-table th declares above is
+ * defeated the instant the table scrolls. --color-canvas is chosen
+ * because History's table (the only one in the app long enough for the
+ * sticky state to actually engage) renders directly on the page
+ * background, not inside a card; RESEARCH.md flags this specific token
+ * as never live-validated — if the in-card tables (Airlines, Health)
+ * read as a visibly mismatched strip against the white card surface once
+ * scrolled, the primary card surface token is the equally-valid
+ * alternative and this is a one-declaration change, an explicit item on
+ * the closing checklist. */
 .data-table-wrap th {
   position: sticky;
   top: 0;
-  background: var(--color-secondary);
+  background: var(--color-canvas);
   z-index: 1;
 }
 
-/* The row separator draws with --color-border, the structural-line
- * token, not --color-secondary. It used to use --color-secondary, which
- * is the exact colour `.data-table tr.row-alt` paints its background —
- * so on every alternate row the separator was the same colour as the
- * row it sat on and simply vanished, giving History, Airlines and
- * Health tables a visible rule under odd rows and none under even ones. */
 .data-table td {
-  padding: var(--space-sm) var(--space-md);
+  padding: 13px var(--space-md);
   border-bottom: 1px solid var(--color-border);
 }
 
-.data-table tr.row-alt {
-  background: var(--color-secondary);
+/* 06.6.4 (D-07): a clean bottom edge — the last row carries no trailing
+ * separator line. */
+.data-table tbody tr:last-child td {
+  border-bottom: none;
 }
+
+/* 06.6.4 (D-07): a row answers the pointer with a subtle tint instead of
+ * alternating-row zebra striping (removed below). Same 4% text
+ * color-mix strength D-07 specifies and every other hover wash in this
+ * phase uses. */
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+
+/* 06.6.4 (D-07): the .data-table tr.row-alt zebra-stripe rule that used
+ * to live here is removed outright — one row surface plus the hover
+ * tint above replaces it. The three server-side sites that still
+ * compute and emit the row-alt class name (companion/layout.py's
+ * data_table(), companion/pages/history_page.py, companion/pages/
+ * airlines_page.py) are deliberately left untouched: the class becomes
+ * inert markup with no visual or functional effect, and removing it
+ * would mean three Python edits and three harness updates for zero
+ * user-visible gain — an intentional decision, not a half-finished
+ * refactor. */
 
 /* History's merged-cell parts (06.6.1, D-06/data-density.md). No
  * --color-text-muted token exists in this stylesheet, and the sketch's
