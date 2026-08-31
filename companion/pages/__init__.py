@@ -35,15 +35,25 @@ Every page module in this package exposes:
           decide whether to emit an `<img>` tag for a given runway
           without ever performing filesystem access itself, matching this
           module's presentation-only contract
-        - health_anomaly_active: a boolean, True when any of Health's
-          four D-14 signals is currently unhealthy
-          (companion/pages/health_page.py's own `anomaly_active()`,
-          computed once per request) — added by plan 06.6.1-04 so
-          companion/app.py can thread `health_alert=` into every
-          ctx-bearing `layout.page_shell()` call and draw the Health
-          nav-tab notification dot from every tab, without any nav
-          renderer or other page module importing health_page.py
-          directly (forbidden by this module's own contract)
+        - health_severity: "ok"/"warn"/"error", the current severity
+          derived from Health's four D-14 signals
+          (companion/pages/health_page.py's own `health_severity()`,
+          computed once per request) — originally added by plan
+          06.6.1-04 as a boolean, then widened by plan 06.6.2-06
+          (UXA-14) to a real severity string, so companion/app.py can
+          thread `health_alert=` into every ctx-bearing
+          `layout.page_shell()` call and draw the Health nav-tab
+          notification dot (and the page's own anomaly banner) from one
+          value, without any nav renderer or other page module importing
+          health_page.py directly (forbidden by this module's own
+          contract)
+        - flash_role: "status"/"alert", the ARIA role the resolved
+          `flash` text should render with (companion/app.py's own
+          `FLASH_ROLES` dict, resolved once per request from the
+          request's flash key) — added by plan 06.6.2-06 (UXA-07) so
+          `layout.flash_banner(role=...)` announces a save/poll failure
+          assertively and every other outcome politely, instead of one
+          role for every outcome
         - now: a UTC ISO-8601 timestamp string for this request
 
     handle_post(form, ctx) -> str

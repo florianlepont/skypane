@@ -123,6 +123,23 @@ FLASH_MESSAGES = {
     FLASH_KEY_POLL_ALREADY_RUNNING: "A poll is already in progress — try again in a moment.",
 }
 
+# 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
+# flash banner should carry — "alert" (assertive) for a genuine failure,
+# "status" (polite) for everything else, chosen by real severity rather
+# than one role for every outcome. page_context() resolves this into
+# ctx["flash_role"], threaded into every layout.flash_banner(role=...)
+# call site below.
+FLASH_ROLES = {
+    FLASH_KEY_SAVED: "status",
+    FLASH_KEY_SAVE_FAILED: "alert",
+    FLASH_KEY_POLL_TRIGGERED: "status",
+    FLASH_KEY_POLL_COOLDOWN: "status",
+    FLASH_KEY_POLL_FAILED: "alert",
+    # Informational, not itself a failure — a different session/tab is
+    # already legitimately running a poll.
+    FLASH_KEY_POLL_ALREADY_RUNNING: "status",
+}
+
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
 _BATTERY_TREND_JS_PATH = os.path.join(_HERE, "static", "battery-trend.js")
 _NAV_DROPDOWN_JS_PATH = os.path.join(_HERE, "static", "nav-dropdown.js")
@@ -358,6 +375,13 @@ class Handler(BaseHTTPRequestHandler):
             "ui_theme": self._resolved_ui_theme(),
             "device_config": device_config.load_device_config(state_dir),
             "flash": _resolve_flash_text(flash_key, state_dir),
+            # 06.6.2-06 (UXA-07): the ARIA role the resolved flash text
+            # should render with, looked up from the same flash_key this
+            # method already resolved above — "status" for any key not
+            # in FLASH_ROLES (including no flash at all), the same
+            # safe-fallback direction flash_banner()'s own role
+            # whitelist uses.
+            "flash_role": FLASH_ROLES.get(flash_key, "status"),
             "poll_cooldown_remaining": poll_cooldown_remaining(state_dir),
             "gallery_entries": gallery_entries(state_dir),
             "runway_images": runway_images_available(),
@@ -366,10 +390,16 @@ class Handler(BaseHTTPRequestHandler):
             # another page module — this file already imports health_page
             # legitimately (the runway_images entry above set the same
             # precedent in Phase 06.4), so this is the boundary's intended
-            # crossing point. health_page.anomaly_active() is
+            # crossing point. health_page.health_severity() is
             # contractually never-raising *because* this line runs on
             # every authenticated page render.
-            "health_anomaly_active": health_page.anomaly_active(state_dir, now),
+            #
+            # 06.6.2-06 (UXA-14): this key was previously a boolean
+            # named for the old anomaly_active() call; it is now the
+            # "ok"/"warn"/"error" severity string, sourced from
+            # health_page.health_severity() — every consumer below moved
+            # together in this same commit.
+            "health_severity": health_page.health_severity(state_dir, now),
             "now": now,
         }
 
@@ -529,11 +559,13 @@ class Handler(BaseHTTPRequestHandler):
             return None
         ctx = self.page_context()
         body = page_module.render(ctx)
-        flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+        flash_html = (
+            layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+            if ctx["flash"] else None)
         html_doc = layout.page_shell(
             title=_PAGE_TITLES[route], active=route.lstrip("/"), body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
-            health_alert=ctx["health_anomaly_active"])
+            health_alert=ctx["health_severity"])
         return self.send_html(200, html_doc)
 
     # --- GET -------------------------------------------------------------
@@ -566,55 +598,65 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             ctx = self.page_context()
             body = config_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
                 title="Config", active="config", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
         if path == "/health":
             if not self.require_session():
                 return None
             ctx = self.page_context()
             body = health_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
                 title="Health", active="health", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
         if path == "/airlines":
             if not self.require_session():
                 return None
             ctx = self.page_context()
             body = airlines_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
                 title="Airlines", active="airlines", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
         if path == "/history":
             if not self.require_session():
                 return None
             ctx = self.page_context()
             body = history_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
                 title="History", active="history", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
         if path == "/preview":
             if not self.require_session():
                 return None
             ctx = self.page_context()
             body = preview_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
                 title="Preview", active="preview", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
         if path == PREVIEW_IMAGE_ROUTE:
             if not self.require_session():

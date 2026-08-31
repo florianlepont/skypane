@@ -61,7 +61,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 72  # 71 (70 (69 (68: 06.6.1's own additions: 62 + 2
+EXPECTED_CHECK_COUNT = 73  # 72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
 # (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3:
 # toggle/dropdown/DOM-contract/no-JS)) + 1 (2026-08-29 quick task 260829-0rl,
 # merged independently via origin/main PR #19: the gallery route's private
@@ -71,7 +71,10 @@ EXPECTED_CHECK_COUNT = 72  # 71 (70 (69 (68: 06.6.1's own additions: 62 + 2
 # nav-dropdown.js progressive-enhancement state-machine check — the
 # existing no-JS check was rewritten in place, not counted as new)) + 1
 # (06.6.2-05 Task 3: GET /logout now 404s (D-11) — the pre-existing
-# logout-cookie check was renamed to POST /logout, not counted as new).
+# logout-cookie check was renamed to POST /logout, not counted as new)) + 1
+# (06.6.2-06 Task 3: a new check pinning health_alert="warn"'s dot--warn
+# treatment — the pre-existing health-nav-dot check was updated in place
+# to True/False -> "error"/None, not counted as new).
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -747,18 +750,18 @@ def main():
 
         def _health_nav_notification_dot():
             on = layout.page_shell(
-                title="T", active="health", body="<p>b</p>", health_alert=True)
+                title="T", active="health", body="<p>b</p>", health_alert="error")
             off = layout.page_shell(
-                title="T", active="health", body="<p>b</p>", health_alert=False)
+                title="T", active="health", body="<p>b</p>", health_alert=None)
             default = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if on.count(layout.NAV_NOTIFICATION_CLASS) != 2:
-                return False, "expected the notification class exactly twice (one per nav renderer) when health_alert=True"
+                return False, "expected the notification class exactly twice (one per nav renderer) when health_alert='error'"
             if on.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 2:
-                return False, "expected the alert suffix text exactly twice when health_alert=True"
+                return False, "expected the alert suffix text exactly twice when health_alert='error'"
             if off.count(layout.NAV_NOTIFICATION_CLASS) != 0:
-                return False, "expected zero notification-class occurrences when health_alert=False"
+                return False, "expected zero notification-class occurrences when health_alert=None"
             if off.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 0:
-                return False, "expected zero alert-suffix occurrences when health_alert=False"
+                return False, "expected zero alert-suffix occurrences when health_alert=None"
             if default != off:
                 return False, "expected the health_alert flag to default to off"
             side = on[on.index("sidebar-nav"):on.index("</aside>")]
@@ -774,7 +777,7 @@ def main():
             if not (drop_href_index < drop_dot_index < drop_anchor_close_index):
                 return False, "expected the dot to sit inside the Health dropdown link"
             other_active = layout.page_shell(
-                title="T", active="config", body="", health_alert=True)
+                title="T", active="config", body="", health_alert="error")
             if other_active.count(layout.NAV_NOTIFICATION_CLASS) != 2:
                 return False, "expected exactly two dot occurrences (one per nav renderer) regardless of the active tab"
             css_path = os.path.join(HERE, "static", "style.css")
@@ -787,8 +790,23 @@ def main():
             return True, ""
         check(
             "the Health notification dot appears inside the Health link in both nav renderers "
-            "when health_alert=True, nowhere when False/omitted, and never on another link",
+            "when health_alert='error', nowhere when None/omitted, and never on another link",
             _health_nav_notification_dot)
+
+        def _health_nav_notification_dot_warn_severity():
+            warn = layout.page_shell(
+                title="T", active="health", body="<p>b</p>", health_alert="warn")
+            if warn.count(layout.NAV_NOTIFICATION_CLASS) != 2:
+                return False, "expected the notification class exactly twice (one per nav renderer) when health_alert='warn'"
+            if "dot--warn" not in warn:
+                return False, "expected dot--warn to appear when health_alert='warn'"
+            if "dot--error" in warn:
+                return False, "expected no dot--error class anywhere when health_alert='warn'"
+            return True, ""
+        check(
+            "layout.page_shell(..., health_alert='warn') also renders the notification dot, "
+            "using dot--warn rather than dot--error",
+            _health_nav_notification_dot_warn_severity)
 
         # --- 06.6.1-05 Task 1: nav-dropdown.js ES5-safe/side-effect-free dialect ---
 
