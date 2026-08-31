@@ -17,7 +17,7 @@ page contains no such control and no form-input element of any kind — do
 not add one back as an "obvious improvement" without re-opening that
 discussion.
 """
-from companion.layout import absolute_and_relative, empty_state, escape_html
+from companion.layout import empty_state, escape_html
 import companion.layout as layout
 from server import panel_preview
 
@@ -33,7 +33,17 @@ COLOUR_CAVEAT = (
     "against real Spectra 6 glass.")
 
 _NO_PANEL_CAPTION = "No panel has been rendered yet."
-PREVIEW_CAPTION = "Captured %s"
+
+# D-09/06.6.3-07: the panel-present caption's "Captured " prefix used to
+# live in a module constant (`PREVIEW_CAPTION = "Captured %s"`) applied to
+# a plain-text `caption_text` that was then escaped once, at the shared
+# `caption_html` line. That structure cannot host
+# `layout.concise_timestamp_html()`'s own pre-built <span> markup without
+# double-encoding it, so the panel-present branch below now builds
+# `caption_html` directly with an inline "Captured %s" format string
+# instead — retiring the module constant rather than leaving it pointing
+# at dead code. The no-panel branch's own caption text is unaffected and
+# still goes through escape_html() exactly as before.
 
 _NO_RENDERS_HEADING = "No renders yet."
 _NO_RENDERS_BODY = (
@@ -50,34 +60,54 @@ _PREVIEW_IMAGE_ROUTE = "/preview.png"  # Literal, not imported from
 # route companion/app.py's PREVIEW_IMAGE_ROUTE constant defines.
 _GALLERY_ROUTE_PREFIX = "/gallery/"
 
+# The source panel's real pixel dimensions (server/panel_format.py's
+# documented 1200x1600 output size) — reused for both the live-preview
+# <img> (UXA-16, eager/above-the-fold) and every gallery thumbnail
+# (UXA-16, lazy/off-screen, added by this plan's Task 2). Naming these
+# once means the two call sites cannot drift from each other or from the
+# real panel size.
+_PANEL_WIDTH = 1200
+_PANEL_HEIGHT = 1600
+
 
 def preview_section(ctx):
-    """The live-preview `<section>` body: an `<img>` pointing at the
-    preview route plus a captured-at caption when a panel exists, or a
-    short honest sentence with no `<img>` at all when it does not — a
-    broken image element is worse than an honest sentence. The colour
-    caveat is always present, since this section is always shown one way
-    or the other.
+    """The live-preview `<section>` body: an `<img>` (inside a bounded,
+    centered matte frame, D-18) pointing at the preview route plus a
+    captured-at caption when a panel exists, or a short honest sentence
+    with no `<img>`/frame at all when it does not — a broken image
+    element is worse than an honest sentence. The colour caveat is
+    always present, since this section is always shown one way or the
+    other.
     """
     mtime_iso = panel_preview.panel_file_mtime_iso(ctx["state_dir"])
 
     if mtime_iso:
         image_html = (
+            '<div class="preview-frame">'
             '<img class="preview-image" src="%s" '
-            'alt="Current panel preview">' % _PREVIEW_IMAGE_ROUTE)
+            'width="%d" height="%d" loading="eager" decoding="async" '
+            'alt="Current panel preview"></div>'
+        ) % (_PREVIEW_IMAGE_ROUTE, _PANEL_WIDTH, _PANEL_HEIGHT)
         # panel_file_mtime_iso() returns a Z-suffixed ISO string while
         # ctx["now"] is +00:00-suffixed; datetime.fromisoformat() parses
         # both into timezone-aware values on this project's interpreter
         # (verified during planning against server/.venv/bin/python3,
         # CPython 3.11.15 — the Z suffix has been accepted since 3.11),
         # so subtracting them raises nothing and no normalising shim is
-        # needed.
-        caption_text = PREVIEW_CAPTION % absolute_and_relative(mtime_iso, ctx.get("now"))
+        # needed. concise_timestamp_html() already returns safe, raw
+        # markup (D-09) — interpolated verbatim here, never re-escaped,
+        # which is why this branch builds caption_html directly instead
+        # of going through a shared escape_html(caption_text) step.
+        caption_html = (
+            '<p class="text-label mono">Captured %s</p>'
+            % layout.concise_timestamp_html(mtime_iso, ctx.get("now")))
     else:
         image_html = ""
-        caption_text = _NO_PANEL_CAPTION
+        # The no-panel caption carries no markup of its own, so it still
+        # goes through escape_html() exactly as before this plan.
+        caption_html = (
+            '<p class="text-label mono">%s</p>' % escape_html(_NO_PANEL_CAPTION))
 
-    caption_html = '<p class="text-label mono">%s</p>' % escape_html(caption_text)
     caveat_html = '<p class="text-body">%s</p>' % escape_html(COLOUR_CAVEAT)
     return image_html + caption_html + caveat_html
 
