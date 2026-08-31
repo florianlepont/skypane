@@ -662,18 +662,18 @@ def main():
         return True, ""
     check("arriving main flight text is '{identifier} from {origin_city}' (D-10 tier 1, lowercase sentence text)", _arriving_main_text_uses_lowercase_from)
 
-    def _enrichment_miss_shows_title_case_state_word():
+    def _enrichment_miss_shows_unknown_flight():
         with _TextSpy(render) as spy:
             render.build_canvas(TEST_FLIGHT, "departing", route=None)
         texts = [t for t, _xy, _anchor in spy.calls]
-        if "Departing" not in texts:
-            return False, "expected the title-case state word 'Departing' among the text draws on a full enrichment miss (D-10 tier 4), got %r" % (texts,)
+        if "Unknown flight" not in texts:
+            return False, "expected 'Unknown flight' among the text draws on a full enrichment miss (D-10 tier 4), got %r" % (texts,)
         if render.ROUTE_FALLBACK_TEXT not in texts:
             return False, "expected %r among the text draws on an enrichment miss, got %r" % (render.ROUTE_FALLBACK_TEXT, texts)
         if TEST_FLIGHT["callsign"] in texts:
             return False, "the raw callsign %r must never appear on a full enrichment miss (D-08), got %r" % (TEST_FLIGHT["callsign"], texts)
         return True, ""
-    check("a full enrichment miss (route=None) draws the title-case state word 'Departing' and ROUTE_FALLBACK_TEXT, never the raw callsign (D-08/D-10 tier 4)", _enrichment_miss_shows_title_case_state_word)
+    check("a full enrichment miss (route=None) draws 'Unknown flight' and ROUTE_FALLBACK_TEXT, never the raw callsign (D-08/D-10 tier 4)", _enrichment_miss_shows_unknown_flight)
 
     # 20-22. D-25/D-26 previous flight card: present only when supplied, no
     # "PREVIOUS ·" prefix, right-aligned text, own real illustration.
@@ -1313,9 +1313,10 @@ def main():
         _tier3_airline_only_returns_empty_string,
     )
 
-    # 46. Tier 4 (nothing resolved) returns the title-case state word, for
-    # both route=None and a dict carrying no airline name either.
-    def _tier4_nothing_resolved_returns_title_case_state_word():
+    # 46. Tier 4 (nothing resolved) returns the fixed "Unknown flight"
+    # string, for both route=None and a dict carrying no airline name
+    # either, identical for both states.
+    def _tier4_nothing_resolved_returns_unknown_flight():
         flight = {"hex": "cccccc", "callsign": "XYZ999"}
         no_airline_route = {
             "airline_name": None, "origin_iata": None, "origin_city": None,
@@ -1324,15 +1325,15 @@ def main():
         for route in (None, no_airline_route):
             departing = render._flight_line1_text(flight, "departing", route)
             arriving = render._flight_line1_text(flight, "arriving", route)
-            if departing != "Departing":
-                return False, "tier 4 departing expected 'Departing' for route=%r, got %r" % (route, departing)
-            if arriving != "Arriving":
-                return False, "tier 4 arriving expected 'Arriving' for route=%r, got %r" % (route, arriving)
+            if departing != "Unknown flight":
+                return False, "tier 4 departing expected 'Unknown flight' for route=%r, got %r" % (route, departing)
+            if arriving != "Unknown flight":
+                return False, "tier 4 arriving expected 'Unknown flight' for route=%r, got %r" % (route, arriving)
         return True, ""
     check(
-        "_flight_line1_text() tier 4 (nothing resolved) returns the title-case state word 'Departing'/'Arriving' "
-        "for both route=None and a dict with no airline name, for both states (D-10)",
-        _tier4_nothing_resolved_returns_title_case_state_word,
+        "_flight_line1_text() tier 4 (nothing resolved) returns the fixed string 'Unknown flight' "
+        "for both route=None and a dict with no airline name, identical for both states (D-10)",
+        _tier4_nothing_resolved_returns_unknown_flight,
     )
 
     # 47. The D-08 guard, end-to-end: across all four tiers and both cards,
@@ -2431,7 +2432,7 @@ def main():
     )
 
     # 76. --no-route continues to win over --airline/--city when both are
-    # given - the title-case state word (line 1, D-10 tier 4) and
+    # given - "Unknown flight" (line 1, D-10 tier 4) and
     # ROUTE_FALLBACK_TEXT (line 2) render instead of either override, and
     # the raw callsign never appears (D-08).
     def _cli_no_route_wins_over_airline_and_city():
@@ -2449,15 +2450,15 @@ def main():
         texts = [text for text, _xy, _anchor in spy.calls]
         if any("Should Not Appear" in t for t in texts):
             return False, "--no-route did not win over --airline/--city overrides: %r" % (texts,)
-        if "Departing" not in texts:
-            return False, "expected the title-case state word 'Departing' with --no-route in effect (D-10 tier 4), got: %r" % (texts,)
+        if "Unknown flight" not in texts:
+            return False, "expected 'Unknown flight' with --no-route in effect (D-10 tier 4), got: %r" % (texts,)
         if render.ROUTE_FALLBACK_TEXT not in texts:
             return False, "expected ROUTE_FALLBACK_TEXT with --no-route in effect, got: %r" % (texts,)
         if "AFR56XX" in texts:
             return False, "the raw callsign 'AFR56XX' must never appear with --no-route in effect (D-08), got: %r" % (texts,)
         return True, ""
     check(
-        "--no-route still overrides --airline/--city (title-case state word, ROUTE_FALLBACK_TEXT, never the raw "
+        "--no-route still overrides --airline/--city ('Unknown flight', ROUTE_FALLBACK_TEXT, never the raw "
         "callsign)",
         _cli_no_route_wins_over_airline_and_city,
     )
@@ -2563,8 +2564,8 @@ def main():
             return False, "render.main() exited %r/%r, expected 0/0" % (rc1, rc2)
         texts_no_route = [t for t, _xy, _a in spy_no_route.calls]
         texts_airline_only = [t for t, _xy, _a in spy_airline_only.calls]
-        if "Departing" not in texts_no_route:
-            return False, "expected tier-4 'Departing' with --no-identifier + --no-route (a no-op combo), got %r" % (texts_no_route,)
+        if "Unknown flight" not in texts_no_route:
+            return False, "expected tier-4 'Unknown flight' with --no-identifier + --no-route (a no-op combo), got %r" % (texts_no_route,)
         if "" in texts_airline_only:
             return False, "an empty-string draw call was made with --no-identifier + --preview-airline-only: %r" % (texts_airline_only,)
         if render._PREVIEW_ROUTE["airline_name"] not in texts_airline_only:

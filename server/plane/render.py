@@ -960,9 +960,13 @@ def _flight_line1_text(flight, state, route):
       in both functions, since they position line 2 from opposite edges of
       line 1 (bottom vs. top).
     - **Tier 4** - `route` is `None`, is not a dict, or carries no airline
-      name either: returns the TITLE-case state word, `"Departing"` or
-      `"Arriving"` - deliberately unlike the all-caps DEPARTING/ARRIVING
-      top-left label, a different element this function does not touch.
+      name either: returns the fixed string `"Unknown flight"` (D-10,
+      revised on-glass during plan 08-06's verification session - the
+      original TITLE-case state word duplicated the all-caps
+      DEPARTING/ARRIVING top-left label, a different element this
+      function does not touch, so it carried no information the label
+      didn't already show). Identical text for both states - the
+      top-left label is what distinguishes departing from arriving here.
       Line 2 independently falls to `ROUTE_FALLBACK_TEXT` in this case,
       unchanged existing behaviour.
 
@@ -982,7 +986,7 @@ def _flight_line1_text(flight, state, route):
     stripping `callsign_iata`, a non-dict `route`, or a hostile
     `route.get()` all degrade a tier rather than propagate.
     """
-    fallback_word = "Departing" if state == runway_config.STATE_DEPARTING else "Arriving"
+    fallback_word = "Unknown flight"
     if not isinstance(route, dict):
         return fallback_word
 
