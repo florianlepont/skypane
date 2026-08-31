@@ -457,10 +457,23 @@ Plans:
 **Plans:** 0/6 plans executed
 
 Plans:
+**Wave 1**
 
 - [ ] 08-01-PLAN.md — Theme registry: add White/Black/Yellow/Red, make White the default, relabel Sky (D-01..D-04)
 - [ ] 08-02-PLAN.md — Thread `callsign_iata` through enrich's parse/cache-write/cache-read chain (D-09)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 08-03-PLAN.md — Remove the text backing-plate, switch every text role to PT Serif Bold, grow the previous caption to 20px, record the font supersession (D-05/D-06/D-07/D-11)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 08-04-PLAN.md — Four-tier flight-identifier ladder, line-1-omitted handling in both text blocks, previous-card 20px optical offset, CLI tier forcing (D-08/D-10/D-12)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 08-05-PLAN.md — Illustration spot-check for the optical offset, `panel.bin` digest re-pin, full-suite reconciliation, forced-panel reminder unit-name fix (D-12)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 08-06-PLAN.md — Blocking on-glass verification battery on the real Spectra 6 panel, findings recorded to `hardware/BRINGUP-LOG.md` (D-13)
