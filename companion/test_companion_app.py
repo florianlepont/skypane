@@ -35,6 +35,7 @@ import hashlib
 import hmac
 import html
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -61,7 +62,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 85  # 06.6.3-01 Task 2: 4 new pre-auth static-script
+EXPECTED_CHECK_COUNT = 88  # 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
 # regression checks (dirty-state.js/list-filter.js/copy-button.js/
 # freshness.js, one each) + 1 new cross-file *_SCRIPT_ROUTE/*_SCRIPT_SRC
 # DOM-contract-guard check, mirroring _three_file_nav_dom_contract_guard()'s
@@ -767,6 +768,108 @@ def main():
         check(
             "the icon/icon-defs/STAT_TILE_ICON_CLASS class names all appear in companion/static/style.css",
             _icon_classes_match_stylesheet)
+
+        # --- heading-color-consistency debug session -------------------
+        #
+        # D-03's serif-headings contract lived only as an allow-list in a
+        # style.css comment, and `legend` was never added to it — so
+        # `<legend>Diagnostic LED</legend>` rendered sans-serif semibold
+        # directly above a serif-regular `<h2 class="text-heading">Poll
+        # </h2>` at the same 20px size on the Config page. These two
+        # checks make the contract executable in both directions: every
+        # heading role IS serif, and no dense/tabular role IS NOT.
+
+        def _every_heading_role_is_serif():
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            # The single selector that grants the serif family. Every
+            # heading role in the app must be a member of it.
+            start = css.find("h1,\nh2,\nh3,\nlegend,\n.text-heading {")
+            if start == -1:
+                return False, (
+                    "expected one combined serif-heading selector listing "
+                    "h1, h2, h3, legend and .text-heading — a heading role "
+                    "was removed from it, or the selector was reformatted "
+                    "(if reformatted, update this check deliberately)")
+            block = css[start:css.index("}", start)]
+            for declaration in (
+                    "font-family: var(--font-serif)",
+                    "font-weight: var(--weight-regular)"):
+                if declaration not in block:
+                    return False, (
+                        "the serif-heading rule no longer declares %r"
+                        % (declaration,))
+            # legend must not restate font-weight in its own later rule:
+            # both selectors are bare `legend` (0,0,1), so a weight
+            # declared there silently beats the rule above regardless of
+            # what the rule above says. This is the exact defect.
+            legend_start = css.find("\nlegend {")
+            if legend_start == -1:
+                return False, "expected a bare `legend` rule in style.css"
+            legend_block = css[legend_start:css.index("}", legend_start)]
+            if "font-weight" in legend_block:
+                return False, (
+                    "the standalone `legend` rule declares font-weight "
+                    "again; at equal specificity it wins over the serif "
+                    "heading rule and re-breaks legend/h2 consistency")
+            return True, ""
+        check(
+            "every heading role (h1/h2/h3/legend/.text-heading) shares one "
+            "serif rule, and `legend` does not override its weight",
+            _every_heading_role_is_serif)
+
+        def _serif_never_reaches_dense_content():
+            # D-03's other half: serif is headings-only. Body, tables,
+            # form controls, nav links and mono content stay on
+            # --font-ui. Guards against the rejected "serif partout"
+            # option creeping back in one rule at a time.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            forbidden = (
+                ".data-table", ".cell-primary", ".cell-secondary",
+                ".mono", ".text-body", ".sidebar-link", ".mobile-nav__link")
+            for selector in forbidden:
+                index = css.find("\n%s {" % selector)
+                if index == -1:
+                    continue
+                block = css[index:css.index("}", index)]
+                if "--font-serif" in block:
+                    return False, (
+                        "%s applies --font-serif; serif is a headings-only "
+                        "treatment (D-03), never dense/tabular content"
+                        % selector)
+            return True, ""
+        check(
+            "--font-serif never reaches table, body, mono or nav-link rules "
+            "(D-03's headings-only boundary)",
+            _serif_never_reaches_dense_content)
+
+        def _one_error_signal_token():
+            # --color-destructive and --color-status-error held identical
+            # values in all four token blocks while being used
+            # interchangeably for one concept, so "change the error
+            # colour" silently meant "change two tokens in four places".
+            # The duplicate is gone; this keeps it gone.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            # Comments are stripped first: the rules that used to read
+            # this token now carry comments explaining why they no
+            # longer do, and that prose must not trip the check it
+            # documents.
+            declarations = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+            if "--color-destructive" in declarations:
+                return False, (
+                    "--color-destructive is back; it duplicated "
+                    "--color-status-error exactly and is the reason the two "
+                    "could drift. Use --color-status-error")
+            return True, ""
+        check(
+            "there is exactly one error-signal colour token "
+            "(--color-status-error), no --color-destructive duplicate",
+            _one_error_signal_token)
 
         # --- 06.6.1-04 Task 3 / 06.6.1-05: Health nav notification dot ---
         #

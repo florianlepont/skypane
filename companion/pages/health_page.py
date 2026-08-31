@@ -583,6 +583,19 @@ def anomaly_active(state_dir, now=None):
     return health_severity(state_dir, now) != "ok"
 
 
+def _starts_with_acronym(phrase):
+    """True when `phrase`'s first whitespace-delimited word carries a
+    capital letter somewhere after its first character — the signature
+    of an acronym or initialism ("ADS-B", "RER", "GPS") as opposed to an
+    ordinary sentence-initial word ("Device", "A", "Battery").
+
+    Used by `_anomaly_category_text()` to decide whether a phrase's
+    leading letter may be safely lower-cased for mid-sentence joining.
+    """
+    first_word = phrase.split(" ", 1)[0]
+    return any(character.isupper() for character in first_word[1:])
+
+
 def _anomaly_category_text(anomalies):
     """A comma-joined, human-readable naming of `anomalies`
     (`collect_anomalies()`'s own literal strings, in order) — UXA-06's
@@ -597,11 +610,22 @@ def _anomaly_category_text(anomalies):
     light, mechanical transformation of `collect_anomalies()`'s own
     four literal strings (not an independently-maintained copy), so
     the two can never drift apart.
+
+    The lower-casing skips any phrase whose first word is an acronym or
+    other already-capitalised proper noun. Two of `collect_anomalies()`'s
+    four literals begin with "ADS-B", and blindly lower-casing the first
+    character rendered them as the visible nonsense "aDS-B ..." in the
+    banner whenever such an item was not the first one listed. The test
+    is "does the first word contain a capital letter after its first
+    character" — true for "ADS-B", false for ordinary sentence-initial
+    words like "Device" or "A" — which needs no hard-coded list of
+    acronyms and so cannot go stale when a fifth anomaly string is
+    added.
     """
     phrases = []
     for index, anomaly in enumerate(anomalies):
         phrase = anomaly.rstrip(".")
-        if index > 0 and phrase:
+        if index > 0 and phrase and not _starts_with_acronym(phrase):
             phrase = phrase[0].lower() + phrase[1:]
         phrases.append(phrase)
     return ", ".join(phrases)

@@ -136,7 +136,7 @@ def theme_fieldset(current_theme_id):
         arriving_hex = _palette_hex(theme["arriving_index"])
         return (
             '<div class="theme-status">'
-            '<p class="text-label">Theme</p>'
+            '<h2 class="text-heading">Theme</h2>'
             '<div class="theme-status__row">'
             '<span class="theme-swatch" aria-hidden="true">'
             '<span class="theme-swatch__chip" style="background:%s"></span>'
@@ -197,6 +197,19 @@ def runway_fieldset(current_runway_id, images_available=()):
     call site still gets. The CFG-12 helper text (applies on the
     device's next scheduled poll, not immediately — D-28) renders once
     after the card list.
+
+    The group is named by an `<h2 class="text-heading">Runway</h2>`.
+    It previously had no group name at all — three unlabelled runway
+    cards with nothing above them saying what they were — while its
+    sibling groups on this same page each had one, in three different
+    shapes. It is an `<h2>` and not a `<legend>` because D-04/D-05
+    deliberately dropped the `<fieldset>` wrapper from both the Theme and
+    Runway groups (`test_config_page.py` pins render() at exactly one
+    `<fieldset`, the LED one), and a `<legend>` outside a `<fieldset>` is
+    invalid markup with no accessible group semantics. `<h2
+    class="text-heading">` is the role the Poll section on this same page
+    already uses, and style.css now renders it identically to the LED
+    group's `<legend>`, so all four groups read as one heading level.
     """
     cards = []
     for runway_id in device_config.RUNWAY_IDS:
@@ -228,6 +241,7 @@ def runway_fieldset(current_runway_id, images_available=()):
             )
         )
     return (
+        '<h2 class="text-heading">Runway</h2>'
         "%s"
         '<p class="text-label">%s</p>'
     ) % ("".join(cards), escape_html(RUNWAY_HELPER_TEXT))

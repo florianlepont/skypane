@@ -54,7 +54,7 @@ STARTUP_DEADLINE_S = 10.0
 # longer true for the real single-theme registry, by two new checks plus
 # two new runway-card checks) -> 46 (Task 3: D-03 dirty-state bar
 # nesting/ordering check, +1).
-EXPECTED_CHECK_COUNT = 46
+EXPECTED_CHECK_COUNT = 47  # 46 + 1 (heading-color-consistency: one consistent heading level for all four settings groups)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -238,6 +238,45 @@ def main():
     check(
         "render() emits the read-only theme-status block, three runway-card labels, the LED fieldset, and a Save Settings submit button",
         _render_shape_read_only_theme_runway_cards_led_fieldset_and_save_button)
+
+    def _every_settings_group_is_named_at_one_heading_level():
+        # heading-color-consistency debug session. Config carries four
+        # settings groups, and before this session they were named four
+        # different ways: Theme by a <p class="text-label">, Runway by
+        # nothing at all (three unlabelled runway cards), Diagnostic LED
+        # by a <legend>, and Poll by an <h2 class="text-heading">. Every
+        # group now has exactly one name, and all four render at the
+        # same heading level — <h2 class="text-heading"> for the three
+        # groups D-04/D-05 stripped of their <fieldset>, <legend> for
+        # the one group that still has a <fieldset> (D-06 requires the
+        # legend there and forbids a duplicate <h2> alongside it), and
+        # style.css's serif rule now renders the two identically.
+        ctx = {
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        }
+        rendered = config_page.render(ctx)
+        for name in ("Theme", "Runway", "Poll"):
+            heading = '<h2 class="text-heading">%s</h2>' % name
+            if rendered.count(heading) != 1:
+                return False, (
+                    "expected exactly one %r group heading, got %d"
+                    % (heading, rendered.count(heading)))
+        if rendered.count("<legend>Diagnostic LED</legend>") != 1:
+            return False, (
+                "expected the LED group to keep its <legend> as its sole "
+                "accessible group name (D-06)")
+        # The old label-paragraph shape must not come back alongside the
+        # heading — that would name the Theme group twice.
+        if '<p class="text-label">Theme</p>' in rendered:
+            return False, (
+                "the Theme group is named twice: the superseded "
+                "text-label paragraph is still present next to the <h2>")
+        return True, ""
+    check(
+        "all four Config settings groups (Theme/Runway/LED/Poll) are named "
+        "exactly once, at one consistent heading level",
+        _every_settings_group_is_named_at_one_heading_level)
 
     def _render_opens_with_shared_page_header():
         # 06.6.2-04 (D-16): Config's top-level heading now goes through

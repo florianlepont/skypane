@@ -7,13 +7,31 @@
  * separate from the physical frame's own design system — the frame's
  * vendored fonts and PALETTE_RGB values must still never be pulled in here.
  *
- * Accent is reserved to exactly these uses (06.6.1-UI-SPEC.md Color
- * section): primary buttons, the active sidebar-link/dropdown-link
- * indicator, links, the focused-input outline, a stat tile's icon tint and
- * top accent when no ok/warn/error status applies, and the hamburger
- * toggle's active state. Do not broaden this list without updating
- * 06.6.1-UI-SPEC.md's Color section — everything else interactive uses
- * neutral gray, never a repurposed accent colour.
+ * Accent is reserved to selection/primary-action/wayfinding affordances
+ * (06.6.1-UI-SPEC.md Color section), and to nothing else — everything
+ * else interactive uses neutral gray, never a repurposed accent colour.
+ * The full current list, kept exhaustive on purpose so a future reader
+ * can tell an intended use from an accidental one: primary
+ * (`type="submit"`) buttons, links, the focused-input outline, the
+ * active sidebar/dropdown link indicator and its tinted pill, the
+ * hamburger toggle's active state, a stat tile's icon tint and top
+ * accent when no ok/warn/error status applies, the skip link's fill,
+ * the selected runway card's border and check glyph, the native
+ * `accent-color` of radios/checkboxes, a `<summary>` disclosure marker,
+ * the neutral (non-anomaly) banner's left edge, and the favicon. Do not
+ * broaden this list without updating 06.6.1-UI-SPEC.md's Color section.
+ *
+ * Colour-separation contract (heading-color-consistency debug session):
+ * `--color-accent` must stay measurably distinguishable from every
+ * `--color-status-*` signal colour, in BOTH themes. This was prose-only
+ * for three phases and named only the accent-vs-warn pair, which is
+ * exactly how 06.6.2's WCAG-AA accent darkening was able to move the
+ * accent to within dE76 22.9 of `--color-status-error` unnoticed. It is
+ * now executable: companion/contrast_check.py's `perceptual_distance()`
+ * / `hue_separation()` and companion/test_contrast_check.py's
+ * separation section enforce it on every accent/status pair. Change any
+ * of these tokens and that test tells you whether the signals still
+ * read apart — do not rely on the comments below alone.
  *
  * Border is structural only — the sidebar/content divider, fieldset
  * borders, table borders, and the mobile-nav dropdown's own edge. It is
@@ -92,13 +110,31 @@
    * pins both). */
   --color-accent: #B13F16;
   --color-accent-hover: #963610;
+  /* The foreground for text/glyphs painted ON an accent fill (primary
+   * buttons, the skip link). Previously these rules borrowed
+   * --color-dominant, the card-surface token, which happened to resolve
+   * to the right value in both themes — a coincidence, not a contract,
+   * and one that would break silently the day a card surface is
+   * retinted. Same value, now named for the job it does. */
+  --color-on-accent: #FFFFFF;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
-  --color-destructive: #DC2626;
   --color-text: #17191F;
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
-  --color-status-error: #DC2626;
+  /* Crimson, hue ~345. Was #DC2626 (hue 0) until the
+   * heading-color-consistency debug session measured it at only dE76
+   * 22.9 / 15.9 degrees from --color-accent — closer than the
+   * accent-vs-warn pair (28.6 / 16.3) that 06.6.1's D-04 examined and
+   * accepted, which is why a primary-action button and an error edge
+   * read as the same brick red on screen. Moving error to crimson
+   * restores separation (dE76 29.3 / 30.5 degrees) WITHOUT touching the
+   * accent, so UXA-04's WCAG AA contrast fix stays intact; it also
+   * raises this token's own worst-case contrast on the three light
+   * surfaces from 3.96 to 5.16, so it is now safe as text and not only
+   * as a fill. Enforced by companion/test_contrast_check.py's
+   * separation section — do not shift this back toward pure red. */
+  --color-status-error: #BE123C;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -109,13 +145,23 @@
     --color-border: #2A3040;
     --color-accent: #FF8A5C;
     --color-accent-hover: #FF9E77;
+    /* Dark-mode accent fills are light, so the on-accent foreground
+     * flips to the dark card surface's value — again the same value
+     * these rules already resolved to via --color-dominant, now named. */
+    --color-on-accent: #151922;
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
-    --color-destructive: #F87171;
     --color-text: #F1F3F6;
     --color-status-ok: #4ADE80;
     --color-status-warn: #FBBF24;
-    --color-status-error: #F87171;
+    /* Dark-theme counterpart of the light crimson above (same rose
+     * family, shifted lighter/more saturated the way every other
+     * --color-status-* token shifts between themes). Was #F87171, which
+     * sat at dE76 22.3 / 16.9 degrees from the dark accent #FF8A5C —
+     * the same collision as light mode, and worse in relative terms
+     * since dark's accent-vs-warn pair is a comfortable 47.0 apart.
+     * Now dE76 32.2 / 25.6 degrees. */
+    --color-status-error: #FB7185;
   }
 }
 
@@ -127,13 +173,13 @@ html[data-ui-theme="light"] {
   --color-border: #DFD7C8;
   --color-accent: #B13F16;
   --color-accent-hover: #963610;
+  --color-on-accent: #FFFFFF;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
-  --color-destructive: #DC2626;
   --color-text: #17191F;
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
-  --color-status-error: #DC2626;
+  --color-status-error: #BE123C;
 }
 
 html[data-ui-theme="dark"] {
@@ -143,13 +189,13 @@ html[data-ui-theme="dark"] {
   --color-border: #2A3040;
   --color-accent: #FF8A5C;
   --color-accent-hover: #FF9E77;
+  --color-on-accent: #151922;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
-  --color-destructive: #F87171;
   --color-text: #F1F3F6;
   --color-status-ok: #4ADE80;
   --color-status-warn: #FBBF24;
-  --color-status-error: #F87171;
+  --color-status-error: #FB7185;
 }
 
 /* D-19: a single global reduced-motion override every transition in this
@@ -214,17 +260,48 @@ body {
 /* 06.6.1 (D-03): headings move onto var(--font-serif). This is a
  * headings-only treatment — body text, table cells, form controls, nav
  * links and monospace content stay on --font-ui, never var(--font-serif).
- * That boundary is the whole substance of D-03; do not extend serif
- * beyond h1/h2/h3/.text-heading/.site-title/.sidebar-title/
+ * That boundary is the whole substance of D-03.
+ *
+ * The exhaustive serif set is: h1, h2, h3, .text-heading, `legend`,
+ * .page-title, .site-title (which .sidebar-title is always co-classed
+ * with, and is why .sidebar-title needs no rule of its own), and
  * .stat-tile__caption (the one named Label-role exception, see the
- * stat-tile section below). */
+ * stat-tile section below). Do not extend it further.
+ *
+ * `legend` is in the selector below, and this is the fix, not a
+ * cosmetic addition: `legend` is a section-heading role — it is the
+ * accessible group name for a <fieldset>, and config_page.py's D-06
+ * deliberately uses it INSTEAD of an <h2> so a group is never named
+ * twice. It was never added to this selector, so it kept the browser's
+ * sans-serif and the file's own --weight-semibold, which put a
+ * sans-semibold `<legend>Diagnostic LED</legend>` directly above a
+ * serif-regular `<h2 class="text-heading">Poll</h2>` at the identical
+ * 20px size on the Config page. Same role, same size, two families and
+ * two weights. If a heading role is ever added to this file, it belongs
+ * in this selector — that is the whole contract. */
 h1,
 h2,
 h3,
+legend,
 .text-heading {
   font-family: var(--font-serif);
   font-weight: var(--weight-regular);
   letter-spacing: -0.01em;
+}
+
+/* Heading rhythm. Without this, headings fall through to UA defaults,
+ * which are em-based and per-element — and .text-heading is applied
+ * both to real <h2> elements (Health/Preview/Config sections) and to
+ * <p> elements (layout.empty_state(), airlines_page, history_page), so
+ * one visual heading role got 0.83em margins on an h2 and 1em margins
+ * on a p. Stating the rhythm once, in the same selector that states the
+ * family, is what keeps the role's spacing independent of which tag it
+ * happens to land on. */
+h1,
+h2,
+h3,
+.text-heading {
+  margin: 0 0 var(--space-sm);
 }
 
 /* 06.6.2 (D-15): the page-title role — distinct from the 20px
@@ -473,7 +550,7 @@ a:hover {
   top: -40px;
   left: 0;
   background: var(--color-accent);
-  color: var(--color-dominant);
+  color: var(--color-on-accent);
   padding: var(--space-sm) var(--space-md);
   z-index: 10;
   border-radius: 0 0 var(--radius-control) 0;
@@ -499,7 +576,9 @@ a:hover {
   min-width: 44px;
   padding: 0 var(--space-sm);
   background: transparent;
-  border: 1px solid var(--color-secondary);
+  /* --color-border, not --color-secondary: same "quiet control edge"
+   * role as input/select and .logout-form button, same token. */
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   color: var(--color-text);
   font-size: var(--font-label-size);
@@ -533,9 +612,17 @@ a:hover {
   gap: var(--space-xs);
 }
 
+/* The chip's fill is an inline style carrying a raw e-ink PALETTE_RGB
+ * value (config_page._palette_hex()), not a theme token — so it is the
+ * one colour in this file the stylesheet cannot reason about. The
+ * hairline is what keeps a chip visible when its palette entry happens
+ * to be near the card surface it sits on: the panel palette includes
+ * white, and today's single registered theme just happens not to use
+ * it. Structural border, structural token. */
 .theme-swatch__chip {
   width: 16px;
   height: 16px;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   display: inline-block;
 }
@@ -625,30 +712,57 @@ a:hover {
 }
 
 /* Banners: full-width, 4px left border, appear only when there is
- * something to say (no "all clear" banner — its absence is the signal). */
+ * something to say (no "all clear" banner — its absence is the signal).
+ *
+ * Every severity also carries a 10% wash of its own edge colour over the
+ * secondary surface, via the same color-mix idiom .sidebar-link--active
+ * already establishes in this file. Before this, all three severities
+ * shared one flat --color-secondary background and differed only in the
+ * 4px stripe — so "something is wrong" was a thin red line sitting on
+ * the same surface as everything else, competing for meaning with the
+ * accent-filled primary button rather than reading as its own region.
+ * 10% is deliberately restrained: enough to tint the region, far too
+ * little to move body text off its contrast floor in either theme (the
+ * mix is 90% --color-secondary, the surface every AA text pair in
+ * test_contrast_check.py is already pinned against). */
 .banner {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
-  background: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-secondary));
   border-left: 4px solid var(--color-accent);
   font-size: var(--font-body-size);
 }
 
+/* Reads --color-status-error, not the former --color-destructive. Those
+ * two tokens held identical values in all four token blocks while being
+ * used interchangeably for one concept — `.banner--anomaly` and
+ * `.page-section.banner--anomaly` took --color-destructive while
+ * `.dot--error`, `.stat-tile--error` and `.stat-tile--error
+ * .stat-tile__icon` took --color-status-error — so "change the error
+ * colour" silently meant "remember to change two tokens, in four token
+ * blocks". The duplicate is removed rather than aliased: one concept,
+ * one token. */
 .banner--anomaly {
-  border-left-color: var(--color-destructive);
+  border-left-color: var(--color-status-error);
+  background: color-mix(in srgb, var(--color-status-error) 10%, var(--color-secondary));
 }
 
 /* 06.6.2-06 (UXA-14): the warning-only counterpart to .banner--anomaly,
  * so a warning-level Health state (e.g. only a corroboration
  * disagreement, device/pipeline both fresh) renders a distinct,
- * less-alarming border colour instead of always the maximal
- * destructive/red treatment. */
+ * less-alarming treatment instead of always the maximal error red. */
 .banner--warn {
   border-left-color: var(--color-status-warn);
+  background: color-mix(in srgb, var(--color-status-warn) 10%, var(--color-secondary));
 }
 
+/* The flash banner is the neutral/confirmation case and keeps the base
+ * .banner accent treatment. The rule is kept (rather than deleted as
+ * redundant) so all three severities are visibly enumerated in one
+ * place — a reader adding a fourth severity sees the pattern to follow. */
 .banner--flash {
   border-left-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-secondary));
 }
 
 /* Forms and fieldsets */
@@ -658,9 +772,17 @@ fieldset {
   margin-bottom: var(--space-lg);
 }
 
+/* Size and padding only. The family/weight/letter-spacing come from the
+ * `h1, h2, h3, legend, .text-heading` serif rule near the top of this
+ * file — and this rule must NOT restate font-weight, which is what it
+ * used to do (--weight-semibold). Both selectors are bare `legend`
+ * (0,0,1), so at equal specificity the later one wins, and this rule is
+ * the later one: declaring a weight here silently beat the serif rule's
+ * --weight-regular no matter what that rule said. That is precisely how
+ * `<legend>` ended up as the only section heading in the app rendering
+ * at a different weight from its siblings. */
 legend {
   font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
   padding: 0 var(--space-xs);
 }
 
@@ -670,13 +792,20 @@ label {
   margin-bottom: var(--space-sm);
 }
 
+/* The 1px edge uses --color-border, the structural-line token, matching
+ * .site-nav-toggle / .logout-form button / .dirty-bar__cancel. It used
+ * to use --color-secondary — the control's own fill colour — so the
+ * field had a border in name only and read as a flat block, while the
+ * quiet buttons beside it on the same form were properly outlined. Two
+ * conventions for one "quiet control edge" role; this is the one the
+ * file's own header comment describes ("border is structural only"). */
 input,
 select {
   min-height: 44px;
   min-width: 44px;
   padding: var(--space-sm);
   background: var(--color-secondary);
-  border: 1px solid var(--color-secondary);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   color: var(--color-text);
   font-size: var(--font-body-size);
@@ -709,7 +838,7 @@ button {
  * selector's match set. */
 button[type="submit"] {
   background: var(--color-accent);
-  color: var(--color-dominant);
+  color: var(--color-on-accent);
 }
 
 /* Not a bare .theme-option:hover: .theme-form .theme-option (0,2,0) is
@@ -802,6 +931,13 @@ button:disabled {
   display: block;
   position: relative;
   background: var(--color-dominant);
+  /* Same transparent-border-plus-shadow edge every other card in this
+   * file carries (see .stat-tile). Previously this rule declared no
+   * border at all, so the dark-mode card-edge override had no width to
+   * colour in and Config's runway picker was the one card set with no
+   * boundary in dark mode. The --selected modifier below still replaces
+   * this with its own real 2px accent border. */
+  border: 1px solid transparent;
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   padding: var(--space-md);
@@ -886,9 +1022,15 @@ button:disabled {
   z-index: 1;
 }
 
+/* The row separator draws with --color-border, the structural-line
+ * token, not --color-secondary. It used to use --color-secondary, which
+ * is the exact colour `.data-table tr.row-alt` paints its background —
+ * so on every alternate row the separator was the same colour as the
+ * row it sat on and simply vanished, giving History, Airlines and
+ * Health tables a visible rule under odd rows and none under even ones. */
 .data-table td {
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid var(--color-secondary);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .data-table tr.row-alt {
@@ -939,6 +1081,10 @@ button:disabled {
 
 .history-card {
   background: var(--color-dominant);
+  /* Same reason as .runway-card above: reserves the 1px the dark-mode
+   * card-edge override colours in, so History's mobile cards keep a
+   * boundary in dark mode like every other card. */
+  border: 1px solid transparent;
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   padding: var(--space-md);
@@ -952,10 +1098,16 @@ button:disabled {
   justify-content: space-between;
 }
 
+/* opacity 0.7, matching .cell-secondary / .cell-inline-sep above. This
+ * card and that table cell render the SAME secondary data (History's
+ * merged Hex / Type·Airline parts) — the card below 960px, the table
+ * above it — so a second muting strength here meant the identical
+ * content read at two different weights purely as a function of
+ * viewport width. One secondary-data role, one opacity. */
 .history-card__secondary {
   display: flex;
   gap: var(--space-sm);
-  opacity: 0.85;
+  opacity: 0.7;
   margin-top: var(--space-xs);
 }
 
@@ -1201,16 +1353,34 @@ summary::-webkit-details-marker {
  * alone doesn't read on an already-dark canvas) — light mode keeps its
  * existing shadow-only treatment (border: 1px solid transparent), which
  * already reads correctly against the new lighter canvas/dominant split,
- * so no light-mode override is added here. */
+ * so no light-mode override is added here.
+ *
+ * The selector list must name EVERY card component, not just the three
+ * it originally listed. `.runway-card`, `.history-card` and
+ * `.login-card` were missing, so Config's runway picker, History's
+ * mobile card list and the login screen lost their edges in dark mode
+ * while Health's tiles kept theirs — the same card concept rendering
+ * with and without a boundary on different pages. Each of those three
+ * now also declares `border: 1px solid transparent` in its own base
+ * rule, which is what gives this override a border-width to colour in
+ * (border-color alone cannot paint an edge that does not exist). */
 @media (prefers-color-scheme: dark) {
-  .stat-tile, .page-section, .battery-trend-section {
+  .stat-tile,
+  .page-section,
+  .battery-trend-section,
+  .runway-card,
+  .history-card,
+  .login-card {
     border-color: var(--color-border);
   }
 }
 
 html[data-ui-theme="dark"] .stat-tile,
 html[data-ui-theme="dark"] .page-section,
-html[data-ui-theme="dark"] .battery-trend-section {
+html[data-ui-theme="dark"] .battery-trend-section,
+html[data-ui-theme="dark"] .runway-card,
+html[data-ui-theme="dark"] .history-card,
+html[data-ui-theme="dark"] .login-card {
   border-color: var(--color-border);
 }
 
@@ -1232,24 +1402,63 @@ html[data-ui-theme="dark"] .battery-trend-section {
 }
 
 /* Page section card treatment: gives the below-breakpoint stacked
- * sections the same card treatment as the dashboard's tiles. */
+ * sections the same card treatment as the dashboard's tiles.
+ *
+ * "The same card treatment" now means literally the same, including the
+ * edge: this rule used to pair a visible `--color-border` hairline WITH
+ * `--shadow-card`, which is exactly the combination .stat-tile's own
+ * comment forbids ("do not 'restore' the border on top of the shadow,
+ * or cards end up with both"). D-02 traded the hairline for the resting
+ * shadow; .stat-tile and .battery-trend-section carried that through
+ * with `border: 1px solid transparent` and this one did not, so Config
+ * and Preview's sections were outlined while Health's tiles were not.
+ * The transparent border is kept (not removed) because it reserves the
+ * 1px the dark-mode override below colours in. */
 .page-section {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
-  border: 1px solid var(--color-border);
+  /* The card surface, like every other card in this file. This rule had
+   * no `background` at all, which was correct under the pre-06.6.2
+   * TWO-level surface model — back then --color-dominant was the page
+   * background, so a card needed no fill to sit on it. 06.6.2 split the
+   * levels (--color-canvas page / --color-dominant card /
+   * --color-secondary elevated) and updated .stat-tile,
+   * .battery-trend-section, .runway-card, .history-card and .login-card
+   * to declare the card surface explicitly — this rule was missed, so
+   * Config's Poll/LED sections and both of Preview's sections rendered
+   * as shadowed canvas-coloured blocks while every other card on screen
+   * was on --color-dominant. */
+  background: var(--color-dominant);
+  border: 1px solid transparent;
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
 
 /* health_page.py's source-fault block combines page-section with banner
  * banner--anomaly. .page-section's `border` shorthand above resets all
- * four sides, including the left edge banner--anomaly needs destructive-
+ * four sides, including the left edge banner--anomaly needs error-
  * coloured — at equal (0,1,0) specificity the later rule wins regardless
  * of which one "means" to own that edge. This combined selector (0,2,0)
- * restores the destructive left border deterministically, independent of
- * source order. */
+ * restores that left border deterministically, independent of source
+ * order.
+ *
+ * The width is restored here too, not just the colour. The `border`
+ * shorthand resets border-left-WIDTH to 1px as well, and only the
+ * colour was ever put back — so the source-fault block, the single most
+ * severe state this page can show, drew a 1px alert edge while every
+ * other anomaly banner drew 4px. One signal, two widths, decided by
+ * which rule happened to sit later in the file. Both properties are now
+ * restated together; they must stay together.
+ *
+ * The severity wash is restated here for the same cascade reason: this
+ * block is both a card and a banner, and .page-section's own
+ * `background: var(--color-dominant)` above sits later in the file than
+ * .banner--anomaly's tint, so at equal (0,1,0) specificity the plain
+ * card surface would win and the alert region would lose its colour.
+ * This (0,2,0) selector settles it independent of source order. */
 .page-section.banner--anomaly {
-  border-left-color: var(--color-destructive);
+  border-left: 4px solid var(--color-status-error);
+  background: color-mix(in srgb, var(--color-status-error) 10%, var(--color-secondary));
 }
 
 /* Preview's live-panel frame (06.6.3, CFG-10) — a bounded, centered
@@ -1468,7 +1677,11 @@ html[data-ui-theme="dark"] .battery-trend-section {
   width: 100%;
   max-width: 360px;
   background: var(--color-dominant);
-  border: 1px solid var(--color-border);
+  /* Was a visible --color-border hairline alongside --shadow-card, the
+   * pairing D-02 replaced and .stat-tile's comment forbids. Transparent
+   * here, coloured by the dark-mode card-edge override, exactly like
+   * every other card. */
+  border: 1px solid transparent;
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   padding: var(--space-xl);

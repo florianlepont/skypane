@@ -68,7 +68,7 @@ STARTUP_DEADLINE_S = 10.0
 # two pre-existing Airlines checks (the iconless check, the two-tiles/Coverage-
 # heading check) are retargeted in place for this plan's own D-18/D-20 changes,
 # not counted as new
-EXPECTED_CHECK_COUNT = 58  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
+EXPECTED_CHECK_COUNT = 59  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -515,6 +515,44 @@ def main():
         "the anomaly banner names the real failing category (a disagreement), not only the generic "
         "fallback text (UXA-06)",
         _anomaly_banner_names_real_categories_not_generic_only)
+
+    def _anomaly_categories_never_lowercase_a_leading_acronym():
+        # heading-color-consistency debug session.
+        # _anomaly_category_text() lower-cases each phrase after the
+        # first so they read mid-sentence. Two of collect_anomalies()'s
+        # four literals begin with "ADS-B", and the transformation had no
+        # acronym guard, so any banner listing one of them in a
+        # non-first position rendered the visible nonsense "aDS-B ...".
+        # Driven through the real collect_anomalies() strings, in the
+        # real order, rather than hand-written fixtures — so the check
+        # cannot drift away from the copy it is protecting.
+        anomalies = health_page.collect_anomalies(
+            device_state="warn", pipeline_state="warn",
+            battery_state="ok", disagreement_warn=True)
+        text = health_page._anomaly_category_text(anomalies)
+        if "aDS-B" in text:
+            return False, (
+                "a leading acronym was lower-cased for mid-sentence "
+                "joining, producing %r" % (text,))
+        if text.count("ADS-B") != 2:
+            return False, (
+                "expected both ADS-B categories to survive intact, got %r"
+                % (text,))
+        # The guard must be narrow: an ordinary sentence-initial word in
+        # a non-first position still lower-cases, or the joined clause
+        # reads as a run of sentences again.
+        ordinary = health_page._anomaly_category_text(
+            ["Device check-in is stale.",
+             "A battery reading shows an abnormal drop."])
+        if "a battery reading" not in ordinary:
+            return False, (
+                "expected an ordinary non-acronym phrase to still be "
+                "lower-cased mid-sentence, got %r" % (ordinary,))
+        return True, ""
+    check(
+        "_anomaly_category_text() lower-cases ordinary mid-sentence phrases "
+        "but never a leading acronym (no 'aDS-B')",
+        _anomaly_categories_never_lowercase_a_leading_acronym)
 
     def _corroboration_copy_has_no_decision_id_leak():
         for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
