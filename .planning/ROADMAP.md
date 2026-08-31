@@ -309,7 +309,7 @@ Plans:
 **Goal:** Apply the already-fully-validated "sober, Linear-inspired" visual spec to the real companion codebase. Structural restraint only, not a rebrand: cards trade their resting shadow for a hairline with the shadow revealed on interaction; text buttons drop 44px→30px (a deliberate WCAG 2.5.5 AAA trade-off the developer accepted three times, still 2.5.8 AA-compliant) with an inset-highlighted primary and near-invisible quiet variants; icon buttons shrink to 28px while keeping a real 44px hit area via a pseudo-element; banners lose their colour wash for a neutral surface with a 3px edge and a status dot; both nav renderers tighten to 32px with a single tinted-pill active signal; the theme picker becomes one segmented control; tables lose zebra striping for a hover tint under quiet uppercase headers; and the filter bar tightens with both Clear controls converged on one rule. Every value was chosen and confirmed live against a rendered design-system artifact across ~8 rounds before planning began — this phase is pure application, with no design exploration remaining. Inserted urgently after the developer real-browser-tested Phase 06.6.3's shipped UI and reacted "c'est catastrophique d'un point de vue UI et UX".
 **Requirements**: None — unmapped backlog phase, matching every prior `06.6.x` decimal phase's precedent (`requirements.mark-complete` returning `not_found` for these IDs is expected, not an error). Traced instead against `06.6.4-CONTEXT.md`'s own locked decisions D-01, D-01a, D-01b, D-01c, D-02, D-03, D-03a, D-04, D-04a, D-05, D-05a, D-06, D-06a, D-07, D-07a, D-08, D-09, plus the two explicit non-goals D-10 and D-11.
 **Depends on:** Phase 06.6.3 (all its shipped markup/CSS) and the `heading-color-consistency` debug session (commit `01235a6`, already merged — this phase consumes its accent/status tokens and its serif/`legend` heading rule without revisiting them)
-**Plans:** 2/6 plans executed
+**Plans:** 3/6 plans executed
 
 Plans:
 **Wave 1**
@@ -322,7 +322,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 06.6.4-03-PLAN.md — Flat banner surface with a 3px coloured edge and status dot across all three severities, the combined card-and-banner reconciliation for Health's source-fault block, and a contrast guard for the new surface (D-04, D-04a)
+- [x] 06.6.4-03-PLAN.md — Flat banner surface with a 3px coloured edge and status dot across all three severities, the combined card-and-banner reconciliation for Health's source-fault block, and a contrast guard for the new surface (D-04, D-04a)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
