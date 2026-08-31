@@ -34,6 +34,7 @@ before binding the socket. A missing password fails closed — this
 service must never come up with authentication silently disabled.
 """
 import os
+import socket
 import sys
 import threading
 import time
@@ -68,6 +69,14 @@ POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abus
 PREVIEW_THUMB_WIDTH = 600  # nearest-neighbour cap for a faster mobile load (D-22).
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
+# WR-03: bounds how long a single connection's socket reads (including the
+# unauthenticated POST /login body read in read_form()) may block on a
+# slow/stalled client. Without this, a client that opens a connection with
+# a plausible Content-Length and then trickles (or never sends) the body
+# ties up a ThreadingHTTPServer worker thread indefinitely — a slowloris-
+# shaped DoS reachable before any credential check. 30s comfortably covers
+# a slow real client on this LAN/VPN deployment while bounding the worst case.
+REQUEST_SOCKET_TIMEOUT_S = 30
 
 LOGIN_ROUTE = "/login"
 STYLE_ROUTE = "/static/style.css"
@@ -305,6 +314,12 @@ def runway_images_available(image_dir=_RUNWAY_IMAGE_DIR):
 class Handler(BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None
+    # WR-03: socketserver.StreamRequestHandler honours this attribute by
+    # calling self.connection.settimeout(self.timeout) before setup, so a
+    # stalled read anywhere on the connection (in particular the
+    # unauthenticated POST /login body read) raises socket.timeout instead
+    # of blocking the worker thread forever.
+    timeout = REQUEST_SOCKET_TIMEOUT_S
 
     # --- response helpers -------------------------------------------
 
@@ -405,6 +420,13 @@ class Handler(BaseHTTPRequestHandler):
         degrades to an empty form rather than raising (T-06-05-07) — the
         remainder of an oversized body is still drained from the socket
         so a persistent connection is not left in a corrupted state.
+
+        WR-03: `Handler.timeout` (set on the class) bounds every socket
+        read below, including this one — reachable pre-auth from
+        `POST /login`. A stalled/slow-drip body triggers `socket.timeout`
+        here, which is treated exactly like any other malformed-body case
+        (degrade to an empty form) rather than propagating and blocking
+        the worker thread indefinitely.
         """
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -412,14 +434,17 @@ class Handler(BaseHTTPRequestHandler):
             length = 0
         if length <= 0:
             return {}
-        raw = self.rfile.read(min(length, MAX_FORM_BYTES + 1))
-        if length > MAX_FORM_BYTES:
-            remaining = length - len(raw)
-            while remaining > 0:
-                chunk = self.rfile.read(min(remaining, 65536))
-                if not chunk:
-                    break
-                remaining -= len(chunk)
+        try:
+            raw = self.rfile.read(min(length, MAX_FORM_BYTES + 1))
+            if length > MAX_FORM_BYTES:
+                remaining = length - len(raw)
+                while remaining > 0:
+                    chunk = self.rfile.read(min(remaining, 65536))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                return {}
+        except socket.timeout:
             return {}
         try:
             text = raw.decode("utf-8")
