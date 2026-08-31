@@ -860,6 +860,20 @@ button:disabled {
   padding: var(--space-sm) var(--space-md);
 }
 
+/* Sticky desktop table header (06.6.3, History/Airlines) — scoped to
+ * .data-table-wrap's own scroll container, not the page, so it never
+ * collides with the >=960px sticky sidebar (D-21). The explicit
+ * `background` prevents body rows from visibly scrolling underneath a
+ * see-through sticky header; `z-index: 1` keeps it above scrolled row
+ * content without needing to compete with any higher-stacked element on
+ * the page. */
+.data-table-wrap th {
+  position: sticky;
+  top: 0;
+  background: var(--color-secondary);
+  z-index: 1;
+}
+
 .data-table td {
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--color-secondary);
@@ -891,6 +905,90 @@ button:disabled {
 .cell-inline-sep {
   opacity: 0.7;
   margin: 0 var(--space-xs);
+}
+
+/* History mobile card list (06.6.3, D-07) — the compact-card
+ * representation that replaces the cropped horizontal-scroll table below
+ * 960px. History's own markup renders both `.history-cards` and its
+ * desktop `.data-table-wrap` together, so `.history-cards ~
+ * .data-table-wrap` (a sibling-combinator, not the bare `.data-table-wrap`)
+ * scopes this toggle to that pair specifically — Airlines' and Health's
+ * tables also reuse `.data-table-wrap` but never render a `.history-cards`
+ * sibling, so they are never hidden by this rule. */
+.history-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.history-cards ~ .data-table-wrap {
+  display: none;
+}
+
+.history-card {
+  background: var(--color-dominant);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.history-card__primary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  justify-content: space-between;
+}
+
+.history-card__secondary {
+  display: flex;
+  gap: var(--space-sm);
+  opacity: 0.85;
+  margin-top: var(--space-xs);
+}
+
+.history-card__time {
+  margin-left: auto;
+  font-size: var(--font-label-size);
+}
+
+.history-card__details {
+  margin-top: var(--space-sm);
+}
+
+/* Filter bar (06.6.3 D-20) — shared by History and Airlines, driven by
+ * list-filter.js; inert without JS (the full unfiltered table/card list
+ * stays completely usable if the script fails to load). */
+.filter-bar {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* Wraps the filter <input> + its decorative icon-search glyph so the icon
+ * renders inside the input's visual bounds rather than beside it. */
+.filter-bar__field {
+  position: relative;
+}
+
+.filter-bar__field .icon {
+  position: absolute;
+  left: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.filter-bar__field input {
+  padding-left: calc(var(--space-sm) * 2 + 20px);
+}
+
+.filter-bar__count {
+  font-size: var(--font-label-size);
+  white-space: nowrap;
 }
 
 /* Empty state */
@@ -1142,12 +1240,33 @@ html[data-ui-theme="dark"] .battery-trend-section {
   border-left-color: var(--color-destructive);
 }
 
+/* Preview's live-panel frame (06.6.3, CFG-10) — a bounded, centered
+ * container around .preview-image, distinct from the not-colour-accurate
+ * screen rendering it holds. */
+.preview-frame {
+  display: flex;
+  justify-content: center;
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
 /* Gallery grid (CFG-11) — collapses to fewer columns automatically on
  * mobile widths, no extra breakpoints needed. */
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: var(--space-md);
+}
+
+/* The existing .gallery-grid img rule below still applies through this
+ * new <a> wrapper (a descendant selector), but the anchor's own default
+ * inline display can introduce a small baseline gap under the image
+ * without this explicit block rule. */
+.gallery-tile a {
+  display: block;
 }
 
 .gallery-grid img {
@@ -1306,6 +1425,17 @@ html[data-ui-theme="dark"] .battery-trend-section {
   .dirty-bar {
     position: sticky;
     bottom: 0;
+  }
+
+  /* History's mobile/desktop toggle (06.6.3 D-07), inverted at this
+   * breakpoint: cards hide, the desktop table (scoped via the same
+   * sibling combinator as the base rule above) becomes visible. */
+  .history-cards {
+    display: none;
+  }
+
+  .history-cards ~ .data-table-wrap {
+    display: block;
   }
 }
 
