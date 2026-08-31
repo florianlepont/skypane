@@ -666,6 +666,48 @@ def empty_state(heading, body):
     ) % (escape_html(heading), escape_html(body))
 
 
+def page_header(title, purpose=None, freshness_html=None, action_html=None):
+    """The shared page-header component (06.6.2 D-16) every authenticated
+    page's render() opens with, in place of an independent bare <h1>.
+
+    THIS SIGNATURE IS A LITERAL CONTRACT: Phase 06.6.3's five per-page
+    redesign plans call page_header(title, purpose=None,
+    freshness_html=None, action_html=None) by this exact name and
+    parameter order — do not rename or reorder these parameters after
+    this plan ships. Every call site this plan adds passes only `title`
+    (positional); those calls remain byte-compatible with later call
+    sites that also pass `purpose`/`freshness_html`/`action_html`.
+
+    `title` is escaped here and wrapped in an <h1 class="page-title">
+    (06.6.2 D-15's distinct ~30px serif page-title role, separate from
+    the existing 20px .text-heading section-heading role).
+
+    `purpose` is escaped here too, when truthy, and rendered as a
+    one-sentence <p class="page-header__purpose text-body">.
+
+    `freshness_html` and `action_html`, when truthy, are each the
+    caller's own already-safe markup and are interpolated verbatim —
+    no call to escape_html(), no other transformation. This is the same
+    "escape the caption, pass already-built content through verbatim"
+    contract stat_tile()'s `content_html` parameter uses; re-encoding
+    either of these two here would double-encode already-escaped tags
+    and print them as visible text instead of rendering. Callers are
+    responsible for escaping/composing any user-influenced data before
+    passing it through either parameter.
+    """
+    purpose_html = (
+        '<p class="page-header__purpose text-body">%s</p>' % escape_html(purpose)
+        if purpose else "")
+    freshness_block = freshness_html if freshness_html else ""
+    action_block = action_html if action_html else ""
+    return (
+        '<div class="page-header">'
+        '<h1 class="page-title">%s</h1>'
+        "%s%s%s"
+        "</div>"
+    ) % (escape_html(title), purpose_html, freshness_block, action_block)
+
+
 def data_table(headers, rows, mono_columns=()):
     """A header row plus alternating body rows, every value escaped.
 
