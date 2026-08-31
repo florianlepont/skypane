@@ -42,26 +42,46 @@
     // isn't currently rendering into view at load.
     var rows = document.querySelectorAll("[data-filter-text]");
     var query = input.value.toLowerCase();
-    var visible = 0;
     var total = rows.length;
     var i;
     var row;
     var text;
+    var group;
+    var matched;
+    // Every row also carries data-filter-group. History emits two DOM
+    // elements per logical flight (a <tr> and a <li>) sharing the same
+    // group value; Airlines emits one element per row, each its own
+    // group. Counting distinct groups — not raw elements — keeps the
+    // displayed "X of Y shown" accurate on pages with paired
+    // representations instead of double-counting them. Each element
+    // still gets its own `hidden` toggle below regardless of group,
+    // since both representations need independently-correct visibility
+    // across breakpoints.
+    var totalGroups = {};
+    var visibleGroups = {};
+    var totalCount = 0;
+    var visibleCount = 0;
     for (i = 0; i < total; i++) {
       row = rows[i];
       text = row.getAttribute("data-filter-text") || "";
-      if (query === "" || text.indexOf(query) !== -1) {
-        row.hidden = false;
-        visible++;
-      } else {
-        row.hidden = true;
+      group = row.getAttribute("data-filter-group");
+      group = "g" + (group === null ? "i" + i : group);
+      matched = (query === "" || text.indexOf(query) !== -1);
+      row.hidden = !matched;
+      if (!totalGroups[group]) {
+        totalGroups[group] = true;
+        totalCount++;
+      }
+      if (matched && !visibleGroups[group]) {
+        visibleGroups[group] = true;
+        visibleCount++;
       }
     }
     if (countEl) {
-      countEl.textContent = visible + " of " + total + " shown";
+      countEl.textContent = visibleCount + " of " + totalCount + " shown";
     }
     if (emptyEl) {
-      emptyEl.hidden = !(query !== "" && visible === 0);
+      emptyEl.hidden = !(query !== "" && visibleCount === 0);
     }
   }
 

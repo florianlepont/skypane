@@ -375,10 +375,14 @@ def _history_table_html(formatted_rows, now=None):
         # D-20: data-filter-text drives companion/static/list-filter.js's
         # match — the same value the mobile <li> for this same row also
         # carries (_history_cards_html() below), so a filter query
-        # matches both representations identically.
+        # matches both representations identically. data-filter-group
+        # carries this row's loop index (shared with the <li> at the same
+        # index in _history_cards_html(), since render() feeds both
+        # functions the identical formatted_rows list) so list-filter.js
+        # can count logical rows once instead of once per representation.
         body_rows.append(
-            '<tr class="%s" data-filter-text="%s">%s</tr>'
-            % (row_class, _filter_text_attr(row), "".join(cells)))
+            '<tr class="%s" data-filter-text="%s" data-filter-group="%d">%s</tr>'
+            % (row_class, _filter_text_attr(row), index, "".join(cells)))
 
     return (
         '<div class="data-table-wrap">'
@@ -413,7 +417,7 @@ def _history_cards_html(formatted_rows, now=None):
     if not formatted_rows:
         return ""
     items = []
-    for row in formatted_rows:
+    for index, row in enumerate(formatted_rows):
         # D-09: the identical layout.concise_timestamp_html() call the
         # desktop cell uses (same raw_ts, same now) - the desktop table
         # and the mobile card always render byte-identical timestamp
@@ -464,8 +468,9 @@ def _history_cards_html(formatted_rows, now=None):
             _copy_button_html(row["raw_ts"], _COPY_TIMESTAMP_LABEL),
         )
         items.append(
-            '<li class="history-card" data-filter-text="%s">%s%s%s</li>'
-            % (_filter_text_attr(row), primary, secondary, details))
+            '<li class="history-card" data-filter-text="%s" '
+            'data-filter-group="%d">%s%s%s</li>'
+            % (_filter_text_attr(row), index, primary, secondary, details))
     return '<ul class="history-cards">%s</ul>' % "".join(items)
 
 

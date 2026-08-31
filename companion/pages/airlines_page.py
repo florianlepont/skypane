@@ -240,8 +240,12 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
         '<td class="mono">%s</td>' % escape_html(example_callsign),
     )
     filter_text = escape_html(prefix.lower() if isinstance(prefix, str) else str(prefix).lower())
-    return '<tr class="%s" data-filter-text="%s">%s</tr>' % (
-        row_class, filter_text, "".join(cells))
+    # data-filter-group: this page has only one representation per row
+    # (no mobile-card pairing like History), but list-filter.js counts
+    # distinct groups rather than raw elements, so every filterable row
+    # must still carry one.
+    return '<tr class="%s" data-filter-text="%s" data-filter-group="%d">%s</tr>' % (
+        row_class, filter_text, index, "".join(cells))
 
 
 def _registry_table_html(rows, now):
