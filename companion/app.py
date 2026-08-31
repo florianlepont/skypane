@@ -169,6 +169,39 @@ _PAGE_TITLES = {
     "/preview": "Preview",
 }
 
+# 06.6.2-07 (UXA-03): the login card's one-sentence purpose text, shown
+# instead of the generic "Companion Access" copy the old page_shell()-based
+# login reused.
+LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
+
+
+def _validated_next_route(candidate):
+    """Validate a caller-supplied `next` redirect target (a GET query
+    value or a POST form value) against `layout.NAV_TABS`'s five known
+    routes — 06.6.2-07 (T-06.6.2-12, high-severity open-redirect
+    mitigation).
+
+    This is deliberately an exact-membership equality test against a
+    set of five literal strings — never `str.startswith("/")`, never
+    URL-parsed, never regex-matched. There is no parsing logic here an
+    attacker-controlled value could exploit: `candidate` either equals
+    one of the five known routes byte-for-byte, or it is discarded
+    (returns `None`). A scheme-relative value (`//evil.example`), an
+    absolute URL (`https://evil.example`), a path-traversal-shaped
+    value, or any value not byte-identical to a real NAV_TABS route all
+    fail this test and fall back to the caller's own safe default
+    (`CONFIG_ROUTE` on a successful POST, the bare `LOGIN_ROUTE` on an
+    unauthenticated GET) — an open redirect is structurally impossible
+    here, not merely discouraged.
+
+    Mirrors `Handler._referring_tab()`'s own exact-membership allowlist
+    shape, but is a module-level function (not a method) since it must
+    validate both a query-string value (GET) and a form value (POST),
+    neither of which is `self.headers.get("Referer")`.
+    """
+    allowed = {route for route, _ in layout.NAV_TABS}
+    return candidate if candidate in allowed else None
+
 
 def _resolve_flash_text(flash_key, state_dir):
     if flash_key not in FLASH_MESSAGES:
@@ -323,7 +356,20 @@ class Handler(BaseHTTPRequestHandler):
     def require_session(self):
         if self._is_authenticated():
             return True
-        self.redirect(LOGIN_ROUTE)
+        # 06.6.2-07 (UXA-03): carry the originally-requested protected
+        # route through the login round-trip via an allowlisted `next`
+        # query parameter, so a successful login returns the user to
+        # the exact route they asked for instead of always /config.
+        # _validated_next_route() (T-06.6.2-12) is the sole gate — an
+        # unrecognised requested_path is silently discarded and the
+        # redirect degrades to the bare LOGIN_ROUTE exactly as before
+        # this change.
+        requested_path = urlsplit(self.path).path
+        next_route = _validated_next_route(requested_path)
+        if next_route:
+            self.redirect("%s?next=%s" % (LOGIN_ROUTE, quote(next_route)))
+        else:
+            self.redirect(LOGIN_ROUTE)
         return False
 
     def _resolved_ui_theme(self):
@@ -414,32 +460,55 @@ class Handler(BaseHTTPRequestHandler):
             title="Not Found", active="", body=body,
             ui_theme=self._resolved_ui_theme())
 
-    def _login_body(self, error=None, lockout_seconds=None):
+    def _login_body(self, error=None, lockout_seconds=None, next_route=None):
+        """The login card's inner markup — 06.6.2-07 (UXA-03).
+
+        `next_route` (already validated by `_validated_next_route()` at
+        every call site — never a raw, unvalidated value) is carried
+        through a hidden form field so a failed login attempt does not
+        lose the originally-requested destination, and is only ever
+        rendered when truthy.
+
+        The lockout/error paragraph (whichever applies) carries
+        `role="alert"` so assistive tech announces it immediately
+        rather than waiting for the user to discover it visually. The
+        password field carries `autocomplete="current-password"`
+        (password-manager support, T-06.6.2-14) and `autofocus`
+        unconditionally — this is the one page in the app with a
+        single, always-relevant focus target, so no error-conditional
+        branching is needed.
+        """
         parts = [
-            '<h1 class="text-heading">SkyPane</h1>',
-            '<p class="text-body">Companion Access</p>',
+            '<h1 class="page-title">SkyPane</h1>',
+            '<p class="text-body">%s</p>' % layout.escape_html(LOGIN_EXPLANATION_TEXT),
         ]
         if lockout_seconds:
             parts.append(
-                '<p class="text-body">%s</p>'
+                '<p class="text-body" role="alert">%s</p>'
                 % layout.escape_html(
                     "Too many attempts — try again in %ds." % lockout_seconds))
         elif error:
-            parts.append('<p class="text-body">%s</p>' % layout.escape_html(error))
+            parts.append(
+                '<p class="text-body" role="alert">%s</p>'
+                % layout.escape_html(error))
+        next_field_html = (
+            '<input type="hidden" name="next" value="%s">'
+            % layout.escape_html(next_route)) if next_route else ""
         parts.append(
             '<form method="post" action="%s">'
+            "%s"
             '<label for="password">Password</label>'
-            '<input type="password" id="password" name="password" required>'
+            '<input type="password" id="password" name="password" '
+            'autocomplete="current-password" autofocus required>'
             '<button type="submit">Sign In</button>'
-            "</form>" % LOGIN_ROUTE
+            "</form>" % (LOGIN_ROUTE, next_field_html)
         )
         return "".join(parts)
 
-    def _render_login_page(self, error=None, lockout_seconds=None):
-        body = self._login_body(error=error, lockout_seconds=lockout_seconds)
-        return layout.page_shell(
-            title="Login", active="", body=body,
-            ui_theme=self._resolved_ui_theme())
+    def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
+        body = self._login_body(
+            error=error, lockout_seconds=lockout_seconds, next_route=next_route)
+        return layout.login_shell(body, ui_theme=self._resolved_ui_theme())
 
     def _serve_stylesheet(self):
         try:
@@ -577,7 +646,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == LOGIN_ROUTE:
             if self._is_authenticated():
                 return self.redirect(CONFIG_ROUTE)
-            return self.send_html(200, self._render_login_page())
+            # 06.6.2-07 (UXA-03): a `?next=` query value survives the
+            # require_session() redirect round-trip; validated here too
+            # (not only on the POST path) so an unrecognised value never
+            # even renders a hidden field for the user to resubmit.
+            next_route = _validated_next_route(
+                parse_qs(parsed.query).get("next", [None])[0])
+            return self.send_html(200, self._render_login_page(next_route=next_route))
 
         if path == STYLE_ROUTE:
             return self._serve_stylesheet()
@@ -679,19 +754,26 @@ class Handler(BaseHTTPRequestHandler):
     # --- POST --------------------------------------------------------------
 
     def _handle_login_post(self):
+        # 06.6.2-07 (UXA-03/T-06.6.2-12): read and validate `next` before
+        # the lockout/password checks so it survives every branch below
+        # (lockout, incorrect password, and success) — a failed attempt
+        # must not lose the originally-requested destination.
+        form = self.read_form()
+        next_route = _validated_next_route(form.get("next"))
         if LOGIN_THROTTLE.locked_out():
             remaining = LOGIN_THROTTLE.seconds_remaining()
-            return self.send_html(429, self._render_login_page(lockout_seconds=remaining))
-        form = self.read_form()
+            return self.send_html(429, self._render_login_page(
+                lockout_seconds=remaining, next_route=next_route))
         submitted = form.get("password", "")
         if auth.password_ok(submitted):
             LOGIN_THROTTLE.record_success()
             token = auth.issue_session_token()
             return self.redirect(
-                CONFIG_ROUTE, set_cookie=auth.session_set_cookie_header(token))
+                next_route or CONFIG_ROUTE,
+                set_cookie=auth.session_set_cookie_header(token))
         LOGIN_THROTTLE.record_failure()
-        return self.send_html(
-            401, self._render_login_page(error="Incorrect password. Try again."))
+        return self.send_html(401, self._render_login_page(
+            error="Incorrect password. Try again.", next_route=next_route))
 
     def _handle_poll_now(self):
         # UXA-15: non-blocking acquire, never a timeout (06.6.2-RESEARCH.md).
