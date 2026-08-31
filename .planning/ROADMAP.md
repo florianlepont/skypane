@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6.6: Companion UI clarity pass** (INSERTED) - Human-readable timestamps, a live poll-trigger cooldown countdown, and a verified/pinned corroboration-copy drift guard. Planned 2026-08-28 (3 plans across 2 waves). (completed 2026-08-30)
 - [x] **Phase 6.6.1: Companion visual polish pass** (INSERTED) - Second visual-design pass on the companion app: serif headings and a crafted wordmark, a terracotta accent, card relief, airier spacing, a real mobile hamburger nav replacing the horizontal-scroll strip, Health density/redundancy cleanup with per-signal icons and a nav notification dot, a full-width battery chart, and History cut 9 columns to 7. Planned 2026-08-29 (6 plans across 4 waves). All 6 plans executed 2026-08-30; the blocking real-phone sign-off (plan 06) found 2 confirmed, root-caused CSS defects (`.mobile-nav`'s `position:absolute` prevented the push-down behavior D-06 requires; `.stat-tile svg`'s `width:100%` rule unintentionally stretched the new icon SVGs) — see `06.6.1-06-SUMMARY.md`. Both fixed directly (developer chose a quick fix over formal gap-closure planning, since both root causes were already precisely identified), re-verified live in-browser and by `gsd-verifier` (46/46 must-haves, `06.6.1-VERIFICATION.md`). (completed 2026-08-30)
 - [x] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog) (completed 2026-08-28)
-- [ ] **Phase 8: Panel theme rework** - White default theme + Black/Yellow/Red/Blue/Green as optional CFG-01 themes, PT Serif Bold replaces the text backing-plate, `adsbdb` `callsign_iata` threaded through so the raw ADS-B callsign never displays, previous-card text sizing/alignment fix, and a required on-glass verification pass — implements spike `.planning/spikes/001-panel-theme-colours/`. Planned 2026-08-31: 6 plans across 5 waves (0/6 executed).
+- [x] **Phase 8: Panel theme rework** - White default theme + Black/Yellow/Red/Blue/Green as optional CFG-01 themes, PT Serif Bold replaces the text backing-plate, `adsbdb` `callsign_iata` threaded through so the raw ADS-B callsign never displays, previous-card text sizing/alignment fix, and a required on-glass verification pass — implements spike `.planning/spikes/001-panel-theme-colours/`. Planned 2026-08-31: 6 plans across 5 waves (0/6 executed). (completed 2026-08-31)
 
 ## Phase Details
 
@@ -454,7 +454,7 @@ Plans:
 **Goal:** Glancing at the frame shows a clean white panel whose flight text is legible on real Spectra 6 ink with no box behind it, naming a real IATA flight number rather than a raw ADS-B callsign — with Black, Yellow, Red and the existing Sky theme selectable from the CFG-01 picker. Full scope, rationale, and the complete rendered decision trail are recorded in the spike this phase implements: `.planning/spikes/001-panel-theme-colours/README.md` and `.planning/spikes/MANIFEST.md`. Concretely: white becomes the new default theme with Black/Yellow/Red joining Blue/Green as optional CFG-01 themes; the text backing-plate is removed and replaced by PT Serif Bold everywhere; `adsbdb`'s `callsign_iata` is threaded through so the raw ADS-B callsign never displays; a previous-card text sizing/alignment fix; and a required, blocking on-glass verification pass before this phase can close.
 **Requirements**: None — unmapped polish/refinement phase, no REQ-ID in REQUIREMENTS.md maps to it. Traced instead against `08-CONTEXT.md`'s locked decisions D-01 through D-13, the same precedent Phase 06.4 set. Each plan's `requirements` frontmatter field carries the decision IDs it implements; the full coverage table lives in `08-01-PLAN.md`'s Multi-Source Coverage Audit.
 **Depends on:** Phase 7
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 **Wave 1**
@@ -476,4 +476,4 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 08-06-PLAN.md — Blocking on-glass verification battery on the real Spectra 6 panel, findings recorded to `hardware/BRINGUP-LOG.md` (D-13)
+- [x] 08-06-PLAN.md — Blocking on-glass verification battery on the real Spectra 6 panel, findings recorded to `hardware/BRINGUP-LOG.md` (D-13)
