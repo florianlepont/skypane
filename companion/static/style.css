@@ -512,6 +512,34 @@ a:hover {
   color: var(--color-accent);
 }
 
+/* Read-only theme status (06.6.3 D-04) — a plain <div> replacing the old
+ * <fieldset> in this slot; a bare <div> inherits none of fieldset's box
+ * styling, so padding/margin-bottom are restated explicitly here to match
+ * what the removed fieldset rule used to provide, avoiding a visual
+ * collapse to zero spacing. */
+.theme-status {
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.theme-status__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.theme-swatch {
+  display: inline-flex;
+  gap: var(--space-xs);
+}
+
+.theme-swatch__chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
 /* Dashboard sidebar (D-02, >=960px only). Base state is hidden — the
  * 960px @media block below turns it on. Using `display` (rather than a
  * transparency or CSS-visibility approach) keeps the hidden copy out of
@@ -708,6 +736,42 @@ button[type="submit"]:hover {
   color: var(--color-text);
 }
 
+/* Config dirty-state bar (06.6.3 D-03) — a JS-only enhancement layered on
+ * top of the always-present, always-server-rendered `Save Settings` submit
+ * button at the bottom of the form (the no-JS fallback path is unchanged).
+ * Full-width, non-sticky in normal flow below 960px; the >=960px sticky
+ * variant is added inside that breakpoint's own @media block below. */
+.dirty-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-secondary);
+  border-radius: var(--radius-card);
+  margin-top: var(--space-md);
+}
+
+/* `.dirty-bar__save` needs no rule of its own — it is a bare
+ * `<button type="submit">`, already accent-filled by `button[type="submit"]`
+ * above. `.dirty-bar__cancel` does need an explicit override, matching the
+ * `.logout-form button` precedent immediately above (same equal-or-later
+ * cascade weight, placed after `button[type="submit"]` in source order). */
+.dirty-bar__cancel {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+/* Icon-only compact action button (06.6.3 D-23, e.g. the copy buttons in
+ * History/Health). Inherits the global `button` rule's 44x44 hit-target
+ * floor unmodified — never reduce min-height/min-width below 44px — and
+ * only overrides padding/background so it reads as a quiet inline
+ * affordance rather than a filled action button. */
+.copy-btn {
+  padding: 0 var(--space-xs);
+  background: transparent;
+}
+
 /* Disabled/cooldown state (CFG-07/D-17): reduced opacity, not-allowed
  * cursor, no separate colour needed. */
 button:disabled {
@@ -715,24 +779,59 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Runway picker (06.4): number prominence + optional airport diagram. */
-.runway-option {
-  margin-bottom: var(--space-lg);
+/* Runway picker (06.4/06.6.3 D-05): selectable card, number prominence +
+ * optional airport diagram. Supersedes the old .runway-option/
+ * .runway-option__number/.runway-option__image rules (06.4) — removed
+ * outright here, not left as unreferenced bloat, matching 06.6.1-05's own
+ * precedent for a redesign superseding a prior rule set. The entire
+ * <label> is the hit target/card; `position: relative` anchors the
+ * visually-hidden native radio absolutely positioned inside it. */
+.runway-card {
+  display: block;
+  position: relative;
+  background: var(--color-dominant);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+  cursor: pointer;
 }
 
-.runway-option__number {
+/* A real 2px border, not merely a class toggle with no visual difference.
+ * The global `* { box-sizing: border-box; }` reset above already keeps
+ * `.runway-card`'s own padding/size stable with this border added, so
+ * unselected siblings never shift. */
+.runway-card--selected {
+  border: 2px solid var(--color-accent);
+}
+
+.runway-card__number {
   font-size: var(--font-display-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
 }
 
-.runway-option__image {
+.runway-card__image {
   display: block;
   max-width: 100%;
   height: auto;
   margin-top: var(--space-sm);
-  padding: var(--space-md);
-  border: 1px solid var(--color-border, var(--color-secondary));
+}
+
+/* The check glyph's markup exists on every card, but only ever visually
+ * shown on the selected one — its visibility follows selection state
+ * (the server-rendered `--selected` modifier) with no second conditional
+ * needed at the markup level. */
+.runway-card__check {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  color: var(--color-accent);
+  display: none;
+}
+
+.runway-card--selected .runway-card__check {
+  display: inline-flex;
 }
 
 /* Data table: Secondary-background header row, alternating rows.
@@ -798,6 +897,32 @@ button:disabled {
 .empty-state {
   padding: var(--space-lg);
   text-align: center;
+}
+
+/* Native <details>/<summary> disclosures (06.6.3, shared) — first use in
+ * this file (grep confirms zero prior details/summary rules). Used by the
+ * Battery readings table (D-08) and the History mobile per-card detail
+ * region (D-07). The 44px hit-target floor matches every other
+ * interactive element's floor (D-22); both marker rules are required
+ * since Safari supports only the -webkit- form on <summary> specifically,
+ * unlike <li>. */
+summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+summary::marker {
+  color: var(--color-accent);
+}
+
+summary::-webkit-details-marker {
+  color: var(--color-accent);
+}
+
+.readings-disclosure {
+  margin-top: var(--space-md);
 }
 
 /* Image preview (CFG-10) */
@@ -990,6 +1115,10 @@ html[data-ui-theme="dark"] .battery-trend-section {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-xl);
   margin-bottom: var(--space-2xl);
+  /* 06.6.3 (UXA-06): unequal-height tiles no longer stretch to the
+   * tallest sibling — Health's shorter Device/Pipeline tiles keep their
+   * own intrinsic height next to a taller Corroboration tile. */
+  align-items: start;
 }
 
 /* Page section card treatment: gives the below-breakpoint stacked
@@ -1168,6 +1297,15 @@ html[data-ui-theme="dark"] .battery-trend-section {
   .config-form > button {
     grid-column: 1 / -1;
     justify-self: start;
+  }
+
+  /* Dirty-state bar (06.6.3 D-03): sticky at >=960px only, so it stays
+   * reachable without permanently occupying mobile's limited vertical
+   * space — full-width and non-sticky below this breakpoint (base rule
+   * above). */
+  .dirty-bar {
+    position: sticky;
+    bottom: 0;
   }
 }
 
