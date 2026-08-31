@@ -176,6 +176,14 @@ body {
   line-height: 1.5;
   background: var(--color-canvas);
   color: var(--color-text);
+  /* UXA-01's guaranteed fix, verified by the audit's own real-browser
+   * measurement (1440x900, populated History: 1425px document client width
+   * vs 1712px document scroll width). No matter what layout quirk exists
+   * deep in the tree, the document itself can never scroll horizontally
+   * once this is set. .data-table-wrap's own overflow-x: auto below is
+   * what still gives a genuinely wide table its own discoverable, scoped
+   * horizontal scroll — do not remove either half. */
+  overflow-x: hidden;
 }
 
 .mono {
@@ -633,6 +641,7 @@ button:disabled {
  * above). */
 .data-table-wrap {
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .data-table {
@@ -1017,7 +1026,8 @@ html[data-ui-theme="dark"] .battery-trend-section {
    * level the spec names, rather than on the base .page-content rule. */
   .dashboard-main {
     min-width: 0;
-    max-width: 1440px;
+    width: 100%;
+    max-width: min(1440px, 100%);
     margin: 0 auto;
     padding: var(--space-2xl) var(--space-3xl);
   }
