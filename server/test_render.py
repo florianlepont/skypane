@@ -36,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 97
+EXPECTED_CHECK_COUNT = 98
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -164,6 +164,38 @@ class _RectangleSpy:
 
     def __exit__(self, exc_type, exc, tb):
         self._render_mod.ImageDraw.ImageDraw.rectangle = self._orig
+        return False
+
+
+class _TextBBoxSpy:
+    """Captures every ImageDraw.ImageDraw.textbbox() call's RETURN VALUE made
+    while building one canvas - list of (text, xy, anchor, bbox). Mirrors
+    `_TextSpy`'s monkeypatch-and-restore technique, applied to the
+    bbox-measurement seam instead of the draw seam (Phase 8 08-05 D-12
+    spot-check): lets a check read the actual measured bounding box a text
+    run received, without re-deriving `fit_text_size()`'s own font-fitting
+    logic independently - a re-derivation would go stale the moment that
+    logic changes and would silently stop protecting anything.
+    """
+
+    def __init__(self, render_mod):
+        self._render_mod = render_mod
+        self.calls = []
+        self._orig = None
+
+    def __enter__(self):
+        self._orig = self._render_mod.ImageDraw.ImageDraw.textbbox
+
+        def _spy(draw_self, xy, text, *args, **kwargs):
+            bbox = self._orig(draw_self, xy, text, *args, **kwargs)
+            self.calls.append((text, xy, kwargs.get("anchor"), bbox))
+            return bbox
+
+        self._render_mod.ImageDraw.ImageDraw.textbbox = _spy
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._render_mod.ImageDraw.ImageDraw.textbbox = self._orig
         return False
 
 
@@ -2526,6 +2558,116 @@ def main():
         "no CLI path at any of the four content-ladder tiers draws the raw callsign passed via --callsign (D-08 "
         "CLI-level guard)",
         _cli_never_draws_raw_callsign_across_all_four_tiers,
+    )
+
+    # --- Phase 8 08-05 Task 1: D-12's 20px optical offset (introduced by
+    # 08-04), spot-checked across a deliberately diverse illustration sample
+    # rather than just the single Air France / Vueling pair it was tuned
+    # against - 08-CONTEXT.md D-12's own final bullet asks for exactly this.
+    # ------------------------------------------------------------------
+    #
+    # Six airline names, each confirmed (by reading illustrations.py's
+    # `_ILLUSTRATION_TARGETS`/`_TYPE_SHAPE_BUCKETS` tables before hardcoding,
+    # not guessed) to resolve via `select_illustration()`'s Tier 2 (airline
+    # primary, no `aircraft_type` given) to a distinct vendored file with a
+    # genuinely different airframe silhouette:
+    #
+    #   Air France           -> air-france.png           narrowbody jet (A320/B737 baseline)
+    #   Vueling Airlines     -> vueling-airlines.png      narrowbody jet (A320 family)
+    #   Chalair Aviation     -> chalair-aviation.png      turboprop (ATR72)
+    #   Twin Jet             -> twin-jet.png              small twin turboprop (Beechcraft 1900D)
+    #   LOT Polish Airlines  -> lot-polish-airlines.png   regional jet (Embraer E-Jet family)
+    #   Air Caraïbes         -> air-caraibes.png          widebody jet (A350 family, primary)
+    OFFSET_SPREAD_AIRLINES = (
+        ("Air France", "air-france.png", "narrowbody jet (A320/B737 baseline)"),
+        ("Vueling Airlines", "vueling-airlines.png", "narrowbody jet (A320 family)"),
+        ("Chalair Aviation", "chalair-aviation.png", "turboprop (ATR72)"),
+        ("Twin Jet", "twin-jet.png", "small twin turboprop (Beechcraft 1900D)"),
+        ("LOT Polish Airlines", "lot-polish-airlines.png", "regional jet (Embraer E-Jet family)"),
+        ("Air Caraïbes", "air-caraibes.png", "widebody jet (A350 family, primary)"),
+    )
+
+    # 83. For each sampled airline: both previous-card lines share one
+    # anchor x equal to that aircraft's measured opaque right edge minus
+    # PREVIOUS_TEXT_LEFT_OFFSET_PX (written against the constant, never a
+    # literal); neither line's bbox crosses SAFE_BOX's left edge (the real
+    # width-budget risk the offset introduces - narrower `available_width`
+    # for `fit_text_size()`, not just the looser whole-canvas guard
+    # `_assert_within_canvas()` already enforces); and the render completes
+    # without raising. Also records each file's right-padding
+    # (`rect[2] - content[2]`) so a genuine outlier - if one exists - is
+    # named rather than silently absorbed.
+    def _previous_card_optical_offset_holds_across_diverse_illustration_sample():
+        paddings = {}
+        for airline_name, expected_filename, _airframe in OFFSET_SPREAD_AIRLINES:
+            route = dict(TEST_PREVIOUS_ROUTE)
+            route["airline_name"] = airline_name
+            resolved = illustrations.select_illustration(route, None)
+            if resolved is None or os.path.basename(resolved) != expected_filename:
+                return False, (
+                    "airline %r resolved to %r, expected %r - the sample no longer resolves to the "
+                    "documented fixed file, this check must be re-pointed" % (
+                        airline_name, os.path.basename(resolved) if resolved else None, expected_filename,
+                    )
+                )
+            with _PlacementSpy(render) as placements:
+                with _TextBBoxSpy(render) as bboxes:
+                    render.build_canvas(
+                        TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                        previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=route,
+                        previous_state="arriving",
+                    )
+            if len(placements.placements) != 2:
+                return False, "airline %r: expected 2 illustration placements, got %d" % (
+                    airline_name, len(placements.placements),
+                )
+            _main_placement, prev_placement = placements.placements
+            paddings[airline_name] = prev_placement.rect[2] - prev_placement.content[2]
+
+            prev_line1 = "%s from %s" % (route["callsign_iata"], route["origin_city"])
+            type_label = render._TYPE_DISPLAY_LABELS[TEST_PREVIOUS_FLIGHT["aircraft_type"]]
+            prev_line2 = "%s · %s" % (route["airline_name"], type_label)
+            b1 = next((bb for t, _xy, _a, bb in bboxes.calls if t == prev_line1), None)
+            b2 = next((bb for t, _xy, _a, bb in bboxes.calls if t == prev_line2), None)
+            if b1 is None or b2 is None:
+                return False, "airline %r: expected both previous-card lines drawn, got %r" % (
+                    airline_name, [t for t, _xy, _a, _bb in bboxes.calls],
+                )
+            if b1[2] != b2[2]:
+                return False, "airline %r: previous card's two lines anchor at different x (%d vs %d)" % (
+                    airline_name, b1[2], b2[2],
+                )
+            expected_x = prev_placement.content[2] - render.PREVIOUS_TEXT_LEFT_OFFSET_PX
+            if b1[2] != expected_x:
+                return False, (
+                    "airline %r: shared anchor x=%d, expected the aircraft's measured opaque right edge minus "
+                    "PREVIOUS_TEXT_LEFT_OFFSET_PX = %d" % (airline_name, b1[2], expected_x)
+                )
+            safe_left = render.SAFE_BOX[0]
+            if b1[0] < safe_left or b2[0] < safe_left:
+                return False, (
+                    "airline %r: a previous-card line's bbox (line1=%r, line2=%r) crosses the safe box's left "
+                    "edge (x=%d) - the offset narrowed fit_text_size()'s width budget past what this text needs"
+                    % (airline_name, b1, b2, safe_left)
+                )
+        print(
+            "    (D-12 spread: previous-card right-padding by file %r)" % (
+                {name: paddings[name] for name, _f, _a in OFFSET_SPREAD_AIRLINES},
+            )
+        )
+        spread = max(paddings.values()) - min(paddings.values())
+        outlier = max(paddings, key=paddings.get)
+        print(
+            "    (D-12 verdict: right-padding spread is %dpx across the sample, widest at %r (%dpx) - "
+            "no per-file outlier large enough to threaten the anchor/safe-box invariants above, both of "
+            "which held for every sampled file)" % (spread, outlier, paddings[outlier])
+        )
+        return True, ""
+    check(
+        "the previous card's D-12 optical offset holds its shared-anchor and safe-box invariants across six "
+        "airline illustrations with deliberately different airframe silhouettes (narrowbody x2, turboprop, "
+        "small twin, regional jet, widebody) - not just the single pair it was tuned against",
+        _previous_card_optical_offset_holds_across_diverse_illustration_sample,
     )
 
     total = len(results)
