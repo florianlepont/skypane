@@ -214,7 +214,15 @@ EXPECTED_CHECK_COUNT = 43
 # Read verbatim from CI's own FAIL output (PR #22, reopened,
 # github.com/florianlepont/skypane/actions/runs/33399696789), per the
 # standing rule above - not recomputed locally on this Mac.
-_DEFAULT_CONFIG_DIGEST = "eb137945fde6d8a3b25245547e58398ff3e62ebab8269f7b60806bc1a8c80b02"
+#
+# Sixth re-pin: spike 002a's validated finding, implemented in quick task
+# 260831-njw - 6px letter-spacing (tracking) added to the two smallest
+# top-row roles (STATE_LABEL_FONT/TOP_TAG_FONT via the resurrected
+# draw_tracked_text()/_tracked_text_width()), moving pixels in the top
+# band of every render. Read verbatim from CI's own FAIL output (PR #24,
+# github.com/florianlepont/skypane/actions/runs/33408473975), per the
+# standing rule above - not recomputed locally on this Mac.
+_DEFAULT_CONFIG_DIGEST = "46c18ea48d711bf62520570367cd019e2144073019dabe1d4282766d3ae4be51"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
