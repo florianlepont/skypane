@@ -320,7 +320,7 @@ Plans:
 **Goal:** Ship the shared UX/accessibility/design-token foundation the rest of the companion redesign builds on: color/surface/typography/motion tokens, a WCAG contrast checker, the joint mobile-nav closed-state + no-JS fallback fix, desktop table containment, a shared page-header pattern and refined sidebar (incl. sticky), warning/error severity propagation, a dedicated login shell with deep-link return and logout→POST, poll-trigger concurrency locking, and programmatic feedback roles. Split out 2026-08-31 from a single oversized "companion UX hardening" phase — the planner found the combined scope (~16 dense plans touching the same handful of already-shipped files) exceeded this project's own largest prior single-phase precedent (Phase 6's 12 plans, which was mostly additive). Nothing from the original 23 CONTEXT.md decisions or the audit's 18 findings was dropped — nine per-page items (Config/Health/History/Airlines/Preview redesign) moved to the new Phase 06.6.3, which depends on this phase's shared primitives.
 **Requirements**: None — unmapped backlog phase (promoted from the 06.6.1-UX-AUDIT.md follow-up, itself promoted from real-device findings). Traced against `06.6.2-CONTEXT.md`'s own locked decisions D-01, D-06 (accent-color token half), D-11, D-14 through D-17, D-19, D-21, plus the audit's UXA-01 (desktop-containment half), UXA-02/03/04/07/09/10/14/15, and UXA-08 (accent-color half).
 **Depends on:** Phase 06.6
-**Plans:** 2/8 plans executed
+**Plans:** 3/8 plans executed
 
 Plans:
 **Wave 1**
@@ -330,7 +330,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 06.6.2-03-PLAN.md — UXA-01's desktop History-containment fix and the joint UXA-02/UXA-12 mobile-nav semantic closed-state fix
+- [x] 06.6.2-03-PLAN.md — UXA-01's desktop History-containment fix and the joint UXA-02/UXA-12 mobile-nav semantic closed-state fix
 
 **Wave 3** *(blocked on Wave 2)*
 
