@@ -11,9 +11,13 @@ pass) exits 1.
 
 This harness asserts on the rendered canvas and packed bytes only - never
 on a screenshot. Text-content assertions spy on `ImageDraw.ImageDraw.text`
-(the module's sole text-draw call site since D-26 dropped tracked-text
-compositing) rather than rendering to a scratch canvas and comparing pixel
-signatures or doing OCR.
+rather than rendering to a scratch canvas and comparing pixel signatures or
+doing OCR. Most roles draw one whole-string call per role; the top row
+(state label + runway tag, spike 002a's `LABEL_TRACKING_PX` tracking,
+resurrected this quick task) is the sole exception - it composites
+glyph-by-glyph through `draw_tracked_text()`, so top-row checks reconstruct
+each run from consecutive single-character calls at `y == MARGIN` instead
+of matching a single whole-string text value.
 
 Uses the real vendored illustration files under
 server/assets/icons/illustrations/ (air-france.png, transavia-france.png,
@@ -36,7 +40,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 104
+EXPECTED_CHECK_COUNT = 107
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -115,8 +119,11 @@ def dominant_nibble(buf):
 
 class _TextSpy:
     """Captures every ImageDraw.ImageDraw.text() call made while building
-    one canvas - the module's sole text-draw call site since D-26 dropped
-    tracked-text compositing. list of (text, xy, anchor).
+    one canvas - list of (text, xy, anchor). Most roles issue one
+    whole-string call; the top row (state label + runway tag) issues one
+    call per glyph via `draw_tracked_text()`'s `LABEL_TRACKING_PX` tracking
+    (spike 002a) - callers reconstruct that run from consecutive
+    single-character calls rather than matching a whole-string value.
     """
 
     def __init__(self, render_mod):
@@ -590,36 +597,68 @@ def main():
         _different_airline_changes_the_rendered_bytes,
     )
 
-    # 14-15. D-26 top row: state label + static tag, both near the MARGIN
-    # inset, in the correct top corners.
+    # 14-15. D-26/spike-002a top row: state label + runway tag, both tracked
+    # glyph-by-glyph at LABEL_TRACKING_PX, near the MARGIN inset, in the
+    # correct top corners. draw_top_labels() draws the label first and the
+    # tag second (its own fixed draw order), so the single-character calls
+    # captured at y == MARGIN can be reconstructed in call order without
+    # needing to x-sort them.
     def _departing_top_row_labels_present():
         with _TextSpy(render) as spy:
             render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
-        texts = [t for t, _xy, _anchor in spy.calls]
-        if "DEPARTING" not in texts:
-            return False, "expected the top-left state label 'DEPARTING' among the text draws, got %r" % (texts,)
-        if render.TOP_RIGHT_TAG_TEXT not in texts:
-            return False, "expected the top-right tag %r among the text draws, got %r" % (render.TOP_RIGHT_TAG_TEXT, texts)
+        top_row = [(t, xy, a) for t, xy, a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        joined = "".join(t for t, _xy, _a in top_row)
+        label_text = render.STATE_LABEL_TEXT["departing"]
+        tag_text = render.TOP_RIGHT_TAG_TEXT
+        expected = label_text + tag_text
+        if joined != expected:
+            return False, (
+                "reconstructed top-row glyph run = %r, expected label %r followed by tag %r (%r)"
+                % (joined, label_text, tag_text, expected)
+            )
         return True, ""
-    check("departing render draws the top-left 'DEPARTING' label and the top-right static tag", _departing_top_row_labels_present)
+    check(
+        "departing render draws the top-left 'DEPARTING' label and the top-right runway tag, both tracked "
+        "glyph-by-glyph, label first then tag",
+        _departing_top_row_labels_present,
+    )
 
     def _top_labels_sit_at_the_margin_inset():
         with _TextSpy(render) as spy:
             render.build_canvas(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
-        label_calls = [(xy, anchor) for t, xy, anchor in spy.calls if t == "ARRIVING"]
-        tag_calls = [(xy, anchor) for t, xy, anchor in spy.calls if t == render.TOP_RIGHT_TAG_TEXT]
-        if not label_calls:
-            return False, "no 'ARRIVING' text draw captured"
-        if not tag_calls:
-            return False, "no top-right tag text draw captured"
-        (label_xy, label_anchor) = label_calls[0]
-        (tag_xy, tag_anchor) = tag_calls[0]
-        if label_xy != (render.MARGIN, render.MARGIN) or label_anchor != "la":
-            return False, "state label drawn at %r anchor=%r, expected (%d, %d) anchor='la'" % (label_xy, label_anchor, render.MARGIN, render.MARGIN)
-        if tag_xy != (panel_format.WIDTH - render.MARGIN, render.MARGIN) or tag_anchor != "ra":
-            return False, "top-right tag drawn at %r anchor=%r, expected (%d, %d) anchor='ra'" % (tag_xy, tag_anchor, panel_format.WIDTH - render.MARGIN, render.MARGIN)
+        top_row = [(t, xy, a) for t, xy, a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        label_text = render.STATE_LABEL_TEXT["arriving"]
+        tag_text = render.TOP_RIGHT_TAG_TEXT
+        if len(top_row) < len(label_text) + len(tag_text):
+            return False, "expected %d top-row glyph draws, got %d: %r" % (
+                len(label_text) + len(tag_text), len(top_row), top_row,
+            )
+        label_glyphs = top_row[: len(label_text)]
+        tag_glyphs = top_row[len(label_text):len(label_text) + len(tag_text)]
+        (first_label_xy, first_label_anchor) = label_glyphs[0][1], label_glyphs[0][2]
+        if first_label_xy != (render.MARGIN, render.MARGIN) or first_label_anchor != "la":
+            return False, "state label's first glyph drawn at %r anchor=%r, expected (%d, %d) anchor='la'" % (
+                first_label_xy, first_label_anchor, render.MARGIN, render.MARGIN,
+            )
+        weight = render.device_config.theme_weight(render.device_config.DEFAULT_THEME_ID)
+        tag_font = render._role_font(render.TOP_TAG_FONT, weight)
+        tracked_width = render._tracked_text_width(tag_font, tag_text, render.LABEL_TRACKING_PX)
+        expected_tag_x = panel_format.WIDTH - render.MARGIN - tracked_width
+        (first_tag_xy, first_tag_anchor) = tag_glyphs[0][1], tag_glyphs[0][2]
+        if abs(first_tag_xy[0] - expected_tag_x) > 0.01 or first_tag_xy[1] != render.MARGIN or first_tag_anchor != "la":
+            return False, "top-right tag's first glyph drawn at %r anchor=%r, expected (%.2f, %d) anchor='la'" % (
+                first_tag_xy, first_tag_anchor, expected_tag_x, render.MARGIN,
+            )
+        if abs((first_tag_xy[0] + tracked_width) - (panel_format.WIDTH - render.MARGIN)) > 0.01:
+            return False, "top-right tag run does not end flush at WIDTH - MARGIN (%d): first glyph x %.2f + tracked width %.2f" % (
+                panel_format.WIDTH - render.MARGIN, first_tag_xy[0], tracked_width,
+            )
         return True, ""
-    check("the state label and top-right tag are drawn exactly at the MARGIN inset, in their respective top corners (D-26)", _top_labels_sit_at_the_margin_inset)
+    check(
+        "the state label's first glyph sits at the MARGIN inset and the top-right tag's first glyph is "
+        "positioned so its tracked run ends flush at WIDTH - MARGIN (D-26, spike 002a)",
+        _top_labels_sit_at_the_margin_inset,
+    )
 
     # 16. D-26 frame: a thin outline is present at the ~2.5%-of-width inset.
     def _frame_outline_is_drawn():
@@ -2262,18 +2301,22 @@ def main():
     )
 
     # 65. build_canvas(flight, "departing", runway_id="06-24") draws that
-    # runway's tag, still passing the within-canvas assertion.
+    # runway's tag (tracked glyph-by-glyph), still passing the
+    # within-canvas assertion.
     def _active_canvas_draws_selected_runways_tag():
         with _TextSpy(render) as spy:
             render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, runway_id="06-24")
-        texts = [t for t, _xy, _anchor in spy.calls]
-        expected = render.runway_tag_text("06-24")
-        if expected not in texts:
-            return False, "expected the runway 06-24 tag %r among the text draws, got %r" % (expected, texts)
+        top_row = [(t, xy, a) for t, xy, a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        label_text = render.STATE_LABEL_TEXT["departing"]
+        expected_tag = render.runway_tag_text("06-24")
+        tag_glyphs = top_row[len(label_text):len(label_text) + len(expected_tag)]
+        joined_tag = "".join(t for t, _xy, _a in tag_glyphs)
+        if joined_tag != expected_tag:
+            return False, "reconstructed tag glyph run = %r, expected the runway 06-24 tag %r" % (joined_tag, expected_tag)
         return True, ""
     check(
-        "build_canvas(flight, 'departing', runway_id='06-24') draws that runway's tag, passing the "
-        "within-canvas assertion",
+        "build_canvas(flight, 'departing', runway_id='06-24') draws that runway's tag glyph-by-glyph, passing "
+        "the within-canvas assertion",
         _active_canvas_draws_selected_runways_tag,
     )
 
@@ -2884,6 +2927,111 @@ def main():
         "draw_tracked_text() issues one text draw per character at anchor='la', with inter-glyph advance == "
         "font.getlength(previous_char) + tracking, returning the x immediately after the last glyph's advance",
         _draw_tracked_text_glyph_by_glyph,
+    )
+
+    # 105. Inter-glyph advance: every consecutive pair of glyph origins
+    # within the state-label and runway-tag runs differs by exactly
+    # font.getlength(previous_char) + LABEL_TRACKING_PX, derived from the
+    # real font rather than a pixel literal.
+    def _top_row_inter_glyph_advance_matches_tracking():
+        with _TextSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        top_row = [(t, xy) for t, xy, _a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        label_text = render.STATE_LABEL_TEXT["departing"]
+        tag_text = render.TOP_RIGHT_TAG_TEXT
+        weight = render.device_config.theme_weight(render.device_config.DEFAULT_THEME_ID)
+        label_font = render._role_font(render.STATE_LABEL_FONT, weight)
+        tag_font = render._role_font(render.TOP_TAG_FONT, weight)
+        label_glyphs = top_row[: len(label_text)]
+        tag_glyphs = top_row[len(label_text): len(label_text) + len(tag_text)]
+        for glyphs, text, font in ((label_glyphs, label_text, label_font), (tag_glyphs, tag_text, tag_font)):
+            for i in range(1, len(glyphs)):
+                prev_char = text[i - 1]
+                expected_advance = font.getlength(prev_char) + render.LABEL_TRACKING_PX
+                got_advance = glyphs[i][1][0] - glyphs[i - 1][1][0]
+                if abs(got_advance - expected_advance) > 0.01:
+                    return False, (
+                        "glyph %d advance within %r run = %.3f, expected %.3f "
+                        "(font.getlength(%r) + %d)" % (i, text, got_advance, expected_advance, prev_char, render.LABEL_TRACKING_PX)
+                    )
+        return True, ""
+    check(
+        "every consecutive pair of glyph origins within the state-label and runway-tag runs differs by exactly "
+        "font.getlength(previous_char) + LABEL_TRACKING_PX",
+        _top_row_inter_glyph_advance_matches_tracking,
+    )
+
+    # 106. Overflow sweep: every registered runway id, both active states,
+    # a flat (white) and a dithered (grey) theme - _assert_within_canvas()
+    # must never raise, and the computed tag start x must be >= 0. Planning
+    # measured the worst case at 901 across every combination, against the
+    # plan's own "sky" example theme - "sky" was retired by Phase 8's
+    # 5-entry-registry work (11 pure/light themes replaced it, no "sky" id
+    # remains), so "grey" (currently the bold/dithered theme, per
+    # device_config.theme_weight()) is substituted here as the equivalent
+    # dithered-theme leg (Rule 1: the plan's context predates that
+    # retirement).
+    def _top_row_tracking_stays_within_canvas_across_runways_themes_states():
+        for runway_id in render.device_config.RUNWAY_IDS:
+            for theme_id in ("white", "grey"):
+                for state in ("departing", "arriving"):
+                    render.build_canvas(
+                        TEST_FLIGHT, state, route=TEST_ROUTE, runway_id=runway_id, theme_id=theme_id,
+                    )
+                    weight = render.device_config.theme_weight(theme_id)
+                    tag_font = render._role_font(render.TOP_TAG_FONT, weight)
+                    tag_text = render.runway_tag_text(runway_id)
+                    tag_width = render._tracked_text_width(tag_font, tag_text, render.LABEL_TRACKING_PX)
+                    tag_x = panel_format.WIDTH - render.MARGIN - tag_width
+                    if tag_x < 0:
+                        return False, (
+                            "runway=%r theme=%r state=%r: computed tag start x = %.2f is negative"
+                            % (runway_id, theme_id, state, tag_x)
+                        )
+        return True, ""
+    check(
+        "the tracked top row builds without an AssertionError and the computed tag start x is >= 0 for every "
+        "registered runway id, both active states, and a flat and a dithered theme",
+        _top_row_tracking_stays_within_canvas_across_runways_themes_states,
+    )
+
+    # 107. Tracking containment: for a full two-flight active render, the
+    # main card's line 1, the previous card's line 1, and the source-fault
+    # caption are each still captured as a single whole-string draw, and
+    # the total count of single-character draws equals exactly
+    # len(label_text) + len(tag_text) - tracking has not leaked into any
+    # other role.
+    def _tracking_confined_to_top_row_roles_only():
+        with _TextSpy(render) as spy:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+                source_fault=True,
+            )
+        single_char_calls = [c for c in spy.calls if len(c[0]) == 1]
+        label_text = render.STATE_LABEL_TEXT["departing"]
+        tag_text = render.TOP_RIGHT_TAG_TEXT
+        expected_count = len(label_text) + len(tag_text)
+        if len(single_char_calls) != expected_count:
+            return False, (
+                "captured %d single-character draws, expected exactly %d (len(label_text) + len(tag_text))"
+                % (len(single_char_calls), expected_count)
+            )
+        whole_string_texts = [t for t, _xy, _a in spy.calls if len(t) > 1]
+        main_line1 = render._flight_line1_text(TEST_FLIGHT, "departing", TEST_ROUTE)
+        if main_line1 and main_line1 not in whole_string_texts:
+            return False, "main card line 1 %r not captured as a single whole-string draw" % (main_line1,)
+        prev_line1 = render._flight_line1_text(TEST_PREVIOUS_FLIGHT, "arriving", TEST_PREVIOUS_ROUTE)
+        if prev_line1 and prev_line1 not in whole_string_texts:
+            return False, "previous card line 1 %r not captured as a single whole-string draw" % (prev_line1,)
+        if render.SOURCE_FAULT_TEXT not in whole_string_texts:
+            return False, "source-fault caption %r not captured as a single whole-string draw" % (render.SOURCE_FAULT_TEXT,)
+        return True, ""
+    check(
+        "for a full two-flight active render with source_fault=True, the main card's line 1, the previous "
+        "card's line 1, and the source-fault caption are each still drawn as one whole-string call, and the "
+        "total single-character draw count equals exactly len(label_text) + len(tag_text)",
+        _tracking_confined_to_top_row_roles_only,
     )
 
     total = len(results)

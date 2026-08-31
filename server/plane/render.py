@@ -720,9 +720,21 @@ def draw_battery_icon(canvas, draw, ink_idx):
 def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
     (top-right, `runway_tag_text(runway_id)`), at the small sizes D-26
-    confirmed, both at the existing `MARGIN` inset (inside the frame, not
-    on it) - no icon glyph, no letter-spacing/tracking (that was the old,
-    larger zone-1 treatment; superseded).
+    confirmed (20px/18px, unchanged), both at the existing `MARGIN` inset
+    (inside the frame, not on it). Both roles are drawn with
+    `LABEL_TRACKING_PX` (6px) of letter-spacing via `draw_tracked_text()` -
+    spike 002a's validated finding, independently re-confirming Phase 3's
+    own removed `LABEL_TRACKING_PX` (D-15). This is **screen-preview-
+    validated only** - tracking has never been checked against real
+    Spectra 6 ink at any point in this project's history
+    (`hardware/BRINGUP-LOG.md` has no mention of it, even though the same
+    technique shipped once before in Phase 2/3); an on-glass check remains
+    OPEN under this project's D-13 precedent.
+
+    The runway tag is right-anchored, but tracked text has no Pillow
+    `anchor="ra"` equivalent (tracking is applied glyph-by-glyph by hand) -
+    its start x is pre-computed from `_tracked_text_width()` instead, so its
+    run still ends flush at `WIDTH - MARGIN`.
 
     `weight` (`device_config.theme_weight()`'s return value) selects each
     role's PT Serif weight via `_role_font()` - not derivable from `bg_idx`
@@ -743,14 +755,21 @@ def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_con
     # pixel-exact 64px boundary despite the text visually sitting exactly
     # at MARGIN as D-26 specifies - see the module docstring's note on why
     # the old "inviolable" SAFE_BOX is not enforced pixel-exactly here.
+    #
+    # Both bbox measurements below use _tracked_text_bbox(), not
+    # draw.textbbox(): the latter measures an untracked run and would
+    # under-report a tracked one's width, silently stopping the guard from
+    # protecting anything (T-njw-02).
     label_text = STATE_LABEL_TEXT[state]
-    label_bbox = draw.textbbox((MARGIN, MARGIN), label_text, font=label_font, anchor="la")
+    label_bbox = _tracked_text_bbox(label_font, (MARGIN, MARGIN), label_text, LABEL_TRACKING_PX)
     _assert_within_canvas(label_bbox, "state label")
-    draw.text((MARGIN, MARGIN), label_text, font=label_font, fill=ink_idx, anchor="la")
+    draw_tracked_text(draw, (MARGIN, MARGIN), label_text, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
 
-    tag_bbox = draw.textbbox((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, anchor="ra")
+    tag_width = _tracked_text_width(tag_font, tag_text, LABEL_TRACKING_PX)
+    tag_x = WIDTH - MARGIN - tag_width
+    tag_bbox = _tracked_text_bbox(tag_font, (tag_x, MARGIN), tag_text, LABEL_TRACKING_PX)
     _assert_within_canvas(tag_bbox, "top-right tag")
-    draw.text((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, fill=ink_idx, anchor="ra")
+    draw_tracked_text(draw, (tag_x, MARGIN), tag_text, tag_font, ink_idx, tracking=LABEL_TRACKING_PX)
 
 
 def _illustration_over_pixel_cap(path):
