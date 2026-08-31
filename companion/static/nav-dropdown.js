@@ -90,7 +90,15 @@
         panel.classList.add(OPEN_CLASS);
       } else {
         window.requestAnimationFrame(function () {
-          panel.classList.add(OPEN_CLASS);
+          // Re-check isOpen() before applying the class: a fast
+          // setOpen(true) followed by setOpen(false) (both synchronous,
+          // before this frame runs) would otherwise allow this stale
+          // callback to re-open a panel that has already been told to
+          // close, so aria-expanded="false" and the rendered panel
+          // state would visibly disagree (WR-01).
+          if (isOpen()) {
+            panel.classList.add(OPEN_CLASS);
+          }
         });
       }
     } else {
