@@ -320,11 +320,37 @@ Plans:
 **Goal:** Ship the shared UX/accessibility/design-token foundation the rest of the companion redesign builds on: color/surface/typography/motion tokens, a WCAG contrast checker, the joint mobile-nav closed-state + no-JS fallback fix, desktop table containment, a shared page-header pattern and refined sidebar (incl. sticky), warning/error severity propagation, a dedicated login shell with deep-link return and logout→POST, poll-trigger concurrency locking, and programmatic feedback roles. Split out 2026-08-31 from a single oversized "companion UX hardening" phase — the planner found the combined scope (~16 dense plans touching the same handful of already-shipped files) exceeded this project's own largest prior single-phase precedent (Phase 6's 12 plans, which was mostly additive). Nothing from the original 23 CONTEXT.md decisions or the audit's 18 findings was dropped — nine per-page items (Config/Health/History/Airlines/Preview redesign) moved to the new Phase 06.6.3, which depends on this phase's shared primitives.
 **Requirements**: None — unmapped backlog phase (promoted from the 06.6.1-UX-AUDIT.md follow-up, itself promoted from real-device findings). Traced against `06.6.2-CONTEXT.md`'s own locked decisions D-01, D-06 (accent-color token half), D-11, D-14 through D-17, D-19, D-21, plus the audit's UXA-01 (desktop-containment half), UXA-02/03/04/07/09/10/14/15, and UXA-08 (accent-color half).
 **Depends on:** Phase 06.6
-**Plans:** 0 plans
+**Plans:** 8 plans across 7 waves
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd-plan-phase 06.6.2 to break down)
+- [ ] 06.6.2-01-PLAN.md — Design tokens (3 surface levels), a pure-Python WCAG contrast checker, UXA-04's light-accent fix, D-06's native-control accent-color, D-19's motion polish
+- [ ] 06.6.2-02-PLAN.md — UXA-15's server-side poll-concurrency lock plus a "Polling…" button affordance
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 06.6.2-03-PLAN.md — UXA-01's desktop History-containment fix and the joint UXA-02/UXA-12 mobile-nav semantic closed-state fix
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 06.6.2-04-PLAN.md — `layout.page_header()` + a distinct page-title typography role, applied across all five pages (D-15/D-16)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 06.6.2-05-PLAN.md — Sidebar refinement (active pill, per-tab icons, sticky), a footer region grouping the theme picker with a new POST-only Sign out control, plus skip-link/aria-current/favicon (D-11/D-17/D-21/UXA-10)
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 06.6.2-06-PLAN.md — `health_severity()`/`overall_severity()` and severity-aware nav dot/banner/flash roles, closing UXA-14 and this phase's UXA-07 scope
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 06.6.2-07-PLAN.md — Dedicated `login_shell()`, allowlisted deep-link return, autocomplete/error-role/focus, and the D-01/UXA-09 language-policy regression, closing UXA-03
+
+**Wave 7** *(blocked on all)*
+
+- [ ] 06.6.2-08-PLAN.md — Full-suite gate plus a blocking local browser/keyboard/contrast verification checkpoint
 
 ### Phase 06.6.1: Companion visual polish pass (INSERTED)
 
