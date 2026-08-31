@@ -367,7 +367,12 @@ class Handler(BaseHTTPRequestHandler):
         requested_path = urlsplit(self.path).path
         next_route = _validated_next_route(requested_path)
         if next_route:
-            self.redirect("%s?next=%s" % (LOGIN_ROUTE, quote(next_route)))
+            # safe="" (never the default safe="/") so the encoded value
+            # is unambiguously a single query-string token — matching
+            # this plan's own acceptance criteria ("/login?next=%2Fhealth",
+            # not "/login?next=/health").
+            self.redirect(
+                "%s?next=%s" % (LOGIN_ROUTE, quote(next_route, safe="")))
         else:
             self.redirect(LOGIN_ROUTE)
         return False

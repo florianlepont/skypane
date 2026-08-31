@@ -61,7 +61,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 73  # 72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
+EXPECTED_CHECK_COUNT = 79  # 73 (72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
 # (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3:
 # toggle/dropdown/DOM-contract/no-JS)) + 1 (2026-08-29 quick task 260829-0rl,
 # merged independently via origin/main PR #19: the gallery route's private
@@ -74,7 +74,16 @@ EXPECTED_CHECK_COUNT = 73  # 72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
 # logout-cookie check was renamed to POST /logout, not counted as new)) + 1
 # (06.6.2-06 Task 3: a new check pinning health_alert="warn"'s dot--warn
 # treatment — the pre-existing health-nav-dot check was updated in place
-# to True/False -> "error"/None, not counted as new).
+# to True/False -> "error"/None, not counted as new)) + 6 (06.6.2-07 Task 3:
+# deep-link-return round-trip, two open-redirect-rejection checks
+# (https://evil.example and //evil.example, both exercised — the plan's
+# own text names one "(or the other)" but both are cheap and directly
+# threat-model-relevant, T-06.6.2-12), the GET-path next= validation
+# no-hidden-field check, the login_shell() markup check, and the D-01/
+# UXA-09 page_shell()/login_shell() lang="en" agreement guard — the five
+# pre-existing NAV_TABS-redirect checks and the one POST /config redirect
+# check were updated in place for the new ?next= carrying behavior, not
+# counted as new).
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1011,13 +1020,25 @@ def main():
         # bypass, so each route below is its own check, not a shared loop
         # collapsed into one assertion.
 
-        def _unauth_redirects_to_login(method, path, data=None):
+        def _unauth_redirects_to_login(method, path, data=None, next_route=None):
+            # 06.6.2-07 (UXA-03): require_session() now carries an
+            # allowlisted `next` query param for any requested path that
+            # is one of layout.NAV_TABS's five routes (config/health/
+            # airlines/history/preview) — regardless of HTTP method,
+            # since it only ever looks at self.path. A path outside that
+            # set (poll-now, preview.png, a gallery image) still
+            # redirects to the bare /login exactly as before this plan.
+            expected_location = (
+                "/login?next=%s" % urllib.parse.quote(next_route, safe="")
+                if next_route else "/login")
+
             def _run():
                 status, headers, body = http_request(base + path, method=method, data=data)
                 if status != 303:
                     return False, "expected 303, got %d" % status
-                if headers.get("Location") != "/login":
-                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                if headers.get("Location") != expected_location:
+                    return False, "expected a redirect to %r, got %r" % (
+                        expected_location, headers.get("Location"))
                 if body:
                     return False, "expected an empty redirect body, got %d bytes of content" % len(body)
                 return True, ""
@@ -1025,25 +1046,29 @@ def main():
 
         for _tab_path in ("/config", "/health", "/airlines", "/history", "/preview"):
             check(
-                "unauthenticated GET %s redirects to /login without page content" % _tab_path,
-                _unauth_redirects_to_login("GET", _tab_path))
+                "unauthenticated GET %s redirects to /login carrying that route as ?next=" % _tab_path,
+                _unauth_redirects_to_login("GET", _tab_path, next_route=_tab_path))
 
         check(
-            "unauthenticated GET /preview.png redirects to /login without page content",
+            "unauthenticated GET /preview.png redirects to /login without page content "
+            "(not a NAV_TABS route, so no ?next= is carried)",
             _unauth_redirects_to_login("GET", "/preview.png"))
 
         check(
-            "unauthenticated GET of a gallery image route redirects to /login without page content",
+            "unauthenticated GET of a gallery image route redirects to /login without page content "
+            "(not a NAV_TABS route, so no ?next= is carried)",
             _unauth_redirects_to_login("GET", "/gallery/whatever.png"))
 
         check(
-            "unauthenticated POST /config redirects to /login without page content",
+            "unauthenticated POST /config redirects to /login carrying /config as ?next=",
             _unauth_redirects_to_login(
                 "POST", "/config",
-                data=urllib.parse.urlencode({"ui_theme": "sky"}).encode()))
+                data=urllib.parse.urlencode({"ui_theme": "sky"}).encode(),
+                next_route="/config"))
 
         check(
-            "unauthenticated POST /poll-now redirects to /login without page content",
+            "unauthenticated POST /poll-now redirects to /login without page content "
+            "(not a NAV_TABS route, so no ?next= is carried)",
             _unauth_redirects_to_login("POST", "/poll-now"))
 
         # --- stylesheet: public, no session required ---
@@ -1145,6 +1170,108 @@ def main():
             "a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to /config",
             _login_correct_password)
 
+        # --- 06.6.2-07 (UXA-03): deep-link return, open-redirect rejection,
+        # login_shell() markup, D-01 language-policy regression ---
+
+        def _deep_link_return_round_trip():
+            # An unauthenticated GET /health carries the requested route
+            # as an allowlisted ?next= (T-06.6.2-12) ...
+            status, headers, _ = http_request(base + "/health")
+            if status != 303:
+                return False, "expected 303 for GET /health, got %d" % status
+            if headers.get("Location") != "/login?next=%2Fhealth":
+                return False, "expected Location /login?next=%%2Fhealth, got %r" % headers.get("Location")
+            # ... and a subsequent correct-password POST /login carrying
+            # that same next value returns the user to /health, not /config.
+            status, headers, _ = http_request(
+                base + "/login", method="POST",
+                data=urllib.parse.urlencode(
+                    {"password": TEST_PASSWORD, "next": "/health"}).encode())
+            if status != 303:
+                return False, "expected 303 on login POST, got %d" % status
+            if headers.get("Location") != "/health":
+                return False, "expected Location /health after login with next=/health, got %r" % headers.get("Location")
+            return True, ""
+        check(
+            "an unauthenticated GET /health redirects with ?next=%2Fhealth, and logging in "
+            "with that next value returns the user to /health, not /config",
+            _deep_link_return_round_trip)
+
+        def _open_redirect_rejected(next_value):
+            def _run():
+                status, headers, _ = http_request(
+                    base + "/login", method="POST",
+                    data=urllib.parse.urlencode(
+                        {"password": TEST_PASSWORD, "next": next_value}).encode())
+                if status != 303:
+                    return False, "expected 303 on login POST, got %d" % status
+                location = headers.get("Location", "")
+                if location != "/config":
+                    return False, "expected the safe /config fallback, got %r" % location
+                if "evil.example" in location:
+                    return False, "the crafted next value leaked into the redirect Location"
+                return True, ""
+            return _run
+
+        for _crafted_next in ("https://evil.example", "//evil.example"):
+            check(
+                "a login POST with the correct password and next=%r redirects to the "
+                "/config fallback, never to the crafted value (T-06.6.2-12)" % _crafted_next,
+                _open_redirect_rejected(_crafted_next))
+
+        def _login_get_with_unrecognised_next_carries_no_hidden_field():
+            status, _headers, body = http_request(
+                base + "/login?next=/nonexistent-route")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'name="next"' in body:
+                return False, (
+                    "an unrecognised ?next= value must not render a hidden next "
+                    "field — _validated_next_route() must be applied on the GET "
+                    "path too, not only the POST path")
+            return True, ""
+        check(
+            "GET /login?next=/nonexistent-route (not a real NAV_TABS member) renders "
+            "the plain login form with no hidden next input",
+            _login_get_with_unrecognised_next_carries_no_hidden_field)
+
+        def _login_page_uses_dedicated_login_shell():
+            status, _headers, body = http_request(base + "/login")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            if '<html lang="en"' not in text:
+                return False, "expected <html lang=\"en\" in the login page"
+            if 'autocomplete="current-password"' not in text:
+                return False, "expected autocomplete=\"current-password\" on the password field"
+            for absent in ("sidebar-nav", "dashboard-shell", "site-nav-toggle"):
+                if absent in text:
+                    return False, (
+                        "the login page must render layout.login_shell(), not "
+                        "page_shell() — found %r in the response body" % absent)
+            return True, ""
+        check(
+            "GET /login (no session) is rendered by the dedicated login_shell(), not "
+            "page_shell() — no sidebar/mobile-nav markup, autocomplete present",
+            _login_page_uses_dedicated_login_shell)
+
+        def _both_shells_agree_on_document_language():
+            # D-01/UXA-09: a single, cheap, permanent guard that
+            # page_shell() and login_shell() can never diverge on
+            # document language.
+            page_doc = layout.page_shell(
+                title="Config", active="config", body="<p>x</p>")
+            login_doc = layout.login_shell("<p>x</p>")
+            if 'lang="en"' not in page_doc:
+                return False, "expected lang=\"en\" in page_shell()'s output"
+            if 'lang="en"' not in login_doc:
+                return False, "expected lang=\"en\" in login_shell()'s output"
+            return True, ""
+        check(
+            "page_shell() and login_shell() both emit lang=\"en\" (D-01/UXA-09 "
+            "language-policy regression guard)",
+            _both_shells_agree_on_document_language)
+
         session_cookie = _login(harness)
 
         # --- authenticated: all five tabs return 200 with their own heading ---
@@ -1201,8 +1328,12 @@ def main():
             # would - resending the stale cookie value would prove
             # nothing (it would still verify, by design).
             status, headers, _ = http_request(base + "/config")
-            if status != 303 or headers.get("Location") != "/login":
-                return False, "expected a redirect to /login for a post-logout request, got %d/%r" % (
+            # 06.6.2-07 (UXA-03): /config is a NAV_TABS route, so
+            # require_session() now carries it as ?next= too — the same
+            # allowlisted-return behavior every other unauthenticated
+            # NAV_TABS request gets.
+            if status != 303 or headers.get("Location") != "/login?next=%2Fconfig":
+                return False, "expected a redirect to /login?next=%%2Fconfig for a post-logout request, got %d/%r" % (
                     status, headers.get("Location"))
             return True, ""
         check(
