@@ -36,12 +36,23 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 76
+EXPECTED_CHECK_COUNT = 78
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
 LEGAL_NIBBLES = {NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN}
 LEGAL_IDX = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN}
+# Bridges the two numbering schemes for the CFG-01 per-theme dominance check
+# (08-CONTEXT.md D-01/D-02) - mirrors panel_format.INDEX_TO_NIBBLE without
+# importing it, so this harness's expectations stay independently derived.
+IDX_TO_NIBBLE = {
+    IDX_BLACK: NIBBLE_BLACK,
+    IDX_WHITE: NIBBLE_WHITE,
+    IDX_YELLOW: NIBBLE_YELLOW,
+    IDX_RED: NIBBLE_RED,
+    IDX_BLUE: NIBBLE_BLUE,
+    IDX_GREEN: NIBBLE_GREEN,
+}
 
 TEST_FLIGHT = {"hex": "3985a7", "callsign": "AF1380", "aircraft_type": "B738"}
 TEST_PREVIOUS_FLIGHT = {"hex": "4a1b02", "callsign": "VLG6PD", "aircraft_type": "A320"}
@@ -301,26 +312,35 @@ def main():
         return True, ""
     check("render_panel(flight, 'arriving', route) packs to exactly 960000 bytes with only legal nibbles", _arriving_packs_correctly)
 
-    # 3-4. The flat background field (D-21) is still the dominant nibble per state.
-    def _departing_dominant_is_blue():
+    # 3-4. The flat background field is still the dominant nibble per state -
+    # both states now share one field colour (White), the new default theme
+    # (08-CONTEXT.md D-01). Two identical expectations below is deliberate,
+    # not a copy-paste error: D-01's whole point is that DEPARTING vs.
+    # ARRIVING is now carried by the label text alone, since the White theme
+    # is single-colour across both states.
+    def _departing_dominant_is_white():
         buf = ctx.get("departing_bytes")
         if buf is None:
             return False, "no departing bytes captured from a previous check"
         dom = dominant_nibble(buf)
-        if dom != NIBBLE_BLUE:
-            return False, "departing render's dominant nibble is 0x%x, expected 0x5 (Blue)" % dom
+        if dom != NIBBLE_WHITE:
+            return False, "departing render's dominant nibble is 0x%x, expected 0x1 (White)" % dom
         return True, ""
-    check("departing render's dominant nibble is 0x5 (Blue) - D-21 flat background field", _departing_dominant_is_blue)
+    check("departing render's dominant nibble is 0x1 (White) - D-01 White default theme background", _departing_dominant_is_white)
 
-    def _arriving_dominant_is_green():
+    def _arriving_dominant_is_white():
         buf = ctx.get("arriving_bytes")
         if buf is None:
             return False, "no arriving bytes captured from a previous check"
         dom = dominant_nibble(buf)
-        if dom != NIBBLE_GREEN:
-            return False, "arriving render's dominant nibble is 0x%x, expected 0x6 (Green)" % dom
+        if dom != NIBBLE_WHITE:
+            return False, "arriving render's dominant nibble is 0x%x, expected 0x1 (White)" % dom
         return True, ""
-    check("arriving render's dominant nibble is 0x6 (Green) - D-21 flat background field", _arriving_dominant_is_green)
+    check(
+        "arriving render's dominant nibble is also 0x1 (White) - D-01's single shared field colour for both states, "
+        "not a copy-paste duplicate of the departing check above",
+        _arriving_dominant_is_white,
+    )
 
     # 5-6. A real illustration's full livery colors legitimately reach the
     # panel - D-25 supersedes the old "Black/Yellow/Red drop out of the
@@ -1534,15 +1554,26 @@ def main():
         return True, ""
     check("render_panel() with no theme_id is byte-identical to an explicit default theme_id (CFG-01)", _theme_default_matches_no_theme_arg)
 
-    # 55. build_canvas(theme_id="sky") and build_canvas() with no theme
-    # produce identical canvases.
-    def _sky_theme_canvas_matches_default():
-        a = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
-        b = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="sky")
-        if list(a.getdata()) != list(b.getdata()):
-            return False, "build_canvas(theme_id='sky') differs from build_canvas() with no theme_id"
+    # 55. build_canvas(theme_id="white") and build_canvas() with no theme
+    # produce identical canvases (D-01: White is now the default) - AND
+    # build_canvas(theme_id="sky") genuinely differs from that default,
+    # keeping D-03's "Sky is retained and still distinct" claim honest.
+    # Without the second half, this check would still pass even if Sky had
+    # been deleted from the registry entirely.
+    def _white_theme_canvas_matches_default_and_sky_differs():
+        default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        white_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="white")
+        if list(default_canvas.getdata()) != list(white_canvas.getdata()):
+            return False, "build_canvas(theme_id='white') differs from build_canvas() with no theme_id - White must be the default"
+        sky_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="sky")
+        if list(default_canvas.getdata()) == list(sky_canvas.getdata()):
+            return False, "build_canvas(theme_id='sky') is identical to the default canvas - Sky must still be a genuinely distinct theme (D-03)"
         return True, ""
-    check("build_canvas(theme_id='sky') and build_canvas() with no theme produce identical canvases", _sky_theme_canvas_matches_default)
+    check(
+        "build_canvas(theme_id='white') matches the no-theme default (D-01), and build_canvas(theme_id='sky') genuinely "
+        "differs from it (D-03 - Sky is retained and still distinct, not silently deleted)",
+        _white_theme_canvas_matches_default_and_sky_differs,
+    )
 
     # 56. An unrecognised theme id degrades to the default theme's canvas
     # rather than raising - an unknown theme is forgiving.
@@ -1582,7 +1613,59 @@ def main():
         return True, ""
     check("_assert_legal_palette() (run internally by build_canvas()) passes for every registered theme", _legal_palette_holds_for_every_theme)
 
-    # 59. runway_tag_text() with no argument returns exactly the current
+    # 59. Per-theme dominant background across both active states (D-01/D-02).
+    # For every registered theme and both departing/arriving, a real
+    # two-flight panel's dominant nibble must be that theme's own background
+    # for that state - the concrete answer to CONTEXT.md's flagged
+    # uncertainty about whether background dominance survives on a flat
+    # Black/Yellow/Red field against a large livery area. Driven from
+    # THEME_IDS/theme_background_index() so a future sixth theme is
+    # exercised automatically.
+    def _per_theme_dominant_background_holds_in_both_states():
+        for theme_id in render.device_config.THEME_IDS:
+            for state, previous_state in (("departing", "arriving"), ("arriving", "departing")):
+                buf = render.render_panel(
+                    TEST_FLIGHT, state, route=TEST_ROUTE,
+                    previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                    previous_state=previous_state, theme_id=theme_id,
+                )
+                expected_idx = render.device_config.theme_background_index(state, theme_id)
+                expected_nibble = IDX_TO_NIBBLE[expected_idx]
+                dom = dominant_nibble(buf)
+                if dom != expected_nibble:
+                    return False, (
+                        "theme %r state %r: dominant nibble is 0x%x, expected 0x%x (the theme's own background)"
+                        % (theme_id, state, dom, expected_nibble)
+                    )
+        return True, ""
+    check(
+        "for every registered theme, in both departing and arriving states, a real two-flight panel's dominant "
+        "nibble is that theme's own background (D-01/D-02 - the flat-field guard rail against a large livery area)",
+        _per_theme_dominant_background_holds_in_both_states,
+    )
+
+    # 60. Ink index is the theme's own (D-02) - state_ink_index() must agree
+    # with device_config.theme_ink_index() for every registered theme and
+    # both active states, so a future per-state ink split cannot silently
+    # bypass the registry.
+    def _ink_index_matches_theme_registry_for_every_theme():
+        for theme_id in render.device_config.THEME_IDS:
+            expected = render.device_config.theme_ink_index(theme_id)
+            for state in ("departing", "arriving"):
+                got = render.state_ink_index(state, theme_id=theme_id)
+                if got != expected:
+                    return False, (
+                        "state_ink_index(%r, theme_id=%r) = %r, expected device_config.theme_ink_index(%r) = %r"
+                        % (state, theme_id, got, theme_id, expected)
+                    )
+        return True, ""
+    check(
+        "render.state_ink_index() agrees with device_config.theme_ink_index() for every registered theme, in both "
+        "departing and arriving states (D-02)",
+        _ink_index_matches_theme_registry_for_every_theme,
+    )
+
+    # 61. runway_tag_text() with no argument returns exactly the current
     # top-right tag string - the default render is unchanged.
     def _runway_tag_text_default_matches_top_right_tag():
         if render.runway_tag_text() != render.TOP_RIGHT_TAG_TEXT:
@@ -1590,7 +1673,7 @@ def main():
         return True, ""
     check("runway_tag_text() with no argument returns exactly TOP_RIGHT_TAG_TEXT (default render unchanged)", _runway_tag_text_default_matches_top_right_tag)
 
-    # 60. runway_tag_text("06-24")/("02-20") return the strings from the
+    # 62. runway_tag_text("06-24")/("02-20") return the strings from the
     # runway registry.
     def _runway_tag_text_matches_registry_for_other_runways():
         for runway_id in ("06-24", "02-20"):
@@ -1601,7 +1684,7 @@ def main():
         return True, ""
     check("runway_tag_text('06-24')/('02-20') return the strings from device_config.RUNWAYS", _runway_tag_text_matches_registry_for_other_runways)
 
-    # 61. An unrecognised runway id degrades to the default runway's tag
+    # 63. An unrecognised runway id degrades to the default runway's tag
     # rather than raising.
     def _runway_tag_text_unknown_id_degrades_to_default():
         if render.runway_tag_text("nope") != render.runway_tag_text():
@@ -1609,7 +1692,7 @@ def main():
         return True, ""
     check("runway_tag_text('unknown') returns the default runway's tag rather than raising", _runway_tag_text_unknown_id_degrades_to_default)
 
-    # 62. build_canvas(None, "empty", runway_id=...) draws that runway's
+    # 64. build_canvas(None, "empty", runway_id=...) draws that runway's
     # heading - including the longest of the three registry headings - and
     # still passes the safe-box assertion (fit_text_size() shrink path).
     def _empty_canvas_draws_selected_runways_heading():
@@ -1629,7 +1712,7 @@ def main():
         _empty_canvas_draws_selected_runways_heading,
     )
 
-    # 63. build_canvas(flight, "departing", runway_id="06-24") draws that
+    # 65. build_canvas(flight, "departing", runway_id="06-24") draws that
     # runway's tag, still passing the within-canvas assertion.
     def _active_canvas_draws_selected_runways_tag():
         with _TextSpy(render) as spy:
@@ -1645,7 +1728,7 @@ def main():
         _active_canvas_draws_selected_runways_tag,
     )
 
-    # 64. render_panel(..., source_fault=False) is byte-identical to the
+    # 66. render_panel(..., source_fault=False) is byte-identical to the
     # same call without the argument.
     def _source_fault_false_matches_default():
         a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE)
@@ -1655,7 +1738,7 @@ def main():
         return True, ""
     check("render_panel(..., source_fault=False) is byte-identical to the same call without the argument", _source_fault_false_matches_default)
 
-    # 65. render_panel(..., source_fault=True) differs from the same call
+    # 67. render_panel(..., source_fault=True) differs from the same call
     # with the flag false - the badge is genuinely drawn.
     def _source_fault_true_differs_from_false():
         a = render.render_panel(TEST_FLIGHT, "arriving", route=TEST_ROUTE, source_fault=False)
@@ -1665,7 +1748,7 @@ def main():
         return True, ""
     check("render_panel(..., source_fault=True) differs from the same call with the flag false", _source_fault_true_differs_from_false)
 
-    # 66. The fault badge is drawn on the active canvas and on the empty
+    # 68. The fault badge is drawn on the active canvas and on the empty
     # canvas alike - visible whichever state the panel is in.
     def _badge_caption_present_on_active_and_empty_canvases():
         with _TextSpy(render) as spy_active:
@@ -1684,7 +1767,7 @@ def main():
         _badge_caption_present_on_active_and_empty_canvases,
     )
 
-    # 67. The badge caption is absent from a normal render (source_fault
+    # 69. The badge caption is absent from a normal render (source_fault
     # defaults to False) - same text-draw spy idiom already used for the
     # top-right tag.
     def _badge_caption_absent_from_a_normal_render():
@@ -1696,7 +1779,7 @@ def main():
         return True, ""
     check("the badge caption text is absent from a normal render (source_fault defaults to False)", _badge_caption_absent_from_a_normal_render)
 
-    # 68. _assert_legal_palette() (run internally by build_canvas()) still
+    # 70. _assert_legal_palette() (run internally by build_canvas()) still
     # passes with the badge drawn, in both active states, the empty state,
     # and every theme.
     def _legal_palette_holds_with_badge_across_states_and_themes():
@@ -1711,7 +1794,7 @@ def main():
         _legal_palette_holds_with_badge_across_states_and_themes,
     )
 
-    # 69. A fault-badged departing render still satisfies
+    # 71. A fault-badged departing render still satisfies
     # _assert_legal_palette() for the default theme - proven by calling
     # build_canvas() (which runs the assertion internally), not by
     # re-implementing it.
@@ -1726,7 +1809,7 @@ def main():
         _fault_badged_departing_render_satisfies_legal_palette_via_build_canvas,
     )
 
-    # 70. The badge's bounding box stays inside the drawn frame.
+    # 72. The badge's bounding box stays inside the drawn frame.
     def _badge_bbox_stays_inside_the_drawn_frame():
         canvas = panel_format.new_canvas(IDX_BLUE)
         frame_box = render.draw_frame(canvas, IDX_WHITE)
@@ -1738,7 +1821,7 @@ def main():
         return True, ""
     check("draw_source_fault_badge()'s bounding box stays inside the drawn frame", _badge_bbox_stays_inside_the_drawn_frame)
 
-    # 71. All three runway ids combined with the single registered theme id
+    # 73. All three runway ids combined with the single registered theme id
     # render without error across both active states - a small matrix, so
     # a future theme addition is immediately exercised.
     def _runway_and_theme_matrix_combines_without_error():
@@ -1753,7 +1836,7 @@ def main():
         _runway_and_theme_matrix_combines_without_error,
     )
 
-    # 72. The D-26 outline must be genuinely absent from a REAL build_canvas()
+    # 74. The D-26 outline must be genuinely absent from a REAL build_canvas()
     # render - not just absent from a throwaway canvas draw_frame() is called
     # on directly (that's checks 16/70's job). Sample points are derived from
     # FRAME_INSET_FRAC/panel_format.WIDTH/HEIGHT, never hardcoded pixel
@@ -1793,7 +1876,7 @@ def main():
         _no_frame_outline_on_real_active_renders,
     )
 
-    # 73. Phase 7 07-01 (D-04): --airline and --city reach the rendered
+    # 75. Phase 7 07-01 (D-04): --airline and --city reach the rendered
     # captions via render.main()'s CLI, following _TextSpy's monkeypatch
     # technique rather than rendering to a scratch canvas and comparing pixels.
     def _cli_airline_and_city_flags_reach_captions():
@@ -1819,7 +1902,7 @@ def main():
         _cli_airline_and_city_flags_reach_captions,
     )
 
-    # 74. --no-route continues to win over --airline/--city when both are
+    # 76. --no-route continues to win over --airline/--city when both are
     # given - the bare callsign (line 1) and ROUTE_FALLBACK_TEXT (line 2)
     # render instead of either override.
     def _cli_no_route_wins_over_airline_and_city():
@@ -1847,7 +1930,7 @@ def main():
         _cli_no_route_wins_over_airline_and_city,
     )
 
-    # 75. --calibration-preview writes exactly one file (palette-swatches.png)
+    # 77. --calibration-preview writes exactly one file (palette-swatches.png)
     # into the given directory and exits 0 without rendering any panel.
     def _calibration_preview_writes_exactly_one_file():
         tmp_dir = tempfile.mkdtemp()
@@ -1863,7 +1946,7 @@ def main():
         _calibration_preview_writes_exactly_one_file,
     )
 
-    # 76. Combining a route override (--airline/--city/--no-route) with --out
+    # 78. Combining a route override (--airline/--city/--no-route) with --out
     # prints the reminder line naming inkframe-poll.timer as the unit that
     # must be restarted afterward (T-07-01-01).
     def _synthetic_reminder_printed_when_override_combined_with_out():

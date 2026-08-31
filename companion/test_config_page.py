@@ -47,7 +47,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 37
+EXPECTED_CHECK_COUNT = 39
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -252,6 +252,40 @@ def main():
     check(
         "theme_fieldset() emits one radio per THEMES registry entry",
         _theme_fieldset_one_radio_per_registry_entry)
+
+    def _theme_fieldset_five_options_with_own_id_and_label():
+        # 08-CONTEXT.md D-01/D-02/D-03/D-04: proves the CFG-01 picker
+        # absorbed the four new themes purely through the registry - driven
+        # from THEME_IDS/theme_label(), not a hardcoded list, so this stays
+        # true for a future sixth theme with zero test-file change needed.
+        rendered = config_page.theme_fieldset("white")
+        theme_ids = device_config.THEME_IDS
+        if len(theme_ids) != 5:
+            return False, "expected exactly 5 registered themes, found %d (%r)" % (len(theme_ids), theme_ids)
+        for theme_id in theme_ids:
+            value_needle = 'value="%s"' % escape_html(theme_id)
+            if value_needle not in rendered:
+                return False, "expected a radio carrying value=%r, not found in rendered fieldset" % (theme_id,)
+            label_needle = escape_html(device_config.theme_label(theme_id))
+            if label_needle not in rendered:
+                return False, "expected theme %r's plain label %r as visible text, not found" % (theme_id, label_needle)
+        return True, ""
+    check(
+        "theme_fieldset() renders exactly five radios, each carrying its own registry id as value and its own plain "
+        "label as visible text, with zero hardcoded ids/labels in the assertion itself",
+        _theme_fieldset_five_options_with_own_id_and_label)
+
+    def _theme_fieldset_default_selects_exactly_the_white_option():
+        rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
+        if rendered.count(" checked") != 1:
+            return False, "expected exactly one selected radio, found %d" % rendered.count(" checked")
+        white_option_needle = 'value="white" checked'
+        if white_option_needle not in rendered:
+            return False, "the selected option is not the white one (expected %r substring)" % (white_option_needle,)
+        return True, ""
+    check(
+        "theme_fieldset() rendered with the new default theme id marks exactly one option selected, and it is White",
+        _theme_fieldset_default_selects_exactly_the_white_option)
 
     def _runway_fieldset_exactly_three_radios():
         rendered = config_page.runway_fieldset("3")
