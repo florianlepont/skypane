@@ -309,13 +309,13 @@ Plans:
 **Goal:** Carry Phase 06.6.2's foundation (tokens, page-header pattern, sidebar, severity function, contrast checker) into a real recomposition of every companion page: Config's dirty-state save bar, read-only Theme status and runway cards; Health's roving-tabindex battery chart, specific anomaly summary, and disclosure-collapsed readings; History's mobile compact cards, filtering, and copy-to-clipboard; Airlines' filtering and simplified hierarchy; Preview's centered matte treatment, freshness signal, and task-oriented gallery captions. Split out 2026-08-31 from Phase 06.6.2 for context-budget reasons (see 06.6.2's Goal) — carries the nine per-page CONTEXT.md decisions and audit findings that need 06.6.2's shared primitives to land cleanly, avoiding double-touching the same page files.
 **Requirements**: None — unmapped backlog phase. Traced against `06.6.3-CONTEXT.md`'s own locked decisions D-02 through D-05, D-06 (heading-dedup half), D-07 through D-10, D-12, D-13, D-18, D-20, D-22, D-23, plus the audit's UXA-01 (mobile-card half), UXA-05, UXA-06, UXA-11, UXA-13, UXA-16, UXA-17, UXA-18, and UXA-08 (Config-specific half).
 **Depends on:** Phase 06.6.2 (consumes its design tokens, `page_header()`, sidebar footer region, and severity function)
-**Plans:** 1/8 plans executed
+**Plans:** 2/8 plans executed
 
 Plans:
 **Wave 1** *(parallel, no shared files)*
 
 - [x] 06.6.3-01-PLAN.md — Shared foundation: `layout.concise_timestamp_html()`, `data_table(raw_columns=)`, 4 new icons, and 4 new pre-auth static JS files (dirty-state, list-filter, copy-button, freshness) wired through `app.py`
-- [ ] 06.6.3-02-PLAN.md — Shared foundation CSS: every new class this phase's five page plans reference (theme status, runway cards, dirty-bar, disclosures, history cards, filter bar, copy button, matte frame), landed once so no later plan touches `style.css`
+- [x] 06.6.3-02-PLAN.md — Shared foundation CSS: every new class this phase's five page plans reference (theme status, runway cards, dirty-bar, disclosures, history cards, filter bar, copy button, matte frame), landed once so no later plan touches `style.css`
 
 **Wave 2** *(blocked on Wave 1; parallel with each other, disjoint files)*
 
