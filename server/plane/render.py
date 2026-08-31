@@ -160,6 +160,19 @@ PREVIOUS_LINE2_FONT = (PT_SERIF_BOLD, 20, 700)
 EMPTY_HEADING_FONT = (PT_SERIF_BOLD, 72, 700)
 EMPTY_BODY_FONT = (PT_SERIF_REGULAR, 40, 400)
 
+# Letter-spacing (tracking) applied to the top row's two smallest text roles
+# (STATE_LABEL_FONT, TOP_TAG_FONT) via draw_tracked_text() in
+# draw_top_labels() - spike 002a's validated finding (the "tracked-6px"
+# variant, chosen over 4 other candidates in a real 5-way visual
+# comparison), independently re-confirming Phase 3's own removed
+# LABEL_TRACKING_PX (D-15, deleted by commit 73a6eb2's two-flight poster
+# redesign because that redesign changed the zone, not because 6px failed).
+# Screen-preview-validated only - never checked against real Spectra 6 ink
+# at any point in this project's history (hardware/BRINGUP-LOG.md has no
+# mention of tracking, even though this same technique shipped once before
+# in Phase 2/3). On-glass check remains OPEN per D-13.
+LABEL_TRACKING_PX = 6
+
 # Overflow floors (fit_text_size()'s per-role minimums) - real city/airline
 # names shrink in small steps rather than clipping, wrapping mid-word, or
 # overflowing, but never below these named limits.
@@ -404,6 +417,55 @@ def fit_text_size(font_path, initial_size, text, max_width, min_size):
             return font
         size -= _FIT_STEP_PX
     return _font((font_path, min_size, None))
+
+
+def _tracked_text_width(font, text, tracking):
+    """Return the total rendered advance of `text` at `font`, with `tracking`
+    extra pixels inserted between every pair of adjacent glyphs (never after
+    the last one - a single glyph carries no trailing tracking). 0.0 for an
+    empty string. Ported verbatim from commit 73a6eb2^ (deleted by that
+    commit's two-flight poster redesign because the redesign changed the
+    zone, not because tracking failed - see LABEL_TRACKING_PX's provenance
+    comment above).
+    """
+    if not text:
+        return 0.0
+    return sum(font.getlength(ch) for ch in text) + tracking * (len(text) - 1)
+
+
+def draw_tracked_text(draw, xy, text, font, fill, tracking=0):
+    """Draw `text` glyph-by-glyph with `tracking` extra pixels of advance
+    between each glyph - Pillow has no native letter-spacing/tracking API,
+    per 02-UI-SPEC.md's Typography note. `xy` is the top-left origin of the
+    first glyph; callers wanting right- or centre-aligned tracked text
+    should pre-compute the block width with `_tracked_text_width()` and
+    offset `xy` accordingly. Returns the x-coordinate immediately after the
+    last glyph drawn (`start_x + _tracked_text_width(...) + tracking`).
+
+    Ported verbatim from commit 73a6eb2^, with one deliberate difference:
+    `anchor="la"` is now passed explicitly on each glyph draw. The original
+    relied on Pillow's implicit default (which is "la" for horizontal text,
+    so this is behaviourally identical) - explicit here because the test
+    harness spies on the anchor kwarg, and leaving it implicit would make
+    that assertion read `None`.
+    """
+    x, y = xy
+    for ch in text:
+        draw.text((x, y), ch, font=font, fill=fill, anchor="la")
+        x += font.getlength(ch) + tracking
+    return x
+
+
+def _tracked_text_bbox(font, xy, text, tracking):
+    """`draw.textbbox()`'s counterpart for tracked text: `ImageDraw.textbbox()`
+    measures an untracked run and would under-report the width of a tracked
+    one, so `_assert_within_canvas()` must be fed this instead. Ported
+    verbatim from commit 73a6eb2^.
+    """
+    x, y = xy
+    width = _tracked_text_width(font, text, tracking)
+    ascent, descent = font.getmetrics()
+    return (x, y, x + width, y + ascent + descent)
 
 
 def _role_weight_path(weight):

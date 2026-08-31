@@ -36,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 101
+EXPECTED_CHECK_COUNT = 104
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -2792,6 +2792,98 @@ def main():
         "airline illustrations with deliberately different airframe silhouettes (narrowbody x2, turboprop, "
         "small twin, regional jet, widebody) - not just the single pair it was tuned against",
         _previous_card_optical_offset_holds_across_diverse_illustration_sample,
+    )
+
+    # 102. Resurrected tracking helpers: constant value + the original
+    # commit's public/private naming split (draw_tracked_text is public,
+    # _tracked_text_width/_tracked_text_bbox are private).
+    def _label_tracking_constant_and_helpers_present():
+        if render.LABEL_TRACKING_PX != 6:
+            return False, "render.LABEL_TRACKING_PX = %r, expected 6" % (render.LABEL_TRACKING_PX,)
+        if not hasattr(render, "draw_tracked_text"):
+            return False, "render.draw_tracked_text is missing (expected public, no leading underscore)"
+        if not hasattr(render, "_tracked_text_width"):
+            return False, "render._tracked_text_width is missing (expected private)"
+        if not hasattr(render, "_tracked_text_bbox"):
+            return False, "render._tracked_text_bbox is missing (expected private)"
+        if hasattr(render, "_draw_tracked_text"):
+            return False, "render._draw_tracked_text should not exist - draw_tracked_text is public"
+        return True, ""
+    check(
+        "LABEL_TRACKING_PX == 6 and draw_tracked_text()/_tracked_text_width()/_tracked_text_bbox() exist with "
+        "the original commit's public/private naming split",
+        _label_tracking_constant_and_helpers_present,
+    )
+
+    # 103. _tracked_text_width() arithmetic: empty / single-char / multi-char
+    # / zero-tracking, derived from font.getlength() rather than hardcoded
+    # pixel numbers.
+    def _tracked_text_width_arithmetic():
+        font = render._role_font(render.TOP_TAG_FONT, "bold")
+        empty = render._tracked_text_width(font, "", 6)
+        if empty != 0.0:
+            return False, "_tracked_text_width(font, '', 6) = %r, expected 0.0" % (empty,)
+        single = render._tracked_text_width(font, "A", 6)
+        expected_single = font.getlength("A")
+        if single != expected_single:
+            return False, (
+                "_tracked_text_width(font, 'A', 6) = %r, expected font.getlength('A') = %r "
+                "(a single glyph carries no trailing tracking)" % (single, expected_single)
+            )
+        text = "ORY"
+        expected_multi = sum(font.getlength(ch) for ch in text) + 6 * (len(text) - 1)
+        got_multi = render._tracked_text_width(font, text, 6)
+        if got_multi != expected_multi:
+            return False, "_tracked_text_width(font, %r, 6) = %r, expected %r" % (text, got_multi, expected_multi)
+        expected_zero = sum(font.getlength(ch) for ch in text)
+        got_zero = render._tracked_text_width(font, text, 0)
+        if got_zero != expected_zero:
+            return False, (
+                "_tracked_text_width(font, %r, 0) = %r, expected plain summed advance %r"
+                % (text, got_zero, expected_zero)
+            )
+        return True, ""
+    check(
+        "_tracked_text_width() arithmetic holds for empty/single-char/multi-char/zero-tracking, derived from "
+        "font.getlength() rather than hardcoded pixel numbers",
+        _tracked_text_width_arithmetic,
+    )
+
+    # 104. draw_tracked_text(): one text draw per character, each anchor='la',
+    # inter-glyph advance == font.getlength(previous_char) + tracking, return
+    # value is the x immediately after the last glyph's advance.
+    def _draw_tracked_text_glyph_by_glyph():
+        font = render._role_font(render.TOP_TAG_FONT, "bold")
+        canvas = panel_format.new_canvas(panel_format.IDX_WHITE)
+        draw = render.ImageDraw.Draw(canvas)
+        text = "ORY"
+        with _TextSpy(render) as spy:
+            end_x = render.draw_tracked_text(draw, (100, 200), text, font, panel_format.IDX_BLACK, tracking=6)
+        calls = spy.calls
+        if len(calls) != len(text):
+            return False, "draw_tracked_text issued %d text draws, expected %d (one per character)" % (len(calls), len(text))
+        joined = "".join(c[0] for c in calls)
+        if joined != text:
+            return False, "joined glyph draws = %r, expected %r" % (joined, text)
+        if any(a != "la" for _, _, a in calls):
+            return False, "not every glyph draw used anchor='la': %r" % ([a for _, _, a in calls],)
+        x = 100
+        for i, ch in enumerate(text):
+            expected_xy = (x, 200)
+            got_xy = calls[i][1]
+            if got_xy != expected_xy:
+                return False, "glyph %d (%r) drawn at %r, expected %r" % (i, ch, got_xy, expected_xy)
+            x += font.getlength(ch) + 6
+        if end_x != x:
+            return False, (
+                "draw_tracked_text returned %r, expected %r (start_x + _tracked_text_width(...) + tracking)"
+                % (end_x, x)
+            )
+        return True, ""
+    check(
+        "draw_tracked_text() issues one text draw per character at anchor='la', with inter-glyph advance == "
+        "font.getlength(previous_char) + tracking, returning the x immediately after the last glyph's advance",
+        _draw_tracked_text_glyph_by_glyph,
     )
 
     total = len(results)
