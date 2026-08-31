@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 06.6.3
 current_phase_name: Companion per-page redesign — Config, Health, History, Airlines, Preview
 status: executing
-stopped_at: Completed 06.6.2-07-PLAN.md
-last_updated: "2026-08-31T11:26:18.666Z"
+stopped_at: Phase 06.6.3 UI-SPEC approved
+last_updated: "2026-08-31T11:43:26.377Z"
 last_activity: 2026-08-31
 last_activity_desc: Phase 06.6.2 complete, transitioned to Phase 06.6.3
 progress:
@@ -343,10 +343,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-31T08:57:24.854Z
-Stopped at: Completed 06.6.2-07-PLAN.md
+Last session: 2026-08-31T11:43:26.368Z
+Stopped at: Phase 06.6.3 UI-SPEC approved
 
-Resume file: None
+Resume file: .planning/phases/06.6.3-companion-per-page-redesign-config-health-history-airlines-p/06.6.3-UI-SPEC.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
