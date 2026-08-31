@@ -632,9 +632,6 @@ class Handler(BaseHTTPRequestHandler):
             runway_id = path[len(RUNWAY_IMAGE_ROUTE_PREFIX):-len(".png")]
             return self._serve_runway_image(runway_id)
 
-        if path == LOGOUT_ROUTE:
-            return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
-
         return self.send_html(404, self._not_found_page())
 
     # --- POST --------------------------------------------------------------
@@ -729,6 +726,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == THEME_ROUTE:
             return self._handle_theme_post()
+
+        if path == LOGOUT_ROUTE:
+            return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
 
         return self.send_html(404, self._not_found_page())
 

@@ -61,7 +61,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 71  # 70 (69 (68: 06.6.1's own additions: 62 + 2
+EXPECTED_CHECK_COUNT = 72  # 71 (70 (69 (68: 06.6.1's own additions: 62 + 2
 # (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3:
 # toggle/dropdown/DOM-contract/no-JS)) + 1 (2026-08-29 quick task 260829-0rl,
 # merged independently via origin/main PR #19: the gallery route's private
@@ -69,7 +69,9 @@ EXPECTED_CHECK_COUNT = 71  # 70 (69 (68: 06.6.1's own additions: 62 + 2
 # (06.6.2-02: the genuine two-thread concurrent POST /poll-now check
 # proving _POLL_LOCK serializes execution)) + 1 (06.6.2-03 Task 2: the new
 # nav-dropdown.js progressive-enhancement state-machine check — the
-# existing no-JS check was rewritten in place, not counted as new).
+# existing no-JS check was rewritten in place, not counted as new)) + 1
+# (06.6.2-05 Task 3: GET /logout now 404s (D-11) — the pre-existing
+# logout-cookie check was renamed to POST /logout, not counted as new).
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1148,14 +1150,27 @@ def main():
         # --- logout clears the cookie; a subsequent tab request is refused again ---
 
         def _logout_clears_cookie():
-            status, headers, _ = http_request(base + "/logout", cookie=session_cookie)
+            # D-11: /logout moved from GET to POST, so a stray prefetch,
+            # crawler, or <img src="/logout">-shaped link can no longer
+            # end a session — see the sibling GET check just below.
+            status, headers, _ = http_request(
+                base + "/logout", method="POST", cookie=session_cookie)
             if status != 303:
                 return False, "expected a 303 redirect on logout, got %d" % status
             set_cookie = headers.get("Set-Cookie", "")
             if "Max-Age=0" not in set_cookie:
                 return False, "expected the logout cookie header to carry Max-Age=0, got %r" % set_cookie
             return True, ""
-        check("GET /logout clears the session cookie (Max-Age=0)", _logout_clears_cookie)
+        check("POST /logout clears the session cookie (Max-Age=0)", _logout_clears_cookie)
+
+        def _get_logout_no_longer_ends_session():
+            status, _headers, _body = http_request(base + "/logout", cookie=session_cookie)
+            if status != 404:
+                return False, "expected GET /logout to 404 (D-11), got %d" % status
+            return True, ""
+        check(
+            "GET /logout no longer accepts the request (404) — D-11 closes the GET-triggered logout hole",
+            _get_logout_no_longer_ends_session)
 
         def _tab_refused_after_logout():
             # Sessions are stateless signed cookies (companion/auth.py has
