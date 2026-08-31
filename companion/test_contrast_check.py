@@ -46,7 +46,7 @@ from companion.contrast_check import (  # noqa: E402
     perceptual_distance,
 )
 
-EXPECTED_CHECK_COUNT = 31
+EXPECTED_CHECK_COUNT = 33
 
 
 def main():
@@ -120,10 +120,15 @@ def main():
         ("light: accent on secondary/sidebar surface", "#B13F16", "#EEE8DE"),
         ("light: primary-button label on accent fill", "#FFFFFF", "#B13F16"),
         ("light: body text on canvas", "#17191F", "#F7F4EF"),
+        # 06.6.4-03 (D-04): every banner and card now renders text on
+        # --color-dominant (the card surface), not just canvas/secondary
+        # — pinned so a future token change fails here, not on inspection.
+        ("light: body text on card surface", "#17191F", "#FFFFFF"),
         # Dark mode
         ("dark: accent text/link on canvas", "#FF8A5C", "#0C0F14"),
         ("dark: accent on primary surface", "#FF8A5C", "#151922"),
         ("dark: accent on secondary/sidebar surface", "#FF8A5C", "#1C222D"),
+        ("dark: body text on card surface", "#F1F3F6", "#151922"),
     )
     for label, fg, bg in live_pairs:
         check(

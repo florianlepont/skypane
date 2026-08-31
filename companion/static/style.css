@@ -1610,23 +1610,48 @@ summary::-webkit-details-marker {
  * restores that left border deterministically, independent of source
  * order.
  *
- * The width is restored here too, not just the colour. The `border`
- * shorthand resets border-left-WIDTH to 1px as well, and only the
- * colour was ever put back — so the source-fault block, the single most
- * severe state this page can show, drew a 1px alert edge while every
- * other anomaly banner drew 4px. One signal, two widths, decided by
- * which rule happened to sit later in the file. Both properties are now
- * restated together; they must stay together.
+ * The width is restored here too, not just the colour, and narrowed to
+ * 3px in 06.6.4 (D-04a) to match the base .banner rule's new edge
+ * width. The `border` shorthand resets border-left-WIDTH as well, and
+ * only the colour was ever put back — so without this restatement the
+ * source-fault block, the single most severe state this page can show,
+ * would draw a 1px alert edge while every other anomaly banner draws a
+ * 3px edge. One signal, two widths, decided by which rule happened to
+ * sit later in the file. Both properties stay restated together; they
+ * must stay together.
  *
- * The severity wash is restated here for the same cascade reason: this
+ * The background is restated here for the same cascade reason: this
  * block is both a card and a banner, and .page-section's own
  * `background: var(--color-dominant)` above sits later in the file than
- * .banner--anomaly's tint, so at equal (0,1,0) specificity the plain
- * card surface would win and the alert region would lose its colour.
- * This (0,2,0) selector settles it independent of source order. */
+ * .banner--anomaly's own rule, so at equal (0,1,0) specificity the
+ * plain card rule would win regardless of source order without this
+ * (0,2,0) override. 06.6.4 (D-04) retired the severity wash in favour
+ * of the same --color-dominant card surface every banner now uses, so
+ * this restatement no longer settles a colour conflict — it only
+ * guarantees the block cannot silently drift onto a different surface
+ * than the banners it shares a severity language with, should a future
+ * edit change .page-section's own background and forget this sibling.
+ *
+ * Two opt-outs, both new in 06.6.4 (D-04a): Task 1 made the base
+ * .banner rule a centred flex row with a `::before` status dot, and
+ * both reach this selector by inheritance. The source-fault block
+ * contains a heading and several stacked paragraphs (see
+ * companion/pages/health_page.py's source-fault section), not a single
+ * line of banner text — without `display: block` it would reflow into
+ * one horizontal row with the dot as its first flex item, and the
+ * block already carries its own heading plus this 3px error edge, so
+ * it needs no dot at all. Both are scoped exceptions that preserve
+ * D-04a's "container treatment only, never banner content" boundary —
+ * the block's own content is untouched, only two inherited container
+ * properties are turned back off for this one combined selector. */
 .page-section.banner--anomaly {
-  border-left: 4px solid var(--color-status-error);
-  background: color-mix(in srgb, var(--color-status-error) 10%, var(--color-secondary));
+  display: block;
+  border-left: 3px solid var(--color-status-error);
+  background: var(--color-dominant);
+}
+
+.page-section.banner--anomaly::before {
+  display: none;
 }
 
 /* Preview's live-panel frame (06.6.3, CFG-10) — a bounded, centered
