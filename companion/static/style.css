@@ -34,11 +34,15 @@
  * read apart — do not rely on the comments below alone.
  *
  * Border is structural only — the sidebar/content divider, fieldset
- * borders, table borders, and the mobile-nav dropdown's own edge. It is
- * never used as an interactive-state signal and never substitutes for the
- * accent or status colours. Since 06.6.1 (D-02) it is also no longer used
- * for card outlines — .stat-tile/.page-section/.battery-trend-section
- * carry --shadow-card instead of a --color-border hairline.
+ * borders, table borders, the mobile-nav dropdown's own edge, and (since
+ * 06.6.4, D-03) every card's resting edge too. It is never used as an
+ * interactive-state signal and never substitutes for the accent or
+ * status colours. 06.6.1 (D-02) had traded the card hairline for a
+ * resting shadow instead; 06.6.4 (D-03) reverses that specific trade —
+ * all six card components (.stat-tile, .page-section,
+ * .battery-trend-section, .runway-card, .history-card, .login-card) carry
+ * a --color-border hairline at rest and reveal --shadow-card-hover only
+ * on hover/focus-within.
  *
  * 06.6.2 (D-14, UXA-04): the accent value changed for WCAG AA — light
  * mode's --color-accent is now #B13F16 (was #E8622C), still hue-separated
@@ -934,18 +938,29 @@ button:disabled {
   display: block;
   position: relative;
   background: var(--color-dominant);
-  /* Same transparent-border-plus-shadow edge every other card in this
-   * file carries (see .stat-tile). Previously this rule declared no
-   * border at all, so the dark-mode card-edge override had no width to
-   * colour in and Config's runway picker was the one card set with no
-   * boundary in dark mode. The --selected modifier below still replaces
-   * this with its own real 2px accent border. */
-  border: 1px solid transparent;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  /* Hairline --color-border edge at rest, no resting shadow — 06.6.4
+   * (D-03) supersedes 06.6.1's shadow-at-rest treatment (the border used
+   * to be transparent, reserving a width only the now-deleted dark-mode
+   * card-edge override coloured in). The shadow now appears only on
+   * hover/focus-within, below. The --selected modifier still replaces
+   * this hairline with its own real 2px accent border, and the hover
+   * rule below is scoped so it can never reach a selected card (D-03a). */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
   padding: var(--space-md);
   margin-bottom: var(--space-md);
   cursor: pointer;
+}
+
+/* Scoped with :not(.runway-card--selected) so this rule is structurally
+ * incapable of matching a selected card, independent of source order or
+ * specificity — the selected card's own 2px accent border (below) can
+ * never be cleared by hovering it (D-03a). */
+.runway-card:not(.runway-card--selected):hover,
+.runway-card:not(.runway-card--selected):focus-within {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
 }
 
 /* A real 2px border, not merely a class toggle with no visual difference.
@@ -1084,14 +1099,20 @@ button:disabled {
 
 .history-card {
   background: var(--color-dominant);
-  /* Same reason as .runway-card above: reserves the 1px the dark-mode
-   * card-edge override colours in, so History's mobile cards keep a
-   * boundary in dark mode like every other card. */
-  border: 1px solid transparent;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  /* Same 06.6.4 (D-03) hairline-at-rest contract as .runway-card above:
+   * a real --color-border edge at rest, no resting shadow, with the
+   * shadow revealed only on hover/focus-within below. */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
   padding: var(--space-md);
   margin-bottom: var(--space-sm);
+}
+
+.history-card:hover,
+.history-card:focus-within {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
 }
 
 .history-card__primary {
@@ -1206,26 +1227,31 @@ summary::-webkit-details-marker {
  * off-grid and forcing horizontal scroll on the page itself. With it, the
  * existing .data-table-wrap { overflow-x: auto } absorbs the width
  * instead, which is exactly what that wrapper is for. */
-/* D-02: the visible hairline outline is deliberately traded for a resting
- * shadow — do not "restore" the border on top of the shadow, or cards end
- * up with both. The status-coloured top border is unaffected: it is a
- * from a different property (border-top) than the now-transparent general
- * border, so both can coexist without fighting each other. */
+/* 06.6.4 (D-03) supersedes 06.6.1's D-02 shadow-at-rest direction: the
+ * hairline outline is back, and the resting shadow is gone — the shadow
+ * now appears only on hover/focus-within, below. Do not restore both at
+ * once; the two are mutually exclusive states, not additive. The
+ * status-coloured top border is unaffected either way: it draws from a
+ * different property (border-top) than the general border, so the two
+ * always coexist without fighting each other. */
 .stat-tile {
   min-width: 0;
   padding: var(--space-md);
   background: var(--color-dominant);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border);
   border-top: 3px solid var(--color-accent);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-control);
+  box-shadow: none;
   transition: box-shadow .15s, transform .15s;
 }
 
 /* :focus-within alongside :hover on purpose: several tiles now contain
  * focusable children (the sparkline hit targets from Phase 06.5), and a
- * keyboard user should get the same lift affordance a mouse user gets. */
+ * keyboard user should get the same lift affordance a mouse user gets.
+ * border-color: transparent clears the resting hairline the moment the
+ * shadow appears, so the two treatments never overlap (D-03). */
 .stat-tile:hover, .stat-tile:focus-within {
+  border-color: transparent;
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);
 }
@@ -1322,21 +1348,31 @@ summary::-webkit-details-marker {
  * own belt-and-braces HTML attributes) are sufficient without it. */
 
 /* Battery-trend section (06.6.1): moves out of .dashboard-grid entirely
- * into its own full-width card, same treatment as .stat-tile. Two
- * deliberate omissions vs. .stat-tile — do not "complete" the pattern by
- * adding either back: no border-top status accent (this is not a status
- * tile, it doesn't carry an ok/warn/error verdict of its own), and no
- * hover lift/transform (it contains an interactive chart, and lifting the
- * container under the pointer while the user is aiming at an 8px-radius
- * chart hit target is actively unhelpful). */
+ * into its own full-width card, same hairline-at-rest/shadow-on-hover
+ * contract as .stat-tile (06.6.4 D-03). One deliberate omission vs.
+ * .stat-tile still stands — do not "complete" the pattern by adding it
+ * back: no hover lift/transform (it contains an interactive chart, and
+ * lifting the container under the pointer while the user is aiming at an
+ * 8px-radius chart hit target is actively unhelpful). The other omission
+ * this comment used to list, no border-top status accent, is unrelated to
+ * this plan and still correct (this is not a status tile — it carries no
+ * ok/warn/error verdict of its own). The shadow reveal added in 06.6.4
+ * changes no geometry, so the transform omission's reasoning is untouched
+ * by this change. */
 .battery-trend-section {
   padding: var(--space-md);
   background: var(--color-dominant);
-  border: 1px solid transparent;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
   min-width: 0;
   margin-bottom: var(--space-2xl);
+}
+
+.battery-trend-section:hover,
+.battery-trend-section:focus-within {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
 }
 
 /* The sparkline still carries fixed width/height attributes and needs
@@ -1352,40 +1388,25 @@ summary::-webkit-details-marker {
   height: auto;
 }
 
-/* D-14: dark-mode cards get a restrained visible border (tonal elevation
- * alone doesn't read on an already-dark canvas) — light mode keeps its
- * existing shadow-only treatment (border: 1px solid transparent), which
- * already reads correctly against the new lighter canvas/dominant split,
- * so no light-mode override is added here.
+/* 06.6.4 (D-03) removes the D-14 dark-mode card-edge override that used
+ * to live here (the six-selector list: .stat-tile, .page-section,
+ * .battery-trend-section, .runway-card, .history-card, .login-card).
+ * Two reasons, both load-bearing:
  *
- * The selector list must name EVERY card component, not just the three
- * it originally listed. `.runway-card`, `.history-card` and
- * `.login-card` were missing, so Config's runway picker, History's
- * mobile card list and the login screen lost their edges in dark mode
- * while Health's tiles kept theirs — the same card concept rendering
- * with and without a boundary on different pages. Each of those three
- * now also declares `border: 1px solid transparent` in its own base
- * rule, which is what gives this override a border-width to colour in
- * (border-color alone cannot paint an edge that does not exist). */
-@media (prefers-color-scheme: dark) {
-  .stat-tile,
-  .page-section,
-  .battery-trend-section,
-  .runway-card,
-  .history-card,
-  .login-card {
-    border-color: var(--color-border);
-  }
-}
-
-html[data-ui-theme="dark"] .stat-tile,
-html[data-ui-theme="dark"] .page-section,
-html[data-ui-theme="dark"] .battery-trend-section,
-html[data-ui-theme="dark"] .runway-card,
-html[data-ui-theme="dark"] .history-card,
-html[data-ui-theme="dark"] .login-card {
-  border-color: var(--color-border);
-}
+ * 1. Redundant — every one of those six base rules now carries a real
+ *    `--color-border` hairline in every theme (D-03), which is exactly
+ *    what this override existed to synthesize for dark mode alone.
+ *
+ * 2. Actively wrong if left in place — the `html[data-ui-theme="dark"]`
+ *    attribute selector outranks a bare `.stat-tile:hover` on
+ *    specificity. Leaving it would have pinned the border back on
+ *    during hover for any user who explicitly picked dark mode via the
+ *    theme picker, while `prefers-color-scheme` dark users saw the
+ *    correct cleared-border hover behaviour — a silent per-theme
+ *    divergence in exactly the signal D-03a depends on reading
+ *    correctly. Removing both blocks outright, rather than reworking
+ *    their specificity, is what makes hover behave identically across
+ *    both theme-selection mechanisms. */
 
 /* Dashboard grid (D-02): same auto-fit/minmax idiom .gallery-grid already
  * establishes as this file's responsive-grid precedent, with a wider
@@ -1408,15 +1429,10 @@ html[data-ui-theme="dark"] .login-card {
  * sections the same card treatment as the dashboard's tiles.
  *
  * "The same card treatment" now means literally the same, including the
- * edge: this rule used to pair a visible `--color-border` hairline WITH
- * `--shadow-card`, which is exactly the combination .stat-tile's own
- * comment forbids ("do not 'restore' the border on top of the shadow,
- * or cards end up with both"). D-02 traded the hairline for the resting
- * shadow; .stat-tile and .battery-trend-section carried that through
- * with `border: 1px solid transparent` and this one did not, so Config
- * and Preview's sections were outlined while Health's tiles were not.
- * The transparent border is kept (not removed) because it reserves the
- * 1px the dark-mode override below colours in. */
+ * edge: 06.6.4 (D-03) gives this rule the same hairline-at-rest,
+ * shadow-on-hover contract every other card in this file carries — a
+ * real `--color-border` edge at rest, no resting shadow, with the shadow
+ * revealed only on hover/focus-within below. */
 .page-section {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
@@ -1432,9 +1448,15 @@ html[data-ui-theme="dark"] .login-card {
    * as shadowed canvas-coloured blocks while every other card on screen
    * was on --color-dominant. */
   background: var(--color-dominant);
-  border: 1px solid transparent;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+
+.page-section:hover,
+.page-section:focus-within {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
 }
 
 /* health_page.py's source-fault block combines page-section with banner
@@ -1680,12 +1702,20 @@ html[data-ui-theme="dark"] .login-card {
   width: 100%;
   max-width: 360px;
   background: var(--color-dominant);
-  /* Was a visible --color-border hairline alongside --shadow-card, the
-   * pairing D-02 replaced and .stat-tile's comment forbids. Transparent
-   * here, coloured by the dark-mode card-edge override, exactly like
-   * every other card. */
-  border: 1px solid transparent;
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  /* Same 06.6.4 (D-03) hairline-at-rest/shadow-on-hover contract as every
+   * other card in this file — a real --color-border edge at rest, no
+   * resting shadow, shadow revealed only on hover/focus-within below.
+   * Included deliberately, not by oversight: excluding the login card
+   * would have left the pre-auth page as the one card in the app still
+   * carrying resting relief. */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
   padding: var(--space-xl);
+}
+
+.login-card:hover,
+.login-card:focus-within {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
 }
