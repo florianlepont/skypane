@@ -77,7 +77,6 @@
   --font-body-size: 16px;
   --font-heading-size: 20px;
   --font-page-title-size: 30px;
-  --font-display-size: 24px;
   --weight-regular: 400;
   --weight-semibold: 600;
 
@@ -326,8 +325,12 @@ h3,
 
 /* 06.6.1 (D-01): the wordmark moves from the Display role to the Heading
  * role — crafted typography instead of a default bold sans, with no logo
- * asset introduced. --font-display-size now belongs to .stat-tile__value
- * and .runway-option__number alone. */
+ * asset introduced. The retired Display role's own two consumers,
+ * .stat-tile__value and .runway-card__number, moved on in 06.6.4 (D-09) to
+ * the Emphasis role instead — Body size plus semibold, the same
+ * existing-size-made-bold pattern .data-table th already uses for its own
+ * emphasis. --font-display-size was retired along with them, restoring the
+ * scale block above to its own claimed four sizes. */
 .site-title {
   font-size: var(--font-heading-size);
   font-weight: var(--weight-regular);
@@ -954,7 +957,7 @@ button:disabled {
 }
 
 .runway-card__number {
-  font-size: var(--font-display-size);
+  font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
 }
@@ -1300,7 +1303,7 @@ summary::-webkit-details-marker {
 }
 
 .stat-tile__value {
-  font-size: var(--font-display-size);
+  font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
 }
