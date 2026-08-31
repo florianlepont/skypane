@@ -160,6 +160,19 @@ PREVIOUS_LINE2_FONT = (PT_SERIF_BOLD, 20, 700)
 EMPTY_HEADING_FONT = (PT_SERIF_BOLD, 72, 700)
 EMPTY_BODY_FONT = (PT_SERIF_REGULAR, 40, 400)
 
+# Letter-spacing (tracking) applied to the top row's two smallest text roles
+# (STATE_LABEL_FONT, TOP_TAG_FONT) via draw_tracked_text() in
+# draw_top_labels() - spike 002a's validated finding (the "tracked-6px"
+# variant, chosen over 4 other candidates in a real 5-way visual
+# comparison), independently re-confirming Phase 3's own removed
+# LABEL_TRACKING_PX (D-15, deleted by commit 73a6eb2's two-flight poster
+# redesign because that redesign changed the zone, not because 6px failed).
+# Screen-preview-validated only - never checked against real Spectra 6 ink
+# at any point in this project's history (hardware/BRINGUP-LOG.md has no
+# mention of tracking, even though this same technique shipped once before
+# in Phase 2/3). On-glass check remains OPEN per D-13.
+LABEL_TRACKING_PX = 6
+
 # Overflow floors (fit_text_size()'s per-role minimums) - real city/airline
 # names shrink in small steps rather than clipping, wrapping mid-word, or
 # overflowing, but never below these named limits.
@@ -404,6 +417,55 @@ def fit_text_size(font_path, initial_size, text, max_width, min_size):
             return font
         size -= _FIT_STEP_PX
     return _font((font_path, min_size, None))
+
+
+def _tracked_text_width(font, text, tracking):
+    """Return the total rendered advance of `text` at `font`, with `tracking`
+    extra pixels inserted between every pair of adjacent glyphs (never after
+    the last one - a single glyph carries no trailing tracking). 0.0 for an
+    empty string. Ported verbatim from commit 73a6eb2^ (deleted by that
+    commit's two-flight poster redesign because the redesign changed the
+    zone, not because tracking failed - see LABEL_TRACKING_PX's provenance
+    comment above).
+    """
+    if not text:
+        return 0.0
+    return sum(font.getlength(ch) for ch in text) + tracking * (len(text) - 1)
+
+
+def draw_tracked_text(draw, xy, text, font, fill, tracking=0):
+    """Draw `text` glyph-by-glyph with `tracking` extra pixels of advance
+    between each glyph - Pillow has no native letter-spacing/tracking API,
+    per 02-UI-SPEC.md's Typography note. `xy` is the top-left origin of the
+    first glyph; callers wanting right- or centre-aligned tracked text
+    should pre-compute the block width with `_tracked_text_width()` and
+    offset `xy` accordingly. Returns the x-coordinate immediately after the
+    last glyph drawn (`start_x + _tracked_text_width(...) + tracking`).
+
+    Ported verbatim from commit 73a6eb2^, with one deliberate difference:
+    `anchor="la"` is now passed explicitly on each glyph draw. The original
+    relied on Pillow's implicit default (which is "la" for horizontal text,
+    so this is behaviourally identical) - explicit here because the test
+    harness spies on the anchor kwarg, and leaving it implicit would make
+    that assertion read `None`.
+    """
+    x, y = xy
+    for ch in text:
+        draw.text((x, y), ch, font=font, fill=fill, anchor="la")
+        x += font.getlength(ch) + tracking
+    return x
+
+
+def _tracked_text_bbox(font, xy, text, tracking):
+    """`draw.textbbox()`'s counterpart for tracked text: `ImageDraw.textbbox()`
+    measures an untracked run and would under-report the width of a tracked
+    one, so `_assert_within_canvas()` must be fed this instead. Ported
+    verbatim from commit 73a6eb2^.
+    """
+    x, y = xy
+    width = _tracked_text_width(font, text, tracking)
+    ascent, descent = font.getmetrics()
+    return (x, y, x + width, y + ascent + descent)
 
 
 def _role_weight_path(weight):
@@ -658,9 +720,21 @@ def draw_battery_icon(canvas, draw, ink_idx):
 def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
     (top-right, `runway_tag_text(runway_id)`), at the small sizes D-26
-    confirmed, both at the existing `MARGIN` inset (inside the frame, not
-    on it) - no icon glyph, no letter-spacing/tracking (that was the old,
-    larger zone-1 treatment; superseded).
+    confirmed (20px/18px, unchanged), both at the existing `MARGIN` inset
+    (inside the frame, not on it). Both roles are drawn with
+    `LABEL_TRACKING_PX` (6px) of letter-spacing via `draw_tracked_text()` -
+    spike 002a's validated finding, independently re-confirming Phase 3's
+    own removed `LABEL_TRACKING_PX` (D-15). This is **screen-preview-
+    validated only** - tracking has never been checked against real
+    Spectra 6 ink at any point in this project's history
+    (`hardware/BRINGUP-LOG.md` has no mention of it, even though the same
+    technique shipped once before in Phase 2/3); an on-glass check remains
+    OPEN under this project's D-13 precedent.
+
+    The runway tag is right-anchored, but tracked text has no Pillow
+    `anchor="ra"` equivalent (tracking is applied glyph-by-glyph by hand) -
+    its start x is pre-computed from `_tracked_text_width()` instead, so its
+    run still ends flush at `WIDTH - MARGIN`.
 
     `weight` (`device_config.theme_weight()`'s return value) selects each
     role's PT Serif weight via `_role_font()` - not derivable from `bg_idx`
@@ -681,14 +755,21 @@ def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_con
     # pixel-exact 64px boundary despite the text visually sitting exactly
     # at MARGIN as D-26 specifies - see the module docstring's note on why
     # the old "inviolable" SAFE_BOX is not enforced pixel-exactly here.
+    #
+    # Both bbox measurements below use _tracked_text_bbox(), not
+    # draw.textbbox(): the latter measures an untracked run and would
+    # under-report a tracked one's width, silently stopping the guard from
+    # protecting anything (T-njw-02).
     label_text = STATE_LABEL_TEXT[state]
-    label_bbox = draw.textbbox((MARGIN, MARGIN), label_text, font=label_font, anchor="la")
+    label_bbox = _tracked_text_bbox(label_font, (MARGIN, MARGIN), label_text, LABEL_TRACKING_PX)
     _assert_within_canvas(label_bbox, "state label")
-    draw.text((MARGIN, MARGIN), label_text, font=label_font, fill=ink_idx, anchor="la")
+    draw_tracked_text(draw, (MARGIN, MARGIN), label_text, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
 
-    tag_bbox = draw.textbbox((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, anchor="ra")
+    tag_width = _tracked_text_width(tag_font, tag_text, LABEL_TRACKING_PX)
+    tag_x = WIDTH - MARGIN - tag_width
+    tag_bbox = _tracked_text_bbox(tag_font, (tag_x, MARGIN), tag_text, LABEL_TRACKING_PX)
     _assert_within_canvas(tag_bbox, "top-right tag")
-    draw.text((WIDTH - MARGIN, MARGIN), tag_text, font=tag_font, fill=ink_idx, anchor="ra")
+    draw_tracked_text(draw, (tag_x, MARGIN), tag_text, tag_font, ink_idx, tracking=LABEL_TRACKING_PX)
 
 
 def _illustration_over_pixel_cap(path):
