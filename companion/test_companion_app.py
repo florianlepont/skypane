@@ -605,7 +605,7 @@ def main():
             for needle in (
                 '<div class="dashboard-shell">',
                 '<aside class="dashboard-sidebar">',
-                '<main class="page-content dashboard-main">',
+                '<main class="page-content dashboard-main" id="main-content">',
             ):
                 if needle not in rendered:
                     return False, "expected %r in the rendered shell" % needle
@@ -642,16 +642,20 @@ def main():
 
         def _icon_sprite_integrity():
             import re
-            if len(layout.ICON_IDS) != 5:
-                return False, "expected exactly five ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 5:
+            # 06.6.2-05 (D-17): the whitelist grew from five to ten
+            # members (five new icon-nav-* glyphs, one per NAV_TABS
+            # label) — see layout.py's own header comment on ICON_IDS
+            # for the supersession note.
+            if len(layout.ICON_IDS) != 10:
+                return False, "expected exactly ten ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 10:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 5:
-                return False, "expected exactly five <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 10:
+                return False, "expected exactly ten <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -659,7 +663,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly five unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly ten unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -706,15 +710,15 @@ def main():
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if doc.count("<defs") != 1:
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
-            if doc.count("<symbol") != 5:
-                return False, "expected exactly five <symbol, got %d" % doc.count("<symbol")
+            if doc.count("<symbol") != 10:
+                return False, "expected exactly ten <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, five <symbol) before dashboard-shell, no inline styles",
+            "page_shell() emits exactly one sprite (one <defs, ten <symbol) before dashboard-shell, no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
         def _icon_classes_match_stylesheet():

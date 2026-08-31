@@ -80,18 +80,27 @@ _DEFAULT_STAT_TILE_CLASS = "stat-tile--accent"
 
 # --- 06.6.1-04: icon sprite (D-02) -------------------------------------
 #
-# The whitelist. Capped at exactly five ids by 06.6.1-UI-SPEC.md's Design
-# System contract — this is not an incomplete set to extend later, it is
-# the whole set. The hamburger member is consumed by plan 06.6.1-05's
-# mobile-nav toggle button; it is defined here anyway (rather than by
-# that later plan) so the sprite in ICON_DEFS_HTML stays the single
-# write site for every icon in the app, never two.
+# The whitelist. Originally capped at exactly five ids by
+# 06.6.1-UI-SPEC.md's Design System contract. 06.6.2-05 (D-17) supersedes
+# that cap: five per-nav-label icons (`icon-nav-*`) are added below so
+# every sidebar/mobile-nav label carries a small outline glyph — the
+# whitelist grows from five to ten members, and this is now the current
+# whole set again, not an incomplete one. The hamburger member is
+# consumed by plan 06.6.1-05's mobile-nav toggle button; it is defined
+# here anyway (rather than by that later plan) so the sprite in
+# ICON_DEFS_HTML stays the single write site for every icon in the app,
+# never two.
 ICON_IDS = (
     "icon-device",
     "icon-pipeline",
     "icon-corroboration",
     "icon-battery",
     "icon-hamburger",
+    "icon-nav-config",
+    "icon-nav-health",
+    "icon-nav-airlines",
+    "icon-nav-history",
+    "icon-nav-preview",
 )
 
 # One shared inline sprite, emitted once per document by page_shell().
@@ -146,6 +155,34 @@ ICON_DEFS_HTML = (
     '<line x1="4" y1="12" x2="20" y2="12"/>'
     '<line x1="4" y1="17" x2="20" y2="17"/>'
     "</symbol>"
+    '<symbol id="icon-nav-config" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M3 5h8M15 5h2"/><circle cx="12" cy="5" r="2"/>'
+    '<path d="M3 10h2M9 10h8"/><circle cx="7" cy="10" r="2"/>'
+    '<path d="M3 15h8M15 15h2"/><circle cx="12" cy="15" r="2"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-health" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M2 10h4l2-5 3 10 2-5h5"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-airlines" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M3 3h7l7 7-7 7-7-7z"/><circle cx="7" cy="7" r="1.5"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-history" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-preview" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z"/>'
+    '<circle cx="10" cy="10" r="2.5"/>'
+    "</symbol>"
     "</defs>"
     "</svg>"
 )
@@ -165,6 +202,40 @@ STAT_TILE_ICON_CLASS = "stat-tile__icon"
 # Health link without re-deriving it from an already-escaped route
 # string.
 HEALTH_NAV_SLUG = "health"
+
+# 06.6.2-05 (D-17): slug -> icon-id, one per NAV_TABS entry. Consumed by
+# sidebar_nav()/_mobile_nav_html() via _nav_links()'s already-computed
+# `slug` (route.lstrip("/")) — a slug not present here (which cannot
+# happen for a real NAV_TABS entry) falls through icon_html()'s own
+# whitelist-fallback ("" for an unrecognised id), never a KeyError.
+NAV_ICON_IDS = {
+    "config": "icon-nav-config",
+    "health": "icon-nav-health",
+    "airlines": "icon-nav-airlines",
+    "history": "icon-nav-history",
+    "preview": "icon-nav-preview",
+}
+
+# 06.6.2-05 (UXA-10): the fragment id the skip-link's first-focusable
+# <a href="#..."> points at and <main> carries as its own id. Named once
+# so page_shell() never has the two literals drift apart.
+SKIP_LINK_TARGET_ID = "main-content"
+
+# 06.6.2-05 (UXA-10): a zero-external-dependency local favicon — a data
+# URI needs neither a new static file nor a new route. #B13F16 is the
+# light-mode --color-accent token (companion/static/style.css, plan
+# 06.6.2-01). Held as its own module constant (rather than inlined
+# directly in page_shell()'s format string) specifically so plan
+# 06.6.2-07's new login_shell() function can reuse this exact literal
+# later without duplicating it.
+FAVICON_LINK_HTML = (
+    '<link rel="icon" href="data:image/svg+xml,'
+    '%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 20 20%27%3E'
+    '%3Crect width=%2720%27 height=%2720%27 rx=%274%27 fill=%27%23B13F16%27/%3E'
+    '%3Ctext x=%2710%27 y=%2714%27 text-anchor=%27middle%27 '
+    'font-family=%27Georgia,serif%27 font-size=%2712%27 fill=%27%23FFFFFF%27'
+    '%3ES%3C/text%3E%3C/svg%3E">'
+)
 
 # The dot's own class, layered on top of the existing .dot/.dot--error
 # classes (see _health_alert_markup()) rather than a new colour. Its
@@ -417,19 +488,34 @@ def sidebar_nav(active, health_alert=False):
     and only that link. The markup is already-built safe HTML and is
     interpolated verbatim, exactly like status_dot()'s output is in
     other builders — it is not routed through escape_html() again.
+
+    06.6.2-05 (D-17/UXA-10): each link is prefixed with its
+    NAV_ICON_IDS-mapped icon (icon_html()'s own whitelist-fallback
+    contract makes an unrecognised slug render no icon rather than
+    raising — this cannot happen for a real NAV_TABS entry, but keeps
+    the call safe). The active link's `<a>` carries `aria-current="page"`
+    — never the inactive links — so exactly one link at a time announces
+    "current page" to assistive tech. The active-pill *visual* treatment
+    (background tint, radius) lives in companion/static/style.css's
+    `.sidebar-link--active` rule, not here; the class names themselves
+    are unchanged.
     """
     links = []
     for is_active, route, label, slug in _nav_links(active):
         if is_active:
             css_class = "sidebar-link sidebar-link--active"
+            aria_current = ' aria-current="page"'
         else:
             css_class = "sidebar-link"
+            aria_current = ""
+        icon = icon_html(
+            NAV_ICON_IDS.get(slug, ""), extra_class="sidebar-link__icon")
         alert_html = (
             _health_alert_markup()
             if health_alert and slug == HEALTH_NAV_SLUG else "")
         links.append(
-            '<a class="%s" href="%s">%s%s</a>'
-            % (css_class, route, label, alert_html))
+            '<a class="%s" href="%s"%s>%s%s%s</a>'
+            % (css_class, route, aria_current, icon, label, alert_html))
     return (
         '<nav class="sidebar-nav" aria-label="Primary navigation">%s</nav>'
         % "".join(links))
@@ -449,6 +535,30 @@ def _theme_form_html(resolved_theme):
     return (
         '<form class="theme-form" method="post" action="/ui-theme">%s</form>'
         % "".join(options))
+
+
+def _logout_form_html():
+    """The POST `/logout` sign-out control (06.6.2-05, D-11/D-17), shared
+    verbatim by both the sidebar footer and the mobile-nav dropdown
+    footer built below — one write site for the Sign out control, never
+    two independent copies.
+
+    The literal `/logout` path is hard-coded here rather than imported
+    from `companion.app` — the same precedent `_theme_form_html()`'s own
+    hard-coded `action="/ui-theme"` literal already sets, documented
+    there for the same reason: `companion/app.py` imports this module,
+    so the reverse import would be a cycle.
+
+    `method="post"` matters: D-11 moves `/logout` off GET specifically so
+    a stray prefetch, crawler, or `<img src="/logout">`-shaped link can
+    no longer end a session. A plain `<a href="/logout">` here would
+    reopen exactly that hole.
+    """
+    return (
+        '<form method="post" action="/logout" class="logout-form">'
+        '<button type="submit">Sign out</button>'
+        "</form>"
+    )
 
 
 def _mobile_nav_html(active, theme_form_html, health_alert=False):
@@ -489,12 +599,15 @@ def _mobile_nav_html(active, theme_form_html, health_alert=False):
     ) % (
         NAV_TOGGLE_ID, escape_html(NAV_TOGGLE_LABEL), MOBILE_NAV_ID,
         icon_html("icon-hamburger", size=24))
+    footer_html = (
+        '<div class="mobile-nav__footer">%s%s</div>'
+        % (theme_form_html, _logout_form_html()))
     panel_html = (
         '<div id="%s" class="mobile-nav">'
         '<nav class="mobile-nav__nav" aria-label="Primary navigation">%s</nav>'
         "%s"
         "</div>"
-    ) % (MOBILE_NAV_ID, "".join(links), theme_form_html)
+    ) % (MOBILE_NAV_ID, "".join(links), footer_html)
     return toggle_html + panel_html
 
 
@@ -522,6 +635,21 @@ def page_shell(
         active, theme_form_html, health_alert=health_alert)
     flash_html = flash or ""
     banner_html = banner or ""
+
+    # 06.6.2-05 (D-17): the sidebar's theme picker and Sign out control,
+    # grouped into one footer region — the exact artifact Phase 06.6.3
+    # was told to expect by name (a .sidebar-footer wrapper). Replaces
+    # the previous bare theme_form_html-only slot.
+    sidebar_footer_html = (
+        '<div class="sidebar-footer">%s%s</div>'
+        % (theme_form_html, _logout_form_html()))
+
+    # 06.6.2-05 (UXA-10): the first focusable element in <body>, before
+    # even ICON_DEFS_HTML — a keyboard/screen-reader user's very first
+    # tab stop on every page.
+    skip_link_html = (
+        '<a class="skip-link" href="#%s">Skip to content</a>'
+        % SKIP_LINK_TARGET_ID)
 
     # The <aside> deliberately precedes the <header> in source order: at
     # desktop width, where CSS hides the header entirely, a keyboard user
@@ -555,8 +683,10 @@ def page_shell(
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         "<title>%s - %s</title>\n"
         '<link rel="stylesheet" href="/static/style.css">\n'
+        "%s\n"
         "</head>\n"
         "<body>\n"
+        "%s\n"
         "%s\n"
         '<div class="dashboard-shell">\n'
         '<aside class="dashboard-sidebar">\n'
@@ -568,7 +698,7 @@ def page_shell(
         '<span class="site-title">%s</span>\n'
         "%s\n"
         "</header>\n"
-        '<main class="page-content dashboard-main">\n'
+        '<main class="page-content dashboard-main" id="%s">\n'
         "%s\n%s\n%s\n"
         "</main>\n"
         "</div>\n"
@@ -578,12 +708,15 @@ def page_shell(
     ) % (
         escape_html(resolved_theme),
         escape_html(title), escape_html(SITE_TITLE),
+        FAVICON_LINK_HTML,
+        skip_link_html,
         ICON_DEFS_HTML,
         escape_html(SITE_TITLE),
         sidebar_html,
-        theme_form_html,
+        sidebar_footer_html,
         escape_html(SITE_TITLE),
         mobile_nav_html,
+        SKIP_LINK_TARGET_ID,
         flash_html, banner_html, body,
         NAV_DROPDOWN_SCRIPT_SRC,
     )
