@@ -751,6 +751,18 @@ button[type="submit"]:hover {
   margin-top: var(--space-md);
 }
 
+/* Without this, the native `hidden` attribute dirty-state.js relies on to
+ * hide the bar on load has no effect: the author-stylesheet `display: flex`
+ * above always beats the user-agent stylesheet's `[hidden] { display: none }`
+ * regardless of source order, so the bar would render visible even when
+ * the form isn't dirty. Same collision class as the `.stat-tile svg`/
+ * `.mobile-nav` cases elsewhere in this file — a higher-specificity
+ * selector for the `[hidden]` case is required whenever a component's own
+ * base rule sets `display`. */
+.dirty-bar[hidden] {
+  display: none;
+}
+
 /* `.dirty-bar__save` needs no rule of its own — it is a bare
  * `<button type="submit">`, already accent-filled by `button[type="submit"]`
  * above. `.dirty-bar__cancel` does need an explicit override, matching the
