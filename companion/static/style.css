@@ -415,11 +415,17 @@ a:hover {
   color: var(--color-accent);
 }
 
-/* The theme picker's new home, separated from the links by a hairline —
- * this is where it relocates now that it is no longer squeezed into the
- * header row, which is what removes D-00's root cause rather than
- * re-fixing it. */
-.mobile-nav .theme-form {
+/* 06.6.2-05 (D-17): the theme picker's home, now grouped with the
+ * Sign out control (_logout_form_html()) inside one footer region,
+ * separated from the links by a hairline — this is where it relocates
+ * now that it is no longer squeezed into the header row, which is what
+ * removes D-00's root cause rather than re-fixing it. Supersedes the
+ * mobile theme-form-only spacing/border rule this same wrapper owned
+ * before the logout control existed. */
+.mobile-nav__footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
   padding: var(--space-sm);
   border-top: 1px solid var(--color-border);
 }
@@ -455,6 +461,26 @@ a:hover {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* 06.6.2-05 (UXA-10): the skip-to-content link — the first focusable
+ * element in <body> (layout.page_shell()). Visually hidden off-screen
+ * until it receives keyboard focus, at which point it becomes the
+ * first visible, high-contrast element on the page so a keyboard user
+ * can bypass the nav entirely. */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-accent);
+  color: var(--color-dominant);
+  padding: var(--space-sm) var(--space-md);
+  z-index: 10;
+  border-radius: 0 0 var(--radius-control) 0;
+}
+
+.skip-link:focus {
+  top: 0;
 }
 
 .theme-form {
@@ -505,6 +531,7 @@ a:hover {
 .sidebar-link {
   display: flex;
   align-items: center;
+  gap: var(--space-xs);
   min-height: 44px;
   padding: 0 var(--space-sm);
   color: var(--color-text);
@@ -515,9 +542,20 @@ a:hover {
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
 
+.sidebar-link__icon {
+  flex: none;
+}
+
+/* D-17: the active link is no longer signalled by the 3px left rule
+ * alone (kept as a secondary cue, not removed outright) — a tinted
+ * pill/surface plus strong text is the primary "you are here" signal
+ * now, matching the audit's request to stop relying on the line alone. */
 .sidebar-link--active {
   border-left-color: var(--color-accent);
+  border-left-width: 2px;
   color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-radius: var(--radius-control);
 }
 
 /* 06.6.1 (D-02/D-04, Reconciliation 1): top/bottom padding is promoted to
@@ -645,6 +683,20 @@ button[type="submit"] {
  * hover state is wanted, write it as .theme-form .theme-option:hover. */
 button[type="submit"]:hover {
   background: var(--color-accent-hover);
+}
+
+/* 06.6.2-05 (D-17): Sign out (_logout_form_html()) is a quiet/ghost
+ * action, not a primary call to action — it must not inherit the
+ * accent fill above. `.logout-form button` and `button[type="submit"]`
+ * share equal (0,1,1) specificity, so — same precedent
+ * `.theme-form .theme-option`'s comment above documents for its own
+ * higher-specificity override — this rule is placed after
+ * `button[type="submit"]` in source order, which is what actually wins
+ * the cascade here, not merely coincidental proximity. */
+.logout-form button {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
 }
 
 /* Disabled/cooldown state (CFG-07/D-17): reduced opacity, not-allowed
@@ -1031,6 +1083,11 @@ html[data-ui-theme="dark"] .battery-trend-section {
     align-items: start;
   }
 
+  /* D-21: position: sticky + top: 0 keeps the sidebar reachable while
+   * scrolling a long page (e.g. Health) instead of scrolling out of
+   * view with the rest of the row. Requires `.dashboard-shell`'s own
+   * `align-items: start` above — a stretched grid item cannot visibly
+   * stick, since it is already sized to the full row height. */
   .dashboard-sidebar {
     display: flex;
     flex-direction: column;
@@ -1039,10 +1096,22 @@ html[data-ui-theme="dark"] .battery-trend-section {
     padding: var(--space-lg) var(--space-md);
     background: var(--color-secondary);
     border-right: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
   }
 
-  .dashboard-sidebar .theme-form {
+  /* 06.6.2-05 (D-17): the sidebar's theme picker and Sign out control,
+   * grouped into one footer region pinned to the bottom of the flex
+   * column and separated by a hairline — supersedes the previous bare
+   * sidebar theme-form-only `margin-top: auto;` rule, which owned this
+   * same bottom-pinning before the logout control existed. */
+  .sidebar-footer {
     margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--color-border);
   }
 
   /* The sidebar carries the title, the nav and the theme toggle at this
