@@ -90,6 +90,14 @@ SCRIPT_ROUTE = "/static/battery-trend.js"
 # two stay in sync, mirroring SCRIPT_ROUTE/BATTERY_TREND_SCRIPT_SRC's own
 # established pair above.
 NAV_SCRIPT_ROUTE = "/static/nav-dropdown.js"
+# 06.6.3: four more authoritative route values — each must equal
+# companion/layout.py's matching *_SCRIPT_SRC constant exactly (this
+# plan's own checks assert the equality), mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
+DIRTY_STATE_SCRIPT_ROUTE = "/static/dirty-state.js"
+LIST_FILTER_SCRIPT_ROUTE = "/static/list-filter.js"
+COPY_BUTTON_SCRIPT_ROUTE = "/static/copy-button.js"
+FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
 CONFIG_ROUTE = "/config"
 LED_ROUTE = "/config-led"
 POLL_ROUTE = "/poll-now"
@@ -152,6 +160,10 @@ FLASH_ROLES = {
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
 _BATTERY_TREND_JS_PATH = os.path.join(_HERE, "static", "battery-trend.js")
 _NAV_DROPDOWN_JS_PATH = os.path.join(_HERE, "static", "nav-dropdown.js")
+_DIRTY_STATE_JS_PATH = os.path.join(_HERE, "static", "dirty-state.js")
+_LIST_FILTER_JS_PATH = os.path.join(_HERE, "static", "list-filter.js")
+_COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
+_FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -626,6 +638,34 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_NAV_DROPDOWN_JS_PATH)
 
+    def _serve_dirty_state_script(self):
+        """Serve companion/static/dirty-state.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_DIRTY_STATE_JS_PATH)
+
+    def _serve_list_filter_script(self):
+        """Serve companion/static/list-filter.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_LIST_FILTER_JS_PATH)
+
+    def _serve_copy_button_script(self):
+        """Serve companion/static/copy-button.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_COPY_BUTTON_JS_PATH)
+
+    def _serve_freshness_script(self):
+        """Serve companion/static/freshness.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_FRESHNESS_JS_PATH)
+
     def _serve_preview_image(self):
         state_dir = self.args.state_dir
         raw = panel_preview.read_panel_file(state_dir)
@@ -727,6 +767,22 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == NAV_SCRIPT_ROUTE:
             return self._serve_nav_dropdown_script()
+
+        # 06.6.3: four more pre-auth static routes, same reasoning as
+        # NAV_SCRIPT_ROUTE immediately above — a static asset carries no
+        # per-user data, so gating it would add a session round-trip for
+        # zero benefit.
+        if path == DIRTY_STATE_SCRIPT_ROUTE:
+            return self._serve_dirty_state_script()
+
+        if path == LIST_FILTER_SCRIPT_ROUTE:
+            return self._serve_list_filter_script()
+
+        if path == COPY_BUTTON_SCRIPT_ROUTE:
+            return self._serve_copy_button_script()
+
+        if path == FRESHNESS_SCRIPT_ROUTE:
+            return self._serve_freshness_script()
 
         if path == "/config":
             if not self.require_session():

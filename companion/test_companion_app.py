@@ -61,8 +61,12 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 80  # 06.6.2-08 code-review fix CR-01 added 1 regression check
-# (skip-link tabindex="-1"); previously 79 = 73 (72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
+EXPECTED_CHECK_COUNT = 85  # 06.6.3-01 Task 2: 4 new pre-auth static-script
+# regression checks (dirty-state.js/list-filter.js/copy-button.js/
+# freshness.js, one each) + 1 new cross-file *_SCRIPT_ROUTE/*_SCRIPT_SRC
+# DOM-contract-guard check, mirroring _three_file_nav_dom_contract_guard()'s
+# own pattern; previously 80 = 06.6.2-08 code-review fix CR-01 added 1 regression check
+# (skip-link tabindex="-1"); before that 79 = 73 (72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
 # (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3:
 # toggle/dropdown/DOM-contract/no-JS)) + 1 (2026-08-29 quick task 260829-0rl,
 # merged independently via origin/main PR #19: the gallery route's private
@@ -1152,6 +1156,59 @@ def main():
             "GET /static/nav-dropdown.js succeeds without a session, returns a JavaScript content type, "
             "and serves the real file",
             _nav_dropdown_script_public)
+
+        # --- 06.6.3: four more pre-auth static scripts, same shape as
+        # _nav_dropdown_script_public() above ---
+
+        def _static_script_public(route):
+            def _run():
+                status, headers, body = http_request(base + route)
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                content_type = headers.get("Content-Type", "")
+                if "text/javascript" not in content_type:
+                    return False, "expected a text/javascript content type, got %r" % content_type
+                if not body:
+                    return False, "expected a non-empty script body"
+                cache_control = headers.get("Cache-Control", "")
+                if "max-age=300" not in cache_control:
+                    return False, "expected Cache-Control max-age=300, got %r" % cache_control
+                return True, ""
+            return _run
+
+        for _script_route in (
+                "/static/dirty-state.js", "/static/list-filter.js",
+                "/static/copy-button.js", "/static/freshness.js"):
+            check(
+                "GET %s succeeds without a session and returns a shared-cacheable "
+                "JavaScript content type" % _script_route,
+                _static_script_public(_script_route))
+
+        def _four_new_static_routes_dom_contract_guard():
+            # Cross-file-equality half, mirroring
+            # _three_file_nav_dom_contract_guard()'s own pattern: each new
+            # companion.app.py *_SCRIPT_ROUTE constant must equal its
+            # matching companion/layout.py *_SCRIPT_SRC constant, and
+            # page_shell() must emit a <script src="..."> tag for each.
+            import companion.app as app_module
+            pairs = (
+                (app_module.DIRTY_STATE_SCRIPT_ROUTE, layout.DIRTY_STATE_SCRIPT_SRC),
+                (app_module.LIST_FILTER_SCRIPT_ROUTE, layout.LIST_FILTER_SCRIPT_SRC),
+                (app_module.COPY_BUTTON_SCRIPT_ROUTE, layout.COPY_BUTTON_SCRIPT_SRC),
+                (app_module.FRESHNESS_SCRIPT_ROUTE, layout.FRESHNESS_SCRIPT_SRC),
+            )
+            for route_const, src_const in pairs:
+                if route_const != src_const:
+                    return False, "script route drift: %r vs %r" % (route_const, src_const)
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            for _route_const, src_const in pairs:
+                if ('<script src="%s" defer></script>' % src_const) not in doc:
+                    return False, "expected a deferred <script> tag for %r" % src_const
+            return True, ""
+        check(
+            "companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new "
+            "*_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each",
+            _four_new_static_routes_dom_contract_guard)
 
         # --- login: wrong password, right password, cookie flags ---
 
