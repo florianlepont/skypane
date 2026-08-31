@@ -25,7 +25,7 @@ _REPO_ROOT = os.path.abspath(os.path.join(_HERE, "..", "..", ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from PIL import Image, ImageDraw, ImageFont  # noqa: E402
+from PIL import ImageDraw  # noqa: E402
 
 from server import device_config, panel_format  # noqa: E402
 from server.plane import render  # noqa: E402
