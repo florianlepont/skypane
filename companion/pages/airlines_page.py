@@ -177,21 +177,43 @@ def _registry_section(rows):
     return header_html + table_html
 
 
-def _stats_section(state_dir):
-    stats = _safe_query(
-        state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
+def _resolved_headline_html(stats):
+    """D-18's promoted resolved-rate headline — a bare
+    `.stat-tile__value`-styled figure rendered directly under the page
+    header, not wrapped in a `stat_tile()` card (it *is* the page's
+    primary value, per D-18's own instruction). `stats` is
+    `resolution_stats()`'s already-computed result, threaded in by
+    `render()` rather than recomputed here — this function and
+    `_stats_table_html()` below are the two consumers of that one
+    computed dict, never a second call to `resolution_stats()`.
+
+    Falls back to the existing no-stats empty state when there is no
+    data yet (or the database is unavailable), so this promoted slot
+    never renders a headline with nothing behind it.
+    """
     if stats is _DB_UNAVAILABLE:
         return '<p class="text-body">%s</p>' % escape_html(STATS_UNAVAILABLE_TEXT)
     if stats["total"] == 0:
         return empty_state(_NO_STATS_HEADING, _NO_STATS_BODY)
-
-    headline_html = (
-        '<p class="text-heading">%.1f%% resolved</p>'
+    return (
+        '<p class="stat-tile__value">%.1f%% resolved</p>'
         '<p class="text-label">over the last %d days, %d events</p>'
     ) % (stats["resolved_pct"], RESOLUTION_WINDOW_DAYS, stats["total"])
-    table_html = layout.data_table(
-        ["Source", "Description", "Count"], stats["rows"])
-    return headline_html + table_html
+
+
+def _stats_table_html(stats):
+    """The demoted resolution-statistics breakdown table only — the
+    headline moved to `_resolved_headline_html()` above (D-18). Returns
+    the empty string when there is nothing to show (no data yet, or the
+    database is unavailable): the promoted headline slot already carries
+    that message once, and this demoted tile must not repeat it — the
+    caller still wraps this in a `stat_tile()` card regardless, so the
+    "Resolution statistics" caption still orients the (in that case,
+    empty) card.
+    """
+    if stats is _DB_UNAVAILABLE or stats["total"] == 0:
+        return ""
+    return layout.data_table(["Source", "Description", "Count"], stats["rows"])
 
 
 def render(ctx):
@@ -199,15 +221,18 @@ def render(ctx):
     rows = unresolved_rows(state_dir)
     registry_status = coverage_status(rows)
 
-    tiles_html = (
-        layout.stat_tile(
-            "Unresolved prefixes", _registry_section(rows), registry_status)
-        + layout.stat_tile(
-            "Resolution statistics", _stats_section(state_dir), None)
-    )
+    stats = _safe_query(
+        state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
+
+    registry_html = layout.stat_tile(
+        "Unresolved prefixes", _registry_section(rows), registry_status)
+    stats_html = layout.stat_tile(
+        "Resolution statistics", _stats_table_html(stats), None)
 
     return (
-        layout.page_header("Airlines")
-        + '<h2 class="text-heading">Coverage</h2>'
-        '<div class="dashboard-grid">' + tiles_html + '</div>'
+        layout.page_header(
+            "Airlines",
+            purpose="Route-resolution coverage and unresolved callsign prefixes.")
+        + _resolved_headline_html(stats)
+        + '<div class="dashboard-grid">' + registry_html + stats_html + '</div>'
     )
