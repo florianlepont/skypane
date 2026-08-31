@@ -23,7 +23,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 21
+EXPECTED_CHECK_COUNT = 25
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -62,6 +62,8 @@ def main():
         print("config-history: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
         return 1
 
+    import server.panel_format as panel_format
+
     # --- device_config.py -------------------------------------------------
 
     def _missing_state_dir_yields_defaults():
@@ -69,7 +71,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -85,7 +87,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
+                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -100,7 +102,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -162,7 +164,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "sky/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -194,7 +196,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": False}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -265,6 +267,89 @@ def main():
     check(
         "a subsequent theme-only save_device_config(theme='sky') carries a previously-saved led_enabled=False forward unchanged",
         _theme_only_save_carries_led_enabled_false_forward,
+    )
+
+    def _theme_registry_shape_is_correct():
+        valid_indices = {
+            panel_format.IDX_BLACK,
+            panel_format.IDX_WHITE,
+            panel_format.IDX_YELLOW,
+            panel_format.IDX_RED,
+            panel_format.IDX_BLUE,
+            panel_format.IDX_GREEN,
+        }
+        expected_keys = {"departing_index", "arriving_index", "ink_index", "label"}
+        for theme_id, entry in device_config.THEMES.items():
+            if set(entry) != expected_keys:
+                return False, "theme %r has keys %r, expected exactly %r" % (theme_id, set(entry), expected_keys)
+            for key in ("departing_index", "arriving_index", "ink_index"):
+                if entry[key] not in valid_indices:
+                    return False, "theme %r key %r has value %r, not a real panel_format.IDX_* index" % (theme_id, key, entry[key])
+            if not isinstance(entry["label"], str) or not entry["label"]:
+                return False, "theme %r label %r is not a non-empty string" % (theme_id, entry["label"])
+        return True, ""
+
+    check(
+        "every THEMES entry carries exactly the four contract keys, real panel_format.IDX_* index values, and a non-empty label",
+        _theme_registry_shape_is_correct,
+    )
+
+    def _single_colour_contract_for_new_themes_and_sky_differs():
+        for theme_id in ("white", "black", "yellow", "red"):
+            entry = device_config.THEMES[theme_id]
+            if entry["departing_index"] != entry["arriving_index"]:
+                return False, "theme %r is not single-colour: departing_index=%r arriving_index=%r" % (
+                    theme_id, entry["departing_index"], entry["arriving_index"],
+                )
+        sky = device_config.THEMES["sky"]
+        if sky["departing_index"] == sky["arriving_index"]:
+            return False, "sky unexpectedly became single-colour: departing_index=%r arriving_index=%r" % (
+                sky["departing_index"], sky["arriving_index"],
+            )
+        return True, ""
+
+    check(
+        "white/black/yellow/red are single-colour (departing_index == arriving_index); sky remains two-tone (they still differ)",
+        _single_colour_contract_for_new_themes_and_sky_differs,
+    )
+
+    def _ink_contrast_pairing_is_correct():
+        expected = {
+            "white": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
+            "yellow": (panel_format.IDX_YELLOW, panel_format.IDX_BLACK),
+            "black": (panel_format.IDX_BLACK, panel_format.IDX_WHITE),
+            "red": (panel_format.IDX_RED, panel_format.IDX_WHITE),
+        }
+        for theme_id, (bg, ink) in expected.items():
+            entry = device_config.THEMES[theme_id]
+            if entry["departing_index"] != bg or entry["ink_index"] != ink:
+                return False, "theme %r expected background %r / ink %r, got background %r / ink %r" % (
+                    theme_id, bg, ink, entry["departing_index"], entry["ink_index"],
+                )
+        return True, ""
+
+    check(
+        "White/Yellow carry black ink and Black/Red carry white ink, pinned as an explicit id-to-(background,ink) mapping",
+        _ink_contrast_pairing_is_correct,
+    )
+
+    def _default_theme_and_labels_are_correct():
+        if device_config.DEFAULT_THEME_ID != "white":
+            return False, "DEFAULT_THEME_ID is %r, expected 'white'" % (device_config.DEFAULT_THEME_ID,)
+        if device_config.DEFAULT_THEME_ID not in device_config.THEMES:
+            return False, "DEFAULT_THEME_ID %r is not a member of THEMES" % (device_config.DEFAULT_THEME_ID,)
+        expected_labels = {"white": "White", "black": "Black", "yellow": "Yellow", "red": "Red", "sky": "Sky"}
+        for theme_id, label in expected_labels.items():
+            got = device_config.theme_label(theme_id)
+            if got != label:
+                return False, "theme_label(%r) returned %r, expected %r" % (theme_id, got, label)
+        if "(default)" in device_config.theme_label("sky"):
+            return False, "sky's label still carries the retired '(default)' suffix"
+        return True, ""
+
+    check(
+        "DEFAULT_THEME_ID is 'white' and a THEMES member; theme_label() returns the exact plain label for all five ids, with Sky's parenthetical suffix gone",
+        _default_theme_and_labels_are_correct,
     )
 
     # --- history_db.py ------------------------------------------------------
