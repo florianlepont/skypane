@@ -84,6 +84,15 @@ FLASH_POLL_COOLDOWN = "poll_cooldown"
 # "Couldn't save settings" for a failure that has nothing to do with
 # saving settings — confusing and actively misleading about what broke.
 FLASH_POLL_FAILED = "poll_failed"
+# Distinct from FLASH_POLL_COOLDOWN (UXA-15 fix): the cooldown key means
+# "wait, you already triggered one recently" (a stale, seconds-old fact
+# checked against history_db). This key means "a poll is executing on
+# this exact request, right now, in another thread" — companion/app.py's
+# non-blocking `_POLL_LOCK.acquire(blocking=False)` failing is the only
+# thing that ever produces it, closing the TOCTOU window where two
+# requests arriving before the first finishes could both observe zero
+# cooldown and both call `poll_loop.run_once()`.
+FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
 
 
 def theme_fieldset(current_theme_id):

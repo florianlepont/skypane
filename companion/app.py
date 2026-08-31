@@ -35,6 +35,7 @@ service must never come up with authentication silently disabled.
 """
 import os
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlsplit
@@ -102,6 +103,7 @@ FLASH_KEY_SAVE_FAILED = config_page.FLASH_SAVE_FAILED
 FLASH_KEY_POLL_TRIGGERED = config_page.FLASH_POLL_TRIGGERED
 FLASH_KEY_POLL_COOLDOWN = config_page.FLASH_POLL_COOLDOWN
 FLASH_KEY_POLL_FAILED = config_page.FLASH_POLL_FAILED
+FLASH_KEY_POLL_ALREADY_RUNNING = config_page.FLASH_POLL_ALREADY_RUNNING
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -118,6 +120,7 @@ FLASH_MESSAGES = {
     FLASH_KEY_POLL_FAILED: (
         "Poll trigger failed — please try again. If this keeps happening, "
         "check the companion service logs."),
+    FLASH_KEY_POLL_ALREADY_RUNNING: "A poll is already in progress — try again in a moment.",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -129,6 +132,17 @@ _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 # analogue) — D-01/D-02 mean there are no distinct users for a per-session
 # counter to key on.
 LOGIN_THROTTLE = auth.LoginThrottle()
+
+# Same process-global-singleton shape as LOGIN_THROTTLE above (UXA-15):
+# a single, module-level `threading.Lock()` guarding the entire
+# check-cooldown -> run_once() -> mark-triggered sequence in
+# _handle_poll_now(), so two POST /poll-now requests arriving before the
+# first has finished can never both call poll_loop.run_once(). Correct
+# because main() runs exactly one ThreadingHTTPServer in a single OS
+# process (no worker/replica config anywhere in
+# deploy/skypane-companion.service) — a cross-process or file-based lock
+# would be the wrong tool here.
+_POLL_LOCK = threading.Lock()
 
 _PAGE_TITLES = {
     "/config": "Config",
@@ -641,22 +655,39 @@ class Handler(BaseHTTPRequestHandler):
             401, self._render_login_page(error="Incorrect password. Try again."))
 
     def _handle_poll_now(self):
-        state_dir = self.args.state_dir
-        remaining = poll_cooldown_remaining(state_dir)
-        if remaining > 0:
+        # UXA-15: non-blocking acquire, never a timeout (06.6.2-RESEARCH.md).
+        if not _POLL_LOCK.acquire(blocking=False):
+            # Two requests arriving before the first has finished must
+            # never both pass the cooldown check and both call
+            # run_once() — the loser gets an immediate, honest "already
+            # running" redirect instead of racing into a second poll
+            # cycle or queueing silently behind a blocking acquire.
             return self.redirect(
-                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_COOLDOWN)))
+                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
         try:
-            # Pattern 3 (06-RESEARCH.md): the exact production code path
-            # the systemd timer already runs, in-process — never a second
-            # process and never a re-parsed subprocess result.
-            poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
-        except Exception:
+            state_dir = self.args.state_dir
+            remaining = poll_cooldown_remaining(state_dir)
+            if remaining > 0:
+                return self.redirect(
+                    "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_COOLDOWN)))
+            try:
+                # Pattern 3 (06-RESEARCH.md): the exact production code
+                # path the systemd timer already runs, in-process — never
+                # a second process and never a re-parsed subprocess
+                # result.
+                poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
+            except Exception:
+                return self.redirect(
+                    "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_FAILED)))
+            mark_poll_triggered(state_dir)
             return self.redirect(
-                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_FAILED)))
-        mark_poll_triggered(state_dir)
-        return self.redirect(
-            "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_TRIGGERED)))
+                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_TRIGGERED)))
+        finally:
+            # Always released — including on the except Exception: branch
+            # above, which must stay inside this try so a failed poll
+            # still releases the guard for the next attempt (never a
+            # permanently wedged trigger, T-06.6.2-05).
+            _POLL_LOCK.release()
 
     def _handle_theme_post(self):
         form = self.read_form()
