@@ -68,6 +68,19 @@ _SOURCE_ROWS = (
 
 _DB_UNAVAILABLE = object()
 
+# D-20: the filter bar's copy (06.6.3-UI-SPEC.md's Copywriting Contract),
+# driven client-side by companion/static/list-filter.js's shared
+# [data-filter-input]/[data-filter-count]/[data-filter-clear]/
+# [data-filter-empty] attribute contract — this page is the second, not
+# the first, consumer of that shared script (companion/pages/
+# history_page.py's own _filter_bar_html() is the first); no script
+# change is needed here.
+_FILTER_INPUT_ID = "airlines-filter-input"
+_FILTER_LABEL_TEXT = "Filter by prefix"
+_FILTER_EMPTY_HEADING = "No matching prefixes"
+_FILTER_EMPTY_BODY_TEMPLATE = (
+    "Try a different search, or Clear filter to see all %d prefixes.")
+
 
 def _safe_query(state_dir, fn):
     """Same rationale/shape as companion/pages/health_page.py's own
@@ -161,7 +174,105 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
     return {"rows": rows, "total": total, "resolved_pct": resolved_pct}
 
 
-def _registry_section(rows):
+def _filter_bar_html(total):
+    """D-20's filter bar over the unresolved-prefix registry, only ever
+    rendered when there is data to filter (matches _registry_section()'s
+    own "no chrome with no data" rule, same as History's precedent).
+
+    D-16 forbids a button element anywhere on this page (History carries
+    no such constraint) — the clear control is therefore a plain link
+    element pointing at the filter input's own id rather than History's
+    submit-type button. `companion/static/list-filter.js`'s
+    click-listener attachment (`document.querySelector
+    ("[data-filter-clear]")`) does not care which element carries the
+    attribute, and a fragment link to the input both scrolls to and
+    (per standard browser fragment-navigation behaviour) focuses it in
+    one action — a small UX bonus (ready to type the next query) that
+    also needs zero new CSS beyond the already-shipped `.filter-bar`
+    rules, since this page's `files_modified` scope excludes
+    `companion/static/style.css`.
+    """
+    count_text = "%d of %d shown" % (total, total)
+    empty_body = _FILTER_EMPTY_BODY_TEMPLATE % total
+    return (
+        '<div class="filter-bar">'
+        '<label class="text-label" for="%s">%s</label>'
+        '<div class="filter-bar__field">'
+        "%s"
+        '<input type="search" id="%s" data-filter-input>'
+        "</div>"
+        '<span class="filter-bar__count" data-filter-count>%s</span>'
+        '<a href="#%s" data-filter-clear>Clear</a>'
+        "</div>"
+        '<div class="empty-state" data-filter-empty hidden>'
+        '<p class="empty-state__heading text-heading">%s</p>'
+        '<p class="empty-state__body text-body">%s</p>'
+        "</div>"
+    ) % (
+        _FILTER_INPUT_ID, escape_html(_FILTER_LABEL_TEXT),
+        layout.icon_html("icon-search"),
+        _FILTER_INPUT_ID,
+        escape_html(count_text),
+        _FILTER_INPUT_ID,
+        escape_html(_FILTER_EMPTY_HEADING),
+        escape_html(empty_body),
+    )
+
+
+def _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now):
+    """One `<tr>` for the unresolved-prefix registry table. First seen/
+    Last seen switch to `layout.concise_timestamp_html()` (D-09) — its
+    return value is already-safe markup and is interpolated verbatim,
+    never re-escaped, matching this module's single-escaping-choke-point
+    discipline for every other cell. `data-filter-text` (D-20/
+    T-06.6.3-12) carries the lowercased prefix, escaped before
+    interpolation into the attribute — the same discipline History's own
+    `_filter_text_attr()` applies to its callsign+hex value.
+    """
+    row_class = "row-alt" if index % 2 else "row"
+    first_seen_html = layout.concise_timestamp_html(first_seen, now, fallback="")
+    last_seen_html = layout.concise_timestamp_html(last_seen, now, fallback="")
+    cells = (
+        '<td class="mono">%s</td>' % escape_html(prefix),
+        "<td>%s</td>" % escape_html(count),
+        "<td>%s</td>" % first_seen_html,
+        "<td>%s</td>" % last_seen_html,
+        '<td class="mono">%s</td>' % escape_html(example_callsign),
+    )
+    filter_text = escape_html(prefix.lower() if isinstance(prefix, str) else str(prefix).lower())
+    return '<tr class="%s" data-filter-text="%s">%s</tr>' % (
+        row_class, filter_text, "".join(cells))
+
+
+def _registry_table_html(rows, now):
+    """The unresolved-prefix registry table, hand-rolled (not via
+    `layout.data_table()`) so each row can carry its own `data-filter-
+    text` attribute — `data_table()` has no per-row attribute hook, and
+    extending it with one would touch that builder's other two call
+    sites (this page's own resolution-statistics table, and Health's
+    battery table) for no benefit to either. This mirrors
+    `companion/pages/history_page.py::_history_table_html()`'s own
+    precedent for exactly the same reason (its Corroboration column's
+    `status_dot()` markup), matching `data_table()`'s CSS classes
+    exactly for visual consistency.
+    """
+    headers = ("Prefix", "Count", "First seen", "Last seen", "Example callsign")
+    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in headers)
+    body_rows = [
+        _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now)
+        for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows)
+    ]
+    return (
+        '<div class="data-table-wrap">'
+        '<table class="data-table">'
+        "<thead><tr>%s</tr></thead>"
+        "<tbody>%s</tbody>"
+        "</table>"
+        "</div>"
+    ) % (header_cells, "".join(body_rows))
+
+
+def _registry_section(rows, now):
     status_html = layout.status_dot(coverage_status(rows), "Coverage")
     note_html = '<p class="text-body">%s</p>' % escape_html(_READ_ONLY_NOTE)
     header_html = '<p class="text-body">%s</p>' % status_html + note_html
@@ -169,12 +280,9 @@ def _registry_section(rows):
     if not rows:
         return header_html + empty_state(_NO_GAPS_HEADING, _NO_GAPS_BODY)
 
-    table_html = layout.data_table(
-        ["Prefix", "Count", "First seen", "Last seen", "Example callsign"],
-        rows,
-        mono_columns=(0, 4),
-    )
-    return header_html + table_html
+    filter_html = _filter_bar_html(len(rows))
+    table_html = _registry_table_html(rows, now)
+    return header_html + filter_html + table_html
 
 
 def _resolved_headline_html(stats):
@@ -218,6 +326,7 @@ def _stats_table_html(stats):
 
 def render(ctx):
     state_dir = ctx["state_dir"]
+    now = ctx.get("now")
     rows = unresolved_rows(state_dir)
     registry_status = coverage_status(rows)
 
@@ -225,7 +334,7 @@ def render(ctx):
         state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
 
     registry_html = layout.stat_tile(
-        "Unresolved prefixes", _registry_section(rows), registry_status)
+        "Unresolved prefixes", _registry_section(rows, now), registry_status)
     stats_html = layout.stat_tile(
         "Resolution statistics", _stats_table_html(stats), None)
 

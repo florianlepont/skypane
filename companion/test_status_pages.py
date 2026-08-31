@@ -63,7 +63,12 @@ STARTUP_DEADLINE_S = 10.0
 # 54 + 1 (06.6.3-04 Task 3: freshness Refresh action + stale-view banner) —
 # the pre-existing four-icon check is retargeted in place (five icon
 # instances now: four Health signals + one Refresh action), not counted as new
-EXPECTED_CHECK_COUNT = 55  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
+# 55 + 3 (06.6.3-06 Airlines: promoted-headline document-order check, concise-
+# timestamp + filter-bar-markers check, filter-bar-has-no-button/form check) —
+# two pre-existing Airlines checks (the iconless check, the two-tiles/Coverage-
+# heading check) are retargeted in place for this plan's own D-18/D-20 changes,
+# not counted as new
+EXPECTED_CHECK_COUNT = 58  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1296,20 +1301,36 @@ def main():
         "action icon, all whitelisted",
         _health_page_four_icons_correctly_placed_and_tinted)
 
-    def _airlines_page_stays_iconless():
+    def _airlines_page_only_icon_is_filter_search():
+        # 06.6.3-06 (D-20): Airlines was iconless through 06.6.1-04, but
+        # this plan's filter bar (the second consumer of
+        # companion/static/list-filter.js, after History) adds exactly
+        # one decorative icon-search instance — only when the registry
+        # has rows to filter (empty state renders no filter bar at all).
         tmp = _mkstate("a-iconless")
         try:
+            rendered_empty = airlines_page.render(_ctx(tmp))
+            if rendered_empty.count("<use") != 0 or rendered_empty.count("<svg") != 0:
+                return False, "expected zero icon instances with an empty registry (no filter bar rendered)"
+            registry = {
+                "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
             rendered = airlines_page.render(_ctx(tmp))
-            if rendered.count("<use") != 0:
-                return False, "expected zero <use occurrences on Airlines this phase"
-            if rendered.count("<svg") != 0:
-                return False, "expected zero <svg occurrences on Airlines this phase"
+            if rendered.count("<use") != 1 or rendered.count("<svg") != 1:
+                return False, (
+                    "expected exactly one icon instance (the filter bar's decorative "
+                    "icon-search) with a non-empty registry, got <use=%d <svg=%d"
+                    % (rendered.count("<use"), rendered.count("<svg")))
+            if "#icon-search" not in rendered:
+                return False, "expected the filter bar's icon to be icon-search"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the Airlines page stays iconless — icons are scoped to Health this phase",
-        _airlines_page_stays_iconless)
+        "Airlines stays iconless with an empty registry, and gains exactly one decorative "
+        "icon-search instance (its filter bar) once the registry has rows",
+        _airlines_page_only_icon_is_filter_search)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py
@@ -1531,18 +1552,117 @@ def main():
                 return False, (
                     "expected exactly two stat-tile occurrences, got %d"
                     % rendered.count('class="stat-tile'))
-            if rendered.count('<h2 class="text-heading">Coverage</h2>') != 1:
-                return False, (
-                    "expected exactly one Coverage group heading, got %d"
-                    % rendered.count('<h2 class="text-heading">Coverage</h2>'))
+            # 06.6.3-06 (D-18): the standalone "Coverage" group heading was
+            # dropped when the resolved-rate headline was promoted out of
+            # the stats tile and placed directly under page_header() —
+            # that promoted headline now serves the orienting role the
+            # heading used to, so a second heading directly above it would
+            # be redundant chrome.
+            if '<h2 class="text-heading">Coverage</h2>' in rendered:
+                return False, "expected the promoted headline to replace the old Coverage heading, not coexist with it"
             if "stat-tile--warn" not in rendered:
                 return False, "expected the registry tile to carry stat-tile--warn with a non-empty registry"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a non-empty registry renders one dashboard-grid with exactly two stat tiles under one Coverage heading, registry tile stat-tile--warn",
+        "a non-empty registry renders one dashboard-grid with exactly two stat tiles and no separate Coverage heading, registry tile stat-tile--warn",
         _airlines_page_renders_one_dashboard_grid_of_two_tiles)
+
+    def _promoted_headline_precedes_registry_table():
+        # 06.6.3-06 Task 1 (D-18): the resolved-rate headline is now a
+        # bare .stat-tile__value figure rendered directly under the page
+        # header, before the registry's own table markup in document
+        # order — never wrapped in a stat-tile card, never buried inside
+        # the demoted statistics tile.
+        tmp = _mkstate("a-headline-order")
+        try:
+            now = _now()
+            events = [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}]
+            _seed_runway_events(tmp, events)
+            registry = {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now), "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            rendered = airlines_page.render(_ctx(tmp, now=_iso(now)))
+            if rendered.count('class="stat-tile__value"') != 1:
+                return False, (
+                    "expected exactly one stat-tile__value occurrence, got %d"
+                    % rendered.count('class="stat-tile__value"'))
+            if "100.0% resolved" not in rendered:
+                return False, "expected the '{N.N}% resolved' shaped headline text"
+            headline_index = rendered.index('class="stat-tile__value"')
+            table_index = rendered.index('<table class="data-table">')
+            if not (headline_index < table_index):
+                return False, "expected the promoted headline to appear before the registry table"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the promoted resolved-rate headline is the page's single stat-tile__value figure, appearing before the "
+        "registry table in document order",
+        _promoted_headline_precedes_registry_table)
+
+    def _registry_timestamps_use_concise_format_with_filter_markers():
+        # 06.6.3-06 Task 2 (D-09/D-20): First seen/Last seen switch to
+        # layout.concise_timestamp_html() (a class="mono" title=... span,
+        # never a bare ISO string), and the filter bar's four markers
+        # each appear exactly once, alongside a data-filter-text
+        # attribute holding the lowercased prefix.
+        tmp = _mkstate("a-concise-and-filter")
+        try:
+            now = _now()
+            ts = _iso(now)
+            registry = {
+                "ABC": {"count": 1, "first_seen": ts, "last_seen": ts, "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            rendered = airlines_page.render(_ctx(tmp, now=ts))
+            if 'class="mono" title="%s"' % ts not in rendered:
+                return False, "expected First/Last seen to render via concise_timestamp_html()'s class=\"mono\" title=... markup"
+            if rendered.count(ts + '"') < 2:
+                return False, "expected the full ISO timestamp to appear in at least two title attributes (First seen, Last seen)"
+            for marker in (
+                "data-filter-input", "data-filter-count", "data-filter-clear",
+                "data-filter-empty",
+            ):
+                count = rendered.count(marker)
+                if count != 1:
+                    return False, "expected exactly one %r marker, got %d" % (marker, count)
+            if 'data-filter-text="abc"' not in rendered:
+                return False, "expected a registry row's data-filter-text to hold the lowercased prefix"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Airlines' First seen/Last seen render via concise_timestamp_html(), and the filter bar's four markers plus "
+        "a lowercased data-filter-text attribute are each present",
+        _registry_timestamps_use_concise_format_with_filter_markers)
+
+    def _filter_bar_absent_with_no_button_or_form_present():
+        # 06.6.3-06 Task 2 (D-16, T-06.6.3-12): the filter bar's Clear
+        # control must not reopen D-16's read-only-by-design constraint
+        # — no <button>, no <form>, anywhere, even once the filter bar
+        # is rendered over a non-empty registry.
+        tmp = _mkstate("a-filter-no-button")
+        try:
+            registry = {
+                "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            rendered = airlines_page.render(_ctx(tmp))
+            if "<button" in rendered:
+                return False, "the filter bar's Clear control must not be a <button> (D-16)"
+            if "<form" in rendered:
+                return False, "the filter bar must not introduce a <form> (D-16)"
+            if "data-filter-clear" not in rendered:
+                return False, "expected a data-filter-clear-carrying element to still exist"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the filter bar's Clear control carries data-filter-clear without reopening D-16 (no <button>, no <form>)",
+        _filter_bar_absent_with_no_button_or_form_present)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
