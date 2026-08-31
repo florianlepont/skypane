@@ -31,8 +31,8 @@ RUNWAY_HELPER_TEXT = (
 RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
 RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
 LED_HELPER_TEXT = (
-    "Controls the board's built-in bring-up LED. It's lit only during the "
-    "device's brief active wake window and isn't visible from the "
+    "Controls the board's built-in diagnostic LED. It's lit only during "
+    "the device's brief active wake window and isn't visible from the "
     "wall-facing side. Applies on the device's next scheduled poll — not "
     "immediately.")
 
@@ -175,18 +175,23 @@ def runway_fieldset(current_runway_id, images_available=()):
 
 
 def led_fieldset(current_led_enabled):
-    """A single checkbox controlling the CFG-LED bring-up LED (D-01/D-02):
+    """A single checkbox controlling the CFG-LED diagnostic LED (D-01/D-02):
     a `<label>` wrapping `<input type="checkbox" name="led_enabled"
     value="on">`, carrying a bare `checked` attribute only when
     `current_led_enabled` is truthy, plus the helper text explaining what
     the control does.
+
+    D-02: every user-facing string here reads "Diagnostic LED" — the
+    internal identifiers (this function's own name, LED_HELPER_TEXT,
+    LED_CHECKBOX_VALUE, LED_ROUTE) are unchanged by name; this is a
+    copy-only rename.
     """
     checked = " checked" if current_led_enabled else ""
     return (
         "<fieldset>"
-        "<legend>Bring-up LED</legend>"
+        "<legend>Diagnostic LED</legend>"
         "<label>"
-        '<input type="checkbox" name="led_enabled" value="%s"%s> Enable bring-up LED'
+        '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
         "</label>"
         '<p class="text-label">%s</p>'
         "</fieldset>"
@@ -198,10 +203,16 @@ def led_section(current_led_enabled):
     `<section>`/`<form>` (D-01) — mirroring poll_trigger_section()'s own
     "own dedicated form" precedent. See render()'s comment for why this is
     NOT folded into the Theme/Runway `<form action="/config">`.
+
+    D-06: no independent `<h2>` here — led_fieldset()'s own
+    `<legend>Diagnostic LED</legend>` is this section's sole accessible
+    group name, matching the sibling Theme/Runway fieldsets inside
+    `.config-form`, which already have no independent `<h2>` of their own.
+    A prior revision duplicated the name via both an `<h2>` and the
+    `<legend>` — do not reintroduce that `<h2>`.
     """
     return (
         '<section class="page-section">'
-        '<h2 class="text-heading">Bring-up LED</h2>'
         '<form method="post" action="/config-led">'
         "%s"
         '<button type="submit">Save LED Setting</button>'

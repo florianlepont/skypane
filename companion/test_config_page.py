@@ -47,7 +47,7 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 39  # 38 + 1 (06.6.2-04: page_header() shared component check)
+EXPECTED_CHECK_COUNT = 42  # 39 + 3 (06.6.3-03 Task 1: D-02 LED copy rename + D-06 heading dedup checks)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -661,6 +661,48 @@ def main():
     check(
         "led_fieldset(False) contains no checked attribute",
         _led_fieldset_unchecked_false)
+
+    # ------------------------------------------------------------------
+    # D-02/D-06 (06.6.3-03 Task 1): the LED section's user-facing copy
+    # renamed "bring-up" -> "diagnostic", and the section's duplicate
+    # heading (an independent <h2> alongside the fieldset's own <legend>)
+    # removed, leaving the <legend> as the sole accessible group name.
+    # ------------------------------------------------------------------
+
+    def _led_section_no_stale_bring_up_led_string():
+        rendered = config_page.led_section(True)
+        if "bring-up" in rendered.lower():
+            return False, "expected no case-insensitive 'bring-up' substring in led_section()'s output"
+        return True, ""
+    check(
+        "led_section(True) contains no stale 'Bring-up LED' internal-identifier string (D-02)",
+        _led_section_no_stale_bring_up_led_string)
+
+    def _led_section_single_accessible_group_name_no_duplicate_heading():
+        rendered = config_page.led_section(True)
+        if rendered.count("Diagnostic LED") != 1:
+            return False, (
+                "expected exactly one 'Diagnostic LED' accessible group name, got %d"
+                % rendered.count("Diagnostic LED"))
+        if "<h2" in rendered:
+            return False, "expected no <h2> in led_section()'s output (the legend is the sole group name)"
+        if "<legend>Diagnostic LED</legend>" not in rendered:
+            return False, "expected the fieldset legend to carry the group name"
+        return True, ""
+    check(
+        "led_section(True) has exactly one accessible group name (the <legend>), no duplicate <h2> (D-06)",
+        _led_section_single_accessible_group_name_no_duplicate_heading)
+
+    def _led_fieldset_checkbox_label_reads_enable_diagnostic_led():
+        rendered = config_page.led_fieldset(True)
+        if "Enable diagnostic LED" not in rendered:
+            return False, "expected the checkbox label to read 'Enable diagnostic LED'"
+        if "Enable bring-up LED" in rendered:
+            return False, "expected the stale 'Enable bring-up LED' label to be gone"
+        return True, ""
+    check(
+        "led_fieldset(True)'s checkbox label reads 'Enable diagnostic LED' (D-02)",
+        _led_fieldset_checkbox_label_reads_enable_diagnostic_led)
 
     def _render_has_second_form_for_led_route():
         rendered = config_page.render({
