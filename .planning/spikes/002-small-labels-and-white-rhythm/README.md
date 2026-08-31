@@ -11,7 +11,7 @@ validates: |
   plate, per-theme font weight, 11-theme registry), when the illustration-
   to-text vertical spacing is observed directly, then it's clear whether
   the empty space reads differently on White than on a dithered theme.
-verdict: PENDING
+verdict: 002a VALIDATED (tracked-6px chosen) — 002b INVALIDATED (no change wanted)
 related: ["001-panel-theme-colours"]
 tags: [render, typography, tracking, letter-spacing, white-theme, layout, e-ink]
 ---
@@ -144,9 +144,23 @@ between the aircraft and the panel edges reads on each.
 
 ## Results
 
-**Pending developer review — checkpoint below.** Both directions are
-technically feasible (Part A: proven, previously-shipped technique,
-never on real glass; Part B: hypothesis visually confirmed in this
-session's own screen comparison, not yet the developer's own judgment)
-and neither required touching `server/plane/render.py`. No blocking
-technical risk found in either.
+**Part A — VALIDATED.** Developer reviewed the 5-variant contact sheet
+and chose **`tracked-6px`**: full-size (20px/18px, unchanged), 6px
+letter-spacing on both `STATE_LABEL_FONT` and `TOP_TAG_FONT`, no size
+reduction — "j'aime bien la 4" (the 4th row: baseline / 2px / 4px /
+**6px** / smaller-6px). This is the exact `LABEL_TRACKING_PX` value
+Phase 3's own removed implementation had already converged on (D-15,
+"wide letter-spacing"), now independently re-confirmed on a
+screen-preview comparison of the current design. Never checked on real
+Spectra 6 ink at any point in this project's history — that remains the
+gate before this can ship, same precedent as every other Phase 8
+decision (D-13).
+
+**Part B — INVALIDATED (the hypothesis, not the investigation).**
+Developer reviewed the White vs. Grey side-by-side and reported neither
+reads as a problem — "aucun ne me choque." The empty-space-reads-more-
+visible-on-white hypothesis that motivated this spike did not hold up
+against direct comparison; the current White layout's vertical rhythm
+needs no adjustment. **No code change follows from this spike** - this
+is a genuine, useful negative result (confirmed rather than assumed),
+not a gap in the investigation.

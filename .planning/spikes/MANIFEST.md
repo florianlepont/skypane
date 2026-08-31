@@ -113,10 +113,32 @@ Not yet decided / open for the planning phase:
   illustrations — not checked against the full 43-file illustration set
   for outliers.
 
+### Round 3 — small-label tracking, vertical rhythm (spike 002, confirmed)
+
+- **The state label ("DEPARTING"/"ARRIVING") and the runway tag ("ORY ·
+  RWY 3") gain 6px letter-spacing (tracking) at their existing sizes**
+  (20px/18px, unchanged) — developer chose the `tracked-6px` variant
+  from a 5-way comparison. Both strings are already fully uppercase, so
+  this is tracked all-caps, not a literal small-caps simulation. Matches
+  Phase 3's own removed `LABEL_TRACKING_PX` value (D-15) exactly, though
+  reached independently this session. Requires resurrecting
+  `draw_tracked_text()`/`_tracked_text_width()` (both exist verbatim in
+  git history, `73a6eb2^:server/plane/render.py`) since Pillow has no
+  native tracking API. **Never verified on real Spectra 6 glass at any
+  point in this project's history** — an on-glass check is required
+  before this can be considered final, same D-13 precedent as every
+  other Phase 8 typography decision.
+- **The White theme's illustration-to-text vertical spacing needs no
+  change.** Investigated because the empty space was hypothesised to
+  read as more visible on flat White than it did on the previously-
+  shipped dithered colour fields; direct side-by-side comparison did not
+  bear this out — developer: "aucun ne me choque." No layout constant
+  should be touched on this basis.
+
 ## Spikes
 
 | # | Name | Type | Validates | Verdict | Tags |
 |---|------|------|-----------|---------|------|
 | 001 | panel-theme-colours | comparison | White vs. Blue/Green backgrounds, box-free text-legibility techniques, flight-identifier text content, and previous-card text sizing/alignment | VALIDATED — see Requirements above for the full confirmed decision set | render, theme, palette, legibility, e-ink, typography |
-| 002a | small-caps-labels | standard | Letter-spacing (tracking) treatment for the top-left state label and top-right runway tag, on both a flat and a dithered theme | PENDING — checkpoint presented, awaiting developer reaction | render, typography, tracking, letter-spacing, e-ink |
-| 002b | white-vertical-rhythm | standard | Whether the illustration-to-text empty space reads differently on the White default than it did on the previously-shipped dithered colour fields | PENDING — checkpoint presented, awaiting developer reaction | render, layout, white-theme, e-ink |
+| 002a | small-caps-labels | standard | Letter-spacing (tracking) treatment for the top-left state label and top-right runway tag, on both a flat and a dithered theme | VALIDATED — developer chose `tracked-6px` (full size, 6px tracking, "j'aime bien la 4") | render, typography, tracking, letter-spacing, e-ink |
+| 002b | white-vertical-rhythm | standard | Whether the illustration-to-text empty space reads differently on the White default than it did on the previously-shipped dithered colour fields | INVALIDATED (hypothesis) — developer: "aucun ne me choque", no change wanted | render, layout, white-theme, e-ink |
