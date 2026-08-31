@@ -35,10 +35,16 @@ silhouette, Zilla Slab):
   `dither.dither_to_full_panel_palette()` - never simplified to a flat
   silhouette. No quiet-zone rectangles anywhere: D-21's flat background
   needs no protection against text sitting on a dithered pixel.
-- **D-27**: every text role uses PT Serif **Regular**, not Bold -
-  deliberately reintroduces a thin-hairline e-ink legibility risk not yet
-  verified on real glass (see `server/assets/fonts/VENDOR.md`'s "Known
-  risk" note; Wave 4's on-glass checkpoint must re-check this).
+- **D-27 (superseded by Phase 8's D-06, see below)**: every text role used
+  PT Serif Regular, not Bold. Phase 7's on-glass checkpoint confirmed
+  Regular legible at every role, on real glass, before and after the
+  text-backing-plate fix (`hardware/BRINGUP-LOG.md`). Phase 8 then
+  switched every active-state role to Bold anyway, for an unrelated
+  reason: D-06 removed the backing plate itself (D-05), and the heavier
+  Bold stroke is what takes over that plate's legibility job against the
+  dithered background - see `server/assets/fonts/VENDOR.md`'s PT Serif
+  entry for the full supersession record and plan 08-06 for this phase's
+  own on-glass re-check of the new weight.
 
 **Colour and CFG-01 (D-09/D-10/D-11, 06-CONTEXT.md)**: the panel's
 DEPARTING/ARRIVING background and ink colours have never been calibrated
@@ -46,11 +52,11 @@ against real glass - they are the same on-screen-only-confirmed values
 D-21 recorded (`server/panel_format.py`'s "confirmed against on-screen
 previews only" note). Phase 7's on-glass session is the first place that
 calibration actually happens. CFG-01 therefore ships a theme picker whose
-registry (`server/device_config.py`'s `THEMES`) currently holds exactly
-one entry, `"sky"`. Adding Phase 7's real, hardware-validated theme
-variants is a single `THEMES` dict entry in `server/device_config.py` -
-see that module's own docstring for the extension procedure - with no
-change to this module at all.
+registry (`server/device_config.py`'s `THEMES`) now holds five entries -
+`white` (the default), `black`, `yellow`, `red`, and `sky` (Phase 8 plan
+08-01) - added as a single `THEMES` dict entry per theme in
+`server/device_config.py`, exactly the single-dict-entry extension this
+paragraph originally promised, with no change to this module at all.
 
 The old 64px "inviolable" SAFE_BOX margin (Phase 2) is still enforced for
 the top-row labels, which D-26 explicitly pins to that same MARGIN inset.
@@ -120,16 +126,27 @@ PT_SERIF_BOLD = os.path.join(FONT_DIR, "PTSerif-Bold.ttf")
 
 # D-26's exact confirmed sizes, per role. (font_path, size, weight) - weight
 # is documentation only (the path already selects the correct static weight
-# file). D-27: every active-state role is Regular; the empty state's
-# heading keeps a Bold weight for continuity with Phase 2's hero-caption
-# boldness (not itself a D-26 subject - the empty state's copy is
-# unchanged by this phase).
-STATE_LABEL_FONT = (PT_SERIF_REGULAR, 20, 400)
-TOP_TAG_FONT = (PT_SERIF_REGULAR, 18, 400)
-MAIN_LINE1_FONT = (PT_SERIF_REGULAR, 44, 400)
-MAIN_LINE2_FONT = (PT_SERIF_REGULAR, 22, 400)
-PREVIOUS_LINE1_FONT = (PT_SERIF_REGULAR, 28, 400)
-PREVIOUS_LINE2_FONT = (PT_SERIF_REGULAR, 16, 400)
+# file). Phase 8 (dated 2026-08-31, D-06): every active-state role is now
+# Bold, not Regular. This is the functional replacement for the removed
+# text-backing-plate (`_paint_text_backing()`, deleted this same phase -
+# see D-05), not a taste change: the heavier stroke is what now carries
+# legibility against the dithered state background. The spike
+# (`.planning/spikes/001-panel-theme-colours/README.md`) confirmed Bold
+# legible at every size on the panel, including the smallest caption
+# (`PREVIOUS_LINE2_FONT`). A stroke outline (at 1/2/3px widths) and an
+# offset drop-shadow were both built and both read as legible in that
+# spike, and were both rejected by the developer on visual grounds before
+# font weight was tried - recorded here so a future reader does not
+# re-litigate either without new information. The empty state's heading
+# was already Bold, for continuity with Phase 2's hero-caption boldness
+# (not itself a D-06 subject - the empty state's copy is deliberately out
+# of scope for this phase).
+STATE_LABEL_FONT = (PT_SERIF_BOLD, 20, 700)
+TOP_TAG_FONT = (PT_SERIF_BOLD, 18, 700)
+MAIN_LINE1_FONT = (PT_SERIF_BOLD, 44, 700)
+MAIN_LINE2_FONT = (PT_SERIF_BOLD, 22, 700)
+PREVIOUS_LINE1_FONT = (PT_SERIF_BOLD, 28, 700)
+PREVIOUS_LINE2_FONT = (PT_SERIF_BOLD, 20, 700)
 EMPTY_HEADING_FONT = (PT_SERIF_BOLD, 72, 700)
 EMPTY_BODY_FONT = (PT_SERIF_REGULAR, 40, 400)
 
@@ -992,8 +1009,8 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     line1_text = _flight_line1_text(flight, state, route)
     line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
 
-    line1_font = fit_text_size(PT_SERIF_REGULAR, MAIN_LINE1_FONT[1], line1_text, safe_width, MAIN_LINE1_MIN_SIZE)
-    line2_font = fit_text_size(PT_SERIF_REGULAR, MAIN_LINE2_FONT[1], line2_text, safe_width, MAIN_LINE2_MIN_SIZE)
+    line1_font = fit_text_size(PT_SERIF_BOLD, MAIN_LINE1_FONT[1], line1_text, safe_width, MAIN_LINE1_MIN_SIZE)
+    line2_font = fit_text_size(PT_SERIF_BOLD, MAIN_LINE2_FONT[1], line2_text, safe_width, MAIN_LINE2_MIN_SIZE)
 
     top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
     line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
@@ -1039,8 +1056,8 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     line1_text = _flight_line1_text(flight, state, route)
     line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
-    line1_font = fit_text_size(PT_SERIF_REGULAR, PREVIOUS_LINE1_FONT[1], line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE)
-    line2_font = fit_text_size(PT_SERIF_REGULAR, PREVIOUS_LINE2_FONT[1], line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE)
+    line1_font = fit_text_size(PT_SERIF_BOLD, PREVIOUS_LINE1_FONT[1], line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE)
+    line2_font = fit_text_size(PT_SERIF_BOLD, PREVIOUS_LINE2_FONT[1], line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE)
 
     top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
     line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")

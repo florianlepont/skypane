@@ -36,7 +36,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 78
+EXPECTED_CHECK_COUNT = 80
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -659,20 +659,74 @@ def main():
         return True, ""
     check("omitting previous_flight/previous_route renders a genuinely different (single-flight) panel", _no_previous_flight_omits_the_card)
 
-    # 24. PT Serif Regular (D-27) is the active weight for every active-state
-    # text role; the empty state's heading keeps a Bold weight.
-    def _pt_serif_regular_is_the_active_weight():
+    # 24. PT Serif Bold (D-06) is the active weight for every active-state
+    # text role; the empty state's heading keeps a Bold weight; EMPTY_BODY_FONT
+    # is the one remaining active reference to the Regular file.
+    def _pt_serif_bold_is_the_active_weight():
         active_roles = ("STATE_LABEL_FONT", "TOP_TAG_FONT", "MAIN_LINE1_FONT", "MAIN_LINE2_FONT", "PREVIOUS_LINE1_FONT", "PREVIOUS_LINE2_FONT")
         for name in active_roles:
             if not hasattr(render, name):
                 return False, "server.plane.render has no %s role constant" % name
             path, _size, _weight = getattr(render, name)
-            if not path.endswith("PTSerif-Regular.ttf"):
-                return False, "%s font path %r is not PTSerif-Regular.ttf (D-27)" % (name, path)
+            if not path.endswith("PTSerif-Bold.ttf"):
+                return False, "%s font path %r is not PTSerif-Bold.ttf (D-06)" % (name, path)
         if not render.EMPTY_HEADING_FONT[0].endswith("PTSerif-Bold.ttf"):
             return False, "EMPTY_HEADING_FONT font path %r is not PTSerif-Bold.ttf" % (render.EMPTY_HEADING_FONT[0],)
+        if not render.EMPTY_BODY_FONT[0].endswith("PTSerif-Regular.ttf"):
+            return False, "EMPTY_BODY_FONT font path %r is not PTSerif-Regular.ttf - it is the one remaining active reference to the Regular file" % (render.EMPTY_BODY_FONT[0],)
         return True, ""
-    check("every active-state text role uses PTSerif-Regular.ttf (D-27); the empty-state heading keeps PTSerif-Bold.ttf", _pt_serif_regular_is_the_active_weight)
+    check("every active-state text role uses PTSerif-Bold.ttf (D-06); the empty-state heading keeps PTSerif-Bold.ttf and EMPTY_BODY_FONT keeps PTSerif-Regular.ttf", _pt_serif_bold_is_the_active_weight)
+
+    # 24b. PREVIOUS_LINE2_FONT's size grew from 16 to 20 (D-11); its overflow
+    # floor is unchanged.
+    def _previous_line2_font_grew_to_20px():
+        if render.PREVIOUS_LINE2_FONT[1] != 20:
+            return False, "PREVIOUS_LINE2_FONT size is %r, expected 20 (D-11)" % (render.PREVIOUS_LINE2_FONT[1],)
+        if render.PREVIOUS_LINE2_MIN_SIZE != 12:
+            return False, "PREVIOUS_LINE2_MIN_SIZE is %r, expected unchanged 12" % (render.PREVIOUS_LINE2_MIN_SIZE,)
+        return True, ""
+    check("PREVIOUS_LINE2_FONT's size is 20px (D-11) with its overflow floor unchanged", _previous_line2_font_grew_to_20px)
+
+    # 24c. Behavioural check: no glyph is drawn in the Regular file anywhere
+    # on an active-state panel, in either state - this is the check that
+    # catches the four fit_text_size() call sites being left on Regular even
+    # after the role-constant tuples were repointed at Bold (T-08-03-01).
+    # Monkeypatches render._font, the seam both the direct role-constant
+    # lookups (draw_top_labels()) and fit_text_size() itself call through,
+    # so it captures every font path actually requested.
+    def _no_regular_weight_glyph_on_an_active_panel():
+        requested_paths = []
+        orig_font = render._font
+
+        def _spy_font(spec):
+            requested_paths.append(spec[0])
+            return orig_font(spec)
+
+        render._font = _spy_font
+        try:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+            )
+            render.build_canvas(
+                TEST_FLIGHT, "arriving", route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="departing",
+            )
+        finally:
+            render._font = orig_font
+        if not requested_paths:
+            return False, "no font was requested at all - the spy did not capture anything"
+        regular_hits = [p for p in requested_paths if p.endswith("PTSerif-Regular.ttf")]
+        if regular_hits:
+            return False, "PTSerif-Regular.ttf was requested %d time(s) on an active-state panel - expected zero (D-06): %r" % (len(regular_hits), regular_hits)
+        bold_hits = [p for p in requested_paths if p.endswith("PTSerif-Bold.ttf")]
+        if not bold_hits:
+            return False, "PTSerif-Bold.ttf was never requested while rendering an active-state panel"
+        return True, ""
+    check(
+        "no PTSerif-Regular.ttf glyph is drawn anywhere on an active-state panel, in either state (D-06) - behavioural, catches a half-applied fit_text_size() call site",
+        _no_regular_weight_glyph_on_an_active_panel,
+    )
 
     # 25. A genuinely long real destination/origin city+airline name
     # shrinks via fit_text_size() rather than breaching the canvas or
