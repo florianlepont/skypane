@@ -40,6 +40,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -60,11 +61,12 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 69  # 68 (06.6.1's own additions: 62 + 2 (06.6.1-05
+EXPECTED_CHECK_COUNT = 70  # 69 (68: 06.6.1's own additions: 62 + 2 (06.6.1-05
 # Task 1: nav-dropdown.js) + 4 (Task 3: toggle/dropdown/DOM-contract/no-JS))
 # + 1 (2026-08-29 quick task 260829-0rl, merged independently via origin/main
 # PR #19: the gallery route's private caching-scope regression check, WR-02
-# from 06.4-REVIEW.md) — see that check for detail.
+# from 06.4-REVIEW.md)) + 1 (06.6.2-02: the genuine two-thread concurrent
+# POST /poll-now check proving _POLL_LOCK serializes execution).
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1308,6 +1310,64 @@ def main():
         check(
             "a genuine poll-trigger failure redirects with the distinct poll_failed flash key, never save_failed",
             _poll_trigger_failure_uses_distinct_flash_key)
+
+        # UXA-15: two genuinely overlapping threads issuing POST
+        # /poll-now against the same running subprocess, on a session
+        # with zero cooldown, must never both reach run_once() — the
+        # server-side _POLL_LOCK (companion/app.py) is the correctness
+        # boundary, not merely a claim verified by reading the source.
+        # A fresh Harness/session is used (rather than reusing the
+        # cooldown-exhausted session_cookie above) so the cooldown gate
+        # never confounds which flash key each response carries.
+        def _poll_now_concurrent_requests_serialize_on_the_lock():
+            concurrent_harness = Harness()
+            try:
+                concurrent_harness.start()
+                cbase = concurrent_harness.base_url()
+                concurrent_cookie = _login(concurrent_harness)
+
+                start_event = threading.Event()
+                responses = []
+                responses_lock = threading.Lock()
+
+                def _worker():
+                    start_event.wait()
+                    status, headers, _ = http_request(
+                        cbase + "/poll-now", method="POST", cookie=concurrent_cookie)
+                    with responses_lock:
+                        responses.append((status, headers.get("Location", "")))
+
+                threads = [threading.Thread(target=_worker) for _ in range(2)]
+                for t in threads:
+                    t.start()
+                # Released together, after both threads are already
+                # blocked on it — the tightest overlap this harness can
+                # produce without instrumenting the server itself.
+                start_event.set()
+                for t in threads:
+                    t.join(timeout=30)
+
+                if len(responses) != 2:
+                    return False, "expected two responses, got %d: %r" % (len(responses), responses)
+                for status, _location in responses:
+                    if status != 303:
+                        return False, "expected both responses to be 303 redirects, got %r" % (responses,)
+                already_running_count = sum(
+                    1 for _status, location in responses
+                    if "flash=poll_already_running" in location)
+                if already_running_count != 1:
+                    return False, (
+                        "expected exactly one of the two overlapping /poll-now "
+                        "requests to receive the poll_already_running flash key "
+                        "(the other must complete/fail on its own honest "
+                        "outcome), got %d of 2: %r" % (already_running_count, responses))
+                return True, ""
+            finally:
+                concurrent_harness.stop()
+                concurrent_harness.cleanup()
+        check(
+            "two genuinely overlapping POST /poll-now requests: exactly one gets the poll_already_running flash key, proving the server-side _POLL_LOCK serializes execution",
+            _poll_now_concurrent_requests_serialize_on_the_lock)
 
     finally:
         harness.stop()

@@ -58,6 +58,12 @@ POLL_COOLDOWN_HELPER_TEXT = "Poll triggered recently — try again in {n}s."
 POLL_TRIGGER_BUTTON_ID = "poll-trigger-btn"
 POLL_COOLDOWN_TEXT_ID = "poll-cooldown-text"
 
+# UXA-15: the enabled (zero-cooldown) branch's button label while a
+# submit is pending, swapped in by _poll_submit_script() below. Cosmetic
+# only — companion/app.py's _POLL_LOCK is the actual correctness
+# boundary, this is purely the immediate-feedback affordance.
+POLL_SUBMIT_PENDING_TEXT = "Polling…"
+
 # The placeholder the client substitutes the live second count into. The
 # countdown reuses POLL_COOLDOWN_HELPER_TEXT with this token standing in
 # for the "{n}" slot precisely so the ticking copy stays word-identical to
@@ -274,6 +280,54 @@ def _poll_cooldown_script(cooldown_remaining):
     )
 
 
+def _poll_submit_script():
+    """A `<script>` element with no attributes, rendered only on
+    `poll_trigger_section()`'s enabled (zero-cooldown) branch (UXA-15).
+    Its body is a single immediately-invoked function expression,
+    written in the same ES5-safe subset (`var`, `function`, no arrow
+    functions, no `let`/`const`, no template literals) and
+    `_js_literal()`-gated convention `_poll_cooldown_script()` above
+    establishes — never `%`/f-string interpolation into the script body.
+
+    On the button's owning form's `submit` event, disables the button
+    and swaps its label to `POLL_SUBMIT_PENDING_TEXT` — immediate
+    visible acknowledgement that the click registered, before the
+    server round-trip completes. Guards with `if (!btn) { return; }` so
+    it is inert and harmless on any page whose markup has changed. It
+    mutates the DOM only through the button's `disabled` and
+    `textContent` properties — no HTML-writing sink, no dynamic code
+    evaluation, no network call.
+
+    This is cosmetic only, never a trust boundary: companion/app.py's
+    `_POLL_LOCK` (a process-global, non-blocking `threading.Lock()`
+    guarding `_handle_poll_now()`'s entire check-run-mark sequence) is
+    the actual correctness boundary that prevents two overlapping polls
+    from ever executing concurrently. A user who re-enables this button
+    by hand in devtools, or who submits the no-JS form from two tabs,
+    still cannot trigger a second concurrent poll cycle — the
+    server-side lock alone decides that, honestly reporting
+    "already running" to whichever request loses the race.
+    """
+    return (
+        "<script>"
+        '(function () {'
+        '"use strict";'
+        "var btn = document.getElementById(%s);"
+        "if (!btn) { return; }"
+        "var form = btn.form;"
+        "if (!form) { return; }"
+        'form.addEventListener("submit", function () {'
+        "btn.disabled = true;"
+        "btn.textContent = %s;"
+        "});"
+        "})();"
+        "</script>"
+    ) % (
+        _js_literal(POLL_TRIGGER_BUTTON_ID),
+        _js_literal(POLL_SUBMIT_PENDING_TEXT),
+    )
+
+
 def poll_trigger_section(cooldown_remaining):
     """The CFG-07 manual-trigger control: an enabled button when
     `cooldown_remaining` is zero, or a native-disabled button plus the
@@ -292,13 +346,16 @@ def poll_trigger_section(cooldown_remaining):
     still sees exactly the same server-rendered copy and markup as
     before this change.
 
-    The script renders only on this disabled branch; the zero-cooldown
-    branch below is unchanged and ships no script at all. This is a UX
-    affordance only, never a trust boundary: companion/app.py's
+    The countdown script renders only on this disabled branch. The
+    zero-cooldown (enabled) branch below carries its own, different
+    script — `_poll_submit_script()`'s UXA-15 "Polling…" disable-on-
+    submit affordance — never the countdown script. Both are UX
+    affordances only, never a trust boundary: companion/app.py's
     `_handle_poll_now()` independently re-checks the cooldown
-    server-side and redirects with the cooldown flash before it would
-    ever call `poll_loop.run_once()` — so a user who re-enables the
-    button by hand in devtools still cannot poll early.
+    server-side, and its `_POLL_LOCK` independently serializes
+    execution, before it would ever call `poll_loop.run_once()` — so a
+    user who re-enables either button by hand in devtools still cannot
+    poll early or trigger two concurrent polls.
     """
     # `> 0`, not truthy: must agree with _poll_cooldown_script()'s own
     # `remaining <= 0` early-return, or a negative value would take this
@@ -320,8 +377,12 @@ def poll_trigger_section(cooldown_remaining):
         )
     return (
         '<form method="post" action="/poll-now">'
-        '<button type="submit">Trigger Poll Now</button>'
+        '<button type="submit" id="%s">Trigger Poll Now</button>'
         "</form>"
+        "%s"
+    ) % (
+        POLL_TRIGGER_BUTTON_ID,
+        _poll_submit_script(),
     )
 
 
