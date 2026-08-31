@@ -1402,6 +1402,14 @@ button:disabled {
   position: relative;
 }
 
+/* 06.6.4 (D-08): 14px, not the .icon rule's 20px default. The glyph is
+ * positioned 8px from the left edge, so at 14px it ends at 22px and the
+ * input's own 26px left padding below leaves a clean 4px gap; at the
+ * base 20px it would end at 28px, two pixels past where the text
+ * begins. A 14px glyph is also the proportionate size for a 32px field
+ * with a 13px label. This rule outranks both the base .icon sizing rule
+ * and the inline width/height attributes the icon builder emits, so no
+ * Python change is needed. */
 .filter-bar__field .icon {
   position: absolute;
   left: var(--space-sm);
@@ -1409,15 +1417,75 @@ button:disabled {
   transform: translateY(-50%);
   pointer-events: none;
   opacity: 0.6;
+  width: 14px;
+  height: 14px;
 }
 
+/* 06.6.4 (D-08): a 32px transparent field, scoped to this wrapper's
+ * descendant input only — the global native input/select rule below
+ * keeps its 44px floor for every other form field in the app. The
+ * `min-height: 0` is load-bearing: the global rule's 44px minimum
+ * outranks any plain `height` declaration here regardless of
+ * specificity (a browser never lets a lower min-height shrink an
+ * element below a higher one from another rule unless the higher one is
+ * itself cleared), so without this line the 32px height above is inert
+ * and D-08 silently does nothing. */
 .filter-bar__field input {
-  padding-left: calc(var(--space-sm) * 2 + 20px);
+  height: 32px;
+  min-height: 0;
+  padding: 0 10px 0 26px;
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid var(--color-border);
 }
 
+.filter-bar__field input:focus {
+  border-color: var(--color-accent);
+}
+
+/* 06.6.4 (D-08): shrunk and muted to the same 70% text color-mix
+ * strength the table header and theme segments use — one muted
+ * strength across the app, not a fourth value invented here. */
 .filter-bar__count {
-  font-size: var(--font-label-size);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
   white-space: nowrap;
+}
+
+/* 06.6.4 (D-08): the shared Clear-control rule. Targets the
+ * [data-filter-clear] attribute both companion/pages/history_page.py's
+ * <button type="button" data-filter-clear> and companion/pages/
+ * airlines_page.py's <a href="#..." data-filter-clear> already emit —
+ * not a new shared class, which would have needed a Python edit on both
+ * page modules. The specificity here comfortably outranks both the base
+ * button rule and the base anchor rule, and History's Clear is not a
+ * submit button so the primary-fill rule never reaches it. Every
+ * declaration below undoes a specific base-button property (size,
+ * weight, letter-spacing, shadow, radius, min dimensions) so the button
+ * variant and the link variant land on pixel-identical output. Do not
+ * change either page's Clear element type — see D-16's read-only
+ * constraint on Airlines. */
+.filter-bar [data-filter-clear] {
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: var(--weight-regular);
+  letter-spacing: normal;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.filter-bar [data-filter-clear]:hover {
+  color: var(--color-text);
 }
 
 /* Empty state */
