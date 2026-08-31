@@ -985,13 +985,52 @@ button:hover {
 }
 
 /* Icon-only compact action button (06.6.3 D-23, e.g. the copy buttons in
- * History/Health). Inherits the global `button` rule's 44x44 hit-target
- * floor unmodified — never reduce min-height/min-width below 44px — and
- * only overrides padding/background so it reads as a quiet inline
- * affordance rather than a filled action button. */
+ * History/Health). 06.6.4 (D-02) replaces the old "inherits the base
+ * button rule's 44x44 floor unmodified" mechanism, which no longer
+ * exists now that the base `button` rule has no min-height/min-width —
+ * this is a 28x28 visual box with a real 44x44 pointer/touch hit area
+ * synthesized by the `::before` pseudo-element's negative inset below,
+ * no accessibility trade-off (unlike D-01's button-density reduction).
+ * This is the pattern to reuse for any future icon-only button, rather
+ * than reintroducing a minimum-size floor. `border: none` and a
+ * transparent background keep the icon from reading as a filled control
+ * now that the base rule paints a wash and a hairline; `display:
+ * inline-flex` centres the SVG glyph explicitly, since a fixed 28x28 box
+ * with zero padding needs it (unlike the base rule, which deliberately
+ * avoids `display` — native buttons already centre a text label without
+ * it). History's merged Callsign/Hex cell (`_callsign_hex_cell()`)
+ * renders two of these in one cell, separated by the inline separator
+ * span and the hex value itself (roughly 50px), so the two enlarged hit
+ * areas do not overlap; a future layout placing two icon buttons closer
+ * than 16px apart would need to revisit the inset below. */
 .copy-btn {
-  padding: 0 var(--space-xs);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
   background: transparent;
+}
+
+/* The invisible 44x44 hit area: 28 (visual box) + 8 on each side = 44,
+ * centred on the glyph. Pointer target only — no background, border or
+ * content of its own. */
+.copy-btn::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+/* 06.6.4 (D-02): hover wash, the same text-based color-mix idiom as the
+ * base quiet-hover rule above, at D-02's specified 7% strength. Comes
+ * after that base `button:hover` rule in source order (the icon-button
+ * rules already sit later in the file, verified rather than assumed). */
+.copy-btn:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
 /* Disabled/cooldown state (CFG-07/D-17): reduced opacity, not-allowed
