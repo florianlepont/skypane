@@ -62,7 +62,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 100  # 06.6.4.1-07 Task 1: 4 new settings-route-rename checks (old path 404s authenticated, POST /settings redirects with flash, ?next=/settings hidden-field round trip, route/icon-map cross-module contract) — the five pre-existing tab-tuple/redirect/login-default/logout-refusal checks were retargeted from /config to /settings in place, not counted as new. # 96 = 06.6.4.1-02 Task 3: 4 new panel-lookup.js checks (pre-auth serving, ES5-dialect, route/src agreement, six-script-tag count) # 92 = 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
+EXPECTED_CHECK_COUNT = 101  # 06.6.4.1-07 Task 3: 1 new standing route-contract guard (nav tuple/page-titles dict/icon map size+key-set agreement, settings route constant equals NAV_TABS[0][0]) — the literal sweep found no remaining stale /config or /config-led occurrence in this file to fix, and three "five nav links"-shaped prose descriptions were reworded to stop hardcoding a route count that changes again in plan 08 (no check-count effect, prose only). # 100 = 06.6.4.1-07 Task 1: 4 new settings-route-rename checks (old path 404s authenticated, POST /settings redirects with flash, ?next=/settings hidden-field round trip, route/icon-map cross-module contract) — the five pre-existing tab-tuple/redirect/login-default/logout-refusal checks were retargeted from /config to /settings in place, not counted as new. # 96 = 06.6.4.1-02 Task 3: 4 new panel-lookup.js checks (pre-auth serving, ES5-dialect, route/src agreement, six-script-tag count) # 92 = 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
 # regression checks (dirty-state.js/list-filter.js/copy-button.js/
 # freshness.js, one each) + 1 new cross-file *_SCRIPT_ROUTE/*_SCRIPT_SRC
 # DOM-contract-guard check, mirroring _three_file_nav_dom_contract_guard()'s
@@ -481,7 +481,8 @@ def main():
                 return False, "missing nav link hrefs: %r" % (missing,)
             return True, ""
         check(
-            "page_shell() renders one document with lang/viewport/stylesheet/title/five nav links",
+            "page_shell() renders one document with lang/viewport/stylesheet/title/a nav link "
+            "for every NAV_TABS route",
             _page_shell_document_shape)
 
         def _page_shell_marks_only_the_active_dropdown_link():
@@ -1014,7 +1015,7 @@ def main():
                     return False, "expected every nav link to precede the theme form in the dropdown"
             return True, ""
         check(
-            "the dropdown panel holds all five NAV_TABS links (exactly one active) followed by the "
+            "the dropdown panel holds every NAV_TABS link (exactly one active) followed by the "
             "theme form, in that order",
             _dropdown_contents_and_order)
 
@@ -1505,7 +1506,7 @@ def main():
 
         session_cookie = _login(harness)
 
-        # --- authenticated: all five tabs return 200 with their own heading ---
+        # --- authenticated: every NAV_TABS tab returns 200 with its own heading ---
 
         for _tab_path, _heading in (
             ("/settings", "Settings"), ("/health", "Health"),
@@ -1588,6 +1589,47 @@ def main():
             "app.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE, and layout.NAV_TABS[0][0] all "
             "agree, and NAV_ICON_IDS' keys equal the nav route slugs one-to-one",
             _settings_route_and_icon_map_cross_module_contract)
+
+        def _nav_page_titles_icon_route_standing_contract_guard():
+            # 06.6.4.1-07 Task 3: a standing guard mirroring this file's
+            # existing three-file DOM-contract guards
+            # (_three_file_nav_dom_contract_guard(),
+            # _four_new_static_routes_dom_contract_guard() above) — makes
+            # the next nav-route change (plan 08) fail loudly here
+            # instead of silently, if any of these four route
+            # collections is missed: the nav tuple itself, the
+            # page-titles dict, the slug-to-icon map, and the settings
+            # page module's own route constant.
+            import companion.app as app_module
+            nav_routes = [route for route, _ in layout.NAV_TABS]
+            nav_slugs = {route.lstrip("/") for route in nav_routes}
+            page_title_keys = set(app_module._PAGE_TITLES)
+            if page_title_keys != set(nav_routes):
+                return False, (
+                    "expected _PAGE_TITLES' keys to equal the set of NAV_TABS "
+                    "routes, got %r vs %r" % (page_title_keys, set(nav_routes)))
+            if len(app_module._PAGE_TITLES) != len(layout.NAV_TABS):
+                return False, (
+                    "expected _PAGE_TITLES and NAV_TABS to have the same "
+                    "length, got %d vs %d"
+                    % (len(app_module._PAGE_TITLES), len(layout.NAV_TABS)))
+            icon_slugs = set(layout.NAV_ICON_IDS)
+            if icon_slugs != nav_slugs:
+                return False, (
+                    "expected NAV_ICON_IDS' keys to equal the set of NAV_TABS "
+                    "slugs one-to-one, got %r vs %r" % (icon_slugs, nav_slugs))
+            if app_module.SETTINGS_ROUTE != layout.NAV_TABS[0][0]:
+                return False, (
+                    "expected app.SETTINGS_ROUTE to equal NAV_TABS' first "
+                    "route, got %r vs %r"
+                    % (app_module.SETTINGS_ROUTE, layout.NAV_TABS[0][0]))
+            return True, ""
+        check(
+            "the nav tuple, the page-titles dict, and the slug-to-icon map all agree in size "
+            "and key set, and the settings page module's own route constant is the nav "
+            "tuple's first route — a standing guard against silent drift when the route "
+            "set changes again",
+            _nav_page_titles_icon_route_standing_contract_guard)
 
         # --- logout clears the cookie; a subsequent tab request is refused again ---
 
