@@ -1909,6 +1909,71 @@ summary::-webkit-details-marker {
   display: block;
 }
 
+/* Airlines illustration gallery (D-14, 06.6.4.1-UI-SPEC.md §7.1). A new
+ * class rather than a reuse of .gallery-grid above: those tiles carry
+ * only an image and a caption, these carry a name and a chip row too, so
+ * they need a wider 200px column floor and the roomier lg gap. Same
+ * auto-fill idiom as .gallery-grid, not a new pattern. */
+.illustration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-lg);
+}
+
+/* The 06.6.4 D-03 hairline-at-rest/shadow-on-hover card contract,
+ * verbatim — do not "restore" a resting shadow on this component. */
+.airline-card {
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  padding: var(--space-sm);
+}
+
+.airline-card:hover,
+.airline-card:focus-within {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
+}
+
+.airline-card__image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-control);
+  margin-bottom: var(--space-sm);
+}
+
+/* Emphasis role, not a new type role. */
+.airline-card__name {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  margin: 0 0 var(--space-xs);
+}
+
+.airline-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+/* 11px matches .data-table th's already-shipped quiet-label tier above
+ * (not a fifth content type role). Neutral-tinted, not accent-tinted, so
+ * this file's own header-comment accent-reservation list stays exhaustive
+ * and unchanged. */
+.airline-card__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: var(--weight-regular);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
  * readout line. */
 
