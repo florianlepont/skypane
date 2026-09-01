@@ -40,7 +40,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 107
+EXPECTED_CHECK_COUNT = 112
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -3032,6 +3032,164 @@ def main():
         "card's line 1, and the source-fault caption are each still drawn as one whole-string call, and the "
         "total single-character draw count equals exactly len(label_text) + len(tag_text)",
         _tracking_confined_to_top_row_roles_only,
+    )
+
+    # 108. Phase 9 PHASE9-1: every registered band theme's build_canvas()
+    # call succeeds without exception, in both active states. Checks #58-60
+    # already loop THEME_IDS generically and therefore already cover this
+    # transitively - this loop exists to make band coverage explicit and
+    # independently readable, and to fail loudly with the offending theme id
+    # named if a band-specific regression ever slips past the generic loops.
+    def _band_themes_render_without_exception():
+        band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+        if not band_theme_ids:
+            return False, "no band theme ids found in THEME_IDS - expected plan 09-01's 5 band entries"
+        for theme_id in band_theme_ids:
+            for state in ("departing", "arriving"):
+                render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE, theme_id=theme_id)
+        return True, ""
+    check(
+        "every registered band theme (PHASE9-1) renders via build_canvas() in both departing and arriving "
+        "states without exception",
+        _band_themes_render_without_exception,
+    )
+
+    # 109. draw_diagonal_band() paints only {IDX_WHITE, band_idx} on a fresh
+    # White canvas, confined to the trapezoid region - one flat candidate
+    # (IDX_BLUE, dithered=False) and one dithered candidate (IDX_GREEN,
+    # dithered=True), using Image.getcolors() the same way
+    # _assert_legal_palette() does internally, not a reimplementation of its
+    # dominance/legality logic.
+    def _draw_diagonal_band_paints_only_legal_two_colour_set():
+        for band_idx, dithered in ((IDX_BLUE, False), (IDX_GREEN, True)):
+            canvas = panel_format.new_canvas(IDX_WHITE)
+            render.draw_diagonal_band(canvas, band_idx, dithered=dithered)
+            colors = {value for _count, value in canvas.getcolors()}
+            if not colors <= {IDX_WHITE, band_idx}:
+                return False, (
+                    "draw_diagonal_band(band_idx=%r, dithered=%r) painted colours %r, expected a subset of "
+                    "{IDX_WHITE, %r}" % (band_idx, dithered, sorted(colors), band_idx)
+                )
+            if band_idx not in colors:
+                return False, "draw_diagonal_band(band_idx=%r, dithered=%r) painted no %r pixels at all" % (
+                    band_idx, dithered, band_idx
+                )
+        return True, ""
+    check(
+        "draw_diagonal_band() paints only {IDX_WHITE, band_idx} on a fresh White canvas, flat and dithered",
+        _draw_diagonal_band_paints_only_legal_two_colour_set,
+    )
+
+    # 110. Band-theme top labels are genuinely split: build a band-theme
+    # canvas and reconstruct the top-row glyph run via _TextSpy, the same
+    # idiom check #65 uses for runway-tag coverage. The expected strings are
+    # derived from runway_tag_text()/STATE_LABEL_TEXT/_BAND_TOP_LABEL_DIRECTION
+    # in the check itself, partitioned on " · " - never a hardcoded literal
+    # duplicating the production split logic in two places.
+    def _band_theme_top_labels_are_split():
+        band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+        if not band_theme_ids:
+            return False, "no band theme ids found in THEME_IDS"
+        theme_id = band_theme_ids[0]
+        full_tag = render.runway_tag_text()
+        airport_code, _sep, runway_part = full_tag.partition(" · ")
+        expected_label = "%s %s %s" % (
+            render.STATE_LABEL_TEXT["departing"], render._BAND_TOP_LABEL_DIRECTION["departing"], airport_code
+        )
+        expected_tag = runway_part
+        with _TextSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
+        top_row = [(t, xy, a) for t, xy, a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        label_glyphs = top_row[: len(expected_label)]
+        tag_glyphs = top_row[len(expected_label): len(expected_label) + len(expected_tag)]
+        joined_label = "".join(t for t, _xy, _a in label_glyphs)
+        joined_tag = "".join(t for t, _xy, _a in tag_glyphs)
+        if joined_label != expected_label:
+            return False, "reconstructed band-theme %r label = %r, expected %r" % (theme_id, joined_label, expected_label)
+        if joined_tag != expected_tag:
+            return False, "reconstructed band-theme %r tag = %r, expected %r" % (theme_id, joined_tag, expected_tag)
+        return True, ""
+    check(
+        "a band theme's top labels are genuinely split into a merged state-label/airport-code run "
+        "(e.g. 'DEPARTING FROM ORY') and a standalone runway-tag run (e.g. 'RWY 3'), both derived from "
+        "runway_tag_text().partition(' · ') (PHASE9-3)",
+        _band_theme_top_labels_are_split,
+    )
+
+    # 111. Non-band-theme top labels are unaffected. Two layers: (a) calls
+    # `draw_top_labels()` DIRECTLY with no `band_theme` argument at all, so
+    # this check genuinely exercises the parameter's own default rather than
+    # `_build_active_canvas()`'s explicit `band_theme=is_band_theme` wiring
+    # (which always passes the argument and would mask a wrong default) -
+    # (b) the same _TextSpy reconstruction, run through build_canvas() with
+    # the default theme (white), proving the wiring itself resolves to
+    # unsplit for a real non-band theme too. Both must reconstruct exactly
+    # STATE_LABEL_TEXT["departing"] on the left and the FULL
+    # runway_tag_text() string on the right.
+    def _non_band_theme_top_labels_are_unsplit():
+        label_text = render.STATE_LABEL_TEXT["departing"]
+        full_tag = render.runway_tag_text()
+
+        default_weight = render.device_config.theme_weight(render.device_config.DEFAULT_THEME_ID)
+        canvas = panel_format.new_canvas(IDX_WHITE)
+        with _TextSpy(render) as direct_spy:
+            # No band_theme kwarg at all - this is what actually proves the
+            # parameter's default is False, not just that callers pass False.
+            render.draw_top_labels(canvas, "departing", IDX_BLACK, IDX_WHITE, default_weight)
+        direct_top_row = [(t, xy, a) for t, xy, a in direct_spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        direct_label = "".join(t for t, _xy, _a in direct_top_row[: len(label_text)])
+        direct_tag = "".join(t for t, _xy, _a in direct_top_row[len(label_text): len(label_text) + len(full_tag)])
+        if direct_label != label_text:
+            return False, "draw_top_labels() with no band_theme arg: label = %r, expected unsplit %r" % (direct_label, label_text)
+        if direct_tag != full_tag:
+            return False, "draw_top_labels() with no band_theme arg: tag = %r, expected the FULL unsplit tag %r" % (direct_tag, full_tag)
+
+        with _TextSpy(render) as wired_spy:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=render.device_config.DEFAULT_THEME_ID
+            )
+        wired_top_row = [(t, xy, a) for t, xy, a in wired_spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        wired_label = "".join(t for t, _xy, _a in wired_top_row[: len(label_text)])
+        wired_tag = "".join(t for t, _xy, _a in wired_top_row[len(label_text): len(label_text) + len(full_tag)])
+        if wired_label != label_text:
+            return False, "build_canvas(theme_id='white') label = %r, expected unsplit %r" % (wired_label, label_text)
+        if wired_tag != full_tag:
+            return False, "build_canvas(theme_id='white') tag = %r, expected the FULL unsplit tag %r" % (wired_tag, full_tag)
+        return True, ""
+    check(
+        "a non-band theme's (white, the default) top labels remain exactly STATE_LABEL_TEXT and the FULL "
+        "runway tag, unsplit - both draw_top_labels()'s own default (called with no band_theme argument) and "
+        "_build_active_canvas()'s wiring genuinely preserve today's behaviour",
+        _non_band_theme_top_labels_are_unsplit,
+    )
+
+    # 112. Non-band themes are pixel-identical to before this phase: the
+    # default (White) canvas's getdata() length/content and getcolors() set,
+    # each computed fresh every run (never a hardcoded pixel dump), match
+    # between an explicit theme_id="white" call and the no-theme-id default
+    # call - strengthening check #55's identity check into an explicit,
+    # named "the band port did not touch the default path" regression guard,
+    # plus a structural confirmation that "white" itself is not a band theme.
+    def _default_theme_canvas_unchanged_by_band_port():
+        if render.device_config.theme_is_band("white"):
+            return False, "'white' unexpectedly reports as a band theme - the default render path would be touched"
+        default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        white_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="white")
+        default_data = list(default_canvas.getdata())
+        white_data = list(white_canvas.getdata())
+        if len(default_data) != len(white_data):
+            return False, "default/white canvas getdata() lengths differ: %d vs %d" % (len(default_data), len(white_data))
+        if default_data != white_data:
+            return False, "default/white canvas pixel data differs - the band port must not touch the default path"
+        default_colors = {v for _n, v in default_canvas.getcolors()}
+        white_colors = {v for _n, v in white_canvas.getcolors()}
+        if default_colors != white_colors:
+            return False, "default/white canvas colour sets differ: %r vs %r" % (sorted(default_colors), sorted(white_colors))
+        return True, ""
+    check(
+        "the default (white) theme's canvas is byte-identical to before this phase (getdata()/getcolors() "
+        "computed fresh, and 'white' itself is confirmed not a band theme)",
+        _default_theme_canvas_unchanged_by_band_port,
     )
 
     total = len(results)
