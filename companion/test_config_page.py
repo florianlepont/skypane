@@ -93,8 +93,14 @@ STARTUP_DEADLINE_S = 10.0
 # count change: the form-class-hook check gained the SETTINGS_FORM_ID
 # assertion in place, and the dirty-bar-nested-inside-form check was
 # inverted wholesale into a dirty-bar-is-sibling-of-form check, both
-# retargeted onto the moved/restyled save bar with no count change).
-EXPECTED_CHECK_COUNT = 57
+# retargeted onto the moved/restyled save bar with no count change) -> 60
+# (Task 3, +3: observed on-disk baseline was 57 before this task; added
+# the one-caption-per-group position-assertion check, the retired-
+# helper/description-symbol source assertion check, and the cross-file
+# CSS DOM contract guard covering .section-caption, the restyled
+# .dirty-bar, fixed-not-sticky positioning, and the 240px must-equal
+# pair).
+EXPECTED_CHECK_COUNT = 60
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -637,6 +643,37 @@ def main():
     check(
         "render() carries THEME_SECTION_CAPTION and RUNWAY_SECTION_CAPTION exactly once each (quick task 260901-re6)",
         _theme_and_runway_section_captions_appear_exactly_once)
+
+    def _each_group_emits_exactly_one_caption_between_heading_and_control():
+        # quick task 260901-re6 Task 3: the direct proof of the merge and
+        # of the position — the check that would have caught this bug.
+        # Calls theme_fieldset()/runway_fieldset()/led_group() directly
+        # and asserts each returns markup with exactly one <p occurrence
+        # and exactly one section-caption occurrence, with the caption's
+        # index falling after the group's </h2> and before the group's
+        # control.
+        theme_rendered = config_page.theme_fieldset("sky")
+        runway_rendered = config_page.runway_fieldset("3")
+        led_rendered = config_page.led_group(True)
+        groups = (
+            ("theme_fieldset()", theme_rendered, "theme-status__row"),
+            ("runway_fieldset()", runway_rendered, "runway-row"),
+            ("led_group()", led_rendered, "led-checkbox"),
+        )
+        for name, rendered, control_marker in groups:
+            if rendered.count("<p") != 1:
+                return False, "expected %s to emit exactly one <p element, got %d" % (name, rendered.count("<p"))
+            if rendered.count("section-caption") != 1:
+                return False, "expected %s to emit exactly one section-caption occurrence, got %d" % (name, rendered.count("section-caption"))
+            heading_close = rendered.index("</h2>")
+            caption_pos = rendered.index("section-caption")
+            control_pos = rendered.index(control_marker)
+            if not (heading_close < caption_pos < control_pos):
+                return False, "expected %s's caption to fall after </h2> and before its control (%r)" % (name, control_marker)
+        return True, ""
+    check(
+        "theme_fieldset()/runway_fieldset()/led_group() each emit exactly one section-caption <p> element, positioned between the group heading and the group control (quick task 260901-re6)",
+        _each_group_emits_exactly_one_caption_between_heading_and_control)
 
     def _bottom_save_button_carries_static_fallback_attr():
         rendered = config_page.render({
@@ -1191,6 +1228,27 @@ def main():
         "handle_led_post (all three retired, D-05)",
         _config_page_exposes_no_retired_led_symbols)
 
+    def _config_page_exposes_no_retired_helper_or_description_symbols():
+        # quick task 260901-re6 Task 3: source assertion that the five
+        # constants retired by Task 1 (THEME_HELPER_TEXT,
+        # THEME_SECTION_DESCRIPTION, RUNWAY_HELPER_TEXT,
+        # RUNWAY_SECTION_DESCRIPTION, LED_HELPER_TEXT) are genuinely gone,
+        # not merely unreferenced — same precedent
+        # _config_page_exposes_no_retired_led_symbols() above set for the
+        # 06.6.4.1-07 LED-route retirement.
+        retired = (
+            "THEME_HELPER_TEXT", "THEME_SECTION_DESCRIPTION",
+            "RUNWAY_HELPER_TEXT", "RUNWAY_SECTION_DESCRIPTION",
+            "LED_HELPER_TEXT")
+        for name in retired:
+            if hasattr(config_page, name):
+                return False, "expected config_page to expose no %r attribute" % name
+        return True, ""
+    check(
+        "companion.pages.config_page exposes none of THEME_HELPER_TEXT/THEME_SECTION_DESCRIPTION/"
+        "RUNWAY_HELPER_TEXT/RUNWAY_SECTION_DESCRIPTION/LED_HELPER_TEXT (all five retired, quick task 260901-re6)",
+        _config_page_exposes_no_retired_helper_or_description_symbols)
+
     # ------------------------------------------------------------------
     # Runway-image existence detection (Task 1, D-03) - each check uses
     # its own tempfile.mkdtemp() image_dir and never touches the real
@@ -1380,6 +1438,59 @@ def main():
     check(
         "style.css declares .theme-status (card-surface token + hover selector), .runway-row (flex display), and .led-checkbox input[type=\"checkbox\"] (cleared min-height) - the selectors config_page.py's new markup depends on",
         _style_css_carries_theme_status_runway_row_and_led_checkbox_selectors)
+
+    def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
+        # quick task 260901-re6 Task 3: the third new cross-file guard,
+        # following the same index-plus-window technique the neighbouring
+        # guards above use (never a regex CSS parser).
+        source = _read_static("style.css")
+
+        # (a) .section-caption declares only the file's existing 70%
+        # muted color-mix idiom.
+        caption_selector = ".section-caption {"
+        if caption_selector not in source:
+            return False, "expected style.css to declare a .section-caption rule"
+        idx = source.index(caption_selector)
+        window = source[idx:idx + 200]
+        if "color-mix(in srgb, var(--color-text) 70%, transparent)" not in window:
+            return False, "expected .section-caption's rule body to carry the 70% color-mix muted idiom"
+
+        # (b) the base (non-media-query) .dirty-bar rule carries the
+        # dominant surface and a top hairline, and no longer carries the
+        # old muted --color-secondary surface.
+        base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
+        if not base_match:
+            return False, "expected a top-level (non-media-query) .dirty-bar rule"
+        base_body = base_match.group(1)
+        if "var(--color-dominant)" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry var(--color-dominant)"
+        if "border-top:" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry a border-top: declaration"
+        if "var(--color-secondary)" in base_body:
+            return False, "expected the base .dirty-bar rule body to no longer carry var(--color-secondary)"
+
+        # (c) the >=960px .dirty-bar rule is fixed, not sticky, and no
+        # .dirty-bar rule body anywhere still says position: sticky.
+        media_match = re.search(r'^  \.dirty-bar \{(.*?)^  \}', source, re.MULTILINE | re.DOTALL)
+        if not media_match:
+            return False, "expected an indented (>=960px media query) .dirty-bar rule"
+        media_body = media_match.group(1)
+        if "position: fixed" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry position: fixed"
+        if "position: sticky" in base_body or "position: sticky" in media_body:
+            return False, "expected no .dirty-bar rule body to carry position: sticky anywhere"
+
+        # (d) the 240px literal the fixed rule's left uses still equals
+        # .dashboard-shell's grid-template-columns first track - a
+        # duplicated-not-imported must-equal pair with no shared token.
+        if "grid-template-columns: 240px" not in source:
+            return False, "expected style.css to declare grid-template-columns: 240px on .dashboard-shell"
+        if "calc(240px + var(--space-xl))" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule's left offset to be calc(240px + var(--space-xl))"
+        return True, ""
+    check(
+        "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar (dominant surface, top hairline, no --color-secondary), the fixed-not-sticky >=960px .dirty-bar rule, and the 240px<->grid-template-columns must-equal pair (quick task 260901-re6)",
+        _style_css_carries_section_caption_and_restyled_fixed_dirty_bar)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
         source = _read_static("dirty-state.js")
