@@ -72,7 +72,13 @@ STARTUP_DEADLINE_S = 10.0
 # pill checks x3, corroboration-disclosure checks x2)
 # 64 + 3 (06.6.4.1-04 Task 2: sparkline axis-label check, seeded-readout
 # check, single-reading-still-no-chart regression guard)
-EXPECTED_CHECK_COUNT = 67  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 67 + 5 (06.6.4.1-04 Task 3: Server & data grid/migrated-cards check,
+# Resolution-rate tile check, registry-card filter/note/Clear check,
+# migrated-cards failure-isolation check, _read_health_inputs() no-new-
+# key source assertion) — the old dashboard-grid/Overview check was
+# retargeted in place onto the new two-section heading structure, not
+# counted as new
+EXPECTED_CHECK_COUNT = 72  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -349,14 +355,16 @@ def main():
             non_healthy = rendered.count("dot--warn") + rendered.count("dot--error")
             if non_healthy != 1:
                 return False, "expected exactly one warn/error status class, got %d" % non_healthy
-            # Two healthy dots are expected here: the fresh pipeline's, and
+            # Three healthy dots are expected here: the fresh pipeline's,
             # the Battery badge's (D-01) — a single seeded reading has no
             # consecutive pair to compare, so battery_status() correctly
-            # returns "ok".
-            if rendered.count("dot--ok") != 2:
+            # returns "ok" — and the migrated registry card's own Coverage
+            # dot (06.6.4.1-04, D-11), "ok" since this fixture seeds no
+            # registry entries.
+            if rendered.count("dot--ok") != 3:
                 return False, (
-                    "expected exactly two healthy status classes "
-                    "(pipeline + battery badge), got %d" % rendered.count("dot--ok"))
+                    "expected exactly three healthy status classes "
+                    "(pipeline + battery badge + registry coverage), got %d" % rendered.count("dot--ok"))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -739,9 +747,12 @@ def main():
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
             if health_page.BATTERY_STATUS_LABEL not in rendered:
                 return False, "expected the battery status badge label to appear"
-            # Three healthy dots: device, pipeline (both fresh) and battery.
-            if rendered.count("dot--ok") != 3:
-                return False, "expected exactly three healthy status classes, got %d" % rendered.count("dot--ok")
+            # Four healthy dots: device, pipeline, battery (all fresh), and
+            # the migrated registry card's own Coverage dot (06.6.4.1-04,
+            # D-11) — "ok" here since this fixture seeds no registry
+            # entries, so the empty registry reads as no coverage gaps.
+            if rendered.count("dot--ok") != 4:
+                return False, "expected exactly four healthy status classes, got %d" % rendered.count("dot--ok")
             if "dot--warn" in rendered or "dot--error" in rendered:
                 return False, "did not expect any non-healthy status class in this fixture"
             return True, ""
@@ -1295,42 +1306,219 @@ def main():
         "Health opens with the shared layout.page_header() component, not a bare <h1>",
         _health_page_opens_with_shared_page_header)
 
-    def _health_page_renders_one_dashboard_grid_of_three_tiles_plus_battery_section():
-        tmp = _mkstate("h-dashboard-grid")
+    def _health_page_two_id_anchored_sections_correct_order_no_overview():
+        # 06.6.4.1-04 (D-10): Health's body is now two id-anchored
+        # sections, Screen then Server & data, replacing the single
+        # "Overview" heading + one dashboard-grid shape.
+        tmp = _mkstate("h-two-sections")
         try:
             now = _now()
             _seed_device_health(tmp, [(_iso(now), 4200)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if rendered.count('<div class="dashboard-grid">') != 1:
-                return False, (
-                    "expected exactly one dashboard-grid div, got %d"
-                    % rendered.count('<div class="dashboard-grid">'))
-            if rendered.count('class="stat-tile') != 3:
-                return False, (
-                    "expected exactly three stat-tile occurrences, got %d"
-                    % rendered.count('class="stat-tile'))
-            if rendered.count(">Overview<") != 1:
-                return False, (
-                    "expected exactly one Overview group heading, got %d"
-                    % rendered.count(">Overview<"))
-            if 'class="page-section"' in rendered:
-                return False, "did not expect any page-section from the four signal sections"
+            if rendered.count(">Overview<") != 0:
+                return False, "expected the old 'Overview' heading to be gone"
+            screen_heading = '<h2 id="%s" class="text-heading">%s</h2>' % (
+                health_page.SCREEN_SECTION_ID, health_page.SCREEN_SECTION_HEADING)
+            server_data_heading = '<h2 id="%s" class="text-heading">%s</h2>' % (
+                health_page.SERVER_DATA_SECTION_ID,
+                layout.escape_html(health_page.SERVER_DATA_SECTION_HEADING))
+            if screen_heading not in rendered:
+                return False, "expected the Screen section's id-anchored <h2>"
+            if server_data_heading not in rendered:
+                return False, "expected the Server & data section's id-anchored <h2>"
+            if rendered.index(screen_heading) >= rendered.index(server_data_heading):
+                return False, "expected the Screen section to precede the Server & data section"
+            if rendered.count('<h2 id="') != 2:
+                return False, "expected exactly two id-anchored <h2> elements"
             if rendered.count(health_page.BATTERY_SECTION_CLASS) != 1:
                 return False, (
                     "expected exactly one battery-trend section, got %d"
                     % rendered.count(health_page.BATTERY_SECTION_CLASS))
-            grid_close_index = rendered.index('<div class="dashboard-grid">') + rendered[
-                rendered.index('<div class="dashboard-grid">'):].index("</div>")
-            if rendered.index(health_page.BATTERY_SECTION_CLASS) <= grid_close_index:
-                return False, "expected the battery-trend section to follow the dashboard-grid, not precede/overlap it"
+            if rendered.index(health_page.BATTERY_SECTION_CLASS) <= rendered.index(screen_heading):
+                return False, "expected the battery-trend section to follow the Screen heading"
+            if rendered.index(health_page.BATTERY_SECTION_CLASS) >= rendered.index(server_data_heading):
+                return False, "expected the battery-trend section to stay inside the Screen section, before Server & data"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a healthy fixture renders one dashboard-grid with exactly three stat tiles under one Overview heading, "
-        "plus a positioned battery-trend section after it",
-        _health_page_renders_one_dashboard_grid_of_three_tiles_plus_battery_section)
+        "Health's body is two id-anchored sections (Screen, then Server & data), and the old 'Overview' heading "
+        "is gone (D-10)",
+        _health_page_two_id_anchored_sections_correct_order_no_overview)
+
+    def _server_data_grid_holds_three_tiles_migrated_cards_outside_grid():
+        tmp = _mkstate("h-server-data-grid")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            registry = {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now), "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            events = [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}]
+            _seed_runway_events(tmp, events)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if rendered.count('<div class="dashboard-grid">') != 1:
+                return False, "expected exactly one dashboard-grid div"
+            # Trailing space distinguishes a stat-tile wrapper div's own
+            # class attribute (always "stat-tile <modifier>") from the
+            # Resolution-rate tile's inner <p class="stat-tile__value">
+            # figure, which this fixture's 100%-resolved stats also emit.
+            if rendered.count('class="stat-tile ') != 4:
+                return False, (
+                    "expected exactly four stat-tile occurrences (Device standalone + "
+                    "Pipeline/Corroboration/Resolution-rate in the grid), got %d"
+                    % rendered.count('class="stat-tile '))
+            grid_open = rendered.index('<div class="dashboard-grid">')
+            first_section_open = rendered.index('<section class="page-section">')
+            if first_section_open <= grid_open:
+                return False, "expected the first migrated page-section card to follow the dashboard-grid"
+            grid_slice = rendered[grid_open:first_section_open]
+            if grid_slice.count('class="stat-tile ') != 3:
+                return False, (
+                    "expected exactly three stat-tile occurrences inside the dashboard-grid, got %d"
+                    % grid_slice.count('class="stat-tile '))
+            if health_page.UNRESOLVED_SECTION_HEADING in grid_slice:
+                return False, "the Unresolved-prefixes card must not appear inside the dashboard-grid"
+            if health_page.STATS_SECTION_HEADING in grid_slice:
+                return False, "the Resolution-statistics card must not appear inside the dashboard-grid"
+            if rendered.count('<section class="page-section">') != 2:
+                return False, "expected exactly two page-section cards (registry + stats)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Server & data dashboard-grid holds exactly three stat tiles, and the two migrated cards render as "
+        "page-section elements outside it (D-11)",
+        _server_data_grid_holds_three_tiles_migrated_cards_outside_grid)
+
+    def _resolution_rate_tile_renders_percentage_and_window():
+        tmp = _mkstate("h-resolution-rate-tile")
+        try:
+            now = _now()
+            events = []
+            for source in ("fresh_hit", "fresh_hit", "cache_hit", "miss"):
+                events.append({"ts": _iso(now), "hex": "abc123", "route_source": source})
+            _seed_runway_events(tmp, events)
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if health_page.RESOLUTION_RATE_LABEL not in rendered:
+                return False, "expected the Resolution rate tile's caption"
+            if "75.0%" not in rendered:
+                return False, "expected the resolved percentage in the tile's stat-tile__value"
+            if ("over the last %d days, 4 events" % health_page.RESOLUTION_WINDOW_DAYS) not in rendered:
+                return False, "expected the window/event-count text-label line"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        tmp_empty = _mkstate("h-resolution-rate-tile-empty")
+        try:
+            rendered_empty = health_page.render(_ctx(tmp_empty))
+            if health_page._NO_STATS_HEADING not in rendered_empty:
+                return False, "expected the no-stats empty-state heading with zero resolution history"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_empty, ignore_errors=True)
+    check(
+        "the Resolution-rate tile renders the resolved percentage and the window/event-count line for a seeded "
+        "fixture, and the no-stats empty state for an empty one (D-10/D-11)",
+        _resolution_rate_tile_renders_percentage_and_window)
+
+    def _registry_card_keeps_filter_bar_note_and_non_button_clear():
+        tmp = _mkstate("h-registry-card")
+        try:
+            registry = {
+                "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            rendered = health_page.render(_ctx(tmp))
+            for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
+                if marker not in rendered:
+                    return False, "expected the migrated filter bar's %r marker to survive the move" % marker
+            if health_page._READ_ONLY_NOTE not in rendered:
+                return False, "expected the read-only note to survive the move verbatim"
+            section_start = rendered.index(
+                '<h2 class="text-heading">%s</h2>' % health_page.UNRESOLVED_SECTION_HEADING)
+            section_slice = rendered[section_start:section_start + 4000]
+            if "<button" in section_slice:
+                return False, "the migrated registry card's Clear control must not be a <button>"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the migrated Unresolved-prefixes card keeps its filter bar, read-only note, and non-button Clear "
+        "control (D-12)",
+        _registry_card_keeps_filter_bar_note_and_non_button_clear)
+
+    def _migrated_cards_have_independent_failure_isolation():
+        # D-11: the registry read (poll_loop.load_poll_state(), a
+        # filesystem/JSON failure mode) and the stats read
+        # (_safe_query(), a SQLite failure mode) must degrade
+        # independently — corrupting one source must never take down
+        # the other card.
+        tmp_db_broken = _mkstate("h-isolation-db-broken")
+        try:
+            with history_db.open_db(tmp_db_broken):
+                pass
+            dbs = [f for f in os.listdir(tmp_db_broken) if f.endswith(".db")]
+            if not dbs:
+                return False, "expected a database file to have been created"
+            with open(os.path.join(tmp_db_broken, dbs[0]), "wb") as fh:
+                fh.write(b"not a sqlite file at all")
+            _seed_unresolved_prefixes(tmp_db_broken, {
+                "ABC": {"count": 2, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
+            })
+            rendered = health_page.render(_ctx(tmp_db_broken))
+            if "ABC" not in rendered:
+                return False, "expected the registry rows to still render when only the database is broken"
+            if health_page.HEALTH_UNAVAILABLE_TEXT not in rendered:
+                return False, "expected the stats card to show the unavailable copy when the database is broken"
+        finally:
+            shutil.rmtree(tmp_db_broken, ignore_errors=True)
+
+        tmp_registry_broken = _mkstate("h-isolation-registry-broken")
+        try:
+            now = _now()
+            events = [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}]
+            _seed_runway_events(tmp_registry_broken, events)
+            poll_state_path = os.path.join(tmp_registry_broken, "poll_state.json")
+            with open(poll_state_path, "w") as fh:
+                fh.write("not valid json {")
+            rendered = health_page.render(_ctx(tmp_registry_broken, now=_iso(now)))
+            if "100.0% resolved" not in rendered:
+                return False, "expected the resolution-rate stats to still render when only the registry file is malformed"
+            if health_page._NO_GAPS_HEADING not in rendered:
+                return False, "expected the registry to degrade to its empty/no-gaps state, not crash the page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_registry_broken, ignore_errors=True)
+    check(
+        "corrupting only the database leaves the registry card rendering while the stats card degrades, and "
+        "vice versa (D-11)",
+        _migrated_cards_have_independent_failure_isolation)
+
+    def _read_health_inputs_gained_no_new_key():
+        # D-11 source assertion: the migrated registry/stats reads must
+        # stay their own independent calls in render(), never folded
+        # into _read_health_inputs()'s single dict.
+        tmp = _mkstate("h-inputs-keys")
+        try:
+            inputs = health_page._read_health_inputs(tmp, _iso(_now()))
+            expected_keys = {
+                "device_health", "pipeline_ts", "source_fault_raw",
+                "trend_rows", "corroboration_counts",
+            }
+            if set(inputs.keys()) != expected_keys:
+                return False, (
+                    "expected _read_health_inputs() to keep exactly its original five keys, got %r"
+                    % (set(inputs.keys()),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_read_health_inputs() gained no new key — the migrated registry/stats reads are separate calls in "
+        "render() (D-11)",
+        _read_health_inputs_gained_no_new_key)
 
     def _battery_section_keeps_everything_after_the_move():
         tmp = _mkstate("h-battery-section-intact")
@@ -1352,11 +1540,15 @@ def main():
                 return False, "expected exactly one <script occurrence, got %d" % rendered.count("<script")
             if health_page.BATTERY_TREND_SCRIPT_SRC not in rendered:
                 return False, "expected BATTERY_TREND_SCRIPT_SRC in the rendered <script src>"
-            # Slice to the battery section's own boundaries — the three
-            # surviving tiles would make a whole-page "no stat-tile"
-            # search trivially fail.
+            # Slice to the battery section's own boundaries (its own
+            # matching </section>, not "rest of the page") — the
+            # surviving tiles elsewhere on the page (06.6.4.1-04: now
+            # including the Server & data section that follows this one)
+            # would otherwise make a whole-tail "no stat-tile" search
+            # trivially fail.
             section_start = rendered.index('<section class="%s">' % health_page.BATTERY_SECTION_CLASS)
-            section_html = rendered[section_start:]
+            section_end = rendered.index("</section>", section_start) + len("</section>")
+            section_html = rendered[section_start:section_end]
             if "stat-tile" in section_html:
                 return False, "the battery-trend section must carry no stat-tile class"
             return True, ""

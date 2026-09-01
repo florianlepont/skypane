@@ -3,12 +3,22 @@ CFG-05's landing context (the on-device fault icon's redirect target),
 06-CONTEXT.md.
 
 Completed by plan 06-08. Imports `server.history_db`, `server.poll_loop`
-(for `load_poll_state`, exposed but not currently needed on this page —
-kept for parity with the module's documented import contract) and
-`companion.layout` only; every dynamic value reaches HTML through
-`companion.layout.escape_html()` or one of its escaping component
-builders, matching the single-escaping-choke-point discipline
-`companion/pages/__init__.py` documents.
+(for `load_poll_state`) and `companion.layout` only; every dynamic value
+reaches HTML through `companion.layout.escape_html()` or one of its
+escaping component builders, matching the single-escaping-choke-point
+discipline `companion/pages/__init__.py` documents.
+
+06.6.4.1-04 (D-10/D-11/D-12): this page's body is now two id-anchored
+sections, "Screen" and "Server & data" — the latter absorbing CFG-04's
+unresolved-callsign-prefix registry and CFG-08's resolution-statistics
+breakdown, migrated in verbatim from `companion/pages/airlines_page.py`
+(that page keeps its own copy for exactly one wave; a later plan removes
+it there). The migrated registry read (`poll_loop.load_poll_state()`, a
+filesystem/JSON failure mode) and the migrated stats read
+(`_safe_query()`, a SQLite failure mode) are deliberately kept as their
+own independent calls in `render()`, never folded into
+`_read_health_inputs()`'s single dict — so one failing source degrades
+only its own card, exactly as it did on the page it came from.
 
 Two independent freshness signals (D-12, 06-RESEARCH.md Open Question 2):
 "the device last checked in" and "the ADS-B pipeline last ran" are
@@ -34,12 +44,15 @@ import a page module, the constraint `companion/pages/__init__.py`
 states.
 """
 import sqlite3
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from companion.layout import escape_html
 import companion.layout as layout
 from server import history_db
-import server.poll_loop as poll_loop  # noqa: F401 — exposed per this module's documented import contract.
+import server.poll_loop as poll_loop  # 06.6.4.1-04 (D-11): the migrated
+# unresolved_rows() below now genuinely reads through this module's own
+# load_poll_state() — the "exposed but not currently needed" note this
+# import used to carry no longer applies.
 
 HEALTH_UNAVAILABLE_TEXT = (
     "Health history is temporarily unavailable — check the companion "
@@ -201,6 +214,74 @@ ICON_DEVICE = "icon-device"
 ICON_PIPELINE = "icon-pipeline"
 ICON_CORROBORATION = "icon-corroboration"
 ICON_BATTERY = "icon-battery"
+
+# --- 06.6.4.1-04 (D-10): the two id-anchored sections Health's body is
+# now split into. SERVER_DATA_SECTION_ID is a cross-page coupling:
+# companion/pages/history_page.py links to this exact anchor (#server-data)
+# for D-21 — renaming it silently breaks that link. This is the one
+# cross-page coupling this phase introduces.
+SCREEN_SECTION_ID = "screen"
+SCREEN_SECTION_HEADING = "Screen"
+SERVER_DATA_SECTION_ID = "server-data"
+SERVER_DATA_SECTION_HEADING = "Server & data"
+RESOLUTION_RATE_LABEL = "Resolution rate"
+UNRESOLVED_SECTION_HEADING = "Unresolved prefixes"
+STATS_SECTION_HEADING = "Resolution statistics"
+
+# --- 06.6.4.1-04 (D-11/D-12): CFG-04's unresolved-prefix registry and
+# CFG-08's resolution-statistics breakdown, migrated verbatim from
+# companion/pages/airlines_page.py — that page keeps its own copy for
+# exactly one wave (plan 06 removes it there next), so for one wave both
+# pages render this content. Every constant/function body below is
+# copied unchanged in logic; only the module they live in changes.
+
+_NO_GAPS_HEADING = "No coverage gaps."
+_NO_GAPS_BODY = (
+    "No unresolved callsign prefixes — airline coverage looks complete.")
+
+_READ_ONLY_NOTE = (
+    "This list is read-only by design — resolving a prefix is a manual "
+    "step done elsewhere, following the existing coverage-gap runbook.")
+
+_NO_STATS_HEADING = "No resolution data yet."
+_NO_STATS_BODY = (
+    "No flight events recorded yet — resolution statistics appear once "
+    "the ADS-B pipeline has detected a flight.")
+
+RESOLUTION_WINDOW_DAYS = 30  # A month is long enough to smooth over a
+# quiet week at this single-airport traffic volume, while still reading
+# as "recent" for a resolution-rate figure.
+
+# The four categories server/plane/enrich.py's resolve_route() documents,
+# in a fixed display order, with a plain-English gloss for each so this
+# page is readable without the source code (D-05/quick-task 260827-hyy).
+_SOURCE_ROWS = (
+    ("fresh_hit", "Fresh lookup",
+     "A live adsbdb lookup resolved a full route this cycle."),
+    ("cache_hit", "Cached hit",
+     "A previously-cached route was reused, sparing a network request."),
+    ("airline_only", "Airline only",
+     "adsbdb had no route, but the callsign's ICAO prefix identified the "
+     "airline from the static prefix table."),
+    ("miss", "Miss",
+     "Neither adsbdb nor the static prefix table resolved anything for "
+     "this callsign — this is exactly what CFG-04's registry above "
+     "tracks."),
+)
+
+# D-20: the filter bar's copy (06.6.3-UI-SPEC.md's Copywriting Contract),
+# driven client-side by companion/static/list-filter.js's shared
+# [data-filter-input]/[data-filter-count]/[data-filter-clear]/
+# [data-filter-empty] attribute contract. Kept byte-identical to
+# airlines_page.py's own constants, including the "airlines-" id prefix —
+# D-12 says the registry card's content and behaviour are unchanged by
+# this move, and list-filter.js keys on the data-filter-* attributes, not
+# on the element's id string.
+_FILTER_INPUT_ID = "airlines-filter-input"
+_FILTER_LABEL_TEXT = "Filter by prefix"
+_FILTER_EMPTY_HEADING = "No matching prefixes"
+_FILTER_EMPTY_BODY_TEMPLATE = (
+    "Try a different search, or Clear filter to see all %d prefixes.")
 
 _DB_UNAVAILABLE = object()  # sentinel distinguishing "query raised" from
 # "query succeeded and legitimately returned None/empty" (e.g. no rows
@@ -983,6 +1064,236 @@ def _source_fault_block(source_fault_raw):
     ) % (escape_html(SOURCE_FAULT_HEADING), escape_html(SOURCE_FAULT_BODY))
 
 
+# --- 06.6.4.1-04 (D-11/D-12): migrated Unresolved-prefixes registry
+# (CFG-04) and Resolution-statistics breakdown (CFG-08) — copied
+# verbatim (in logic) from companion/pages/airlines_page.py. D-11
+# explicitly warns against folding either read into
+# _read_health_inputs()'s single dict: the registry read below goes
+# through poll_loop.load_poll_state() (a filesystem/JSON failure mode,
+# never a _safe_query() call), and the stats read goes through this
+# module's own _safe_query() (a SQLite failure mode) — render() calls
+# both independently so one failing source degrades only its own card.
+
+
+def unresolved_rows(state_dir):
+    """The CFG-04 registry as a sorted list of
+    `(prefix, count, first_seen, last_seen, example_callsign)` tuples,
+    read through `server.poll_loop.load_poll_state()`'s own
+    `unresolved_prefixes` key — never a direct file open, never a
+    re-derivation of `server/plane/enrich.py`'s own registry-writer's
+    shape logic.
+
+    Sorted by count descending, then prefix ascending, so the render
+    order is deterministic regardless of dict insertion order.
+
+    A registry entry whose value is not a dict, or whose `count` is not
+    an int, is skipped rather than raising — the registry is written by
+    production code but is also documented as hand-editable, so a bad
+    edit must degrade gracefully, not crash the page.
+    """
+    state = poll_loop.load_poll_state(state_dir)
+    registry = state.get("unresolved_prefixes")
+    if not isinstance(registry, dict):
+        return []
+
+    rows = []
+    for prefix, entry in registry.items():
+        if not isinstance(entry, dict):
+            continue
+        count = entry.get("count")
+        if not isinstance(count, int) or isinstance(count, bool):
+            continue
+        rows.append((
+            prefix,
+            count,
+            entry.get("first_seen") or "",
+            entry.get("last_seen") or "",
+            entry.get("example_callsign") or "",
+        ))
+    rows.sort(key=lambda row: (-row[1], row[0]))
+    return rows
+
+
+def coverage_status(rows):
+    """`"ok"` when the registry is empty (no coverage gaps), `"warn"`
+    when it has any entries — CFG-04's summary status dot.
+    """
+    return "ok" if not rows else "warn"
+
+
+def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
+    """CFG-08's windowed resolution-rate breakdown: `history_db.
+    route_source_counts()` bounded to the last `window_days`, mapped
+    onto the four documented `enrich.resolve_route()` categories.
+
+    The resolved percentage is the share of entries that produced any
+    usable airline or route — i.e. everything except `"miss"` — matching
+    the plan's own definition of "resolved" rather than a literal
+    full-route-only figure. Phase 2 measured this at roughly 52.6% real
+    traffic (server/plane/enrich.py's own docstring / 03.1 provenance),
+    so a figure in that region is an expected outcome, not a defect.
+
+    Returns `{"rows": [...], "total": N, "resolved_pct": float_or_None}`;
+    `resolved_pct` is `None` (and `rows` is empty) when `total` is zero —
+    guards the caller against a division by zero without it needing to
+    check separately.
+    """
+    now_dt = now or datetime.now(timezone.utc)
+    since = (now_dt - timedelta(days=window_days)).isoformat(timespec="seconds")
+    counts = history_db.route_source_counts(conn, since=since)
+
+    total = sum(counts.get(source, 0) for source, _label, _gloss in _SOURCE_ROWS)
+    if total == 0:
+        return {"rows": [], "total": 0, "resolved_pct": None}
+
+    resolved = total - counts.get("miss", 0)
+    resolved_pct = round((resolved / total) * 100, 1)
+    rows = [
+        (label, gloss, counts.get(source, 0))
+        for source, label, gloss in _SOURCE_ROWS
+    ]
+    return {"rows": rows, "total": total, "resolved_pct": resolved_pct}
+
+
+def _registry_filter_bar_html(total):
+    """D-20's filter bar over the unresolved-prefix registry, only ever
+    rendered when there is data to filter (matches `_registry_section()`'s
+    own "no chrome with no data" rule, same as History's precedent).
+
+    D-16 forbids a `<button>` element anywhere on the page this content
+    originated from — the clear control is therefore a plain link
+    element pointing at the filter input's own id rather than a
+    submit-type button. `companion/static/list-filter.js`'s
+    click-listener attachment (`document.querySelector
+    ("[data-filter-clear]")`) does not care which element carries the
+    attribute, and a fragment link to the input both scrolls to and
+    (per standard browser fragment-navigation behaviour) focuses it in
+    one action — a small UX bonus (ready to type the next query) that
+    also needs zero new CSS beyond the already-shipped `.filter-bar`
+    rules.
+    """
+    count_text = "%d of %d shown" % (total, total)
+    empty_body = _FILTER_EMPTY_BODY_TEMPLATE % total
+    return (
+        '<div class="filter-bar">'
+        '<label class="text-label" for="%s">%s</label>'
+        '<div class="filter-bar__field">'
+        "%s"
+        '<input type="search" id="%s" data-filter-input>'
+        "</div>"
+        '<span class="filter-bar__count" data-filter-count>%s</span>'
+        '<a href="#%s" data-filter-clear>Clear</a>'
+        "</div>"
+        '<div class="empty-state" data-filter-empty hidden>'
+        '<p class="empty-state__heading text-heading">%s</p>'
+        '<p class="empty-state__body text-body">%s</p>'
+        "</div>"
+    ) % (
+        _FILTER_INPUT_ID, escape_html(_FILTER_LABEL_TEXT),
+        layout.icon_html("icon-search"),
+        _FILTER_INPUT_ID,
+        escape_html(count_text),
+        _FILTER_INPUT_ID,
+        escape_html(_FILTER_EMPTY_HEADING),
+        escape_html(empty_body),
+    )
+
+
+def _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now):
+    """One `<tr>` for the unresolved-prefix registry table. First seen/
+    Last seen switch to `layout.concise_timestamp_html()` (D-09) — its
+    return value is already-safe markup and is interpolated verbatim,
+    never re-escaped, matching this module's single-escaping-choke-point
+    discipline for every other cell. `data-filter-text` (D-20/
+    T-06.6.3-12) carries the lowercased prefix, escaped before
+    interpolation into the attribute.
+    """
+    row_class = "row-alt" if index % 2 else "row"
+    first_seen_html = layout.concise_timestamp_html(first_seen, now, fallback="")
+    last_seen_html = layout.concise_timestamp_html(last_seen, now, fallback="")
+    cells = (
+        '<td class="mono">%s</td>' % escape_html(prefix),
+        "<td>%s</td>" % escape_html(count),
+        "<td>%s</td>" % first_seen_html,
+        "<td>%s</td>" % last_seen_html,
+        '<td class="mono">%s</td>' % escape_html(example_callsign),
+    )
+    filter_text = escape_html(prefix.lower() if isinstance(prefix, str) else str(prefix).lower())
+    # data-filter-group: this card has only one representation per row
+    # (no mobile-card pairing like History), but list-filter.js counts
+    # distinct groups rather than raw elements, so every filterable row
+    # must still carry one.
+    return '<tr class="%s" data-filter-text="%s" data-filter-group="%d">%s</tr>' % (
+        row_class, filter_text, index, "".join(cells))
+
+
+def _registry_table_html(rows, now):
+    """The unresolved-prefix registry table, hand-rolled (not via
+    `layout.data_table()`) so each row can carry its own `data-filter-
+    text` attribute — `data_table()` has no per-row attribute hook, and
+    extending it with one would touch that builder's other call sites
+    for no benefit to any of them. This mirrors
+    `companion/pages/history_page.py::_history_table_html()`'s own
+    precedent for exactly the same reason, matching `data_table()`'s CSS
+    classes exactly for visual consistency.
+    """
+    headers = ("Prefix", "Count", "First seen", "Last seen", "Example callsign")
+    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in headers)
+    body_rows = [
+        _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now)
+        for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows)
+    ]
+    return (
+        '<div class="data-table-wrap">'
+        '<table class="data-table">'
+        "<thead><tr>%s</tr></thead>"
+        "<tbody>%s</tbody>"
+        "</table>"
+        "</div>"
+    ) % (header_cells, "".join(body_rows))
+
+
+def _registry_section(rows, now):
+    status_html = layout.status_dot(coverage_status(rows), "Coverage")
+    note_html = '<p class="text-body">%s</p>' % escape_html(_READ_ONLY_NOTE)
+    header_html = '<p class="text-body">%s</p>' % status_html + note_html
+
+    if not rows:
+        return header_html + layout.empty_state(_NO_GAPS_HEADING, _NO_GAPS_BODY)
+
+    filter_html = _registry_filter_bar_html(len(rows))
+    table_html = _registry_table_html(rows, now)
+    return header_html + filter_html + table_html
+
+
+def _stats_table_html(stats):
+    """The resolution-statistics breakdown table. Returns the empty
+    string when there is nothing to show (no data yet, or the database
+    is unavailable) — `_resolution_rate_tile_html()` already carries
+    that message once, and this card must not repeat it.
+    """
+    if stats is _DB_UNAVAILABLE or stats["total"] == 0:
+        return ""
+    return layout.data_table(["Source", "Description", "Count"], stats["rows"])
+
+
+def _resolution_rate_tile_html(stats):
+    """The Resolution-rate `stat_tile()`'s content (UI-SPEC §5.5) — the
+    same two-line "figure" half the old Airlines page's promoted
+    headline built (`_resolved_headline_html()`, `airlines_page.py`
+    L292-313), reused verbatim rather than reworded, now living inside a
+    `stat_tile()` card instead of a bare page-header slot.
+    """
+    if stats is _DB_UNAVAILABLE:
+        return _unavailable_block()
+    if stats["total"] == 0:
+        return layout.empty_state(_NO_STATS_HEADING, _NO_STATS_BODY)
+    return (
+        '<p class="stat-tile__value">%.1f%% resolved</p>'
+        '<p class="text-label">over the last %d days, %d events</p>'
+    ) % (stats["resolved_pct"], RESOLUTION_WINDOW_DAYS, stats["total"])
+
+
 def _read_health_inputs(state_dir, now):
     """The five `_safe_query()` reads `render()` and `anomaly_active()`
     both need, single-sourced into one dict.
@@ -1050,17 +1361,30 @@ def render(ctx):
     banner_html = (
         _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
 
-    # battery_state is still consumed below (collect_anomalies() still
+    # D-11: the migrated registry/stats reads are their own independent
+    # calls here, deliberately NOT folded into _read_health_inputs()'s
+    # single dict — the registry read is a filesystem/JSON failure mode
+    # (poll_loop.load_poll_state(), inside unresolved_rows()), the stats
+    # read is a SQLite failure mode (_safe_query()); merging them would
+    # make one query's failure take down a card that used to fail
+    # independently on the page it came from.
+    registry_rows = unresolved_rows(state_dir)
+    stats = _safe_query(
+        state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
+
+    device_tile_html = layout.stat_tile(
+        DEVICE_FRESHNESS_LABEL, device_html, device_state, icon=ICON_DEVICE)
+
+    # battery_state is still consumed above (collect_anomalies() still
     # takes it) — it just no longer paints a stat-tile border, since the
-    # battery-trend chart moved out of this grid entirely (D-02).
-    tiles_html = (
+    # battery-trend chart is a page section, not a tile (D-02).
+    server_data_tiles_html = (
         layout.stat_tile(
-            DEVICE_FRESHNESS_LABEL, device_html, device_state, icon=ICON_DEVICE)
-        + layout.stat_tile(
             PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state, icon=ICON_PIPELINE)
         + layout.stat_tile(
             "Corroboration", corroboration_html,
             "warn" if disagreement_warn else "ok", icon=ICON_CORROBORATION)
+        + layout.stat_tile(RESOLUTION_RATE_LABEL, _resolution_rate_tile_html(stats), None)
     )
 
     # D-12: an explicit Refresh action (a plain link/reload, no JS
@@ -1073,12 +1397,35 @@ def render(ctx):
         '<a href="/health" class="freshness-refresh" data-loaded-at="%s">%sRefresh</a>'
         % (escape_html(now), layout.icon_html("icon-refresh")))
 
+    # §5.2 (D-10): two id-anchored sections. Screen holds the
+    # Device-freshness tile standalone (no dashboard-grid wrapper — a
+    # single-tile grid row and a bare block-level tile render
+    # identically at full column width) plus the battery-trend section,
+    # exactly where it sat before. Server & data holds the three-tile
+    # grid, then the two migrated full-width cards (D-11: .page-section,
+    # never .stat-tile/.dashboard-grid — that container swap is the fix
+    # for the wide-table-in-a-240px-track failure mode).
+    screen_section_html = (
+        '<h2 id="%s" class="text-heading">%s</h2>'
+        % (SCREEN_SECTION_ID, escape_html(SCREEN_SECTION_HEADING))
+        + device_tile_html
+        + _battery_trend_section_html(battery_html)
+    )
+    server_data_section_html = (
+        '<h2 id="%s" class="text-heading">%s</h2>'
+        % (SERVER_DATA_SECTION_ID, escape_html(SERVER_DATA_SECTION_HEADING))
+        + '<div class="dashboard-grid">' + server_data_tiles_html + '</div>'
+        + '<section class="page-section"><h2 class="text-heading">%s</h2>%s</section>' % (
+            escape_html(UNRESOLVED_SECTION_HEADING), _registry_section(registry_rows, now))
+        + '<section class="page-section"><h2 class="text-heading">%s</h2>%s</section>' % (
+            escape_html(STATS_SECTION_HEADING), _stats_table_html(stats))
+    )
+
     return (
         layout.page_header("Health", freshness_html=freshness_html)
         + _STALE_VIEW_BANNER_HTML
         + _source_fault_block(source_fault_raw)
         + banner_html
-        + '<h2 class="text-heading">Overview</h2>'
-        + '<div class="dashboard-grid">' + tiles_html + '</div>'
-        + _battery_trend_section_html(battery_html)
+        + screen_section_html
+        + server_data_section_html
     )
