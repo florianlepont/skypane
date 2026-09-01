@@ -1606,7 +1606,13 @@ def main():
                     "section's dashboard-grid, got %d"
                     % screen_grid_slice.count('class="stat-tile '))
 
-            first_section_open = rendered.index('<section class="page-section">')
+            # quick task 260901-uzi (finding 4): both migrated cards now
+            # carry an additive `page-section--nested` modifier, so the
+            # bare `'<section class="page-section">'` literal this check
+            # used to key on no longer matches either — retargeted onto
+            # the modifier-bearing literal below.
+            first_section_open = rendered.index(
+                '<section class="page-section page-section--nested">')
             if first_section_open <= server_data_grid_open:
                 return False, (
                     "expected the first migrated page-section card to follow the "
@@ -1620,14 +1626,24 @@ def main():
                 return False, "the Unresolved-prefixes card must not appear inside the dashboard-grid"
             if health_page.STATS_SECTION_HEADING in grid_slice:
                 return False, "the Resolution-statistics card must not appear inside the dashboard-grid"
-            if rendered.count('<section class="page-section">') != 2:
-                return False, "expected exactly two page-section cards (registry + stats)"
+            if rendered.count('<section class="page-section page-section--nested">') != 2:
+                return False, "expected exactly two nested page-section cards (registry + stats)"
+            # The new invariant part B introduces: the source-fault
+            # block's own page-section (rendered only when
+            # META_SOURCE_FAULT is set, not seeded by this fixture) must
+            # never carry the nested modifier — checked unconditionally
+            # against the whole page rather than gated on the fixture,
+            # since the modifier-bearing count assertion above already
+            # proves no OTHER page-section carries it either.
+            if 'class="page-section banner banner--anomaly page-section--nested"' in rendered:
+                return False, "the source-fault block must never carry the nested modifier"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the Screen section's dashboard-grid holds exactly one tile, the Server & data dashboard-grid holds "
-        "exactly three, and the two migrated cards render as page-section elements outside both (D-11/finding E)",
+        "exactly three, the two migrated cards render as nested page-section elements outside both, and the "
+        "source-fault block never carries that modifier (D-11/finding E, quick task 260901-uzi finding 4)",
         _server_data_grid_holds_three_tiles_migrated_cards_outside_grid)
 
     def _resolution_rate_tile_renders_percentage_and_window():

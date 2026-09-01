@@ -2007,10 +2007,39 @@ summary::-webkit-details-marker {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-xl);
   margin-bottom: var(--space-2xl);
-  /* 06.6.3 (UXA-06): unequal-height tiles no longer stretch to the
-   * tallest sibling — Health's shorter Device/Pipeline tiles keep their
-   * own intrinsic height next to a taller Corroboration tile. */
-  align-items: start;
+  /* 06.6.3 (UXA-06) deliberately set this row's cross-axis alignment so
+   * unequal-height tiles would NOT stretch to the tallest sibling —
+   * Health's shorter Device/Pipeline tiles kept their own intrinsic
+   * height next to a taller Corroboration tile. That was the stated
+   * intent, not an accident, and this comment used to say so alone.
+   *
+   * quick task 260901-uzi: REVERSED. The developer measured the shipped
+   * result live in one Server & data row — Pipeline 107.7px, Corroboration
+   * 261.8px, Resolution-rate 140.4px, all in the same grid row — and
+   * asked for the opposite of what UXA-06 chose. This is a reversal of
+   * UXA-06, not a fix of it: the direction only ever runs one way, the
+   * two shorter tiles grow to match the row's tallest sibling. The
+   * Corroboration tile — naturally tallest, since it carries three
+   * status rows plus a <details> disclosure — is never shrunk or
+   * clipped by this, which is what makes stretching the safe direction
+   * here. Stretching is CSS Grid's own default and this declaration
+   * could be removed instead of restated, but it is kept explicit —
+   * greppable, and pinned by a stylesheet guard in
+   * test_status_pages.py — so the reversal is visible in a diff instead
+   * of invisible as a deletion.
+   *
+   * Blast radius, verified: `dashboard-grid` is emitted from exactly two
+   * places in the whole codebase, both inside
+   * health_page.py::render() (the Screen section's single-tile grid and
+   * the Server & data section's three-tile grid) — so this reversal
+   * reaches Health and nothing else.
+   *
+   * Do not confuse this with the OTHER cross-axis declaration in this
+   * file, inside the `@media (min-width: 960px)` `.dashboard-shell` rule
+   * below: a different selector doing a different job. D-21's sticky
+   * sidebar depends on that one staying non-stretched, and it is
+   * untouched by this reversal. */
+  align-items: stretch;
 }
 
 /* Page section card treatment: gives the below-breakpoint stacked
@@ -2045,6 +2074,53 @@ summary::-webkit-details-marker {
 .page-section:focus-within {
   border-color: transparent;
   box-shadow: var(--shadow-card-hover);
+}
+
+/* quick task 260901-uzi (finding 4): demotes the nested heading tier to
+ * the Emphasis role. Reasoning, in order:
+ *
+ * First, the measured complaint: the tile's headline value (16px
+ * semibold, the Emphasis role) read as LESS prominent than an ordinary
+ * section heading below it (20px serif, the Heading role) — an inverted
+ * hierarchy.
+ *
+ * Second, why the answer is not a bigger tile value: 06.6.4 (D-09)
+ * retired the Display role outright and moved .stat-tile__value and
+ * .runway-card__number to the Emphasis role, restoring this file's
+ * claimed four-size scale; the design skill records those four sizes as
+ * the current contract. Introducing a fifth size to win this one
+ * comparison would re-break exactly the claim that retirement was made
+ * to restore.
+ *
+ * Third, what was actually wrong: Health renders two different
+ * structural levels at one identical visual tier — the D-10 section
+ * headings ("Screen", "Server & data") and the cards nested inside them
+ * ("Battery trend", "Unresolved prefixes", "Resolution statistics"), all
+ * 20px serif regular. A card title inside a section is subordinate to
+ * that section's heading and was rendering as its equal. Demoting the
+ * nested tier to the Emphasis role makes a card title and a tile value
+ * read as peers and leaves the section headings unambiguously on top, so
+ * the hierarchy now decreases with nesting depth instead of flattening.
+ *
+ * Fourth, what this rule deliberately does not do: it sets no font
+ * family, because the Heading role's own rule already supplies the
+ * serif treatment and the serif boundary is headings-only (the design
+ * skill's own wording) — restating it here would create a second place
+ * that value lives. And it is scoped to an explicit modifier class
+ * rather than written as a bare heading selector under the shared card
+ * class, because that broader selector would have silently resized
+ * Settings' groups, History's card, and Health's own top-level
+ * source-fault block, none of which is nested under a section heading.
+ *
+ * Note: the battery-trend section's own heading carries a 20px icon and
+ * a trailing label span, so at this demoted size the icon is now larger
+ * than the text beside it — the same proportion .stat-tile__caption
+ * (14px text, 20px icon) has already shipped and been validated with,
+ * which is why it needs no icon rule of its own. */
+.page-section--nested > h2,
+.battery-trend-section > h2 {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
 }
 
 /* health_page.py's source-fault block combines page-section with banner
@@ -2307,8 +2383,8 @@ summary::-webkit-details-marker {
   /* D-21: position: sticky + top: 0 keeps the sidebar reachable while
    * scrolling a long page (e.g. Health) instead of scrolling out of
    * view with the rest of the row. Requires `.dashboard-shell`'s own
-   * `align-items: start` above — a stretched grid item cannot visibly
-   * stick, since it is already sized to the full row height. */
+   * `align-items` (still `start`) above — a stretched grid item cannot
+   * visibly stick, since it is already sized to the full row height. */
   .dashboard-sidebar {
     display: flex;
     flex-direction: column;

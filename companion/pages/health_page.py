@@ -1148,6 +1148,12 @@ def _corroboration_section(counts):
 
 
 def _source_fault_block(source_fault_raw):
+    # quick task 260901-uzi (finding 4): deliberately NOT given the
+    # `page-section--nested` modifier the two migrated cards in render()
+    # carry. This block renders above both id-anchored sections, at the
+    # same structural level as their own section headings, not nested
+    # inside one — demoting its heading would understate the single most
+    # severe state this page can show.
     if source_fault_raw is _DB_UNAVAILABLE:
         return ""
     if not _meta_flag_true(source_fault_raw):
@@ -1522,9 +1528,19 @@ def render(ctx):
             SERVER_DATA_SECTION_ID, SERVER_DATA_SECTION_HEADING,
             SERVER_DATA_SECTION_DESCRIPTION)
         + '<div class="dashboard-grid">' + server_data_tiles_html + '</div>'
-        + '<section class="page-section"><h2 class="text-heading">%s</h2>%s</section>' % (
+        # quick task 260901-uzi (finding 4): both migrated cards carry an
+        # additive `page-section--nested` modifier — they sit nested
+        # inside this section's own .section-intro heading, so their own
+        # <h2> is a subordinate tier, not a peer of it (style.css's
+        # `.page-section--nested > h2` rule demotes exactly that tier to
+        # the Emphasis role). `_source_fault_block()` below is
+        # deliberately NOT given this modifier: it renders above both
+        # sections, at the same structural level as the section headings
+        # themselves, so demoting its heading would understate a real
+        # fault — see that function's own class list.
+        + '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
             escape_html(UNRESOLVED_SECTION_HEADING), _registry_section(registry_rows, now))
-        + '<section class="page-section"><h2 class="text-heading">%s</h2>%s</section>' % (
+        + '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
             escape_html(STATS_SECTION_HEADING), _stats_table_html(stats))
     )
 
