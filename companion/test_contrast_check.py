@@ -46,7 +46,12 @@ from companion.contrast_check import (  # noqa: E402
     perceptual_distance,
 )
 
-EXPECTED_CHECK_COUNT = 34
+# quick task 260901-uzi: +2 (the .battery-readout__detail muted-on-
+# card-surface pair, light and dark) — this task's Task 3 added the
+# rule and, per its own read_first, checked whether this exact pair was
+# already pinned; it was not, so it is added here rather than shipping
+# an under-contrast trailing detail unguarded.
+EXPECTED_CHECK_COUNT = 36
 
 
 def main():
@@ -130,6 +135,13 @@ def main():
         ("dark: accent on secondary/sidebar surface", "#FF8A5C", "#1C222D"),
         ("dark: primary-button label on accent fill", "#151922", "#FF8A5C"),
         ("dark: body text on card surface", "#F1F3F6", "#151922"),
+        # quick task 260901-uzi: .battery-readout__detail's muted trailing
+        # text (this file's existing 70% color-mix strength) composited
+        # over --color-dominant, the card surface it renders on — not
+        # already covered by the pairs above, which are either full-
+        # strength body text or a different muted context.
+        ("light: muted detail text on card surface", "#5D5E62", "#FFFFFF"),
+        ("dark: muted detail text on card surface", "#AFB2B6", "#151922"),
     )
     for label, fg, bg in live_pairs:
         check(

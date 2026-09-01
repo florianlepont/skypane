@@ -1111,6 +1111,11 @@ def main():
         _sparkline_axis_labels_present_with_real_min_max)
 
     def _battery_readout_seeded_with_latest_reading_not_placeholder():
+        # quick task 260901-uzi (finding 3): rebuilds the expected markup
+        # from the same helper the page itself calls
+        # (health_page._battery_reading_parts()) rather than re-typing a
+        # format string into the harness — the harness must not become a
+        # second place this format lives.
         tmp = _mkstate("h-readout-seeded")
         try:
             base = _now()
@@ -1120,21 +1125,33 @@ def main():
             ]
             _seed_device_health(tmp, readings)
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
-            expected_label = "4190 mV — %s" % health_page.escape_html(_iso(base))
+            value_text, when_text = health_page._battery_reading_parts(
+                4190, _iso(base), _iso(base))
+            expected_inner = (
+                '<span class="battery-readout__value mono">%s</span>'
+                '<span class="battery-readout__detail" title="%s"> — %s</span>'
+            ) % (
+                health_page.escape_html(value_text),
+                health_page.escape_html(_iso(base)),
+                health_page.escape_html(when_text),
+            )
             readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
             readout_tag_end = rendered.index(">", readout_start)
             readout_text_end = rendered.index("</p>", readout_tag_end)
-            readout_text = rendered[readout_tag_end + 1:readout_text_end]
-            if readout_text != expected_label:
-                return False, "expected the readout's initial text to equal the latest reading's own label, got %r" % (readout_text,)
+            readout_inner = rendered[readout_tag_end + 1:readout_text_end]
+            if readout_inner != expected_inner:
+                return False, (
+                    "expected the readout's inner markup to equal the humanised (value, when) pair "
+                    "built by _battery_reading_parts(), got %r" % (readout_inner,))
             if "Tap or hover a point" in rendered:
                 return False, "did not expect the retired BATTERY_READOUT_PLACEHOLDER prompt text anywhere on the page"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the battery readout's initial text equals the latest reading's own label, and the retired placeholder "
-        "prompt no longer appears (D-09)",
+        "the battery readout's initial markup equals the humanised (value, when) pair the latest reading's own "
+        "helper builds, split across its value/detail spans, and the retired placeholder prompt no longer "
+        "appears (D-09, quick task 260901-uzi finding 3)",
         _battery_readout_seeded_with_latest_reading_not_placeholder)
 
     def _single_reading_still_no_chart_no_readout_no_script():
@@ -1832,8 +1849,10 @@ def main():
             section_html = rendered[section_start:section_end]
 
             readout_open = section_html.index('<p id="%s"' % health_page.BATTERY_READOUT_ID)
-            readout_close = section_html.index(">", readout_open) + 1
-            readout_tag = section_html[readout_open:readout_close]
+            readout_tag_close = section_html.index(">", readout_open) + 1
+            readout_tag = section_html[readout_open:readout_tag_close]
+            readout_close = section_html.index("</p>", readout_open) + len("</p>")
+            readout_html = section_html[readout_open:readout_close]
             # The sparkline SVG (battery_sparkline_svg()'s own opening) is
             # distinguishable from the section heading's icon-battery
             # <svg class="icon"> by its own '<svg viewBox="0 0' opening
@@ -1846,12 +1865,20 @@ def main():
                     "expected the readout to precede the sparkline, and the sparkline "
                     "to precede the script tag, inside the battery-trend section")
 
-            if 'class="battery-readout mono"' not in readout_tag:
+            # quick task 260901-uzi (finding 3): the readout's class list
+            # dropped "mono" (moved onto the new value span) — retargeted
+            # onto the new single-class literal, extended with the two
+            # spans this task adds.
+            if 'class="battery-readout"' not in readout_tag:
                 return False, (
-                    "expected the readout's class list to be exactly 'battery-readout mono', got %r"
+                    "expected the readout's class list to be exactly 'battery-readout', got %r"
                     % readout_tag)
             if 'role="status"' not in readout_tag:
                 return False, "expected role=\"status\" on the readout"
+            if 'battery-readout__value' not in readout_html:
+                return False, "expected the readout's value span inside the readout"
+            if 'battery-readout__detail' not in readout_html:
+                return False, "expected the readout's detail span inside the readout"
 
             js_path = os.path.join(HERE, "static", "battery-trend.js")
             with open(js_path) as fh:
@@ -1865,8 +1892,9 @@ def main():
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the battery readout precedes the chart and the script tag inside the battery-trend section, carries "
-        "exactly its two expected classes plus role=\"status\", and battery-trend.js still looks it up by id "
-        "(quick task 260901-tsa, finding D)",
+        "its single expected class plus role=\"status\" plus both value/detail spans, and battery-trend.js "
+        "still looks it up by id (quick task 260901-tsa finding D, retargeted by quick task 260901-uzi "
+        "finding 3)",
         _battery_readout_precedes_chart_class_list_and_live_region)
 
     def _battery_section_class_is_styled_in_stylesheet():
@@ -1900,7 +1928,13 @@ def main():
         expectations = (
             ('.section-intro {', "display: flex"),
             ('.section-intro > p {', "margin: 0"),
-            ('.stat-tile__value .mono {', "font-weight: inherit"),
+            # quick task 260901-uzi: .stat-tile__value .mono became a
+            # two-selector list (.battery-readout .mono joined it), so
+            # the literal this guard keys on no longer ends in " {" —
+            # retargeted onto the selector's own first line, which
+            # _rule_body()'s index()-to-next-"}" slice still resolves to
+            # the same rule body.
+            ('.stat-tile__value .mono,', "font-weight: inherit"),
             ('.battery-readout {', "font-weight: var(--weight-semibold)"),
         )
         for selector_open, expected_declaration in expectations:

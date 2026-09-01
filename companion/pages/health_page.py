@@ -399,7 +399,49 @@ def _axis_clock_label(ts):
     return parsed.strftime("%H:%M") if parsed is not None else (ts or "")
 
 
-def battery_sparkline_svg(rows):
+def _battery_reading_parts(mv, ts, now):
+    """quick task 260901-uzi (finding 3): the plain-text `(value, when)`
+    pair every human-facing rendering of one battery reading now shares —
+    the seeded readout, each chart point's `<title>` tooltip and
+    `aria-label`, and each point's `data-when` attribute.
+
+    `value` is "{mv} mV". `when` copies `layout.concise_timestamp_html()`'s
+    own visible-text shape ("HH:MM UTC (Nx ago)") without its `<span>`
+    markup wrapper — a short clock time plus `layout.relative_age_text()`'s
+    existing suffix — so this page's battery timestamps read in the same
+    humanised format as its Device/Pipeline timestamps, instead of the
+    raw ISO string this finding replaces.
+
+    Returns PLAIN, UNESCAPED text — inheriting `layout.absolute_and_relative()`'s
+    stated contract: every caller escapes at the point of interpolation.
+    Returned as a TUPLE, not markup, because `companion/static/
+    battery-trend.js` rewrites the readout's content through `textContent`
+    on every hover/tap/keyboard move — anything the server placed there as
+    markup would be destroyed on the very first interaction. The two parts
+    exist separately so the script can write each into its own span and
+    preserve the value/detail split, rather than flattening it back to one
+    string.
+
+    Degrades exactly like `concise_timestamp_html()`'s own unparseable-`ts`
+    branch: when `ts` is missing, fails to parse, or age cannot be computed
+    (a mismatched `now`), `when` falls back to the raw `ts` string (or the
+    empty string, when `ts` itself is falsy) rather than raising — never
+    crashing this render. This fallback is what keeps the existing
+    hostile-timestamp harness check meaningful: an unparseable
+    attacker-supplied timestamp still reaches the tooltip, still through
+    `escape_html()`, exactly as before this task.
+    """
+    value = "%d mV" % mv
+    parsed = layout.parse_iso(ts)
+    age = layout.age_seconds(ts, now)
+    if parsed is None or age is None:
+        return value, (ts or "")
+    clock = parsed.strftime("%H:%M")
+    when = "%s UTC (%s)" % (clock, layout.relative_age_text(age))
+    return value, when
+
+
+def battery_sparkline_svg(rows, now=None):
     """A minimal, dependency-free inline SVG sparkline built server-side
     from `rows` (newest-first, `battery_trend_rows()`'s own shape) — a
     fixed viewBox, exactly one `<polyline>`, no external reference
@@ -432,7 +474,17 @@ def battery_sparkline_svg(rows):
     pairs drive both the plotted points and the X-axis oldest/newest
     labels, so a dropped row can never shift a label away from the point
     it describes.
+
+    `now` (quick task 260901-uzi) defaults to `history_db.utc_now_iso()`
+    when omitted — the same fallback every other now-dependent function in
+    this module uses — so every pre-existing call site (including the
+    harness's own direct calls) keeps working unchanged. Threaded through
+    to `_battery_reading_parts()` for each point's humanised `(value,
+    when)` label, replacing the raw-ISO label this function used to build
+    inline.
     """
+    if now is None:
+        now = history_db.utc_now_iso()
     chronological = list(reversed(rows))
     pairs = [
         (row.get("battery_mv"), row.get("ts")) for row in chronological
@@ -465,11 +517,16 @@ def battery_sparkline_svg(rows):
             '<circle class="%s" cx="%.1f" cy="%.1f" r="3" aria-hidden="true"/>'
             % (SPARKLINE_DOT_CLASS, x, y))
 
-        # "%d mV — %s" (escaped ts) — byte-identical in shape to the
-        # readout string companion/static/battery-trend.js composes from
-        # these same data-mv/data-ts attributes, so hover text and tap
-        # readout never read differently.
-        label = "%d mV — %s" % (value, escape_html(ts))
+        # quick task 260901-uzi (finding 3): the server now builds this
+        # point's label from the same humanised (value, when) pair the
+        # readout uses (_battery_reading_parts()) — battery-trend.js
+        # reads the "when" half back out of the new data-when attribute
+        # below rather than composing its own copy, which is what keeps
+        # hover text and tap readout identical BY CONSTRUCTION rather
+        # than by two matching format literals kept in sync by hand.
+        value_text, when_text = _battery_reading_parts(value, ts, now)
+        escaped_when = escape_html(when_text)
+        label = escape_html("%s — %s" % (value_text, when_text))
         # D-13/UXA-11: roving tabindex — only the chronologically-latest
         # (rightmost) point is a normal Tab stop; every other point is
         # removed from the natural Tab order (tabindex="-1") and instead
@@ -482,9 +539,10 @@ def battery_sparkline_svg(rows):
         tabindex = "0" if is_latest else "-1"
         hit_targets.append(
             '<circle class="%s" cx="%.1f" cy="%.1f" r="8" tabindex="%s" '
-            'role="button" data-mv="%d" data-ts="%s" aria-label="%s">'
+            'role="button" data-mv="%d" data-ts="%s" data-when="%s" aria-label="%s">'
             "<title>%s</title></circle>"
-            % (SPARKLINE_HIT_CLASS, x, y, tabindex, value, escape_html(ts), label, label))
+            % (SPARKLINE_HIT_CLASS, x, y, tabindex, value, escape_html(ts),
+               escaped_when, label, label))
 
     # Y-axis pair: max at the plot area's top, min at its bottom, both
     # left-aligned inside the reserved gutter. X-axis pair: oldest at the
@@ -936,54 +994,88 @@ def _battery_badge_block(state):
     return '<p class="text-body">%s</p>' % layout.status_dot(state, BATTERY_STATUS_LABEL)
 
 
-def _latest_numeric_battery_label(trend_rows):
-    """The chronologically-latest reading's own per-point label
-    ("{value} mV — {ts}", `battery_sparkline_svg()`'s own format),
-    scanning `trend_rows` (newest-first, `battery_trend_rows()`'s own
-    ordering) for the first row carrying a genuine int `battery_mv` —
-    the same numeric-only filter `battery_sparkline_svg()` applies,
+def _latest_numeric_battery_reading(trend_rows):
+    """The chronologically-latest reading's own `(millivolts, timestamp)`
+    pair, scanning `trend_rows` (newest-first, `battery_trend_rows()`'s
+    own ordering) for the first row carrying a genuine int `battery_mv`
+    — the same numeric-only filter `battery_sparkline_svg()` applies,
     applied here without needing that function's full chronological-
     reversal/plotting pass. Returns `None` when no row qualifies; only
     called on the branch where a chart already exists (`sparkline_html`
-    non-empty), so that branch always yields a real label here too.
+    non-empty), so that branch always yields a real reading here too.
+
+    quick task 260901-uzi: this used to return a pre-formatted
+    "{value} mV — {ts}" label directly
+    (`_latest_numeric_battery_label()`, retired); it now stops one step
+    earlier, at the raw `(mv, ts)` pair, so the caller can build both the
+    humanised value and detail parts via `_battery_reading_parts()` and
+    still hold the raw `ts` for the readout's `title` tooltip.
     """
     for row in trend_rows:
         value = row.get("battery_mv")
         if isinstance(value, int) and not isinstance(value, bool):
-            return "%d mV — %s" % (value, escape_html(row.get("ts")))
+            return value, row.get("ts")
     return None
 
 
-def _battery_readout_block(latest_label):
+def _battery_readout_block(latest_reading, now):
     """The reserved-height readout line `companion/static/battery-trend.js`
     writes into on hover/tap/keyboard reveal. D-09/§5.3: seeded by
-    default with `latest_label` — the latest reading's own label, in the
-    exact same "{value} mV — {ts}" format `battery_sparkline_svg()`
-    already builds per-point, so the resting text and the hover/tap text
-    are word-identical — rather than the old static prompt (retired,
-    `BATTERY_READOUT_PLACEHOLDER` no longer exists). `role="status"`
-    already implies a polite live region, so no separate `aria-live`
-    attribute is added.
+    default with `latest_reading`'s own humanised `(value, when)` pair
+    (`_battery_reading_parts()`) — the exact same helper
+    `battery_sparkline_svg()` uses per-point, so the resting text and the
+    hover/tap text are built identically BY CONSTRUCTION — rather than
+    the old static prompt (retired, `BATTERY_READOUT_PLACEHOLDER` no
+    longer exists). `role="status"` already implies a polite live
+    region, so no separate `aria-live` attribute is added.
 
-    Quick task 260901-tsa (finding D): now the section's scannable
-    headline number, sitting ahead of the chart — matching the
-    validated sketch's order (status chip, readout, chart), see
-    `_battery_section()` below. `text-label` is gone from the class
-    list: that class pinned this element to the 14px Label role, which
-    is the opposite of the role it now plays; `battery-readout mono`
-    (style.css's `.battery-readout` rule, promoted to the Emphasis
-    role) carries the sizing/weight now.
+    quick task 260901-uzi (finding 3): the readout used to print the raw
+    ISO string inline — the one timestamp on this page that did not
+    follow the house humanised pattern, and read (the developer's own
+    words) as too bold, too big, not sober. It now reads as a scannable
+    figure plus a muted trailing detail, which is this page's own
+    validated sketch's `.battery-readout` treatment (the voltage
+    emphasised, the trailing detail muted), and the machine-precise ISO
+    moves to the detail span's `title` tooltip, exactly as
+    `concise_timestamp_html()` does everywhere else on this page. The
+    humanised string is strictly SHORTER than the raw-ISO one it
+    replaces, so the reserved-height no-layout-jump guarantee (style.css's
+    `.battery-readout` comment) is not weakened but strengthened — the
+    old format was long enough to wrap at narrow widths and the new one
+    is not.
 
-    Two things deliberately did NOT change with the move, and both
+    Two spans, not one string, because `companion/static/
+    battery-trend.js`'s `reveal()` now writes the value and detail parts
+    separately (quick task 260901-uzi reverses that file's own
+    260901-tsa non-goal — see battery-trend.js's own header comment for
+    why this task edits it after all): `battery-readout__value` (also
+    `mono`, matching the sparkline's own monospace digits) holds the
+    value part, `battery-readout__detail` (carrying the raw ISO in its
+    `title` attribute) holds a separator plus the "when" part. `mono` is
+    gone from the outer `<p>`'s own class list — style.css's `.mono`
+    reach-through rule now targets `.battery-readout .mono` directly, so
+    the value span alone carries it.
+
+    Two things deliberately did NOT change with this move, and both
     matter: `role="status"` is the live region `battery-trend.js`
     announces every Left/Right/Home/End traversal through, and the
     element is still found by `getElementById` — its position in the
     document was never something that file depended on.
-    `companion/static/battery-trend.js` is not edited by this task.
     """
+    if latest_reading is None:
+        value_text, when_text, raw_ts = "", "", ""
+    else:
+        mv, ts = latest_reading
+        value_text, when_text = _battery_reading_parts(mv, ts, now)
+        raw_ts = ts or ""
     return (
-        '<p id="%s" class="battery-readout mono" role="status">%s</p>'
-        % (BATTERY_READOUT_ID, escape_html(latest_label)))
+        '<p id="%s" class="battery-readout" role="status">'
+        '<span class="battery-readout__value mono">%s</span>'
+        '<span class="battery-readout__detail" title="%s"> — %s</span>'
+        "</p>"
+    ) % (
+        BATTERY_READOUT_ID, escape_html(value_text),
+        escape_html(raw_ts), escape_html(when_text))
 
 
 def _battery_trend_section_html(battery_html):
@@ -1080,7 +1172,7 @@ def _battery_section(trend_rows):
     disclosure_html = (
         '<details class="readings-disclosure"><summary>View %d readings</summary>%s</details>'
         % (len(trend_rows), table_html))
-    sparkline_html = battery_sparkline_svg(trend_rows) if len(trend_rows) >= 2 else ""
+    sparkline_html = battery_sparkline_svg(trend_rows, now=now) if len(trend_rows) >= 2 else ""
     # The script tag and readout element are emitted only when a chart
     # actually exists (sparkline_html is non-empty) — a single-reading
     # device, or one whose only rows have non-numeric millivolts, gets no
@@ -1095,8 +1187,9 @@ def _battery_section(trend_rows):
         # order (status chip, readout, chart). The script tag stays
         # last regardless, so "exactly one script tag, and zero on the
         # no-chart path" stays true unweakened.
+        latest_reading = _latest_numeric_battery_reading(trend_rows)
         chart_block = (
-            _battery_readout_block(_latest_numeric_battery_label(trend_rows))
+            _battery_readout_block(latest_reading, now)
             + sparkline_html
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
     # D-08: the chart (when present) comes before the collapsed table in

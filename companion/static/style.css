@@ -1949,9 +1949,40 @@ summary::-webkit-details-marker {
  * value that changes on hover). Matches .filter-bar__field input's own
  * precedent for a narrow, scoped opt-out of a global rule for one
  * container's descendants — scoped to .stat-tile__value on purpose:
- * mono values elsewhere in this file keep .mono's regular weight. */
-.stat-tile__value .mono {
+ * mono values elsewhere in this file keep .mono's regular weight.
+ *
+ * quick task 260901-uzi: the battery readout's value span joins this
+ * same selector list rather than getting a rule of its own — it needs
+ * exactly the same scoped opt-out, for exactly the same reason: an
+ * Emphasis-weight container holding a .mono descendant whose own rule
+ * would otherwise pin it back to regular. This is one role, so it stays
+ * one rule; .stat-tile__value stays first in the list so the existing
+ * cross-file harness guard that locates this rule by that literal still
+ * finds it. */
+.stat-tile__value .mono,
+.battery-readout .mono {
   font-weight: inherit;
+}
+
+/* quick task 260901-uzi (finding 3): the readout's trailing detail —
+ * recedes to the Label size and regular weight, using this file's
+ * existing 70% color-mix muted strength (.section-caption, .data-table
+ * th, .filter-bar__count already use it — not a fourth value invented
+ * here). Addresses the developer's actual complaint (too bold, too big,
+ * not sober): the readout keeps exactly one emphasised element, the
+ * figure (.battery-readout__value above, carrying the .mono rule's
+ * reach-through), and everything trailing it recedes — this page's own
+ * validated sketch's arrangement.
+ *
+ * companion/test_contrast_check.py's live_pairs did not already pin
+ * this muted-on-card-surface pair, so this task adds it there rather
+ * than shipping an under-contrast trailing detail unguarded (light
+ * #5D5E62 on #FFFFFF, dark #AFB2B6 on #151922 — both this same 70%
+ * strength composited over --color-dominant). */
+.battery-readout__detail {
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* No `.stat-tile svg { width:100%; height:auto }` rule here (deliberate,

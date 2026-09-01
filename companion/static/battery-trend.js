@@ -34,6 +34,20 @@
     return;
   }
 
+  // quick task 260901-uzi (finding 3): looked up once, beside the
+  // readout itself. This file's own header comment used to list this
+  // file as "not edited" by quick task 260901-tsa — correct for a pure
+  // reposition, and not correct here, because the readout's FORMAT is
+  // changing and reveal() below is what builds that format; a
+  // server-only change would be silently undone by the very first
+  // hover/tap/arrow-key move. Both spans must be present for the
+  // two-span write path below; if either is missing (the one-wave-skew
+  // case this file's own header comment already documents), reveal()
+  // falls through to its original single-string textContent write
+  // instead.
+  var readoutValue = readout.querySelector(".battery-readout__value");
+  var readoutDetail = readout.querySelector(".battery-readout__detail");
+
   var points = document.querySelectorAll(".sparkline-hit");
   if (points.length === 0) {
     return;
@@ -47,10 +61,38 @@
     // research sketch, kept for that one reason.
     var mv = point.getAttribute("data-mv");
     var ts = point.getAttribute("data-ts");
+    var when = point.getAttribute("data-when");
     if (mv === null || ts === null) {
       return;
     }
-    readout.textContent = mv + " mV — " + ts;
+    // quick task 260901-uzi (finding 3): this function used to compose
+    // the whole readout string itself ("{mv} mV — {ts}", the raw ISO
+    // timestamp) on every reveal — that composition is finding 3's own
+    // root cause, since it means a server-side format change alone
+    // would be reverted by the first hover. The server now humanises
+    // the detail once (companion/pages/health_page.py's own
+    // _battery_reading_parts()) and shares it through the data-when
+    // attribute; this function reads it back rather than reformatting a
+    // timestamp itself, which is why it still needs no date-formatting
+    // logic of its own.
+    //
+    // textContent remains the only content sink here: value/detail are
+    // plain strings written to two existing elements' textContent,
+    // never HTML. The one new attribute write below is `title`, which
+    // is not an HTML sink either — so this file still needs no escaping
+    // function and 06.5-RESEARCH.md's ASVS V5 reasoning is unchanged.
+    if (when !== null && readoutValue && readoutDetail) {
+      readoutValue.textContent = mv + " mV";
+      readoutDetail.textContent = " — " + when;
+      readoutDetail.setAttribute("title", ts);
+    } else {
+      // Fallback: this script is a single cached static asset served to
+      // every page, and can ship one wave ahead of the markup that
+      // references it (the same reason the early-return above exists).
+      // A missing data-when attribute, or a missing span, must degrade
+      // to this readable line, never to an empty readout.
+      readout.textContent = mv + " mV — " + ts;
+    }
 
     // Mark exactly one point as active: the one just revealed, toggled on;
     // every other point, toggled off.
