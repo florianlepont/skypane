@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
-stopped_at: Completed 06.6.4.1-06-PLAN.md
-last_updated: "2026-09-01T14:32:58.035Z"
+stopped_at: Completed 06.6.4.1-07-PLAN.md
+last_updated: "2026-09-01T16:51:36.000Z"
 last_activity: 2026-09-01
-last_activity_desc: Phase 06.6.4.1 execution started
+last_activity_desc: Completed 06.6.4.1-07-PLAN.md (Settings route rename to /settings + LED route retirement)
 progress:
   total_phases: 19
   completed_phases: 16
   total_plans: 94
-  completed_plans: 90
-  percent: 96
+  completed_plans: 91
+  percent: 97
 ---
 
 # Project State
@@ -29,6 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 06.6.4.1 (companion-page-by-page-ia-consolidation-full-page-by-page-vi) — EXECUTING
+
+**06.6.4.1-07 executed (2026-09-01), wave 4 (depends on 02/03), closing D-05/D-26 — flipped Settings from the dormant `/config` path to the live, dispatched `/settings` route everywhere it is linked/titled/redirected, and retired the separate `POST /config-led` route together with `led_fieldset()`/`led_section()`/`handle_led_post()` outright.** Task 1 rebound `companion/app.py`'s route constant to `SETTINGS_ROUTE = config_page.SETTINGS_ROUTE` (a rebind, not a re-typed literal, mirroring the existing `RUNWAY_IMAGE_ROUTE_PREFIX` precedent) and updated every dispatch site (do_GET/do_POST path comparisons, login-authenticated redirect, not-found back-link, `_referring_tab()` fallback, login POST default, all three poll-trigger redirect targets); `companion/layout.py`'s `NAV_TABS[0]`/`NAV_ICON_IDS` first key retargeted to `settings`/`Settings` (icon symbol id unchanged, per plan); one Rule 2 deviation caught before writing tests — `config_page.py`'s `layout.page_header("Config")` call also needed retargeting to "Settings" (not explicitly named in the plan's action text, but required by its own acceptance criteria that the rendered body carry the Settings heading), fixed in the same commit along with the matching test assertion. Task 2 deleted `LED_ROUTE` and its `do_POST` branch, and `led_fieldset()`/`led_section()`/`handle_led_post()` from `config_page.py` — confirmed first, by reading `handle_post()`, that all three submitted-value shapes (absent/checked/crafted) were genuinely implemented there before deleting; 8 obsolete unit checks deleted from `test_config_page.py`, 1 new source-assertion check added, and the two live-HTTP LED checks (found in `test_config_page.py`, not `test_companion_app.py` as the plan's read_first mistakenly named) retargeted onto `SETTINGS_ROUTE` plus 1 new 404-on-retired-path check. Task 3 swept both owned harnesses for stale literals (none found beyond the deliberate retired-path-404 checks), confirmed the two sibling harnesses this plan doesn't own carry none either, reworded three route-count-hardcoding prose descriptions, and added a standing contract guard (`_nav_page_titles_icon_route_standing_contract_guard`) pinning that `NAV_TABS`/`_PAGE_TITLES`/`NAV_ICON_IDS` never silently drift apart — set up to fail loudly when plan 08's own nav-route change lands. `EXPECTED_CHECK_COUNT`: `test_companion_app.py` 96→101 (+4 Task 1, +1 Task 3); `test_config_page.py` 60→54 (Task 2: -8 deleted +2 new, net -6). `git diff --stat` across all three task commits touches exactly the five declared `files_modified`; `git diff --quiet` against `health_page.py`/`airlines_page.py`/`history_page.py`/`companion/static/` confirmed no change. All four companion harnesses pass (`companion-app` 101/101, `config-page` 54/54, `status-pages` 72/72, `view-pages` 56/56); `scripts/run-all-tests.sh` reports the same single pre-existing, unrelated `server/test_poll_loop.py` digest mismatch. A live programmatic smoke test (sign in → `/settings`; LED+runway saved together in one redirect; both persisted; `/config` and `/config-led` both 404) passed end to end. `requirements.mark-complete D-05 D-26` — see below. `roadmap.update-plan-progress "06.6.4.1"` — see below.
 
 **06.6.4.1-06 executed (2026-09-01), wave 3 (depends on 01/02/04), closing D-13/D-14/D-15/D-16/D-17 — replaced Airlines' entire content: out goes the CFG-04/CFG-08 diagnostics that moved to Health in plan 04, in comes a visual gallery of the panel renderer's own 27 already-shipped illustrations with a working filter bar, leaving `airlines_page.py` reading exactly one static in-memory list, no database and no poll state.** Task 1 rewrote the module docstring/imports (added `from server.plane import illustrations`; old `history_db`/`poll_loop`/`sqlite3`/`datetime` imports stayed as dead code pending Task 3) and added `ILLUSTRATION_ROUTE_PREFIX` (duplicated-not-imported against `app.py`'s own constant, pinned by a cross-module equality check), `GALLERY_PURPOSE_TEXT`, `CARD_IMAGE_ALT_TEMPLATE`, `variant_chip_label()` (classifies a shape string by its own form — a `^[a-z]+\d[\d-]*$` letter-prefix-plus-digits pattern for type codes vs. everything else as a word-form manufacturer shape — never by `SHAPE_SLUGS` membership, so `"a350-1000"` survives), `_airline_card_html()`, and `_gallery_grid_html()`; `render()` was rewritten to `page_header("Airlines", ...)` + the grid only, which immediately invalidated 15 pre-existing Section 2 tests exercising the old registry/stats render() output — these were deleted in this same task (pulled forward from Task 3, required by the plan's own per-task green-suite verification loop) and 6 new gallery checks added (card count, image-source route-membership, Air Caraïbes' three chips including the A350-1000 trap, no-chips-container for a primary-only airline, `variant_chip_label()`'s two domains, the route-prefix cross-module equality). Task 2 redefined `_filter_bar_html()` and its four copy constants in place (same names, new UI-SPEC-pinned gallery values and History's real `<button type="button" data-filter-clear>` Clear control, not the old read-only page's anchor-link variant — D-16's read-only constraint no longer applies) — safe because the old implementation was already dead code by that point; `_airline_card_html()` gained an `index` parameter and now carries `data-filter-text`/`data-filter-group` per card; `render()` emits the filter bar between the header and the grid, guarded by "no chrome with no data". Task 3 deleted every migrated diagnostics symbol after confirming each one's live counterpart already existed in `health_page.py` (`_safe_query()`, `unresolved_rows()`, `coverage_status()`, `resolution_stats()`, the old registry row/table/section builders, the resolved-rate headline, the statistics table builder, plus the coverage/stats copy constants and the now-unused imports), added a module-level note recording where the content went, and pinned both non-goals with test guards: D-17 (no `history_db`/`poll_loop`/sqlite import anywhere in source — one auto-fixed deviation here, the docstring's own compliance sentence initially named those literal substrings and tripped its own new guard, reworded to "the history-database module"/"the poll-state module") and D-13 (the rendered Airlines page contains none of the migrated registry/stats table headers, while Health still renders both header sets). `EXPECTED_CHECK_COUNT` 72→63 (Task 1, -15+6) →68 (Task 2, +5) →72 (Task 3, +4) — back to the pre-plan value, a full page replacement of comparable test surface rather than a net addition. `git diff --stat` across all three task commits touches exactly `companion/pages/airlines_page.py` and `companion/test_status_pages.py`; `git diff --quiet companion/static/list-filter.js companion/static/style.css companion/app.py companion/pages/health_page.py` confirmed no change to any of those four files. `scripts/run-all-tests.sh` reports the same single pre-existing, unrelated `server/test_poll_loop.py` digest mismatch (42/43) — this plan touched no file under `server/`; all five other harnesses green (`companion-app` 96/96, `config-page` 60/60, `status-pages` 72/72, `view-pages` 56/56, `contrast-check` 34/34).
 
@@ -218,6 +220,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.4.1 P04 | 45min | 3 tasks | 2 files |
 | Phase 06.6.4.1 P05 | 55min | 3 tasks | 2 files |
 | Phase 06.6.4.1 P06 | 45min | 3 tasks | 2 files |
+| Phase 06.6.4.1 P07 | 40min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -384,6 +387,8 @@ Recent decisions affecting current work:
 - [Phase 06.6.4.1-05]: View-panel trigger's data-view-panel-caption attribute carries the full LIGHTBOX_CAPTION_TEMPLATE % iso string ("Panel near {iso}"), not the bare ISO — panel-lookup.js copies the attribute verbatim with zero client-side templating, so only a server-built full string reproduces UI-SPEC §8.3's approved caption copy and gives the plan's explicitly-instructed constant a real call site
 - [Phase 06.6.4.1-06]: Pulled the deletion of pre-06.6.4.1 CFG-04/CFG-08 test checks forward into Task 1 (render() stops emitting that content from Task 1 onward; the per-task green-suite requirement forced this ahead of Task 3's own narration).
 - [Phase 06.6.4.1-06]: Redefined _filter_bar_html() and its four copy constants in place in Task 2 (same names, new gallery values/button Clear control) rather than adding new names, since the old registry-variant implementation was already dead code by that point.
+- [Phase 06.6.4.1]: Settings route renamed /config -> /settings; old path 404s by design (D-26), no redirect since it's a fresh URL at inception.
+- [Phase 06.6.4.1]: Retired the separate POST /config-led route, handler, and markup builders outright (D-05) after confirming handle_post() already implements all three submitted-value shapes plus cross-field rejection.
 
 ### Pending Todos
 
@@ -435,8 +440,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-01T14:32:10.311Z
-Stopped at: Completed 06.6.4.1-05-PLAN.md
+Last session: 2026-09-01T16:51:36.000Z
+Stopped at: Completed 06.6.4.1-07-PLAN.md
 
 Resume file: None
 
