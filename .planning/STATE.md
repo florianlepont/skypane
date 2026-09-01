@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
-stopped_at: Completed 06.6.4.1-07-PLAN.md
-last_updated: "2026-09-01T16:51:36.000Z"
+stopped_at: Completed 06.6.4.1-08-PLAN.md (Preview retirement — 302 redirect, nav 5→4, preview_page.py deleted). Only plan 09 (closing checkpoint) remains.
+last_updated: "2026-09-01T17:28:00.000Z"
 last_activity: 2026-09-01
-last_activity_desc: Completed 06.6.4.1-07-PLAN.md (Settings route rename to /settings + LED route retirement)
+last_activity_desc: Completed 06.6.4.1-08-PLAN.md (Preview retired, nav shrunk to 4 items)
 progress:
   total_phases: 19
   completed_phases: 16
   total_plans: 94
-  completed_plans: 91
-  percent: 97
+  completed_plans: 92
+  percent: 98
 ---
 
 # Project State
@@ -440,8 +440,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-01T16:51:36.000Z
-Stopped at: Completed 06.6.4.1-07-PLAN.md
+Last session: 2026-09-01T17:28:00.000Z
+Stopped at: Completed 06.6.4.1-08-PLAN.md (Preview retirement)
 
 Resume file: None
 
