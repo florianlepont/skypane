@@ -1,20 +1,29 @@
-"""companion/pages/airlines_page.py — CFG-04 (unresolved-prefix registry,
-read-only) and CFG-08 (resolution statistics), 06-CONTEXT.md.
+"""companion/pages/airlines_page.py — an illustration gallery over the
+panel renderer's own airline art (D-13 through D-17, 06.6.4.1-CONTEXT.md).
 
-D-16: read-only by design. This module must never emit a form element or
-a button element — there is no "mark resolved" action, now or in a later
-plan; the user resolves entries manually elsewhere (the existing
-quick-task runbook), and this page only makes the registry visible.
+Presentation-only: reads exactly one public accessor,
+`server.plane.illustrations.target_variants_by_airline()`, and touches no
+database and no poll-state file — the gallery renders the full static
+curated list from `_ILLUSTRATION_TARGETS`, never a detection-history
+cross-reference (D-17: this module opens no database and reads no poll
+state).
 
-Completed by plan 06-08. Reads the registry through
-`server.poll_loop.load_poll_state()` only — never opens
-`poll_state.json` directly, and never re-derives any of
-`server/plane/enrich.py`'s own prefix-resolution internals (its
-registry-writing function or its callsign-shape validator) — D-16 scopes
-this page to *displaying* an already-computed registry; duplicating its
-derivation would create a second source of truth the runbook doesn't
-expect.
+The unresolved-callsign-prefix registry (formerly CFG-04) and the
+resolution-rate statistics breakdown (formerly CFG-08) that used to live
+on this page moved to `companion/pages/health_page.py` in this same
+phase (06.6.4.1, plan 04, D-11/D-12) — that is now the one page in the
+app that renders them (D-13). A reader hunting for that content should
+look there, not here.
+
+<!-- planner-discipline-allow: history_db -->
+<!-- planner-discipline-allow: poll_loop -->
+<!-- planner-discipline-allow: sqlite3 -->
+(Transiently still imported below, pending this phase's plan 06 Task 3,
+which removes them along with the diagnostics functions that reference
+them — the imports and functions above are dead code from Task 1 onward,
+since render() below no longer calls into them.)
 """
+import re
 from datetime import datetime, timedelta, timezone
 
 import sqlite3
@@ -22,7 +31,112 @@ import sqlite3
 from companion.layout import empty_state, escape_html
 import companion.layout as layout
 from server import history_db
+from server.plane import illustrations
 import server.poll_loop as poll_loop
+
+# D-15: this page's illustration image route mirrors companion/app.py's
+# own ILLUSTRATION_IMAGE_ROUTE_PREFIX exactly — duplicated, not imported,
+# since app.py imports this module (the reverse import would be a
+# cycle). Same duplicated-not-imported discipline this codebase already
+# uses for its static-script route constants; pinned by a cross-module
+# equality check in companion/test_status_pages.py.
+ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
+
+GALLERY_PURPOSE_TEXT = (
+    "Illustration reference for every airline this frame can recognize.")
+
+CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
+
+# variant_chip_label()'s two shape-domain patterns. An alphanumeric type
+# code is a letter prefix immediately followed by digits, optionally with
+# a hyphenated numeric suffix ("a320", "atr72", "a330", "b737",
+# "a350-1000"). Anything else is a word-form manufacturer shape
+# ("embraer", "beechcraft1900d") — see variant_chip_label()'s own
+# docstring for the domain-mismatch trap neither pattern may fall into.
+_TYPE_CODE_RE = re.compile(r"^[a-z]+\d[\d-]*$")
+_WORD_MODEL_RE = re.compile(r"^([a-z]+)(\d.*)$")
+
+
+def variant_chip_label(shape):
+    """Display transform for one fleet-variant chip
+    (06.6.4.1-UI-SPEC.md §7.1). `shape` is a free-text filename suffix
+    from `_ILLUSTRATION_TARGETS`, reached only through
+    `illustrations.target_variants_by_airline()` — e.g. `"a350-1000"` —
+    a DIFFERENT domain from `illustrations.SHAPE_SLUGS`' seven-member
+    ICAO-type classification.
+
+    TRAP: this function must never validate `shape` against
+    `SHAPE_SLUGS` membership before deciding how (or whether) to render
+    it — `"a350-1000"` is a real, live entry that such a check would
+    silently drop, since it is not itself a `SHAPE_SLUGS` member (only
+    its un-suffixed `"a350"` root is). The branch below is derived from
+    the shape string's own form, never from that tuple.
+
+    An alphanumeric type code upper-cases verbatim (`"a320"` ->
+    `"A320"`, `"atr72"` -> `"ATR72"`, `"a330"` -> `"A330"`, `"b737"` ->
+    `"B737"`, `"a350-1000"` -> `"A350-1000"`). A word-form manufacturer
+    shape title-cases instead (`"embraer"` -> `"Embraer"`), splitting a
+    trailing digit-led model number into its own word
+    (`"beechcraft1900d"` -> `"Beechcraft 1900D"`).
+    """
+    if not isinstance(shape, str) or not shape:
+        return ""
+    if _TYPE_CODE_RE.match(shape):
+        return shape.upper()
+    word_match = _WORD_MODEL_RE.match(shape)
+    if word_match:
+        word, model = word_match.groups()
+        return "%s %s" % (word.title(), model.upper())
+    return shape.title()
+
+
+def _airline_card_html(airline_name, shapes):
+    """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
+    at the session-gated `/illustration/{key}.png` route, the airline's
+    name, and one chip per fleet-type variant — the chips container is
+    omitted entirely (not rendered empty) when `shapes` is empty. Every
+    interpolated value — the key inside the URL, the name, each chip
+    label, and the alt text — goes through `escape_html()` exactly once,
+    at the point of interpolation (T-06.6.4.1-05). Returns the empty
+    string (skips the card, never crashes) for an airline whose
+    normalised key comes back falsy, mirroring
+    `illustrations.target_filenames()`'s own documented skip discipline.
+    """
+    key = illustrations.normalise_airline_key(airline_name)
+    if not key:
+        return ""
+    image_html = (
+        '<img class="airline-card__image" src="%s%s.png" '
+        'loading="lazy" decoding="async" alt="%s">'
+    ) % (
+        ILLUSTRATION_ROUTE_PREFIX, escape_html(key),
+        escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
+    )
+    chips_html = ""
+    if shapes:
+        chips = "".join(
+            '<span class="airline-card__chip">%s</span>' % escape_html(variant_chip_label(shape))
+            for shape in shapes
+        )
+        chips_html = '<div class="airline-card__chips">%s</div>' % chips
+    return (
+        '<div class="airline-card">'
+        "%s"
+        '<p class="airline-card__name">%s</p>'
+        "%s"
+        "</div>"
+    ) % (image_html, escape_html(airline_name), chips_html)
+
+
+def _gallery_grid_html(pairs):
+    """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
+    pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
+    §7.1, companion/static/style.css from plan 01). Skips (renders
+    nothing for) any pair whose card comes back empty.
+    """
+    cards = "".join(
+        _airline_card_html(airline_name, shapes) for airline_name, shapes in pairs)
+    return '<div class="illustration-grid">%s</div>' % cards
 
 _NO_GAPS_HEADING = "No coverage gaps."
 _NO_GAPS_BODY = (
@@ -329,23 +443,14 @@ def _stats_table_html(stats):
 
 
 def render(ctx):
-    state_dir = ctx["state_dir"]
-    now = ctx.get("now")
-    rows = unresolved_rows(state_dir)
-    registry_status = coverage_status(rows)
-
-    stats = _safe_query(
-        state_dir, lambda conn: resolution_stats(conn, RESOLUTION_WINDOW_DAYS))
-
-    registry_html = layout.stat_tile(
-        "Unresolved prefixes", _registry_section(rows, now), registry_status)
-    stats_html = layout.stat_tile(
-        "Resolution statistics", _stats_table_html(stats), None)
-
+    """The Airlines gallery (D-13 through D-17): the page header followed
+    by one card per airline in `illustrations.target_variants_by_airline()`
+    order. `ctx` is accepted for call-site parity with every other page
+    module's `render(ctx)` signature but is otherwise unused — this page
+    reads one static in-memory list, no database and no poll state.
+    """
+    pairs = illustrations.target_variants_by_airline()
     return (
-        layout.page_header(
-            "Airlines",
-            purpose="Route-resolution coverage and unresolved callsign prefixes.")
-        + _resolved_headline_html(stats)
-        + '<div class="dashboard-grid">' + registry_html + stats_html + '</div>'
+        layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
+        + _gallery_grid_html(pairs)
     )

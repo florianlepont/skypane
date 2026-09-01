@@ -29,6 +29,7 @@ Usage:
 """
 import inspect
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -45,9 +46,11 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
+import companion.app as app  # noqa: E402
 from companion import auth, layout  # noqa: E402
 from companion.pages import airlines_page, health_page  # noqa: E402
 from server import history_db  # noqa: E402
+from server.plane import illustrations  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
@@ -78,7 +81,16 @@ STARTUP_DEADLINE_S = 10.0
 # key source assertion) — the old dashboard-grid/Overview check was
 # retargeted in place onto the new two-section heading structure, not
 # counted as new
-EXPECTED_CHECK_COUNT = 72  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 72 - 15 + 6 (06.6.4.1-06 Task 1: Airlines' CFG-04/CFG-08 diagnostics
+# checks deleted — render() stops emitting that content from this task
+# onward (their Health-side equivalents already exist, added by plan 04);
+# 6 new gallery checks added — card count, image-source route-membership,
+# Air Caraïbes' three chips, no-chips-container for a primary-only
+# airline, variant_chip_label()'s two display domains, and the
+# ILLUSTRATION_ROUTE_PREFIX cross-module equality). One pre-existing
+# check (page_header presence) is unchanged/retargeted in place, not
+# counted as new or deleted.
+EXPECTED_CHECK_COUNT = 63  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1739,225 +1751,23 @@ def main():
         "action icon, all whitelisted",
         _health_page_four_icons_correctly_placed_and_tinted)
 
-    def _airlines_page_only_icon_is_filter_search():
-        # 06.6.3-06 (D-20): Airlines was iconless through 06.6.1-04, but
-        # this plan's filter bar (the second consumer of
-        # companion/static/list-filter.js, after History) adds exactly
-        # one decorative icon-search instance — only when the registry
-        # has rows to filter (empty state renders no filter bar at all).
-        tmp = _mkstate("a-iconless")
-        try:
-            rendered_empty = airlines_page.render(_ctx(tmp))
-            if rendered_empty.count("<use") != 0 or rendered_empty.count("<svg") != 0:
-                return False, "expected zero icon instances with an empty registry (no filter bar rendered)"
-            registry = {
-                "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
-            rendered = airlines_page.render(_ctx(tmp))
-            if rendered.count("<use") != 1 or rendered.count("<svg") != 1:
-                return False, (
-                    "expected exactly one icon instance (the filter bar's decorative "
-                    "icon-search) with a non-empty registry, got <use=%d <svg=%d"
-                    % (rendered.count("<use"), rendered.count("<svg")))
-            if "#icon-search" not in rendered:
-                return False, "expected the filter bar's icon to be icon-search"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Airlines stays iconless with an empty registry, and gains exactly one decorative "
-        "icon-search instance (its filter bar) once the registry has rows",
-        _airlines_page_only_icon_is_filter_search)
-
     # ======================================================================
-    # Section 2: companion/pages/airlines_page.py
+    # Section 2: companion/pages/airlines_page.py — the illustration
+    # gallery (D-13 through D-17, 06.6.4.1 plan 06). The pre-06.6.4.1
+    # CFG-04/CFG-08 diagnostics checks that used to live in this section
+    # were removed here in plan 06 Task 1 (pulled forward from Task 3,
+    # required by this plan's own per-task green-suite verification loop
+    # — render() stops emitting that content from Task 1 onward, so the
+    # old checks would fail immediately, not just once the underlying
+    # symbols are deleted in Task 3). Their Health-side equivalents were
+    # added by plan 04 (companion/pages/health_page.py's own Section 1
+    # checks above already cover that content there).
     # ======================================================================
-
-    def _empty_registry_good_news_no_table():
-        tmp = _mkstate("a-empty")
-        try:
-            rendered = airlines_page.render(_ctx(tmp))
-            if "No coverage gaps." not in rendered:
-                return False, "expected the CFG-04 good-news empty-state heading"
-            if "<table" in rendered:
-                return False, "did not expect a <table with an empty registry and zero history"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "an empty unresolved-prefix registry renders the good-news empty state and no <table",
-        _empty_registry_good_news_no_table)
-
-    def _entries_sorted_by_count_descending():
-        tmp = _mkstate("a-sorted")
-        try:
-            registry = {
-                "XYZ": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ111"},
-                "ABC": {"count": 9, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC222"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
-            rendered = airlines_page.render(_ctx(tmp))
-            higher_index = rendered.find("ABC")
-            lower_index = rendered.find("XYZ")
-            if higher_index == -1 or lower_index == -1:
-                return False, "expected both prefixes to appear in the rendered output"
-            if higher_index > lower_index:
-                return False, "expected the higher-count prefix (ABC, count=9) to appear before the lower one"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "two entries of unequal count render with the higher count first",
-        _entries_sorted_by_count_descending)
-
-    def _malformed_entries_skipped_not_crashing():
-        tmp = _mkstate("a-malformed")
-        try:
-            registry = {
-                "BAD": "not-a-dict-at-all",
-                "ALSOBAD": {"count": "five"},
-                "GOOD": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "GOOD123"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
-            rows = airlines_page.unresolved_rows(tmp)
-            prefixes = [row[0] for row in rows]
-            if prefixes != ["GOOD"]:
-                return False, "expected only the well-formed entry to survive, got %r" % (prefixes,)
-            rendered = airlines_page.render(_ctx(tmp))
-            if "BAD" in rendered or "ALSOBAD" in rendered:
-                return False, "a malformed entry's key leaked into the rendered output"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "a registry entry that is not a dict, or whose count is not an int, is skipped rather than crashing the page",
-        _malformed_entries_skipped_not_crashing)
-
-    def _hostile_prefix_rendered_escaped():
-        tmp = _mkstate("a-hostile-prefix")
-        try:
-            registry = {
-                "<b>": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
-            rendered = airlines_page.render(_ctx(tmp))
-            if "<b>" in rendered:
-                return False, "an unescaped prefix reached the rendered output"
-            if "&lt;b&gt;" not in rendered:
-                return False, "expected the escaped form of the hostile prefix"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "a prefix containing markup characters is rendered escaped",
-        _hostile_prefix_rendered_escaped)
-
-    def _script_tag_example_callsign_escaped():
-        tmp = _mkstate("a-script-callsign")
-        try:
-            registry = {
-                "ABC": {
-                    "count": 1, "first_seen": "t1", "last_seen": "t2",
-                    "example_callsign": "<script>alert(1)</script>",
-                },
-            }
-            _seed_unresolved_prefixes(tmp, registry)
-            rendered = airlines_page.render(_ctx(tmp))
-            if "<script>alert(1)</script>" in rendered:
-                return False, "an unescaped script tag reached the rendered output"
-            if "&lt;script&gt;" not in rendered:
-                return False, "expected the escaped form of the hostile example callsign"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "an example callsign shaped like a script tag renders escaped, with no unescaped script tag in the output",
-        _script_tag_example_callsign_escaped)
-
-    def _resolution_stats_four_categories_and_percentage():
-        tmp = _mkstate("a-stats")
-        try:
-            now = _now()
-            events = []
-            for source in ("fresh_hit", "fresh_hit", "cache_hit", "airline_only", "miss"):
-                events.append({"ts": _iso(now), "hex": "abc123", "route_source": source})
-            _seed_runway_events(tmp, events)
-            with history_db.open_db(tmp) as conn:
-                stats = airlines_page.resolution_stats(conn, airlines_page.RESOLUTION_WINDOW_DAYS, now=now)
-            if stats["total"] != 5:
-                return False, "expected total=5, got %r" % (stats["total"],)
-            if stats["resolved_pct"] != 80.0:
-                return False, "expected resolved_pct=80.0 (4 of 5 not-a-miss), got %r" % (stats["resolved_pct"],)
-            labels = [label for label, _gloss, _count in stats["rows"]]
-            if labels != ["Fresh lookup", "Cached hit", "Airline only", "Miss"]:
-                return False, "expected all four category labels in the fixed display order, got %r" % (labels,)
-            rendered = airlines_page.render(_ctx(tmp, now=_iso(now)))
-            if "80.0%" not in rendered:
-                return False, "expected the resolved percentage headline in the rendered output"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "resolution_stats() breaks down the four documented source categories and computes the resolved percentage",
-        _resolution_stats_four_categories_and_percentage)
-
-    def _zero_history_stats_no_division_error():
-        tmp = _mkstate("a-stats-empty")
-        try:
-            rendered = airlines_page.render(_ctx(tmp))
-            if "No resolution data yet." not in rendered:
-                return False, "expected the statistics empty state with zero history rows"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "zero history rows render the statistics empty state rather than dividing by zero",
-        _zero_history_stats_no_division_error)
-
-    def _page_has_no_form_or_button():
-        tmp = _mkstate("a-no-form")
-        try:
-            registry = {
-                "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
-            rendered = airlines_page.render(_ctx(tmp))
-            if "<form" in rendered:
-                return False, "the Airlines page must never contain a <form (D-16, read-only)"
-            if "<button" in rendered:
-                return False, "the Airlines page must never contain a <button (D-16, read-only)"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "the Airlines page renders no <form and no <button anywhere",
-        _page_has_no_form_or_button)
-
-    def _airlines_page_source_has_no_direct_file_open():
-        with open(os.path.join(HERE, "pages", "airlines_page.py")) as fh:
-            source = fh.read()
-        if "open(" in source:
-            return False, "airlines_page.py must read the registry through poll_loop.load_poll_state(), never open() directly"
-        return True, ""
-    check(
-        "companion/pages/airlines_page.py never opens a file directly (reads through load_poll_state())",
-        _airlines_page_source_has_no_direct_file_open)
-
-    def _airlines_page_source_never_rederives_enrich_logic():
-        with open(os.path.join(HERE, "pages", "airlines_page.py")) as fh:
-            source = fh.read()
-        for needle in ("note_unresolved_prefix", "_AIRLINE_PREFIX_SHAPE_RE"):
-            if needle in source:
-                return False, "airlines_page.py must never re-derive enrich.py's prefix logic (found %r)" % needle
-        return True, ""
-    check(
-        "companion/pages/airlines_page.py never references enrich.py's prefix-derivation internals",
-        _airlines_page_source_never_rederives_enrich_logic)
 
     def _airlines_page_opens_with_shared_page_header():
-        # 06.6.2-04 (D-16): Airlines' top-level heading now goes through
-        # layout.page_header() instead of an independent bare <h1>.
+        # 06.6.2-04 (D-16): Airlines' top-level heading goes through
+        # layout.page_header() instead of an independent bare <h1> —
+        # unchanged by the plan 06 gallery rewrite.
         tmp = _mkstate("a-page-header")
         try:
             rendered = airlines_page.render(_ctx(tmp))
@@ -1972,135 +1782,111 @@ def main():
         "Airlines opens with the shared layout.page_header() component, not a bare <h1>",
         _airlines_page_opens_with_shared_page_header)
 
-    def _airlines_page_renders_one_dashboard_grid_of_two_tiles():
-        tmp = _mkstate("a-dashboard-grid")
+    def _gallery_renders_one_card_per_target_airline():
+        tmp = _mkstate("a-card-count")
         try:
-            registry = {
-                "ABC": {
-                    "count": 1, "first_seen": "t1", "last_seen": "t2",
-                    "example_callsign": "ABC123"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
             rendered = airlines_page.render(_ctx(tmp))
-            if rendered.count('<div class="dashboard-grid">') != 1:
-                return False, (
-                    "expected exactly one dashboard-grid div, got %d"
-                    % rendered.count('<div class="dashboard-grid">'))
-            if rendered.count('class="stat-tile') != 2:
-                return False, (
-                    "expected exactly two stat-tile occurrences, got %d"
-                    % rendered.count('class="stat-tile'))
-            # 06.6.3-06 (D-18): the standalone "Coverage" group heading was
-            # dropped when the resolved-rate headline was promoted out of
-            # the stats tile and placed directly under page_header() —
-            # that promoted headline now serves the orienting role the
-            # heading used to, so a second heading directly above it would
-            # be redundant chrome.
-            if '<h2 class="text-heading">Coverage</h2>' in rendered:
-                return False, "expected the promoted headline to replace the old Coverage heading, not coexist with it"
-            if "stat-tile--warn" not in rendered:
-                return False, "expected the registry tile to carry stat-tile--warn with a non-empty registry"
+            expected = len(illustrations.target_airline_names())
+            got = rendered.count('class="airline-card"')
+            if got != expected:
+                return False, "expected %d .airline-card elements (one per target airline), got %d" % (expected, got)
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a non-empty registry renders one dashboard-grid with exactly two stat tiles and no separate Coverage heading, registry tile stat-tile--warn",
-        _airlines_page_renders_one_dashboard_grid_of_two_tiles)
+        "the gallery renders exactly one .airline-card per illustrations.target_airline_names() entry "
+        "(27 against today's data)",
+        _gallery_renders_one_card_per_target_airline)
 
-    def _promoted_headline_precedes_registry_table():
-        # 06.6.3-06 Task 1 (D-18): the resolved-rate headline is now a
-        # bare .stat-tile__value figure rendered directly under the page
-        # header, before the registry's own table markup in document
-        # order — never wrapped in a stat-tile card, never buried inside
-        # the demoted statistics tile.
-        tmp = _mkstate("a-headline-order")
+    def _every_card_image_source_passes_route_membership_test():
+        tmp = _mkstate("a-image-membership")
         try:
-            now = _now()
-            events = [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}]
-            _seed_runway_events(tmp, events)
-            registry = {
-                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now), "example_callsign": "ABC123"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
-            rendered = airlines_page.render(_ctx(tmp, now=_iso(now)))
-            if rendered.count('class="stat-tile__value"') != 1:
-                return False, (
-                    "expected exactly one stat-tile__value occurrence, got %d"
-                    % rendered.count('class="stat-tile__value"'))
-            if "100.0% resolved" not in rendered:
-                return False, "expected the '{N.N}% resolved' shaped headline text"
-            headline_index = rendered.index('class="stat-tile__value"')
-            table_index = rendered.index('<table class="data-table">')
-            if not (headline_index < table_index):
-                return False, "expected the promoted headline to appear before the registry table"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "the promoted resolved-rate headline is the page's single stat-tile__value figure, appearing before the "
-        "registry table in document order",
-        _promoted_headline_precedes_registry_table)
-
-    def _registry_timestamps_use_concise_format_with_filter_markers():
-        # 06.6.3-06 Task 2 (D-09/D-20): First seen/Last seen switch to
-        # layout.concise_timestamp_html() (a class="mono" title=... span,
-        # never a bare ISO string), and the filter bar's four markers
-        # each appear exactly once, alongside a data-filter-text
-        # attribute holding the lowercased prefix.
-        tmp = _mkstate("a-concise-and-filter")
-        try:
-            now = _now()
-            ts = _iso(now)
-            registry = {
-                "ABC": {"count": 1, "first_seen": ts, "last_seen": ts, "example_callsign": "ABC123"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
-            rendered = airlines_page.render(_ctx(tmp, now=ts))
-            if 'class="mono" title="%s"' % ts not in rendered:
-                return False, "expected First/Last seen to render via concise_timestamp_html()'s class=\"mono\" title=... markup"
-            if rendered.count(ts + '"') < 2:
-                return False, "expected the full ISO timestamp to appear in at least two title attributes (First seen, Last seen)"
-            for marker in (
-                "data-filter-input", "data-filter-count", "data-filter-clear",
-                "data-filter-empty",
-            ):
-                count = rendered.count(marker)
-                if count != 1:
-                    return False, "expected exactly one %r marker, got %d" % (marker, count)
-            if 'data-filter-text="abc"' not in rendered:
-                return False, "expected a registry row's data-filter-text to hold the lowercased prefix"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Airlines' First seen/Last seen render via concise_timestamp_html(), and the filter bar's four markers plus "
-        "a lowercased data-filter-text attribute are each present",
-        _registry_timestamps_use_concise_format_with_filter_markers)
-
-    def _filter_bar_absent_with_no_button_or_form_present():
-        # 06.6.3-06 Task 2 (D-16, T-06.6.3-12): the filter bar's Clear
-        # control must not reopen D-16's read-only-by-design constraint
-        # — no <button>, no <form>, anywhere, even once the filter bar
-        # is rendered over a non-empty registry.
-        tmp = _mkstate("a-filter-no-button")
-        try:
-            registry = {
-                "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
-            }
-            _seed_unresolved_prefixes(tmp, registry)
             rendered = airlines_page.render(_ctx(tmp))
-            if "<button" in rendered:
-                return False, "the filter bar's Clear control must not be a <button> (D-16)"
-            if "<form" in rendered:
-                return False, "the filter bar must not introduce a <form> (D-16)"
-            if "data-filter-clear" not in rendered:
-                return False, "expected a data-filter-clear-carrying element to still exist"
+            targets = set(illustrations.target_filenames())
+            prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
+            sources = re.findall(r'src="([^"]+)"', rendered)
+            if not sources:
+                return False, "expected at least one <img src=...> in the rendered gallery"
+            for src in sources:
+                if not src.startswith(prefix) or not src.endswith(".png"):
+                    return False, "expected every image source to be %s{key}.png, got %r" % (prefix, src)
+                filename = src[len(prefix):]
+                if filename not in targets:
+                    return False, "%r is not a member of illustrations.target_filenames()" % (filename,)
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the filter bar's Clear control carries data-filter-clear without reopening D-16 (no <button>, no <form>)",
-        _filter_bar_absent_with_no_button_or_form_present)
+        "every rendered card image source, with the route prefix stripped, is a member of "
+        "illustrations.target_filenames() — every rendered URL provably passes the route's own membership test",
+        _every_card_image_source_passes_route_membership_test)
+
+    def _card_slice(rendered, airline_name):
+        """The one `.airline-card` block for `airline_name`, bounded by
+        the next card's opening tag (or end of string) — robust
+        regardless of internal nesting, since cards are emitted
+        back-to-back with no card-to-card nesting.
+        """
+        name_index = rendered.index(">%s<" % airline_name)
+        card_start = rendered.rindex('<div class="airline-card">', 0, name_index)
+        next_start = rendered.find('<div class="airline-card">', card_start + 1)
+        return rendered[card_start:] if next_start == -1 else rendered[card_start:next_start]
+
+    def _air_caraibes_card_has_three_upper_cased_chips_including_a350_1000():
+        tmp = _mkstate("a-air-caraibes-chips")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            card_slice = _card_slice(rendered, "Air Caraïbes")
+            got_chips = re.findall(r'class="airline-card__chip">([^<]+)<', card_slice)
+            if got_chips != ["A330", "A350-1000", "ATR72"]:
+                return False, "expected exactly [A330, A350-1000, ATR72] chips for Air Caraïbes, got %r" % (got_chips,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Air Caraïbes card renders exactly three chips (A330, A350-1000, ATR72) — the A350-1000 "
+        "shape-slug-validation trap is not fallen into",
+        _air_caraibes_card_has_three_upper_cased_chips_including_a350_1000)
+
+    def _primary_only_airline_renders_no_chips_container():
+        tmp = _mkstate("a-no-variant-airline")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            card_slice = _card_slice(rendered, "Air France")
+            if "airline-card__chips" in card_slice:
+                return False, "expected Air France's card (no variant shapes) to render no chips container at all"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an airline with no variant entries (Air France) renders no .airline-card__chips container at all",
+        _primary_only_airline_renders_no_chips_container)
+
+    def _variant_chip_label_covers_both_domains():
+        cases = {
+            "a320": "A320", "atr72": "ATR72", "a330": "A330", "b737": "B737",
+            "a350-1000": "A350-1000",
+            "embraer": "Embraer", "beechcraft1900d": "Beechcraft 1900D",
+        }
+        for shape, expected in cases.items():
+            got = airlines_page.variant_chip_label(shape)
+            if got != expected:
+                return False, "variant_chip_label(%r) expected %r, got %r" % (shape, expected, got)
+        return True, ""
+    check(
+        "variant_chip_label() upper-cases every alphanumeric type code verbatim and word-cases the Embraer/"
+        "Beechcraft manufacturer forms",
+        _variant_chip_label_covers_both_domains)
+
+    def _illustration_route_prefix_matches_app_constant():
+        if airlines_page.ILLUSTRATION_ROUTE_PREFIX != app.ILLUSTRATION_IMAGE_ROUTE_PREFIX:
+            return False, "expected airlines_page.ILLUSTRATION_ROUTE_PREFIX == app.ILLUSTRATION_IMAGE_ROUTE_PREFIX, "\
+                "got %r != %r" % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, app.ILLUSTRATION_IMAGE_ROUTE_PREFIX)
+        return True, ""
+    check(
+        "airlines_page.ILLUSTRATION_ROUTE_PREFIX equals app.ILLUSTRATION_IMAGE_ROUTE_PREFIX (the duplicated-not-"
+        "imported route-prefix contract)",
+        _illustration_route_prefix_matches_app_constant)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
