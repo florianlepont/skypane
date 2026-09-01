@@ -371,6 +371,58 @@ PREVIOUS_TEXT_LEFT_OFFSET_PX = 20
 MAIN_TEXT_GAP_PX = 54  # main text top = main illustration's OPAQUE bottom + this
 PREVIOUS_TEXT_GAP_PX = 47  # previous text top = its OPAQUE bottom + this
 
+# --- Phase 9 PHASE9-1: diagonal band geometry, ported verbatim from spike
+# 003-diagonal-band-theme's `draw_reference_band()`. Measured from the
+# developer's reference image via per-row pixel scanning + linear
+# regression (spike round 2/11), confirmed final at round 15 ("oui !",
+# .planning/spikes/003-diagonal-band-theme/README.md). A trapezoid, not a
+# parallelogram: the top and bottom edges span different fractions of the
+# canvas width. `BAND_SHIFT_FRAC` is the reference's own unshifted, as-
+# measured position (0.0) - round 11 found that splitting the top-right tag
+# (see `_BAND_TOP_LABEL_DIRECTION`/`draw_top_labels()` below) already clears
+# both the shorter tag and the below-illustration text with margin, so no
+# extra shift is needed. `BAND_BOT_LEFT_FRAC` is floored at 0.0 as a defensive
+# guard against a future negative shift walking the polygon off-canvas.
+BAND_SHIFT_FRAC = 0.0
+BAND_TOP_LEFT_FRAC = 0.5818 + BAND_SHIFT_FRAC
+BAND_TOP_RIGHT_FRAC = 0.8523 + BAND_SHIFT_FRAC
+BAND_BOT_LEFT_FRAC = max(0.0, 0.0742 + BAND_SHIFT_FRAC)
+BAND_BOT_RIGHT_FRAC = 0.4772 + BAND_SHIFT_FRAC
+
+
+def draw_diagonal_band(canvas, band_idx, dithered=False):
+    """Paint the Phase 9 diagonal trapezoid band directly onto `canvas`, in
+    `band_idx`'s colour - flat or dithered ~40% toward White depending on
+    `dithered`. `band_idx` must be one of the 6 legal `panel_format.IDX_*`
+    values (never a bare integer), so `_assert_legal_palette()` downstream
+    stays satisfied.
+
+    MUST be called before any text/illustration drawing, so the band sits
+    behind everything else on the canvas - matching D-24's already-proven
+    "illustrations occlude the band naturally" behaviour from the spike.
+
+    Geometry is measured from the developer's reference image and confirmed
+    final at spike round 15 - see the `BAND_*_FRAC` constants above for the
+    full provenance. This is a verbatim, renamed port of the spike's
+    `draw_reference_band()`: no geometry or drawing-logic change, just moving
+    it from a monkeypatch into a real production function that operates
+    directly on the caller's canvas (no return value - the caller already
+    holds the canvas reference).
+    """
+    w, h = canvas.size
+    poly = [
+        (BAND_TOP_LEFT_FRAC * w, 0), (BAND_TOP_RIGHT_FRAC * w, 0),
+        (BAND_BOT_RIGHT_FRAC * w, h), (BAND_BOT_LEFT_FRAC * w, h),
+    ]
+    if dithered:
+        band_fill = dither.dithered_state_background(band_idx)
+        mask = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(mask).polygon(poly, fill=255)
+        canvas.paste(band_fill, (0, 0), mask)
+    else:
+        ImageDraw.Draw(canvas).polygon(poly, fill=band_idx)
+
+
 # --- D-04/D-06/D-07 battery-low icon geometry (05-UI-SPEC.md, 05-02-PLAN.md)
 # The two POSITION constants (LEFT/BOTTOM) still derive from MARGIN, unchanged
 # since 05-02. The four SIZE constants are a uniform round(original * 0.7)
