@@ -66,7 +66,18 @@ STARTUP_DEADLINE_S = 10.0
 # one check per <behavior> bullet) -> 60 (Task 3: D-03/D-04/D-06
 # cross-file DOM-contract guards between config_page.py's constants and
 # dirty-state.js/style.css, +4).
-EXPECTED_CHECK_COUNT = 60
+# 06.6.4.1-07: 60 (pre-plan baseline) -> heading text and every /config
+# route literal retargeted to /settings in place, no count change (Task
+# 1) -> 54 (Task 2, D-05: the 8 checks exercising the now-deleted
+# led_fieldset()/led_section()/handle_led_post() were deleted outright
+# (-8; their coverage is superseded by the pre-existing handle_post()
+# LED-merge checks and the render() shape check, confirmed before
+# deleting, not re-added) plus 1 new source-assertion check that
+# config_page exposes none of the three retired symbols (+1); the two
+# live-HTTP LED checks were retargeted in place from /config-led onto
+# SETTINGS_ROUTE (no count change) and 1 new check pins the retired
+# /config-led route now 404s (+1); net -6).
+EXPECTED_CHECK_COUNT = 54
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1029,79 +1040,25 @@ def main():
         _handle_post_valid_runway_and_led_persist_together_one_call)
 
     # ------------------------------------------------------------------
-    # LED section checks (Task 2, D-01/D-02/T-06.2-02) - a-f are unit
-    # checks; g-h (below, inside the Harness block) drive real HTTP.
+    # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()
+    # and the separate POST /config-led route were retired outright —
+    # the eight checks that used to exercise them directly were deleted
+    # here (they would now raise AttributeError against the deleted
+    # symbols). Their coverage is superseded, not lost: the merged
+    # led_group()/handle_post() checks above (D-05 handle_post() bullets)
+    # and _render_shape_read_only_theme_runway_cards_led_group_and_save_button()
+    # near the top of this file already cover the same three submitted-
+    # value shapes, the cross-field all-or-nothing rejection, and the
+    # single-heading-level/no-<fieldset> markup contract.
     # ------------------------------------------------------------------
-
-    def _led_fieldset_checked_true():
-        rendered = config_page.led_fieldset(True)
-        if "checked" not in rendered:
-            return False, "expected a checked attribute for led_fieldset(True)"
-        if rendered.count('name="led_enabled"') != 1:
-            return False, "expected exactly one name=\"led_enabled\" input"
-        return True, ""
-    check(
-        "led_fieldset(True) contains a checked attribute and one name=\"led_enabled\" input",
-        _led_fieldset_checked_true)
-
-    def _led_fieldset_unchecked_false():
-        rendered = config_page.led_fieldset(False)
-        if "checked" in rendered:
-            return False, "expected no checked attribute for led_fieldset(False)"
-        return True, ""
-    check(
-        "led_fieldset(False) contains no checked attribute",
-        _led_fieldset_unchecked_false)
-
-    # ------------------------------------------------------------------
-    # D-02/D-06 (06.6.3-03 Task 1): the LED section's user-facing copy
-    # renamed "bring-up" -> "diagnostic", and the section's duplicate
-    # heading (an independent <h2> alongside the fieldset's own <legend>)
-    # removed, leaving the <legend> as the sole accessible group name.
-    # ------------------------------------------------------------------
-
-    def _led_section_no_stale_bring_up_led_string():
-        rendered = config_page.led_section(True)
-        if "bring-up" in rendered.lower():
-            return False, "expected no case-insensitive 'bring-up' substring in led_section()'s output"
-        return True, ""
-    check(
-        "led_section(True) contains no stale 'Bring-up LED' internal-identifier string (D-02)",
-        _led_section_no_stale_bring_up_led_string)
-
-    def _led_section_single_accessible_group_name_no_duplicate_heading():
-        rendered = config_page.led_section(True)
-        if rendered.count("Diagnostic LED") != 1:
-            return False, (
-                "expected exactly one 'Diagnostic LED' accessible group name, got %d"
-                % rendered.count("Diagnostic LED"))
-        if "<h2" in rendered:
-            return False, "expected no <h2> in led_section()'s output (the legend is the sole group name)"
-        if "<legend>Diagnostic LED</legend>" not in rendered:
-            return False, "expected the fieldset legend to carry the group name"
-        return True, ""
-    check(
-        "led_section(True) has exactly one accessible group name (the <legend>), no duplicate <h2> (D-06)",
-        _led_section_single_accessible_group_name_no_duplicate_heading)
-
-    def _led_fieldset_checkbox_label_reads_enable_diagnostic_led():
-        rendered = config_page.led_fieldset(True)
-        if "Enable diagnostic LED" not in rendered:
-            return False, "expected the checkbox label to read 'Enable diagnostic LED'"
-        if "Enable bring-up LED" in rendered:
-            return False, "expected the stale 'Enable bring-up LED' label to be gone"
-        return True, ""
-    check(
-        "led_fieldset(True)'s checkbox label reads 'Enable diagnostic LED' (D-02)",
-        _led_fieldset_checkbox_label_reads_enable_diagnostic_led)
 
     def _render_has_no_action_pointing_at_retired_led_route():
-        # 06.6.4.1 (D-05): the LED group is merged into the single
-        # settings form now — render() must no longer emit a second,
-        # independently-submittable <form action="/config-led"> at all.
-        # companion/app.py's separate POST /config-led route itself is
-        # untouched (handle_led_post() still serves it) — this check is
-        # scoped to render()'s markup only, not the live route.
+        # 06.6.4.1 (D-05), retired route confirmed 06.6.4.1-07: the LED
+        # group is merged into the single settings form — render() must
+        # never emit a second, independently-submittable
+        # <form action="/config-led"> at all. The separate POST
+        # /config-led route and its handler no longer exist anywhere in
+        # the app, so this is now a pure markup regression guard.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -1115,60 +1072,18 @@ def main():
         "render() emits no action pointing at the retired separate LED form path (D-05)",
         _render_has_no_action_pointing_at_retired_led_route)
 
-    def _handle_led_post_unchecked_persists_false():
-        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
-        try:
-            ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_led_post({}, ctx)
-            if flash_key != config_page.FLASH_SAVED:
-                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
-            on_disk = device_config.load_device_config(tmpdir)
-            if on_disk["led_enabled"] is not False:
-                return False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
-            return True, ""
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+    def _config_page_exposes_no_retired_led_symbols():
+        # 06.6.4.1-07 (D-05): source assertion that the deleted handler,
+        # section wrapper, and markup builder are genuinely gone, not
+        # merely unreferenced.
+        for name in ("led_fieldset", "led_section", "handle_led_post"):
+            if hasattr(config_page, name):
+                return False, "expected config_page to expose no %r attribute" % name
+        return True, ""
     check(
-        "handle_led_post({}, ctx) - the shape a browser sends for an unchecked checkbox - persists led_enabled False and returns the saved flash key",
-        _handle_led_post_unchecked_persists_false)
-
-    def _handle_led_post_checked_persists_true():
-        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
-        try:
-            ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_led_post(
-                {"led_enabled": config_page.LED_CHECKBOX_VALUE}, ctx)
-            if flash_key != config_page.FLASH_SAVED:
-                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
-            on_disk = device_config.load_device_config(tmpdir)
-            if on_disk["led_enabled"] is not True:
-                return False, "expected led_enabled True on disk, got %r" % (on_disk["led_enabled"],)
-            return True, ""
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
-    check(
-        "handle_led_post({\"led_enabled\": LED_CHECKBOX_VALUE}, ctx) persists led_enabled True and returns the saved flash key",
-        _handle_led_post_checked_persists_true)
-
-    def _handle_led_post_crafted_value_rejected():
-        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
-        try:
-            _write_device_config(tmpdir, "sky", "3", led_enabled=True)
-            before = open(device_config.device_config_path(tmpdir), "rb").read()
-            ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_led_post(
-                {"led_enabled": "<script>alert(1)</script>"}, ctx)
-            after = open(device_config.device_config_path(tmpdir), "rb").read()
-            if flash_key != config_page.FLASH_SAVE_FAILED:
-                return False, "expected FLASH_SAVE_FAILED for a crafted led_enabled value, got %r" % (flash_key,)
-            if before != after:
-                return False, "expected device_config.json to be byte-identical, it changed"
-            return True, ""
-        finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
-    check(
-        "handle_led_post with a crafted non-checkbox value returns FLASH_SAVE_FAILED and leaves device_config.json byte-identical",
-        _handle_led_post_crafted_value_rejected)
+        "companion.pages.config_page exposes neither led_fieldset, led_section, nor "
+        "handle_led_post (all three retired, D-05)",
+        _config_page_exposes_no_retired_led_symbols)
 
     # ------------------------------------------------------------------
     # Runway-image existence detection (Task 1, D-03) - each check uses
@@ -1388,9 +1303,15 @@ def main():
             "a real HTTP save round trip shows D-07's confirmation copy and the newly-saved runway selected",
             _save_round_trip_shows_confirmation_and_new_selection)
 
-        def _led_post_empty_body_saves_false_and_renders_unchecked():
+        def _settings_post_empty_body_persists_led_false_and_renders_unchecked():
+            # 06.6.4.1-07 (D-05): the separate LED route is retired — this
+            # is the live-HTTP successor to the old "empty-body POST
+            # /config-led" check, now posting to the single merged
+            # SETTINGS_ROUTE with nothing submitted at all (the shape a
+            # browser sends when nothing is checked/selected). Same
+            # persisted outcome, same redirect-with-flash shape.
             status, headers, _ = http_request(
-                base + "/config-led", method="POST", cookie=session_cookie,
+                base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
                 data=b"")
             if status != 303:
                 return False, "expected a 303 redirect on save, got %d" % status
@@ -1400,8 +1321,6 @@ def main():
             on_disk = device_config.load_device_config(harness.tmpdir)
             if on_disk["led_enabled"] is not False:
                 return False, "expected on-disk led_enabled False after an empty-body POST, got %r" % (on_disk["led_enabled"],)
-            # 06.6.4.1-07 (D-26): the follow-up GET now targets
-            # SETTINGS_ROUTE — "/config" 404s by design after the rename.
             get_status, _get_headers, body = http_request(
                 base + config_page.SETTINGS_ROUTE, cookie=session_cookie)
             if get_status != 200:
@@ -1411,15 +1330,20 @@ def main():
                 return False, "expected the LED checkbox to render unchecked after saving False"
             return True, ""
         check(
-            "a live authenticated POST /config-led with an empty body 303-redirects to /config?flash=saved, persists led_enabled False, and a follow-up GET /config renders the control unchecked",
-            _led_post_empty_body_saves_false_and_renders_unchecked)
+            "a live authenticated POST %s with an empty body 303-redirects to %s?flash=saved, "
+            "persists led_enabled False, and a follow-up GET renders the control unchecked"
+            % (config_page.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE),
+            _settings_post_empty_body_persists_led_false_and_renders_unchecked)
 
-        def _led_post_unauthenticated_redirects_to_login_and_writes_nothing():
+        def _settings_post_unauthenticated_redirects_to_login_and_writes_nothing():
+            # 06.6.4.1-07 (D-05): live-HTTP successor to the old
+            # "unauthenticated POST /config-led" check — same target
+            # (now SETTINGS_ROUTE), same no-write assertion.
             config_path = device_config.device_config_path(harness.tmpdir)
             existed_before = os.path.exists(config_path)
             before = open(config_path, "rb").read() if existed_before else None
             status, headers, _ = http_request(
-                base + "/config-led", method="POST", data=b"")
+                base + config_page.SETTINGS_ROUTE, method="POST", data=b"")
             if status != 303:
                 return False, "expected a 303 redirect, got %d" % status
             location = headers.get("Location", "")
@@ -1427,15 +1351,29 @@ def main():
                 return False, "expected a redirect to /login, got %r" % location
             exists_after = os.path.exists(config_path)
             if not existed_before and exists_after:
-                return False, "an unauthenticated POST /config-led created device_config.json"
+                return False, "an unauthenticated POST %s created device_config.json" % config_page.SETTINGS_ROUTE
             if existed_before:
                 after = open(config_path, "rb").read()
                 if before != after:
-                    return False, "an unauthenticated POST /config-led modified device_config.json"
+                    return False, "an unauthenticated POST %s modified device_config.json" % config_page.SETTINGS_ROUTE
             return True, ""
         check(
-            "an unauthenticated POST /config-led redirects to /login and writes nothing",
-            _led_post_unauthenticated_redirects_to_login_and_writes_nothing)
+            "an unauthenticated POST %s redirects to /login and writes nothing" % config_page.SETTINGS_ROUTE,
+            _settings_post_unauthenticated_redirects_to_login_and_writes_nothing)
+
+        def _led_route_retired_returns_404():
+            # 06.6.4.1-07 (D-05): the separate LED POST route no longer
+            # exists anywhere in the app — an authenticated POST to it
+            # now falls through to the standard 404, same as any other
+            # unrouted path.
+            status, _headers, _body = http_request(
+                base + "/config-led", method="POST", cookie=session_cookie, data=b"")
+            if status != 404:
+                return False, "expected 404 for the retired /config-led route, got %d" % status
+            return True, ""
+        check(
+            "an authenticated POST to the retired /config-led route returns 404 (D-05)",
+            _led_route_retired_returns_404)
 
         def _runway_image_route_requires_session():
             status, headers, _ = http_request(base + "/runway-image/3.png")

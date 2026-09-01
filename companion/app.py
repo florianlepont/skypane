@@ -108,7 +108,6 @@ PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
 # FLASH_KEY_* constants below (D-26, 06.6.4.1-07: renamed from "/config"
 # to "/settings"; the old path now 404s by design, no redirect).
 SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
-LED_ROUTE = "/config-led"
 POLL_ROUTE = "/poll-now"
 THEME_ROUTE = "/ui-theme"
 LOGOUT_ROUTE = "/logout"
@@ -1018,14 +1017,6 @@ class Handler(BaseHTTPRequestHandler):
             form = self.read_form()
             ctx = self.page_context()
             flash_key = config_page.handle_post(form, ctx)
-            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
-
-        if path == LED_ROUTE:
-            if not self.require_session():
-                return None
-            form = self.read_form()
-            ctx = self.page_context()
-            flash_key = config_page.handle_led_post(form, ctx)
             return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
 
         if path == POLL_ROUTE:

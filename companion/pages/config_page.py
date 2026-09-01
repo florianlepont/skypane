@@ -51,8 +51,8 @@ LED_HELPER_TEXT = (
     "immediately.")
 
 # The sole accepted submitted value for the LED checkbox (D-01) — shared
-# by led_fieldset()'s markup and handle_led_post()'s validator so the two
-# can never drift apart.
+# by led_group()'s markup and handle_post()'s validator so the two can
+# never drift apart.
 LED_CHECKBOX_VALUE = "on"
 
 # D-02 (06.6.4.1): one description sentence per settings group, rendered
@@ -307,70 +307,6 @@ def runway_fieldset(current_runway_id, images_available=()):
     )
 
 
-# Left in place, unreferenced by render() as of 06.6.4.1 (D-05): render()
-# now shows the LED checkbox via the new led_group() below instead, so
-# neither this function nor its caller led_section() renders on any live
-# page anymore. Both stay in the file anyway: companion/app.py's separate
-# POST /config-led route still dispatches to handle_led_post() below
-# (unaffected by this plan), and deleting either function two waves
-# before that route itself is retired would be premature. Plan 07 deletes
-# both, together with the route, once companion/app.py stops calling
-# handle_led_post().
-def led_fieldset(current_led_enabled):
-    """A single checkbox controlling the CFG-LED diagnostic LED (D-01/D-02):
-    a `<label>` wrapping `<input type="checkbox" name="led_enabled"
-    value="on">`, carrying a bare `checked` attribute only when
-    `current_led_enabled` is truthy, plus the helper text explaining what
-    the control does.
-
-    D-02: every user-facing string here reads "Diagnostic LED" — the
-    internal identifiers (this function's own name, LED_HELPER_TEXT,
-    LED_CHECKBOX_VALUE, LED_ROUTE) are unchanged by name; this is a
-    copy-only rename.
-    """
-    checked = " checked" if current_led_enabled else ""
-    return (
-        "<fieldset>"
-        "<legend>Diagnostic LED</legend>"
-        "<label>"
-        '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
-        "</label>"
-        '<p class="text-label">%s</p>'
-        "</fieldset>"
-    ) % (escape_html(LED_CHECKBOX_VALUE), checked, escape_html(LED_HELPER_TEXT))
-
-
-# Left in place, unreferenced by render() as of 06.6.4.1 (D-05) for the
-# same reason stated above led_fieldset(): companion/app.py's POST
-# /config-led route still calls handle_led_post() (which does not call
-# this function or led_fieldset() at all — validation and rendering are
-# already independent code paths), so removing this render-only function
-# early is not required to keep that route working, but removing it out
-# of step with led_fieldset() and handle_led_post() would be an
-# inconsistent partial cleanup. Plan 07 removes it together with them.
-def led_section(current_led_enabled):
-    """Wraps led_fieldset() in its own dedicated, independently-submittable
-    `<section>`/`<form>` (D-01) — mirroring poll_trigger_section()'s own
-    "own dedicated form" precedent. See render()'s comment for why this is
-    NOT folded into the Theme/Runway `<form action="/config">`.
-
-    D-06: no independent `<h2>` here — led_fieldset()'s own
-    `<legend>Diagnostic LED</legend>` is this section's sole accessible
-    group name, matching the sibling Theme/Runway fieldsets inside
-    `.config-form`, which already have no independent `<h2>` of their own.
-    A prior revision duplicated the name via both an `<h2>` and the
-    `<legend>` — do not reintroduce that `<h2>`.
-    """
-    return (
-        '<section class="page-section">'
-        '<form method="post" action="/config-led">'
-        "%s"
-        '<button type="submit">Save LED Setting</button>'
-        "</form>"
-        "</section>"
-    ) % led_fieldset(current_led_enabled)
-
-
 def led_group(current_led_enabled):
     """The Diagnostic LED settings group (D-05, 06.6.4.1): a sibling of the
     Theme and Runway groups inside the single merged `<form
@@ -379,10 +315,12 @@ def led_group(current_led_enabled):
     is reused verbatim, not a third wrapper class invented for this group.
 
     Deliberately carries no `<fieldset>`/`<legend>` of its own, unlike
-    `led_fieldset()` above. The old `<fieldset>` existed because the LED
-    control used to live in its own independently-submittable
-    `<form>` (`led_section()`, pre-06.6.4.1), and a `<legend>` only has
-    accessible-name semantics inside a `<fieldset>`. Now that this group
+    the retired pre-06.6.4.1 `led_fieldset()`/`led_section()` pair
+    (removed 06.6.4.1-07, D-05: their own separate `POST /config-led`
+    route no longer exists either). The old `<fieldset>` existed because
+    the LED control used to live in its own independently-submittable
+    `<form>`, and a `<legend>` only has accessible-name semantics inside
+    a `<fieldset>`. Now that this group
     is a sibling of two `<h2>`-headed groups in one single-column stack
     (Theme's and Runway's own `<fieldset>` wrappers were already dropped
     by D-04/D-05 in 06.6.3), it is named the same way they are — an `<h2
@@ -652,8 +590,10 @@ def handle_post(form, ctx):
     """Validate the submitted theme/runway/LED state against
     `device_config`'s own registries — server-side, before any value is
     used anywhere — and persist all three in a single
-    `save_device_config()` call (D-05, 06.6.4.1: this handler now absorbs
-    what `handle_led_post()` used to do on its own separate route).
+    `save_device_config()` call (D-05, 06.6.4.1: this handler absorbed
+    what the now-retired `handle_led_post()` used to do on its own
+    separate `POST /config-led` route — removed outright in 06.6.4.1-07
+    once this route became the sole settings-writing path).
 
     Deliberately does NOT call any of `device_config`'s read-path
     normalising helpers (the ones an unrecognised on-disk value silently
@@ -720,40 +660,6 @@ def handle_post(form, ctx):
         device_config.save_device_config(
             state_dir, theme=submitted_theme, tracked_runway=submitted_runway,
             led_enabled=led_enabled)
-    except (ValueError, OSError):
-        return FLASH_SAVE_FAILED
-    return FLASH_SAVED
-
-
-def handle_led_post(form, ctx):
-    """Validate and persist the LED checkbox submission (D-01, T-06.2-02).
-
-    Same asymmetric-validation discipline handle_post()'s own docstring
-    states: the read path forgives via `device_config.normalise_led_enabled()`,
-    this write path rejects the whole submission and never silently
-    coerces. Exactly three shapes are resolved and no others:
-      - the field is absent from `form` (an unchecked HTML checkbox is
-        omitted from the POST body entirely) -> `led_enabled=False`;
-      - the field equals `LED_CHECKBOX_VALUE` -> `led_enabled=True`;
-      - anything else (a crafted/hostile value) -> reject the whole
-        submission with FLASH_SAVE_FAILED, before any write.
-
-    Reuses FLASH_SAVED/FLASH_SAVE_FAILED rather than adding new flash
-    keys — this action's user-facing outcome is exactly what those keys
-    already say.
-    """
-    state_dir = ctx["state_dir"]
-    submitted = form.get("led_enabled")
-
-    if submitted is None:
-        led_enabled = False
-    elif submitted == LED_CHECKBOX_VALUE:
-        led_enabled = True
-    else:
-        return FLASH_SAVE_FAILED
-
-    try:
-        device_config.save_device_config(state_dir, led_enabled=led_enabled)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
     return FLASH_SAVED
