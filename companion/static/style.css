@@ -897,6 +897,30 @@ a:hover {
   background: var(--color-accent);
 }
 
+/* Anomaly-banner category pill (D-07). A flex child of the already-
+ * flattened .banner row above (06.6.4 D-04), not a new container —
+ * `flex: none` so it never shrinks inside that row. Deliberately
+ * neutral-tinted rather than severity-tinted: the banner's own left edge
+ * and dot already carry the severity signal, and a second coloured token
+ * per pill would dilute it. Declarations are intentionally identical to
+ * .airline-card__chip's (Airlines gallery section, later in this file) —
+ * the two are the same visual primitive at two call sites, kept
+ * literally identical so a future consolidation into one shared class is
+ * a mechanical edit, not a redesign. */
+.banner__pill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: var(--weight-regular);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  flex: none;
+}
+
 /* Forms and fieldsets */
 fieldset {
   border: 1px solid var(--color-border);
@@ -2009,6 +2033,18 @@ summary::-webkit-details-marker {
   outline-offset: 1px;
 }
 
+/* Battery-chart axis labels (D-09, §5.3) — SVG `text` nodes, so `fill`
+ * not `color` sets the visible ink. 10px reuses this file's already-
+ * documented sub-scale exception tier (.data-table th at 11px,
+ * .cell-secondary at 12px), one step further down because chart-axis
+ * micro-labels sit below secondary table text in the hierarchy —
+ * explicitly not a fifth content type role. */
+.sparkline-axis-label {
+  font-size: 10px;
+  font-weight: var(--weight-regular);
+  fill: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* Reserves a fixed-height line so the first reveal never shifts the page
  * (06.5-RESEARCH.md, Open Question 1's recommendation — the layout-jump
  * pitfall on mobile). */
@@ -2164,4 +2200,47 @@ summary::-webkit-details-marker {
 .login-card:focus-within {
   border-color: transparent;
   box-shadow: var(--shadow-card-hover);
+}
+
+/* History lightbox (D-20, §8.3) — a native <dialog> element, styled by
+ * class. box-shadow: var(--shadow-card-hover) at rest is this phase's
+ * one deliberate exception to the hairline-at-rest contract every other
+ * card in this file carries: this is a floating modal overlay, not a
+ * page-flow card, so its resting state should already read as elevated.
+ * width: calc(...) keeps the dialog off the viewport edge on a phone
+ * without a separate media-query block. */
+.lightbox {
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  max-width: 480px;
+  width: calc(100% - var(--space-lg) * 2);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.lightbox__image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-control);
+  margin-bottom: var(--space-sm);
+}
+
+/* Both elements already carry text-label mono / text-body utility
+ * classes from plan 05's markup, so neither rule here sets a font-size
+ * or a colour — margin only. */
+.lightbox__caption {
+  margin: 0 0 var(--space-xs);
+}
+
+.lightbox__note {
+  margin: var(--space-sm) 0 0;
+}
+
+/* No scrim token exists in this file; a raw rgba value here is
+ * consistent with this file's existing raw-rgba shadow values, so this
+ * is not a new token. */
+.lightbox::backdrop {
+  background: rgba(0, 0, 0, 0.5);
 }
