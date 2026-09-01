@@ -1564,22 +1564,39 @@ def main():
         if "calc(240px + var(--space-xl) + var(--space-md))" not in media_body:
             return False, "expected the >=960px .dirty-bar rule's left offset to be calc(240px + var(--space-xl) + var(--space-md))"
 
-        # (e) the inset itself: bottom/right pulled in by var(--space-md),
-        # max-width reduced by twice the inset so the cap doesn't silently
-        # cancel it above roughly 1712px (where min(1440px, 100%) alone
-        # would size the box, flush with .dashboard-main on both sides),
-        # and no corner-squaring override left to re-dock the bar.
-        if "bottom: var(--space-md)" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule body to carry bottom: var(--space-md)"
+        # (e) the inset itself: right pulled in by var(--space-md), bottom
+        # by the larger var(--space-lg) (260901-s5o direct follow-up: a
+        # bigger edge gap reads more clearly as "floating"), max-width
+        # reduced by twice the var(--space-md) inset so the cap doesn't
+        # silently cancel it above roughly 1712px (where min(1440px, 100%)
+        # alone would size the box, flush with .dashboard-main on both
+        # sides), and no corner-squaring override left to re-dock the bar.
+        if "bottom: var(--space-lg)" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry bottom: var(--space-lg)"
         if "right: var(--space-md)" not in media_body:
             return False, "expected the >=960px .dirty-bar rule body to carry right: var(--space-md)"
         if "calc(min(1440px, 100%) - var(--space-md) * 2)" not in media_body:
             return False, "expected the >=960px .dirty-bar rule's max-width to be calc(min(1440px, 100%) - var(--space-md) * 2)"
         if "border-radius: 0" in media_body:
             return False, "expected the >=960px .dirty-bar rule body to no longer carry a corner-squaring border-radius: 0 override"
+
+        # (f) 260901-s5o direct follow-up: developer feedback after seeing
+        # the floating card live was "correct shape, too wide, not visible
+        # enough." `width: fit-content` is the fix for "too wide" - without
+        # it, `width:auto` plus both `left` and `right` set non-auto makes
+        # the box stretch to fill the whole positioning region (full
+        # .dashboard-main width) per the CSS2.1 abs/fixed sizing rules.
+        # The >=960px padding override is gone outright now that the bar
+        # is compact rather than full-width - it existed only to align a
+        # full-width bar's controls with the content gutter, so the base
+        # rule's plain padding: var(--space-md) now governs unmodified.
+        if "width: fit-content" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry width: fit-content, so it sizes to its own content instead of stretching the full column"
+        if "padding:" in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry no padding override - the base rule's padding: var(--space-md) should apply unmodified now that the bar is compact"
         return True, ""
     check(
-        "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar as a floating rounded card (full border, radius token, surrounding token-based shadow, no --color-secondary), the fixed-not-sticky >=960px .dirty-bar rule inset by var(--space-md) with a correspondingly reduced max-width and no corner-squaring, and the 240px<->grid-template-columns must-equal pair (quick task 260901-re6, quick task 260901-s5o)",
+        "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar as a floating rounded card (full border, radius token, surrounding token-based shadow, no --color-secondary), and the fixed-not-sticky >=960px .dirty-bar rule: inset by var(--space-md)/var(--space-lg) with a correspondingly reduced max-width, no corner-squaring, and width: fit-content so it sizes to its own content instead of stretching the full column (quick task 260901-re6, quick task 260901-s5o, 260901-s5o direct follow-up)",
         _style_css_carries_section_caption_and_restyled_fixed_dirty_bar)
 
     def _dirty_state_js_has_no_hardcoded_section_names():

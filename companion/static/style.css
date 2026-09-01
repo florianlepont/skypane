@@ -1145,7 +1145,19 @@ button:active {
  * alone does. .lightbox (further down this file) is the existing
  * precedent for a floating element that carries a resting shadow rather
  * than revealing one on hover — this bar is the second, and for the
- * same reason: it is a floating overlay, not a page-flow card. */
+ * same reason: it is a floating overlay, not a page-flow card.
+ *
+ * Direct follow-up to 260901-s5o (developer feedback after seeing it
+ * live: correct shape, but read as too wide and not visible enough).
+ * The ambient shadow layer is deepened here (was `0 8px 24px / .10`) —
+ * a stronger drop shadow is what reads as "elevated" without touching
+ * any color semantics, which matters on this file: the accent hue is
+ * deliberately reserved for primary actions/status, so leaning on a
+ * second accent-tinted border here to gain visibility would blur that
+ * signal rather than fix the actual complaint. The "too wide" half of
+ * the feedback is a `width` fix, not a color fix — see the >=960px
+ * rule below, where the bar changes from stretching the full content
+ * column to sizing itself to its own content. */
 .dirty-bar {
   display: flex;
   align-items: center;
@@ -1155,7 +1167,7 @@ button:active {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   margin-top: var(--space-md);
-  box-shadow: var(--shadow-card-hover), 0 8px 24px rgba(18, 21, 27, 0.10);
+  box-shadow: var(--shadow-card-hover), 0 12px 32px rgba(18, 21, 27, 0.16);
 }
 
 /* Without this, the native `hidden` attribute dirty-state.js relies on to
@@ -2297,15 +2309,10 @@ summary::-webkit-details-marker {
    * is what this bar (now emitted as a sibling of the form, last on the
    * page, submitting via `form=` — see render()'s own comment) needs.
    *
-   * quick task 260901-s5o: `left`/`right`/`bottom` reproduce
-   * `.dashboard-main`'s own content-column geometry, INSET by
-   * `var(--space-md)` on each of those three edges, so the bar reads as
-   * a floating pop-up card rather than a strip docked to the column's
-   * edges. Adding the inset to `left` and subtracting the same amount
-   * from `right` leaves the midpoint of the positioning region
-   * unchanged, so `margin: 0 auto` still centres the bar on exactly the
-   * same line `.dashboard-main` centres on — the inset is symmetric by
-   * construction. The `240px` literal is a duplicated-not-imported
+   * `left`/`right` reproduce `.dashboard-main`'s own content-column
+   * geometry, INSET by `var(--space-md)` on each edge — the bar's
+   * positioning region is the content column, shrunk by that inset, not
+   * the column itself. The `240px` literal is a duplicated-not-imported
    * must-equal value — it has to stay equal to `.dashboard-shell`'s
    * `grid-template-columns` first track, and the `var(--space-xl)`
    * addend equal to its `column-gap` — there is no token for either, so
@@ -2316,29 +2323,47 @@ summary::-webkit-details-marker {
    * as the bare `min(1440px, 100%)` copied from `.dashboard-main`: for a
    * fixed-position box, `100%` resolves against the viewport, so once
    * the viewport passes roughly 1712px (240px sidebar + 32px gap +
-   * 1440px cap) the cap alone would size the box, exactly 1440px wide —
-   * flush with the content column on both sides and showing no inset at
-   * all, cancelling the inset at exactly the widths (e.g. a 16-inch
-   * MacBook Pro's 1728px default) where it is most visible. The corner-
-   * squaring override (`border-radius: 0`) this rule used to carry is
-   * deleted outright, not restated at the card radius — the base rule
-   * above already declares `border-radius: var(--radius-card)`, and
-   * deleting the override is what lets one radius govern this component
-   * at every width, rather than creating a second definition site that
-   * could silently drift from the base rule. `margin: 0 auto` also
-   * zeroes the base rule's `margin-top`, which is meaningless for a
-   * fixed box. No `z-index`: this is the last positioned element in
-   * document order and nothing it overlaps creates a competing stacking
-   * context, so a z-index here would be an unearned magic number — if a
-   * future overlap appears, add one then with a stated reason. */
+   * 1440px cap) the cap alone would size the box — a 16-inch MacBook
+   * Pro's 1728px default logical width included.
+   *
+   * Direct follow-up to 260901-s5o: that version additionally set
+   * `right: var(--space-md)` with no `width`, which — per the CSS2.1
+   * abs/fixed-positioning rules, `width:auto` plus both `left` and
+   * `right` non-auto — stretches the box to fill the entire positioning
+   * region, exactly as wide as `.dashboard-main` itself. Correct shape,
+   * developer feedback: too wide. `width: fit-content` overrides that
+   * stretch so the box sizes to its own content (the "changed" label
+   * plus the two buttons) instead of the full column; `left`/`right`
+   * stay as the region the box centres within, and `margin: 0 auto`
+   * still centres it there (the classic auto-margin-centering trick for
+   * a positioned box, which needs a definite `width` to engage — hence
+   * `fit-content` rather than leaving it unset). `max-width` remains as
+   * a hard ceiling for pathological cases (e.g. a very long future
+   * status label) rather than the effective width it used to be. The
+   * >=960px padding override is dropped entirely now that the bar is
+   * compact rather than full-width — it existed only to align the full-
+   * width bar's controls with `.dashboard-main`'s own content gutter, so
+   * the base rule's `padding: var(--space-md)` (the same value every
+   * other `.page-section` card uses) now applies unmodified. `bottom`
+   * grows from `var(--space-md)` to `var(--space-lg)` — a deliberately
+   * larger gap from the viewport edge reads as more clearly "floating,"
+   * not merely "shorter." The corner-squaring override (`border-radius:
+   * 0`) this rule used to carry stays deleted — the base rule above
+   * already declares `border-radius: var(--radius-card)`, and one
+   * definition site is what keeps this component's radius from
+   * drifting between widths. No `z-index`: this is the last positioned
+   * element in document order and nothing it overlaps creates a
+   * competing stacking context, so a z-index here would be an unearned
+   * magic number — if a future overlap appears, add one then with a
+   * stated reason. */
   .dirty-bar {
     position: fixed;
-    bottom: var(--space-md);
+    bottom: var(--space-lg);
     left: calc(240px + var(--space-xl) + var(--space-md));
     right: var(--space-md);
+    width: fit-content;
     max-width: calc(min(1440px, 100%) - var(--space-md) * 2);
     margin: 0 auto;
-    padding: var(--space-md) var(--space-3xl);
   }
 
   /* History's mobile/desktop toggle (06.6.3 D-07), inverted at this
