@@ -89,7 +89,11 @@ STARTUP_DEADLINE_S = 10.0
 # captions-appear-once check, and the helper-texts-appear-verbatim check
 # were all retargeted in place onto the merged THEME/RUNWAY/LED
 # _SECTION_CAPTION constants and restyled markup, per this file's own
-# established retarget-without-recounting discipline).
+# established retarget-without-recounting discipline) -> 57 (Task 2, no
+# count change: the form-class-hook check gained the SETTINGS_FORM_ID
+# assertion in place, and the dirty-bar-nested-inside-form check was
+# inverted wholesale into a dirty-bar-is-sibling-of-form check, both
+# retargeted onto the moved/restyled save bar with no count change).
 EXPECTED_CHECK_COUNT = 57
 
 
@@ -377,11 +381,16 @@ def main():
         # ("/settings"), not the old "/config" literal — the single
         # definition of that route lives in config_page, never re-typed
         # here as a literal.
+        # quick task 260901-re6: the form tag also carries an id now
+        # (config_page.SETTINGS_FORM_ID), interpolated the same way
+        # SETTINGS_ROUTE already is — never re-typed as a literal — so
+        # the dirty-bar's save button (now a sibling of the form) can
+        # associate with it via a `form=` attribute.
         expected_tag = (
-            '<form class="config-form" data-dirty-form method="post" action="%s">'
-            % config_page.SETTINGS_ROUTE)
+            '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
+            % (config_page.SETTINGS_FORM_ID, config_page.SETTINGS_ROUTE))
         if expected_tag not in rendered:
-            return False, "expected the config-form class, data-dirty-form, method=\"post\", and action=%r on the same form tag" % (config_page.SETTINGS_ROUTE,)
+            return False, "expected the config-form class, id, data-dirty-form, method=\"post\", and action=%r on the same form tag" % (config_page.SETTINGS_ROUTE,)
         if rendered.count('<form class="config-form"') != 1:
             return False, "expected exactly one config-form <form in render()'s output, got %d" % rendered.count('<form class="config-form"')
         return True, ""
@@ -389,31 +398,46 @@ def main():
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
         _settings_form_carries_config_form_class_hook)
 
-    def _render_dirty_bar_nested_inside_form_after_fieldsets_before_bottom_button():
-        # D-03 (06.6.3-03 Task 3): the dirty-state bar is a genuine
-        # descendant of the same <form> the always-visible bottom Save
-        # Settings button belongs to — not a sibling, not a second form —
-        # sitting between the two fieldsets and that bottom button.
+    def _render_dirty_bar_is_sibling_of_form_last_on_page():
+        # quick task 260901-re6: inverted wholesale from the pre-merge
+        # version of this check (which asserted the bar was a genuine
+        # descendant of the form). `position: sticky` resolved against
+        # the form's own short box, so the bar detached from the
+        # viewport bottom on a tall page — the fix moves the bar to be a
+        # sibling of the form, emitted last on the page (after both
+        # </form> and the Poll section), submitting via a form= attribute
+        # instead of native DOM nesting.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         if rendered.count('<form class="config-form"') != 1:
             return False, "expected exactly one config-form <form>, no duplicate"
+        if "</form>" not in rendered:
+            return False, "expected a closing </form> tag"
+        form_end = rendered.index("</form>")
+        if "data-dirty-bar" not in rendered:
+            return False, "expected data-dirty-bar to appear in render()'s output"
+        bar_pos = rendered.index("data-dirty-bar")
+        if bar_pos <= form_end:
+            return False, "expected data-dirty-bar to appear AFTER </form> closes, not inside it"
+        poll_heading = '<h2 class="text-heading">Poll</h2>'
+        if poll_heading not in rendered:
+            return False, "expected the Poll section heading to be present"
+        poll_pos = rendered.index(poll_heading)
+        if bar_pos <= poll_pos:
+            return False, "expected data-dirty-bar to appear after the Poll section heading too, so the bar is genuinely last on the page"
         form_start = rendered.index('<form class="config-form"')
-        form_end = rendered.index("</form>", form_start)
-        segment = rendered[form_start:form_end]
-        for marker in ("data-dirty-bar", "data-dirty-count", "data-dirty-cancel"):
-            if marker not in segment:
-                return False, "expected %r inside the config-form <form>...</form> segment" % (marker,)
-        if "Save Settings" not in segment:
-            return False, "expected the always-visible bottom Save Settings button inside the same form"
-        if segment.index("data-dirty-bar") > segment.index("Save Settings"):
-            return False, "expected the dirty-bar to appear before the bottom Save Settings button in document order"
+        form_segment = rendered[form_start:form_end]
+        if "Save Settings" not in form_segment:
+            return False, "expected the always-visible bottom Save Settings fallback button to still appear inside the form"
+        save_button_marker = 'class="dirty-bar__save" form="%s"' % config_page.SETTINGS_FORM_ID
+        if save_button_marker not in rendered:
+            return False, "expected the dirty-bar's own save button to carry form=%r" % (config_page.SETTINGS_FORM_ID,)
         return True, ""
     check(
-        "render()'s dirty-state bar is nested inside the config-form <form>, before the always-visible bottom Save Settings button, with no duplicate form (D-03)",
-        _render_dirty_bar_nested_inside_form_after_fieldsets_before_bottom_button)
+        "render()'s dirty-state bar is a sibling of the config-form <form>, emitted last on the page after both </form> and the Poll section, with its save button carrying form=SETTINGS_FORM_ID (quick task 260901-re6)",
+        _render_dirty_bar_is_sibling_of_form_last_on_page)
 
     def _theme_fieldset_single_theme_renders_read_only_status_with_real_swatch_hex():
         # D-04, Task 2 Test 1: with the real (unmodified) single-member

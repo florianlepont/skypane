@@ -33,6 +33,14 @@ RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
 # "/config" path is retired: it 404s by design, no redirect (D-26).
 SETTINGS_ROUTE = "/settings"
 
+# quick task 260901-re6: this value is interpolated twice — once as the
+# settings <form>'s id, once as the dirty-bar save button's form
+# attribute — and the two must never be re-typed as literals, because a
+# mismatch produces a Save button that looks correct in markup and
+# silently submits nothing. Same one-definition-site discipline as
+# RUNWAY_IMAGE_ROUTE_PREFIX/SETTINGS_ROUTE above.
+SETTINGS_FORM_ID = "settings-form"
+
 # The sole accepted submitted value for the LED checkbox (D-01) — shared
 # by led_group()'s markup and handle_post()'s validator so the two can
 # never drift apart.
@@ -573,24 +581,40 @@ def render(ctx):
     #
     # D-03: data-dirty-form and the dirty-bar markup below are a JS-only
     # enhancement layered on top of this always-server-rendered form —
-    # dirty-state.js reads these exact attributes. The dirty-bar is a
-    # genuine descendant of this <form>, sitting between the three groups
-    # and the always-visible bottom Save Settings button (the no-JS
-    # fallback path, unchanged) — never a sibling, so its own <button
-    # type="submit"> submits natively via normal DOM nesting, no form=
-    # attribute needed.
+    # dirty-state.js reads these exact attributes.
+    #
+    # quick task 260901-re6: the dirty-bar used to be a genuine descendant
+    # of this <form>, between the three groups and the always-visible
+    # bottom Save Settings button, submitting natively via normal DOM
+    # nesting with no form= attribute needed. That premise broke the
+    # bar's own `position: sticky; bottom: 0` styling: a sticky element's
+    # containing block is its nearest scrolling ancestor's *box* — here
+    # the short three-section form — so the bar stopped sticking at the
+    # form's own bottom edge instead of the viewport's, visibly detaching
+    # and stopping above the Poll section on a page much taller than the
+    # form. The bar is now a sibling, emitted last on the page (after
+    # both `</form>` and the Poll `</section>`), positioned `fixed`
+    # instead of `sticky` at >=960px. companion/static/dirty-state.js
+    # needs no change for this: its `[data-dirty-bar]` /
+    # `[data-dirty-count]` / `[data-dirty-cancel]` lookups are already
+    # document-wide `document.querySelector` calls, not scoped to the
+    # form, and its cancel handler already calls `form.reset()` on its
+    # own separately-resolved form reference. The save button's
+    # `form="{SETTINGS_FORM_ID}"` attribute is what preserves native
+    # submission of the merged settings form despite the bar now living
+    # outside it in the DOM — narrowing any of those three JS lookups to
+    # a form-scoped query would silently break the bar.
     dirty_bar_html = (
         '<div class="dirty-bar" data-dirty-bar hidden role="status">'
         "<span data-dirty-count>%s</span>"
-        '<button type="submit" class="dirty-bar__save">Save settings</button>'
+        '<button type="submit" class="dirty-bar__save" form="%s">Save settings</button>'
         '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>Cancel</button>'
         "</div>"
-    ) % escape_html(DIRTY_BAR_INITIAL_TEXT)
+    ) % (escape_html(DIRTY_BAR_INITIAL_TEXT), SETTINGS_FORM_ID)
 
     return (
         layout.page_header("Settings")
-        + '<form class="config-form" data-dirty-form method="post" action="%s">'
-        "%s"
+        + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"
         "%s"
@@ -600,14 +624,16 @@ def render(ctx):
         '<h2 class="text-heading">Poll</h2>'
         "%s"
         "</section>"
+        "%s"
     ) % (
+        SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
         theme_fieldset(current_theme_id),
         runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
         led_group(current_led_enabled),
-        dirty_bar_html,
         STATIC_SAVE_FALLBACK_ATTR,
         poll_trigger_section(cooldown_remaining),
+        dirty_bar_html,
     )
 
 

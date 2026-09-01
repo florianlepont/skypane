@@ -1120,16 +1120,37 @@ button:active {
 /* Config dirty-state bar (06.6.3 D-03) — a JS-only enhancement layered on
  * top of the always-present, always-server-rendered `Save Settings` submit
  * button at the bottom of the form (the no-JS fallback path is unchanged).
- * Full-width, non-sticky in normal flow below 960px; the >=960px sticky
- * variant is added inside that breakpoint's own @media block below. */
+ * Full-width, in normal flow below 960px; the >=960px fixed variant is
+ * added inside that breakpoint's own @media block below (quick task
+ * 260901-re6: no longer sticky, see that rule's comment for why).
+ *
+ * quick task 260901-re6: the surface moves from the muted
+ * --color-secondary to --color-dominant, the same card surface every
+ * other card on the page uses — the bar used to read as a receding,
+ * secondary strip when it should read as the raised action surface. The
+ * top hairline plus an upward box-shadow (the y-negated mirror of this
+ * file's own --shadow-card-hover light-mode pair — a bar pinned to the
+ * viewport bottom is overlapped by content ABOVE it, so a downward
+ * shadow would fall off-screen and the bar would read as flat; only the
+ * direction is changed from the token's own values) complete the raised
+ * look. This is a literal rather than a new custom property because no
+ * upward-shadow token exists and adding one would need four definition
+ * sites (:root, the prefers-color-scheme: dark block, and both
+ * [data-ui-theme] blocks) for this single consumer; the black-alpha
+ * literal follows this file's documented button[type="submit"]
+ * precedent for theme-neutral shadows, and the top hairline (a real
+ * theme token) is what carries the separation in dark mode where a
+ * black shadow is near-invisible. */
 .dirty-bar {
   display: flex;
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-md);
-  background: var(--color-secondary);
+  background: var(--color-dominant);
+  border-top: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   margin-top: var(--space-md);
+  box-shadow: 0 -4px 12px rgba(18, 21, 27, 0.08), 0 -2px 4px rgba(18, 21, 27, 0.05);
 }
 
 /* Without this, the native `hidden` attribute dirty-state.js relies on to
@@ -2260,13 +2281,41 @@ summary::-webkit-details-marker {
    * a supersede of the two-column idiom, not a narrower breakpoint or a
    * fixed wrap. Do not reintroduce a `.config-form` column rule here. */
 
-  /* Dirty-state bar (06.6.3 D-03): sticky at >=960px only, so it stays
-   * reachable without permanently occupying mobile's limited vertical
-   * space — full-width and non-sticky below this breakpoint (base rule
-   * above). */
+  /* Dirty-state bar (06.6.3 D-03), fixed not sticky at >=960px (quick
+   * task 260901-re6) — `position: sticky`'s containing block is the
+   * nearest scrolling ancestor's *box*, which was the short three-section
+   * `<form>` the bar used to live inside; that made the bar stop sticking
+   * at the form's own bottom edge instead of the viewport's, visibly
+   * detaching and stopping above the Poll section on a page much taller
+   * than the form. `position: fixed` is immune to that — genuinely
+   * pinned to the viewport regardless of any ancestor's height — which
+   * is what this bar (now emitted as a sibling of the form, last on the
+   * page, submitting via `form=` — see render()'s own comment) needs.
+   *
+   * `left`/`right`/`max-width`/`margin` reproduce `.dashboard-main`'s own
+   * content-column geometry so the bar's controls line up with the page
+   * content above them instead of reading as a full-bleed strip: with
+   * `left` and `right` both set and `width` auto, an over-constrained box
+   * with auto inline margins centres itself once `max-width` clamps it.
+   * The `240px` literal is a duplicated-not-imported must-equal value —
+   * it has to stay equal to `.dashboard-shell`'s `grid-template-columns`
+   * first track, and the `var(--space-xl)` addend equal to its
+   * `column-gap` — there is no token for either, so the pair is guarded
+   * by a harness check instead of a shared variable. `margin: 0 auto`
+   * also zeroes the base rule's `margin-top`, which is meaningless for a
+   * fixed box. No `z-index`: this is the last positioned element in
+   * document order and nothing it overlaps creates a competing stacking
+   * context, so a z-index here would be an unearned magic number — if a
+   * future overlap appears, add one then with a stated reason. */
   .dirty-bar {
-    position: sticky;
+    position: fixed;
     bottom: 0;
+    left: calc(240px + var(--space-xl));
+    right: 0;
+    max-width: min(1440px, 100%);
+    margin: 0 auto;
+    padding: var(--space-md) var(--space-3xl);
+    border-radius: 0;
   }
 
   /* History's mobile/desktop toggle (06.6.3 D-07), inverted at this
