@@ -739,6 +739,26 @@ a:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
+/* WR-01 fix: the generic `a { color }` / `a:hover { color }` rule
+ * (specificity 0,1,1) outranks the single-class .sidebar-link/
+ * .mobile-nav__link selectors above (0,1,0) on `color`, so without this
+ * pair the D-05 :not()-scoping above only ever protected `background` —
+ * hovering silently shifted both inactive and active nav-link text to
+ * the accent-hover colour regardless of source order. These two rules
+ * restore the intended per-state text colour at matching (0,2,0)
+ * specificity: inactive links stay neutral text on hover, and the
+ * active link keeps its single accent cue instead of drifting to
+ * --color-accent-hover. */
+.sidebar-link:hover,
+.mobile-nav__link:hover {
+  color: var(--color-text);
+}
+
+.sidebar-link--active:hover,
+.mobile-nav__link--active:hover {
+  color: var(--color-accent);
+}
+
 /* 06.6.1 (D-02/D-04, Reconciliation 1): top/bottom padding is promoted to
  * 2xl (48px, was zero top / lg bottom) for the airier global direction.
  * Sides deliberately stay at lg (24px), not the spec table's 3xl — 64px of
