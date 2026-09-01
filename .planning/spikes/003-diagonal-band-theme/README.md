@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 3 fixes both round-2 findings (band shifted left, text moved above illustration), awaiting developer reaction; italic still unvendored
+verdict: PENDING - round 4 reuses the real content ladder verbatim (round 3 had invented content), Regular confirmed project-wide, awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -206,13 +206,34 @@ and blue (flat). `renders/contact_sheet_full_composition.png` is the
 current, corrected comparison set. The developer has not yet reacted to
 this round.
 
-**Still open, unresolved:**
-- PT Serif Italic is not vendored - "Air France" still renders in
-  Regular. Needs a developer decision: vendor an italic file (new
-  provenance record in `VENDOR.md`, matching the existing pinned-commit/
-  digest/licence discipline), or keep Regular and drop italic from the
-  design intent.
-- This entire round is screen-preview only, per this project's own D-13
+**Round 4 - content-ladder consistency fix (developer catch).** Round 3's
+text hierarchy invented content that doesn't exist in the shipped
+project: a `"{origin} — {destination}"` route-pair line (production only
+ever shows the ONE city relevant to the current state, per
+`enrich.city_for_state()`) and a bare airline name (dropping the
+aircraft type `_flight_line2_text()` always appends). Developer caught
+this as "un mix entre le vrai projet et la photo" - real bug, not a
+style choice. Fixed by calling `render._flight_line1_text()`/
+`_flight_line2_text()` **verbatim** (the real, unmodified functions -
+same data, same never-shows-the-raw-callsign guarantee, same four-tier
+fallback) and only choosing how to SPLIT the real tier-1 string across
+the big-number/tracked-route-line visual roles - never re-deriving or
+inventing what those functions return. Tier 3 (line 1 omitted) and tier
+4 ("Unknown flight") both collapse gracefully to a single line with no
+number, matching production's own promotion behaviour. Verified: tier1
+(number+route+airline·type), and a live tier-2 check
+(`callsign_iata=None` - no number line, just "TO NEW YORK" tracked, no
+crash) both render correctly.
+
+**PT Serif Italic - decided, not open.** Developer's call: stay Regular
+project-wide for the e-ink screen - no italic vendoring. Matches Phase
+8's own on-glass finding that heavier weight already reads "agressif" on
+this panel (D-06); italic was reference-image styling, not a real need.
+`ROUTE_LINE_FONT` changed from Bold to Regular in this round too, for
+the same reason.
+
+**Still open:**
+- This entire spike is screen-preview only, per this project's own D-13
   precedent (every visual/typography change needs a real on-glass check
   before being considered final) - nothing here has been near the real
   panel yet.
@@ -220,4 +241,9 @@ this round.
   production) was checked visually for band collision at its height
   range (~75-85% canvas height, band sits at ~17-46% width there) and
   looks clear in every candidate, but wasn't measured as precisely as
-  the two fixed issues above.
+  the main block's fixed issues.
+- The main text block's now-content-aware height varies by tier (tier 1
+  is taller than tier 2/3/4, since it has an extra number+dash pair) -
+  each tier was spot-checked to still land clear of the illustration and
+  the band, but not exhaustively swept across every route/state
+  combination in the vendored illustration set.

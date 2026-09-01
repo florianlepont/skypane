@@ -106,14 +106,23 @@ def make_patched_new_canvas(band_idx, dithered):
     return _patched
 
 
-# --- Text hierarchy, left-anchored, reference-inspired ---
+# --- Text hierarchy, left-anchored, reference-inspired presentation over
+# the REAL content ladder (_flight_line1_text()/_flight_line2_text(),
+# unmodified) - round 4's fix: round 3 invented a "{origin} — {dest}"
+# route-pair line and a bare airline name that don't exist anywhere in
+# the shipped four-tier content ladder (D-08/D-09/D-10), silently
+# dropping the aircraft type and the raw-callsign guarantee's tiered
+# fallback behaviour. This version calls the real functions and only
+# restyles their output - it never invents content the real project
+# doesn't already produce. Developer's explicit call: PT Serif Regular
+# stays the body-copy weight for e-ink (no italic vendored, and none
+# wanted for this role - Bold already reads "agressif" per Phase 8's own
+# on-glass finding, D-06).
 FLIGHT_NUMBER_FONT = (render.PT_SERIF_BOLD, 56, 700)
-ROUTE_LINE_FONT = (render.PT_SERIF_BOLD, 22, 700)
-AIRLINE_LINE_FONT = (render.PT_SERIF_REGULAR, 20, 400)  # italic not vendored - Regular placeholder
+ROUTE_LINE_FONT = (render.PT_SERIF_REGULAR, 22, 400)
+AIRLINE_LINE_FONT = (render.PT_SERIF_REGULAR, 20, 400)
 DASH_W = 24
 DASH_GAP = 10
-
-
 ABOVE_ILLUSTRATION_GAP_PX = 40  # gap between the text block's bottom and the illustration's opaque top edge
 
 
@@ -121,48 +130,78 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
     draw = ImageDraw.Draw(canvas)
     left_x = render.MARGIN
 
-    identifier = (route or {}).get("callsign_iata") or ""
-    origin = (route or {}).get("origin_city") or ""
-    dest = (route or {}).get("destination_city") or ""
-    route_pair = "%s — %s" % (origin.upper(), dest.upper()) if origin and dest else ""
-    airline = render.display_airline_name((route or {}).get("airline_name") or "")
+    # The real content ladder, called verbatim - same functions, same
+    # data, same never-shows-the-raw-callsign guarantee production uses.
+    line1_full = render._flight_line1_text(flight, state, route)
+    line2_full = render._flight_line2_text(route, flight.get("aircraft_type"))
 
-    num_font = render._role_fit_text_size(FLIGHT_NUMBER_FONT, identifier, render.WIDTH - 2 * left_x, 28, weight)
+    identifier_raw = (route or {}).get("callsign_iata") if isinstance(route, dict) else None
+    identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
+
+    # Decide the visual split from the real output alone - never a
+    # separate re-derivation of which tier applies.
+    if line1_full == "":
+        # Tier 3 (D-10): line 1 omitted, line 2 promoted - no number, no
+        # tracked route line, just the (promoted) airline+type line.
+        number_text = None
+        tracked_text = None
+        plain_text = line2_full
+    elif identifier and line1_full.startswith(identifier + " "):
+        # Tier 1: "{identifier} to|from {city}" - split at the identifier
+        # so it can be styled as the big number; the remainder becomes
+        # the tracked route line, exactly as the real string already
+        # reads, just upper-cased for the tracked-caps treatment.
+        number_text = identifier
+        tracked_text = line1_full[len(identifier) + 1:].upper()
+        plain_text = line2_full
+    else:
+        # Tier 2 ("{To|From} {city}") or tier 4 ("Unknown flight") - no
+        # identifier to split out, the whole real string becomes the
+        # tracked line with no separate number.
+        number_text = None
+        tracked_text = line1_full.upper()
+        plain_text = line2_full
+
+    num_font = render._role_font(FLIGHT_NUMBER_FONT, weight)
     route_font = render._role_font(ROUTE_LINE_FONT, weight)
     airline_font = render._role_font(AIRLINE_LINE_FONT, weight)
 
     # Measure pass (dry run at y=0) so the whole block's height is known
-    # before choosing where its top sits - developer's fix for the band
-    # collision: the text moves from below the illustration (where it
-    # crossed the band) to the gap above it instead, where the band's
-    # measured position (pushed toward the right edge at low y, see
-    # BAND_SHIFT_FRAC above) stays clear of this left-anchored block.
-    num_h = draw.textbbox((0, 0), identifier, font=num_font, anchor="la")[3]
-    route_h = render._tracked_text_bbox(route_font, (0, 0), route_pair, render.LABEL_TRACKING_PX)[3]
-    airline_h = draw.textbbox((0, 0), airline, font=airline_font, anchor="la")[3]
-    total_h = num_h + DASH_GAP + 2 + DASH_GAP + 4 + route_h + 12 + airline_h
+    # before choosing where its top sits - text sits in the gap above the
+    # illustration instead of below it (developer's own fix for the band
+    # collision found in round 2): at that height range the shifted band
+    # (BAND_SHIFT_FRAC above) sits well clear of this left-anchored block.
+    total_h = 0
+    if number_text:
+        total_h += draw.textbbox((0, 0), number_text, font=num_font, anchor="la")[3] + DASH_GAP + 2 + DASH_GAP + 4
+    if tracked_text:
+        total_h += render._tracked_text_bbox(route_font, (0, 0), tracked_text, render.LABEL_TRACKING_PX)[3] + 12
+    total_h += draw.textbbox((0, 0), plain_text, font=airline_font, anchor="la")[3]
 
-    top_y = main_placement.content[1] - ABOVE_ILLUSTRATION_GAP_PX - total_h
+    y = main_placement.content[1] - ABOVE_ILLUSTRATION_GAP_PX - total_h
+    first_bbox = None
 
-    # Flight number, big and bold, left-anchored.
-    num_bbox = draw.textbbox((left_x, top_y), identifier, font=num_font, anchor="la")
-    draw.text((left_x, top_y), identifier, font=num_font, fill=ink_idx, anchor="la")
+    if number_text:
+        num_bbox = draw.textbbox((left_x, y), number_text, font=num_font, anchor="la")
+        draw.text((left_x, y), number_text, font=num_font, fill=ink_idx, anchor="la")
+        first_bbox = num_bbox
+        dash_y = num_bbox[3] + DASH_GAP
+        draw.line([(left_x, dash_y), (left_x + DASH_W, dash_y)], fill=ink_idx, width=2)
+        y = dash_y + DASH_GAP + 4
 
-    # Thin dash rule directly under the flight number.
-    dash_y = num_bbox[3] + DASH_GAP
-    draw.line([(left_x, dash_y), (left_x + DASH_W, dash_y)], fill=ink_idx, width=2)
+    if tracked_text:
+        render.draw_tracked_text(draw, (left_x, y), tracked_text, route_font, ink_idx, render.LABEL_TRACKING_PX)
+        tracked_bbox = render._tracked_text_bbox(route_font, (left_x, y), tracked_text, render.LABEL_TRACKING_PX)
+        if first_bbox is None:
+            first_bbox = tracked_bbox
+        y = tracked_bbox[3] + 12
 
-    # Route line, tracked small-caps (reusing the shipped top-label technique).
-    route_y = dash_y + DASH_GAP + 4
-    render.draw_tracked_text(draw, (left_x, route_y), route_pair, route_font, ink_idx, render.LABEL_TRACKING_PX)
-    route_bbox = render._tracked_text_bbox(route_font, (left_x, route_y), route_pair, render.LABEL_TRACKING_PX)
+    plain_bbox = draw.textbbox((left_x, y), plain_text, font=airline_font, anchor="la")
+    draw.text((left_x, y), plain_text, font=airline_font, fill=ink_idx, anchor="la")
+    if first_bbox is None:
+        first_bbox = plain_bbox
 
-    # Airline name (Regular placeholder - italic not vendored).
-    airline_y = route_bbox[3] + 12
-    draw.text((left_x, airline_y), airline, font=airline_font, fill=ink_idx, anchor="la")
-    airline_bbox = draw.textbbox((left_x, airline_y), airline, font=airline_font, anchor="la")
-
-    return num_bbox, airline_bbox
+    return first_bbox, plain_bbox
 
 
 def main():
