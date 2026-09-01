@@ -173,6 +173,14 @@ EMPTY_BODY_FONT = (PT_SERIF_REGULAR, 40, 400)
 # in Phase 2/3). On-glass check remains OPEN per D-13.
 LABEL_TRACKING_PX = 6
 
+# Phase 9 PHASE9-3: band-theme top-label direction word, ported verbatim
+# from spike 003's `_MERGED_LABEL_DIRECTION` (round 11's correction to
+# rounds 7/9). Only consulted by `draw_top_labels()` when `band_theme=True`.
+_BAND_TOP_LABEL_DIRECTION = {
+    runway_config.STATE_DEPARTING: "FROM",
+    runway_config.STATE_ARRIVING: "TO",
+}
+
 # Overflow floors (fit_text_size()'s per-role minimums) - real city/airline
 # names shrink in small steps rather than clipping, wrapping mid-word, or
 # overflowing, but never below these named limits.
@@ -769,7 +777,9 @@ def draw_battery_icon(canvas, draw, ink_idx):
 # record, so neither is re-litigated here without new information.
 
 
-def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID):
+def draw_top_labels(
+    canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID, band_theme=False
+):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
     (top-right, `runway_tag_text(runway_id)`), at the small sizes D-26
     confirmed (20px/18px, unchanged), both at the existing `MARGIN` inset
@@ -795,11 +805,32 @@ def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_con
     `bg_idx` itself is retained per D-05's original note here - still no
     direct use in this function beyond being available to callers/future
     roles.
+
+    `band_theme` (PHASE9-3, default `False` - every pre-Phase-9 call site's
+    behaviour is byte-identical to before this phase): when `True`, the
+    state label and runway tag are split differently for the diagonal-band
+    themes, ported verbatim from spike 003's `patched_draw_top_labels()`
+    (round 11's correction to rounds 7/9) - the state label absorbs a
+    direction word and the tag's airport-code half ("DEPARTING FROM ORY"),
+    and the top-right tag shrinks to just the runway-part half ("RWY 3"
+    alone), which starts far enough right to clear the diagonal band with
+    margin at `BAND_SHIFT_FRAC=0.0` (no shift needed). Both halves are
+    derived from `runway_tag_text(runway_id)`'s real return value via
+    `.partition(" · ")` - never a hardcoded "ORY"/"RWY 3" literal, so a
+    future runway selection (CFG-12, "06-24"/"02-20") splits correctly too.
     """
     draw = ImageDraw.Draw(canvas)
     label_font = _role_font(STATE_LABEL_FONT, weight)
     tag_font = _role_font(TOP_TAG_FONT, weight)
-    tag_text = runway_tag_text(runway_id)
+    full_tag = runway_tag_text(runway_id)
+
+    if band_theme:
+        airport_code, _sep, runway_part = full_tag.partition(" · ")
+        label_text = "%s %s %s" % (STATE_LABEL_TEXT[state], _BAND_TOP_LABEL_DIRECTION[state], airport_code)
+        tag_text = runway_part
+    else:
+        label_text = STATE_LABEL_TEXT[state]
+        tag_text = full_tag
 
     # _assert_within_canvas(), not the strict _assert_in_safe_box(): real
     # font glyph metrics can carry a 1-2px negative left/right bearing at
@@ -812,7 +843,6 @@ def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_con
     # draw.textbbox(): the latter measures an untracked run and would
     # under-report a tracked one's width, silently stopping the guard from
     # protecting anything (T-njw-02).
-    label_text = STATE_LABEL_TEXT[state]
     label_bbox = _tracked_text_bbox(label_font, (MARGIN, MARGIN), label_text, LABEL_TRACKING_PX)
     _assert_within_canvas(label_bbox, "state label")
     draw_tracked_text(draw, (MARGIN, MARGIN), label_text, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
@@ -1527,6 +1557,18 @@ def _build_active_canvas(
     theme_dithered = device_config.theme_dithered(normalised_theme_id)
     weight = device_config.theme_weight(normalised_theme_id)
 
+    # Phase 9 PHASE9-1/PHASE9-3: whether this theme carries a diagonal band,
+    # and that band's own colour/dither flag, resolved once here (same
+    # pattern as theme_dithered/weight just above) and threaded through to
+    # the band-dispatch and draw_top_labels() calls below. `band_idx`/
+    # `band_dithered_flag` are only meaningful when `is_band_theme` is True -
+    # theme_band_index()/theme_band_dithered() are absent-key-safe and would
+    # otherwise return None/False for a non-band theme, but the ternaries
+    # below make that explicit rather than relying on the accessors' defaults.
+    is_band_theme = device_config.theme_is_band(normalised_theme_id)
+    band_idx = device_config.theme_band_index(normalised_theme_id) if is_band_theme else None
+    band_dithered_flag = device_config.theme_band_dithered(normalised_theme_id) if is_band_theme else False
+
     # D-21 gave a flat single-color background field, but Phase 7 07-01's
     # on-glass session found the raw Blue/Green ink too dark/saturated at
     # full-panel coverage - reopened per that plan's own scope note. A
@@ -1539,6 +1581,14 @@ def _build_active_canvas(
     # state and the White theme have always used.
     canvas = dither.dithered_state_background(bg_idx) if theme_dithered else pf.new_canvas(bg_idx)
 
+    # Phase 9 PHASE9-1: for a band theme, paint the diagonal band immediately
+    # after the background fill and before anything else, so it sits behind
+    # every subsequent draw (top labels, illustrations, text) - matching
+    # D-24's already-proven "illustrations occlude the band naturally"
+    # behaviour from the spike. No-op for every non-band theme.
+    if is_band_theme:
+        draw_diagonal_band(canvas, band_idx, dithered=band_dithered_flag)
+
     # D-26's thin outline is no longer drawn (removed 2026-08-28 by developer
     # request, quick task 260828-k5r). FRAME_INSET_FRAC deliberately survives
     # below as pure layout geometry feeding inner_width, and
@@ -1548,7 +1598,10 @@ def _build_active_canvas(
 
     # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
     # at the existing MARGIN inset (inside the frame, not on it).
-    draw_top_labels(canvas, state, fg_idx, bg_idx, weight, runway_id=runway_id)
+    # `band_theme=is_band_theme` (PHASE9-3): band themes get the merged
+    # state-label/airport-code + short runway-tag split; every other theme
+    # keeps today's unsplit pair (draw_top_labels()'s default is False).
+    draw_top_labels(canvas, state, fg_idx, bg_idx, weight, runway_id=runway_id, band_theme=is_band_theme)
 
     # D-25/D-26 main flight: the current detection's real per-airline
     # illustration, always nose-left (D-24 - no mirroring).
