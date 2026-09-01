@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
-stopped_at: Completed 06.6.4.1-04-PLAN.md
-last_updated: "2026-09-01T13:50:16.386Z"
+stopped_at: Completed 06.6.4.1-05-PLAN.md
+last_updated: "2026-09-01T14:12:13.405Z"
 last_activity: 2026-09-01
 last_activity_desc: Phase 06.6.4.1 execution started
 progress:
   total_phases: 19
   completed_phases: 16
   total_plans: 94
-  completed_plans: 88
+  completed_plans: 89
   percent: 84
 ---
 
@@ -29,6 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 06.6.4.1 (companion-page-by-page-ia-consolidation-full-page-by-page-vi) — EXECUTING
+
+**06.6.4.1-05 executed (2026-09-01), wave 2's third plan (depends on 01/02), closing D-18/D-19/D-20/D-21 — moved Preview's entire page content into History as a Now-showing section plus a collapsed Recent-renders disclosure, added a server-side per-row nearest-render lookup with a shared native `<dialog>` lightbox, and gave unresolved-airline rows a link to Health's Server & data anchor instead of a duplicated prefix registry.** Task 1 copied `COLOUR_CAVEAT`, the no-panel/no-renders constants, `GALLERY_DISPLAY_LIMIT`, the preview/gallery route literals, panel pixel dimensions, the gallery filename-time regex, `_gallery_name_to_iso()`, `preview_section()`, and `gallery_tiles()` from `preview_page.py` into `history_page.py` byte-for-byte, and `render()` now prepends `Now showing` plus a collapsed `Recent renders (N)` disclosure before the flight log — Preview's page-level freshness apparatus (`data-loaded-at`/`data-stale-banner`) deliberately not ported; `preview_page.py` stays on disk and stays routed until plan 08. Task 2 added `nearest_gallery_entry(entries, row_ts)` (an O(n) linear scan over the already-in-memory `ctx["gallery_entries"]` list, no DB query, comparing timezone-aware datetimes never raw strings) plus `_view_panel_button_html()`/`_lightbox_html()` and the D-20 copy/DOM-contract constants duplicated against `companion/static/panel-lookup.js`'s own literals; `render()` computes each row's match once and shares it between the desktop Timestamp cell and the mobile primary line so the two representations can never disagree, and the shared dialog is emitted only when at least one row carries a trigger — one interpretive call made here: the trigger's `data-view-panel-caption` attribute carries the full `LIGHTBOX_CAPTION_TEMPLATE % iso` string ("Panel near {iso}"), not the bare ISO, since `panel-lookup.js` copies the attribute verbatim with zero client-side templating and only the templated form reproduces UI-SPEC §8.3's approved caption copy. Task 3 added `UNRESOLVED_LINK_HREF`/`_TEXT` and the dedicated `_type_airline_cell()` builder (mirroring `_callsign_hex_cell()`'s own precedent so the Route column, which also calls the shared `_merged_cell()`, never gains the link) plus the identical link in the mobile Aircraft detail row, both keyed on `airline_label == panel_render.ROUTE_FALLBACK_TEXT`. `companion/test_view_pages.py` grew 42->56 checks across three new sections covering every behaviour bullet and acceptance criterion. `git diff --quiet` against `preview_page.py`/`panel-lookup.js`/`style.css`/`app.py` confirmed zero changes to any of those four files; the four other companion harnesses and `scripts/run-all-tests.sh` (apart from the single pre-existing, unrelated `server/test_poll_loop.py` digest mismatch) all pass.
 
 **06.6.4.1-04 executed (2026-09-01), wave 2's second plan (depends on 01), closing D-07/D-08/D-09/D-10/D-11/D-12 — restructured Health into two id-anchored sections (`#screen`, `#server-data`) and absorbed Airlines' Unresolved-prefixes registry and Resolution-statistics breakdown into it as full-width `.page-section` cards, plus three independent bug fixes (anomaly-banner pills, collapsed Corroboration disclosure, axis-labeled/seeded battery chart).** Task 1 added `_anomaly_category_labels()`/`_anomaly_banner_html()` so the anomaly banner names each failing category as a `banner__pill` instead of only a comma-joined sentence, reproducing `layout.anomaly_banner()`'s exact severity-to-class/role mapping and keeping `ANOMALY_BANNER_TEXT` as a `visually-hidden` accessible tail so every pre-existing presence check kept passing unmodified; `_corroboration_section()` was rewritten so its three always-visible rows carry only dot/label/count, with each row's explanation moved into a new `_corroboration_details_html()` closed-by-default `<details>` disclosure (a `<dl>` of `<dt>`/`<dd>` pairs); the now-unused `_anomaly_banner_text()` was retired. Task 2 grew `battery_sparkline_svg()`'s viewBox (a reserved left gutter + bottom strip) to emit four `aria-hidden` axis-label text nodes (Y min/max mV, X oldest/newest clock time via a new `_axis_clock_label()` helper), and changed `_battery_readout_block()` to take the latest reading's own label and seed the readout with it — retiring the static `BATTERY_READOUT_PLACEHOLDER` prompt; confirmed by direct read that `companion/static/battery-trend.js` has no blur/pointer-leave listener at all, so the seeded resting text simply persists (D-09's "shows a real reading before any interaction" is satisfied by seeding alone; the JS file was not touched, out of this plan's `files_modified` scope). Task 3 migrated `unresolved_rows()`, `coverage_status()`, `resolution_stats()`, `_registry_row_html()`, `_registry_table_html()`, `_registry_section()`, `_registry_filter_bar_html()` (renamed from Airlines' `_filter_bar_html`), and `_stats_table_html()` verbatim (byte-for-byte logic) from `companion/pages/airlines_page.py` into `companion/pages/health_page.py`, added `_resolution_rate_tile_html()` reusing the old promoted headline's figure, and restructured `render()` into Screen (standalone Device-freshness tile + the unchanged battery-trend section) and Server & data (a three-tile `dashboard-grid` — Pipeline, Corroboration, new Resolution-rate — followed by the two migrated `.page-section` cards) — the registry read (`poll_loop.load_poll_state()`) and the stats read (`_safe_query()`) were kept as independent calls in `render()`, never folded into `_read_health_inputs()`'s five-key dict, verified by a new isolation check with two inverse fixtures (corrupted `.db` file / malformed `poll_state.json`). `companion/pages/airlines_page.py` was deliberately left completely untouched — for exactly one wave both pages render this content; plan 06 (the next wave) removes it from Airlines. Three pre-existing `companion/test_status_pages.py` checks needed retargeting as a direct, correct consequence of the restructure (not bugs in the migration itself): two hardcoded `dot--ok` counts grew by one (the migrated registry's own Coverage dot now always renders), and one check's "rest of the page" slice needed bounding to the battery section's own closing tag now that the Server & data section follows it. A substring-collision bug (`'class="stat-tile'` over-matching the Resolution-rate tile's inner `stat-tile__value` paragraph) was caught and fixed in a newly-written check before commit. `EXPECTED_CHECK_COUNT` 59→64 (Task 1, +5) →67 (Task 2, +3) →72 (Task 3, +5); all three tasks verified `server/.venv/bin/python3 companion/test_status_pages.py` exits 0 at the bumped count before committing. `companion/test_companion_app.py` (96/96), `companion/test_config_page.py` (60/60), `companion/test_contrast_check.py` (34/34), and `companion/test_view_pages.py` (42/42) all pass unmodified. `git diff --stat` across all three task commits touches exactly `companion/pages/health_page.py` and `companion/test_status_pages.py`; `git diff --quiet companion/pages/airlines_page.py companion/static/style.css companion/app.py companion/layout.py` confirmed no change. `scripts/run-all-tests.sh` reports the same single pre-existing, unrelated `server/test_poll_loop.py` digest mismatch (confirmed present on the pre-plan commit too, via `git stash`) documented throughout this file's history. `requirements.mark-complete D-07 D-08 D-09 D-10 D-11 D-12` returned all six as `not_found`, consistent with every prior 06.x decimal-phase plan's precedent (Decision IDs, not formal REQUIREMENTS.md entries). `roadmap.update-plan-progress "06.6.4.1"` confirmed `plan_count: 9, summary_count: 4, status: "In Progress"` (plans 05-09 remain, across waves 3-6). `state.update-progress` computed `percent: 94` (88/94) consistently across repeated calls — no re-corruption observed this time.
 
@@ -212,6 +214,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.4.1 P02 | 35min | 3 tasks | 6 files |
 | Phase 06.6.4.1 P03 | 35min | 3 tasks | 3 files |
 | Phase 06.6.4.1 P04 | 45min | 3 tasks | 2 files |
+| Phase 06.6.4.1 P05 | 55min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -375,6 +378,7 @@ Recent decisions affecting current work:
 - [Phase 06.6.4.1]: led_fieldset()/led_section()/handle_led_post() left completely untouched; render() no longer calls either, a new led_group() replaces them in the merged form
 - [Phase 06.6.4.1]: Kept ANOMALY_BANNER_TEXT as a visually-hidden accessible tail inside the new pill-based anomaly banner rather than deleting it, preserving every pre-existing substring/count check — Backward-compatible test contract plus one coherent screen-reader sentence
 - [Phase 06.6.4.1]: Migrated registry/stats reads stay independent calls in health_page.render(), never folded into _read_health_inputs()'s dict — D-11: one failing source (SQLite vs poll_state.json) must degrade only its own card
+- [Phase 06.6.4.1-05]: View-panel trigger's data-view-panel-caption attribute carries the full LIGHTBOX_CAPTION_TEMPLATE % iso string ("Panel near {iso}"), not the bare ISO — panel-lookup.js copies the attribute verbatim with zero client-side templating, so only a server-built full string reproduces UI-SPEC §8.3's approved caption copy and gives the plan's explicitly-instructed constant a real call site
 
 ### Pending Todos
 
@@ -426,8 +430,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-01T13:50:03.568Z
-Stopped at: Completed 06.6.4.1-04-PLAN.md
+Last session: 2026-09-01T14:12:13.393Z
+Stopped at: Completed 06.6.4.1-05-PLAN.md
 
 Resume file: None
 
