@@ -66,7 +66,7 @@ STARTUP_DEADLINE_S = 10.0
 # one check per <behavior> bullet) -> 60 (Task 3: D-03/D-04/D-06
 # cross-file DOM-contract guards between config_page.py's constants and
 # dirty-state.js/style.css, +4).
-EXPECTED_CHECK_COUNT = 51
+EXPECTED_CHECK_COUNT = 56
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -780,7 +780,12 @@ def main():
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
-            if on_disk != {"theme": "sky", "tracked_runway": "06-24", "led_enabled": True}:
+            # 06.6.4.1 (D-05): led_enabled is now resolved by handle_post()
+            # itself, with checkbox-absent-means-False semantics (never
+            # carried forward like theme/runway) — this posted form omits
+            # led_enabled entirely, so the persisted value is False, not
+            # DEFAULT_LED_ENABLED (True).
+            if on_disk != {"theme": "sky", "tracked_runway": "06-24", "led_enabled": False}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -910,6 +915,115 @@ def main():
     check(
         "a save that raises OSError returns the save-failure flash key rather than propagating",
         _save_oserror_returns_failure_key_not_raise)
+
+    # ------------------------------------------------------------------
+    # 06.6.4.1 Task 2 (D-05): handle_post() absorbs LED validation as one
+    # all-or-nothing submission — one check per <behavior> bullet.
+    # ------------------------------------------------------------------
+
+    def _handle_post_empty_form_persists_led_false():
+        # Bullet 1: the shape a browser sends when nothing is checked and
+        # nothing is selected.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["led_enabled"] is not False:
+                return False, "expected led_enabled False on disk, got %r" % (on_disk["led_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({}, ctx) - the shape a browser sends when nothing is checked and nothing is selected - persists led_enabled False and returns the saved flash key",
+        _handle_post_empty_form_persists_led_false)
+
+    def _handle_post_led_checkbox_value_persists_led_true():
+        # Bullet 2.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"led_enabled": config_page.LED_CHECKBOX_VALUE}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["led_enabled"] is not True:
+                return False, "expected led_enabled True on disk, got %r" % (on_disk["led_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"led_enabled\": LED_CHECKBOX_VALUE}, ctx) persists led_enabled True",
+        _handle_post_led_checkbox_value_persists_led_true)
+
+    def _handle_post_crafted_led_value_rejected_byte_identical():
+        # Bullet 3.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "sky", "3", led_enabled=True)
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"led_enabled": "<crafted>"}, ctx)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to be byte-identical, it changed"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"led_enabled\": \"<crafted>\"}, ctx) returns the save-failed flash key and leaves device_config.json byte-identical",
+        _handle_post_crafted_led_value_rejected_byte_identical)
+
+    def _handle_post_invalid_theme_rejects_led_half_too():
+        # Bullet 4: an invalid theme rejects the LED half too - proving
+        # the merge stays all-or-nothing across all three fields.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "sky", "3", led_enabled=False)
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"theme": "not-a-real-theme", "led_enabled": config_page.LED_CHECKBOX_VALUE},
+                ctx)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to be byte-identical, it changed"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"theme\": \"<not a registered theme>\", \"led_enabled\": LED_CHECKBOX_VALUE}, ctx) returns save-failed and leaves the file byte-identical (an invalid theme rejects the LED half too)",
+        _handle_post_invalid_theme_rejects_led_half_too)
+
+    def _handle_post_valid_runway_and_led_persist_together_one_call():
+        # Bullet 5: persists both in one call.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"tracked_runway": "06-24", "led_enabled": config_page.LED_CHECKBOX_VALUE},
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["tracked_runway"] != "06-24":
+                return False, "expected tracked_runway 06-24 on disk, got %r" % (on_disk["tracked_runway"],)
+            if on_disk["led_enabled"] is not True:
+                return False, "expected led_enabled True on disk, got %r" % (on_disk["led_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"tracked_runway\": <a real runway id>, \"led_enabled\": LED_CHECKBOX_VALUE}, ctx) persists both in one call and returns the saved flash key",
+        _handle_post_valid_runway_and_led_persist_together_one_call)
 
     # ------------------------------------------------------------------
     # LED section checks (Task 2, D-01/D-02/T-06.2-02) - a-f are unit

@@ -650,48 +650,77 @@ def render(ctx):
 
 
 def handle_post(form, ctx):
-    """Validate the submitted theme/runway against `device_config`'s own
-    registries — server-side, before either value is used anywhere — and
-    persist a valid pair.
+    """Validate the submitted theme/runway/LED state against
+    `device_config`'s own registries — server-side, before any value is
+    used anywhere — and persist all three in a single
+    `save_device_config()` call (D-05, 06.6.4.1: this handler now absorbs
+    what `handle_led_post()` used to do on its own separate route).
 
-    Deliberately does NOT call either of `device_config`'s two read-path
+    Deliberately does NOT call any of `device_config`'s read-path
     normalising helpers (the ones an unrecognised on-disk value silently
     degrades through to the default): those implement the *read* path's
     forgiving behaviour, whereas a *write* of an unrecognised value is a
     real client error that must be reported back to the user, not
     silently coerced — the asymmetry is deliberate (06-CONTEXT.md
     D-06/D-07, 06-RESEARCH.md's V5 threat control). Instead, each
-    submitted field is checked with an explicit membership test against
-    `device_config.THEME_IDS` / `RUNWAY_IDS` before it is ever used as a
-    dict key or passed onward.
+    submitted field is checked explicitly before it is ever used as a
+    dict key or passed onward: `theme`/`tracked_runway` by membership
+    test against `device_config.THEME_IDS`/`RUNWAY_IDS`, `led_enabled` by
+    exact equality against `LED_CHECKBOX_VALUE`.
 
-    A field absent from `form` means "leave unchanged" and is passed as
-    `None`, which `save_device_config()` carries forward from the current
-    on-disk value. A field that IS present but fails the membership test
-    rejects the *entire* submission (never a partial save) — applying
-    only the valid half would leave the on-disk state out of sync with
-    what the page would redisplay on the very next load.
+    Two properties are load-bearing here, not incidental:
+
+    First, the LED field's absent-means-False semantics is deliberately
+    different from theme's and runway's absent-means-unchanged semantics.
+    A field absent from `form` for `theme`/`tracked_runway` means "leave
+    unchanged" and is passed as `None`, which `save_device_config()`
+    carries forward from the current on-disk value — because a radio
+    group and a select always submit *some* value once one is selected,
+    absence there only ever means "this page didn't render that control."
+    An HTML checkbox is different: an *unchecked* checkbox is omitted
+    from the POST body entirely, so `led_enabled`'s absence must resolve
+    to `False`, never to "leave unchanged" — carrying it forward instead
+    would silently re-enable a disabled LED on every save that happens to
+    leave the box unchecked. Exactly three shapes are resolved for
+    `led_enabled` and no others: absent -> `False`; equal to
+    `LED_CHECKBOX_VALUE` -> `True`; anything else (a crafted/hostile
+    value) -> reject the whole submission.
+
+    Second, rejection stays all-or-nothing across all three fields, now
+    more so than before the merge: because there is now one form and one
+    `save_device_config()` call, a crafted or invalid value in ANY field
+    aborts before that call, never persisting the valid remainder —
+    applying only the valid half would leave the on-disk state out of
+    sync with what the page would redisplay on the very next load.
 
     On success, the frame's next scheduled poll cycle (server/poll_loop.py,
-    D-06/D-28) is the first place either the new theme or the new runway
-    actually take effect — no push mechanism exists, and none is added
-    here. The caller (companion/app.py) redirects back to `SETTINGS_ROUTE`,
-    whose banner then renders the D-07 confirmation copy the FLASH_SAVED
-    key maps to, telling the user their change was saved but has not yet
-    reached the physical frame.
+    D-06/D-28) is the first place any of the three changes actually take
+    effect — no push mechanism exists, and none is added here. The caller
+    (companion/app.py) redirects back to `SETTINGS_ROUTE`, whose banner
+    then renders the D-07 confirmation copy the FLASH_SAVED key maps to,
+    telling the user their change was saved but has not yet reached the
+    physical frame.
     """
     state_dir = ctx["state_dir"]
     submitted_theme = form.get("theme")
     submitted_runway = form.get("tracked_runway")
+    submitted_led = form.get("led_enabled")
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
         return FLASH_SAVE_FAILED
     if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
         return FLASH_SAVE_FAILED
+    if submitted_led is None:
+        led_enabled = False
+    elif submitted_led == LED_CHECKBOX_VALUE:
+        led_enabled = True
+    else:
+        return FLASH_SAVE_FAILED
 
     try:
         device_config.save_device_config(
-            state_dir, theme=submitted_theme, tracked_runway=submitted_runway)
+            state_dir, theme=submitted_theme, tracked_runway=submitted_runway,
+            led_enabled=led_enabled)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
     return FLASH_SAVED
