@@ -77,7 +77,14 @@ STARTUP_DEADLINE_S = 10.0
 # live-HTTP LED checks were retargeted in place from /config-led onto
 # SETTINGS_ROUTE (no count change) and 1 new check pins the retired
 # /config-led route now 404s (+1); net -6).
-EXPECTED_CHECK_COUNT = 54
+# quick task 260901-qif: 54 (pre-plan baseline) -> 57 (Task 3, +3: the
+# .runway-row containment/ordering check, the led-checkbox label class +
+# unchanged input-attribute-sequence check, and the third cross-file
+# DOM-contract guard proving style.css actually styles .theme-status/
+# .runway-row/.led-checkbox. Task 2's retarget of
+# _runway_fieldset_returns_single_top_level_div() (one div pair -> two)
+# was in place, no count change).
+EXPECTED_CHECK_COUNT = 57
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -263,6 +270,32 @@ def main():
     check(
         "render() emits the read-only theme-status block, three runway-card labels, the LED group, and a Save Settings submit button, with zero <fieldset occurrences",
         _render_shape_read_only_theme_runway_cards_led_group_and_save_button)
+
+    def _led_group_carries_classed_label_and_unchanged_input_attrs():
+        # quick task 260901-qif: pins the led-checkbox label class and
+        # guards the input's name/value/checked attribute sequence against
+        # a future markup edit silently reordering it - the two live-HTTP
+        # LED checks further down this file match on that exact sequence.
+        checked_html = config_page.led_group(True)
+        unchecked_html = config_page.led_group(False)
+        label_open = '<label class="led-checkbox">'
+        if checked_html.count(label_open) != 1:
+            return False, "expected led_group(True) to carry exactly one <label class=\"led-checkbox\"> occurrence"
+        if unchecked_html.count(label_open) != 1:
+            return False, "expected led_group(False) to carry exactly one <label class=\"led-checkbox\"> occurrence"
+        led_value = escape_html(config_page.LED_CHECKBOX_VALUE)
+        expected_checked = 'name="led_enabled" value="%s" checked' % led_value
+        if expected_checked not in checked_html:
+            return False, "expected led_group(True) to carry %r" % (expected_checked,)
+        expected_unchecked = 'name="led_enabled" value="%s">' % led_value
+        if expected_unchecked not in unchecked_html:
+            return False, "expected led_group(False) to carry %r with no checked flag" % (expected_unchecked,)
+        if "checked" in unchecked_html:
+            return False, "expected led_group(False) to carry no checked flag at all"
+        return True, ""
+    check(
+        "led_group() emits the led-checkbox label class and preserves the input's name/value/checked attribute sequence",
+        _led_group_carries_classed_label_and_unchanged_input_attrs)
 
     def _every_settings_group_is_named_at_one_heading_level():
         # heading-color-consistency debug session, extended by 06.6.4.1
@@ -528,6 +561,31 @@ def main():
     check(
         "runway_fieldset() returns exactly two div pairs - the top-level .theme-status wrapper and the nested .runway-row layout container, not five flat siblings (D-01)",
         _runway_fieldset_returns_single_top_level_div)
+
+    def _runway_row_contains_and_orders_cards_before_helper_text():
+        # quick task 260901-qif: pins the new .runway-row layout container
+        # actually wraps the three cards and nothing else, and that the
+        # helper paragraph still renders after it closes, not swallowed
+        # into it.
+        rendered = config_page.runway_fieldset("3")
+        row_open = '<div class="runway-row">'
+        if rendered.count(row_open) != 1:
+            return False, "expected exactly one <div class=\"runway-row\"> opening tag, got %d" % rendered.count(row_open)
+        row_start = rendered.index(row_open)
+        row_close = rendered.index("</div>", row_start)
+        card_positions = [m.start() for m in re.finditer(r'<label class="runway-card', rendered)]
+        if len(card_positions) != 3:
+            return False, "expected exactly 3 runway-card labels, got %d" % len(card_positions)
+        if not all(row_start < pos < row_close for pos in card_positions):
+            return False, "expected all three runway-card labels to fall inside the .runway-row container"
+        helper_text = escape_html(config_page.RUNWAY_HELPER_TEXT)
+        helper_pos = rendered.index(helper_text)
+        if helper_pos <= row_close:
+            return False, "expected RUNWAY_HELPER_TEXT to render after the .runway-row container closes"
+        return True, ""
+    check(
+        "runway_fieldset()'s .runway-row container wraps exactly the three runway-card labels and closes before RUNWAY_HELPER_TEXT renders",
+        _runway_row_contains_and_orders_cards_before_helper_text)
 
     def _theme_and_runway_section_descriptions_appear_exactly_once():
         rendered = config_page.render({
@@ -1242,6 +1300,45 @@ def main():
     check(
         "style.css contains the .js-gated fallback-hide rule referencing config_page.STATIC_SAVE_FALLBACK_ATTR's literal value",
         _style_css_references_static_save_fallback_attr)
+
+    def _style_css_carries_theme_status_runway_row_and_led_checkbox_selectors():
+        # quick task 260901-qif: the third new cross-file guard - unlike
+        # DIRTY_SECTION_ATTR/STATIC_SAVE_FALLBACK_ATTR above, no Python
+        # constant carries these three class-name literals, so they are
+        # asserted directly here. Same index-plus-window technique the
+        # neighbouring guards use, never a regex CSS parser. Keeps
+        # style.css's .theme-status/.runway-row/.led-checkbox rules from
+        # silently drifting out of sync with the markup config_page.py's
+        # runway_fieldset()/led_group() now emit.
+        source = _read_static("style.css")
+
+        if ".theme-status {" not in source:
+            return False, "expected style.css to declare a .theme-status rule"
+        idx = source.index(".theme-status {")
+        window = source[idx:idx + 400]
+        if "var(--color-dominant)" not in window:
+            return False, "expected .theme-status's rule body to carry the --color-dominant card-surface token"
+        if ".theme-status:hover" not in source:
+            return False, "expected style.css to declare a .theme-status:hover selector"
+
+        if ".runway-row {" not in source:
+            return False, "expected style.css to declare a .runway-row rule"
+        idx = source.index(".runway-row {")
+        window = source[idx:idx + 200]
+        if "display: flex" not in window:
+            return False, "expected .runway-row's rule body to set display: flex"
+
+        checkbox_selector = '.led-checkbox input[type="checkbox"] {'
+        if checkbox_selector not in source:
+            return False, "expected style.css to declare a %r rule" % (checkbox_selector,)
+        idx = source.index(checkbox_selector)
+        window = source[idx:idx + 400]
+        if "min-height: 0" not in window:
+            return False, "expected .led-checkbox input[type=\"checkbox\"]'s rule body to clear the global rule's min-height"
+        return True, ""
+    check(
+        "style.css declares .theme-status (card-surface token + hover selector), .runway-row (flex display), and .led-checkbox input[type=\"checkbox\"] (cleared min-height) - the selectors config_page.py's new markup depends on",
+        _style_css_carries_theme_status_runway_row_and_led_checkbox_selectors)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
         source = _read_static("dirty-state.js")
