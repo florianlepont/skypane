@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 07
-current_phase_name: Final On-Glass Verification
-status: executing
-stopped_at: Completed 06.6.4-03-PLAN.md
+current_phase: none
+current_phase_name: none
+status: idle
+stopped_at: Phase 06.6.4 complete (6/6 plans, VERIFICATION.md passed 16/16). phase.complete's auto-advance pointed next_phase at "07", but Phase 7 (Final On-Glass Verification) was already completed independently on main 2026-08-28 (PR #18) and merged into this branch — not a real next step, a stale sequential-number artifact. The two real open items are: (1) Phase 06.6.3's own closing checkpoint (06.6.3-08 Task 2) — left unresolved when the developer's "catastrophique" reaction to the shipped UI redirected the session into 06.6.4's work; (2) the developer-requested page-by-page pass (Config's Runway-card grid, Health's banner-content conflict, Airlines' contradictory empty state, nested horizontal scroll) — not yet inserted as a phase.
 last_updated: "2026-09-01T08:03:52.167Z"
 last_activity: 2026-09-01
-last_activity_desc: Phase 06.6.4 complete, transitioned to Phase 07
+last_activity_desc: Phase 06.6.4 complete; next actionable work is 06.6.3-08's unresolved checkpoint and the not-yet-planned page-by-page pass, not Phase 07 (already done)
 progress:
   total_phases: 18
   completed_phases: 16
