@@ -1475,6 +1475,38 @@ button:disabled {
   border-collapse: collapse;
 }
 
+/* quick task 260901-uzi (finding 2): opts exactly one table — the
+ * Resolution-statistics table, health_page.py::_stats_table_html() —
+ * out of the no-crop floor above.
+ *
+ * The mechanism, in full: the base rule above and this one are both
+ * single-class selectors landing on the same <table> element, so their
+ * specificity is equal and SOURCE ORDER is the only thing deciding which
+ * minimum width wins. This rule must therefore stay after the base one
+ * in this file — moving it above would silently restore the overflow
+ * with nothing else in the file to notice. A stylesheet guard in
+ * test_status_pages.py pins that ordering directly, rather than leaving
+ * it to this comment alone.
+ *
+ * No fixed pixel floor is added to the Description column here, even
+ * though the sketch this page came from used one. A minimum wider than
+ * the narrowest container simply re-creates the same overflow one
+ * breakpoint down — the exact defect being fixed — and it is not needed:
+ * the table's other two columns (a short source label and a count) have
+ * small max-content widths, so the table's own auto layout already
+ * gives the description column the large majority of the available
+ * width and wraps it there. The wrap's own overflow-x: auto remains the
+ * backstop for any residue at extreme widths, used as the safety net it
+ * was written to be, not as the normal state.
+ *
+ * The boundary: this releases exactly one table. The floor stays in
+ * force for History's wide table and for the unresolved-prefix registry,
+ * and .stat-tile's own min-width: 0 comment still describes a real,
+ * unrelated failure mode that depends on it. */
+.data-table--prose {
+  min-width: 0;
+}
+
 /* 06.6.4 (D-07): the header used to fill a solid --color-secondary
  * block; it now reads as a quiet uppercase label instead — no
  * background at all, just a bottom hairline. The 70% text color-mix is

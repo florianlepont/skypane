@@ -1373,10 +1373,20 @@ def _stats_table_html(stats):
     string when there is nothing to show (no data yet, or the database
     is unavailable) — `_resolution_rate_tile_html()` already carries
     that message once, and this card must not repeat it.
+
+    quick task 260901-uzi (finding 2): this is the only table in the app
+    whose Description column carries real prose (the `_SOURCE_ROWS`
+    glosses, up to full sentences), which is why it is the only one that
+    opts into `layout.data_table()`'s `prose` keyword. The
+    unresolved-prefix registry directly above it on the same page is
+    deliberately NOT opted in: its five columns hold short values whose
+    combined max-content width is bounded, and the wrapper absorbs it
+    exactly as designed.
     """
     if stats is _DB_UNAVAILABLE or stats["total"] == 0:
         return ""
-    return layout.data_table(["Source", "Description", "Count"], stats["rows"])
+    return layout.data_table(
+        ["Source", "Description", "Count"], stats["rows"], prose=True)
 
 
 def _resolution_rate_tile_html(stats):

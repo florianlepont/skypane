@@ -1093,7 +1093,7 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
     ) % (escape_html(title), freshness_block, action_block, purpose_html)
 
 
-def data_table(headers, rows, mono_columns=(), raw_columns=()):
+def data_table(headers, rows, mono_columns=(), raw_columns=(), prose=False):
     """A header row plus alternating body rows, every value escaped.
 
     `mono_columns` names the zero-based column indices that get the
@@ -1118,6 +1118,22 @@ def data_table(headers, rows, mono_columns=(), raw_columns=()):
     name the same index, though concise_timestamp_html()'s own
     `<span class="mono">` makes a redundant mono_columns entry
     pointless for that specific case.
+
+    `prose` (quick task 260901-uzi) adds the modifier class
+    `data-table--prose` to the emitted `<table>` when true; the default,
+    false, is byte-identical to this function's pre-existing output.
+    `.data-table` carries `min-width: max-content` in style.css so that
+    tables of short values (callsigns, hex codes, prefixes, timestamps)
+    are never cropped — but a cell's max-content width is its text with
+    no wrapping at all, which is correct for those short values and wrong
+    for a column holding full sentences: the table then cannot fit any
+    container narrower than the whole unwrapped sentence, and
+    `.data-table-wrap`'s horizontal scroll becomes a permanent state
+    rather than a safety net. Measured on the Resolution-statistics
+    table: 1172px of content inside an 831px container. This keyword
+    changes no cell's content or escaping — it only adds a class the
+    stylesheet uses to release that one table from the shared no-crop
+    floor.
     """
     if not rows:
         return empty_state("No data yet.", "Nothing to show here yet.")
@@ -1135,11 +1151,12 @@ def data_table(headers, rows, mono_columns=(), raw_columns=()):
             cells.append("<td%s>%s</td>" % (cell_class, cell_html))
         body_rows.append('<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
 
+    table_class = "data-table data-table--prose" if prose else "data-table"
     return (
         '<div class="data-table-wrap">'
-        '<table class="data-table">'
+        '<table class="%s">'
         "<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
         "</div>"
-    ) % (header_cells, "".join(body_rows))
+    ) % (table_class, header_cells, "".join(body_rows))
