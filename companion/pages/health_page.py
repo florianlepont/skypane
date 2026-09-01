@@ -154,11 +154,12 @@ SOURCE_FAULT_BODY = (
 # deliberately coupled: change one, change the other.
 #
 # 06.6.2-06 (UXA-14): the leading "⚠ " glyph moved out of this constant
-# and into _SEVERITY_BANNER_PREFIXES/_anomaly_banner_text() below, so the
-# rendered banner can name its real severity ("⚠ Warning: "/"⚠ Error: ")
-# while this constant remains a literal substring of whatever renders —
-# every existing `ANOMALY_BANNER_TEXT in rendered` / `.count(...)` check
-# in test_status_pages.py keeps passing unmodified.
+# and into the severity-naming banner builder (06.6.4.1-04:
+# _anomaly_banner_html(), superseding the since-retired
+# _anomaly_banner_text()), so the rendered banner can name its real
+# severity while this constant remains a literal substring of whatever
+# renders — every existing `ANOMALY_BANNER_TEXT in rendered` /
+# `.count(...)` check in test_status_pages.py keeps passing unmodified.
 ANOMALY_BANNER_TEXT = "Something needs attention — check the tiles below."
 
 # 06.6.2-06 (UXA-14) / 06.6.3-04 (UXA-06/D-18): the noun each severity's
@@ -630,7 +631,7 @@ def compute_health_state(state_dir, now=None):
         inputs["corroboration_counts"])
     severity = overall_severity(
         device_state, pipeline_state, battery_state, disagreement_warn)
-    # UXA-06/D-18: threaded through to render() so _anomaly_banner_text()
+    # UXA-06/D-18: threaded through to render() so _anomaly_banner_html()
     # can name the real failing category or categories rather than
     # recomputing collect_anomalies() a second time from scratch.
     anomalies = collect_anomalies(
