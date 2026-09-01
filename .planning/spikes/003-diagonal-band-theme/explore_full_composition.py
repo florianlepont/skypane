@@ -211,16 +211,24 @@ def _band_center_x(canvas_y, w):
     return (left_frac + right_frac) / 2 * w
 
 
+# Round 13 (developer): "il suffit d'écrire en blanc pour le noir" - the
+# text block's ink is the BAND's contrast colour where the block sits
+# inside the band, not the theme's own ink_idx (always IDX_BLACK for
+# White) - the two happen to be the same for every other candidate, so
+# this only visibly changes anything for the black band. Set once per
+# candidate in main() before each render, read here.
+_CURRENT_BAND_IDX = None
+
+
 def patched_draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
     draw = ImageDraw.Draw(canvas)
+    if _CURRENT_BAND_IDX == pf.IDX_BLACK:
+        ink_idx = pf.IDX_WHITE
     # Round 12 (developer): centre the text block INSIDE the diagonal
     # band, below the aircraft, instead of beside it at the nose (round
-    # 9). Real risk this round must check, not assume: the band's own ink
-    # colour now sits directly BEHIND this text on every candidate, not
-    # just the ones where a stray edge crossed it - White theme's ink is
-    # always IDX_BLACK, so a black band under black text is illegible
-    # here by construction (same root cause as round 2's original
-    # black-band finding), not a corner case to hope doesn't happen.
+    # 9). Round 13 fixes the black-band case found there: this block's
+    # ink now follows the band's own contrast colour instead of the
+    # theme's global ink_idx.
 
     # The real content ladder, called verbatim - same functions, same
     # data, same never-shows-the-raw-callsign guarantee production uses.
@@ -366,6 +374,7 @@ def patched_draw_previous_text_block(canvas, flight, state, route, prev_placemen
 
 
 def main():
+    global _CURRENT_BAND_IDX
     orig_draw_main_text_block = render.draw_main_text_block
     orig_draw_previous_text_block = render.draw_previous_text_block
     orig_draw_top_labels = render.draw_top_labels
@@ -381,6 +390,7 @@ def main():
         render.draw_previous_text_block = patched_draw_previous_text_block
         render.draw_top_labels = patched_draw_top_labels
         for label, band_idx, dithered in candidates:
+            _CURRENT_BAND_IDX = band_idx
             pf.new_canvas = make_patched_new_canvas(band_idx, dithered)
             canvas = render.build_canvas(
                 TEST_FLIGHT, "departing", route=TEST_ROUTE,
@@ -401,6 +411,7 @@ def main():
         render.draw_previous_text_block = orig_draw_previous_text_block
         render.draw_top_labels = orig_draw_top_labels
         pf.new_canvas = _TRUE_ORIG_NEW_CANVAS
+        _CURRENT_BAND_IDX = None
 
 
 if __name__ == "__main__":

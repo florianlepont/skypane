@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 12 centres text inside the band; black-flat fails completely (invisible text), the other 4 candidates read fine - awaiting developer decision on black
+verdict: PENDING - round 13 fixes black-flat with white ink, all 5 candidates now read cleanly, awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -376,6 +376,16 @@ black from this "text-inside-the-band" treatment specifically (keep it
 available for the band colour, just not paired with this text
 placement), or resolve it some other way (e.g. a different ink for that
 one candidate) - not something to silently paper over.
+
+**Round 13 - white ink for the black band's text.** Developer: "il suffit
+d'écrire en blanc pour le noir." New `_CURRENT_BAND_IDX` (set per
+candidate in `main()`) lets `patched_draw_main_text_block()` use the
+band's own contrast colour instead of the theme's global `ink_idx` -
+`IDX_WHITE` when the band is black, unchanged (`IDX_BLACK`, already
+correct) for every other candidate. `black-flat` now reads perfectly:
+white "AF1234 / TO NEW YORK / Air France · A320" fully legible against
+the black band. Confirmed `_assert_legal_palette()` still passes (White
+stays dominant even with the added white-ink text on black).
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13
