@@ -64,15 +64,14 @@ TEST_PREV_ROUTE = {
 }
 
 # --- Band geometry, measured from the reference (trapezoid, not a parallelogram) ---
-# Shifted left by BAND_SHIFT_FRAC (developer's fix for the tag collision):
-# our real render's runway tag starts at x_frac=0.8117 (measured via
-# render._tracked_text_width(), not the reference's own 0.8117 - different
-# font/tracking), vs. the unshifted band's top-right edge at 0.8523 - a
-# real ~4pt overlap. Shifting the whole trapezoid left by 0.09 puts the
-# top-right edge at 0.762, a genuine ~5pt margin below the tag's start,
-# while preserving the band's measured width/shape exactly (a pure
-# translation, not a re-derivation).
-BAND_SHIFT_FRAC = -0.09
+# Round 7 (developer's new proposal): merge the top-right runway tag INTO
+# the top-left state label ("DEPARTING FROM ORY · RWY 3") instead of
+# shifting the band away from the tag - once nothing occupies the
+# top-right corner, the band is free to shift back right, further right
+# than the reference's own unshifted position even (BAND_SHIFT_FRAC=0
+# was the as-measured reference position; +0.08 goes past it). Still a
+# pure translation of the measured trapezoid, same width/shape.
+BAND_SHIFT_FRAC = 0.08
 BAND_TOP_LEFT_FRAC = 0.5818 + BAND_SHIFT_FRAC
 BAND_TOP_RIGHT_FRAC = 0.8523 + BAND_SHIFT_FRAC
 BAND_BOT_LEFT_FRAC = max(0.0, 0.0742 + BAND_SHIFT_FRAC)
@@ -104,6 +103,30 @@ def make_patched_new_canvas(band_idx, dithered):
             draw_reference_band(canvas, band_idx, dithered)
         return canvas
     return _patched
+
+
+# --- Round 7: merge the top-right runway tag into the top-left state
+# label - "DEPARTING FROM ORY · RWY 3" / "ARRIVING TO ORY · RWY 3" - so
+# nothing occupies the top-right corner and the band can shift right
+# without any collision to avoid there. Reuses the real
+# runway_tag_text()/STATE_LABEL_TEXT/draw_tracked_text()/LABEL_TRACKING_PX
+# - only the two separate strings become one, and only one run is drawn.
+_MERGED_LABEL_DIRECTION = {
+    render.runway_config.STATE_DEPARTING: "FROM",
+    render.runway_config.STATE_ARRIVING: "TO",
+}
+
+
+def patched_draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=None):
+    if runway_id is None:
+        runway_id = render.device_config.DEFAULT_RUNWAY_ID
+    draw = ImageDraw.Draw(canvas)
+    label_font = render._role_font(render.STATE_LABEL_FONT, weight)
+    direction = _MERGED_LABEL_DIRECTION[state]
+    tag_text = render.runway_tag_text(runway_id)
+    merged_text = "%s %s %s" % (render.STATE_LABEL_TEXT[state], direction, tag_text)
+    render.draw_tracked_text(draw, (render.MARGIN, render.MARGIN), merged_text, label_font, ink_idx, render.LABEL_TRACKING_PX)
+    # No right-side tag drawn at all - the top-right corner is free.
 
 
 # --- Text hierarchy, left-anchored, reference-inspired presentation over
@@ -316,6 +339,7 @@ def patched_draw_previous_text_block(canvas, flight, state, route, prev_placemen
 def main():
     orig_draw_main_text_block = render.draw_main_text_block
     orig_draw_previous_text_block = render.draw_previous_text_block
+    orig_draw_top_labels = render.draw_top_labels
     candidates = [
         ("ref-band-blue-dithered", pf.IDX_BLUE, True),
         ("ref-band-blue-flat", pf.IDX_BLUE, False),
@@ -326,6 +350,7 @@ def main():
     try:
         render.draw_main_text_block = patched_draw_main_text_block
         render.draw_previous_text_block = patched_draw_previous_text_block
+        render.draw_top_labels = patched_draw_top_labels
         for label, band_idx, dithered in candidates:
             pf.new_canvas = make_patched_new_canvas(band_idx, dithered)
             canvas = render.build_canvas(
@@ -345,6 +370,7 @@ def main():
     finally:
         render.draw_main_text_block = orig_draw_main_text_block
         render.draw_previous_text_block = orig_draw_previous_text_block
+        render.draw_top_labels = orig_draw_top_labels
         pf.new_canvas = _TRUE_ORIG_NEW_CANVAS
 
 

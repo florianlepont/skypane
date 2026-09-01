@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 6 extends the three-level hierarchy to the previous card (right-aligned, ~57% scale, position unchanged), awaiting developer reaction
+verdict: PENDING - round 7 merges the top labels and shifts the band right instead of left, awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -266,6 +266,24 @@ the main card, the shifted band never reaches this far right at this
 card's height (checked: band's rightmost extent here is ~45% width,
 this card's text sits at ~89% width), so there's no collision to dodge
 and no reason to also flip it above its own aircraft.
+
+**Round 7 - merge the top labels, free the band to shift right
+(developer's new proposal).** Instead of shifting the band away from the
+runway tag (round 3's fix), the developer proposed removing the
+collision's cause entirely: merge the top-right tag into the top-left
+state label - "DEPARTING FROM ORY · RWY 3" / "ARRIVING TO ORY · RWY 3" -
+so nothing occupies the top-right corner and the band can shift right
+instead of left. `BAND_SHIFT_FRAC` flipped from `-0.09` to `+0.08` (past
+the reference's own as-measured, unshifted position). New
+`patched_draw_top_labels()` reuses `runway_tag_text()`/
+`STATE_LABEL_TEXT`/`draw_tracked_text()`/`LABEL_TRACKING_PX` verbatim -
+only the two separate strings become one, drawn as a single tracked run,
+no right-side draw call at all. Confirmed the merged string stays
+comfortably inside the canvas at both states (departing: 446px wide,
+ending at x=510 vs. the 1136px safe-box edge; arriving: 383px). No
+information lost - the developer's explicit call from earlier this
+session (D-13 precedent: no info drops silently) is upheld, "RWY 3"
+survives merged in, not removed.
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13
