@@ -966,7 +966,9 @@ button {
    * override block — numerically equivalent to CONTEXT.md's light-mode
    * values and closes D-01b's own open "dark-mode analogue needed"
    * question. */
+  background: rgba(23, 25, 31, 0.045); /* fallback for browsers without color-mix() (WR-02) */
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid rgba(23, 25, 31, 0.09); /* fallback for browsers without color-mix() (WR-02) */
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
   color: var(--color-text);
   transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
