@@ -203,7 +203,9 @@ _PAGE_TITLES = {
     "/health": "Health",
     "/airlines": "Airlines",
     "/history": "History",
-    "/preview": "Preview",
+    # 06.6.4.1-08 (D-22): "/preview" entry removed — the Preview page is
+    # retired (PREVIEW_PAGE_ROUTE now only redirects); NAV_TABS shrinks to
+    # match in companion/layout.py.
 }
 
 # 06.6.2-07 (UXA-03): the login card's one-sentence purpose text, shown

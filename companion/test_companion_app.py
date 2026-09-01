@@ -62,7 +62,14 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 102  # 06.6.4.1-08 Task 1: net +1 (101 -> 102) — 2 new
+EXPECTED_CHECK_COUNT = 105  # 06.6.4.1-08 Task 2: 3 new checks (NAV_TABS holds
+# exactly 4 entries in settled order; sidebar_nav()/the mobile dropdown
+# each render exactly 4 links with exactly one active; the eye glyph
+# (icon-nav-preview) stays an ICON_IDS whitelist member and icon_html()
+# returns non-empty markup for it) — the unauthenticated-redirect loop's
+# "/preview" iteration was retargeted into its own explicit check in
+# place (still a net +0 for that piece, folded into Task 1's own count
+# below), not counted twice. # 102 = 06.6.4.1-08 Task 1: net +1 (101 -> 102) — 2 new
 # checks (authenticated GET /preview redirects to /history; the same
 # request with an arbitrary query string — including a next=-shaped and
 # an https://evil.example-shaped value — still redirects to the
@@ -605,6 +612,62 @@ def main():
         check(
             "sidebar_nav() matches no tab and stays script-free for a hostile active value",
             _sidebar_nav_escapes_hostile_active)
+
+        def _nav_tabs_shrunk_to_four_settled_order():
+            # 06.6.4.1-08 (D-22): NAV_TABS shrinks from five entries to
+            # four — Preview is retired, its whole content absorbed into
+            # History (06.6.4.1-05). Order matters: every nav renderer
+            # walks NAV_TABS in this exact order.
+            if len(layout.NAV_TABS) != 4:
+                return False, "expected exactly 4 NAV_TABS entries, got %d" % len(layout.NAV_TABS)
+            expected_routes = ("/settings", "/health", "/airlines", "/history")
+            actual_routes = tuple(route for route, _ in layout.NAV_TABS)
+            if actual_routes != expected_routes:
+                return False, (
+                    "expected NAV_TABS routes in order %r, got %r"
+                    % (expected_routes, actual_routes))
+            return True, ""
+        check(
+            "layout.NAV_TABS holds exactly 4 entries, in order settings/health/airlines/history",
+            _nav_tabs_shrunk_to_four_settled_order)
+
+        def _sidebar_and_dropdown_render_exactly_four_links_one_active_each():
+            sidebar_markup = layout.sidebar_nav("history")
+            sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
+            if sidebar_link_count != 4:
+                return False, "expected exactly 4 sidebar nav links, got %d" % sidebar_link_count
+            if sidebar_markup.count("sidebar-link--active") != 1:
+                return False, "expected exactly one active sidebar link"
+
+            doc = layout.page_shell(title="T", active="history", body="<p>b</p>")
+            panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
+            panel = doc[panel_start:doc.index("</header>")]
+            dropdown_link_count = panel.count('<a class="mobile-nav__link')
+            if dropdown_link_count != 4:
+                return False, "expected exactly 4 mobile dropdown links, got %d" % dropdown_link_count
+            if panel.count("mobile-nav__link--active") != 1:
+                return False, "expected exactly one active mobile dropdown link"
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly four sidebar nav links and exactly "
+            "four mobile dropdown links, with exactly one marked active in each",
+            _sidebar_and_dropdown_render_exactly_four_links_one_active_each)
+
+        def _eye_glyph_survives_nav_shrink():
+            # 06.6.4.1-08 (D-22): "icon-nav-preview" (the eye glyph) stays
+            # in the ICON_IDS whitelist even though NAV_ICON_IDS no longer
+            # maps a "preview" slug to it — companion/pages/history_page.py's
+            # View-panel trigger is its sole remaining consumer.
+            if "icon-nav-preview" not in layout.ICON_IDS:
+                return False, "expected icon-nav-preview to remain an ICON_IDS whitelist member"
+            markup = layout.icon_html("icon-nav-preview")
+            if not markup or "<svg" not in markup:
+                return False, "expected icon_html('icon-nav-preview') to return non-empty <svg markup"
+            return True, ""
+        check(
+            "the eye glyph (icon-nav-preview) is still a whitelist member and icon_html() returns "
+            "non-empty markup for it, even though its nav-slug mapping was removed",
+            _eye_glyph_survives_nav_shrink)
 
         def _stat_tile_status_classes_caption_escape_and_content_passthrough():
             for status, expected_class in (
@@ -1159,11 +1222,13 @@ def main():
             # 06.6.2-07 (UXA-03): require_session() now carries an
             # allowlisted `next` query param for any requested path that
             # is one of layout.NAV_TABS's known routes (settings/health/
-            # airlines/history/preview, 06.6.4.1-07 renamed the first
-            # from config) — regardless of HTTP method,
-            # since it only ever looks at self.path. A path outside that
-            # set (poll-now, preview.png, a gallery image) still
-            # redirects to the bare /login exactly as before this plan.
+            # airlines/history, 06.6.4.1-07 renamed the first from config;
+            # 06.6.4.1-08 removed preview — D-22 retires that page) —
+            # regardless of HTTP method, since it only ever looks at
+            # self.path. A path outside that set (poll-now, the retired
+            # /preview redirect source, preview.png, a gallery image)
+            # still redirects to the bare /login exactly as before this
+            # plan.
             expected_location = (
                 "/login?next=%s" % urllib.parse.quote(next_route, safe="")
                 if next_route else "/login")
@@ -1180,10 +1245,16 @@ def main():
                 return True, ""
             return _run
 
-        for _tab_path in ("/settings", "/health", "/airlines", "/history", "/preview"):
+        for _tab_path in ("/settings", "/health", "/airlines", "/history"):
             check(
                 "unauthenticated GET %s redirects to /login carrying that route as ?next=" % _tab_path,
                 _unauth_redirects_to_login("GET", _tab_path, next_route=_tab_path))
+
+        check(
+            "unauthenticated GET /preview (the retired Preview page's redirect source) redirects "
+            "to /login without page content (D-22 removed it from NAV_TABS, so no ?next= is carried "
+            "— it lands on /login, not /history, proving the redirect branch keeps its own session gate)",
+            _unauth_redirects_to_login("GET", "/preview"))
 
         check(
             "unauthenticated GET /preview.png redirects to /login without page content "
@@ -1572,16 +1643,16 @@ def main():
             "identical /history location — no request value influences the target",
             _preview_redirect_ignores_query_string)
 
-        # Session gate on the retired route: covered by the pre-existing
-        # "unauthenticated GET /preview redirects to /login carrying that
-        # route as ?next=" check above (still a NAV_TABS route until Task 2
-        # shrinks the tuple) — an unauthenticated caller lands on /login, not
-        # /history, proving the redirect branch keeps its require_session()
-        # gate. Both byte-serving image routes (/preview.png, a real
-        # /gallery/{name}.png) already have their own authenticated-200/
-        # unauthenticated-redirect checks elsewhere in this file
-        # (_preview_real_panel/_preview_missing and the gallery checks below,
-        # plus the unauthenticated-redirect loop above) — confirmed still
+        # Session gate on the retired route: covered by the "unauthenticated
+        # GET /preview ... redirects to /login without page content" check
+        # above (06.6.4.1-08 Task 2 removed /preview from NAV_TABS, so it no
+        # longer carries a ?next=) — an unauthenticated caller lands on
+        # /login, not /history, proving the redirect branch keeps its
+        # require_session() gate. Both byte-serving image routes
+        # (/preview.png, a real /gallery/{name}.png) already have their own
+        # authenticated-200/unauthenticated-redirect checks elsewhere in
+        # this file (_preview_real_panel/_preview_missing and the gallery
+        # checks below, plus the unauthenticated-redirect loop above) — confirmed still
         # passing untouched by this task.
 
         # --- 06.6.4.1-07 (D-26): settings route rename — old path 404s

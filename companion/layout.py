@@ -37,7 +37,10 @@ NAV_TABS = (
     ("/health", "Health"),
     ("/airlines", "Airlines"),
     ("/history", "History"),
-    ("/preview", "Preview"),
+    # 06.6.4.1-08 (D-22): "/preview"/"Preview" removed — the standalone
+    # Preview page is retired, its whole content absorbed into History
+    # (06.6.4.1-05). companion/app.py's PREVIEW_PAGE_ROUTE now redirects
+    # that URL to History's route above rather than rendering a fifth tab.
 )
 
 # --- 06.6.1-05: hamburger nav DOM contract (D-06) -----------------------
@@ -122,6 +125,13 @@ ICON_IDS = (
     "icon-nav-health",
     "icon-nav-airlines",
     "icon-nav-history",
+    # 06.6.4.1-08 (D-22): stays a whitelist member even though NAV_TABS/
+    # NAV_ICON_IDS no longer reference a "preview" nav tab — its consumer
+    # is now companion/pages/history_page.py's View-panel trigger button
+    # (the eye glyph on each row's "View panel near this time" control),
+    # not a nav tab. Do not remove this as apparently-orphaned: an id
+    # outside this whitelist makes icon_html() silently return "" and the
+    # trigger button would render an empty box with no error.
     "icon-nav-preview",
 )
 
@@ -277,7 +287,14 @@ NAV_ICON_IDS = {
     "health": "icon-nav-health",
     "airlines": "icon-nav-airlines",
     "history": "icon-nav-history",
-    "preview": "icon-nav-preview",
+    # 06.6.4.1-08 (D-22): "preview" key removed along with NAV_TABS' own
+    # preview entry above. "icon-nav-preview" (the eye glyph) itself stays
+    # in ICON_IDS below, unremoved — its consumer is now
+    # companion/pages/history_page.py's View-panel trigger button, not a
+    # nav tab. Removing the glyph from the whitelist (rather than just
+    # this map entry) would make that trigger render an empty box with no
+    # error, since icon_html() silently returns "" for an id outside
+    # ICON_IDS.
 }
 
 # 06.6.2-05 (UXA-10): the fragment id the skip-link's first-focusable
