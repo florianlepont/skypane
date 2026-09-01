@@ -58,8 +58,13 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 51  # 47 (pre-06.6.4.1-05 Task 2) + 4 (06.6.4.1-05
-# Task 2: nearest_gallery_entry()'s at-or-before/boundary/skip/None
+EXPECTED_CHECK_COUNT = 56  # 51 (pre-06.6.4.1-05 Task 3) + 5 (06.6.4.1-05
+# Task 3: the unresolved-airline link absent for a resolved airline,
+# present exactly once per representation for an unresolved airline,
+# keyed on the airline label and not the route label, its href matching
+# health_page.SERVER_DATA_SECTION_ID, and no prefix-registry table
+# duplicated onto History). Prior baseline: 47 (pre-06.6.4.1-05 Task 2) +
+# 4 (06.6.4.1-05 Task 2: nearest_gallery_entry()'s at-or-before/boundary/skip/None
 # behaviour; three interleaved rows' desktop+mobile View-panel triggers
 # carrying byte-identical, correctly-targeted attributes plus exactly one
 # lightbox dialog; zero triggers/zero dialog with an empty gallery entry
@@ -1265,6 +1270,129 @@ def main():
         "lightbox__* element class names each appear in companion/static/panel-lookup.js and in "
         "the rendered History page",
         _lightbox_dom_contract_three_file_guard)
+
+    # ======================================================================
+    # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
+    # Server & data anchor (D-21).
+    # ======================================================================
+
+    def _unresolved_link_absent_for_resolved_airline():
+        tmp = _mkstate("h-link-resolved")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "lkr01", "callsign": "LINKRES",
+                    "airline": "AFR", "origin": "LFPO", "destination": "LFPG",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for a resolved-airline row"
+            if history_page.UNRESOLVED_LINK_HREF in tr_block:
+                return False, "did not expect the unresolved-airline link in the desktop cell for a resolved airline"
+            if history_page.UNRESOLVED_LINK_HREF in li_block:
+                return False, "did not expect the unresolved-airline link in the mobile details for a resolved airline"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a formatted row with a resolved airline produces a Type-and-Airline cell (desktop) and "
+        "Aircraft detail row (mobile) with no anchor pointing at the Health server-data route",
+        _unresolved_link_absent_for_resolved_airline)
+
+    def _unresolved_link_present_once_each_for_unresolved_airline():
+        tmp = _mkstate("h-link-unresolved")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "lku01", "callsign": "LINKUNR"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for an unresolved-airline row"
+            href_attr = 'href="%s"' % history_page.UNRESOLVED_LINK_HREF
+            if tr_block.count(href_attr) != 1:
+                return False, (
+                    "expected exactly one unresolved-airline link in the desktop cell, found %d"
+                    % tr_block.count(href_attr))
+            if li_block.count(href_attr) != 1:
+                return False, (
+                    "expected exactly one unresolved-airline link in the mobile details list, found %d"
+                    % li_block.count(href_attr))
+            if history_page.UNRESOLVED_LINK_TEXT not in tr_block:
+                return False, "expected the link text in the desktop cell"
+            if history_page.UNRESOLVED_LINK_TEXT not in li_block:
+                return False, "expected the link text in the mobile details list"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a formatted row whose airline label equals the route-fallback constant produces exactly "
+        "one unresolved-airline anchor in the desktop cell and exactly one in the mobile details list",
+        _unresolved_link_present_once_each_for_unresolved_airline)
+
+    def _unresolved_link_keyed_on_airline_not_route():
+        tmp = _mkstate("h-link-route-only")
+        try:
+            _seed_runway_events(tmp, [
+                # airline resolved, but no origin/destination -> route
+                # unavailable while the airline itself is not.
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "lkro1", "callsign": "LINKROUTE",
+                    "airline": "AFR",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for a route-only-unresolved row"
+            if panel_render.ROUTE_FALLBACK_TEXT not in tr_block:
+                return False, "expected the Route cell to still render the fallback text"
+            if history_page.UNRESOLVED_LINK_HREF in tr_block:
+                return False, "did not expect the unresolved-airline link when only the route is unresolved"
+            if history_page.UNRESOLVED_LINK_HREF in li_block:
+                return False, "did not expect the unresolved-airline link in mobile details either"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a row whose route is unresolved but whose airline IS resolved produces no unresolved-"
+        "airline link - the link is keyed on the airline label, not on the route label",
+        _unresolved_link_keyed_on_airline_not_route)
+
+    def _unresolved_link_href_matches_health_anchor():
+        expected_suffix = "#" + health_page.SERVER_DATA_SECTION_ID
+        if not history_page.UNRESOLVED_LINK_HREF.endswith(expected_suffix):
+            return False, (
+                "expected history_page.UNRESOLVED_LINK_HREF to end with %r, got %r"
+                % (expected_suffix, history_page.UNRESOLVED_LINK_HREF))
+        return True, ""
+    check(
+        "history_page.UNRESOLVED_LINK_HREF ends with \"#\" + health_page.SERVER_DATA_SECTION_ID",
+        _unresolved_link_href_matches_health_anchor)
+
+    def _no_prefix_registry_duplicated_on_history():
+        tmp = _mkstate("h-no-registry")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "reg01", "callsign": "REGCHK"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if health_page.UNRESOLVED_SECTION_HEADING in rendered:
+                return False, "did not expect Health's Unresolved-prefixes registry heading on History"
+            if "<th>Prefix</th>" in rendered or "<th>First seen</th>" in rendered:
+                return False, "did not expect the registry table's own column headers on History"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered History page contains no prefix-registry table and no element carrying the "
+        "registry table's own headers",
+        _no_prefix_registry_duplicated_on_history)
 
     # ======================================================================
     # Section 2: companion/pages/preview_page.py

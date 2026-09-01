@@ -307,6 +307,17 @@ _VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
 _VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
 _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 
+# D-21: the unresolved-airline link. The fragment must equal
+# companion/pages/health_page.py's SERVER_DATA_SECTION_ID constant -
+# duplicated, not imported, since companion/pages/__init__.py's only
+# documented boundary forbids one page module importing another. This is
+# the one cross-page string coupling this phase introduces; held by
+# discipline and pinned by companion/test_view_pages.py's cross-module
+# guard (asserts UNRESOLVED_LINK_HREF ends with "#" + the real
+# health_page.SERVER_DATA_SECTION_ID value, never a re-typed literal).
+UNRESOLVED_LINK_HREF = "/health#server-data"
+UNRESOLVED_LINK_TEXT = "View unresolved prefixes"
+
 # UXA-05/06.6.3-RESEARCH.md Pitfall 1: the audit's own evidence names
 # "on_runway"/"approaching"/"departed" as the raw confirmed_state values
 # leaking into this page, but server/plane/runway_config.py's
@@ -600,6 +611,32 @@ def _callsign_hex_cell(callsign, hex_value):
     return "<td>%s</td>" % html
 
 
+def _unresolved_link_html():
+    """The D-21 inline link to Health's Server & data section, used by
+    both the desktop Type+Airline cell and the mobile Aircraft detail
+    row when a row's airline could not be resolved.
+    """
+    return '<a class="text-label" href="%s">%s</a>' % (
+        escape_html(UNRESOLVED_LINK_HREF), escape_html(UNRESOLVED_LINK_TEXT))
+
+
+def _type_airline_cell(row):
+    """The desktop Type+Airline column's own cell builder (D-21) —
+    reproduces `_merged_cell()`'s primary/separator/secondary markup
+    exactly, then appends `_unresolved_link_html()` immediately after it
+    only when this row's airline could not be resolved, compared against
+    the imported `panel_render.ROUTE_FALLBACK_TEXT` constant, never a
+    re-typed literal. A dedicated function rather than a `_merged_cell()`
+    parameter, matching `_callsign_hex_cell()`'s own precedent: the
+    Route column also calls the shared `_merged_cell()` and must never
+    gain this link.
+    """
+    html = _merged_cell(row["aircraft_type_label"], row["airline_label"])
+    if row["airline_label"] == panel_render.ROUTE_FALLBACK_TEXT:
+        html = html[:-len("</td>")] + _unresolved_link_html() + "</td>"
+    return html
+
+
 def _filter_bar_html(total):
     """D-20's filter bar — a `<label>` + `<input type="search"
     data-filter-input>` (with `icon-search` inside, decorative), a live
@@ -659,7 +696,7 @@ def _history_table_html(formatted_rows, now=None):
                 layout.concise_timestamp_html(row["raw_ts"], now),
                 row.get("view_panel_html", "")),
             _callsign_hex_cell(row["callsign"], row["hex"]),
-            _merged_cell(row["aircraft_type_label"], row["airline_label"]),
+            _type_airline_cell(row),
             "<td>%s</td>" % escape_html(row["route_label"]),
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
             "<td>%s</td>" % layout.status_dot(
@@ -743,12 +780,19 @@ def _history_cards_html(formatted_rows, now=None):
         # pair) specifically to give the copy affordance a home
         # alongside its Hex/Full-timestamp siblings, matching the
         # "same button+feedback-sibling shape" contract everywhere.
+        # D-21: the same unresolved-airline link the desktop Type+Airline
+        # cell carries, appended after the airline value here too - keyed
+        # on the same airline_label/ROUTE_FALLBACK_TEXT comparison, so
+        # the mobile representation never silently loses the affordance.
+        unresolved_link = (
+            _unresolved_link_html()
+            if row["airline_label"] == panel_render.ROUTE_FALLBACK_TEXT else "")
         details = (
             '<details class="history-card__details">'
             "<summary>More details</summary>"
             "<dl>"
             '<dt>Callsign</dt><dd class="mono">%s%s</dd>'
-            "<dt>Aircraft</dt><dd>%s %s %s</dd>"
+            "<dt>Aircraft</dt><dd>%s %s %s%s</dd>"
             "<dt>Corroboration</dt><dd>%s</dd>"
             "<dt>Runway</dt><dd>%s</dd>"
             '<dt>Hex</dt><dd class="mono">%s%s</dd>'
@@ -761,6 +805,7 @@ def _history_cards_html(formatted_rows, now=None):
             escape_html(row["aircraft_type_label"]),
             escape_html(CELL_SEPARATOR_TEXT),
             escape_html(row["airline_label"]),
+            unresolved_link,
             layout.status_dot(row["corroboration_status"], row["corroboration_label"]),
             escape_html(row["tracked_runway"]),
             escape_html(row["hex"]),
