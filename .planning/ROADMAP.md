@@ -485,7 +485,7 @@ Plans:
 
 **Requirements**: None — unmapped polish/refinement phase, no REQ-ID in REQUIREMENTS.md maps to it (`Requirements: TBD` at phase-add time, confirmed unmapped by `/gsd-plan-phase`). No `09-CONTEXT.md` exists either (developer explicitly skipped `/gsd-discuss-phase` and `/gsd-research-phase` for this phase, going straight from the validated spike to planning) — so unlike Phase 8's `D-01..D-13`, there are no CONTEXT.md decision IDs to trace against. Each plan's `requirements` frontmatter instead cites `PHASE9-1` through `PHASE9-8`, one per numbered clause of this Goal paragraph above (see `09-01-PLAN.md`'s objective for the full table) — the same traceability role D-XX decisions play elsewhere, anchored to this Goal text instead of a CONTEXT.md.
 **Depends on:** Phase 8
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 **Wave 1**
@@ -494,7 +494,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 09-02-PLAN.md — draw_diagonal_band() + band geometry constants, band-aware draw_top_labels() split tag, partial _build_active_canvas() wiring (PHASE9-1, PHASE9-3)
+- [x] 09-02-PLAN.md — draw_diagonal_band() + band geometry constants, band-aware draw_top_labels() split tag, partial _build_active_canvas() wiring (PHASE9-1, PHASE9-3)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
