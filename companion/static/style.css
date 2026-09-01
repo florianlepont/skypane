@@ -1093,8 +1093,8 @@ button:hover {
  * areas do not overlap; a future layout placing two icon buttons closer
  * than 16px apart would need to revisit the inset below. */
 .copy-btn {
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   position: relative;
   display: inline-flex;
@@ -1105,13 +1105,23 @@ button:hover {
   background: transparent;
 }
 
-/* The invisible 44x44 hit area: 28 (visual box) + 8 on each side = 44,
+/* D-02 follow-up (06.6.4-06 checkpoint): the global 20px .icon glyph
+ * nearly filled the original 28px box (4px of padding per side), which
+ * read as "the whole button is too big" rather than a quiet inline
+ * affordance. Scoped down to 14px here only — every other .icon consumer
+ * (nav, stat tiles, banners) keeps the standard 20px. */
+.copy-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* The invisible 44x44 hit area: 22 (visual box) + 11 on each side = 44,
  * centred on the glyph. Pointer target only — no background, border or
  * content of its own. */
 .copy-btn::before {
   content: "";
   position: absolute;
-  inset: -8px;
+  inset: -11px;
 }
 
 /* 06.6.4 (D-02): hover wash, the same text-based color-mix idiom as the
