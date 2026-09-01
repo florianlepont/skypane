@@ -68,7 +68,9 @@ STARTUP_DEADLINE_S = 10.0
 # two pre-existing Airlines checks (the iconless check, the two-tiles/Coverage-
 # heading check) are retargeted in place for this plan's own D-18/D-20 changes,
 # not counted as new
-EXPECTED_CHECK_COUNT = 59  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 59 (pre-06.6.4.1-04) + 5 (06.6.4.1-04 Task 1: anomaly-banner category-
+# pill checks x3, corroboration-disclosure checks x2)
+EXPECTED_CHECK_COUNT = 64  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -508,6 +510,10 @@ def main():
                 return False, "expected the anomaly banner to name the real failing category"
             if health_page.ANOMALY_BANNER_TEXT not in rendered:
                 return False, "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail"
+            # 06.6.4.1-04 (D-07): the real failing category now also
+            # renders as a pill, not only inside the accessible tail.
+            if 'class="banner__pill"' not in rendered:
+                return False, "expected the anomaly banner to render banner__pill markup for the new pill-based category naming"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -553,6 +559,118 @@ def main():
         "_anomaly_category_text() lower-cases ordinary mid-sentence phrases "
         "but never a leading acronym (no 'aDS-B')",
         _anomaly_categories_never_lowercase_a_leading_acronym)
+
+    def _anomaly_category_labels_are_pill_text_not_full_sentences():
+        # 06.6.4.1-04 (D-07): _anomaly_category_labels() is the pill-
+        # shaped counterpart to _anomaly_category_text()'s joined
+        # clause — one label per anomaly, period-stripped, never the
+        # full literal sentence collect_anomalies() returns.
+        anomalies = health_page.collect_anomalies(
+            device_state="error", pipeline_state="error",
+            battery_state="ok", disagreement_warn=False)
+        labels = health_page._anomaly_category_labels(anomalies)
+        if len(labels) != len(anomalies):
+            return False, "expected one label per anomaly, got %d labels for %d anomalies" % (len(labels), len(anomalies))
+        for label, anomaly in zip(labels, anomalies):
+            if label == anomaly:
+                return False, "expected a pill label to differ from collect_anomalies()'s full literal sentence, got %r" % (label,)
+            if label.endswith("."):
+                return False, "expected a pill label's trailing period to be stripped, got %r" % (label,)
+        return True, ""
+    check(
+        "_anomaly_category_labels() returns one period-stripped label per anomaly, distinct from "
+        "collect_anomalies()'s own full literal sentences (D-07)",
+        _anomaly_category_labels_are_pill_text_not_full_sentences)
+
+    def _anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping():
+        # 06.6.4.1-04 (D-07): _anomaly_banner_html() must reproduce
+        # layout.anomaly_banner()'s exact severity-to-class/role mapping.
+        anomalies = ["Device check-in is stale."]
+        error_banner = health_page._anomaly_banner_html("error", anomalies)
+        if 'class="banner banner--anomaly"' not in error_banner or 'role="alert"' not in error_banner:
+            return False, "expected error severity to render banner--anomaly + role=\"alert\""
+        warn_banner = health_page._anomaly_banner_html("warn", anomalies)
+        if 'class="banner banner--warn"' not in warn_banner or 'role="status"' not in warn_banner:
+            return False, "expected warn severity to render banner--warn + role=\"status\""
+        if warn_banner.count('class="banner__pill"') != 1:
+            return False, "expected exactly one banner__pill for a single-anomaly fixture"
+        if health_page.ANOMALY_BANNER_TEXT not in warn_banner:
+            return False, "expected ANOMALY_BANNER_TEXT to remain present as the banner's accessible tail"
+        return True, ""
+    check(
+        "_anomaly_banner_html() reproduces layout.anomaly_banner()'s exact severity-to-class/role mapping, and "
+        "carries one banner__pill per anomaly plus the accessible ANOMALY_BANNER_TEXT tail (D-07)",
+        _anomaly_banner_html_matches_layout_anomaly_banner_severity_mapping)
+
+    def _anomaly_banner_renders_one_pill_per_anomaly_on_the_page():
+        tmp = _mkstate("h-banner-pills-page")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
+            _seed_meta(tmp, **{
+                history_db.META_LAST_PIPELINE_RUN: _ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if rendered.count('<div class="banner ') != 1:
+                return False, "expected exactly one banner element"
+            if rendered.count('class="banner__pill"') != 2:
+                return False, (
+                    "expected exactly two banner__pill elements for this two-anomaly "
+                    "fixture (stale device + stale pipeline), got %d"
+                    % rendered.count('class="banner__pill"'))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a two-anomaly fixture renders exactly two banner__pill elements inside one banner element on the real "
+        "page (D-07)",
+        _anomaly_banner_renders_one_pill_per_anomaly_on_the_page)
+
+    def _corroboration_rows_compact_explanations_in_closed_disclosure():
+        tmp = _mkstate("h-corrob-disclosure")
+        try:
+            now = _now()
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc123", "corroborated": True},
+                {"ts": _iso(now), "hex": "def456", "corroborated": None},
+                {"ts": _iso(now), "hex": "ghi789", "corroborated": False},
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
+                if explanation not in rendered:
+                    return False, "expected explanation %r to survive somewhere in the rendered page" % explanation
+            details_start = rendered.index('<details class="readings-disclosure"')
+            compact_rows_html = rendered[:details_start]
+            for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:
+                if explanation in compact_rows_html:
+                    return False, "expected the compact corroboration rows to no longer carry the explanation clause inline: %r" % explanation
+            details_tag = rendered[details_start:]
+            details_open_tag = details_tag[:details_tag.index(">") + 1]
+            if " open" in details_open_tag:
+                return False, "expected the corroboration disclosure to be closed by default"
+            if "<dl>" not in rendered or "<dt>" not in rendered or "<dd>" not in rendered:
+                return False, "expected the disclosure's explanations to render as a <dl> of <dt>/<dd> pairs"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Corroboration's three rows stay compact (dot/label/count only) and their explanations move into a "
+        "closed-by-default disclosure (D-08)",
+        _corroboration_rows_compact_explanations_in_closed_disclosure)
+
+    def _corroboration_section_disagreement_flag_unchanged():
+        _, has_disagreement = health_page._corroboration_section(
+            {"True": 1, "None": 0, "False": 2})
+        if has_disagreement is not True:
+            return False, "expected the disagreement flag to be True when the False bucket is non-zero"
+        _, no_disagreement = health_page._corroboration_section(
+            {"True": 1, "None": 2, "False": 0})
+        if no_disagreement is not False:
+            return False, "expected the disagreement flag to be False when the False bucket is zero"
+        return True, ""
+    check(
+        "_corroboration_section()'s second return value (the disagreement flag) is unchanged by the D-08 "
+        "disclosure rewrite",
+        _corroboration_section_disagreement_flag_unchanged)
 
     def _corroboration_copy_has_no_decision_id_leak():
         for _key, _label, _status, explanation in health_page._CORROBORATION_ROWS:

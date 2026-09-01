@@ -631,29 +631,64 @@ def _anomaly_category_text(anomalies):
     return ", ".join(phrases)
 
 
-def _anomaly_banner_text(severity, anomalies):
-    """The full anomaly-banner text for a non-"ok" `severity`, given the
-    already-computed `anomalies` list (`collect_anomalies()`'s own
-    return value, threaded through by `compute_health_state()`).
+def _anomaly_category_labels(anomalies):
+    """One short pill label per `anomalies` entry (`collect_anomalies()`'s
+    own literal strings, in order) — the pill-shaped counterpart to
+    `_anomaly_category_text()`'s comma-joined clause.
 
-    UXA-06: names the real failing category or categories instead of
-    the old generic "check the tiles below" copy. Format: "⚠ {N}
-    {warning(s)|error(s)}: {comma-joined category phrases} —
-    {ANOMALY_BANNER_TEXT}" — ANOMALY_BANNER_TEXT is kept as a trailing
-    fallback tail (not removed) specifically so every existing
-    `ANOMALY_BANNER_TEXT in rendered` presence/absence check in
-    test_status_pages.py keeps passing unmodified; the em-dash
-    separator (rather than a period) is deliberate too, so the
-    category text is never immediately followed by a period that
-    would reconstruct one of collect_anomalies()'s own exact literal
-    strings verbatim inside the rendered page.
+    Reuses that function's trailing-period stripping (`rstrip(".")`) so
+    both derivations read the same source strings the same way, but
+    never lower-cases a label's leading letter: `_anomaly_category_text()`
+    only lower-cases non-first items so the joined clause reads as one
+    mid-sentence run, and its `_starts_with_acronym()` guard exists
+    solely to protect that lower-casing from mangling "ADS-B" into
+    "aDS-B". A pill is not mid-sentence text — every label keeps its
+    original, sentence-initial case, so there is nothing for that guard
+    to protect here; it needs no separate call in this function.
     """
+    return [anomaly.rstrip(".") for anomaly in anomalies]
+
+
+def _anomaly_banner_html(severity, anomalies):
+    """Build the D-07 anomaly banner directly, rather than routing
+    through `layout.anomaly_banner()`: that shared helper escapes its
+    whole message as one plain-text string, which is correct for a flat
+    banner but structurally incompatible with emitting one
+    `<span class="banner__pill">` per failing category alongside the
+    lead text. This is a deliberate local builder — not a duplication to
+    be "cleaned up" by re-routing through the shared helper later.
+
+    Reproduces `layout.anomaly_banner()`'s exact class/role mapping:
+    `"error"` severity renders `banner--anomaly` / `role="alert"`;
+    anything else (in practice only `"warn"`) renders `banner--warn` /
+    `role="status"`.
+
+    Emits, as flex children of the `.banner` row: one escaped `<span>`
+    carrying the count-and-noun lead ("N warning(s)"/"N error(s)"), one
+    `<span class="banner__pill">` per `_anomaly_category_labels()` entry,
+    and finally a `<span class="visually-hidden">` accessible tail
+    carrying `_anomaly_category_text()`'s own comma-joined clause plus
+    `ANOMALY_BANNER_TEXT` — the exact sentence this banner rendered
+    before pills existed. That tail is what keeps every existing
+    `ANOMALY_BANNER_TEXT in rendered` presence/count check in
+    test_status_pages.py passing unmodified, and gives a screen reader
+    one coherent sentence instead of a lead phrase followed by a run of
+    disconnected pill labels.
+    """
+    css_class = "banner--anomaly" if severity == "error" else "banner--warn"
+    role = "alert" if severity == "error" else "status"
     noun = _SEVERITY_BANNER_NOUNS.get(severity, "issue")
     count = len(anomalies)
     plural = "" if count == 1 else "s"
-    category_text = _anomaly_category_text(anomalies)
-    return "⚠ %d %s%s: %s — %s" % (
-        count, noun, plural, category_text, ANOMALY_BANNER_TEXT)
+    lead_html = "<span>%s</span>" % escape_html("%d %s%s:" % (count, noun, plural))
+    pills_html = "".join(
+        '<span class="banner__pill">%s</span>' % escape_html(label)
+        for label in _anomaly_category_labels(anomalies)
+    )
+    tail_text = "%s — %s" % (_anomaly_category_text(anomalies), ANOMALY_BANNER_TEXT)
+    tail_html = '<span class="visually-hidden">%s</span>' % escape_html(tail_text)
+    return '<div class="banner %s" role="%s">%s%s%s</div>' % (
+        css_class, role, lead_html, pills_html, tail_html)
 
 
 def _unavailable_block():
@@ -817,6 +852,25 @@ def _battery_section(trend_rows):
     return _battery_badge_block(state) + chart_block + disclosure_html, state
 
 
+def _corroboration_details_html():
+    """The D-08 collapsed `<details class="readings-disclosure">` block
+    holding each `_CORROBORATION_ROWS` entry's full explanation — the
+    three always-visible rows above keep only the dot, label, and count;
+    the explanations move here, closed by default, matching the
+    existing `readings-disclosure` idiom (companion/static/style.css's
+    `.readings-disclosure` rule, landed for the battery readings table)
+    verbatim for this second use, so no new CSS is needed.
+    """
+    dl_items = "".join(
+        "<dt>%s</dt><dd>%s</dd>" % (escape_html(label), escape_html(explanation))
+        for _key, label, _status, explanation in _CORROBORATION_ROWS
+    )
+    return (
+        '<details class="readings-disclosure"><summary>More details</summary>'
+        "<dl>%s</dl></details>" % dl_items
+    )
+
+
 def _corroboration_section(counts):
     if counts is _DB_UNAVAILABLE:
         return _unavailable_block(), False
@@ -829,16 +883,15 @@ def _corroboration_section(counts):
 
     statuses = corroboration_status(counts)
     rows_html = []
-    for key, label, _default_state, explanation in _CORROBORATION_ROWS:
+    for key, label, _default_state, _explanation in _CORROBORATION_ROWS:
         rows_html.append(
-            '<p class="text-body">%s <span class="mono">%d</span> — %s</p>'
+            '<p class="text-body">%s <span class="mono">%d</span></p>'
             % (
                 layout.status_dot(statuses[key], label),
                 counts.get(key, 0) or 0,
-                escape_html(explanation),
             )
         )
-    return "".join(rows_html), bool(counts.get("False"))
+    return "".join(rows_html) + _corroboration_details_html(), bool(counts.get("False"))
 
 
 def _source_fault_block(source_fault_raw):
@@ -919,8 +972,7 @@ def render(ctx):
     severity = state["severity"]
     anomalies = state["anomalies"]
     banner_html = (
-        layout.anomaly_banner(_anomaly_banner_text(severity, anomalies), severity)
-        if severity != "ok" else "")
+        _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
 
     # battery_state is still consumed below (collect_anomalies() still
     # takes it) — it just no longer paints a stat-tile border, since the
