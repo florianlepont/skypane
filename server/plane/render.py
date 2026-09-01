@@ -431,6 +431,28 @@ def draw_diagonal_band(canvas, band_idx, dithered=False):
         ImageDraw.Draw(canvas).polygon(poly, fill=band_idx)
 
 
+def _band_center_x(canvas_y, w):
+    """The diagonal band's own horizontal centre at a given canvas `y` -
+    used to centre the main text block INSIDE the trapezoid instead of
+    beside it. The trapezoid's centreline shifts left as `y` increases (the
+    same linear interpolation `draw_diagonal_band()`'s own polygon corners
+    already use), so this is a function of `y`, not a constant.
+
+    Verbatim port of spike 003-diagonal-band-theme's `_band_center_x()`
+    (round 12, confirmed final at round 15 - see
+    `.planning/spikes/003-diagonal-band-theme/README.md`). Callers must
+    compute this ONCE per text block, at the block's top y, and reuse that
+    single value for every line - round 12 introduced a since-fixed bug
+    where recomputing this per line produced a visibly staggered column
+    instead of one aligned centre (round 15's fix, see
+    `draw_main_text_block()`'s band branch).
+    """
+    f = canvas_y / HEIGHT
+    left_frac = BAND_TOP_LEFT_FRAC - (BAND_TOP_LEFT_FRAC - BAND_BOT_LEFT_FRAC) * f
+    right_frac = BAND_TOP_RIGHT_FRAC - (BAND_TOP_RIGHT_FRAC - BAND_BOT_RIGHT_FRAC) * f
+    return (left_frac + right_frac) / 2 * w
+
+
 # --- D-04/D-06/D-07 battery-low icon geometry (05-UI-SPEC.md, 05-02-PLAN.md)
 # The two POSITION constants (LEFT/BOTTOM) still derive from MARGIN, unchanged
 # since 05-02. The four SIZE constants are a uniform round(original * 0.7)
@@ -1303,7 +1325,22 @@ def _flight_line2_text(route, aircraft_type=None):
     return "%s" % (display_name,)
 
 
-def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
+# --- Phase 9 PHASE9-4/PHASE9-5: band-only main-card text roles, ported
+# verbatim from spike 003-diagonal-band-theme's FLIGHT_NUMBER_FONT/
+# ROUTE_LINE_FONT/AIRLINE_LINE_FONT/DASH_W/DASH_GAP (round 15, "oui !").
+# Declared weight ("700"/"400" in the tuple) is never read directly -
+# `_role_font()` resolves the real weight from the active theme's `weight`
+# field (all 5 band themes register `weight: "regular"`, per this plan's
+# own `<interfaces>` note), same mechanism every other active-state role
+# already uses.
+BAND_MAIN_NUMBER_FONT = (PT_SERIF_BOLD, 56, 700)
+BAND_MAIN_ROUTE_FONT = (PT_SERIF_REGULAR, 22, 400)
+BAND_MAIN_AIRLINE_FONT = (PT_SERIF_REGULAR, 20, 400)
+BAND_MAIN_DASH_W = 24
+BAND_MAIN_DASH_GAP = 10
+
+
+def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx=None):
     """D-26 main flight text: two centred lines starting `MAIN_TEXT_GAP_PX`
     below the main illustration's OPAQUE bottom edge
     (`main_placement.content[3]`) - the aircraft's last actually-painted pixel
@@ -1334,32 +1371,107 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     a Bold theme (08-06 on-glass finding, widened same session; see
     `_role_weight_path()`). `bg_idx` itself is retained per D-05's
     original note here.
+
+    `band_idx` (Phase 9 PHASE9-4/PHASE9-5): `None` for every one of the 11
+    pre-Phase-9 themes (`_build_active_canvas()` only ever passes a real
+    value for a registered band theme) - in that case this function's body
+    is untouched, byte-identical to before this phase. For a band theme,
+    this instead draws the spike's validated three-tier hierarchy (big
+    identifier / dash rule / tracked route line / airline·type line)
+    centred INSIDE the band, in the band's own contrast ink on the black
+    band (round 13's fix) and the theme's plain `ink_idx` everywhere else.
     """
-    draw = ImageDraw.Draw(canvas)
-    center_x = WIDTH // 2
-    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+    if band_idx is None:
+        draw = ImageDraw.Draw(canvas)
+        center_x = WIDTH // 2
+        safe_width = SAFE_BOX[2] - SAFE_BOX[0]
 
-    line1_text = _flight_line1_text(flight, state, route)
-    line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
+        line1_text = _flight_line1_text(flight, state, route)
+        line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
 
-    top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
+        top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
 
-    if line1_text:
-        line1_font = _role_fit_text_size(MAIN_LINE1_FONT, line1_text, safe_width, MAIN_LINE1_MIN_SIZE, weight)
-        line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
-        _assert_within_canvas(line1_bbox, "main flight text line 1")
-        draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
-        line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
+        if line1_text:
+            line1_font = _role_fit_text_size(MAIN_LINE1_FONT, line1_text, safe_width, MAIN_LINE1_MIN_SIZE, weight)
+            line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
+            _assert_within_canvas(line1_bbox, "main flight text line 1")
+            draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
+            line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
+        else:
+            line1_bbox = None
+            line2_top = top_y
+
+        line2_font = _role_fit_text_size(MAIN_LINE2_FONT, line2_text, safe_width, MAIN_LINE2_MIN_SIZE, weight)
+        line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
+        _assert_within_canvas(line2_bbox, "main flight text line 2")
+        draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
+
+        return line1_bbox, line2_bbox
     else:
-        line1_bbox = None
-        line2_top = top_y
+        draw = ImageDraw.Draw(canvas)
+        # Round 13: the black band's own contrast colour, not the theme's
+        # global ink_idx - every other band colour happens to match ink_idx
+        # already, so this only visibly changes anything for band_black.
+        effective_ink = IDX_WHITE if band_idx == IDX_BLACK else ink_idx
 
-    line2_font = _role_fit_text_size(MAIN_LINE2_FONT, line2_text, safe_width, MAIN_LINE2_MIN_SIZE, weight)
-    line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
-    _assert_within_canvas(line2_bbox, "main flight text line 2")
-    draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
+        line1_full = _flight_line1_text(flight, state, route)
+        line2_full = _flight_line2_text(route, flight.get("aircraft_type"))
 
-    return line1_bbox, line2_bbox
+        identifier_raw = route.get("callsign_iata") if isinstance(route, dict) else None
+        identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
+
+        # Same 3-way split as the spike's patched_draw_main_text_block()
+        # (round 11-15): classify from the real content ladder's own output,
+        # never a separate re-derivation.
+        if line1_full == "":
+            number_text, tracked_text, plain_text = None, None, line2_full
+        elif identifier and line1_full.startswith(identifier + " "):
+            number_text = identifier
+            tracked_text = line1_full[len(identifier) + 1:].upper()
+            plain_text = line2_full
+        else:
+            number_text, tracked_text, plain_text = None, line1_full.upper(), line2_full
+
+        num_font = _role_font(BAND_MAIN_NUMBER_FONT, weight)
+        route_font = _role_font(BAND_MAIN_ROUTE_FONT, weight)
+        airline_font = _role_font(BAND_MAIN_AIRLINE_FONT, weight)
+
+        # Round 15's fix: center_x is computed ONCE here, at the block's top
+        # y, and reused for every line below - never recomputed per line
+        # (round 12's confirmed bug; see _band_center_x()'s own docstring).
+        y = main_placement.content[3] + MAIN_TEXT_GAP_PX
+        center_x = _band_center_x(y, WIDTH)
+        first_bbox = None
+
+        if number_text:
+            num_bbox = draw.textbbox((center_x, y), number_text, font=num_font, anchor="ma")
+            _assert_within_canvas(num_bbox, "band main flight number")
+            draw.text((center_x, y), number_text, font=num_font, fill=effective_ink, anchor="ma")
+            first_bbox = num_bbox
+            dash_y = num_bbox[3] + BAND_MAIN_DASH_GAP
+            draw.line(
+                [(center_x - BAND_MAIN_DASH_W / 2, dash_y), (center_x + BAND_MAIN_DASH_W / 2, dash_y)],
+                fill=effective_ink, width=2,
+            )
+            y = dash_y + BAND_MAIN_DASH_GAP + 4
+
+        if tracked_text:
+            tracked_w = _tracked_text_width(route_font, tracked_text, LABEL_TRACKING_PX)
+            tracked_x = center_x - tracked_w / 2
+            tracked_bbox = _tracked_text_bbox(route_font, (tracked_x, y), tracked_text, LABEL_TRACKING_PX)
+            _assert_within_canvas(tracked_bbox, "band main flight tracked route line")
+            draw_tracked_text(draw, (tracked_x, y), tracked_text, route_font, effective_ink, tracking=LABEL_TRACKING_PX)
+            if first_bbox is None:
+                first_bbox = tracked_bbox
+            y = tracked_bbox[3] + 12
+
+        plain_bbox = draw.textbbox((center_x, y), plain_text, font=airline_font, anchor="ma")
+        _assert_within_canvas(plain_bbox, "band main flight airline·type line")
+        draw.text((center_x, y), plain_text, font=airline_font, fill=effective_ink, anchor="ma")
+        if first_bbox is None:
+            first_bbox = plain_bbox
+
+        return first_bbox, plain_bbox
 
 
 def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight):
