@@ -797,6 +797,15 @@ def main():
         # explaining the attribute-selector choice, and that prose must
         # not trip the check it documents.
         declarations = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        # WR-05 fix: the rule-matching regex below requires the selector
+        # and its opening `{` on the same line, so a multi-line,
+        # comma-grouped selector (e.g. `a:focus-visible,\nbutton:focus-
+        # visible {`) would otherwise have its earlier lines silently
+        # dropped from `selector`, undermining this check's own
+        # regression guard. Joining each selector-list newline back onto
+        # one line first makes the regex robust to that style.css
+        # convention.
+        declarations = re.sub(r",\s*\n\s*", ", ", declarations)
         if "[data-filter-clear]" not in declarations:
             return False, "expected a [data-filter-clear] rule in style.css"
         for m in re.finditer(r"\n([^{\n]*\{[^}]*\})", declarations):
