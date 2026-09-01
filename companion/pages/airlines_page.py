@@ -90,7 +90,7 @@ def variant_chip_label(shape):
     return shape.title()
 
 
-def _airline_card_html(airline_name, shapes):
+def _airline_card_html(index, airline_name, shapes):
     """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
     at the session-gated `/illustration/{key}.png` route, the airline's
     name, and one chip per fleet-type variant — the chips container is
@@ -101,6 +101,14 @@ def _airline_card_html(airline_name, shapes):
     string (skips the card, never crashes) for an airline whose
     normalised key comes back falsy, mirroring
     `illustrations.target_filenames()`'s own documented skip discipline.
+
+    `index` becomes the card's `data-filter-group` value (D-16/D-20):
+    this page renders one representation per airline (no mobile-card
+    pairing like History), but `companion/static/list-filter.js` counts
+    distinct groups rather than raw elements, so every filterable card
+    still needs its own group. `data-filter-text` carries the lower-cased
+    airline name, escaped before interpolation into the attribute — the
+    same discipline the old registry rows applied to their prefix value.
     """
     key = illustrations.normalise_airline_key(airline_name)
     if not key:
@@ -119,13 +127,15 @@ def _airline_card_html(airline_name, shapes):
             for shape in shapes
         )
         chips_html = '<div class="airline-card__chips">%s</div>' % chips
+    filter_text = escape_html(
+        airline_name.lower() if isinstance(airline_name, str) else str(airline_name).lower())
     return (
-        '<div class="airline-card">'
+        '<div class="airline-card" data-filter-text="%s" data-filter-group="%d">'
         "%s"
         '<p class="airline-card__name">%s</p>'
         "%s"
         "</div>"
-    ) % (image_html, escape_html(airline_name), chips_html)
+    ) % (filter_text, index, image_html, escape_html(airline_name), chips_html)
 
 
 def _gallery_grid_html(pairs):
@@ -135,7 +145,8 @@ def _gallery_grid_html(pairs):
     nothing for) any pair whose card comes back empty.
     """
     cards = "".join(
-        _airline_card_html(airline_name, shapes) for airline_name, shapes in pairs)
+        _airline_card_html(index, airline_name, shapes)
+        for index, (airline_name, shapes) in enumerate(pairs))
     return '<div class="illustration-grid">%s</div>' % cards
 
 _NO_GAPS_HEADING = "No coverage gaps."
@@ -182,18 +193,19 @@ _SOURCE_ROWS = (
 
 _DB_UNAVAILABLE = object()
 
-# D-20: the filter bar's copy (06.6.3-UI-SPEC.md's Copywriting Contract),
-# driven client-side by companion/static/list-filter.js's shared
+# D-16 (06.6.4.1-UI-SPEC.md §7.2): the gallery's filter-bar copy, driven
+# client-side by companion/static/list-filter.js's shared
 # [data-filter-input]/[data-filter-count]/[data-filter-clear]/
-# [data-filter-empty] attribute contract — this page is the second, not
-# the first, consumer of that shared script (companion/pages/
-# history_page.py's own _filter_bar_html() is the first); no script
-# change is needed here.
-_FILTER_INPUT_ID = "airlines-filter-input"
-_FILTER_LABEL_TEXT = "Filter by prefix"
-_FILTER_EMPTY_HEADING = "No matching prefixes"
+# [data-filter-empty] attribute contract — the same script History's own
+# _filter_bar_html() already consumes, no script change needed here.
+# Unlike the retired diagnostics page, this gallery carries no read-only
+# constraint, so the Clear control below is a real <button>, matching
+# History's variant rather than the old Airlines page's anchor-link one.
+_FILTER_INPUT_ID = "airlines-gallery-filter-input"
+_FILTER_LABEL_TEXT = "Filter by airline name"
+_FILTER_EMPTY_HEADING = "No matching airlines"
 _FILTER_EMPTY_BODY_TEMPLATE = (
-    "Try a different search, or Clear filter to see all %d prefixes.")
+    "Try a different search, or Clear filter to see all %d airlines.")
 
 
 def _safe_query(state_dir, fn):
@@ -289,22 +301,15 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
 
 
 def _filter_bar_html(total):
-    """D-20's filter bar over the unresolved-prefix registry, only ever
-    rendered when there is data to filter (matches _registry_section()'s
-    own "no chrome with no data" rule, same as History's precedent).
-
-    D-16 forbids a button element anywhere on this page (History carries
-    no such constraint) — the clear control is therefore a plain link
-    element pointing at the filter input's own id rather than History's
-    submit-type button. `companion/static/list-filter.js`'s
-    click-listener attachment (`document.querySelector
-    ("[data-filter-clear]")`) does not care which element carries the
-    attribute, and a fragment link to the input both scrolls to and
-    (per standard browser fragment-navigation behaviour) focuses it in
-    one action — a small UX bonus (ready to type the next query) that
-    also needs zero new CSS beyond the already-shipped `.filter-bar`
-    rules, since this page's `files_modified` scope excludes
-    `companion/static/style.css`.
+    """D-16's filter bar over the gallery — History's `<button
+    type="button" data-filter-clear>Clear</button>` variant
+    (06.6.4.1-UI-SPEC.md §7.2), not the old read-only Airlines page's
+    `<a href="#...">` variant: that anchor existed only because the old
+    diagnostics page was forbidden any button element (D-16, retired),
+    and this gallery carries no such constraint. Entirely inert without
+    JS — `companion/static/list-filter.js`'s own early-return guard
+    means the full unfiltered card grid underneath stays completely
+    usable if the script never loads.
     """
     count_text = "%d of %d shown" % (total, total)
     empty_body = _FILTER_EMPTY_BODY_TEMPLATE % total
@@ -316,7 +321,7 @@ def _filter_bar_html(total):
         '<input type="search" id="%s" data-filter-input>'
         "</div>"
         '<span class="filter-bar__count" data-filter-count>%s</span>'
-        '<a href="#%s" data-filter-clear>Clear</a>'
+        '<button type="button" data-filter-clear>Clear</button>'
         "</div>"
         '<div class="empty-state" data-filter-empty hidden>'
         '<p class="empty-state__heading text-heading">%s</p>'
@@ -327,7 +332,6 @@ def _filter_bar_html(total):
         layout.icon_html("icon-search"),
         _FILTER_INPUT_ID,
         escape_html(count_text),
-        _FILTER_INPUT_ID,
         escape_html(_FILTER_EMPTY_HEADING),
         escape_html(empty_body),
     )
@@ -443,14 +447,22 @@ def _stats_table_html(stats):
 
 
 def render(ctx):
-    """The Airlines gallery (D-13 through D-17): the page header followed
-    by one card per airline in `illustrations.target_variants_by_airline()`
-    order. `ctx` is accepted for call-site parity with every other page
-    module's `render(ctx)` signature but is otherwise unused — this page
-    reads one static in-memory list, no database and no poll state.
+    """The Airlines gallery (D-13 through D-17): the page header, the
+    D-16 filter bar, then one card per airline in
+    `illustrations.target_variants_by_airline()` order. `ctx` is accepted
+    for call-site parity with every other page module's `render(ctx)`
+    signature but is otherwise unused — this page reads one static
+    in-memory list, no database and no poll state.
+
+    The filter bar renders only when there is at least one card — this
+    codebase's consistent "no chrome with no data" rule — though with a
+    static curated list that branch is unreachable today; it stays a
+    genuine guard, not a claim that the list can ever be empty.
     """
     pairs = illustrations.target_variants_by_airline()
+    filter_html = _filter_bar_html(len(pairs)) if pairs else ""
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
+        + filter_html
         + _gallery_grid_html(pairs)
     )

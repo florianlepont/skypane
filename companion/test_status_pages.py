@@ -90,7 +90,10 @@ STARTUP_DEADLINE_S = 10.0
 # ILLUSTRATION_ROUTE_PREFIX cross-module equality). One pre-existing
 # check (page_header presence) is unchanged/retargeted in place, not
 # counted as new or deleted.
-EXPECTED_CHECK_COUNT = 63  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 63 + 5 (06.6.4.1-06 Task 2: gallery filter-bar four-marker check, Clear
+# is a real <button> check, label-for/input-id check, count/empty-body
+# real-total check, per-card data-filter-text/-group check)
+EXPECTED_CHECK_COUNT = 68  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1828,8 +1831,8 @@ def main():
         back-to-back with no card-to-card nesting.
         """
         name_index = rendered.index(">%s<" % airline_name)
-        card_start = rendered.rindex('<div class="airline-card">', 0, name_index)
-        next_start = rendered.find('<div class="airline-card">', card_start + 1)
+        card_start = rendered.rindex('<div class="airline-card"', 0, name_index)
+        next_start = rendered.find('<div class="airline-card"', card_start + 1)
         return rendered[card_start:] if next_start == -1 else rendered[card_start:next_start]
 
     def _air_caraibes_card_has_three_upper_cased_chips_including_a350_1000():
@@ -1887,6 +1890,96 @@ def main():
         "airlines_page.ILLUSTRATION_ROUTE_PREFIX equals app.ILLUSTRATION_IMAGE_ROUTE_PREFIX (the duplicated-not-"
         "imported route-prefix contract)",
         _illustration_route_prefix_matches_app_constant)
+
+    def _gallery_filter_bar_carries_all_four_contract_markers_exactly_once():
+        tmp = _mkstate("a-filter-markers")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            for marker in (
+                "data-filter-input", "data-filter-count", "data-filter-clear",
+                "data-filter-empty",
+            ):
+                count = rendered.count(marker)
+                if count != 1:
+                    return False, "expected exactly one %r marker, got %d" % (marker, count)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the gallery filter bar carries exactly one each of data-filter-input/-count/-clear/-empty",
+        _gallery_filter_bar_carries_all_four_contract_markers_exactly_once)
+
+    def _gallery_filter_clear_control_is_a_real_button():
+        tmp = _mkstate("a-filter-clear-button")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            if '<button type="button" data-filter-clear>Clear</button>' not in rendered:
+                return False, "expected the Clear control to be a <button type=\"button\"> — D-16's read-only " \
+                    "constraint no longer applies to this page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the gallery filter bar's Clear control is a real <button type=\"button\"> (D-16 retired)",
+        _gallery_filter_clear_control_is_a_real_button)
+
+    def _gallery_filter_label_for_matches_input_id():
+        tmp = _mkstate("a-filter-label-for")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            if airlines_page._FILTER_INPUT_ID != "airlines-gallery-filter-input":
+                return False, "expected the UI-SPEC-pinned input id, got %r" % (airlines_page._FILTER_INPUT_ID,)
+            expected_label = '<label class="text-label" for="%s">' % airlines_page._FILTER_INPUT_ID
+            if expected_label not in rendered:
+                return False, "expected the filter label's for= to equal the search input's id"
+            if '<input type="search" id="%s" data-filter-input>' % airlines_page._FILTER_INPUT_ID not in rendered:
+                return False, "expected the search input to carry the same id"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the gallery filter label's for attribute equals the search input's id, and that id is the "
+        "UI-SPEC-pinned value",
+        _gallery_filter_label_for_matches_input_id)
+
+    def _gallery_filter_count_and_empty_body_name_the_real_total():
+        tmp = _mkstate("a-filter-count-total")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            total = len(illustrations.target_airline_names())
+            count_text = "%d of %d shown" % (total, total)
+            if count_text not in rendered:
+                return False, "expected the count text %r in the rendered filter bar" % (count_text,)
+            empty_body = airlines_page._FILTER_EMPTY_BODY_TEMPLATE % total
+            if empty_body not in rendered:
+                return False, "expected the empty-state body to name the real card total"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the gallery filter bar's count text and empty-state body both name the real (27) card total",
+        _gallery_filter_count_and_empty_body_name_the_real_total)
+
+    def _every_card_carries_distinct_filter_text_and_group():
+        tmp = _mkstate("a-filter-per-card")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            for airline_name in illustrations.target_airline_names():
+                expected_text = 'data-filter-text="%s"' % airline_name.lower()
+                if expected_text not in rendered:
+                    return False, "expected %r for airline %r" % (expected_text, airline_name)
+            groups = re.findall(r'data-filter-group="(\d+)"', rendered)
+            if len(set(groups)) != len(illustrations.target_airline_names()):
+                return False, (
+                    "expected as many distinct data-filter-group values as target airlines, got %d distinct of %d "
+                    "total occurrences" % (len(set(groups)), len(groups)))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every card carries a data-filter-text equal to its own lower-cased airline name, and the set of "
+        "data-filter-group values has the same size as the card count",
+        _every_card_carries_distinct_filter_text_and_group)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
