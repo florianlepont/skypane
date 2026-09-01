@@ -36,6 +36,15 @@ RUNWAY_HELPER_TEXT = (
 # app.py imports this module, so the reverse import would be a cycle.
 RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
 RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
+
+# The single definition of this route in the repository (06.6.4.1, D-05).
+# companion/app.py still dispatches the OLD "/config" path (its own
+# CONFIG_ROUTE literal) until plan 07 rebinds CONFIG_ROUTE to this
+# constant, mirroring RUNWAY_IMAGE_ROUTE_PREFIX's own rebinding
+# discipline above — app.py imports this module, so the reverse import
+# would be a cycle. Do not delete companion/app.py's separate "/config"
+# dispatch before that flip lands.
+SETTINGS_ROUTE = "/settings"
 LED_HELPER_TEXT = (
     "Controls the board's built-in diagnostic LED. It's lit only during "
     "the device's brief active wake window and isn't visible from the "
@@ -46,6 +55,37 @@ LED_HELPER_TEXT = (
 # by led_fieldset()'s markup and handle_led_post()'s validator so the two
 # can never drift apart.
 LED_CHECKBOX_VALUE = "on"
+
+# D-02 (06.6.4.1): one description sentence per settings group, rendered
+# directly under each group's heading. Diagnostic LED needs no entry
+# here — LED_HELPER_TEXT above already reads as a description sentence
+# and already renders under its heading (UI-SPEC §5.1's table).
+THEME_SECTION_DESCRIPTION = (
+    "The color palette used for departing and arriving flights on the "
+    "physical frame.")
+RUNWAY_SECTION_DESCRIPTION = (
+    "Which Orly runway the device watches for departures and arrivals.")
+# D-05 (06.6.4.1): the LED group's new user-facing heading, once it moves
+# from its own <fieldset>/<legend> into a sibling <h2>-headed group of
+# the merged form — see led_group() below.
+LED_SECTION_HEADING = "Diagnostic LED"
+
+# Read elsewhere, not just here — this module's existing
+# duplicated-not-imported must-equal discipline (matches
+# OPEN_CLASS/MOBILE_NAV_OPEN_CLASS's own precedent): DIRTY_SECTION_ATTR
+# is read by companion/static/dirty-state.js (the section-aware
+# [data-dirty-count] copy walks every element carrying this attribute),
+# and STATIC_SAVE_FALLBACK_ATTR is read by a `.js`-gated rule in
+# companion/static/style.css (`.js [data-static-save-fallback] {
+# display: none; }`, landed by 06.6.4.1-01). Neither file imports this
+# module — the values must be kept equal by hand.
+DIRTY_SECTION_ATTR = "data-dirty-section"
+STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
+# D-03: the dirty-bar's seeded [data-dirty-count] text before
+# dirty-state.js's own section-aware copy ever runs (a no-JS page, or
+# the brief window before the script executes, would otherwise show
+# this raw string).
+DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
 
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
@@ -135,8 +175,9 @@ def theme_fieldset(current_theme_id):
         departing_hex = _palette_hex(theme["departing_index"])
         arriving_hex = _palette_hex(theme["arriving_index"])
         return (
-            '<div class="theme-status">'
+            '<div class="theme-status" %s="%s">'
             '<h2 class="text-heading">Theme</h2>'
+            '<p class="text-body">%s</p>'
             '<div class="theme-status__row">'
             '<span class="theme-swatch" aria-hidden="true">'
             '<span class="theme-swatch__chip" style="background:%s"></span>'
@@ -147,6 +188,8 @@ def theme_fieldset(current_theme_id):
             '<p class="text-label">%s</p>'
             "</div>"
         ) % (
+            DIRTY_SECTION_ATTR, escape_html("Theme"),
+            escape_html(THEME_SECTION_DESCRIPTION),
             departing_hex, arriving_hex,
             escape_html(device_config.theme_label(theme_id)),
             escape_html(THEME_HELPER_TEXT),
@@ -165,12 +208,17 @@ def theme_fieldset(current_theme_id):
             )
         )
     return (
-        "<fieldset>"
+        '<fieldset %s="%s">'
         "<legend>Theme</legend>"
+        '<p class="text-body">%s</p>'
         "%s"
         '<p class="text-label">%s</p>'
         "</fieldset>"
-    ) % ("".join(options), escape_html(THEME_HELPER_TEXT))
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html("Theme"),
+        escape_html(THEME_SECTION_DESCRIPTION),
+        "".join(options), escape_html(THEME_HELPER_TEXT),
+    )
 
 
 def runway_fieldset(current_runway_id, images_available=()):
@@ -198,18 +246,24 @@ def runway_fieldset(current_runway_id, images_available=()):
     device's next scheduled poll, not immediately — D-28) renders once
     after the card list.
 
-    The group is named by an `<h2 class="text-heading">Runway</h2>`.
-    It previously had no group name at all — three unlabelled runway
-    cards with nothing above them saying what they were — while its
-    sibling groups on this same page each had one, in three different
-    shapes. It is an `<h2>` and not a `<legend>` because D-04/D-05
-    deliberately dropped the `<fieldset>` wrapper from both the Theme and
-    Runway groups (`test_config_page.py` pins render() at exactly one
-    `<fieldset`, the LED one), and a `<legend>` outside a `<fieldset>` is
-    invalid markup with no accessible group semantics. `<h2
-    class="text-heading">` is the role the Poll section on this same page
-    already uses, and style.css now renders it identically to the LED
-    group's `<legend>`, so all four groups read as one heading level.
+    The whole return value is wrapped in a single `<div class="theme-status"
+    data-dirty-section="Runway">` — the same wrapping idiom
+    `theme_fieldset()`'s read-only branch already uses, reused verbatim
+    (D-01, 06.6.4.1): the group used to return five flat top-level
+    siblings (an `<h2>`, N cards, a `<p>`) with no container at all, which
+    was the actual root cause of Settings' broken Runway layout once it
+    sat inside a two-column grid. That grid is now deleted, but the
+    wrapper stays — it is what makes this group, like Theme and the new
+    LED group, a single top-level element `dirty-state.js`'s
+    `data-dirty-section` walk can address as one unit, and what carries
+    the D-02 description paragraph (`RUNWAY_SECTION_DESCRIPTION`)
+    directly under the `<h2 class="text-heading">Runway</h2>` heading.
+    The group is named by that `<h2>`, not a `<legend>`, because D-04/D-05
+    (06.6.3) already dropped the `<fieldset>` wrapper from both the Theme
+    and Runway groups, and a `<legend>` outside a `<fieldset>` is invalid
+    markup with no accessible group semantics — `<h2 class="text-heading">`
+    is the role the Poll section and the new LED group both use too, so
+    every group in this form reads at one consistent heading level.
     """
     cards = []
     for runway_id in device_config.RUNWAY_IDS:
@@ -241,12 +295,28 @@ def runway_fieldset(current_runway_id, images_available=()):
             )
         )
     return (
+        '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">Runway</h2>'
+        '<p class="text-body">%s</p>'
         "%s"
         '<p class="text-label">%s</p>'
-    ) % ("".join(cards), escape_html(RUNWAY_HELPER_TEXT))
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html("Runway"),
+        escape_html(RUNWAY_SECTION_DESCRIPTION),
+        "".join(cards), escape_html(RUNWAY_HELPER_TEXT),
+    )
 
 
+# Left in place, unreferenced by render() as of 06.6.4.1 (D-05): render()
+# now shows the LED checkbox via the new led_group() below instead, so
+# neither this function nor its caller led_section() renders on any live
+# page anymore. Both stay in the file anyway: companion/app.py's separate
+# POST /config-led route still dispatches to handle_led_post() below
+# (unaffected by this plan), and deleting either function two waves
+# before that route itself is retired would be premature. Plan 07 deletes
+# both, together with the route, once companion/app.py stops calling
+# handle_led_post().
 def led_fieldset(current_led_enabled):
     """A single checkbox controlling the CFG-LED diagnostic LED (D-01/D-02):
     a `<label>` wrapping `<input type="checkbox" name="led_enabled"
@@ -271,6 +341,14 @@ def led_fieldset(current_led_enabled):
     ) % (escape_html(LED_CHECKBOX_VALUE), checked, escape_html(LED_HELPER_TEXT))
 
 
+# Left in place, unreferenced by render() as of 06.6.4.1 (D-05) for the
+# same reason stated above led_fieldset(): companion/app.py's POST
+# /config-led route still calls handle_led_post() (which does not call
+# this function or led_fieldset() at all — validation and rendering are
+# already independent code paths), so removing this render-only function
+# early is not required to keep that route working, but removing it out
+# of step with led_fieldset() and handle_led_post() would be an
+# inconsistent partial cleanup. Plan 07 removes it together with them.
 def led_section(current_led_enabled):
     """Wraps led_fieldset() in its own dedicated, independently-submittable
     `<section>`/`<form>` (D-01) — mirroring poll_trigger_section()'s own
@@ -292,6 +370,46 @@ def led_section(current_led_enabled):
         "</form>"
         "</section>"
     ) % led_fieldset(current_led_enabled)
+
+
+def led_group(current_led_enabled):
+    """The Diagnostic LED settings group (D-05, 06.6.4.1): a sibling of the
+    Theme and Runway groups inside the single merged `<form
+    action="{SETTINGS_ROUTE}">`, wrapped in the same `.theme-status`
+    container idiom those two groups use — the `theme-status` class name
+    is reused verbatim, not a third wrapper class invented for this group.
+
+    Deliberately carries no `<fieldset>`/`<legend>` of its own, unlike
+    `led_fieldset()` above. The old `<fieldset>` existed because the LED
+    control used to live in its own independently-submittable
+    `<form>` (`led_section()`, pre-06.6.4.1), and a `<legend>` only has
+    accessible-name semantics inside a `<fieldset>`. Now that this group
+    is a sibling of two `<h2>`-headed groups in one single-column stack
+    (Theme's and Runway's own `<fieldset>` wrappers were already dropped
+    by D-04/D-05 in 06.6.3), it is named the same way they are — an `<h2
+    class="text-heading">` — so all three groups read at one consistent
+    heading level, matching the Poll section's own heading role.
+
+    Per UI-SPEC §5.2's table, LED needs no new D-02 description
+    sentence: `LED_HELPER_TEXT` already reads as one and renders directly
+    under the heading here, the same position Theme's and Runway's new
+    description paragraphs occupy in their own groups.
+    """
+    checked = " checked" if current_led_enabled else ""
+    return (
+        '<div class="theme-status" %s="%s">'
+        '<h2 class="text-heading">%s</h2>'
+        "<label>"
+        '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
+        "</label>"
+        '<p class="text-label">%s</p>'
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(LED_SECTION_HEADING),
+        escape_html(LED_SECTION_HEADING),
+        escape_html(LED_CHECKBOX_VALUE), checked,
+        escape_html(LED_HELPER_TEXT),
+    )
 
 
 def _js_literal(value):
@@ -480,49 +598,54 @@ def render(ctx):
         "led_enabled", device_config.DEFAULT_LED_ENABLED)
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
 
-    # The LED section is deliberately a sibling page-section, appended
-    # AFTER the Poll section, rather than a third fieldset inside the
-    # `<form action="/config">` block above: 06.3-UI-SPEC.md line 181
-    # locks a 2-column grid over that form's fieldsets at >=960px, and a
-    # third fieldset there would become a silent 2+1 orphan row. As its
-    # own sibling page-section it stacks below like the Poll section
-    # instead, leaving that grid rule untouched. Do not "fix" this by
-    # moving it into the fieldset grid (06.2-01-PLAN.md Task 2, step 5).
+    # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
+    # appended AFTER the Poll section, rather than a third fieldset
+    # inside this form — 06.3-UI-SPEC.md line 181 locked a 2-column grid
+    # over this form's fieldsets at >=960px, and a third fieldset there
+    # would have become a silent 2+1 orphan row. That grid is deleted
+    # outright by 06.6.4.1-01 (D-01) — the premise this comment used to
+    # describe no longer exists, so the LED group (led_group(), below) is
+    # now a third sibling group inside this same <form>, after Runway,
+    # before the bottom Save Settings button. Do not restore the
+    # separate section by reading a stale rationale.
+    #
     # D-03: data-dirty-form and the dirty-bar markup below are a JS-only
     # enhancement layered on top of this always-server-rendered form —
-    # dirty-state.js (06.6.3-01) reads these exact attributes. The
-    # dirty-bar is a genuine descendant of this <form>, sitting between
-    # the two fieldsets and the always-visible bottom Save Settings
-    # button (the no-JS fallback path, unchanged) — never a sibling, so
-    # its own <button type="submit"> submits natively via normal DOM
-    # nesting, no form= attribute needed.
+    # dirty-state.js reads these exact attributes. The dirty-bar is a
+    # genuine descendant of this <form>, sitting between the three groups
+    # and the always-visible bottom Save Settings button (the no-JS
+    # fallback path, unchanged) — never a sibling, so its own <button
+    # type="submit"> submits natively via normal DOM nesting, no form=
+    # attribute needed.
     dirty_bar_html = (
         '<div class="dirty-bar" data-dirty-bar hidden role="status">'
-        "<span data-dirty-count>1 unsaved change</span>"
+        "<span data-dirty-count>%s</span>"
         '<button type="submit" class="dirty-bar__save">Save settings</button>'
         '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>Cancel</button>'
         "</div>"
-    )
+    ) % escape_html(DIRTY_BAR_INITIAL_TEXT)
 
     return (
         layout.page_header("Config")
-        + '<form class="config-form" data-dirty-form method="post" action="/config">'
+        + '<form class="config-form" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"
         "%s"
-        '<button type="submit">Save Settings</button>'
+        "%s"
+        '<button type="submit" %s>Save Settings</button>'
         "</form>"
         '<section class="page-section">'
         '<h2 class="text-heading">Poll</h2>'
         "%s"
         "</section>"
-        "%s"
     ) % (
+        SETTINGS_ROUTE,
         theme_fieldset(current_theme_id),
         runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
+        led_group(current_led_enabled),
         dirty_bar_html,
+        STATIC_SAVE_FALLBACK_ATTR,
         poll_trigger_section(cooldown_remaining),
-        led_section(current_led_enabled),
     )
 
 
@@ -552,9 +675,9 @@ def handle_post(form, ctx):
     On success, the frame's next scheduled poll cycle (server/poll_loop.py,
     D-06/D-28) is the first place either the new theme or the new runway
     actually take effect — no push mechanism exists, and none is added
-    here. The caller (companion/app.py) redirects back to /config, whose
-    banner then renders the D-07 confirmation copy the FLASH_SAVED key
-    maps to, telling the user their change was saved but has not yet
+    here. The caller (companion/app.py) redirects back to `SETTINGS_ROUTE`,
+    whose banner then renders the D-07 confirmation copy the FLASH_SAVED
+    key maps to, telling the user their change was saved but has not yet
     reached the physical frame.
     """
     state_dir = ctx["state_dir"]

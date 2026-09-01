@@ -53,8 +53,20 @@ STARTUP_DEADLINE_S = 10.0
 # registry entry" check was replaced outright, its own assumption no
 # longer true for the real single-theme registry, by two new checks plus
 # two new runway-card checks) -> 46 (Task 3: D-03 dirty-state bar
-# nesting/ordering check, +1).
-EXPECTED_CHECK_COUNT = 47  # 46 + 1 (heading-color-consistency: one consistent heading level for all four settings groups)
+# nesting/ordering check, +1) -> 47 (heading-color-consistency: one
+# consistent heading level for all four settings groups, +1).
+# 06.6.4.1-03: 47 (pre-plan baseline) -> 51 (Task 1: D-01/D-02/D-05 form
+# half/D-26 single-column three-wrapped-section merged-form shape, +4 —
+# the three-dirty-sections-in-order check, the single-top-level-div
+# runway_fieldset() check, the Theme/Runway description-sentence check,
+# and the bottom-button static-fallback-attribute check; several
+# pre-existing checks were retargeted in place onto the new markup shape
+# without changing the total, per this file's own established
+# discipline) -> 56 (Task 2: D-05 handle_post() LED-merge behaviour, +5,
+# one check per <behavior> bullet) -> 60 (Task 3: D-03/D-04/D-06
+# cross-file DOM-contract guards between config_page.py's constants and
+# dirty-state.js/style.css, +4).
+EXPECTED_CHECK_COUNT = 51
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -215,57 +227,58 @@ def main():
     # temporary state directory and a hand-built ctx dict.
     # ==================================================================
 
-    def _render_shape_read_only_theme_runway_cards_led_fieldset_and_save_button():
-        # 06.6.3-03: with the real (unmodified) single-member THEME_IDS
-        # registry, Theme renders as the read-only .theme-status block
-        # (no <fieldset>) and Runway renders as .runway-card labels (also
-        # no <fieldset>) — the sole remaining <fieldset> in render()'s
-        # output is the LED section's.
+    def _render_shape_read_only_theme_runway_cards_led_group_and_save_button():
+        # 06.6.4.1 (D-05): with the real (unmodified) single-member
+        # THEME_IDS registry, Theme renders as the read-only .theme-status
+        # block (no <fieldset>), Runway as a .theme-status-wrapped
+        # .runway-card list (also no <fieldset>), and LED now renders as
+        # a third .theme-status-wrapped group (led_group()) instead of
+        # its own <fieldset>/<legend>-carrying <section> — render()'s
+        # output carries zero <fieldset occurrences.
         ctx = {
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        if rendered.count("<fieldset") != 1:
-            return False, "expected exactly 1 <fieldset occurrence (LED only), got %d" % rendered.count("<fieldset")
-        if 'class="theme-status"' not in rendered:
-            return False, "expected the read-only theme-status block"
+        if "<fieldset" in rendered:
+            return False, "expected zero <fieldset occurrences, got %d" % rendered.count("<fieldset")
+        if rendered.count('class="theme-status"') != 3:
+            return False, "expected exactly 3 theme-status-wrapped groups (Theme/Runway/Diagnostic LED), got %d" % rendered.count('class="theme-status"')
         if rendered.count('<label class="runway-card') != 3:
             return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if "Save Settings" not in rendered:
             return False, "expected the 'Save Settings' submit button copy"
         return True, ""
     check(
-        "render() emits the read-only theme-status block, three runway-card labels, the LED fieldset, and a Save Settings submit button",
-        _render_shape_read_only_theme_runway_cards_led_fieldset_and_save_button)
+        "render() emits the read-only theme-status block, three runway-card labels, the LED group, and a Save Settings submit button, with zero <fieldset occurrences",
+        _render_shape_read_only_theme_runway_cards_led_group_and_save_button)
 
     def _every_settings_group_is_named_at_one_heading_level():
-        # heading-color-consistency debug session. Config carries four
-        # settings groups, and before this session they were named four
-        # different ways: Theme by a <p class="text-label">, Runway by
-        # nothing at all (three unlabelled runway cards), Diagnostic LED
-        # by a <legend>, and Poll by an <h2 class="text-heading">. Every
-        # group now has exactly one name, and all four render at the
-        # same heading level — <h2 class="text-heading"> for the three
-        # groups D-04/D-05 stripped of their <fieldset>, <legend> for
-        # the one group that still has a <fieldset> (D-06 requires the
-        # legend there and forbids a duplicate <h2> alongside it), and
-        # style.css's serif rule now renders the two identically.
+        # heading-color-consistency debug session, extended by 06.6.4.1
+        # (D-05): Config carries four settings groups. Before D-05's LED
+        # merge, three used <h2 class="text-heading"> (Theme/Runway/Poll)
+        # while Diagnostic LED alone kept a <legend> inside its own
+        # <fieldset> (its own independently-submittable <form>, D-06).
+        # Now that the LED group is a sibling inside the single merged
+        # form, it drops the <fieldset>/<legend> for the same <h2>
+        # role its three siblings already use — render()'s output
+        # carries zero <legend> elements, and all four groups are named
+        # exactly once at one consistent heading level.
         ctx = {
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        for name in ("Theme", "Runway", "Poll"):
+        for name in ("Theme", "Runway", "Diagnostic LED", "Poll"):
             heading = '<h2 class="text-heading">%s</h2>' % name
             if rendered.count(heading) != 1:
                 return False, (
                     "expected exactly one %r group heading, got %d"
                     % (heading, rendered.count(heading)))
-        if rendered.count("<legend>Diagnostic LED</legend>") != 1:
+        if "<legend" in rendered:
             return False, (
-                "expected the LED group to keep its <legend> as its sole "
-                "accessible group name (D-06)")
+                "expected zero <legend elements in render()'s output now "
+                "that the LED group has no <fieldset> wrapper of its own")
         # The old label-paragraph shape must not come back alongside the
         # heading — that would name the Theme group twice.
         if '<p class="text-label">Theme</p>' in rendered:
@@ -274,8 +287,8 @@ def main():
                 "text-label paragraph is still present next to the <h2>")
         return True, ""
     check(
-        "all four Config settings groups (Theme/Runway/LED/Poll) are named "
-        "exactly once, at one consistent heading level",
+        "all four Config settings groups (Theme/Runway/Diagnostic LED/Poll) are named "
+        "exactly once, at one consistent heading level, with zero <legend> elements",
         _every_settings_group_is_named_at_one_heading_level)
 
     def _render_opens_with_shared_page_header():
@@ -307,8 +320,17 @@ def main():
             return False, "expected the settings form to carry class=\"config-form\""
         # 06.6.3-03 (D-03): the form tag also carries data-dirty-form now,
         # the DOM-attribute hook dirty-state.js (06.6.3-01) reads.
-        if '<form class="config-form" data-dirty-form method="post" action="/config">' not in rendered:
-            return False, "expected the config-form class, data-dirty-form, method=\"post\", and action=\"/config\" on the same form tag"
+        # 06.6.4.1 (D-05): the action is now config_page.SETTINGS_ROUTE
+        # ("/settings"), not the old "/config" literal — the single
+        # definition of that route lives in config_page, never re-typed
+        # here as a literal.
+        expected_tag = (
+            '<form class="config-form" data-dirty-form method="post" action="%s">'
+            % config_page.SETTINGS_ROUTE)
+        if expected_tag not in rendered:
+            return False, "expected the config-form class, data-dirty-form, method=\"post\", and action=%r on the same form tag" % (config_page.SETTINGS_ROUTE,)
+        if rendered.count('<form class="config-form"') != 1:
+            return False, "expected exactly one config-form <form in render()'s output, got %d" % rendered.count('<form class="config-form"')
         return True, ""
     check(
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
@@ -386,8 +408,14 @@ def main():
         finally:
             device_config.THEMES = original_themes
             device_config.THEME_IDS = original_ids
-        if "<fieldset>" not in rendered or "<legend>Theme</legend>" not in rendered:
+        # 06.6.4.1 (D-05): the <fieldset> now also carries
+        # data-dirty-section="Theme" (escaped literal), so this no longer
+        # matches the bare "<fieldset>" substring exactly — check for the
+        # element's presence and its attribute instead.
+        if "<fieldset" not in rendered or "<legend>Theme</legend>" not in rendered:
             return False, "expected the original fieldset/legend radio-group markup once >1 theme is registered"
+        if ('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, escape_html("Theme"))) not in rendered:
+            return False, "expected the fallback fieldset to carry data-dirty-section=\"Theme\""
         if rendered.count('name="theme"') != 2:
             return False, "expected 2 theme radios, got %d" % rendered.count('name="theme"')
         return True, ""
@@ -439,6 +467,83 @@ def main():
     check(
         "runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly those two cards, none in the third (D-05)",
         _runway_fieldset_cards_image_rendering_per_card)
+
+    # ------------------------------------------------------------------
+    # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new
+    # single-column, three-wrapped-section, one-merged-form shape.
+    # ------------------------------------------------------------------
+
+    def _render_exactly_three_dirty_sections_in_order():
+        # Acceptance criterion: the rendered output contains exactly
+        # three elements carrying data-dirty-section, whose attribute
+        # values in document order are "Theme", "Runway", "Diagnostic LED".
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        found = re.findall(
+            r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
+        expected = ["Theme", "Runway", "Diagnostic LED"]
+        if found != expected:
+            return False, "expected %r in document order, got %r" % (expected, found)
+        return True, ""
+    check(
+        "render() carries exactly three data-dirty-section elements, in document order Theme/Runway/Diagnostic LED",
+        _render_exactly_three_dirty_sections_in_order)
+
+    def _runway_fieldset_returns_single_top_level_div():
+        # Acceptance criterion: runway_fieldset(...) returns a string
+        # that starts with a single opening div tag and ends with its
+        # matching closing tag — one top-level element, not five siblings
+        # (D-01's root-cause fix).
+        rendered = config_page.runway_fieldset("3")
+        if not rendered.startswith('<div class="theme-status"'):
+            return False, "expected runway_fieldset() to start with a single <div class=\"theme-status\"> wrapper"
+        if not rendered.endswith("</div>"):
+            return False, "expected runway_fieldset() to end with the wrapper's matching </div>"
+        if rendered.count("<div") != 1 or rendered.count("</div>") != 1:
+            return False, "expected exactly one top-level <div>...</div> pair, no nested divs"
+        return True, ""
+    check(
+        "runway_fieldset() returns a single top-level <div> element, not five flat siblings (D-01)",
+        _runway_fieldset_returns_single_top_level_div)
+
+    def _theme_and_runway_section_descriptions_appear_exactly_once():
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        theme_desc = escape_html(config_page.THEME_SECTION_DESCRIPTION)
+        runway_desc = escape_html(config_page.RUNWAY_SECTION_DESCRIPTION)
+        if rendered.count(theme_desc) != 1:
+            return False, "expected THEME_SECTION_DESCRIPTION exactly once, got %d" % rendered.count(theme_desc)
+        if rendered.count(runway_desc) != 1:
+            return False, "expected RUNWAY_SECTION_DESCRIPTION exactly once, got %d" % rendered.count(runway_desc)
+        return True, ""
+    check(
+        "render() carries THEME_SECTION_DESCRIPTION and RUNWAY_SECTION_DESCRIPTION exactly once each (D-02)",
+        _theme_and_runway_section_descriptions_appear_exactly_once)
+
+    def _bottom_save_button_carries_static_fallback_attr():
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR) != 1:
+            return False, (
+                "expected exactly one data-static-save-fallback occurrence, got %d"
+                % rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR))
+        button_match = re.search(
+            r'<button\b[^>]*%s[^>]*>Save Settings</button>'
+            % re.escape(config_page.STATIC_SAVE_FALLBACK_ATTR), rendered)
+        if not button_match:
+            return False, "expected the fallback attribute on a type=\"submit\" Save Settings button"
+        if 'type="submit"' not in button_match.group(0):
+            return False, "expected the fallback button to carry type=\"submit\""
+        return True, ""
+    check(
+        "render()'s bottom Save Settings button carries data-static-save-fallback exactly once (D-04)",
+        _bottom_save_button_carries_static_fallback_attr)
 
     def _helper_texts_appear_escaped_verbatim():
         rendered = config_page.render({
@@ -873,19 +978,25 @@ def main():
         "led_fieldset(True)'s checkbox label reads 'Enable diagnostic LED' (D-02)",
         _led_fieldset_checkbox_label_reads_enable_diagnostic_led)
 
-    def _render_has_second_form_for_led_route():
+    def _render_has_no_action_pointing_at_retired_led_route():
+        # 06.6.4.1 (D-05): the LED group is merged into the single
+        # settings form now — render() must no longer emit a second,
+        # independently-submittable <form action="/config-led"> at all.
+        # companion/app.py's separate POST /config-led route itself is
+        # untouched (handle_led_post() still serves it) — this check is
+        # scoped to render()'s markup only, not the live route.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
-        if 'action="/config"' not in rendered:
-            return False, "expected the /config form action to be present"
-        if 'action="/config-led"' not in rendered:
-            return False, "expected a second, distinct /config-led form action"
+        if 'action="%s"' % config_page.SETTINGS_ROUTE not in rendered:
+            return False, "expected the settings form action to be present"
+        if 'action="/config-led"' in rendered:
+            return False, "expected no action=\"/config-led\" in render()'s output (D-05 merge)"
         return True, ""
     check(
-        "render() emits a second <form whose action is the LED route, distinct from the /config form",
-        _render_has_second_form_for_led_route)
+        "render() emits no action pointing at the retired separate LED form path (D-05)",
+        _render_has_no_action_pointing_at_retired_led_route)
 
     def _handle_led_post_unchecked_persists_false():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
