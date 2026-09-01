@@ -71,6 +71,10 @@ LIST_FILTER_SCRIPT_SRC = "/static/list-filter.js"
 COPY_BUTTON_SCRIPT_SRC = "/static/copy-button.js"
 FRESHNESS_SCRIPT_SRC = "/static/freshness.js"
 
+# D-20 (06.6.4.1-02): must equal companion/app.py's PANEL_LOOKUP_SCRIPT_ROUTE
+# exactly, same duplicated-not-imported contract as the four constants above.
+PANEL_LOOKUP_SCRIPT_SRC = "/static/panel-lookup.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 _STATUS_DOT_CLASSES = {
@@ -856,6 +860,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -880,6 +885,9 @@ def page_shell(
         LIST_FILTER_SCRIPT_SRC,
         COPY_BUTTON_SCRIPT_SRC,
         FRESHNESS_SCRIPT_SRC,
+        # 06.6.4.1-02 (D-20): sixth script, same unconditional/no-op-via-
+        # guard-clause convention — only History renders #panel-lookup-dialog.
+        PANEL_LOOKUP_SCRIPT_SRC,
     )
 
 

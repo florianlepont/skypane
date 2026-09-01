@@ -62,7 +62,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 92  # 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
+EXPECTED_CHECK_COUNT = 96  # 06.6.4.1-02 Task 3: 4 new panel-lookup.js checks (pre-auth serving, ES5-dialect, route/src agreement, six-script-tag count) # 92 = 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
 # regression checks (dirty-state.js/list-filter.js/copy-button.js/
 # freshness.js, one each) + 1 new cross-file *_SCRIPT_ROUTE/*_SCRIPT_SRC
 # DOM-contract-guard check, mirroring _three_file_nav_dom_contract_guard()'s
@@ -1312,6 +1312,59 @@ def main():
             "companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new "
             "*_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each",
             _four_new_static_routes_dom_contract_guard)
+
+        # --- 06.6.4.1-02 Task 3: panel-lookup.js (D-20) ---
+
+        check(
+            "GET /static/panel-lookup.js succeeds without a session and returns a shared-cacheable "
+            "JavaScript content type",
+            _static_script_public("/static/panel-lookup.js"))
+
+        def _panel_lookup_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "panel-lookup.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "fetch(", "XMLHttpRequest",
+                "setTimeout", "setInterval", "innerHTML", "document.write",
+                "eval(")
+            for token in banned:
+                if token in src:
+                    return False, "panel-lookup.js must not contain %r" % token
+            return True, ""
+        check(
+            "panel-lookup.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "fetch/XHR/timers/innerHTML/document.write/eval)",
+            _panel_lookup_script_es5_safe_and_no_html_write)
+
+        def _panel_lookup_script_route_src_agree():
+            import companion.app as app_module
+            if layout.PANEL_LOOKUP_SCRIPT_SRC != app_module.PANEL_LOOKUP_SCRIPT_ROUTE:
+                return False, "panel-lookup script route drift: %r vs %r" % (
+                    layout.PANEL_LOOKUP_SCRIPT_SRC, app_module.PANEL_LOOKUP_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.PANEL_LOOKUP_SCRIPT_SRC equals companion.app.PANEL_LOOKUP_SCRIPT_ROUTE",
+            _panel_lookup_script_route_src_agree)
+
+        def _six_deferred_scripts_before_closing_body():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            body_close = doc.index("</body>")
+            head = doc[:body_close]
+            count = head.count('<script src=')
+            if count != 6:
+                return False, "expected exactly 6 deferred <script src= tags before </body>, got %d" % count
+            if ('<script src="%s" defer></script>' % layout.PANEL_LOOKUP_SCRIPT_SRC) not in doc:
+                return False, "expected a deferred <script> tag for PANEL_LOOKUP_SCRIPT_SRC"
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly six deferred <script src= tags before "
+            "the closing body tag, including panel-lookup.js",
+            _six_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 

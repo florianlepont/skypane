@@ -99,6 +99,9 @@ DIRTY_STATE_SCRIPT_ROUTE = "/static/dirty-state.js"
 LIST_FILTER_SCRIPT_ROUTE = "/static/list-filter.js"
 COPY_BUTTON_SCRIPT_ROUTE = "/static/copy-button.js"
 FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
+# D-20 (06.6.4.1-02): companion/layout.py's PANEL_LOOKUP_SCRIPT_SRC must
+# equal this exactly, mirroring the SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
+PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
 CONFIG_ROUTE = "/config"
 LED_ROUTE = "/config-led"
 POLL_ROUTE = "/poll-now"
@@ -168,6 +171,7 @@ _DIRTY_STATE_JS_PATH = os.path.join(_HERE, "static", "dirty-state.js")
 _LIST_FILTER_JS_PATH = os.path.join(_HERE, "static", "list-filter.js")
 _COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
 _FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
+_PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -684,6 +688,13 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_FRESHNESS_JS_PATH)
 
+    def _serve_panel_lookup_script(self):
+        """Serve companion/static/panel-lookup.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_PANEL_LOOKUP_JS_PATH)
+
     def _serve_preview_image(self):
         state_dir = self.args.state_dir
         raw = panel_preview.read_panel_file(state_dir)
@@ -823,6 +834,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == FRESHNESS_SCRIPT_ROUTE:
             return self._serve_freshness_script()
+
+        if path == PANEL_LOOKUP_SCRIPT_ROUTE:
+            return self._serve_panel_lookup_script()
 
         if path == "/config":
             if not self.require_session():
