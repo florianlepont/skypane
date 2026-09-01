@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""Contract harness for companion/pages/history_page.py (CFG-06) and
-companion/pages/preview_page.py (CFG-10/CFG-11).
+"""Contract harness for companion/pages/history_page.py (CFG-06/CFG-10/
+CFG-11) — the page that absorbed companion/pages/preview_page.py's entire
+live-panel/render-gallery content in 06.6.4.1-05; that module itself was
+deleted outright by 06.6.4.1-08 (D-22) once its standalone /preview page
+route became a plain redirect to History.
 
 Covers: the flight-history log's empty state, newest-first row ordering,
 the two reused render-module presentation mappings (friendly aircraft-
@@ -8,13 +11,17 @@ type labels with a raw-designator fallback, the display-airline alias),
 route-unavailable wording agreement with server/plane/render.py's own
 ROUTE_FALLBACK_TEXT, monospace column styling, per-cell escaping
 (including a markup-shaped callsign), degrade-not-raise behaviour
-against an unreadable database; the live-preview image element and its
-honest "no panel yet" fallback, the mandatory colour caveat, the render
-gallery's empty state, its display-limit cap and newest-first ordering,
-that the gallery never gains a form-input element or an import of
-companion/app.py; and one end-to-end HTTP round trip proving
-companion/app.py's router and both page modules agree, including a real
-PNG fetched over /preview.png.
+against an unreadable database; History's own Now-showing live-preview
+image element and its honest "no panel yet" fallback, the mandatory
+colour caveat, the Recent-renders disclosure's empty state, its
+display-limit cap and newest-first ordering, that the gallery filename-
+timestamp helper degrades safely and a malformed filename still renders
+a non-empty caption, the per-row View-panel lookup and shared lightbox,
+the unresolved-airline link to Health; and one end-to-end HTTP round
+trip proving companion/app.py's router and this page module agree,
+including a real PNG fetched over /preview.png (still served — only the
+standalone Preview HTML page route was retired) and the retired
+/preview page route's redirect to /history.
 
 Every fixture is seeded programmatically into a temporary state
 directory - flight events via server/history_db.py's own writer
@@ -51,14 +58,27 @@ if REPO_ROOT not in sys.path:
 
 from companion import auth  # noqa: E402
 import companion.layout as layout  # noqa: E402
-from companion.pages import health_page, history_page, preview_page  # noqa: E402
+from companion.pages import health_page, history_page  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 56  # 51 (pre-06.6.4.1-05 Task 3) + 5 (06.6.4.1-05
+EXPECTED_CHECK_COUNT = 43  # 06.6.4.1-08 Task 3: 56 - 16 (Section 2's whole
+# companion/pages/preview_page.py-specific test section deleted outright —
+# the module itself is deleted, and every one of its 16 checks either has
+# a live History-side equivalent already (plan 05) or was carried over
+# onto history_page.py's absorbed symbols below) + 3 (2 carried-over
+# checks the History side did not already have — _gallery_name_to_iso()'s
+# degrade-safely fixtures, and a malformed gallery filename's
+# caption-fallback rendering in the Recent-renders disclosure — plus 1
+# new check pinning that a View-panel trigger still carries non-empty
+# <svg icon markup after the nav shrink) = 43. Section 3's end-to-end
+# check was retargeted in place (still 1 check, not counted as new) to
+# assert the /preview -> /history redirect instead of a 200/"Preview"
+# heading, while still proving /preview.png (untouched) returns a real
+# PNG. # 56 = 51 (pre-06.6.4.1-05 Task 3) + 5 (06.6.4.1-05
 # Task 3: the unresolved-airline link absent for a resolved airline,
 # present exactly once per representation for an unresolved airline,
 # keyed on the airline label and not the route label, its href matching
@@ -142,14 +162,6 @@ def _history_ctx(state_dir, now=None, gallery_entries=None):
         "state_dir": state_dir,
         "now": now or history_db.utc_now_iso(),
         "gallery_entries": gallery_entries or [],
-    }
-
-
-def _preview_ctx(state_dir, gallery_entries=None, now=None):
-    return {
-        "state_dir": state_dir,
-        "gallery_entries": gallery_entries or [],
-        "now": now or history_db.utc_now_iso(),
     }
 
 
@@ -1092,6 +1104,86 @@ def main():
         "element - Preview's page-level freshness apparatus was deliberately not ported",
         _now_showing_no_preview_freshness_apparatus)
 
+    def _gallery_name_to_iso_fixtures():
+        # D-22/06.6.3-RESEARCH.md Pitfall 2: the well-formed reversal only
+        # touches the time+offset portion; a missing "T" separator or a
+        # malformed time+offset portion both degrade to None rather than
+        # raising. Carried over here (06.6.4.1-08 Task 3) from
+        # companion/pages/preview_page.py's own now-deleted coverage of
+        # the identical helper, which history_page.py absorbed byte-for-
+        # byte in 06.6.4.1-05 — not otherwise duplicated on the History
+        # side.
+        well_formed = history_page._gallery_name_to_iso(
+            "2026-08-30T19-20-42+00-00.png")
+        if well_formed != "2026-08-30T19:20:42+00:00":
+            return False, (
+                "expected the well-formed fixture to reverse to %r, got %r"
+                % ("2026-08-30T19:20:42+00:00", well_formed))
+        if history_page._gallery_name_to_iso("not-a-real-name.png") is not None:
+            return False, "expected a filename with no 'T' separator to return None"
+        if history_page._gallery_name_to_iso("2026-08-30Tgarbage.png") is not None:
+            return False, "expected a malformed time+offset portion to return None"
+        return True, ""
+    check(
+        "history_page._gallery_name_to_iso() reverses a well-formed gallery filename and "
+        "returns None (never raising) on a missing 'T' separator or a "
+        "malformed time+offset portion",
+        _gallery_name_to_iso_fixtures)
+
+    def _recent_renders_malformed_filename_caption_fallback():
+        # Carried over here (06.6.4.1-08 Task 3) from
+        # companion/pages/preview_page.py's own now-deleted coverage: a
+        # manually-dropped or renamed gallery file must still render a
+        # tile with a non-empty raw-filename-derived caption, never
+        # raising and never a blank caption.
+        tmp = _mkstate("h-gallery-malformed")
+        try:
+            names = ["not-a-real-gallery-name.png"]
+            _seed_gallery(tmp, names)
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            if 'class="gallery-tile"' not in rendered:
+                return False, "expected a gallery tile to still render for a malformed filename"
+            if '<p class="text-label mono"></p>' in rendered:
+                return False, "did not expect a blank caption for a malformed filename"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Recent-renders disclosure still renders a tile with a non-empty "
+        "raw-filename-derived caption for a malformed gallery filename, never raising",
+        _recent_renders_malformed_filename_caption_fallback)
+
+    def _view_panel_trigger_carries_nonempty_icon():
+        # 06.6.4.1-08 (D-22) Task 2 acceptance criterion, placed here
+        # (test_view_pages.py) rather than test_companion_app.py since
+        # this needs a full History render with a matched gallery entry
+        # — layout-level coverage that icon_html("icon-nav-preview")
+        # itself returns non-empty markup lives in
+        # test_companion_app.py's own eye-glyph-survives-nav-shrink check.
+        tmp = _mkstate("h-view-panel-icon")
+        try:
+            names = ["2026-08-27T10-00-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "vpicon1", "callsign": "VPICON"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if "data-view-panel-src" not in rendered:
+            return False, "expected at least one View-panel trigger to render"
+        trigger_start = rendered.find("data-view-panel-src")
+        button_start = rendered.rfind("<button", 0, trigger_start)
+        button_end = rendered.find("</button>", trigger_start)
+        button_markup = rendered[button_start:button_end]
+        if "<svg" not in button_markup:
+            return False, "expected the View-panel trigger button to carry non-empty <svg icon markup"
+        return True, ""
+    check(
+        "a rendered History page's View-panel trigger carries a non-empty icon (<svg markup) "
+        "for a fixture with a matched gallery entry — the eye glyph survives the nav shrink",
+        _view_panel_trigger_carries_nonempty_icon)
+
     # ======================================================================
     # Section 1c: 06.6.4.1-05 Task 2 - server-side nearest-render lookup,
     # per-row View-panel buttons, and the shared lightbox (D-20).
@@ -1395,334 +1487,6 @@ def main():
         _no_prefix_registry_duplicated_on_history)
 
     # ======================================================================
-    # Section 2: companion/pages/preview_page.py
-    # ======================================================================
-
-    def _panel_present_one_image_one_caveat():
-        tmp = _mkstate("p-present")
-        try:
-            _write_panel_file(tmp)
-            rendered = preview_page.render(_preview_ctx(tmp))
-            if rendered.count('src="/preview.png"') != 1:
-                return False, "expected exactly one image element pointing at /preview.png"
-            if rendered.count(preview_page.COLOUR_CAVEAT) != 1:
-                return False, "expected the colour caveat sentence exactly once"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "a valid panel file present renders exactly one preview image element and the colour caveat exactly once",
-        _panel_present_one_image_one_caveat)
-
-    def _no_panel_no_image_element():
-        tmp = _mkstate("p-absent")
-        try:
-            rendered = preview_page.render(_preview_ctx(tmp))
-            if 'src="/preview.png"' in rendered:
-                return False, "did not expect an image element pointing at /preview.png with no panel file"
-            if preview_page._NO_PANEL_CAPTION not in rendered:
-                return False, "expected the honest no-panel-yet caption"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "no panel file renders no preview image element, with an honest caption instead",
-        _no_panel_no_image_element)
-
-    def _captured_caption_absolute_and_relative():
-        # D-02: Preview's Captured caption now reads
-        # "Captured ISO (Nm ago)" through the same shared
-        # companion.layout.absolute_and_relative() helper (06.6-01),
-        # keeping the existing "Captured " wording.
-        tmp = _mkstate("p-ts-relative")
-        try:
-            _write_panel_file(tmp)
-            rendered = preview_page.render(_preview_ctx(tmp))
-            if "Captured " not in rendered:
-                return False, "expected the caption to still begin 'Captured '"
-            if " ago)" not in rendered:
-                return False, "expected a parenthesised relative age ending ' ago)'"
-
-            # The no-panel-yet branch stays honest: no image element, no
-            # relative-age suffix, exact caption text unchanged.
-            empty_tmp = _mkstate("p-ts-absent")
-            try:
-                rendered_empty = preview_page.render(_preview_ctx(empty_tmp))
-            finally:
-                shutil.rmtree(empty_tmp, ignore_errors=True)
-            if preview_page._NO_PANEL_CAPTION not in rendered_empty:
-                return False, "expected the honest no-panel-yet caption to survive unchanged"
-            if " ago)" in rendered_empty:
-                return False, "did not expect a relative-age suffix with no panel file"
-
-            # The mixed Z / +00:00 suffix pair this page actually
-            # produces must yield a relative suffix, not degrade to
-            # absolute-only.
-            mixed = layout.absolute_and_relative(
-                "2026-08-28T13:58:02Z", "2026-08-28T13:58:32+00:00")
-            if not mixed.endswith("(30s ago)"):
-                return False, (
-                    "expected the Z/+00:00 mixed-suffix pair to subtract "
-                    "cleanly, got %r" % mixed)
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Preview's Captured caption reads 'Captured ISO (Nm ago)', the no-panel branch stays honest with no relative suffix, and the Z/+00:00 mixed-suffix mtime pair subtracts cleanly",
-        _captured_caption_absolute_and_relative)
-
-    def _zero_gallery_entries_empty_state():
-        tmp = _mkstate("p-gallery-empty")
-        try:
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=[]))
-            if preview_page._NO_RENDERS_HEADING not in rendered:
-                return False, "expected the render-gallery empty-state heading"
-            if 'class="gallery-grid"' in rendered:
-                return False, "did not expect a gallery-grid element with zero entries"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "zero gallery entries render the render-gallery empty state and no gallery-grid element",
-        _zero_gallery_entries_empty_state)
-
-    def _gallery_entries_under_limit_one_tile_each():
-        tmp = _mkstate("p-gallery-under")
-        try:
-            names = ["20260827T100002Z.png", "20260827T100001Z.png", "20260827T100000Z.png"]
-            _seed_gallery(tmp, names)
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names))
-            if rendered.count('class="gallery-tile"') != 3:
-                return False, "expected exactly 3 gallery tiles"
-            for name in names:
-                if ("/gallery/%s" % name) not in rendered:
-                    return False, "expected a gallery URL for %r" % name
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "gallery entries under the display limit render one tile per entry",
-        _gallery_entries_under_limit_one_tile_each)
-
-    def _gallery_entries_over_limit_capped_and_newest():
-        tmp = _mkstate("p-gallery-over")
-        try:
-            # A fixed pool size, independent of preview_page.GALLERY_DISPLAY_LIMIT
-            # itself (T-06-09 acceptance criterion: deliberately raising the
-            # module's constant must make this check fail, not just generate a
-            # bigger fixture) - list slicing can never produce more tiles than
-            # this pool has entries, so an inflated limit constant is caught
-            # the moment tile_count stops matching GALLERY_DISPLAY_LIMIT.
-            total = 30
-            names = ["20260827T1%05dZ.png" % i for i in range(total)]
-            names_newest_first = sorted(names, reverse=True)
-            _seed_gallery(tmp, names)
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names_newest_first))
-            tile_count = rendered.count('class="gallery-tile"')
-            if tile_count != preview_page.GALLERY_DISPLAY_LIMIT:
-                return False, "expected exactly GALLERY_DISPLAY_LIMIT=%d tiles, got %d" % (
-                    preview_page.GALLERY_DISPLAY_LIMIT, tile_count)
-            newest_name = names_newest_first[0]
-            oldest_name = names_newest_first[-1]
-            if ("/gallery/%s" % newest_name) not in rendered:
-                return False, "expected the newest gallery entry to be tiled"
-            if ("/gallery/%s" % oldest_name) in rendered:
-                return False, "did not expect the oldest gallery entry to be tiled (cap must keep the newest)"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "gallery entries over the display limit render exactly GALLERY_DISPLAY_LIMIT tiles, keeping the newest",
-        _gallery_entries_over_limit_capped_and_newest)
-
-    def _preview_page_never_imports_app():
-        with open(os.path.join(HERE, "pages", "preview_page.py")) as fh:
-            source = fh.read()
-        if "import companion.app" in source or "from companion import app" in source:
-            return False, "preview_page.py must never import companion.app (router-import cycle)"
-        return True, ""
-    check(
-        "companion/pages/preview_page.py never imports companion.app",
-        _preview_page_never_imports_app)
-
-    def _preview_page_no_input_element():
-        with open(os.path.join(HERE, "pages", "preview_page.py")) as fh:
-            source = fh.read()
-        if "<input" in source:
-            return False, "preview_page.py must contain no <input element (D-20's deferred simulate-a-flight control)"
-        return True, ""
-    check(
-        "companion/pages/preview_page.py contains no <input element",
-        _preview_page_no_input_element)
-
-    def _preview_page_opens_with_shared_page_header():
-        # 06.6.2-04 (D-16): Preview's top-level heading now goes through
-        # layout.page_header() instead of an independent bare <h1>.
-        tmp = _mkstate("p-page-header")
-        try:
-            rendered = preview_page.render(_preview_ctx(tmp))
-            if '<h1 class="page-title">Preview</h1>' not in rendered:
-                return False, "expected the page_header()-rendered <h1 class=\"page-title\">Preview</h1>"
-            if '<h1 class="text-heading">' in rendered:
-                return False, "expected no bare <h1 class=\"text-heading\"> heading"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Preview opens with the shared layout.page_header() component, not a bare <h1>",
-        _preview_page_opens_with_shared_page_header)
-
-    def _every_image_has_nonempty_alt():
-        tmp = _mkstate("p-alt")
-        try:
-            _write_panel_file(tmp)
-            names = ["20260827T100000Z.png"]
-            _seed_gallery(tmp, names)
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names))
-            if _img_tag_count(rendered) < 2:
-                return False, "expected at least 2 <img elements (preview + one gallery tile)"
-            for alt in _img_alt_values(rendered):
-                if not alt:
-                    return False, "found an <img with an empty alt attribute"
-            if _img_tag_count(rendered) != len(_img_alt_values(rendered)):
-                return False, "found an <img with no alt attribute at all"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "every <img element on the Preview page carries a non-empty alt attribute",
-        _every_image_has_nonempty_alt)
-
-    def _gallery_name_to_iso_fixtures():
-        # D-22/06.6.3-RESEARCH.md Pitfall 2: the well-formed reversal only
-        # touches the time+offset portion; a missing "T" separator or a
-        # malformed time+offset portion both degrade to None rather than
-        # raising.
-        well_formed = preview_page._gallery_name_to_iso(
-            "2026-08-30T19-20-42+00-00.png")
-        if well_formed != "2026-08-30T19:20:42+00:00":
-            return False, (
-                "expected the well-formed fixture to reverse to %r, got %r"
-                % ("2026-08-30T19:20:42+00:00", well_formed))
-        if preview_page._gallery_name_to_iso("not-a-real-name.png") is not None:
-            return False, "expected a filename with no 'T' separator to return None"
-        if preview_page._gallery_name_to_iso("2026-08-30Tgarbage.png") is not None:
-            return False, "expected a malformed time+offset portion to return None"
-        return True, ""
-    check(
-        "_gallery_name_to_iso() reverses a well-formed gallery filename and "
-        "returns None (never raising) on a missing 'T' separator or a "
-        "malformed time+offset portion",
-        _gallery_name_to_iso_fixtures)
-
-    def _preview_matte_frame_sizing_caption_full_render():
-        # D-18/UXA-16/D-09, re-asserted against the full render() output
-        # (not just the isolated preview_section() call).
-        tmp = _mkstate("p-frame-full")
-        try:
-            _write_panel_file(tmp)
-            rendered = preview_page.render(_preview_ctx(tmp))
-            if '<div class="preview-frame">' not in rendered:
-                return False, "expected the .preview-frame matte wrapper around the live-preview <img>"
-            if 'width="1200"' not in rendered or 'loading="eager"' not in rendered:
-                return False, "expected the live-preview <img> to carry width=1200/loading=eager"
-            if 'class="mono" title=' not in rendered:
-                return False, "expected the D-09 concise-timestamp caption markup"
-            if '&amp;lt;span' in rendered:
-                return False, "found a double-escaped caption artifact"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Preview's full render() output wraps the live-preview <img> in "
-        ".preview-frame, carries the correct sizing/loading hints, and the "
-        "concise D-09 caption markup is not double-escaped",
-        _preview_matte_frame_sizing_caption_full_render)
-
-    def _preview_no_panel_no_frame_full_render():
-        tmp = _mkstate("p-no-frame-full")
-        try:
-            rendered = preview_page.render(_preview_ctx(tmp))
-            if '<img' in rendered or 'preview-frame' in rendered:
-                return False, "did not expect an <img or .preview-frame occurrence with no panel file"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Preview's full render() output with no panel file contains no "
-        "<img and no .preview-frame occurrence",
-        _preview_no_panel_no_frame_full_render)
-
-    def _gallery_tiles_sizing_links_window_label_full_render():
-        # UXA-16/D-10, re-asserted against the full render() output.
-        tmp = _mkstate("p-gallery-full")
-        try:
-            names = [
-                "2026-08-30T19-20-42+00-00.png",
-                "2026-08-30T19-15-00+00-00.png",
-            ]
-            _seed_gallery(tmp, names)
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names))
-            if rendered.count('loading="lazy"') != 2:
-                return False, "expected exactly 2 lazy-loaded gallery <img> elements"
-            for name in names:
-                href = "/gallery/%s" % name
-                if ('<a href="%s">' % href) not in rendered:
-                    return False, "expected each gallery tile wrapped in a same-src <a href>"
-            if "Latest 12 renders" not in rendered:
-                return False, "expected the Gallery heading to state its real display window"
-            if "Captured" not in rendered:
-                return False, "expected at least one gallery caption to read 'Captured ...'"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Preview's full render() output gives every gallery tile the "
-        "correct lazy-loading/sizing hints and a same-src <a> link, and the "
-        "Gallery heading states its real 'Latest 12 renders' window",
-        _gallery_tiles_sizing_links_window_label_full_render)
-
-    def _gallery_malformed_filename_caption_fallback_full_render():
-        tmp = _mkstate("p-gallery-malformed")
-        try:
-            names = ["not-a-real-gallery-name.png"]
-            _seed_gallery(tmp, names)
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names))
-            if 'class="gallery-tile"' not in rendered:
-                return False, "expected a gallery tile to still render for a malformed filename"
-            if '<p class="text-label mono"></p>' in rendered:
-                return False, "did not expect a blank caption for a malformed filename"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "a malformed gallery filename still renders a tile with a "
-        "non-empty raw-filename-derived caption, never raising",
-        _gallery_malformed_filename_caption_fallback_full_render)
-
-    def _preview_freshness_refresh_and_stale_banner_markers():
-        # D-12: independently gated from Health's own pair.
-        tmp = _mkstate("p-freshness")
-        try:
-            rendered = preview_page.render(_preview_ctx(tmp))
-            if rendered.count("data-loaded-at") != 1:
-                return False, "expected exactly one data-loaded-at marker"
-            if rendered.count("data-stale-banner") != 1:
-                return False, "expected exactly one data-stale-banner marker"
-            if '<p class="banner banner--warn" data-stale-banner hidden' not in rendered:
-                return False, "expected the stale-view banner to carry the bare hidden attribute"
-            if rendered.count('<h1 class="page-title">') != 1:
-                return False, "expected exactly one <h1 class=\"page-title\"> heading"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Preview carries exactly one data-loaded-at and one "
-        "hidden-by-default data-stale-banner marker, independently gated "
-        "from Health's own, with exactly one page-title heading",
-        _preview_freshness_refresh_and_stale_banner_markers)
-
-    # ======================================================================
     # Section 3: one end-to-end check - a real companion/app.py subprocess,
     # logged in, fetching both tab routes and the preview image route.
     # ======================================================================
@@ -1738,13 +1502,22 @@ def main():
         ])
         _write_panel_file(harness.tmpdir)
 
-        def _tabs_and_preview_image_end_to_end():
-            for path, heading in (("/history", "History"), ("/preview", "Preview")):
-                status, _headers, body = http_request(base + path, cookie=session_cookie)
-                if status != 200:
-                    return False, "expected 200 for %s, got %d" % (path, status)
-                if heading.encode() not in body:
-                    return False, "expected the %r heading in %s's response body" % (heading, path)
+        def _history_preview_redirect_and_preview_image_end_to_end():
+            # 06.6.4.1-08 (D-22): /preview is retired as a page — this
+            # subprocess-level check proves the redirect, and that
+            # deleting preview_page.py did not remove anything
+            # /preview.png's byte-serving route still calls into.
+            status, _headers, body = http_request(base + "/history", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 for /history, got %d" % status
+            if b"History" not in body:
+                return False, "expected the 'History' heading in /history's response body"
+
+            status, headers, body = http_request(base + "/preview", cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect for /preview, got %d" % status
+            if headers.get("Location") != "/history":
+                return False, "expected /preview to redirect to /history, got %r" % headers.get("Location")
 
             status, headers, body = http_request(base + "/preview.png", cookie=session_cookie)
             if status != 200:
@@ -1756,8 +1529,11 @@ def main():
                 return False, "expected Content-Type: image/png, got %r" % content_type
             return True, ""
         check(
-            "GET /history and GET /preview return 200 with their own heading, and GET /preview.png returns a real PNG, against a real running service",
-            _tabs_and_preview_image_end_to_end)
+            "GET /history returns 200 with its own heading, GET /preview redirects (303) to "
+            "/history, and GET /preview.png still returns a real PNG — proving the deleted "
+            "preview_page.py module removed nothing the byte-serving routes still call into, "
+            "against a real running service",
+            _history_preview_redirect_and_preview_image_end_to_end)
 
     finally:
         harness.stop()

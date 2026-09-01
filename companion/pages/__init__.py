@@ -1,5 +1,7 @@
 """companion/pages/ — the SkyPane companion service's per-tab page-builder
-contract (06-CONTEXT.md D-25's five-tab navigation structure).
+contract (06-CONTEXT.md D-25's original five-tab navigation structure,
+shrunk to four by 06.6.4.1-08/D-22 once Preview's page route was retired
+and its content absorbed into History, 06.6.4.1-05).
 
 Every page module in this package exposes:
 
@@ -24,10 +26,13 @@ Every page module in this package exposes:
           companion/app.py itself (that would be a cycle)
         - gallery_entries: the newest gallery filenames
           (companion/app.py's own gallery_entries() listing helper's
-          return value) — added by plan 06-09 so preview_page can build
-          gallery tile URLs without importing companion/app.py itself
-          (that would also be a cycle); every gallery URL preview_page
-          builds is constructed only from a name in this list
+          return value) — added by plan 06-09 so companion/pages/
+          history_page.py (which absorbed this key's live-panel/gallery
+          consumer role from the now-retired preview_page.py in
+          06.6.4.1-05/06.6.4.1-08) can build gallery tile URLs without
+          importing companion/app.py itself (that would also be a
+          cycle); every gallery URL history_page.py builds from this key
+          is constructed only from a name in this list
         - runway_images: the set of `device_config.RUNWAY_IDS` members
           that currently have a real airport-diagram file on disk
           (companion/app.py's own `runway_images_available()`, computed
