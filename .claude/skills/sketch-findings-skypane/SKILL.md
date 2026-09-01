@@ -1,30 +1,46 @@
 ---
 name: sketch-findings-skypane
-description: Validated design decisions, CSS patterns, and visual direction from Phase 06.6.1's sketch experiments (warm serif headings, orange/amber accent, card relief, mobile hamburger nav, History table density). Auto-loaded during UI implementation on skypane.
+description: The companion web app's current design-system reference — colour and contrast, typography, spacing, cards, control density, navigation, and page patterns — maintained continuously across phases and auto-loaded during UI implementation on skypane.
 ---
 
 <context>
 ## Project: skypane
 
-SkyPane's companion web app (a stdlib-only Python HTTP service under `companion/`) evolving 06.3's shipped visual design toward something warmer and more "crafted," referenced against Goodreads: cards with visible relief instead of flat bordered boxes, a warm serif for headings (body/data stays sans-serif for legibility), a new orange/amber accent color, and a generally airier layout with more breathing room.
+SkyPane's companion web app (a stdlib-only Python HTTP service under `companion/`) has a hand-written, build-step-free, zero-external-reference stylesheet (`companion/static/style.css`) carrying its own full visual identity — colour, type, spacing, card treatment, control density, navigation — deliberately kept separate from the physical e-ink frame's own design system (the frame's vendored fonts and `PALETTE_RGB` values never cross into this file; style.css's own header comment states this boundary). This skill is that system's living reference: continuously updated as phases ship, not a snapshot of any single round of work.
 
-Reference point: Goodreads — warm editorial feel, card-based browsing with visible relief, serif headings over a clean utility layout.
+**Current as of:** 2026-09-01, through Phase 06.6.4.1 (still open — see below) and this session's three quick tasks (260901-qif, 260901-re6, 260901-s5o) plus the direct follow-up commit `e87d46d`. 06.6.4.1's own closing checkpoint has not landed yet, so anything attributed to it below is current work-in-progress, not settled history the way 06.6.1 through 06.6.4 already are.
 
-Raised from real-device testing during Phase 06.5's 06.5-03 verification session, which found the shipped 06.3 UI had never actually been looked at on a real phone before, surfacing both a real CSS bug (mobile nav-bar crush, fixed separately in commit `b90ed88`) and this batch of design feedback.
-
-Sketch sessions wrapped: 2026-08-29
+**How this direction started.** The warm-serif / card-relief / hamburger-nav direction below traces back to Phase 06.6.1's sketch round, itself raised from real-device testing during Phase 06.5's 06.5-03 verification session — the shipped 06.3 UI had never actually been looked at on a real phone before that session, which surfaced both a real CSS bug (mobile nav-bar crush, fixed separately in commit `b90ed88`) and the design-feedback batch 06.6.1 addressed. The reference point for that direction was Goodreads: warm editorial feel, card-based browsing with visible relief, serif headings over a clean utility layout. Three phases and one debug session have since revised the *specifics* (accent hue, card relief mechanism, surface count, control density) while keeping that reference point intact — see `<design_direction>` below for what actually ships today, not what the sketch round proposed.
 </context>
 
 <design_direction>
 ## Overall Direction
 
-- **Color:** new primary accent `#E8622C` (light) / `#FF8A5C` (dark) — a coral/terracotta orange, deliberately distinct in hue from the existing `--color-status-warn` amber (`#D97706`) so the two never blur together. All other existing tokens (status colors, borders) unchanged.
-- **Typography:** warm serif (`Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif`) on every heading level — page titles, section headings, stat-tile captions. Body text, tables, and monospace/data content stay on the existing sans-serif — serif is a headings-only treatment, never applied to dense/tabular content.
-- **Spacing:** generously increased throughout — this is a global direction, not limited to specific flagged pages.
-- **Cards:** visible shadow at rest (`--shadow-card`), lift on hover, transparent border instead of a hairline border.
-- **Layout:** the battery-trend chart breaks out of the stat-tile dashboard grid into its own full-width section. The Health page's anomaly banner keeps its visual alert (red left border) but drops the redundant detail-text list, since the Overview stat tiles below already carry that information via color/status.
-- **Navigation (mobile, <960px):** a hamburger-triggered dropdown replaces the horizontal-scroll nav strip, expanding below the header and pushing page content down (not a full-screen or backdrop overlay). The theme picker relocates inside this dropdown.
-- **Data density:** History's table drops from 9 to 7 columns by merging Callsign+Hex and Type+Airline into single dot-separated cells, keeping today's row height.
+Every value below was read live from `companion/static/style.css` (and `companion/contrast_check.py`) at execution time. This section is a summary with a pointer to the reference file that carries the full detail — do not treat it as the whole contract.
+
+**Colour.**
+- Accent: light `#B13F16` / dark `#FF8A5C`. Light-mode accent was `#E8622C` SUPERSEDED — 06.6.2 (D-14, UXA-04) darkened it to meet WCAG AA text contrast; its hover state moved from `#D2521F` SUPERSEDED to `#963610` at the same time. Dark-mode accent is unchanged since 06.6.1.
+- Three surfaces exist in both themes: `--color-canvas` (page background), `--color-dominant` (card/control surface), `--color-secondary` (elevated/nav surface) — replacing a pre-06.6.2 two-level model where `--color-dominant` did double duty as both the page background and the card surface SUPERSEDED. Light canvas is `#F7F4EF`, not the sketch round's own warm-tinted `#FBF9F6`/`#F3EEE7` pair SUPERSEDED (06.6.1's draft values, overtaken by 06.6.2's three-level split before they ever shipped as-drafted).
+- Border (`--color-border`) is structural only — the sidebar/content divider, fieldset borders, table borders, the mobile-nav dropdown's edge, and (since 06.6.4 D-03) every card's resting hairline too. Never an interactive-state signal, never a substitute for accent or status colour.
+- Status colours: ok `#16A34A`/`#4ADE80` and warn `#D97706`/`#FBBF24` are unchanged since 06.3; error is `#BE123C`/`#FB7185` — was `#DC2626`/`#F87171` SUPERSEDED, moved by the heading-color-consistency debug session (see `<metadata>` below and `references/accessibility-contrast.md`).
+- Accent-reservation contract: the exhaustive list lives in `companion/static/style.css`'s own header comment (primary/`type="submit"` buttons, links, the focused-input outline, the active nav-pill indicator, the hamburger toggle's active state, a neutral stat tile's icon tint and top accent, the skip link's fill, the selected runway card's border and check glyph, native `accent-color` on radios/checkboxes, a `<summary>` disclosure marker, the neutral banner's left edge, and the favicon) — do not duplicate that list here; extend it there first if a new accent use is ever needed.
+- Colour-separation contract: executable, not prose. `companion/contrast_check.py`'s `hue_separation()` / `perceptual_distance()` functions, gated by `MIN_SIGNAL_PERCEPTUAL_DISTANCE` (28.0) and `MIN_SIGNAL_HUE_SEPARATION` (24.0, accent-vs-error only), keep the accent measurably distinguishable from every status colour in both themes — see `references/accessibility-contrast.md` for the regression that made this necessary.
+
+**Typography.**
+- Four sizes: `--font-label-size` 14px, `--font-body-size` 16px, `--font-heading-size` 20px, `--font-page-title-size` 30px (06.6.2 D-15's page-title role, distinct from the 20px section-heading role). Two weights: `--weight-regular` 400, `--weight-semibold` 600. Three families: `--font-ui` (system sans stack), `--font-mono`, `--font-serif` (`Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif` — a system stack, never a web font).
+- Serif boundary, headings-only: `h1, h2, h3, legend, .text-heading, .page-title, .site-title` (and `.sidebar-title`, which is always co-classed with `.site-title` and needs no rule of its own), plus one named Label-role exception, `.stat-tile__caption`. Body text, tables, form controls, nav links and monospace content stay on `--font-ui` — do not extend serif further. `legend` earned its place in this selector as a bug fix, not decoration: it is `<fieldset>`'s accessible group name and a genuine heading role, and being left out of the serif rule for one release let it render sans-semibold directly beside a serif-regular `<h2>` at the identical 20px size.
+- Sub-scale exception tier, explicitly not a fifth content-type role — a hierarchy below the four-size scale: `.data-table th` / `.filter-bar__count` / `.theme-form .theme-option` at 11-13px (colour-mixed, muted), `.cell-secondary` / `.banner__pill` / `.airline-card__chip` at 11-12px, `.sparkline-axis-label` at 10px, and buttons/`.filter-bar__field input` at 13px.
+- `--font-display-size` (24px) is retired SUPERSEDED — its two consumers, `.stat-tile__value` and `.runway-card__number`, moved to the Emphasis role (06.6.4 D-09): the existing Body size (16px) plus `--weight-semibold`, the same "existing size made bold" pattern `.data-table th` already used.
+
+**Spacing.** Seven tokens: `--space-xs` 4px, `--space-sm` 8px, `--space-md` 16px, `--space-lg` 24px, `--space-xl` 32px, `--space-2xl` 48px, `--space-3xl` 64px. `.page-content`'s base padding is `var(--space-xl) var(--space-lg) var(--space-2xl)` — sides deliberately stay at `lg` (24px), not the airier `3xl` an earlier spec table named, because 64px of side padding on a 375px phone viewport would leave a 247px content column. The `2xl`/`3xl` promotion instead lands on `.dashboard-main` at the `>=960px` breakpoint (`2xl` top/bottom, `3xl` sides) — a deliberate mobile-width floor, not a disagreement between the two rules.
+
+**Cards, borders, radii and shadows.** Current contract: a real `--color-border` hairline at rest, `box-shadow: none`, with `--shadow-card-hover` revealed only on `:hover`/`:focus-within` — 06.6.4 (D-03) reverses 06.6.1's shadow-at-rest treatment (`--shadow-card` visible at rest, transparent border) SUPERSEDED. Card set carrying this contract: `.stat-tile`, `.page-section`, `.battery-trend-section`, `.runway-card`, `.history-card`, `.login-card`, `.airline-card`, `.theme-status`. Two floating-overlay exceptions keep a resting shadow instead: `.lightbox` and `.dirty-bar` — both are floating overlays, not page-flow cards, so their resting state should already read as elevated. Radius: this card set uses `--radius-control` (8px), not `--radius-card` — `--radius-card` (10px) is reserved for the floating/overlay elements only (`.mobile-nav`'s dropdown corners, `.dirty-bar`, `.preview-frame`, `.lightbox`). Getting this pairing backwards is the easiest mistake to make here.
+
+**Controls and density.** Buttons are 30px tall — was `min-height: 44px` SUPERSEDED, 06.6.4 (D-01)'s deliberate, developer-accepted WCAG 2.5.5 (Level AAA) trade-off. Primary buttons (`button[type="submit"]`) get an accent fill with a subtle inset highlight; quiet buttons (base `button`, `.logout-form button`, `.dirty-bar__cancel`) are near-invisible at rest (a `color-mix(in srgb, var(--color-text) 4.5%, transparent)` wash) and reveal on hover (7-7.5%), governed by source-order/specificity rules documented in `references/control-density.md`. Touch-target floor register (WCAG 2.5.8 / Level AA, 24px, is met everywhere): the 44px AAA floor was given up on exactly four selectors — buttons (30px), nav links (`.sidebar-link`/`.mobile-nav__link`, 32px), theme-picker segments (28px), the filter input (32px); it was kept on native `input`/`select`, `.site-nav-toggle`, and `summary`; and it was relocated (not removed, no accessibility trade-off) on `.copy-btn` (a `::before` pseudo-element synthesizes a real 44×44 hit area around a 22px visual box) and `.led-checkbox` (a 44px `<label>` around a 16px native checkbox).
+
+**Navigation.** Two renderings, chosen by the `>=960px` breakpoint: `.dashboard-sidebar` (vertical, hidden below it) and `.mobile-nav` (the header hamburger dropdown, hidden above it via `.site-header { display: none }`). The dropdown sits in normal document flow via `flex-basis: 100%` on `.site-header`'s wrapping flex row, not `position: absolute` SUPERSEDED — the absolute-positioned version shipped first, was found on real-device verification to only overlay (never push down) page content, and was replaced (06.6.1-06-SUMMARY.md). Both renderings share one active-state idiom: a 12%-accent tinted pill background plus accent text, `:not()`-scoped so hovering an inactive link can never erase the active tint. Current tab set is four: Settings, Health, Airlines, History — was five (Config, Health, Airlines, History, Preview) SUPERSEDED; Preview was retired by Phase 06.6.4.1 (D-22, still open), its content absorbed into History, and the old "/config" path 404s by design with no redirect while "/settings" is the current route (D-26). Both renderings' footer region groups the theme picker with Sign out (06.6.2-05 D-17).
+
+**Data and tables.** `.data-table th` is a quiet uppercase 11px label with a bottom hairline — was a filled `--color-secondary` block SUPERSEDED, 06.6.4 (D-07). Rows answer the pointer with a 4% hover tint; alternating zebra striping is retired SUPERSEDED (the server-side `row-alt` class computation is deliberately left in place as inert markup — not removed, to avoid three Python edits and three harness updates for zero visible gain). The sticky header is scoped to `.data-table-wrap` only, never the page. History renders both `.history-cards` (a card list, below 960px) and `.data-table-wrap` (at/above 960px), toggled by a `.history-cards ~ .data-table-wrap` sibling-combinator rule scoped so Airlines' and Health's own reuse of `.data-table-wrap` is never affected by the toggle.
 </design_direction>
 
 <findings_index>
@@ -32,20 +48,23 @@ Sketch sessions wrapped: 2026-08-29
 
 | Area | Reference | Key Decision |
 |------|-----------|--------------|
-| Visual Direction & Typography | references/visual-direction-typography.md | Serif headings, card shadows, warm background tint, `#E8622C` accent |
-| Mobile Navigation | references/mobile-navigation.md | Header-dropdown hamburger menu, pushes content down, theme picker inside |
-| Data Density | references/data-density.md | History table: Callsign·Hex and Type·Airline merged inline, 9→7 columns |
+| Visual Direction & Typography | references/visual-direction-typography.md | Current accent/surface/card contract, serif-headings boundary and its sub-scale exception tier — corrected in place from the 06.6.1 sketch's own now-superseded values |
+| Mobile Navigation | references/mobile-navigation.md | The shipped `.mobile-nav` component: in-flow `flex-basis` push-down (not the sketch's `position: absolute` overlay), real class names, current 4-tab set, footer grouping theme picker + Sign out |
+| Data Density | references/data-density.md | History table: Callsign·Hex and Type·Airline merged inline (9→7 columns, still current), the sketch's `--color-text-muted` token SUPERSEDED (never adopted), mobile fallback is a `.history-cards` card list, not horizontal scroll |
+| Accessibility & Contrast | references/accessibility-contrast.md | 06.6.2's WCAG-AA accent darkening, the three-level surface split, the executable colour-separation contract, focus/skip-link/reduced-motion/no-JS floors |
+| Control Density | references/control-density.md | 06.6.4's Linear-inspired sobriety pass: button geometry, wash-strength register, touch-target floor register, segmented theme control, card hairline-at-rest |
+| Settings Page Patterns | references/settings-page-patterns.md | The one-caption-per-section rule; the floating save bar's current mechanics and its four-iteration history, as a worked example of how a pattern gets settled in this codebase |
 
 ## Theme
 
-The winning theme file is at `sources/themes/default.css` — evolves the real tokens from `companion/static/style.css` (do not treat this as a from-scratch palette; it's additive/modifying, not a replacement file).
+`sources/themes/default.css` is a preserved sketch-round artifact, evolved from `companion/static/style.css`'s tokens as they stood on 2026-08-29 — it is not a current token source. `companion/static/style.css` is the only authority for token values; nothing in `sources/` is re-read for current facts.
 
 ## Source Files
 
-Original sketch HTML files (all variants, winners marked with ★) are preserved in `sources/`:
-- `sources/001-health-page-direction.html`
-- `sources/002-mobile-hamburger-nav.html`
-- `sources/003-history-table-density.html`
+Original sketch HTML files (all variants, winners marked with ★) are preserved byte-identical in `sources/` — historical artifacts, not current-reality documents:
+- `sources/001-health-page-direction.html` — winner (Variant B)'s accent `#E8622C` → `#B13F16` SUPERSEDED (06.6.2 WCAG AA darkening); its card shadow-at-rest treatment → hairline-at-rest, shadow-on-hover SUPERSEDED (06.6.4 D-03); its warm-tinted background pair `#FBF9F6`/`#F3EEE7` → the three-level `--color-canvas`/`--color-dominant`/`--color-secondary` split SUPERSEDED (06.6.2 D-14); its 15px normal-case stat-tile caption → the current rule declares no font-size of its own (inherits `.text-label`'s 14px) SUPERSEDED.
+- `sources/002-mobile-hamburger-nav.html` — winner (Variant C)'s `position: absolute` dropdown mechanism → shipped, found broken on real-device verification (could only overlay, never push), replaced by in-flow `flex-basis: 100%` SUPERSEDED (06.6.1-06-SUMMARY.md); its `.dropdown`/`.dropdown__nav`/`.nav-link`/`.theme-row` class names never shipped → the real classes are `.mobile-nav`/`.mobile-nav__nav`/`.mobile-nav__link`/`.mobile-nav__footer` SUPERSEDED; its 5-item nav list (Config/Health/Airlines/History/Preview) → the current tab set is 4 (Settings/Health/Airlines/History) SUPERSEDED (06.6.4.1 D-22, D-26).
+- `sources/003-history-table-density.html` — winner (Variant B)'s Callsign·Hex/Type·Airline merge and 7-column count still hold, current. Its CSS pattern naming a `--color-text-muted` token → no such token exists; the shipped rule uses `opacity: 0.7` on `--color-text` instead SUPERSEDED. Its "keep the horizontal-scroll fallback on mobile" guidance → replaced by a separate `.history-cards` card-list rendering below 960px SUPERSEDED (06.6.3 D-07).
 </findings_index>
 
 <metadata>
@@ -54,4 +73,18 @@ Original sketch HTML files (all variants, winners marked with ★) are preserved
 - 001-health-page-direction (winner: B)
 - 002-mobile-hamburger-nav (winner: C)
 - 003-history-table-density (winner: B)
+
+## Folded-In Work (append-only, chronological)
+
+- 06.6.1 — sketch findings above applied to real code: serif headings, `#E8622C` accent SUPERSEDED, card shadow-at-rest SUPERSEDED, hamburger dropdown (absolute-positioned) SUPERSEDED, History column merge (still current). See `<design_direction>` and `<findings_index>` above for what replaced each.
+- 06.6.2 — WCAG-AA accent darkening (SUPERSEDED `#E8622C` → `#B13F16`), three-level surface split, `--color-on-accent` token, skip link, focus-visible floors, page-title role, mobile-nav dropdown in-flow fix (absolute → `flex-basis`), footer grouping of theme picker + Sign out.
+- heading-color-consistency debug session — `legend` added to the serif selector; `--color-status-error` recoloured in both themes; the accent/status colour-separation contract made executable in `contrast_check.py`.
+- 06.6.3 — per-page redesign: dirty-state bar, History mobile card list, filter bar, icon-only copy buttons, sticky table header, `<details>` disclosures, runway card redesign, read-only theme status.
+- 06.6.4 — Linear-inspired sobriety pass: button density (30px), quiet/primary split, wash-strength register, 44px touch-target floor traded on four named selectors, card hairline-at-rest (reverses 06.6.1's shadow-at-rest), banner colour wash retired, table zebra retired, segmented theme control, Display type role retired.
+- 06.6.4.1 (in progress, closing checkpoint still open) — Config → Settings rename, Preview retired (five tabs → four), Airlines reborn as an illustration gallery, unified save bar, `.config-form` two-column grid removed.
+- quick 260901-qif — `.theme-status` card treatment, wrapping runway row, LED checkbox normalization.
+- quick 260901-re6 — save bar moved outside the form + fixed positioning, Settings section-caption typography merge.
+- quick 260901-s5o — Poll section caption added, save bar restyled from a docked toolbar into a floating rounded pop-up.
+- direct fix `e87d46d` (non-GSD) — save bar `width: fit-content`, deeper ambient shadow, bottom inset grown, `>=960px` padding override dropped.
+- quick 260901-t00 (this task) — skill consolidated to cover all of the above; three new reference files added (`accessibility-contrast.md`, `control-density.md`, `settings-page-patterns.md`); three pre-existing reference files corrected in place.
 </metadata>
