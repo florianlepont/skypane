@@ -64,14 +64,11 @@ TEST_PREV_ROUTE = {
 }
 
 # --- Band geometry, measured from the reference (trapezoid, not a parallelogram) ---
-# Round 9 (developer): un-merge the top labels again - RWY 3 goes back to
-# its own top-right tag - so the band needs to clear it once more, just
-# less drastically than round 3's -0.09: a smaller leftward shift keeps
-# more of round 7/8's rightward visual balance while still clearing the
-# tag's measured start (x_frac=0.8117) with a real margin. -0.07 puts the
-# band's top-right edge at 0.7823, a ~2.9pt margin. Still a pure
-# translation of the measured trapezoid, same width/shape.
-BAND_SHIFT_FRAC = -0.07
+# Round 11: with "RWY 3" alone on the right (see patched_draw_top_labels
+# below) instead of the full "ORY · RWY 3", no shift is needed at all -
+# the reference's own as-measured position already clears both
+# constraints. See that function's own comment for the numbers.
+BAND_SHIFT_FRAC = 0.0
 BAND_TOP_LEFT_FRAC = 0.5818 + BAND_SHIFT_FRAC
 BAND_TOP_RIGHT_FRAC = 0.8523 + BAND_SHIFT_FRAC
 BAND_BOT_LEFT_FRAC = max(0.0, 0.0742 + BAND_SHIFT_FRAC)
@@ -105,12 +102,17 @@ def make_patched_new_canvas(band_idx, dithered):
     return _patched
 
 
-# --- Round 7: merge the top-right runway tag into the top-left state
-# label - "DEPARTING FROM ORY · RWY 3" / "ARRIVING TO ORY · RWY 3" - so
-# nothing occupies the top-right corner and the band can shift right
-# without any collision to avoid there. Reuses the real
-# runway_tag_text()/STATE_LABEL_TEXT/draw_tracked_text()/LABEL_TRACKING_PX
-# - only the two separate strings become one, and only one run is drawn.
+# --- Round 11 (developer's correction to round 7/9): split the airport
+# code to the LEFT (merged with the state label - "DEPARTING FROM ORY" /
+# "ARRIVING TO ORY") and keep a SHORTER tag on the right ("RWY 3" alone,
+# not "ORY · RWY 3"). The shorter right-side tag starts much further
+# right (measured: 0.8817 vs the full tag's 0.8117 - a 7pt gain) than the
+# full tag did, which is what actually resolves round 9/10's conflict:
+# with this split, BAND_SHIFT_FRAC=0.0 (the reference's own unshifted,
+# as-measured position - no shift at all) clears BOTH the shorter tag
+# (2.9pt margin) AND the below-illustration nose-aligned main text (5pt
+# margin, verified against the precisely measured text-block right edge
+# of 0.265, not the earlier round's rough guess of 0.33) at once.
 _MERGED_LABEL_DIRECTION = {
     render.runway_config.STATE_DEPARTING: "FROM",
     render.runway_config.STATE_ARRIVING: "TO",
@@ -122,11 +124,17 @@ def patched_draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=No
         runway_id = render.device_config.DEFAULT_RUNWAY_ID
     draw = ImageDraw.Draw(canvas)
     label_font = render._role_font(render.STATE_LABEL_FONT, weight)
+    tag_font = render._role_font(render.TOP_TAG_FONT, weight)
     direction = _MERGED_LABEL_DIRECTION[state]
-    tag_text = render.runway_tag_text(runway_id)
-    merged_text = "%s %s %s" % (render.STATE_LABEL_TEXT[state], direction, tag_text)
+    full_tag = render.runway_tag_text(runway_id)
+    airport_code, _sep, runway_part = full_tag.partition(" · ")
+
+    merged_text = "%s %s %s" % (render.STATE_LABEL_TEXT[state], direction, airport_code)
     render.draw_tracked_text(draw, (render.MARGIN, render.MARGIN), merged_text, label_font, ink_idx, render.LABEL_TRACKING_PX)
-    # No right-side tag drawn at all - the top-right corner is free.
+
+    tag_w = render._tracked_text_width(tag_font, runway_part, render.LABEL_TRACKING_PX)
+    tag_x = render.WIDTH - render.MARGIN - tag_w
+    render.draw_tracked_text(draw, (tag_x, render.MARGIN), runway_part, tag_font, ink_idx, render.LABEL_TRACKING_PX)
 
 
 # --- Text hierarchy, left-anchored, reference-inspired presentation over
@@ -237,32 +245,15 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
     route_font = render._role_font(ROUTE_LINE_FONT, weight)
     airline_font = render._role_font(AIRLINE_LINE_FONT, weight)
 
-    # Round 10 (developer): round 8 moved this block back below the
-    # illustration once round 7 freed the band to shift right - but round
-    # 9 un-merged the top labels again (band shifted back left, -0.07) AND
-    # nose-aligned this block's left edge (content[0] instead of MARGIN),
-    # and that combination reopens the collision round 8 had just closed:
-    # verified numerically, the band's left edge at this block's
-    # below-illustration height (~52% canvas height) sits at ~24.5% width,
-    # while the nose-aligned block's own right edge reaches ~33% - a real
-    # ~8pt overlap, confirmed visually on black-flat (text genuinely cut).
-    # There is no single BAND_SHIFT_FRAC that clears both the restored tag
-    # (needs the band pushed left) and this below-position nose-aligned
-    # text (needs the band pushed right) at once - the trapezoid's own
-    # shape makes the two constraints mutually exclusive here. Back above
-    # the illustration (round 5's fuselage-visual-top anchor, not
-    # content[1]) resolves both at once - verified numerically, band left
-    # edge stays 38-46% across that height range, clear of the
-    # nose-aligned block's ~35% max extent.
-    total_h = 0
-    if number_text:
-        total_h += draw.textbbox((0, 0), number_text, font=num_font, anchor="la")[3] + DASH_GAP + 2 + DASH_GAP + 4
-    if tracked_text:
-        total_h += render._tracked_text_bbox(route_font, (0, 0), tracked_text, render.LABEL_TRACKING_PX)[3] + 12
-    total_h += draw.textbbox((0, 0), plain_text, font=airline_font, anchor="la")[3]
-
-    fuselage_top_y = _fuselage_visual_top_y(route, flight.get("aircraft_type"), main_placement)
-    y = fuselage_top_y - ABOVE_ILLUSTRATION_GAP_PX - total_h
+    # Round 11 (developer's correction): back below the illustration once
+    # more. Splitting the top-right tag down to "RWY 3" alone (see
+    # patched_draw_top_labels) frees enough room that BAND_SHIFT_FRAC=0.0
+    # clears both the shorter tag AND this below-position, nose-aligned
+    # block at once (verified numerically before switching back - see
+    # that constant's own comment for the exact margins) - round 9/10's
+    # conflict doesn't reopen this time. Real production anchor again:
+    # MAIN_TEXT_GAP_PX below the illustration's opaque bottom edge.
+    y = main_placement.content[3] + render.MAIN_TEXT_GAP_PX
     first_bbox = None
 
     if number_text:
@@ -359,6 +350,7 @@ def patched_draw_previous_text_block(canvas, flight, state, route, prev_placemen
 def main():
     orig_draw_main_text_block = render.draw_main_text_block
     orig_draw_previous_text_block = render.draw_previous_text_block
+    orig_draw_top_labels = render.draw_top_labels
     candidates = [
         ("ref-band-blue-dithered", pf.IDX_BLUE, True),
         ("ref-band-blue-flat", pf.IDX_BLUE, False),
@@ -369,9 +361,7 @@ def main():
     try:
         render.draw_main_text_block = patched_draw_main_text_block
         render.draw_previous_text_block = patched_draw_previous_text_block
-        # Round 9: top labels un-merged - the real, already-shipped
-        # draw_top_labels() (state label + separate tracked runway tag)
-        # runs unpatched again.
+        render.draw_top_labels = patched_draw_top_labels
         for label, band_idx, dithered in candidates:
             pf.new_canvas = make_patched_new_canvas(band_idx, dithered)
             canvas = render.build_canvas(
@@ -391,6 +381,7 @@ def main():
     finally:
         render.draw_main_text_block = orig_draw_main_text_block
         render.draw_previous_text_block = orig_draw_previous_text_block
+        render.draw_top_labels = orig_draw_top_labels
         pf.new_canvas = _TRUE_ORIG_NEW_CANVAS
 
 

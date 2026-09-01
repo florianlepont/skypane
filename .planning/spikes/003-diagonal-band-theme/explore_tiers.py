@@ -30,9 +30,11 @@ TIERS = [
 def main():
     orig_draw_main_text_block = render.draw_main_text_block
     orig_draw_previous_text_block = render.draw_previous_text_block
+    orig_draw_top_labels = render.draw_top_labels
     try:
         render.draw_main_text_block = comp.patched_draw_main_text_block
         render.draw_previous_text_block = comp.patched_draw_previous_text_block
+        render.draw_top_labels = comp.patched_draw_top_labels
         pf.new_canvas = comp.make_patched_new_canvas(pf.IDX_BLUE, True)
         for label, route in TIERS:
             canvas = render.build_canvas(
@@ -52,6 +54,7 @@ def main():
     finally:
         render.draw_main_text_block = orig_draw_main_text_block
         render.draw_previous_text_block = orig_draw_previous_text_block
+        render.draw_top_labels = orig_draw_top_labels
         pf.new_canvas = comp._TRUE_ORIG_NEW_CANVAS
 
 

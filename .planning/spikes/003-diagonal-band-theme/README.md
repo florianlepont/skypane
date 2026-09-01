@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 9 restores the tag/nose-aligns text, caught and fixed a real conflict this reopened (main text moved back above), awaiting developer reaction
+verdict: PENDING - round 11 splits the tag (ORY left, RWY 3 right) instead of merging it whole, resolving round 9/10's conflict with no shift needed at all, awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -330,6 +330,27 @@ constraints (band's left edge stays 38-46% across that height range,
 clear of the nose-aligned block's ~35% max extent), then confirmed
 visually on both `blue-dithered` and `black-flat`. Flagged explicitly
 rather than silently reverting the developer's own round-8 request.
+
+**Round 11 - developer's correction: split the tag, not merge it whole.**
+Round 9 restored the full "ORY · RWY 3" tag and had to move the main
+text back above the aircraft to avoid the collision it reopened. The
+developer's actual intent was different: keep "ORY" merged into the
+top-left label ("DEPARTING FROM ORY" / "ARRIVING TO ORY"), but keep a
+SHORTER separate tag on the right - "RWY 3" alone. Measured: "RWY 3"
+alone starts at `x_frac=0.8817` vs. the full tag's `0.8117` - a 7-point
+gain. With that gain, `BAND_SHIFT_FRAC=0.0` (the reference's own
+unshifted, as-measured position, no shift needed at all) clears BOTH the
+shorter tag (2.9pt margin) AND the below-illustration, nose-aligned main
+text (5pt margin, checked against the precisely measured text-block
+right edge of 0.265 - not the earlier rounds' rough 0.33 guess) at once.
+Main text moved back below the illustration (round 11 supersedes round
+10's above-position workaround, which is no longer needed).
+`patched_draw_top_labels()` now draws two separate tracked runs -
+`full_tag.partition(" · ")` splits the real `runway_tag_text()` output
+into the airport code (goes left) and the runway part (stays right,
+still its own `TOP_TAG_FONT`-sized, right-aligned run) - not a hardcoded
+re-derivation of either string. Confirmed clean on `black-flat` (the
+tightest case throughout this whole exploration).
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13
