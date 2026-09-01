@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.6.4
-current_phase_name: companion-sober-visual-refinement-linear-inspired-sobriety-p
+current_phase: 07
+current_phase_name: Final On-Glass Verification
 status: executing
-stopped_at: Completed 06.6.4-05-PLAN.md
-last_updated: "2026-09-01T00:49:19+02:00"
+stopped_at: Completed 06.6.4-03-PLAN.md
+last_updated: "2026-09-01T08:03:52.167Z"
 last_activity: 2026-09-01
-last_activity_desc: Phase 06.6.4 execution in progress (plan 05 of 6 complete)
+last_activity_desc: Phase 06.6.4 complete, transitioned to Phase 07
 progress:
   total_phases: 18
-  completed_phases: 15
+  completed_phases: 16
   total_plans: 85
-  completed_plans: 83
-  percent: 98
+  completed_plans: 84
+  percent: 89
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 06.6.4 (companion-sober-visual-refinement-linear-inspired-sobriety-p) — EXECUTING
+Phase: 07 — Final On-Glass Verification
 
 **06.6.4-01 executed (2026-09-01), the first of the phase's 6 plans (wave 1, no dependencies), closing D-03/D-03a/D-09.** `companion/static/style.css`'s `:root` block lost `--font-display-size` (24px) entirely — its two consumers, `.runway-card__number` and `.stat-tile__value`, moved onto the Emphasis role (`var(--font-body-size)` + `var(--weight-semibold)`), restoring the scale block's own claimed four sizes. All six card components (`.runway-card`, `.history-card`, `.stat-tile`, `.battery-trend-section`, `.page-section`, `.login-card`) were flipped from 06.6.1's shadow-at-rest treatment to a hairline-at-rest/shadow-on-hover contract: `border: 1px solid var(--color-border)`, `box-shadow: none`, `border-radius: var(--radius-control)` at rest, with a new (or, for `.stat-tile`, extended) `:hover, :focus-within` rule clearing the border and revealing `var(--shadow-card-hover)`. `.runway-card`'s hover rule is `:not(.runway-card--selected)`-scoped so a selected card's 2px accent border structurally cannot be cleared by hover (D-03a). Both obsolete dark-mode card-edge override blocks (`@media (prefers-color-scheme: dark)` and `html[data-ui-theme="dark"]`) were removed outright — redundant now that every card carries a real hairline in all themes, and load-bearing to remove rather than merely leave alone, since the attribute-selector variant outranked a bare `:hover` rule and would have silently pinned the border back on during hover for explicit-dark-mode users only. Every comment the change falsified was rewritten (file header, `.stat-tile`, `.page-section`, `.runway-card`, `.history-card`, `.login-card`, `.battery-trend-section`, `.site-title`). `.login-card` was deliberately included as a full sixth card, not an afterthought — excluding it would have left the pre-auth login page as the one surface still carrying resting relief. `--radius-card` itself was left untouched (still consumed by `.mobile-nav`, `.dirty-bar`, `.preview-frame`, none of this plan's scope, per RESEARCH.md's own Pattern 3). One Rule 1 deviation, verification-only: the plan's own Task 2 `<verify>` script asserted a raw `d.count('var(--radius-card)') == 3`, but `.mobile-nav` declares the token twice (`border-bottom-left-radius`/`border-bottom-right-radius`, one selector, two properties) — the real file has 4 raw occurrences for 3 genuine consumer selectors; verified the real intent (exactly `{.mobile-nav, .dirty-bar, .preview-frame}`) instead of the literal count. `companion/test_companion_app.py` (88/88) and `companion/test_status_pages.py` (59/59) both pass unmodified — no class names changed. `git diff --stat` across both task commits touches exactly `companion/static/style.css`. `state.update-progress` correctly computed `percent: 93` (79/85) this time; a later `state.record-session` call re-corrupted it back to `83` (`completed_phases/total_phases` = 15/18), same recurring pattern documented throughout this file's history — corrected by hand back to `93`. `requirements.mark-complete D-03 D-03a D-09` returned all three as `not_found`, consistent with every prior 06.x decimal-phase plan's precedent (these are `06.6.4-CONTEXT.md`/plan-frontmatter Decision IDs, not formal REQUIREMENTS.md entries, so REQUIREMENTS.md is correctly untouched). `roadmap.update-plan-progress "06.6.4"` confirmed `plan_count: 6, summary_count: 1, status: "In Progress"` (plans 02-06 remain).
 
@@ -82,7 +82,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 Status: Executing Phase 06.6.4
 Also merged 2026-08-28: origin/main's Phase 05 DEVICE-04 completion and the missed-flights-not-displayed debug session's two remaining mechanisms — B (`detect.py` now corroborates ADS-B sources on candidate SETS rather than final picks, and the D-P2-01 sort key tie-breaks on `hex` instead of the observer-local `seen_pos`) and C (`poll_loop.py` paces the display slot to the device's ~90s redraw floor through a bounded-age FIFO queue). Both compose with Phase 6's runway parameterisation: the pavement gate applies to whichever runway is selected, and corroboration runs on that runway's candidates. Also merged 2026-08-28 (second merge, this one): origin/main's Phase 7 (Final On-Glass Verification, PR #18) — panel palette re-tuning (Blue/Green darkened, dithered state background, text backing plate) and the legacy `inkframe-poll.timer` cleanup, described in the Phase 7 paragraph above.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-08-31 — Phase 06.6.4 execution started
+Last activity: 2026-09-01 — Phase 06.6.4 complete, transitioned to Phase 07
 
 **State at end of this session (2026-08-28), on branch `claude/debug-skypane-0c21a9`:** two more items completed on that branch, both unrelated to Phase 06's companion-app work, merged forward from a session that started as a live-device debugging conversation. Quick task 260828-b0d: corrected an unverified manufacturer citation about panel refresh cadence in `firmware/main/Kconfig.projbuild`, `firmware/main/panel_guard.h`, and `server/poll_loop.py`'s `MAX_STALENESS_S` comment, replacing it with the real Good Display GDEP133C02 datasheet finding (the datasheet's only refresh-frequency guidance is a 24h *minimum* against ghosting, not a maximum-rate wear limit as previously claimed) — zero behavioral/numeric change, proven by pre/post digests. Debug session `illustration-crop-text-margin` (resolved, two passes): the user reported the gap between the aircraft illustration and its flight-info text looked inconsistent across airlines; root cause was `draw_illustration()` anchoring layout to each PNG's full source rectangle rather than its actually-painted (opaque) pixels, while every vendored file carries a soft drop-shadow band the renderer already discards before painting — measured gap varied 17-154px by airline. Pass 1 fixed the vertical text gap (user-confirmed via preview renders); pass 2, requested as a follow-up, fixed horizontal centering (main aircraft up to 7.5px off canvas centre), the previous card's right-alignment (up to 26px between the two aircraft's visible edges), and a previously-unreported previous-card vertical-centering drift (5.5-28.5px, found while re-measuring for pass 2) — all three fixed the same way, via the `IllustrationPlacement.content` tight bbox. Card *sizing* deliberately still derives from the full rectangle so one aircraft's rendered size never depends on which airline preceded it. Neither fix has been confirmed on real Spectra 6 glass yet; both are server-side/comment-only so no firmware reflash is needed once deployed. This also means `server/plane/render.py`'s render output changed again since Phase 06's own digest re-pin (see `06-12`'s CI-fix commit) — a second, independent `_DEFAULT_CONFIG_DIGEST` re-pin landed on `main` for the same reason (real pixel output moved, not a platform artifact this time); reconciled during this merge, see git history for the merged value.
 
@@ -102,7 +102,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 **Velocity:**
 
-- Total plans completed: 57
+- Total plans completed: 63
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -122,6 +122,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 06.6.1 | 6 | - | - |
 | 06.6 | 3 | - | - |
 | 06.6.2 | 8 | - | - |
+| 06.6.4 | 6 | - | - |
 
 **Recent Trend:**
 
