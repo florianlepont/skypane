@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 5 anchors text to the fuselage's visual top (not the tail-tip pixel), awaiting developer reaction
+verdict: PENDING - round 6 extends the three-level hierarchy to the previous card (right-aligned, ~57% scale, position unchanged), awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -251,6 +251,21 @@ every candidate, adapting per-file the same way `MAIN_TEXT_GAP_PX`
 already adapts to nose/wheel position on the bottom edge - this is the
 same category of fix, just for the top edge, which no prior phase needed
 before text moved above the illustration.
+
+**Round 6 - previous card gets the same three-level hierarchy.**
+Developer: "je ne comprends pas la différence de traitement entre
+l'avion principal et l'avion secondaire" - the previous (bottom-right)
+card still had the old flat two-line format while the main card had
+been restructured into number/dash/tracked-route/airline·type. New
+`patched_draw_previous_text_block()` mirrors the main card's tier-split
+logic exactly (same real-content-ladder reuse from round 4) but
+right-aligned and scaled to the previous card's own long-established
+~57% scale (`PREV_NUMBER_FONT`=32px vs. the main card's 56px). Position
+stays BELOW the previous illustration, unchanged from production - unlike
+the main card, the shifted band never reaches this far right at this
+card's height (checked: band's rightmost extent here is ~45% width,
+this card's text sits at ~89% width), so there's no collision to dodge
+and no reason to also flip it above its own aircraft.
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13

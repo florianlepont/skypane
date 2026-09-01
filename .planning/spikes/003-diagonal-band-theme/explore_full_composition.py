@@ -245,8 +245,77 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
     return first_bbox, plain_bbox
 
 
+# --- Previous (secondary) card: same three-level hierarchy (number / dash
+# + tracked route / airline+type), right-aligned to match its existing
+# convention, scaled down to roughly the card's own long-established 57%
+# scale vs. the main card (992 x 0.57 = 565px, D-25/D-26's own ratio).
+# Position stays BELOW the previous illustration, unchanged from
+# production (PREVIOUS_TEXT_GAP_PX/PREVIOUS_TEXT_LEFT_OFFSET_PX) - unlike
+# the main card, the band never reaches this far right at this card's
+# height (checked: band's rightmost extent here is ~45% width, this
+# card's text sits at ~89% width), so there's no collision to dodge and
+# no reason to also flip it above its aircraft.
+PREV_NUMBER_FONT = (render.PT_SERIF_BOLD, 32, 700)
+PREV_ROUTE_FONT = (render.PT_SERIF_REGULAR, 16, 400)
+PREV_AIRLINE_FONT = (render.PT_SERIF_REGULAR, 14, 400)
+PREV_DASH_W = 16
+PREV_DASH_GAP = 6
+
+
+def patched_draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight):
+    draw = ImageDraw.Draw(canvas)
+    right_x = prev_placement.content[2] - render.PREVIOUS_TEXT_LEFT_OFFSET_PX
+
+    line1_full = render._flight_line1_text(flight, state, route)
+    line2_full = render._flight_line2_text(route, (flight or {}).get("aircraft_type"))
+
+    identifier_raw = (route or {}).get("callsign_iata") if isinstance(route, dict) else None
+    identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
+
+    if line1_full == "":
+        number_text, tracked_text, plain_text = None, None, line2_full
+    elif identifier and line1_full.startswith(identifier + " "):
+        number_text = identifier
+        tracked_text = line1_full[len(identifier) + 1:].upper()
+        plain_text = line2_full
+    else:
+        number_text, tracked_text, plain_text = None, line1_full.upper(), line2_full
+
+    num_font = render._role_font(PREV_NUMBER_FONT, weight)
+    route_font = render._role_font(PREV_ROUTE_FONT, weight)
+    airline_font = render._role_font(PREV_AIRLINE_FONT, weight)
+
+    y = prev_placement.content[3] + render.PREVIOUS_TEXT_GAP_PX
+    first_bbox = None
+
+    if number_text:
+        num_bbox = draw.textbbox((right_x, y), number_text, font=num_font, anchor="ra")
+        draw.text((right_x, y), number_text, font=num_font, fill=ink_idx, anchor="ra")
+        first_bbox = num_bbox
+        dash_y = num_bbox[3] + PREV_DASH_GAP
+        draw.line([(right_x - PREV_DASH_W, dash_y), (right_x, dash_y)], fill=ink_idx, width=2)
+        y = dash_y + PREV_DASH_GAP + 3
+
+    if tracked_text:
+        tracked_w = render._tracked_text_width(route_font, tracked_text, render.LABEL_TRACKING_PX)
+        tracked_x = right_x - tracked_w
+        render.draw_tracked_text(draw, (tracked_x, y), tracked_text, route_font, ink_idx, render.LABEL_TRACKING_PX)
+        tracked_bbox = render._tracked_text_bbox(route_font, (tracked_x, y), tracked_text, render.LABEL_TRACKING_PX)
+        if first_bbox is None:
+            first_bbox = tracked_bbox
+        y = tracked_bbox[3] + 8
+
+    plain_bbox = draw.textbbox((right_x, y), plain_text, font=airline_font, anchor="ra")
+    draw.text((right_x, y), plain_text, font=airline_font, fill=ink_idx, anchor="ra")
+    if first_bbox is None:
+        first_bbox = plain_bbox
+
+    return first_bbox, plain_bbox
+
+
 def main():
     orig_draw_main_text_block = render.draw_main_text_block
+    orig_draw_previous_text_block = render.draw_previous_text_block
     candidates = [
         ("ref-band-blue-dithered", pf.IDX_BLUE, True),
         ("ref-band-blue-flat", pf.IDX_BLUE, False),
@@ -256,6 +325,7 @@ def main():
     ]
     try:
         render.draw_main_text_block = patched_draw_main_text_block
+        render.draw_previous_text_block = patched_draw_previous_text_block
         for label, band_idx, dithered in candidates:
             pf.new_canvas = make_patched_new_canvas(band_idx, dithered)
             canvas = render.build_canvas(
@@ -274,6 +344,7 @@ def main():
             print("wrote %s | legal=%s" % (out_path, legal_ok))
     finally:
         render.draw_main_text_block = orig_draw_main_text_block
+        render.draw_previous_text_block = orig_draw_previous_text_block
         pf.new_canvas = _TRUE_ORIG_NEW_CANVAS
 
 
