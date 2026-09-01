@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 7 merges the top labels and shifts the band right instead of left, awaiting developer reaction
+verdict: PENDING - round 8 moves the main card's text back below the aircraft (safe now the band shifted right), awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -284,6 +284,21 @@ ending at x=510 vs. the 1136px safe-box edge; arriving: 383px). No
 information lost - the developer's explicit call from earlier this
 session (D-13 precedent: no info drops silently) is upheld, "RWY 3"
 survives merged in, not removed.
+
+**Round 8 - main card's text moved back below the aircraft.** Now that
+round 7's merged top label freed the band to shift right instead of
+left, the original reason to move the main card's text above its
+aircraft (round 2's band-collision fix) no longer applies. Checked the
+band's position at the below-illustration text block's height range
+(~50-55% canvas height): it now spans ~39-73% width, clear of this
+left-anchored block's ~5-30% extent. Reverted to the real
+`draw_main_text_block()`'s own anchor (`main_placement.content[3] +
+MAIN_TEXT_GAP_PX`) - simpler than round 5's fuselage-visual-top
+machinery too, since the bottom edge never had the swept-tail-tip
+problem the top edge did (this is the same anchor the shipped production
+function has always used). Confirmed clear on both the blue-dithered and
+black-flat candidates - the two extremes (softest and hardest edge
+against the band) - with no collision on either.
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13

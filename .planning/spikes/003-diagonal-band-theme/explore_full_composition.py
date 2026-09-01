@@ -229,20 +229,16 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
     route_font = render._role_font(ROUTE_LINE_FONT, weight)
     airline_font = render._role_font(AIRLINE_LINE_FONT, weight)
 
-    # Measure pass (dry run at y=0) so the whole block's height is known
-    # before choosing where its top sits - text sits in the gap above the
-    # illustration instead of below it (developer's own fix for the band
-    # collision found in round 2): at that height range the shifted band
-    # (BAND_SHIFT_FRAC above) sits well clear of this left-anchored block.
-    total_h = 0
-    if number_text:
-        total_h += draw.textbbox((0, 0), number_text, font=num_font, anchor="la")[3] + DASH_GAP + 2 + DASH_GAP + 4
-    if tracked_text:
-        total_h += render._tracked_text_bbox(route_font, (0, 0), tracked_text, render.LABEL_TRACKING_PX)[3] + 12
-    total_h += draw.textbbox((0, 0), plain_text, font=airline_font, anchor="la")[3]
-
-    fuselage_top_y = _fuselage_visual_top_y(route, flight.get("aircraft_type"), main_placement)
-    y = fuselage_top_y - ABOVE_ILLUSTRATION_GAP_PX - total_h
+    # Round 8 (developer): back below the illustration, now that round 7's
+    # merged top label freed the band to shift right instead of left -
+    # checked the band's position at this text block's height range
+    # (~50-55% canvas height): it now spans ~39-73% width, well clear of
+    # this left-anchored block's ~5-30% extent. No collision to dodge
+    # anymore, so no need for round 2/5's above-illustration workaround
+    # (or its measure-before-place / fuselage-visual-top machinery) -
+    # this is the real production draw_main_text_block()'s own anchor,
+    # MAIN_TEXT_GAP_PX below the illustration's opaque bottom edge.
+    y = main_placement.content[3] + render.MAIN_TEXT_GAP_PX
     first_bbox = None
 
     if number_text:
