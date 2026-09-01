@@ -58,13 +58,19 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 47  # 42 (pre-06.6.4.1-05) + 5 (06.6.4.1-05 Task 1:
-# History's own Now-showing section with a panel present/absent, the
-# Recent-renders disclosure closed by default with a correct shown-count
-# summary, the same disclosure's empty-gallery no-renders empty state,
-# and confirmation that Preview's page-level freshness apparatus
-# (data-loaded-at/data-stale-banner) was deliberately not ported).
-# Prior baseline: 41 (pre-06.6.4-05) + 1 (06.6.4-05 Task 3: the
+EXPECTED_CHECK_COUNT = 51  # 47 (pre-06.6.4.1-05 Task 2) + 4 (06.6.4.1-05
+# Task 2: nearest_gallery_entry()'s at-or-before/boundary/skip/None
+# behaviour; three interleaved rows' desktop+mobile View-panel triggers
+# carrying byte-identical, correctly-targeted attributes plus exactly one
+# lightbox dialog; zero triggers/zero dialog with an empty gallery entry
+# list; the LIGHTBOX_DIALOG_ID/data-view-panel-*/lightbox__* three-file
+# DOM-contract guard). Prior baseline: 42 (pre-06.6.4.1-05) + 5
+# (06.6.4.1-05 Task 1: History's own Now-showing section with a panel
+# present/absent, the Recent-renders disclosure closed by default with a
+# correct shown-count summary, the same disclosure's empty-gallery
+# no-renders empty state, and confirmation that Preview's page-level
+# freshness apparatus (data-loaded-at/data-stale-banner) was deliberately
+# not ported). Prior baseline: 41 (pre-06.6.4-05) + 1 (06.6.4-05 Task 3: the
 # shared [data-filter-clear] Clear-control contract - History renders the
 # attribute, style.css styles it by attribute, no class-keyed rule
 # competes). Prior baseline: 35 (pre-06.6.3-07) + 6 (06.6.3-07 Task 3:
@@ -1080,6 +1086,185 @@ def main():
         "the rendered History page contains no data-loaded-at attribute and no data-stale-banner "
         "element - Preview's page-level freshness apparatus was deliberately not ported",
         _now_showing_no_preview_freshness_apparatus)
+
+    # ======================================================================
+    # Section 1c: 06.6.4.1-05 Task 2 - server-side nearest-render lookup,
+    # per-row View-panel buttons, and the shared lightbox (D-20).
+    # ======================================================================
+
+    def _row_block(rendered, tag, group_index):
+        pattern = r"<%s[^>]*data-filter-group=\"%d\"[^>]*>(.*?)</%s>" % (
+            tag, group_index, tag)
+        match = re.search(pattern, rendered, re.S)
+        return match.group(1) if match else None
+
+    def _nearest_gallery_entry_behaviour():
+        entries = [
+            "2026-08-27T10-05-00+00-00.png",
+            "2026-08-27T10-02-00+00-00.png",
+            "2026-08-27T10-00-00+00-00.png",
+            "not-a-real-gallery-name.png",  # unparseable - must be skipped
+        ]
+
+        # Between two entries: matches the latest one at or before row_ts.
+        match = history_page.nearest_gallery_entry(entries, "2026-08-27T10:03:00+00:00")
+        if match != ("2026-08-27T10-02-00+00-00.png", "2026-08-27T10:02:00+00:00"):
+            return False, "expected the latest entry at or before 10:03:00, got %r" % (match,)
+
+        # Exact boundary: row_ts equal to an entry's own recovered
+        # timestamp still matches that entry ("at or before" is
+        # inclusive).
+        match = history_page.nearest_gallery_entry(entries, "2026-08-27T10:02:00+00:00")
+        if match != ("2026-08-27T10-02-00+00-00.png", "2026-08-27T10:02:00+00:00"):
+            return False, "expected an exact-boundary row_ts to match its own entry, got %r" % (match,)
+
+        # Every recoverable entry strictly after row_ts -> None.
+        if history_page.nearest_gallery_entry(entries, "2026-08-27T09:00:00+00:00") is not None:
+            return False, "expected None when every recoverable entry is strictly after row_ts"
+
+        # Empty entry list -> None.
+        if history_page.nearest_gallery_entry([], "2026-08-27T10:03:00+00:00") is not None:
+            return False, "expected None for an empty entry list"
+
+        # Unparseable/empty row_ts -> None, never raising.
+        if history_page.nearest_gallery_entry(entries, "") is not None:
+            return False, "expected None for an empty row_ts"
+        if history_page.nearest_gallery_entry(entries, "not-a-real-timestamp") is not None:
+            return False, "expected None for an unparseable row_ts"
+        if history_page.nearest_gallery_entry(entries, None) is not None:
+            return False, "expected None for a None row_ts, never raising"
+
+        return True, ""
+    check(
+        "nearest_gallery_entry() matches the latest at-or-before entry (inclusive boundary), skips "
+        "an entry with an unrecoverable filename timestamp, and returns None for an empty entry "
+        "list, an empty/unparseable row_ts, or when every recoverable entry is strictly after row_ts",
+        _nearest_gallery_entry_behaviour)
+
+    def _view_panel_triggers_per_row_full_render():
+        tmp = _mkstate("h-view-panel-rows")
+        try:
+            names = [
+                "2026-08-27T10-05-00+00-00.png",
+                "2026-08-27T10-02-00+00-00.png",
+                "2026-08-27T10-00-00+00-00.png",
+            ]
+            _seed_gallery(tmp, names)
+            # Newest-first row order (history_rows()'s own ordering):
+            # VP-C (10:10) -> VP-B (10:03) -> VP-A (10:01).
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "vpa01", "callsign": "VPA"},
+                {"ts": "2026-08-27T10:03:00+00:00", "hex": "vpb01", "callsign": "VPB"},
+                {"ts": "2026-08-27T10:10:00+00:00", "hex": "vpc01", "callsign": "VPC"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+
+            expected_by_group = {
+                0: ("2026-08-27T10-05-00+00-00.png", "2026-08-27T10:05:00+00:00"),  # VPC
+                1: ("2026-08-27T10-02-00+00-00.png", "2026-08-27T10:02:00+00:00"),  # VPB
+                2: ("2026-08-27T10-00-00+00-00.png", "2026-08-27T10:00:00+00:00"),  # VPA
+            }
+            for index, (expected_name, expected_iso) in expected_by_group.items():
+                expected_src = "/gallery/%s" % expected_name
+                expected_caption = history_page.LIGHTBOX_CAPTION_TEMPLATE % expected_iso
+
+                tr_block = _row_block(rendered, "tr", index)
+                li_block = _row_block(rendered, "li", index)
+                if tr_block is None or li_block is None:
+                    return False, "could not locate row block for data-filter-group=%d" % index
+
+                for label, block in (("desktop <tr>", tr_block), ("mobile <li>", li_block)):
+                    if ('data-view-panel-src="%s"' % expected_src) not in block:
+                        return False, (
+                            "expected %s for row %d to carry data-view-panel-src=%r"
+                            % (label, index, expected_src))
+                    if ('data-view-panel-caption="%s"' % expected_caption) not in block:
+                        return False, (
+                            "expected %s for row %d to carry data-view-panel-caption=%r"
+                            % (label, index, expected_caption))
+                    if history_page.VIEW_PANEL_LABEL not in block:
+                        return False, "expected %s for row %d to carry the View-panel aria-label" % (label, index)
+
+                tr_src = re.search(r'data-view-panel-src="([^"]*)"', tr_block).group(1)
+                li_src = re.search(r'data-view-panel-src="([^"]*)"', li_block).group(1)
+                tr_caption = re.search(r'data-view-panel-caption="([^"]*)"', tr_block).group(1)
+                li_caption = re.search(r'data-view-panel-caption="([^"]*)"', li_block).group(1)
+                if tr_src != li_src or tr_caption != li_caption:
+                    return False, (
+                        "expected byte-identical trigger attributes on the desktop and mobile "
+                        "representations of row %d" % index)
+
+            if rendered.count('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) != 1:
+                return False, "expected exactly one lightbox dialog element"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "for three gallery entries and three interleaved rows, each row's desktop and mobile "
+        "View-panel trigger carries byte-identical, correctly-targeted data-view-panel-src/-caption "
+        "attributes matching its own nearest gallery entry, and exactly one lightbox dialog is emitted",
+        _view_panel_triggers_per_row_full_render)
+
+    def _view_panel_empty_gallery_zero_triggers_zero_dialog():
+        tmp = _mkstate("h-view-panel-empty-gallery")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "vpe01", "callsign": "VPEMPTY"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=[]))
+            if "data-view-panel-src" in rendered:
+                return False, "did not expect any View-panel trigger with an empty gallery entry list"
+            if ('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) in rendered:
+                return False, "did not expect a lightbox dialog element with an empty gallery entry list"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with an empty gallery entry list, History renders zero View-panel triggers and zero "
+        "lightbox dialog elements, never a disabled or broken control",
+        _view_panel_empty_gallery_zero_triggers_zero_dialog)
+
+    def _lightbox_dom_contract_three_file_guard():
+        # Source/DOM-contract guard: LIGHTBOX_DIALOG_ID, the two trigger
+        # attribute names, and the three lightbox element class names
+        # must each appear in history_page.py's own constants, in
+        # panel-lookup.js's source, and in the rendered page markup - a
+        # drift in any of the three would leave the button silently
+        # doing nothing with no signal from either file in isolation.
+        js_path = os.path.join(HERE, "static", "panel-lookup.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+
+        tmp = _mkstate("h-dom-contract")
+        try:
+            names = ["2026-08-27T10-00-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "dc01", "callsign": "DOMCONTRACT"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        tokens = (
+            history_page.LIGHTBOX_DIALOG_ID,
+            "data-view-panel-src",
+            "data-view-panel-caption",
+            "lightbox__image",
+            "lightbox__caption",
+            "lightbox__note",
+        )
+        for token in tokens:
+            if token not in js_source:
+                return False, "expected %r to appear in companion/static/panel-lookup.js" % token
+            if token not in rendered:
+                return False, "expected %r to appear in the rendered History page" % token
+        return True, ""
+    check(
+        "LIGHTBOX_DIALOG_ID, the two data-view-panel-* trigger attribute names, and the three "
+        "lightbox__* element class names each appear in companion/static/panel-lookup.js and in "
+        "the rendered History page",
+        _lightbox_dom_contract_three_file_guard)
 
     # ======================================================================
     # Section 2: companion/pages/preview_page.py

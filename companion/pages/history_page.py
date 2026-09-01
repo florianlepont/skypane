@@ -287,6 +287,26 @@ _COPY_CALLSIGN_LABEL = "Copy callsign"
 _COPY_HEX_LABEL = "Copy hex ID"
 _COPY_TIMESTAMP_LABEL = "Copy timestamp"
 
+# D-20: the per-row "View panel near this time" lookup and its shared
+# lightbox. VIEW_PANEL_LABEL is verbatim from D-20. LIGHTBOX_DIALOG_ID,
+# and the three data-view-panel-* attribute names below, must equal
+# companion/static/panel-lookup.js's own literals exactly - duplicated,
+# not imported (a page module has no import path to a static script),
+# and pinned by companion/test_view_pages.py's three-file DOM-contract
+# guard, which reads panel-lookup.js and style.css from disk and asserts
+# all of these appear in all three places. A drift here means the
+# button silently does nothing with no signal from either file in
+# isolation.
+VIEW_PANEL_LABEL = "View panel near this time"
+LIGHTBOX_DIALOG_ID = "panel-lookup-dialog"
+LIGHTBOX_CAPTION_TEMPLATE = "Panel near %s"
+LIGHTBOX_NOTE = (
+    "This is the nearest recorded render, not necessarily from this "
+    "exact flight — the panel updates on its own wake/poll cycle.")
+_VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
+_VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
+_VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
+
 # UXA-05/06.6.3-RESEARCH.md Pitfall 1: the audit's own evidence names
 # "on_runway"/"approaching"/"departed" as the raw confirmed_state values
 # leaking into this page, but server/plane/runway_config.py's
@@ -335,6 +355,102 @@ def _runway_label(raw):
     if raw and raw in device_config.RUNWAY_IDS:
         return device_config.runway_label(raw)
     return raw or ""
+
+
+def nearest_gallery_entry(entries, row_ts):
+    """Return the `(filename, iso)` pair from `entries` whose filename-
+    recovered timestamp is the latest one at or before `row_ts`, or
+    `None` when no such entry exists (D-20).
+
+    A linear scan over `entries` - the already-in-memory, already-
+    ordered list threaded into `ctx["gallery_entries"]` by
+    `companion/app.py`'s own `gallery_entries()` listing helper. No
+    database query, no new index, no stored relationship: the panel
+    refreshes on the device's own wake/poll cycle rather than once per
+    detected flight, so no true per-flight render relationship exists
+    to store in the first place.
+
+    An entry whose filename does not yield a recoverable timestamp
+    (`_gallery_name_to_iso()` returns `None`) is skipped, never matched,
+    never raised on. An unparseable or empty `row_ts` returns `None`
+    rather than raising. Comparison is always between parsed timezone-
+    aware `datetime` values, never between raw strings - gallery
+    filenames carry a local UTC offset while history timestamps are
+    UTC-suffixed, so a lexicographic compare would silently mis-rank
+    across an offset boundary.
+    """
+    if not row_ts:
+        return None
+    try:
+        row_dt = datetime.fromisoformat(row_ts)
+    except ValueError:
+        return None
+
+    best = None
+    best_dt = None
+    for name in entries or []:
+        iso = _gallery_name_to_iso(name)
+        if iso is None:
+            continue
+        try:
+            entry_dt = datetime.fromisoformat(iso)
+        except ValueError:
+            continue
+        if entry_dt > row_dt:
+            continue
+        if best_dt is None or entry_dt > best_dt:
+            best = (name, iso)
+            best_dt = entry_dt
+    return best
+
+
+def _view_panel_button_html(name, iso):
+    """A D-20 "View panel near this time" trigger button - one per
+    History row that has a nearest render. Reuses `.copy-btn`'s exact
+    28x28-visual/44x44-hit-area shape (its pseudo-element already
+    synthesises a compliant pointer/touch hit area, so this control
+    inherits it with no new CSS and no accessibility trade-off).
+
+    `name` (the matched gallery filename) becomes the trigger source
+    attribute, joined onto the existing gallery route prefix. `iso` (the
+    matched entry's recovered ISO timestamp) is formatted through
+    LIGHTBOX_CAPTION_TEMPLATE into the trigger caption attribute -
+    `companion/static/panel-lookup.js` copies that attribute's value
+    verbatim into the lightbox caption on open (`caption.textContent =
+    captionText`, no client-side templating of any kind), so the final
+    attribute value must already be UI-SPEC §8.3's exact "Panel near
+    {timestamp}" copy. Both attributes are escaped exactly once, at this
+    point of interpolation.
+    """
+    src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
+    caption = LIGHTBOX_CAPTION_TEMPLATE % iso
+    return (
+        '<button type="button" class="copy-btn" %s="%s" %s="%s" '
+        'aria-label="%s">%s</button>'
+    ) % (
+        _VIEW_PANEL_SRC_ATTR, src,
+        _VIEW_PANEL_CAPTION_ATTR, escape_html(caption),
+        escape_html(VIEW_PANEL_LABEL),
+        layout.icon_html("icon-nav-preview"),
+    )
+
+
+def _lightbox_html():
+    """The single shared D-20 lightbox `<dialog>`, emitted once per page
+    (never once per row) by `render()`, only when at least one row
+    actually carries a trigger button. Its image src/alt and caption
+    text are written by `companion/static/panel-lookup.js` on trigger
+    click - this function only emits the note, which is a static,
+    server-rendered constant the script never writes.
+    """
+    return (
+        '<dialog class="lightbox" id="%s">'
+        '<img class="lightbox__image" src="" alt="">'
+        '<p class="lightbox__caption text-label mono"></p>'
+        '<p class="lightbox__note text-body">%s</p>'
+        '<button type="button" %s>Close</button>'
+        "</dialog>"
+    ) % (LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_NOTE), _VIEW_PANEL_CLOSE_ATTR)
 
 
 def _safe_query(state_dir, fn):
@@ -534,9 +650,14 @@ def _history_table_html(formatted_rows, now=None):
         # layout.data_table()), so the return value is interpolated
         # directly with no wrapping escape_html() call, matching
         # _merged_cell()'s own documented "do not double-escape
-        # already-safe markup" discipline.
+        # already-safe markup" discipline. D-20's View-panel trigger
+        # (already-safe markup, or "" for a row with no nearest render -
+        # render() computes this once per row and both representations
+        # share it) is appended after the timestamp markup.
         cells = (
-            "<td>%s</td>" % layout.concise_timestamp_html(row["raw_ts"], now),
+            "<td>%s%s</td>" % (
+                layout.concise_timestamp_html(row["raw_ts"], now),
+                row.get("view_panel_html", "")),
             _callsign_hex_cell(row["callsign"], row["hex"]),
             _merged_cell(row["aircraft_type_label"], row["airline_label"]),
             "<td>%s</td>" % escape_html(row["route_label"]),
@@ -595,13 +716,20 @@ def _history_cards_html(formatted_rows, now=None):
         # desktop cell uses (same raw_ts, same now) - the desktop table
         # and the mobile card always render byte-identical timestamp
         # markup for the same row. Already-safe markup, interpolated
-        # verbatim, never re-escaped.
+        # verbatim, never re-escaped. D-20's View-panel trigger (already-
+        # safe markup, or "" for a row with no nearest render) follows
+        # the time span - the exact same value the desktop cell above
+        # carries for this same row (render() computes it once per row).
         primary = (
             '<div class="history-card__primary">'
             '<span class="cell-primary mono">%s</span>'
-            '<span class="history-card__time">%s</span>'
+            '<span class="history-card__time">%s</span>%s'
             "</div>"
-        ) % (escape_html(row["callsign"]), layout.concise_timestamp_html(row["raw_ts"], now))
+        ) % (
+            escape_html(row["callsign"]),
+            layout.concise_timestamp_html(row["raw_ts"], now),
+            row.get("view_panel_html", ""),
+        )
         secondary = (
             '<div class="history-card__secondary">'
             "<span>%s</span>"
@@ -684,8 +812,28 @@ def render(ctx):
 
     if rows is _DB_UNAVAILABLE:
         body = '<p class="text-body">%s</p>' % escape_html(_HISTORY_UNAVAILABLE_TEXT)
+        lightbox_html = ""
     else:
         formatted_rows = [format_event_row(row, now) for row in rows]
+        # D-20: the nearest-render match is computed exactly once per
+        # row, here, and stored onto the row dict both
+        # _history_table_html() and _history_cards_html() below already
+        # share — never two independent lookups that could disagree
+        # between the desktop and mobile representations. A row with no
+        # match carries the empty string, never a disabled/broken
+        # control.
+        for row in formatted_rows:
+            match = nearest_gallery_entry(gallery_entries_list, row["raw_ts"])
+            row["view_panel_html"] = (
+                _view_panel_button_html(match[0], match[1]) if match else "")
+        # The shared lightbox is emitted exactly once per page, and only
+        # when at least one row actually carries a trigger button - with
+        # an empty gallery entry list every row's match is None, so
+        # neither a button nor this dialog is ever rendered (the truth
+        # this task's own acceptance criteria pin).
+        has_view_panel_button = any(
+            row["view_panel_html"] for row in formatted_rows)
+        lightbox_html = _lightbox_html() if has_view_panel_button else ""
         if not formatted_rows:
             # No filter bar over nothing to filter — matches the table/
             # card renderers' own "no chrome when there's no data" rule.
@@ -699,4 +847,4 @@ def render(ctx):
                 + _history_cards_html(formatted_rows, now)
                 + _history_table_html(formatted_rows, now))
 
-    return header + now_showing_html + body
+    return header + now_showing_html + body + lightbox_html
