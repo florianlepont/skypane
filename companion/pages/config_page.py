@@ -58,6 +58,17 @@ LED_CHECKBOX_VALUE = "on"
 # a CSS modifier class in companion/static/style.css. The LED group is
 # the odd one out only in that it never had a pair to merge — its single
 # paragraph is reworded and relocated, not merged with anything.
+#
+# quick task 260901-s5o: a fourth caption, POLL_SECTION_CAPTION, joins
+# the three above. Poll was never part of the description/helper merge
+# those three came out of — it is a `<section class="page-section">`,
+# not a `.theme-status` group, and had no paragraph of its own to merge.
+# It was simply skipped, leaving the page's fourth section as the only
+# one with a bare heading. This caption is new copy, validated against
+# the Settings Save Bar Sketch, not merged from anything. Unlike the
+# other three, it is consumed by a two-branch renderer
+# (poll_trigger_section()), so it must be interpolated on both branches
+# or it would silently vanish for the whole cooldown window.
 THEME_SECTION_CAPTION = (
     "Panel colors for departing/arriving flights. More themes appear "
     "here once validated on real hardware.")
@@ -67,6 +78,9 @@ RUNWAY_SECTION_CAPTION = (
 LED_SECTION_CAPTION = (
     "Lit only during the device's brief wake window, not visible from "
     "the wall side. Applies on the next scheduled poll.")
+POLL_SECTION_CAPTION = (
+    "Manually trigger an immediate poll cycle instead of waiting for "
+    "the next scheduled one.")
 # D-05 (06.6.4.1): the LED group's new user-facing heading, once it moves
 # from its own <fieldset>/<legend> into a sibling <h2>-headed group of
 # the merged form — see led_group() below.
@@ -529,31 +543,47 @@ def poll_trigger_section(cooldown_remaining):
     execution, before it would ever call `poll_loop.run_once()` — so a
     user who re-enables either button by hand in devtools still cannot
     poll early or trigger two concurrent polls.
+
+    quick task 260901-s5o: the section's single muted caption
+    (`POLL_SECTION_CAPTION`) renders first on both branches, landing
+    directly under the `<h2 class="text-heading">Poll</h2>` heading that
+    `render()` — not this function — emits immediately before this
+    function's output. A caption emitted on only one branch would
+    silently disappear for the whole cooldown window, which is why
+    `caption_html` is computed once above the branch rather than inline
+    in each return.
     """
     # `> 0`, not truthy: must agree with _poll_cooldown_script()'s own
     # `remaining <= 0` early-return, or a negative value would take this
     # branch (natively disabling the button) while the script inertly
     # no-ops, leaving no way to re-enable it client-side.
+    caption_html = (
+        '<p class="text-label section-caption">%s</p>'
+        % escape_html(POLL_SECTION_CAPTION))
     if cooldown_remaining > 0:
         cooldown_text = POLL_COOLDOWN_HELPER_TEXT.format(n=cooldown_remaining)
         return (
+            "%s"
             '<form method="post" action="/poll-now">'
             '<button type="submit" id="%s" disabled>Trigger Poll Now</button>'
             "</form>"
             '<p class="text-body" id="%s">%s</p>'
             "%s"
         ) % (
+            caption_html,
             POLL_TRIGGER_BUTTON_ID,
             POLL_COOLDOWN_TEXT_ID,
             escape_html(cooldown_text),
             _poll_cooldown_script(cooldown_remaining),
         )
     return (
+        "%s"
         '<form method="post" action="/poll-now">'
         '<button type="submit" id="%s">Trigger Poll Now</button>'
         "</form>"
         "%s"
     ) % (
+        caption_html,
         POLL_TRIGGER_BUTTON_ID,
         _poll_submit_script(),
     )

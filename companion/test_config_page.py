@@ -100,7 +100,15 @@ STARTUP_DEADLINE_S = 10.0
 # CSS DOM contract guard covering .section-caption, the restyled
 # .dirty-bar, fixed-not-sticky positioning, and the 240px must-equal
 # pair).
-EXPECTED_CHECK_COUNT = 60
+# quick task 260901-s5o: observed on-disk baseline was 60 before this
+# task. Task 1 (+1): added the Poll-caption both-branches-and-position
+# check, and widened _section_captions_appear_escaped_verbatim_exactly_once()
+# in place to cover a fourth constant (POLL_SECTION_CAPTION), no count
+# change for that widening. Task 2 (no count change): the cross-file CSS
+# guard (_style_css_carries_section_caption_and_restyled_fixed_dirty_bar())
+# was retargeted and extended in place onto the floating-card save-bar
+# treatment.
+EXPECTED_CHECK_COUNT = 61
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -699,7 +707,9 @@ def main():
     def _section_captions_appear_escaped_verbatim_exactly_once():
         # quick task 260901-re6: retargeted onto all three merged caption
         # constants, strengthened from "is present" to "appears exactly
-        # once" for each.
+        # once" for each. quick task 260901-s5o: widened in place to a
+        # fourth constant, POLL_SECTION_CAPTION - same check, same
+        # assertion shape, one more constant, no new check added.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
@@ -707,15 +717,18 @@ def main():
         theme_caption = escape_html(config_page.THEME_SECTION_CAPTION)
         runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
         led_caption = escape_html(config_page.LED_SECTION_CAPTION)
+        poll_caption = escape_html(config_page.POLL_SECTION_CAPTION)
         if rendered.count(theme_caption) != 1:
             return False, "expected THEME_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(theme_caption)
         if rendered.count(runway_caption) != 1:
             return False, "expected RUNWAY_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(runway_caption)
         if rendered.count(led_caption) != 1:
             return False, "expected LED_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(led_caption)
+        if rendered.count(poll_caption) != 1:
+            return False, "expected POLL_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(poll_caption)
         return True, ""
     check(
-        "the theme, runway, and LED section captions all appear escaped-verbatim exactly once in render()'s output (quick task 260901-re6)",
+        "the theme, runway, LED, and poll section captions all appear escaped-verbatim exactly once in render()'s output (quick task 260901-re6, quick task 260901-s5o)",
         _section_captions_appear_escaped_verbatim_exactly_once)
 
     def _current_theme_and_runway_are_selected():
@@ -772,6 +785,56 @@ def main():
     check(
         "poll_trigger_section(17) renders a disabled button and the remaining-seconds copy",
         _poll_trigger_disabled_with_remaining_seconds)
+
+    def _poll_section_caption_renders_on_both_branches_under_the_heading():
+        # quick task 260901-s5o: the Poll section's own new caption check
+        # — the group Task 1's non-goal explicitly excludes from
+        # _each_group_emits_exactly_one_caption_between_heading_and_control()
+        # (Poll's heading lives in render(), not in poll_trigger_section(),
+        # and its disabled branch legitimately emits a second <p>).
+        poll_caption = escape_html(config_page.POLL_SECTION_CAPTION)
+        for cooldown_remaining in (0, 17):
+            rendered = config_page.poll_trigger_section(cooldown_remaining)
+            if rendered.count("section-caption") != 1:
+                return False, (
+                    "expected poll_trigger_section(%d) to emit exactly one "
+                    "section-caption occurrence, got %d"
+                    % (cooldown_remaining, rendered.count("section-caption")))
+            if rendered.count(poll_caption) != 1:
+                return False, (
+                    "expected poll_trigger_section(%d) to carry "
+                    "POLL_SECTION_CAPTION escaped-verbatim exactly once, got %d"
+                    % (cooldown_remaining, rendered.count(poll_caption)))
+            caption_pos = rendered.index("section-caption")
+            trigger_pos = rendered.index('<form method="post" action="/poll-now">')
+            if not caption_pos < trigger_pos:
+                return False, (
+                    "expected poll_trigger_section(%d)'s caption to precede "
+                    "the poll-trigger form" % cooldown_remaining)
+
+        # The render()-level position proof: the heading is emitted by
+        # render(), the caption by poll_trigger_section() — two different
+        # functions whose relative order nothing else guards.
+        page = config_page.render({
+            "device_config": {
+                "theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if page.count(poll_caption) != 1:
+            return False, (
+                "expected render() to carry POLL_SECTION_CAPTION "
+                "escaped-verbatim exactly once, got %d" % page.count(poll_caption))
+        heading_pos = page.index('<h2 class="text-heading">Poll</h2>')
+        page_caption_pos = page.index(poll_caption)
+        poll_now_pos = page.index('action="/poll-now"')
+        if not heading_pos < page_caption_pos < poll_now_pos:
+            return False, (
+                "expected the Poll caption to fall between the Poll <h2> "
+                "heading and the poll-trigger form's action attribute")
+        return True, ""
+    check(
+        "poll_trigger_section() emits POLL_SECTION_CAPTION exactly once on both the enabled and disabled branches, before the poll-trigger form, and render() places it directly under the Poll <h2> heading (quick task 260901-s5o)",
+        _poll_section_caption_renders_on_both_branches_under_the_heading)
 
     def _poll_trigger_live_countdown_seeded_from_server_value():
         # D-01: the disabled branch must ship exactly one inline <script>,
