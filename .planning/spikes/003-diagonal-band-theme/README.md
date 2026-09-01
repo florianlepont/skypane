@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 11 splits the tag (ORY left, RWY 3 right) instead of merging it whole, resolving round 9/10's conflict with no shift needed at all, awaiting developer reaction
+verdict: PENDING - round 12 centres text inside the band; black-flat fails completely (invisible text), the other 4 candidates read fine - awaiting developer decision on black
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -351,6 +351,31 @@ into the airport code (goes left) and the runway part (stays right,
 still its own `TOP_TAG_FONT`-sized, right-aligned run) - not a hardcoded
 re-derivation of either string. Confirmed clean on `black-flat` (the
 tightest case throughout this whole exploration).
+
+**Round 12 - text centred INSIDE the band, not beside it (developer's new
+idea).** Instead of the text sitting to the side of the diagonal (round
+9-11's nose-aligned position, which happens to land outside the band at
+this geometry), the developer proposed centring it directly inside the
+band, below the aircraft. New `_band_center_x(canvas_y, w)` computes the
+band's own horizontal centre at a given y (same linear interpolation the
+collision checks in earlier rounds already used), and every line of the
+main text block is now centre-anchored there instead of left-anchored
+at the nose.
+
+**Real finding, not a corner case: black band + black ink is now a
+total failure, not a tight-margin collision.** White theme's ink is
+always `IDX_BLACK` - with the text sitting directly ON the band instead
+of beside it, `black-flat` renders the entire block (`AF1234`/`TO NEW
+YORK`/`Air France · A320`) completely invisible, not just clipped at an
+edge. Checked all 5 requested candidates: `blue-dithered`, `blue-flat`,
+`green-dithered`, and `red-flat` all keep the text legible (their inks
+are dark/saturated but not literally black, so black text still has
+enough luminance contrast) - only `black-flat` fails, and it fails
+completely. This needs a developer decision before it can ship: exclude
+black from this "text-inside-the-band" treatment specifically (keep it
+available for the band colour, just not paired with this text
+placement), or resolve it some other way (e.g. a different ink for that
+one candidate) - not something to silently paper over.
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13

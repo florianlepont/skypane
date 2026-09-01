@@ -197,17 +197,30 @@ def _fuselage_visual_top_y(route, aircraft_type, main_placement):
     return main_placement.rect[1] + offset_y
 
 
+def _band_center_x(canvas_y, w):
+    """Round 12 (developer): the band's own horizontal centre at a given
+    canvas y - used to centre the main text block INSIDE the diagonal
+    instead of beside it. The trapezoid's centreline shifts left as y
+    increases (same linear interpolation every other band-geometry check
+    in this file already uses), so this is a function of y, not a
+    constant.
+    """
+    f = canvas_y / render.HEIGHT
+    left_frac = BAND_TOP_LEFT_FRAC - (BAND_TOP_LEFT_FRAC - BAND_BOT_LEFT_FRAC) * f
+    right_frac = BAND_TOP_RIGHT_FRAC - (BAND_TOP_RIGHT_FRAC - BAND_BOT_RIGHT_FRAC) * f
+    return (left_frac + right_frac) / 2 * w
+
+
 def patched_draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
     draw = ImageDraw.Draw(canvas)
-    # Round 9 (developer): align the text block's left edge to the
-    # aircraft's own nose, not the canvas margin - main_placement.content[0]
-    # is the illustration's leftmost OPAQUE pixel column, i.e. the nose
-    # tip itself, the same ".content" (not ".rect") bbox every other
-    # measurement in this pipeline already trusts for "where the aircraft
-    # actually is" (unlike the vertical top edge, a side-view nose is a
-    # filled, rounded shape, not a thin spike, so this is a safe reuse -
-    # no separate width-profile analysis needed here).
-    left_x = main_placement.content[0]
+    # Round 12 (developer): centre the text block INSIDE the diagonal
+    # band, below the aircraft, instead of beside it at the nose (round
+    # 9). Real risk this round must check, not assume: the band's own ink
+    # colour now sits directly BEHIND this text on every candidate, not
+    # just the ones where a stray edge crossed it - White theme's ink is
+    # always IDX_BLACK, so a black band under black text is illegible
+    # here by construction (same root cause as round 2's original
+    # black-band finding), not a corner case to hope doesn't happen.
 
     # The real content ladder, called verbatim - same functions, same
     # data, same never-shows-the-raw-callsign guarantee production uses.
@@ -257,22 +270,27 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
     first_bbox = None
 
     if number_text:
-        num_bbox = draw.textbbox((left_x, y), number_text, font=num_font, anchor="la")
-        draw.text((left_x, y), number_text, font=num_font, fill=ink_idx, anchor="la")
+        center_x = _band_center_x(y, render.WIDTH)
+        num_bbox = draw.textbbox((center_x, y), number_text, font=num_font, anchor="ma")
+        draw.text((center_x, y), number_text, font=num_font, fill=ink_idx, anchor="ma")
         first_bbox = num_bbox
         dash_y = num_bbox[3] + DASH_GAP
-        draw.line([(left_x, dash_y), (left_x + DASH_W, dash_y)], fill=ink_idx, width=2)
+        draw.line([(center_x - DASH_W / 2, dash_y), (center_x + DASH_W / 2, dash_y)], fill=ink_idx, width=2)
         y = dash_y + DASH_GAP + 4
 
     if tracked_text:
-        render.draw_tracked_text(draw, (left_x, y), tracked_text, route_font, ink_idx, render.LABEL_TRACKING_PX)
-        tracked_bbox = render._tracked_text_bbox(route_font, (left_x, y), tracked_text, render.LABEL_TRACKING_PX)
+        center_x = _band_center_x(y, render.WIDTH)
+        tracked_w = render._tracked_text_width(route_font, tracked_text, render.LABEL_TRACKING_PX)
+        tracked_x = center_x - tracked_w / 2
+        render.draw_tracked_text(draw, (tracked_x, y), tracked_text, route_font, ink_idx, render.LABEL_TRACKING_PX)
+        tracked_bbox = render._tracked_text_bbox(route_font, (tracked_x, y), tracked_text, render.LABEL_TRACKING_PX)
         if first_bbox is None:
             first_bbox = tracked_bbox
         y = tracked_bbox[3] + 12
 
-    plain_bbox = draw.textbbox((left_x, y), plain_text, font=airline_font, anchor="la")
-    draw.text((left_x, y), plain_text, font=airline_font, fill=ink_idx, anchor="la")
+    center_x = _band_center_x(y, render.WIDTH)
+    plain_bbox = draw.textbbox((center_x, y), plain_text, font=airline_font, anchor="ma")
+    draw.text((center_x, y), plain_text, font=airline_font, fill=ink_idx, anchor="ma")
     if first_bbox is None:
         first_bbox = plain_bbox
 
