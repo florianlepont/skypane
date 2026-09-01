@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: none
-current_phase_name: none
+current_phase: "06.6.4.1"
+current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: idle
-stopped_at: Phase 06.6.4 complete (6/6 plans, VERIFICATION.md passed 16/16). phase.complete's auto-advance pointed next_phase at "07", but Phase 7 (Final On-Glass Verification) was already completed independently on main 2026-08-28 (PR #18) and merged into this branch — not a real next step, a stale sequential-number artifact. The two real open items are: (1) Phase 06.6.3's own closing checkpoint (06.6.3-08 Task 2) — left unresolved when the developer's "catastrophique" reaction to the shipped UI redirected the session into 06.6.4's work; (2) the developer-requested page-by-page pass (Config's Runway-card grid, Health's banner-content conflict, Airlines' contradictory empty state, nested horizontal scroll) — not yet inserted as a phase.
-last_updated: "2026-09-01T08:03:52.167Z"
+stopped_at: "Phase 06.6.4.1 context gathered (2026-09-01) — see 06.6.4.1-CONTEXT.md and 06.6.4.1-DISCUSSION-LOG.md for the full decision record. Note: current_phase/current_phase_name/last_activity_desc/percent are reverted to a stale Phase-07 snapshot by EVERY state-mutating gsd_run call in this project (phase.insert, state.add-roadmap-evolution x2, state.record-session — not just one handler), each time hand-corrected back; a future session should expect and re-check this after any state.* call, not just at checkpoints. Next actionable step: /gsd-plan-phase 06.6.4.1 (research + plan, CONTEXT.md already gathered)."
+last_updated: "2026-09-01T10:16:21.425Z"
 last_activity: 2026-09-01
-last_activity_desc: Phase 06.6.4 complete; next actionable work is 06.6.3-08's unresolved checkpoint and the not-yet-planned page-by-page pass, not Phase 07 (already done)
+last_activity_desc: Phase 06.6.4.1 context gathered — page-by-page IA consolidation with Airlines reborn as an illustration gallery, ready for /gsd-plan-phase
 progress:
-  total_phases: 18
+  total_phases: 19
   completed_phases: 16
   total_plans: 85
   completed_plans: 84
-  percent: 89
+  percent: 99
 ---
 
 # Project State
@@ -220,6 +220,8 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - Phase 06.6.2 inserted after Phase 06.6: Companion UX/accessibility/responsive hardening — seeded from 06.6.1-UX-AUDIT.md (18 findings, 4 High; 11 open product decisions to resolve in discuss-phase before planning) (URGENT)
 - Phase 06.6.3 inserted after Phase 06.6.2: Companion per-page redesign — split out of 06.6.2 (planner's phase-split recommendation, developer-approved) to keep both phases within this project's own per-phase context-budget precedent (URGENT)
 - Phase 06.6.4 inserted after Phase 06.6.3: Companion sober visual refinement — real-browser reaction to 06.6.3's shipped UI ('catastrophique' UX/UI) led to an interactive design-system reference artifact this session, iterated toward a Linear-inspired sober treatment across colors/typography (closed gaps), then buttons/cards/banners/nav/stat-tiles/filter-bar/icon-buttons/segmented-control/tables. Developer validated all proposals; this phase applies them to the real companion CSS/markup. 06.6.3-08's own closing checkpoint (Task 2) was left unresolved when this feedback surfaced — to be revisited once this phase lands. (URGENT)
+- Phase 06.6.4.1 edited: shortened title, moved full rationale into Goal field
+- Phase 06.6.4.1 edited: scope updated: Airlines nav slot survives, reborn as an illustration gallery (server/plane/illustrations.py real art) instead of being removed; nav count corrected 5-to-3 to 5-to-4
 
 ### Decisions
 
@@ -404,10 +406,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-08-31T22:52:33.747Z
-Stopped at: Completed 06.6.4-03-PLAN.md
+Last session: 2026-09-01T10:16:21.415Z
+Stopped at: Phase 06.6.4.1 context gathered
 
-Resume file: None
+Resume file: .planning/phases/06.6.4.1-companion-page-by-page-ia-consolidation-full-page-by-page-vi/06.6.4.1-CONTEXT.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
