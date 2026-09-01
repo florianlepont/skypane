@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 4 reuses the real content ladder verbatim (round 3 had invented content), Regular confirmed project-wide, awaiting developer reaction
+verdict: PENDING - round 5 anchors text to the fuselage's visual top (not the tail-tip pixel), awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -231,6 +231,26 @@ project-wide for the e-ink screen - no italic vendoring. Matches Phase
 this panel (D-06); italic was reference-image styling, not a real need.
 `ROUTE_LINE_FONT` changed from Bold to Regular in this round too, for
 the same reason.
+
+**Round 5 - text-to-aircraft distance fix (developer catch: "très
+écarté").** The above-illustration anchor (`main_placement.content[1]`,
+the topmost technically-opaque pixel) is dominated by the tail fin's
+tip on a swept-tail silhouette - measured directly on the Air France
+file: the tail tip sits only 8px into the resized illustration, but the
+fuselage doesn't reach 40% of the illustration's own max row width until
+169px down. Anchoring 32px above `content[1]` is mathematically tight to
+a real pixel, but that pixel is a nearly-invisible sliver of tail, so the
+text reads as stranded near the top labels instead of "belonging to" the
+aircraft. New `_fuselage_visual_top_y()` re-selects and re-resizes the
+same illustration file `_build_active_canvas()` already chose (same
+functions, same parameters - never changes which file is drawn), reads
+its alpha-channel row-width profile, and anchors to the first row that
+reaches 40% of the illustration's own max width instead of the first
+opaque row at all. Text now sits directly against the fuselage/livery on
+every candidate, adapting per-file the same way `MAIN_TEXT_GAP_PX`
+already adapts to nose/wheel position on the bottom edge - this is the
+same category of fix, just for the top edge, which no prior phase needed
+before text moved above the illustration.
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13

@@ -37,7 +37,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "server", ".."))
 
-from server.plane import render
+from server.plane import render, illustrations
 from server import panel_format as pf
 from server.plane import dither
 from PIL import Image, ImageDraw
@@ -123,7 +123,47 @@ ROUTE_LINE_FONT = (render.PT_SERIF_REGULAR, 22, 400)
 AIRLINE_LINE_FONT = (render.PT_SERIF_REGULAR, 20, 400)
 DASH_W = 24
 DASH_GAP = 10
-ABOVE_ILLUSTRATION_GAP_PX = 40  # gap between the text block's bottom and the illustration's opaque top edge
+ABOVE_ILLUSTRATION_GAP_PX = 32  # gap between the text block's bottom and the fuselage's VISUAL top (see below)
+FUSELAGE_WIDTH_THRESHOLD = 0.4  # row counts as "fuselage" once its opaque width crosses this fraction of the max
+
+
+def _fuselage_visual_top_y(route, aircraft_type, main_placement):
+    """Return the canvas y where the illustration's silhouette first
+    looks like "the plane" to the eye - not `main_placement.content[1]`,
+    the topmost technically-opaque pixel.
+
+    Round 5 fix (developer: text reads "très écarté" from the aircraft).
+    Measured directly on the Air France file: the topmost opaque pixel
+    (the swept tail fin's tip) sits only 8px into the resized image, but
+    the fuselage doesn't reach 40% of the illustration's own max row
+    width until 169px down - the thin tail spike accounts for 161 of the
+    387px-tall image before anything "solid-looking" appears. Anchoring
+    to `.content[1]` (correct for bounding-box purposes, e.g.
+    `_assert_within_canvas()`) is exactly why the text block ends up
+    visually stranded near the top labels: it's 40px from a real pixel,
+    just one that reads as empty air to a human looking at the panel.
+
+    Re-selects and re-resizes the same illustration file
+    `_build_active_canvas()` already chose (same functions, same
+    parameters) purely to read its alpha-channel row-width profile -
+    doesn't change which file is drawn or how, only where the text block
+    reads this one number from.
+    """
+    main_path = illustrations.select_illustration(route, aircraft_type)
+    inner_width = render.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
+    main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
+    resized = render._load_illustration_safely(main_path, main_w)
+    if resized is None or resized.mode != "RGBA":
+        return main_placement.content[1]  # fallback: no illustration loaded, behave as before
+    alpha = resized.split()[-1]
+    w, h = resized.size
+    row_widths = [sum(1 for p in alpha.crop((0, y, w, y + 1)).getdata() if p > 20) for y in range(h)]
+    max_w = max(row_widths) if row_widths else 0
+    if max_w == 0:
+        return main_placement.content[1]
+    threshold = FUSELAGE_WIDTH_THRESHOLD * max_w
+    offset_y = next((y for y, rw in enumerate(row_widths) if rw >= threshold), 0)
+    return main_placement.rect[1] + offset_y
 
 
 def patched_draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
@@ -178,7 +218,8 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
         total_h += render._tracked_text_bbox(route_font, (0, 0), tracked_text, render.LABEL_TRACKING_PX)[3] + 12
     total_h += draw.textbbox((0, 0), plain_text, font=airline_font, anchor="la")[3]
 
-    y = main_placement.content[1] - ABOVE_ILLUSTRATION_GAP_PX - total_h
+    fuselage_top_y = _fuselage_visual_top_y(route, flight.get("aircraft_type"), main_placement)
+    y = fuselage_top_y - ABOVE_ILLUSTRATION_GAP_PX - total_h
     first_bbox = None
 
     if number_text:
