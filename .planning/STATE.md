@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: "06.6.4.1"
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: idle
-stopped_at: "Phase 06.6.4.1 context gathered (2026-09-01) — see 06.6.4.1-CONTEXT.md and 06.6.4.1-DISCUSSION-LOG.md for the full decision record. Note: current_phase/current_phase_name/last_activity_desc/percent are reverted to a stale Phase-07 snapshot by EVERY state-mutating gsd_run call in this project (phase.insert, state.add-roadmap-evolution x2, state.record-session — not just one handler), each time hand-corrected back; a future session should expect and re-check this after any state.* call, not just at checkpoints. Next actionable step: /gsd-plan-phase 06.6.4.1 (research + plan, CONTEXT.md already gathered)."
-last_updated: "2026-09-01T10:16:21.425Z"
+stopped_at: "Phase 06.6.4.1 UI-SPEC approved (2026-09-01, 1 revision cycle) — CONTEXT.md, RESEARCH.md, VALIDATION.md, UI-SPEC.md all done. Next actionable step: /gsd-plan-phase 06.6.4.1 to spawn gsd-planner. (Frontmatter hand-corrected again — see 06.6.4.1's stopped_at history in this file's git log for the recurring state.* corruption pattern.)"
+last_updated: "2026-09-01T11:42:31.072Z"
 last_activity: 2026-09-01
-last_activity_desc: Phase 06.6.4.1 context gathered — page-by-page IA consolidation with Airlines reborn as an illustration gallery, ready for /gsd-plan-phase
+last_activity_desc: Phase 06.6.4.1 UI-SPEC approved, ready for /gsd-plan-phase
 progress:
   total_phases: 19
   completed_phases: 16
@@ -406,10 +406,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-01T10:16:21.415Z
-Stopped at: Phase 06.6.4.1 context gathered
+Last session: 2026-09-01T11:42:31.063Z
+Stopped at: Phase 06.6.4.1 UI-SPEC approved
 
-Resume file: .planning/phases/06.6.4.1-companion-page-by-page-ia-consolidation-full-page-by-page-vi/06.6.4.1-CONTEXT.md
+Resume file: .planning/phases/06.6.4.1-companion-page-by-page-ia-consolidation-full-page-by-page-vi/06.6.4.1-UI-SPEC.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
