@@ -263,6 +263,16 @@ def runway_fieldset(current_runway_id, images_available=()):
     markup with no accessible group semantics — `<h2 class="text-heading">`
     is the role the Poll section and the new LED group both use too, so
     every group in this form reads at one consistent heading level.
+
+    The cards themselves are further wrapped in a nested `<div
+    class="runway-row">` (quick task 260901-qif), sitting between the
+    description paragraph and the helper paragraph — only the cards go in,
+    the `<h2>` and both `<p>`s stay outside it. The cards used to be bare
+    siblings of the heading and both paragraphs inside `.theme-status`, so
+    each block-level card took a full line and the group rendered as three
+    stacked full-width bars instead of the validated row-of-three. The row
+    is a layout container only — it carries no visual treatment of its
+    own, and the cards keep theirs.
     """
     cards = []
     for runway_id in device_config.RUNWAY_IDS:
@@ -297,7 +307,7 @@ def runway_fieldset(current_runway_id, images_available=()):
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">Runway</h2>'
         '<p class="text-body">%s</p>'
-        "%s"
+        '<div class="runway-row">%s</div>'
         '<p class="text-label">%s</p>'
         "</div>"
     ) % (
@@ -331,12 +341,21 @@ def led_group(current_led_enabled):
     sentence: `LED_HELPER_TEXT` already reads as one and renders directly
     under the heading here, the same position Theme's and Runway's new
     description paragraphs occupy in their own groups.
+
+    The `<label>` carries `class="led-checkbox"` (quick task 260901-qif):
+    unclassed, it fell through to the global `input, select` rule written
+    for text inputs and selects, painting an oversized 44x44 filled,
+    bordered, rounded box instead of a normal small checkbox. The class
+    scopes a normalization rule that shrinks the checkbox to its native
+    16px size while relocating the 44px touch-target floor onto this
+    label — the input's own `type`/`name`/`value`/`checked` attribute
+    sequence is untouched.
     """
     checked = " checked" if current_led_enabled else ""
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        "<label>"
+        '<label class="led-checkbox">'
         '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
         "</label>"
         '<p class="text-label">%s</p>'

@@ -1223,6 +1223,22 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Runway row (quick task 260901-qif): a layout-only wrapping flex
+ * container introduced around just the three `.runway-card` elements —
+ * it carries no visual treatment of its own, only the cards keep theirs.
+ * Its `gap` is now the single owner of both inter-card and wrapped-row
+ * spacing; `.runway-card`'s own former `margin-bottom` was retired below
+ * to avoid double-spacing (a 16px margin stacked on top of this 8px
+ * gap). Before this wrapper, the cards were bare `display: block`
+ * siblings of `.theme-status`'s heading and both paragraphs, so each
+ * card took a full line and the group rendered as three stacked
+ * full-width bars instead of a row. */
+.runway-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
 /* Runway picker (06.4/06.6.3 D-05): selectable card, number prominence +
  * optional airport diagram. Supersedes the old .runway-option/
  * .runway-option__number/.runway-option__image rules (06.4) — removed
@@ -1245,7 +1261,14 @@ button:disabled {
   border-radius: var(--radius-control);
   box-shadow: none;
   padding: var(--space-md);
-  margin-bottom: var(--space-md);
+  /* quick task 260901-qif: traded for flex sizing now that .runway-row
+   * (above) owns inter-card spacing via its own `gap`. .runway-card has
+   * exactly one emitter in the repository, runway_fieldset() (confirmed
+   * by grep), so retiring this declaration cannot affect another
+   * consumer. Grow-and-shrink from a 150px basis with a 140px floor lays
+   * the three cards out in one wrapping row instead of one per line. */
+  flex: 1 1 150px;
+  min-width: 140px;
   cursor: pointer;
 }
 
@@ -1294,6 +1317,56 @@ button:disabled {
 
 .runway-card--selected .runway-card__check {
   display: inline-flex;
+}
+
+/* Diagnostic LED checkbox (quick task 260901-qif). `summary`'s own idiom
+ * reused verbatim: a centred flex row with a 44px `min-height`. The 44px
+ * is deliberate — a native checkbox's label is already a click target, so
+ * putting the floor here means the control's real activation target
+ * stays 44px tall while its painted box (below) shrinks to 16px. This is
+ * a relocation of the floor, exactly like `.copy-btn`'s synthesized
+ * `::before` hit area — NOT a fourth entry for the 44px floor register's
+ * opt-out list above the base `button` rule; see that comment, which
+ * cross-references this rule. `gap`, not the literal space in the
+ * markup, is what separates the box from its text once the label is a
+ * flex container — this flex row is only possible because this rule
+ * overrides the global block-level `label` rule. */
+.led-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+}
+
+/* Undoes the global `input, select` rule for this one control, declaration
+ * by declaration: a 16px square box, both of that rule's 44px minimums
+ * cleared to zero, padding cleared to zero, and the surface/edge/corner
+ * rounding all explicitly reset the way `.filter-bar [data-filter-clear]`
+ * resets its own inherited button chrome. That global rule is written for
+ * text inputs and selects and was reaching this element only because it
+ * carried no class of its own — that is the entire reason it used to
+ * paint as an oversized filled box. The two cleared minimums are
+ * load-bearing for the same reason `.filter-bar__field input`'s own
+ * cleared minimum is: a browser never lets a plain width or height shrink
+ * an element below a minimum another rule sets unless that minimum is
+ * itself cleared, so without them the 16px sizing below is inert.
+ * `flex: none` is required for the same reason `.icon` / `.banner::before`
+ * state theirs — without it the 16px box shrinks under the flex row's
+ * default shrink behaviour. This rule deliberately neither clears nor
+ * restates the native-control tint (`accent-color`) the global rule
+ * declares once site-wide (D-06) — restating it here would create a
+ * second place one value lives, the exact failure mode this file's
+ * --color-destructive comment already documents. */
+.led-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  flex: none;
 }
 
 /* Data table: quiet uppercase label header, one row surface, hover-only

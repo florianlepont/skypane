@@ -509,17 +509,24 @@ def main():
         # Acceptance criterion: runway_fieldset(...) returns a string
         # that starts with a single opening div tag and ends with its
         # matching closing tag — one top-level element, not five siblings
-        # (D-01's root-cause fix).
+        # (D-01's root-cause fix). Retargeted in place (quick task
+        # 260901-qif): the count moved from one div pair to two because a
+        # nested `.runway-row` layout container was introduced around just
+        # the cards — the original "exactly one <div> pair" wording was a
+        # proxy for the top-level invariant rather than the invariant
+        # itself. The startswith/endswith assertions are untouched; those
+        # are the ones that actually prove the single-top-level-element
+        # invariant.
         rendered = config_page.runway_fieldset("3")
         if not rendered.startswith('<div class="theme-status"'):
             return False, "expected runway_fieldset() to start with a single <div class=\"theme-status\"> wrapper"
         if not rendered.endswith("</div>"):
             return False, "expected runway_fieldset() to end with the wrapper's matching </div>"
-        if rendered.count("<div") != 1 or rendered.count("</div>") != 1:
-            return False, "expected exactly one top-level <div>...</div> pair, no nested divs"
+        if rendered.count("<div") != 2 or rendered.count("</div>") != 2:
+            return False, "expected exactly two div pairs - the top-level .theme-status wrapper and the nested .runway-row layout container"
         return True, ""
     check(
-        "runway_fieldset() returns a single top-level <div> element, not five flat siblings (D-01)",
+        "runway_fieldset() returns exactly two div pairs - the top-level .theme-status wrapper and the nested .runway-row layout container, not five flat siblings (D-01)",
         _runway_fieldset_returns_single_top_level_div)
 
     def _theme_and_runway_section_descriptions_appear_exactly_once():
