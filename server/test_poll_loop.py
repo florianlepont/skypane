@@ -171,7 +171,58 @@ EXPECTED_CHECK_COUNT = 43
 # different digest than this Mac for the identical code, confirming a real
 # font-rendering difference between this dev machine and the CI container.
 # Read verbatim from CI's own FAIL output, not recomputed locally.
-_DEFAULT_CONFIG_DIGEST = "49b8ba45f16b017e630bebf3c4b2f48a14d57ebbf932820eee9576502759d822"
+#
+# Fourth re-pin (Phase 8 08-05): this phase's rendering changes moved every
+# pixel on the panel by FOUR independent, compounding causes, all landed
+# across plans 08-01 through 08-04 before this plan reconciles the suite:
+#   1. the new default theme - White (bg_idx=IDX_WHITE), replacing Sky
+#      (Blue/Green) as DEFAULT_THEME_ID (08-01, D-01/D-02);
+#   2. every active-state text role switched from PT Serif Regular (weight
+#      400) to PT Serif Bold (weight 700), plus PREVIOUS_LINE2_FONT grown
+#      16px->20px (08-03, D-06/D-11);
+#   3. the text-backing-plate rectangle (_paint_text_backing()) removed
+#      outright on every theme, with nothing substituted (08-03, D-05);
+#   4. line 1's text rewritten as a four-tier content ladder (identifier+
+#      city / city-only / airline-only-omit-line-1 / nothing-resolved),
+#      structurally unable to reach the raw ADS-B callsign, plus the
+#      previous card's new PREVIOUS_TEXT_LEFT_OFFSET_PX=20 optical
+#      alignment correction (08-04, D-08/D-09/D-10/D-12).
+# Read verbatim from CI's own FAIL output (PR #22,
+# github.com/florianlepont/skypane/actions/runs/33384226781), per the
+# standing rule above - not recomputed locally on this Mac.
+#
+# Fifth re-pin (Phase 8 08-06, on-glass verification session): three more
+# rounds of pixel movement landed after the fourth re-pin above, all found
+# and corrected live against the real deployed panel during the blocking
+# on-glass session, not from further screen-only iteration:
+#   1. font weight decoupled from a blanket PT Serif Bold into a per-theme
+#      "regular"/"bold" registry field (08-06) - White (and every flat,
+#      undithered theme) reverted to Regular after Bold read "very
+#      aggressive" on real ink; dithered themes kept Bold;
+#   2. the THEMES registry widened from 5 entries to 11 - Sky (the Blue/
+#      Green two-tone pairing) retired outright, replaced by fully separate
+#      single-colour themes with an explicit "pure"/"light" (dithered) pair
+#      for yellow, red, green and blue, plus a new standalone Grey theme -
+#      also catches the on-glass discovery that dithering's fixed 40%
+#      lighten fraction was applied unconditionally, silently turning a
+#      flat "Black" theme visibly grey;
+#   3. the tier-4 content-ladder fallback text changed from the title-case
+#      state word ("Departing"/"Arriving", which only duplicated the
+#      all-caps top-left label) to a fixed "Unknown flight" string,
+#      identical for both states (08-06, developer instruction given
+#      on-glass after step F).
+# Read verbatim from CI's own FAIL output (PR #22, reopened,
+# github.com/florianlepont/skypane/actions/runs/33399696789), per the
+# standing rule above - not recomputed locally on this Mac.
+#
+# Sixth re-pin: spike 002a's validated finding, implemented in quick task
+# 260831-njw - 6px letter-spacing (tracking) added to the two smallest
+# top-row roles (STATE_LABEL_FONT/TOP_TAG_FONT via the resurrected
+# draw_tracked_text()/_tracked_text_width()), moving pixels in the top
+# band of every render. Read verbatim from CI's own FAIL output (PR #24,
+# github.com/florianlepont/skypane/actions/runs/33408473975), per the
+# standing rule above - not recomputed locally on this Mac.
+_DEFAULT_CONFIG_DIGEST = "46c18ea48d711bf62520570367cd019e2144073019dabe1d4282766d3ae4be51"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.
@@ -1546,7 +1597,7 @@ def main():
             def _poll_loop_never_writes_device_config():
                 cfg_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cfgwrite-")
                 try:
-                    device_config.save_device_config(cfg_dir, theme="sky", tracked_runway="3")
+                    device_config.save_device_config(cfg_dir, theme="black", tracked_runway="3")
                     path = device_config.device_config_path(cfg_dir)
                     with open(path, "rb") as fh:
                         before = fh.read()

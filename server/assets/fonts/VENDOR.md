@@ -154,3 +154,69 @@ explicitly re-verify legibility at this weight before treating it as
 final; if strokes prove illegible on the real panel, the documented
 fallback is `PTSerif-Bold.ttf` (already vendored here) for at least the
 smallest text roles.
+
+**Correction (2026-08-31, Phase 8, D-06/D-07):** the paragraph above is no
+longer accurate on either count. First, Phase 7's on-glass checkpoint (the
+"Wave 4" session this note deferred to) ran and found `PTSerif-Regular.ttf`
+genuinely legible at every role, on real glass, both before and after the
+text-backing-plate fix — `hardware/BRINGUP-LOG.md`'s "PT Serif Regular
+legibility" entry records "tout est parfait" across every size tested,
+down to the smallest (16px, since grown to 20px by D-11). The risk this
+paragraph flagged did not materialise. Second, and unrelated to that
+finding, Phase 8 switched every active-state role to `PTSerif-Bold.ttf`
+anyway — not because Regular failed, but because D-05 removed the
+text-backing-plate rectangle that had been carrying the legibility job
+against the dithered state background, and the heavier Bold stroke is
+what replaces it. See the Supersession subsection immediately below for
+the full record.
+
+### Supersession (Phase 8 — D-06/D-07)
+
+As of Phase 8, `PTSerif-Regular.ttf` is no longer referenced by any
+active-state font-role constant in `server/plane/render.py`:
+`STATE_LABEL_FONT`, `TOP_TAG_FONT`, `MAIN_LINE1_FONT`, `MAIN_LINE2_FONT`,
+`PREVIOUS_LINE1_FONT` and `PREVIOUS_LINE2_FONT` all moved to
+`PTSerif-Bold.ttf`, as did the two `fit_text_size()` call sites inside
+`draw_main_text_block()` and `draw_previous_text_block()` that previously
+read the Regular path directly. `EMPTY_BODY_FONT` is the one remaining
+active reference to `PTSerif-Regular.ttf` — the empty state's copy is
+explicitly out of scope for this phase, so the file is not fully
+unreferenced.
+
+**Why.** Unlike the Zilla Slab supersession above, which was a pure taste
+change, this one is functional. The solid backing-plate rectangle
+`_paint_text_backing()` painted behind every text run (added Phase 7,
+07-01, to fight the dithered background's White speckle behind
+white-ink text) was removed on visual grounds this same phase (D-05) — the
+developer wanted it gone, no replacement box, outline or shadow. A
+stroke outline (1/2/3px widths) and an offset drop-shadow were both built
+in the spike and both read as legible, and both were rejected by the
+developer on visual grounds before font weight was tried. Zilla Slab
+Bold/SemiBold (already vendored, already inactive) was also re-tried at
+the same time as an alternative to PT Serif Bold, and again not chosen —
+the developer kept PT Serif for typographic consistency with the rest of
+the panel, not because Zilla Slab tested worse. All of this was judged on
+preview PNGs (`.planning/spikes/001-panel-theme-colours/README.md`);
+plan 08-06's on-glass session is where the new weight meets real ink.
+
+**Disposition.** Both `PTSerif-Regular.ttf` and `PTSerif-Bold.ttf` stay
+vendored, with their pinned upstream commit, per-file sha256 digests and
+licence record intact — the same "retained for provenance, not deleted"
+treatment this file already gives the Inter and Zilla Slab entries above.
+No font file, digest, commit SHA or licence text changed.
+
+**Correction (2026-08-31, Phase 8 08-06, code-review follow-up): the
+"no longer referenced" claim above no longer holds.** Plan 08-06's
+blocking on-glass session found uniform Bold "très agressif" on real ink,
+most visibly on the new White default, and reopened D-06 mid-session with
+the developer's explicit instruction: font weight became a per-theme
+`server.device_config.THEMES` registry field (`"regular"` or `"bold"`)
+rather than a blanket value, resolved via `_role_font()`/
+`_role_weight_path()`. `PTSerif-Regular.ttf` is active again on every
+active-state role for 7 of the 11 registered themes (white, black,
+yellow, yellow_light, red, green, blue — every flat/undithered theme plus
+the one deliberate dithered exception, Yellow Light); `PTSerif-Bold.ttf`
+remains active on the other 4 (grey, red_light, green_light, blue_light).
+See `hardware/BRINGUP-LOG.md`'s Phase 8 on-glass entry, Step B, for the
+full on-glass record. `EMPTY_BODY_FONT` is unchanged by this correction —
+still Regular, still out of scope.

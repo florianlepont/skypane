@@ -160,11 +160,22 @@ def default_transport(callsign, timeout=DEFAULT_TIMEOUT):
 def _parse_route(body):
     """Defensive `isinstance()` walk of an adsbdb 200 response body
     (T-02-04-01), mirroring detect.py's own explicit-type-check discipline.
-    Every one of `airline.name`, `origin.iata_code`, `origin.municipality`,
-    `destination.iata_code` and `destination.municipality` must be a
-    non-empty string, or the whole result is a miss - UI-SPEC has no
-    partial-route state to render, so a half-resolved route must never
-    reach the renderer.
+
+    Five fields are REQUIRED - `airline.name`, `origin.iata_code`,
+    `origin.municipality`, `destination.iata_code` and
+    `destination.municipality` must each be a non-empty string, or the
+    whole result is a miss (`None`) - UI-SPEC has no partial-route state to
+    render, so a half-resolved route must never reach the renderer.
+
+    One field is OPTIONAL - `callsign_iata`, adsbdb's IATA-formatted flight
+    identifier (a top-level sibling of `airline`/`origin`/`destination`
+    inside `flightroute`, D-09). It is optional because it is not part of
+    what makes a route usable at all: a route with a real airline and real
+    cities but no IATA identifier is still fully displayable (D-10's tier-2
+    case), so requiring it here would turn currently-resolvable flights
+    into misses for every carrier adsbdb has no IATA callsign for. A value
+    that is not a non-empty string after stripping degrades to `None`
+    rather than being trusted as-is or rejecting the whole route.
     """
     if not isinstance(body, dict):
         return None
@@ -191,12 +202,19 @@ def _parse_route(body):
         if not isinstance(value, str) or not value.strip():
             return None
 
+    callsign_iata_raw = flightroute.get("callsign_iata")
+    if isinstance(callsign_iata_raw, str) and callsign_iata_raw.strip():
+        callsign_iata = callsign_iata_raw.strip()
+    else:
+        callsign_iata = None
+
     return {
         "airline_name": airline_name,
         "origin_iata": origin_iata,
         "origin_city": to_sentence_case_city(origin_city_raw),
         "destination_iata": destination_iata,
         "destination_city": to_sentence_case_city(destination_city_raw),
+        "callsign_iata": callsign_iata,
     }
 
 
@@ -214,6 +232,7 @@ def _route_from_entry(entry):
         "origin_city": entry.get("origin_city"),
         "destination_iata": entry.get("destination_iata"),
         "destination_city": entry.get("destination_city"),
+        "callsign_iata": entry.get("callsign_iata"),
     }
 
 
@@ -593,13 +612,13 @@ def airline_from_callsign(callsign):
 
 def airline_only_route(airline_name):
     """Build the D-03 airline-only route dict: `airline_name` set to
-    `airline_name`, and the same four `origin_iata`/`origin_city`/
-    `destination_iata`/`destination_city` keys `_parse_route()` produces,
-    all `None`. This is the sole construction site for that shape - every
-    downstream consumer (`city_for_state()`, `render._flight_line1_text()`,
-    `render._flight_line2_text()`, `illustrations.select_illustration()`)
-    already works unchanged against it, because the shape is identical to a
-    real resolved route's.
+    `airline_name`, and the same five `origin_iata`/`origin_city`/
+    `destination_iata`/`destination_city`/`callsign_iata` keys
+    `_parse_route()` produces, all `None`. This is the sole construction
+    site for that shape - every downstream consumer (`city_for_state()`,
+    `render._flight_line1_text()`, `render._flight_line2_text()`,
+    `illustrations.select_illustration()`) already works unchanged against
+    it, because the shape is identical to a real resolved route's.
 
     Returns `None` for a falsy or non-string `airline_name`.
     """
@@ -611,6 +630,7 @@ def airline_only_route(airline_name):
         "origin_city": None,
         "destination_iata": None,
         "destination_city": None,
+        "callsign_iata": None,
     }
 
 

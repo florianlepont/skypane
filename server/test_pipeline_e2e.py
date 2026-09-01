@@ -150,6 +150,8 @@ def main():
 
     try:
         import server.poll_loop as poll_loop
+        import server.device_config as device_config
+        import server.panel_format as panel_format
     except ImportError as exc:
         # Ordering note: this harness is written and run now, before
         # server/poll_loop.py (or its server/plane/render.py dependency)
@@ -320,8 +322,22 @@ def main():
                 # Sample pixel (70, 1520) - byte offset 35, high nibble - still
                 # lands inside the new fill rectangle (66, 1516, 75, 1534), so
                 # this probe stays valid unchanged after the resize.
+                #
+                # 08-01 (D-01): the battery icon's ink for a non-empty state is
+                # the ACTIVE theme's own ink index (render.py's docstring: the
+                # empty state is always White/Black regardless of theme) - this
+                # was hardcoded to nibble 0x1 (White) because the pre-Phase-8
+                # default theme's ink was White for every active state. Now
+                # that DEFAULT_THEME_ID is "white" (ink_index=IDX_BLACK), that
+                # assumption no longer holds; derive the expectation from the
+                # theme run_once() actually used instead of a stale literal.
                 state = result_after.get("state")
-                expected_nibble = 0x0 if state == "empty" else 0x1
+                theme_id = result_after.get("theme", device_config.DEFAULT_THEME_ID)
+                if state == "empty":
+                    expected_nibble = 0x0
+                else:
+                    expected_idx = device_config.theme_ink_index(theme_id)
+                    expected_nibble = panel_format.INDEX_TO_NIBBLE[expected_idx]
                 sample_byte = panel_after[1520 * row_bytes + 35]
                 actual_nibble = (sample_byte >> 4) & 0xF
                 if actual_nibble != expected_nibble:
