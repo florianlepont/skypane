@@ -279,6 +279,37 @@ body {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* quick task 260901-tsa (finding B): pairs a section heading with an
+ * inline, baseline-aligned muted description — Health's Screen/Server &
+ * data headings. Declares NO margin of its own, deliberately: the <h2>
+ * inside still carries the heading-rhythm rule's own `margin: 0 0
+ * var(--space-sm)` below, and a flex item's own margin still
+ * contributes to the flex line's box, so the gap below this whole row
+ * is exactly the gap that existed below the bare <h2> before this
+ * wrapper existed — the unchanged spacing is the intent, not an
+ * omission. `flex-wrap` is what lets the description drop onto its own
+ * line on a narrow viewport instead of squeezing the heading. */
+.section-intro {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+/* Zeroes the row's own <p> margin. Deliberately NOT added to
+ * .section-caption above — that rule's own comment states its lack of a
+ * margin declaration is a decision, because in its Settings context the
+ * caption is an ordinary block sibling relying on the UA paragraph
+ * margin the validated sketch was measured against. That reasoning is
+ * context-specific, so the zeroing belongs here, on the container where
+ * the flex row owns the layout, not as a new declaration inside
+ * .section-caption, which would silently change every Settings group at
+ * the same time. Child combinator, not a descendant selector: only the
+ * row's own direct paragraph is being laid out. */
+.section-intro > p {
+  margin: 0;
+}
+
 /* 06.6.1 (D-03): headings move onto var(--font-serif). This is a
  * headings-only treatment — body text, table cells, form controls, nav
  * links and monospace content stay on --font-ui, never var(--font-serif).

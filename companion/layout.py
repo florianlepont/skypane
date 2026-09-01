@@ -1057,6 +1057,28 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
     and print them as visible text instead of rendering. Callers are
     responsible for escaping/composing any user-influenced data before
     passing it through either parameter.
+
+    Quick task 260901-tsa: `freshness_block` and `action_block` are
+    concatenated BEFORE `purpose_html` below — title, then the Refresh
+    link/action row, then the purpose sentence last. That is the
+    validated Health sketch's own header markup: the title and the
+    Refresh anchor sit inside one `.page-header` element, with the
+    purpose sentence following after it, not wedged between the title
+    and its action link. The LITERAL CONTRACT paragraph above covers the
+    signature — parameter names and their order — which this edit does
+    not touch; the order the three optional blocks are concatenated into
+    the returned string is a separate thing and was never part of that
+    contract. Blast radius: Health is the only call site today passing
+    both a purpose and a freshness block. For a caller passing exactly
+    one of the three optional blocks (every other page, today), the
+    concatenation produces the identical string either way — `"%s%s%s" %
+    (p, "", "")` and `"%s%s%s" % ("", "", p)` are the same string — so
+    Settings, Airlines and History are byte-identical before and after
+    this reorder; this is a Health-only visual change. With the purpose
+    paragraph now the last in-flow child of a block-level `.page-header`
+    that has no padding and no border, its own bottom margin collapses
+    with the parent's `margin-bottom`, so the gap below the header block
+    is unchanged rather than doubled.
     """
     purpose_html = (
         '<p class="page-header__purpose text-body">%s</p>' % escape_html(purpose)
@@ -1068,7 +1090,7 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
         '<h1 class="page-title">%s</h1>'
         "%s%s%s"
         "</div>"
-    ) % (escape_html(title), purpose_html, freshness_block, action_block)
+    ) % (escape_html(title), freshness_block, action_block, purpose_html)
 
 
 def data_table(headers, rows, mono_columns=(), raw_columns=()):

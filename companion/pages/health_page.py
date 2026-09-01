@@ -229,6 +229,24 @@ RESOLUTION_RATE_LABEL = "Resolution rate"
 UNRESOLVED_SECTION_HEADING = "Unresolved prefixes"
 STATS_SECTION_HEADING = "Resolution statistics"
 
+# --- quick task 260901-tsa: page-purpose + section-intro copy ----------
+#
+# Verbatim from the validated "Merged Health Sketch" — this is the
+# sketch's own wording, restating the split D-10 already made (the
+# physical frame versus the ADS-B/route-resolution pipeline) in the
+# reader's own terms rather than making any new claim. Keep the leading
+# em-dash and the space after it on both descriptions: that is what
+# makes the heading and its description read as one continuous phrase
+# across the baseline-aligned `.section-intro` row (see
+# `_section_intro_html()` below), and it is the validated copy — do not
+# drop it as "redundant punctuation".
+PAGE_PURPOSE_TEXT = "Screen status and server data quality, in one place."
+SCREEN_SECTION_DESCRIPTION = (
+    "— the physical frame: is it checking in, and how's the battery.")
+SERVER_DATA_SECTION_DESCRIPTION = (
+    "— the ADS-B pipeline and route resolution: is the data fresh and "
+    "trustworthy.")
+
 # --- 06.6.4.1-04 (D-11/D-12): CFG-04's unresolved-prefix registry and
 # CFG-08's resolution-statistics breakdown, migrated verbatim from
 # companion/pages/airlines_page.py — that page keeps its own copy for
@@ -829,6 +847,36 @@ def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(HEALTH_UNAVAILABLE_TEXT)
 
 
+def _section_intro_html(section_id, heading, description):
+    """A `<div class="section-intro">` wrapping one id-anchored `<h2>`
+    plus a muted one-sentence description on the same baseline (quick
+    task 260901-tsa, finding B) — the wrapper exists so the description
+    sits inline and baseline-aligned with its heading rather than as a
+    separate stacked paragraph.
+
+    The `<h2 id="..." class="text-heading">...</h2>` this emits is
+    byte-identical to the string `render()` built directly before this
+    task — same attribute order (`id` then `class`), same class value,
+    same `escape_html()` call on the heading text — because
+    `companion/test_status_pages.py`'s existing structural checks match
+    that whole string literally and count `'<h2 id="'` occurrences; this
+    builder must never drift from that shape.
+
+    The description is classed `text-label section-caption` — the same
+    pair quick task 260901-re6 already established for exactly this
+    "muted one-sentence-under-a-heading" role on Settings — reused
+    rather than reinvented. A second class for the same role would
+    reopen the second-muted-strength defect this stylesheet's own
+    comments record having fixed twice.
+    """
+    return (
+        '<div class="section-intro">'
+        '<h2 id="%s" class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (section_id, escape_html(heading), escape_html(description))
+
+
 def _device_section(device_health, now):
     if device_health is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
@@ -1407,14 +1455,15 @@ def render(ctx):
     # never .stat-tile/.dashboard-grid — that container swap is the fix
     # for the wide-table-in-a-240px-track failure mode).
     screen_section_html = (
-        '<h2 id="%s" class="text-heading">%s</h2>'
-        % (SCREEN_SECTION_ID, escape_html(SCREEN_SECTION_HEADING))
+        _section_intro_html(
+            SCREEN_SECTION_ID, SCREEN_SECTION_HEADING, SCREEN_SECTION_DESCRIPTION)
         + device_tile_html
         + _battery_trend_section_html(battery_html)
     )
     server_data_section_html = (
-        '<h2 id="%s" class="text-heading">%s</h2>'
-        % (SERVER_DATA_SECTION_ID, escape_html(SERVER_DATA_SECTION_HEADING))
+        _section_intro_html(
+            SERVER_DATA_SECTION_ID, SERVER_DATA_SECTION_HEADING,
+            SERVER_DATA_SECTION_DESCRIPTION)
         + '<div class="dashboard-grid">' + server_data_tiles_html + '</div>'
         + '<section class="page-section"><h2 class="text-heading">%s</h2>%s</section>' % (
             escape_html(UNRESOLVED_SECTION_HEADING), _registry_section(registry_rows, now))
@@ -1423,7 +1472,8 @@ def render(ctx):
     )
 
     return (
-        layout.page_header("Health", freshness_html=freshness_html)
+        layout.page_header(
+            "Health", purpose=PAGE_PURPOSE_TEXT, freshness_html=freshness_html)
         + _STALE_VIEW_BANNER_HTML
         + _source_fault_block(source_fault_raw)
         + banner_html
