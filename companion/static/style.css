@@ -1904,6 +1904,24 @@ summary::-webkit-details-marker {
   line-height: 1.2;
 }
 
+/* quick task 260901-tsa (finding C): the Device/Pipeline tiles now hold
+ * a concise_timestamp_html() <span class="mono"> directly inside this
+ * paragraph. .mono (above) sets `font-weight: var(--weight-regular)` on
+ * that span directly — a rule that targets an element beats a weight
+ * the element would otherwise inherit, regardless of the two selectors'
+ * equal specificity — so without this line .stat-tile__value's Emphasis
+ * promotion is silently inert on both timestamp tiles: the span renders
+ * regular no matter what the parent asks for. `inherit` is what lets
+ * the parent's semibold weight through while leaving .mono's font-family
+ * intact (the whole reason the span exists: stable digit widths in a
+ * value that changes on hover). Matches .filter-bar__field input's own
+ * precedent for a narrow, scoped opt-out of a global rule for one
+ * container's descendants — scoped to .stat-tile__value on purpose:
+ * mono values elsewhere in this file keep .mono's regular weight. */
+.stat-tile__value .mono {
+  font-weight: inherit;
+}
+
 /* No `.stat-tile svg { width:100%; height:auto }` rule here (deliberate,
  * not an oversight). That rule existed pre-06.6.1 to shrink the battery
  * sparkline's fixed width="300" height="60" SVG to fit inside a tile —
@@ -2230,10 +2248,38 @@ summary::-webkit-details-marker {
 
 /* Reserves a fixed-height line so the first reveal never shifts the page
  * (06.5-RESEARCH.md, Open Question 1's recommendation — the layout-jump
- * pitfall on mobile). */
+ * pitfall on mobile). min-height stays in `em` so it scales with the
+ * larger size below on its own, and the no-layout-jump guarantee still
+ * holds now that the chart sits below rather than above: the reveal
+ * text is fixed-width by construction (a 4-digit millivolt figure plus
+ * a fixed-length ISO timestamp, in a monospace face via .mono), so a
+ * reveal cannot change where the line wraps and therefore cannot shift
+ * the chart now below it.
+ *
+ * quick task 260901-tsa (finding D): promoted to the Emphasis role —
+ * Body size plus semibold — now that health_page.py moves this element
+ * ahead of the chart as the section's scannable headline number. This
+ * is Emphasis, not the validated sketch's literal 28px: 28px is the
+ * Display role, which 06.6.4 (D-09, see the .site-title comment above)
+ * retired outright along with --font-display-size when .stat-tile__value
+ * and .runway-card__number both moved to Emphasis, restoring this
+ * file's claimed four-size scale — matching the mockup literally here
+ * would resurrect a deliberately-retired role and re-break that claim.
+ * Emphasis is this project's current answer to "make one number the
+ * scannable one", and it is the same role the .stat-tile__value tiles
+ * on this very page now use. The semibold weight here beats .mono's
+ * regular by SOURCE ORDER, not by specificity — both are single-class
+ * selectors landing on this element, and this rule is later in the
+ * file — so this rule must stay after .mono
+ * (companion/test_status_pages.py's cross-file guard pins that fact).
+ * The margin moved from top-only to bottom-only, using --space-sm: the
+ * spacing this element owns moved with it when it moved from below the
+ * chart to above it. */
 .battery-readout {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
   min-height: 1.4em;
-  margin: var(--space-xs) 0 0;
+  margin: 0 0 var(--space-sm);
 }
 
 /* Desktop dashboard shell (D-02, 06.3-UI-SPEC.md Layout Contract). This is

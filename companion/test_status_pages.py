@@ -368,30 +368,55 @@ def main():
         _timestamp_helpers_promoted_not_duplicated)
 
     def _independent_thresholds_one_warn_one_ok():
+        # quick task 260901-tsa (finding C): the Device/Pipeline tiles no
+        # longer carry an in-body status_dot() — since that removal, each
+        # tile's own stat-tile--ok/warn/error border modifier is the ONLY
+        # carrier of this signal, so this check now locates each tile by
+        # its own caption constant (never the wrong tile) and asserts the
+        # modifier on its wrapper directly, instead of counting dot
+        # classes that no longer exist on these two tiles.
         tmp = _mkstate("h-independent")
         try:
             now = _now()
             _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            non_healthy = rendered.count("dot--warn") + rendered.count("dot--error")
-            if non_healthy != 1:
-                return False, "expected exactly one warn/error status class, got %d" % non_healthy
-            # Three healthy dots are expected here: the fresh pipeline's,
-            # the Battery badge's (D-01) — a single seeded reading has no
-            # consecutive pair to compare, so battery_status() correctly
-            # returns "ok" — and the migrated registry card's own Coverage
-            # dot (06.6.4.1-04, D-11), "ok" since this fixture seeds no
-            # registry entries.
-            if rendered.count("dot--ok") != 3:
+
+            device_at = rendered.index(health_page.DEVICE_FRESHNESS_LABEL)
+            device_tile_open = rendered.rindex('<div class="stat-tile ', 0, device_at)
+            device_tile_tag = rendered[device_tile_open:rendered.index(">", device_tile_open)]
+            if "stat-tile--error" not in device_tile_tag:
                 return False, (
-                    "expected exactly three healthy status classes "
-                    "(pipeline + battery badge + registry coverage), got %d" % rendered.count("dot--ok"))
+                    "expected the Device tile's wrapper to carry the error modifier "
+                    "(STALE_DEVICE_ERROR_S + 60 is past the error threshold), got %r" % device_tile_tag)
+
+            pipeline_at = rendered.index(health_page.PIPELINE_FRESHNESS_LABEL)
+            pipeline_tile_open = rendered.rindex('<div class="stat-tile ', 0, pipeline_at)
+            pipeline_tile_tag = rendered[pipeline_tile_open:rendered.index(">", pipeline_tile_open)]
+            if "stat-tile--ok" not in pipeline_tile_tag:
+                return False, (
+                    "expected the Pipeline tile's wrapper to carry the ok modifier "
+                    "(just-seeded META_LAST_PIPELINE_RUN is fresh), got %r" % pipeline_tile_tag)
+
+            # The dots that legitimately remain, in this fixture: the
+            # Battery badge (D-01) — a single seeded reading has no
+            # consecutive pair to compare, so battery_status() correctly
+            # returns "ok" — and the migrated registry card's own
+            # Coverage dot (06.6.4.1-04, D-11), "ok" since this fixture
+            # seeds no registry entries. Device/Pipeline contribute no
+            # dot class of their own any more (finding C).
+            if rendered.count("dot--ok") != 2:
+                return False, (
+                    "expected exactly two healthy status classes "
+                    "(battery badge + registry coverage), got %d" % rendered.count("dot--ok"))
+            if "dot--warn" in rendered or "dot--error" in rendered:
+                return False, "did not expect any dot--warn/dot--error class in this fixture"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a stale device and a fresh pipeline produce one non-healthy row and two healthy rows, not a blended verdict",
+        "a stale device and a fresh pipeline read as independent per-tile modifiers (error vs ok) on their own "
+        "wrappers, not a blended verdict, with only the dots that legitimately remain still healthy",
         _independent_thresholds_one_warn_one_ok)
 
     # 06.6.1-04: "no <svg" stopped being a valid proxy for "no sparkline"
@@ -769,14 +794,29 @@ def main():
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
             if health_page.BATTERY_STATUS_LABEL not in rendered:
                 return False, "expected the battery status badge label to appear"
-            # Four healthy dots: device, pipeline, battery (all fresh), and
-            # the migrated registry card's own Coverage dot (06.6.4.1-04,
-            # D-11) — "ok" here since this fixture seeds no registry
-            # entries, so the empty registry reads as no coverage gaps.
-            if rendered.count("dot--ok") != 4:
-                return False, "expected exactly four healthy status classes, got %d" % rendered.count("dot--ok")
+            # quick task 260901-tsa (finding C): only two dots remain in
+            # this fixture — the Device/Pipeline tiles no longer carry an
+            # in-body status_dot() of their own, so this fixture's four
+            # healthy signals (device, pipeline, battery, registry
+            # coverage) are now carried by two dots (battery badge +
+            # registry coverage) plus two stat-tile modifiers (Device/
+            # Pipeline, asserted directly below) rather than four dots.
+            if rendered.count("dot--ok") != 2:
+                return False, (
+                    "expected exactly two healthy status classes "
+                    "(battery badge + registry coverage), got %d" % rendered.count("dot--ok"))
             if "dot--warn" in rendered or "dot--error" in rendered:
                 return False, "did not expect any non-healthy status class in this fixture"
+            for label, expect_class in (
+                    (health_page.DEVICE_FRESHNESS_LABEL, "stat-tile--ok"),
+                    (health_page.PIPELINE_FRESHNESS_LABEL, "stat-tile--ok")):
+                at = rendered.index(label)
+                tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
+                tile_tag = rendered[tile_open:rendered.index(">", tile_open)]
+                if expect_class not in tile_tag:
+                    return False, (
+                        "expected the %r tile's wrapper to carry %r, got %r"
+                        % (label, expect_class, tile_tag))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -1382,26 +1422,59 @@ def main():
             events = [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}]
             _seed_runway_events(tmp, events)
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if rendered.count('<div class="dashboard-grid">') != 1:
-                return False, "expected exactly one dashboard-grid div"
+            # quick task 260901-tsa (finding E): the Screen section now
+            # also wraps its own single Device tile in a dashboard-grid,
+            # so the page carries TWO dashboard-grid divs, not one. This
+            # check's own dashboard-grid lookup is deliberately anchored
+            # to the Server & data heading's own offset below, never a
+            # first-occurrence index — a first-occurrence index would now
+            # silently measure the Screen section's grid instead of the
+            # Server & data one, the exact trap finding E introduces.
+            if rendered.count('<div class="dashboard-grid">') != 2:
+                return False, (
+                    "expected exactly two dashboard-grid divs (Screen's single-tile "
+                    "grid + Server & data's three-tile grid), got %d"
+                    % rendered.count('<div class="dashboard-grid">'))
             # Trailing space distinguishes a stat-tile wrapper div's own
             # class attribute (always "stat-tile <modifier>") from the
             # Resolution-rate tile's inner <p class="stat-tile__value">
             # figure, which this fixture's 100%-resolved stats also emit.
             if rendered.count('class="stat-tile ') != 4:
                 return False, (
-                    "expected exactly four stat-tile occurrences (Device standalone + "
-                    "Pipeline/Corroboration/Resolution-rate in the grid), got %d"
-                    % rendered.count('class="stat-tile '))
-            grid_open = rendered.index('<div class="dashboard-grid">')
+                    "expected exactly four stat-tile occurrences (Device in the Screen "
+                    "grid + Pipeline/Corroboration/Resolution-rate in the Server & data "
+                    "grid), got %d" % rendered.count('class="stat-tile '))
+
+            server_data_heading_at = rendered.index(
+                '<h2 id="%s" class="text-heading">' % health_page.SERVER_DATA_SECTION_ID)
+            screen_grid_open = rendered.index('<div class="dashboard-grid">')
+            server_data_grid_open = rendered.index(
+                '<div class="dashboard-grid">', server_data_heading_at)
+            if server_data_grid_open == screen_grid_open:
+                return False, (
+                    "expected two distinct dashboard-grid divs, found only one "
+                    "after the Server & data heading")
+
+            # The new invariant finding E introduces: the Screen section's
+            # own grid holds exactly one tile — checked beside the Server
+            # & data grid's own three-tile invariant below.
+            screen_grid_slice = rendered[screen_grid_open:server_data_heading_at]
+            if screen_grid_slice.count('class="stat-tile ') != 1:
+                return False, (
+                    "expected exactly one stat-tile occurrence inside the Screen "
+                    "section's dashboard-grid, got %d"
+                    % screen_grid_slice.count('class="stat-tile '))
+
             first_section_open = rendered.index('<section class="page-section">')
-            if first_section_open <= grid_open:
-                return False, "expected the first migrated page-section card to follow the dashboard-grid"
-            grid_slice = rendered[grid_open:first_section_open]
+            if first_section_open <= server_data_grid_open:
+                return False, (
+                    "expected the first migrated page-section card to follow the "
+                    "Server & data dashboard-grid")
+            grid_slice = rendered[server_data_grid_open:first_section_open]
             if grid_slice.count('class="stat-tile ') != 3:
                 return False, (
-                    "expected exactly three stat-tile occurrences inside the dashboard-grid, got %d"
-                    % grid_slice.count('class="stat-tile '))
+                    "expected exactly three stat-tile occurrences inside the Server "
+                    "& data dashboard-grid, got %d" % grid_slice.count('class="stat-tile '))
             if health_page.UNRESOLVED_SECTION_HEADING in grid_slice:
                 return False, "the Unresolved-prefixes card must not appear inside the dashboard-grid"
             if health_page.STATS_SECTION_HEADING in grid_slice:
@@ -1412,8 +1485,8 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the Server & data dashboard-grid holds exactly three stat tiles, and the two migrated cards render as "
-        "page-section elements outside it (D-11)",
+        "the Screen section's dashboard-grid holds exactly one tile, the Server & data dashboard-grid holds "
+        "exactly three, and the two migrated cards render as page-section elements outside both (D-11/finding E)",
         _server_data_grid_holds_three_tiles_migrated_cards_outside_grid)
 
     def _resolution_rate_tile_renders_percentage_and_window():

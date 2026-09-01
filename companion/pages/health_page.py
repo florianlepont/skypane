@@ -24,7 +24,13 @@ Two independent freshness signals (D-12, 06-RESEARCH.md Open Question 2):
 "the device last checked in" and "the ADS-B pipeline last ran" are
 genuinely different signals with different failure modes and different
 data sources (the Caddy access-log tailer vs. `poll_loop.py`'s own meta
-writes) — this page never blends them into one verdict.
+writes) — this page never blends them into one verdict. Each still
+renders its own independent ok/warn/error state (quick task
+260901-tsa): since finding C removed the redundant in-body status dot
+from both the Device and Pipeline tiles, that state now reads through
+each tile's own `stat-tile--ok/warn/error` border/icon modifier alone,
+rather than through a body dot inside the tile as well — the state is
+still carried, just no longer carried twice.
 
 D-14 anomaly flagging: `collect_anomalies()` decides whether
 `layout.anomaly_banner()` appears at all; its absence *is* the all-clear
@@ -883,12 +889,29 @@ def _device_section(device_health, now):
     ts = (device_health or {}).get("ts")
     age = layout.age_seconds(ts, now)
     state = staleness_status(age, STALE_DEVICE_WARN_S, STALE_DEVICE_ERROR_S)
+    # quick task 260901-tsa (finding C): this used to be
+    # `status_dot(state, DEVICE_FRESHNESS_LABEL) + detail` — but
+    # stat_tile()'s own caption already renders DEVICE_FRESHNESS_LABEL,
+    # so the tile printed its own name twice, one line under the other:
+    # the caption row naming the signal, then the body row naming it
+    # again before the timestamp. The caption is the tile's title role
+    # and stays; the body's job is to answer it, so it is now caption +
+    # one `stat-tile__value` timestamp, matching the sibling
+    # Resolution-rate tile's own shape. Dropping the dot loses no state
+    # signal: render()'s stat_tile() call still receives this function's
+    # `state` return value and still paints the tile's status-coloured
+    # top border and tints its icon from it (D-12's colour carrier is
+    # unchanged), and collect_anomalies() still names a stale device in
+    # the anomaly banner's text. Keeping a dot while dropping only its
+    # text was considered and rejected: status_dot() always emits a
+    # dot-label span, so that would mean either an empty span or a
+    # second copy of its state->class mapping duplicated here.
+    #
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
     detail = layout.concise_timestamp_html(ts, now)
-    row = '<p class="text-body">%s %s</p>' % (
-        layout.status_dot(state, DEVICE_FRESHNESS_LABEL), detail)
+    row = '<p class="stat-tile__value">%s</p>' % detail
     return row, state
 
 
@@ -897,12 +920,15 @@ def _pipeline_section(pipeline_ts, now):
         return _unavailable_block(), "ok"
     age = layout.age_seconds(pipeline_ts, now)
     state = staleness_status(age, STALE_PIPELINE_WARN_S, STALE_PIPELINE_ERROR_S)
+    # quick task 260901-tsa (finding C): same fix, same reasoning, as
+    # _device_section() above — see that function's comment for the
+    # full explanation of why dropping the dot is safe.
+    #
     # D-09: concise_timestamp_html() already returns pre-escaped-safe
     # markup — wrapping it in escape_html() a second time would
     # double-encode it and print the raw tags as visible text.
     detail = layout.concise_timestamp_html(pipeline_ts, now)
-    row = '<p class="text-body">%s %s</p>' % (
-        layout.status_dot(state, PIPELINE_FRESHNESS_LABEL), detail)
+    row = '<p class="stat-tile__value">%s</p>' % detail
     return row, state
 
 
@@ -938,9 +964,25 @@ def _battery_readout_block(latest_label):
     `BATTERY_READOUT_PLACEHOLDER` no longer exists). `role="status"`
     already implies a polite live region, so no separate `aria-live`
     attribute is added.
+
+    Quick task 260901-tsa (finding D): now the section's scannable
+    headline number, sitting ahead of the chart — matching the
+    validated sketch's order (status chip, readout, chart), see
+    `_battery_section()` below. `text-label` is gone from the class
+    list: that class pinned this element to the 14px Label role, which
+    is the opposite of the role it now plays; `battery-readout mono`
+    (style.css's `.battery-readout` rule, promoted to the Emphasis
+    role) carries the sizing/weight now.
+
+    Two things deliberately did NOT change with the move, and both
+    matter: `role="status"` is the live region `battery-trend.js`
+    announces every Left/Right/Home/End traversal through, and the
+    element is still found by `getElementById` — its position in the
+    document was never something that file depended on.
+    `companion/static/battery-trend.js` is not edited by this task.
     """
     return (
-        '<p id="%s" class="battery-readout text-label mono" role="status">%s</p>'
+        '<p id="%s" class="battery-readout mono" role="status">%s</p>'
         % (BATTERY_READOUT_ID, escape_html(latest_label)))
 
 
@@ -1048,9 +1090,14 @@ def _battery_section(trend_rows):
     # wrapper unnecessary in the script.
     chart_block = ""
     if sparkline_html:
+        # quick task 260901-tsa (finding D): the readout now comes FIRST
+        # — ahead of the sparkline — matching the validated sketch's
+        # order (status chip, readout, chart). The script tag stays
+        # last regardless, so "exactly one script tag, and zero on the
+        # no-chart path" stays true unweakened.
         chart_block = (
-            sparkline_html
-            + _battery_readout_block(_latest_numeric_battery_label(trend_rows))
+            _battery_readout_block(_latest_numeric_battery_label(trend_rows))
+            + sparkline_html
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
     # D-08: the chart (when present) comes before the collapsed table in
     # both DOM and visual order — a reorder from the pre-06.6.3 shape
@@ -1447,17 +1494,27 @@ def render(ctx):
         % (escape_html(now), layout.icon_html("icon-refresh")))
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
-    # Device-freshness tile standalone (no dashboard-grid wrapper — a
-    # single-tile grid row and a bare block-level tile render
-    # identically at full column width) plus the battery-trend section,
-    # exactly where it sat before. Server & data holds the three-tile
-    # grid, then the two migrated full-width cards (D-11: .page-section,
-    # never .stat-tile/.dashboard-grid — that container swap is the fix
-    # for the wide-table-in-a-240px-track failure mode).
+    # Device-freshness tile wrapped in its own single-tile dashboard-grid
+    # (quick task 260901-tsa, finding E) plus the battery-trend section,
+    # exactly where it sat before. Screen used to skip the dashboard-grid
+    # wrapper on the premise that a single-tile grid row and a bare
+    # block-level tile render identically at full column width — that
+    # premise is true about WIDTH and is exactly why this ever shipped,
+    # but it silently omitted spacing: .dashboard-grid declares
+    # `margin-bottom: var(--space-2xl)` and .stat-tile declares no
+    # margin at all, so the standalone tile sat flush against the
+    # battery-trend card below it with zero gap, while the Server & data
+    # grid kept its 48px. The validated sketch itself wraps its own
+    # single Device tile in a dashboard-grid for the same reason. Server
+    # & data holds the three-tile grid, then the two migrated full-width
+    # cards (D-11: .page-section, never .stat-tile/.dashboard-grid —
+    # that container swap is the fix for the wide-table-in-a-240px-track
+    # failure mode, a different container and still correct, untouched
+    # by this edit).
     screen_section_html = (
         _section_intro_html(
             SCREEN_SECTION_ID, SCREEN_SECTION_HEADING, SCREEN_SECTION_DESCRIPTION)
-        + device_tile_html
+        + '<div class="dashboard-grid">' + device_tile_html + '</div>'
         + _battery_trend_section_html(battery_html)
     )
     server_data_section_html = (
