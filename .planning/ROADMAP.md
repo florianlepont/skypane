@@ -339,13 +339,37 @@ Plans:
 ### Phase 06.6.4.1: Companion page-by-page IA consolidation — Airlines→Health merge, Preview→History merge, Airlines reborn as illustration gallery (INSERTED)
 
 **Goal:** Full page-by-page visual/content pass across all 5 companion pages, validated interactively against sketch artifacts this session. Settings (renamed from Config): single-column stacked sections replacing the broken 2-column runway grid, per-section descriptions, one page-level Discord-style unified unsaved-changes save bar replacing per-section dirty-bars (fixes a real dirty-state.js bug where the static fallback Save button never hides), backend route merge (LED form folds into the same POST route as Theme+Runway). Health absorbs the OLD Airlines page's diagnostics content entirely: anomaly banner uses short category-label pills instead of repeating tile sentences; Corroboration detail rows collapse behind a native details disclosure; Battery trend becomes a full-width interactive chart with labeled axes and a default latest-reading value; page restructures into Screen (device/battery) and Server-and-data (pipeline, corroboration, and a new resolution-rate tile) sections, with the old Airlines page's two sections (Unresolved prefixes registry, Resolution-statistics breakdown) demoted from cramped stat-tile grid cards into full-width stacked cards under Server-and-data — this fixes both the No-resolution-data-yet contradiction and the nested horizontal-scroll bug. History absorbs Preview entirely (Preview removed as a standalone nav item): a new Now-showing section carries the live-panel image plus colour caveat, with the render gallery demoted into a collapsed details disclosure; every History row gains a small icon-button that looks up the nearest-by-timestamp gallery render; unresolved-airline rows get a lightweight link to Health instead of duplicating the prefixes table. Airlines is REBORN, not removed: the nav slot is repurposed into a visual gallery of the panel's real illustration set (`server/plane/illustrations.py`/`server/assets/icons/illustrations/`, already-shipped art for 27 airlines, no new asset pipeline) — one card per airline with its real PNG (served through a new session-gated, membership-validated route mirroring the existing `/runway-image/{id}.png` pattern) and its fleet-type variant chips, plus a filter bar. Net navigation stays at 4 items (Settings/Health/Airlines/History) — the diagnostics content moves out of Airlines into Health, but the Airlines nav slot itself survives, repurposed. This phase also folds in and closes 06.6.3-08's own still-open closing checkpoint (Task 2), per the developer's explicit choice this session to fold that dangling checkpoint into this new pass rather than close it separately. All sketches were built and iteratively validated as standalone HTML artifacts against the real CSS design tokens and real page/asset content before this phase was opened — nothing in companion/ has been touched yet.
-**Requirements**: TBD
+**Requirements**: None — unmapped backlog phase, matching every prior 06.6.x decimal phase's own precedent. Traced against `06.6.4.1-CONTEXT.md`'s 26 locked decisions D-01 through D-26 (all covered; see `06.6.4.1-ARTIFACTS.md`). Reorganizes the presentation of CFG-04, CFG-06, CFG-08, CFG-10 and CFG-11, all already marked complete under Phase 6 — this phase delivers no new requirement scope, so `requirements.mark-complete` returning `not_found` for its D-* ids is correct, not a gap.
 **Depends on:** Phase 06.6.4
-**Plans:** 0 plans
+**Plans:** 0/9 plans executed
 
 Plans:
+**Wave 1** *(parallel, disjoint files — additive foundation only, nothing renamed or deleted)*
 
-- [ ] TBD (run /gsd-plan-phase 06.6.4.1 to break down)
+- [ ] 06.6.4.1-01-PLAN.md — Shared CSS foundation: every class the four page plans consume, landed once in `style.css` (gallery cards, lightbox, chart axis labels, banner pills, the JS-gated save-fallback rule), plus the deletion of the two-column Settings grid (D-01, D-04, D-07, D-09, D-14, D-20)
+- [ ] 06.6.4.1-02-PLAN.md — Shared plumbing: the per-airline fleet-variant accessor, the session-gated validate-then-join illustration image route, and `panel-lookup.js` with its pre-auth static route (D-14, D-15, D-20)
+
+**Wave 2** *(blocked on Wave 1; three page modules in parallel, disjoint files)*
+
+- [ ] 06.6.4.1-03-PLAN.md — Settings: single-column wrapped sections with descriptions, unified section-naming save bar, no-JS fallback fix, LED merged into one form and one all-or-nothing handler (D-01 through D-06, D-26)
+- [ ] 06.6.4.1-04-PLAN.md — Health: anomaly pills, Corroboration disclosure, interactive axis-labeled battery chart, Screen/Server-and-data restructure, and the old Airlines diagnostics absorbed as full-width cards (D-07 through D-12)
+- [ ] 06.6.4.1-05-PLAN.md — History absorbs Preview: Now-showing section, collapsed Recent-renders disclosure, server-side per-row nearest-render lookup with a native-dialog lightbox, unresolved-airline link to Health (D-18 through D-21)
+
+**Wave 3** *(blocked on Wave 2 — closes the deliberate one-wave registry duplication)*
+
+- [ ] 06.6.4.1-06-PLAN.md — Airlines reborn as an illustration gallery: 27 cards with real art and fleet-variant chips, filter bar, and removal of the diagnostics content that moved to Health (D-13 through D-17)
+
+**Wave 4** *(blocked on Wave 2 — shared route table)*
+
+- [ ] 06.6.4.1-07-PLAN.md — Settings route rename to `/settings` across router and nav, and retirement of the separate LED POST route, its handler, and its orphaned builders (D-05, D-26)
+
+**Wave 5** *(blocked on Waves 2 and 4 — shared route table)*
+
+- [ ] 06.6.4.1-08-PLAN.md — Preview retirement: fixed 302 to `/history`, navigation shrunk from five items to four, `preview_page.py` deleted (D-22)
+
+**Wave 6** *(blocked on all — blocking developer checkpoint)*
+
+- [ ] 06.6.4.1-09-PLAN.md — Closing: full-suite and live-route gates, completed validation record, and the blocking 28-item developer verification pass translating 06.6.3-08's checklist, including the twice-deferred assistive-technology pass and production walkthrough (D-23, D-24, D-25)
 
 ### Phase 06.6.3: Companion per-page redesign — Config, Health, History, Airlines, Preview (INSERTED)
 
