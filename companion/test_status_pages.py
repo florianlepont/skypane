@@ -100,7 +100,16 @@ STARTUP_DEADLINE_S = 10.0
 # Airlines diagnostics symbol was already removed in Task 1, pulled
 # forward from this task by the per-task green-suite verification loop;
 # their Health-side equivalents were added by plan 04.
-EXPECTED_CHECK_COUNT = 72  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 72 + 5 (quick task 260901-tsa Task 3: page-purpose-after-Refresh check,
+# both section-intros pair-heading-with-description check, Device/
+# Pipeline no-duplicated-label + real stat-tile__value check, battery
+# readout precedes-chart/class-list/live-region check, cross-file CSS
+# DOM-contract guard for .section-intro/.section-intro > p/
+# .stat-tile__value .mono/.battery-readout). Task 2's three retargets
+# (independent-thresholds, battery-badge, Server & data grid) and this
+# task's live-HTTP extension of _both_tabs_ok_end_to_end() were all done
+# in place — no count change from either.
+EXPECTED_CHECK_COUNT = 77  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -418,6 +427,46 @@ def main():
         "a stale device and a fresh pipeline read as independent per-tile modifiers (error vs ok) on their own "
         "wrappers, not a blended verdict, with only the dots that legitimately remain still healthy",
         _independent_thresholds_one_warn_one_ok)
+
+    def _health_page_device_pipeline_tiles_have_no_duplicated_label():
+        # quick task 260901-tsa (finding C): pins the whole fix — the
+        # tile caption still carries the freshness label exactly once,
+        # and the tile body is now a real stat-tile__value timestamp,
+        # not a second copy of the label via status_dot()'s dot-label
+        # span.
+        tmp = _mkstate("h-no-dup-label")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            for label in (health_page.DEVICE_FRESHNESS_LABEL, health_page.PIPELINE_FRESHNESS_LABEL):
+                label_count = rendered.count(label)
+                if label_count != 1:
+                    return False, (
+                        "%r must appear exactly once on the whole rendered page, got %d"
+                        % (label, label_count))
+                at = rendered.index(label)
+                tile_open = rendered.rindex('<div class="stat-tile ', 0, at)
+                tile_close = rendered.index("</div>", tile_open) + len("</div>")
+                tile_slice = rendered[tile_open:tile_close]
+                if tile_slice.count('class="stat-tile__value"') != 1:
+                    return False, (
+                        "%r's tile must carry exactly one stat-tile__value paragraph, got %d"
+                        % (label, tile_slice.count('class="stat-tile__value"')))
+                if 'class="mono"' not in tile_slice:
+                    return False, "%r's tile must carry a mono timestamp span" % (label,)
+                if "dot-label" in tile_slice:
+                    return False, (
+                        "%r's tile must carry no dot-label — the redundant body dot was removed"
+                        % (label,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Device and Pipeline tiles carry their freshness label exactly once (caption only) plus a real "
+        "stat-tile__value timestamp, with no leftover dot-label (quick task 260901-tsa, finding C)",
+        _health_page_device_pipeline_tiles_have_no_duplicated_label)
 
     # 06.6.1-04: "no <svg" stopped being a valid proxy for "no sparkline"
     # the moment the page gained four icon instances (D-02) — a plain
@@ -1368,6 +1417,41 @@ def main():
         "Health opens with the shared layout.page_header() component, not a bare <h1>",
         _health_page_opens_with_shared_page_header)
 
+    def _health_page_purpose_sentence_present_after_refresh():
+        # quick task 260901-tsa (finding A): PAGE_PURPOSE_TEXT reaches
+        # layout.page_header()'s `purpose` parameter, renders inside
+        # .page-header, and — per that component's own reordered
+        # emission (Task 1) — follows the Refresh link, matching the
+        # validated sketch's own DOM order.
+        tmp = _mkstate("h-page-purpose")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            escaped_purpose = layout.escape_html(health_page.PAGE_PURPOSE_TEXT)
+            if rendered.count(escaped_purpose) != 1:
+                return False, (
+                    "expected the escaped page-purpose sentence exactly once, got %d"
+                    % rendered.count(escaped_purpose))
+            header_start = rendered.index('<div class="page-header">')
+            header_end = rendered.index("</div>", header_start) + len("</div>")
+            header_slice = rendered[header_start:header_end]
+            if escaped_purpose not in header_slice:
+                return False, "expected the purpose sentence inside the .page-header div, not elsewhere on the page"
+            refresh_at = rendered.index("freshness-refresh")
+            purpose_at = rendered.index(escaped_purpose)
+            if refresh_at >= purpose_at:
+                return False, (
+                    "expected the purpose sentence to follow the Refresh link, matching the "
+                    "validated sketch's own DOM order")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's .page-header carries a one-sentence purpose after the Refresh link (quick task 260901-tsa, "
+        "finding A)",
+        _health_page_purpose_sentence_present_after_refresh)
+
     def _health_page_two_id_anchored_sections_correct_order_no_overview():
         # 06.6.4.1-04 (D-10): Health's body is now two id-anchored
         # sections, Screen then Server & data, replacing the single
@@ -1408,6 +1492,63 @@ def main():
         "Health's body is two id-anchored sections (Screen, then Server & data), and the old 'Overview' heading "
         "is gone (D-10)",
         _health_page_two_id_anchored_sections_correct_order_no_overview)
+
+    def _health_page_section_intros_pair_heading_with_description():
+        # quick task 260901-tsa (finding B): each section's <h2> is now
+        # paired with its own muted description inside a .section-intro
+        # wrapper. Slices each wrapper individually (rather than
+        # searching the whole page) so the check cannot pass by finding
+        # the right description next to the wrong heading.
+        tmp = _mkstate("h-section-intro")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            wrapper_count = rendered.count('<div class="section-intro">')
+            if wrapper_count != 2:
+                return False, "expected exactly two section-intro wrappers, got %d" % wrapper_count
+
+            screen_heading = '<h2 id="%s" class="text-heading">%s</h2>' % (
+                health_page.SCREEN_SECTION_ID,
+                layout.escape_html(health_page.SCREEN_SECTION_HEADING))
+            server_data_heading = '<h2 id="%s" class="text-heading">%s</h2>' % (
+                health_page.SERVER_DATA_SECTION_ID,
+                layout.escape_html(health_page.SERVER_DATA_SECTION_HEADING))
+            # Every expected substring is built through escape_html() —
+            # never re-typed as a raw literal. The Screen description
+            # contains an apostrophe ("how's the battery"), which
+            # escape_html(..., quote=True) encodes; a raw-constant
+            # comparison would fail here for a reason that has nothing
+            # to do with the markup being wrong. This is the single
+            # likeliest way this check gets "fixed" wrongly later.
+            screen_description = layout.escape_html(health_page.SCREEN_SECTION_DESCRIPTION)
+            server_data_description = layout.escape_html(health_page.SERVER_DATA_SECTION_DESCRIPTION)
+
+            first_open = rendered.index('<div class="section-intro">')
+            first_close = rendered.index("</div>", first_open) + len("</div>")
+            first_wrapper = rendered[first_open:first_close]
+            second_open = rendered.index('<div class="section-intro">', first_close)
+            second_close = rendered.index("</div>", second_open) + len("</div>")
+            second_wrapper = rendered[second_open:second_close]
+
+            if screen_heading not in first_wrapper or screen_description not in first_wrapper:
+                return False, "expected the first section-intro wrapper to hold the Screen heading and description"
+            if first_wrapper.index(screen_heading) >= first_wrapper.index(screen_description):
+                return False, "expected the Screen heading to precede its own description"
+
+            if server_data_heading not in second_wrapper or server_data_description not in second_wrapper:
+                return False, (
+                    "expected the second section-intro wrapper to hold the Server & data heading and description")
+            if second_wrapper.index(server_data_heading) >= second_wrapper.index(server_data_description):
+                return False, "expected the Server & data heading to precede its own description"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "each of Health's two section headings is paired, in its own baseline-aligned .section-intro wrapper, "
+        "with its own muted description (quick task 260901-tsa, finding B)",
+        _health_page_section_intros_pair_heading_with_description)
 
     def _server_data_grid_holds_three_tiles_migrated_cards_outside_grid():
         tmp = _mkstate("h-server-data-grid")
@@ -1653,6 +1794,65 @@ def main():
         "the battery-trend section keeps its badge, readout, and single script tag after moving out of the grid",
         _battery_section_keeps_everything_after_the_move)
 
+    def _battery_readout_precedes_chart_class_list_and_live_region():
+        # quick task 260901-tsa (finding D): the readout is now the
+        # section's scannable headline number, ahead of the chart.
+        # Slices to the battery-trend section's own boundaries — the
+        # same technique _battery_section_keeps_everything_after_the_move()
+        # above already uses — rather than the whole page, which also
+        # carries icon <svg> instances ahead of the chart (the section
+        # heading's own icon-battery glyph, inside this very section).
+        tmp = _mkstate("h-battery-readout-position")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            section_start = rendered.index('<section class="%s">' % health_page.BATTERY_SECTION_CLASS)
+            section_end = rendered.index("</section>", section_start) + len("</section>")
+            section_html = rendered[section_start:section_end]
+
+            readout_open = section_html.index('<p id="%s"' % health_page.BATTERY_READOUT_ID)
+            readout_close = section_html.index(">", readout_open) + 1
+            readout_tag = section_html[readout_open:readout_close]
+            # The sparkline SVG (battery_sparkline_svg()'s own opening) is
+            # distinguishable from the section heading's icon-battery
+            # <svg class="icon"> by its own '<svg viewBox="0 0' opening
+            # — the heading icon carries no viewBox attribute of that
+            # shape — so this is what makes "the chart" unambiguous.
+            sparkline_at = section_html.index('<svg viewBox="0 0')
+            script_at = section_html.index("<script")
+            if not (readout_open < sparkline_at < script_at):
+                return False, (
+                    "expected the readout to precede the sparkline, and the sparkline "
+                    "to precede the script tag, inside the battery-trend section")
+
+            if 'class="battery-readout mono"' not in readout_tag:
+                return False, (
+                    "expected the readout's class list to be exactly 'battery-readout mono', got %r"
+                    % readout_tag)
+            if 'role="status"' not in readout_tag:
+                return False, "expected role=\"status\" on the readout"
+
+            js_path = os.path.join(HERE, "static", "battery-trend.js")
+            with open(js_path) as fh:
+                js_source = fh.read()
+            if health_page.BATTERY_READOUT_ID not in js_source:
+                return False, (
+                    "expected battery-trend.js to still look up BATTERY_READOUT_ID's literal "
+                    "value — that property is what makes the reposition safe")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the battery readout precedes the chart and the script tag inside the battery-trend section, carries "
+        "exactly its two expected classes plus role=\"status\", and battery-trend.js still looks it up by id "
+        "(quick task 260901-tsa, finding D)",
+        _battery_readout_precedes_chart_class_list_and_live_region)
+
     def _battery_section_class_is_styled_in_stylesheet():
         css_path = os.path.join(HERE, "static", "style.css")
         with open(css_path) as fh:
@@ -1663,6 +1863,54 @@ def main():
     check(
         "health_page.BATTERY_SECTION_CLASS is guarded against silent drift from companion/static/style.css",
         _battery_section_class_is_styled_in_stylesheet)
+
+    def _quick_260901_tsa_css_dom_contract_guard():
+        # quick task 260901-tsa (Check 5): the cross-file guard for
+        # every new/edited style.css rule this task's markup depends on
+        # — the same index()-plus-window-slicing idiom
+        # companion/test_config_page.py's own cross-file DOM-contract
+        # guard block uses (locate a selector via source.index(...),
+        # slice to the next closing brace, assert the expected
+        # declaration is inside the slice — never a regex CSS parser).
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        def _rule_body(selector_open):
+            start = css_source.index(selector_open)
+            brace_close = css_source.index("}", start)
+            return css_source[start:brace_close]
+
+        expectations = (
+            ('.section-intro {', "display: flex"),
+            ('.section-intro > p {', "margin: 0"),
+            ('.stat-tile__value .mono {', "font-weight: inherit"),
+            ('.battery-readout {', "font-weight: var(--weight-semibold)"),
+        )
+        for selector_open, expected_declaration in expectations:
+            if selector_open not in css_source:
+                return False, "expected style.css to declare %r" % (selector_open,)
+            body = _rule_body(selector_open)
+            if expected_declaration not in body:
+                return False, (
+                    "expected %r's rule body to contain %r, got %r"
+                    % (selector_open, expected_declaration, body))
+
+        # The one source-order fact the Emphasis promotion actually
+        # rests on: moving .battery-readout above .mono in this file
+        # would silently return the readout to regular weight, since
+        # the promotion wins by SOURCE ORDER (a later same-specificity
+        # rule), not by selector specificity.
+        if css_source.index(".mono {") >= css_source.index(".battery-readout {"):
+            return False, (
+                "expected .mono's rule to precede .battery-readout's in style.css — moving "
+                ".battery-readout above .mono would silently return the readout to regular weight")
+        return True, ""
+    check(
+        "style.css's .section-intro / .section-intro > p / .stat-tile__value .mono / .battery-readout rules "
+        "each carry their load-bearing declaration, and .mono precedes .battery-readout in source order "
+        "(quick task 260901-tsa)",
+        _quick_260901_tsa_css_dom_contract_guard)
 
     def _anomaly_active_agrees_with_banner_both_directions():
         # Compare the two booleans against each other, not against
@@ -2163,9 +2411,34 @@ def main():
                     return False, "expected 200 for %s, got %d" % (path, status)
                 if heading.encode() not in body:
                     return False, "expected the %r heading in %s's response body" % (heading, path)
+                if path == "/health":
+                    # quick task 260901-tsa: the automated half of
+                    # "verified against a real running service" — a
+                    # real subprocess, a real login, a real seeded
+                    # database, a real HTTP response, not only an
+                    # in-process render() call.
+                    body_text = body.decode("utf-8", errors="replace")
+                    for constant in (
+                            health_page.PAGE_PURPOSE_TEXT,
+                            health_page.SCREEN_SECTION_DESCRIPTION,
+                            health_page.SERVER_DATA_SECTION_DESCRIPTION):
+                        escaped = layout.escape_html(constant)
+                        if escaped not in body_text:
+                            return False, (
+                                "expected %r in the real /health HTTP response body" % (constant,))
+                    for label in (
+                            health_page.DEVICE_FRESHNESS_LABEL,
+                            health_page.PIPELINE_FRESHNESS_LABEL):
+                        label_count = body_text.count(label)
+                        if label_count != 1:
+                            return False, (
+                                "expected %r exactly once in the real /health HTTP response "
+                                "body, got %d" % (label, label_count))
             return True, ""
         check(
-            "GET /health and GET /airlines both return 200 with their own page heading, against a real running service",
+            "GET /health and GET /airlines both return 200 with their own page heading against a real running "
+            "service, and /health's real HTTP response body carries the page purpose, both section "
+            "descriptions, and no duplicated freshness label (quick task 260901-tsa)",
             _both_tabs_ok_end_to_end)
 
     finally:
