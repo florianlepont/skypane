@@ -109,7 +109,21 @@ STARTUP_DEADLINE_S = 10.0
 # (independent-thresholds, battery-badge, Server & data grid) and this
 # task's live-HTTP extension of _both_tabs_ok_end_to_end() were all done
 # in place — no count change from either.
-EXPECTED_CHECK_COUNT = 77  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 77 + 5 (quick task 260901-uzi Task 4: .dashboard-grid stretch stylesheet
+# guard, nested-heading-tier markup+stylesheet check, prose-table-opts-
+# out-alone markup+stylesheet check, humanised-readout end-to-end
+# markup+cross-file-JS check, readout typographic-split stylesheet
+# guard). Tasks 1-3's in-place retargets (the Server & data grid check,
+# the CSS DOM-contract guard's .stat-tile__value .mono literal, the
+# seeded-readout and readout-position/class-list checks) and this task's
+# live-HTTP extension of _both_tabs_ok_end_to_end() (the nested/prose
+# modifier counts, both readout spans, the no-raw-ISO-in-readout
+# assertion, plus a resolved runway event added to the fixture so the
+# prose table actually renders) were all done in place — no count change
+# from either. Finding 5 (the readings-history disclosure header
+# clipping) shipped no code change and therefore adds no check; its
+# verdict is recorded in the SUMMARY, not the harness.
+EXPECTED_CHECK_COUNT = 82  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1962,6 +1976,275 @@ def main():
         "(quick task 260901-tsa)",
         _quick_260901_tsa_css_dom_contract_guard)
 
+    def _dashboard_grid_stretches_same_row_tiles():
+        # quick task 260901-uzi Task 4 (Check 1): finding 1's stylesheet
+        # guard. .dashboard-grid must declare the stretch alignment (the
+        # UXA-06 reversal) and must not declare the start alignment, and
+        # the file's only remaining start-aligned declaration must be the
+        # desktop .dashboard-shell rule's own — a different selector D-21's
+        # sticky sidebar depends on.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        grid_start = css_source.index(".dashboard-grid {")
+        grid_end = css_source.index("}", grid_start)
+        grid_body = css_source[grid_start:grid_end]
+        if "align-items: stretch" not in grid_body:
+            return False, (
+                "expected .dashboard-grid to declare align-items: stretch — a "
+                "start-aligned .dashboard-grid returns the ragged-height tiles "
+                "the developer measured (107.7 / 261.8 / 140.4px in one row)")
+        if "align-items: start" in grid_body:
+            return False, "expected .dashboard-grid to no longer declare align-items: start"
+
+        start_count = css_source.count("align-items: start")
+        if start_count != 1:
+            return False, (
+                "expected exactly one remaining align-items: start declaration "
+                "in the whole file, got %d" % start_count)
+        shell_start = css_source.index(".dashboard-shell {")
+        shell_end = css_source.index("}", shell_start)
+        if "align-items: start" not in css_source[shell_start:shell_end]:
+            return False, (
+                "expected the one remaining align-items: start to be inside "
+                ".dashboard-shell — D-21's sticky sidebar needs it; a different "
+                "selector holding it would mean the UXA-06 reversal missed "
+                "something")
+        return True, ""
+    check(
+        "style.css's .dashboard-grid declares an explicit cross-axis stretch (the UXA-06 reversal) and no "
+        "longer declares start, and .dashboard-shell's own separate start-aligned declaration (D-21's sticky "
+        "sidebar) is the file's only remaining one (quick task 260901-uzi finding 1)",
+        _dashboard_grid_stretches_same_row_tiles)
+
+    def _nested_heading_tier_demoted_to_emphasis_role():
+        # quick task 260901-uzi Task 4 (Check 2): finding 4's markup half
+        # (exactly the two migrated cards carry page-section--nested,
+        # located from each card's own heading constant rather than a
+        # first-occurrence index; the source-fault block never carries it,
+        # even when it renders; both .section-intro headings are
+        # untouched) plus the stylesheet half (the demotion rule sets the
+        # Body size and the semibold weight, and sets no font family).
+        tmp = _mkstate("h-nested-heading-tier")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            _seed_meta(tmp, **{history_db.META_SOURCE_FAULT: "True"})
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+
+            if rendered.count("page-section--nested") != 2:
+                return False, (
+                    "expected exactly two page-section--nested occurrences "
+                    "(the two migrated cards), got %d" % rendered.count("page-section--nested"))
+
+            for heading in (health_page.UNRESOLVED_SECTION_HEADING, health_page.STATS_SECTION_HEADING):
+                heading_marker = ">%s</h2>" % heading
+                heading_at = rendered.index(heading_marker)
+                section_open = rendered.rindex('<section class="', 0, heading_at)
+                section_tag = rendered[section_open:rendered.index(">", section_open) + 1]
+                if "page-section--nested" not in section_tag:
+                    return False, (
+                        "expected the <section> carrying %r to declare "
+                        "page-section--nested, got %r" % (heading, section_tag))
+
+            if '<section class="page-section banner banner--anomaly">' not in rendered:
+                return False, "expected the source-fault block itself to render for this fixture"
+            if 'class="page-section banner banner--anomaly page-section--nested"' in rendered:
+                return False, "the source-fault block must never carry page-section--nested"
+
+            for section_id, heading in (
+                    (health_page.SCREEN_SECTION_ID, health_page.SCREEN_SECTION_HEADING),
+                    (health_page.SERVER_DATA_SECTION_ID, health_page.SERVER_DATA_SECTION_HEADING)):
+                intro_marker = '<h2 id="%s" class="text-heading">%s</h2>' % (
+                    section_id, layout.escape_html(heading))
+                if intro_marker not in rendered:
+                    return False, "expected %r's own .section-intro heading to be unmodified" % heading
+
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css_source = fh.read()
+            selector_at = css_source.index(".page-section--nested > h2,")
+            body_open = css_source.index("{", selector_at)
+            body_close = css_source.index("}", body_open)
+            selector_list = css_source[selector_at:body_open]
+            demotion_body = css_source[body_open:body_close]
+            if ".battery-trend-section > h2" not in selector_list:
+                return False, "expected the demotion rule's selector list to also cover .battery-trend-section > h2"
+            if "font-size: var(--font-body-size)" not in demotion_body:
+                return False, "expected the demotion rule to set the Body size"
+            if "font-weight: var(--weight-semibold)" not in demotion_body:
+                return False, "expected the demotion rule to set the semibold weight"
+            if "font-family" in demotion_body:
+                return False, (
+                    "the demotion rule must set no font family — .text-heading already "
+                    "supplies the serif treatment")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "exactly the two migrated cards carry page-section--nested (located by their own heading constants), "
+        "the source-fault block never carries it even when it renders, both .section-intro headings are "
+        "untouched, and style.css's demotion rule sets the Body size and semibold weight with no font family "
+        "(quick task 260901-uzi finding 4, Check 2)",
+        _nested_heading_tier_demoted_to_emphasis_role)
+
+    def _prose_table_opts_out_alone():
+        # quick task 260901-uzi Task 4 (Check 3): finding 2's markup half
+        # (exactly one table — the Resolution-statistics one, located from
+        # its own heading constant — carries data-table--prose; neither
+        # the battery readings table nor the unresolved-prefix registry
+        # table does) plus the stylesheet half (.data-table still
+        # declares the max-content floor, and .data-table--prose declares
+        # a zero minimum AND appears later in the file — the source-order
+        # fact the fix rests on).
+        tmp = _mkstate("h-prose-table-alone")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [
+                (_iso(now - timedelta(minutes=1)), 4200),
+                (_iso(now), 4190),
+            ])
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+
+            if rendered.count("data-table--prose") != 1:
+                return False, (
+                    "expected exactly one table to carry data-table--prose, got %d"
+                    % rendered.count("data-table--prose"))
+            stats_at = rendered.index(health_page.STATS_SECTION_HEADING)
+            prose_at = rendered.index("data-table--prose")
+            if prose_at < stats_at:
+                return False, "expected the opted-out table to be the Resolution-statistics one"
+            unresolved_at = rendered.index(health_page.UNRESOLVED_SECTION_HEADING)
+            if unresolved_at < prose_at < stats_at:
+                return False, "the unresolved-prefix registry table must not carry data-table--prose"
+            readings_at = rendered.index(health_page.BATTERY_SECTION_HEADING)
+            if readings_at < prose_at < unresolved_at:
+                return False, "the battery readings table must not carry data-table--prose"
+
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css_source = fh.read()
+            base_at = css_source.index(".data-table {")
+            prose_css_at = css_source.index(".data-table--prose {")
+            if base_at >= prose_css_at:
+                return False, (
+                    "equal specificity means source order decides: .data-table--prose "
+                    "must follow .data-table in style.css")
+            base_body = css_source[base_at:css_source.index("}", base_at)]
+            if "min-width: max-content" not in base_body:
+                return False, "expected .data-table to still declare the shared no-crop floor"
+            prose_body = css_source[prose_css_at:css_source.index("}", prose_css_at)]
+            if "min-width: 0" not in prose_body:
+                return False, "expected .data-table--prose to neutralise the floor with min-width: 0"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "exactly the Resolution-statistics table carries data-table--prose, neither the battery readings "
+        "table nor the unresolved-prefix registry table does, and style.css's .data-table--prose sits after "
+        ".data-table with the shared max-content floor still intact on the base rule (quick task 260901-uzi "
+        "finding 2, Check 3)",
+        _prose_table_opts_out_alone)
+
+    def _humanised_readout_end_to_end():
+        # quick task 260901-uzi Task 4 (Check 4): finding 3's markup half
+        # (the readout's id/role/spans, the humanised visible detail, the
+        # machine-precise tooltip) plus the cross-file half (every chart
+        # hit target carries data-when, and battery-trend.js's shipped
+        # source reads that attribute name, both span class names, and
+        # still looks the readout up by its id literal) — a server-side
+        # format change the script does not read is the exact regression
+        # this check exists to catch.
+        tmp = _mkstate("h-humanised-readout-e2e")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=6)), 4210),
+                (_iso(base - timedelta(minutes=3)), 4200),
+                (_iso(base - timedelta(minutes=1)), 4190),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+
+            section_start = rendered.index('<section class="%s">' % health_page.BATTERY_SECTION_CLASS)
+            section_end = rendered.index("</section>", section_start) + len("</section>")
+            section_html = rendered[section_start:section_end]
+
+            readout_start = section_html.index('<p id="%s"' % health_page.BATTERY_READOUT_ID)
+            readout_end = section_html.index("</p>", readout_start) + len("</p>")
+            readout_html = section_html[readout_start:readout_end]
+            if 'role="status"' not in readout_html:
+                return False, "expected role=\"status\" on the readout"
+            if "battery-readout__value" not in readout_html:
+                return False, "expected the readout's value span"
+            if "battery-readout__detail" not in readout_html:
+                return False, "expected the readout's detail span"
+            visible = re.sub(r"<[^>]*>", "", readout_html)
+            if re.search(r"\d{4}-\d{2}-\d{2}T", visible):
+                return False, "expected no raw ISO string in the readout's visible text, got %r" % visible
+            if not re.search(r"\d{4}-\d{2}-\d{2}T", readout_html):
+                return False, "expected the machine-precise ISO to survive in the detail span's title tooltip"
+
+            if section_html.count("data-when=") != 3:
+                return False, (
+                    "expected one data-when attribute per chart hit target, got %d"
+                    % section_html.count("data-when="))
+
+            js_path = os.path.join(HERE, "static", "battery-trend.js")
+            with open(js_path) as fh:
+                js_source = fh.read()
+            for token in ("data-when", "battery-readout__value", "battery-readout__detail"):
+                if token not in js_source:
+                    return False, "expected battery-trend.js to reference %r" % token
+            if ('getElementById("%s")' % health_page.BATTERY_READOUT_ID) not in js_source:
+                return False, "expected battery-trend.js to still look up the readout by its id literal"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the battery readout carries its id, role=\"status\", both value/detail spans and a humanised "
+        "visible detail with the machine-precise ISO only in the tooltip, every chart hit target carries "
+        "data-when, and battery-trend.js's shipped source still reads that attribute, both span classes, and "
+        "the readout's id literal (quick task 260901-uzi finding 3, Check 4)",
+        _humanised_readout_end_to_end)
+
+    def _readout_typographic_split_stylesheet_guard():
+        # quick task 260901-uzi Task 4 (Check 5): a stylesheet guard —
+        # the .mono reach-through rule covers both the tile-value
+        # container and the readout container in one rule (not two), and
+        # the detail rule carries the Label size, the regular weight, and
+        # this file's existing muted strength.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        mono_at = css_source.index(".stat-tile__value .mono,")
+        mono_body_open = css_source.index("{", mono_at)
+        mono_selector_list = css_source[mono_at:mono_body_open]
+        if ".battery-readout .mono" not in mono_selector_list:
+            return False, (
+                "expected .battery-readout .mono to join .stat-tile__value .mono's "
+                "own selector list, not get a second rule")
+
+        detail_at = css_source.index(".battery-readout__detail {")
+        detail_body = css_source[detail_at:css_source.index("}", detail_at)]
+        if "font-size: var(--font-label-size)" not in detail_body:
+            return False, "expected .battery-readout__detail to set the Label size"
+        if "font-weight: var(--weight-regular)" not in detail_body:
+            return False, "expected .battery-readout__detail to set the regular weight"
+        if "color-mix(in srgb, var(--color-text) 70%, transparent)" not in detail_body:
+            return False, (
+                "expected .battery-readout__detail to reuse this file's existing 70% "
+                "muted strength, not invent a fourth value")
+        return True, ""
+    check(
+        "style.css's .mono reach-through covers both .stat-tile__value and .battery-readout in one rule, and "
+        ".battery-readout__detail carries the Label size, the regular weight and the file's existing 70% "
+        "muted strength (quick task 260901-uzi finding 3, Check 5)",
+        _readout_typographic_split_stylesheet_guard)
+
     def _anomaly_active_agrees_with_banner_both_directions():
         # Compare the two booleans against each other, not against
         # hard-coded expectations, so this pins *agreement* (the
@@ -2448,11 +2731,27 @@ def main():
         session_cookie = _login(harness)
 
         now = _now()
-        _seed_device_health(harness.tmpdir, [(_iso(now), 4200)])
+        # quick task 260901-uzi Task 4: two readings, not one — the
+        # readout element and its chart only render when at least two
+        # numeric battery rows exist (_battery_section()'s own
+        # len(trend_rows) >= 2 gate); a single-reading fixture would make
+        # the in-place extension below fail to find the readout at all,
+        # for a reason unrelated to the fix it is checking.
+        _seed_device_health(harness.tmpdir, [
+            (_iso(now - timedelta(minutes=1)), 4200),
+            (_iso(now), 4190),
+        ])
         _seed_meta(harness.tmpdir, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
         _seed_unresolved_prefixes(harness.tmpdir, {
             "ABC": {"count": 2, "first_seen": _iso(now), "last_seen": _iso(now), "example_callsign": "ABC123"},
         })
+        # quick task 260901-uzi Task 4: a resolved runway event so
+        # resolution_stats()'s total is non-zero and _stats_table_html()
+        # actually renders a table — without this the prose modifier the
+        # in-place extension below checks for would never appear in this
+        # fixture, no matter what the fix does.
+        _seed_runway_events(harness.tmpdir, [
+            {"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
 
         def _both_tabs_ok_end_to_end():
             for path, heading in (("/health", "Health"), ("/airlines", "Airlines")):
@@ -2484,11 +2783,41 @@ def main():
                             return False, (
                                 "expected %r exactly once in the real /health HTTP response "
                                 "body, got %d" % (label, label_count))
+
+                    # quick task 260901-uzi Task 4: the automated half of
+                    # "verified against a real running service" for the
+                    # four Health fixes — a real subprocess, a real
+                    # login, a real seeded database, a real HTTP
+                    # response, not only an in-process render() call.
+                    nested_count = body_text.count("page-section--nested")
+                    if nested_count != 2:
+                        return False, (
+                            "expected page-section--nested exactly twice in the real "
+                            "/health HTTP response body, got %d" % nested_count)
+                    prose_count = body_text.count("data-table--prose")
+                    if prose_count != 1:
+                        return False, (
+                            "expected data-table--prose exactly once in the real /health "
+                            "HTTP response body, got %d" % prose_count)
+                    if "battery-readout__value" not in body_text:
+                        return False, "expected the readout's value span in the real /health HTTP response body"
+                    if "battery-readout__detail" not in body_text:
+                        return False, "expected the readout's detail span in the real /health HTTP response body"
+                    readout_start = body_text.index('<p id="%s"' % health_page.BATTERY_READOUT_ID)
+                    readout_end = body_text.index("</p>", readout_start) + len("</p>")
+                    readout_slice = body_text[readout_start:readout_end]
+                    visible = re.sub(r"<[^>]*>", "", readout_slice)
+                    if re.search(r"\d{4}-\d{2}-\d{2}T", visible):
+                        return False, (
+                            "expected no raw ISO string in the real /health response's readout "
+                            "own slice, got %r" % visible)
             return True, ""
         check(
             "GET /health and GET /airlines both return 200 with their own page heading against a real running "
             "service, and /health's real HTTP response body carries the page purpose, both section "
-            "descriptions, and no duplicated freshness label (quick task 260901-tsa)",
+            "descriptions, no duplicated freshness label, the nested modifier twice, the prose modifier once, "
+            "both readout spans, and no raw ISO in the readout's own slice (quick task 260901-tsa; extended in "
+            "place by quick task 260901-uzi finding 1/2/3/4)",
             _both_tabs_ok_end_to_end)
 
     finally:
