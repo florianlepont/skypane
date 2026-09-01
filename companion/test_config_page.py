@@ -66,7 +66,7 @@ STARTUP_DEADLINE_S = 10.0
 # one check per <behavior> bullet) -> 60 (Task 3: D-03/D-04/D-06
 # cross-file DOM-contract guards between config_page.py's constants and
 # dirty-state.js/style.css, +4).
-EXPECTED_CHECK_COUNT = 56
+EXPECTED_CHECK_COUNT = 60
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1278,6 +1278,65 @@ def main():
     check(
         "render() forwards ctx['runway_images'] to runway_fieldset() rather than relying on the parameter default",
         _render_forwards_ctx_runway_images_key)
+
+    # ------------------------------------------------------------------
+    # 06.6.4.1 Task 3 (D-03, D-04, D-06): cross-file DOM-contract guards
+    # between config_page.py's constants and the two static assets that
+    # read them by literal value, dirty-state.js and style.css. Neither
+    # static file imports this module — these checks are what keeps the
+    # three in sync.
+    # ------------------------------------------------------------------
+
+    _STATIC_DIR = os.path.join(REPO_ROOT, "companion", "static")
+
+    def _read_static(name):
+        with open(os.path.join(_STATIC_DIR, name)) as fh:
+            return fh.read()
+
+    def _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax():
+        source = _read_static("dirty-state.js")
+        if config_page.DIRTY_SECTION_ATTR not in source:
+            return False, "expected dirty-state.js to reference the literal value of DIRTY_SECTION_ATTR"
+        for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
+            if forbidden in source:
+                return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and contains none of innerHTML/let /const /=>/backtick",
+        _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax)
+
+    def _style_css_references_static_save_fallback_attr():
+        source = _read_static("style.css")
+        if config_page.STATIC_SAVE_FALLBACK_ATTR not in source:
+            return False, "expected style.css to reference the literal value of STATIC_SAVE_FALLBACK_ATTR"
+        idx = source.index(config_page.STATIC_SAVE_FALLBACK_ATTR)
+        window = source[idx:idx + 120]
+        if "display: none" not in window and "display:none" not in window:
+            return False, "expected the fallback-hide rule to set display: none near the attribute reference"
+        return True, ""
+    check(
+        "style.css contains the .js-gated fallback-hide rule referencing config_page.STATIC_SAVE_FALLBACK_ATTR's literal value",
+        _style_css_references_static_save_fallback_attr)
+
+    def _dirty_state_js_has_no_hardcoded_section_names():
+        source = _read_static("dirty-state.js")
+        for literal in ("Theme", "Runway", "Diagnostic LED"):
+            if literal in source:
+                return False, "expected no hardcoded occurrence of %r - section labels must come from the DOM" % (literal,)
+        return True, ""
+    check(
+        "dirty-state.js contains no hardcoded occurrence of \"Theme\", \"Runway\", or \"Diagnostic LED\" (labels come from the DOM)",
+        _dirty_state_js_has_no_hardcoded_section_names)
+
+    def _dirty_state_js_still_has_no_network_or_timer_sinks():
+        source = _read_static("dirty-state.js")
+        for forbidden in ("fetch(", "XMLHttpRequest", "setInterval", "setTimeout"):
+            if forbidden in source:
+                return False, "forbidden network/timer construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js still contains no fetch/XMLHttpRequest/setInterval/setTimeout",
+        _dirty_state_js_still_has_no_network_or_timer_sinks)
 
     # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py

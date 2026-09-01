@@ -22,6 +22,20 @@
  * below is load-bearing, not defensive noise, matching the project's
  * established convention (nav-dropdown.js/battery-trend.js's own early
  * returns).
+ *
+ * 06.6.4.1 (D-03/D-04): the bar's copy now names which settings group(s)
+ * changed, using the group labels Settings' own page module assigns via
+ * data-dirty-section, instead of a raw field-diff count — see
+ * dirtySectionLabels() and updateBar() below. This file
+ * deliberately does NOT hide the form's always-rendered bottom Save
+ * Settings button: that fix is the .js-gated CSS rule
+ * companion/static/style.css landed (.js [data-static-save-fallback]
+ * { display: none; }), driven by the .js class nav-dropdown.js already
+ * sets unconditionally on <html> — no JavaScript in this file needs to
+ * know that button exists. This closes the real bug where the old
+ * per-section bars and the bottom button used to show at the same time:
+ * previously this file's only DOM mutation was toggling the bar's own
+ * hidden property, with no reference to that other button at all.
  */
 (function () {
   "use strict";
@@ -87,16 +101,72 @@
     return count;
   }
 
+  // Returns an array of dirty section labels, in document order (making
+  // the bar's copy deterministic and independent of which field the user
+  // touched first) — one entry per [data-dirty-section] wrapper whose
+  // scoped fields differ from the load-time snapshot. Section labels are
+  // never hardcoded here: at least one settings group can render zero
+  // form controls at all (whenever its registry has exactly one member,
+  // there's nothing left to pick), so a hardcoded label list would name
+  // a section that structurally cannot change. Re-runs the same
+  // per-field comparison countDifferences() performs, scoped to only
+  // the fields each wrapper contains().
+  function dirtySectionLabels() {
+    var current = snapshotValues();
+    var wrappers = form.querySelectorAll("[data-dirty-section]");
+    var labels = [];
+    var i, j;
+    for (i = 0; i < wrappers.length; i++) {
+      var wrapper = wrappers[i];
+      var dirty = false;
+      var els = form.elements;
+      for (j = 0; j < els.length; j++) {
+        var el = els[j];
+        if (!el.name || !wrapper.contains(el)) {
+          continue;
+        }
+        if (current[el.name] !== snapshot[el.name]) {
+          dirty = true;
+          break;
+        }
+      }
+      if (dirty) {
+        labels.push(wrapper.getAttribute("data-dirty-section"));
+      }
+    }
+    return labels;
+  }
+
   function updateBar() {
     var count = countDifferences();
-    if (count > 0) {
-      bar.hidden = false;
+    if (count <= 0) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    var labels = dirtySectionLabels();
+    if (labels.length === 0) {
+      // Never-silent fallback: a differing field sits outside every
+      // section wrapper. Falls back to the raw-count copy this file
+      // shipped before D-03's section-naming so the bar can never go
+      // silent while unsaved edits exist.
       countEl.textContent = count === 1
         ? "1 unsaved change"
         : count + " unsaved changes";
-    } else {
-      bar.hidden = true;
+      return;
     }
+    if (labels.length === 1) {
+      countEl.textContent = labels[0] + " changed";
+      return;
+    }
+    if (labels.length === 2) {
+      countEl.textContent = labels[0] + " and " + labels[1] + " changed";
+      return;
+    }
+    // Three or more: every label but the last joined with ", ", the
+    // last one prefixed with ", and " — UI-SPEC §5.1's table.
+    var head = labels.slice(0, labels.length - 1).join(", ");
+    countEl.textContent = head + ", and " + labels[labels.length - 1] + " changed";
   }
 
   form.addEventListener("change", updateBar);
