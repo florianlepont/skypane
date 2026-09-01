@@ -64,10 +64,19 @@ TEST_PREV_ROUTE = {
 }
 
 # --- Band geometry, measured from the reference (trapezoid, not a parallelogram) ---
-BAND_TOP_LEFT_FRAC = 0.5818
-BAND_TOP_RIGHT_FRAC = 0.8523
-BAND_BOT_LEFT_FRAC = 0.0742
-BAND_BOT_RIGHT_FRAC = 0.4772
+# Shifted left by BAND_SHIFT_FRAC (developer's fix for the tag collision):
+# our real render's runway tag starts at x_frac=0.8117 (measured via
+# render._tracked_text_width(), not the reference's own 0.8117 - different
+# font/tracking), vs. the unshifted band's top-right edge at 0.8523 - a
+# real ~4pt overlap. Shifting the whole trapezoid left by 0.09 puts the
+# top-right edge at 0.762, a genuine ~5pt margin below the tag's start,
+# while preserving the band's measured width/shape exactly (a pure
+# translation, not a re-derivation).
+BAND_SHIFT_FRAC = -0.09
+BAND_TOP_LEFT_FRAC = 0.5818 + BAND_SHIFT_FRAC
+BAND_TOP_RIGHT_FRAC = 0.8523 + BAND_SHIFT_FRAC
+BAND_BOT_LEFT_FRAC = max(0.0, 0.0742 + BAND_SHIFT_FRAC)
+BAND_BOT_RIGHT_FRAC = 0.4772 + BAND_SHIFT_FRAC
 
 
 def draw_reference_band(canvas, band_idx, dithered=False):
@@ -105,10 +114,12 @@ DASH_W = 24
 DASH_GAP = 10
 
 
+ABOVE_ILLUSTRATION_GAP_PX = 40  # gap between the text block's bottom and the illustration's opaque top edge
+
+
 def patched_draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
     draw = ImageDraw.Draw(canvas)
     left_x = render.MARGIN
-    top_y = main_placement.content[3] + render.MAIN_TEXT_GAP_PX
 
     identifier = (route or {}).get("callsign_iata") or ""
     origin = (route or {}).get("origin_city") or ""
@@ -116,8 +127,24 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
     route_pair = "%s — %s" % (origin.upper(), dest.upper()) if origin and dest else ""
     airline = render.display_airline_name((route or {}).get("airline_name") or "")
 
-    # Flight number, big and bold, left-anchored.
     num_font = render._role_fit_text_size(FLIGHT_NUMBER_FONT, identifier, render.WIDTH - 2 * left_x, 28, weight)
+    route_font = render._role_font(ROUTE_LINE_FONT, weight)
+    airline_font = render._role_font(AIRLINE_LINE_FONT, weight)
+
+    # Measure pass (dry run at y=0) so the whole block's height is known
+    # before choosing where its top sits - developer's fix for the band
+    # collision: the text moves from below the illustration (where it
+    # crossed the band) to the gap above it instead, where the band's
+    # measured position (pushed toward the right edge at low y, see
+    # BAND_SHIFT_FRAC above) stays clear of this left-anchored block.
+    num_h = draw.textbbox((0, 0), identifier, font=num_font, anchor="la")[3]
+    route_h = render._tracked_text_bbox(route_font, (0, 0), route_pair, render.LABEL_TRACKING_PX)[3]
+    airline_h = draw.textbbox((0, 0), airline, font=airline_font, anchor="la")[3]
+    total_h = num_h + DASH_GAP + 2 + DASH_GAP + 4 + route_h + 12 + airline_h
+
+    top_y = main_placement.content[1] - ABOVE_ILLUSTRATION_GAP_PX - total_h
+
+    # Flight number, big and bold, left-anchored.
     num_bbox = draw.textbbox((left_x, top_y), identifier, font=num_font, anchor="la")
     draw.text((left_x, top_y), identifier, font=num_font, fill=ink_idx, anchor="la")
 
@@ -127,13 +154,11 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
 
     # Route line, tracked small-caps (reusing the shipped top-label technique).
     route_y = dash_y + DASH_GAP + 4
-    route_font = render._role_font(ROUTE_LINE_FONT, weight)
     render.draw_tracked_text(draw, (left_x, route_y), route_pair, route_font, ink_idx, render.LABEL_TRACKING_PX)
     route_bbox = render._tracked_text_bbox(route_font, (left_x, route_y), route_pair, render.LABEL_TRACKING_PX)
 
     # Airline name (Regular placeholder - italic not vendored).
     airline_y = route_bbox[3] + 12
-    airline_font = render._role_font(AIRLINE_LINE_FONT, weight)
     draw.text((left_x, airline_y), airline, font=airline_font, fill=ink_idx, anchor="la")
     airline_bbox = draw.textbbox((left_x, airline_y), airline, font=airline_font, anchor="la")
 

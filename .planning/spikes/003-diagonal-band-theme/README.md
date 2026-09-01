@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 2 (precise reference reproduction) presented, 2 findings need a decision (tag collision, black+black-ink)
+verdict: PENDING - round 3 fixes both round-2 findings (band shifted left, text moved above illustration), awaiting developer reaction; italic still unvendored
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -177,3 +177,47 @@ Both are fixable (nudge the band's top-right edge left of the tag's
 measured position; either exclude black from the shipped set or resolve
 text ink per-band), but need the developer's call before implementation
 - see the checkpoint presented alongside this file.
+
+**Round 3 - both findings fixed, developer's own proposed solutions.**
+
+1. **Band shifted left by `BAND_SHIFT_FRAC = -0.09`** (a pure translation
+   of the measured trapezoid, same width/shape, not a re-derivation).
+   Our real render's runway tag starts at `x_frac=0.8117`
+   (`render._tracked_text_width()`, measured directly - not the
+   reference's own 0.8117, different font/tracking); the shifted band's
+   top-right edge now sits at `0.762`, a genuine ~5-point margin below
+   the tag. Confirmed clear on all 5 candidates.
+2. **Main text block (flight number/dash/route/airline) moved from below
+   the illustration to the gap above it** - developer's own proposed
+   fix, not a fallback. The block is now bottom-anchored just above
+   `main_placement.content[1]` (the illustration's opaque top edge) via
+   a measure-then-place pass (each line's height computed with a dry-run
+   `textbbox()` at (0,0) before choosing where the block's top goes) -
+   the same drawing code runs top-down from that computed `top_y`, so no
+   line-height math is duplicated between the measure and draw passes.
+   At the height range this puts the block in (roughly 9-28% of canvas
+   height), the shifted band sits at 55-73% width, comfortably clear of
+   this left-anchored block's typical extent (~5-30% width).
+
+**Both real findings are now resolved in every one of the 5 requested
+candidates** - no tag collision, no band/ink-colour text collision, on
+blue light (dithered), green light (dithered), red (flat), black (flat),
+and blue (flat). `renders/contact_sheet_full_composition.png` is the
+current, corrected comparison set. The developer has not yet reacted to
+this round.
+
+**Still open, unresolved:**
+- PT Serif Italic is not vendored - "Air France" still renders in
+  Regular. Needs a developer decision: vendor an italic file (new
+  provenance record in `VENDOR.md`, matching the existing pinned-commit/
+  digest/licence discipline), or keep Regular and drop italic from the
+  design intent.
+- This entire round is screen-preview only, per this project's own D-13
+  precedent (every visual/typography change needs a real on-glass check
+  before being considered final) - nothing here has been near the real
+  panel yet.
+- The previous-flight card's text (bottom-right, unchanged from
+  production) was checked visually for band collision at its height
+  range (~75-85% canvas height, band sits at ~17-46% width there) and
+  looks clear in every candidate, but wasn't measured as precisely as
+  the two fixed issues above.
