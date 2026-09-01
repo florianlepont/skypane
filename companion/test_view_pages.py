@@ -58,7 +58,13 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 42  # 41 (pre-06.6.4-05) + 1 (06.6.4-05 Task 3: the
+EXPECTED_CHECK_COUNT = 47  # 42 (pre-06.6.4.1-05) + 5 (06.6.4.1-05 Task 1:
+# History's own Now-showing section with a panel present/absent, the
+# Recent-renders disclosure closed by default with a correct shown-count
+# summary, the same disclosure's empty-gallery no-renders empty state,
+# and confirmation that Preview's page-level freshness apparatus
+# (data-loaded-at/data-stale-banner) was deliberately not ported).
+# Prior baseline: 41 (pre-06.6.4-05) + 1 (06.6.4-05 Task 3: the
 # shared [data-filter-clear] Clear-control contract - History renders the
 # attribute, style.css styles it by attribute, no class-keyed rule
 # competes). Prior baseline: 35 (pre-06.6.3-07) + 6 (06.6.3-07 Task 3:
@@ -120,8 +126,12 @@ def _seed_gallery(state_dir, names):
         _write_gallery_png(os.path.join(gallery_dir, name))
 
 
-def _history_ctx(state_dir, now=None):
-    return {"state_dir": state_dir, "now": now or history_db.utc_now_iso()}
+def _history_ctx(state_dir, now=None, gallery_entries=None):
+    return {
+        "state_dir": state_dir,
+        "now": now or history_db.utc_now_iso(),
+        "gallery_entries": gallery_entries or [],
+    }
 
 
 def _preview_ctx(state_dir, gallery_entries=None, now=None):
@@ -952,6 +962,124 @@ def main():
     check(
         "confirmed_state/tracked_runway presentation labels (Task 1's format_event_row() fixture) also appear correctly through the full render() output",
         _presentation_labels_in_full_render)
+
+    # ======================================================================
+    # Section 1b: 06.6.4.1-05 Task 1 - History's own Now-showing section
+    # and collapsed Recent-renders disclosure (D-18/D-19), moved from
+    # companion/pages/preview_page.py.
+    # ======================================================================
+
+    def _now_showing_panel_present_one_image_one_caveat():
+        tmp = _mkstate("h-now-showing-present")
+        try:
+            _write_panel_file(tmp)
+            rendered = history_page.render(_history_ctx(tmp))
+            if rendered.count('class="preview-frame"') != 1:
+                return False, "expected exactly one .preview-frame element"
+            if rendered.count('src="/preview.png"') != 1:
+                return False, "expected exactly one image element pointing at /preview.png"
+            if "Captured " not in rendered:
+                return False, "expected the captured-at caption wording"
+            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
+                return False, "expected the colour caveat sentence exactly once"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Now-showing section renders one .preview-frame, one preview image, a "
+        "captured-at caption, and the colour caveat exactly once when a panel file exists",
+        _now_showing_panel_present_one_image_one_caveat)
+
+    def _now_showing_no_panel_no_image_element():
+        tmp = _mkstate("h-now-showing-absent")
+        try:
+            rendered = history_page.render(_history_ctx(tmp))
+            if 'src="/preview.png"' in rendered:
+                return False, "did not expect a preview image element with no panel file"
+            if 'class="preview-frame"' in rendered:
+                return False, "did not expect a .preview-frame element with no panel file"
+            if history_page._NO_PANEL_CAPTION not in rendered:
+                return False, "expected the honest no-panel-yet caption"
+            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
+                return False, "expected the colour caveat sentence exactly once"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Now-showing section renders no .preview-frame and no preview image element "
+        "with no panel file, still with the honest caption and the colour caveat exactly once",
+        _now_showing_no_panel_no_image_element)
+
+    def _recent_renders_disclosure_closed_by_default_correct_count():
+        tmp = _mkstate("h-recent-renders")
+        try:
+            names = ["20260827T100002Z.png", "20260827T100001Z.png", "20260827T100000Z.png"]
+            _seed_gallery(tmp, names)
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            if '<details class="readings-disclosure"><summary>Recent renders' not in rendered:
+                return False, (
+                    "expected a readings-disclosure details element (no open attribute) "
+                    "with a Recent renders summary")
+            match = re.search(
+                r'<details class="readings-disclosure"><summary>(Recent renders \(\d+\))'
+                r'</summary>(.*?)</details>', rendered, re.S)
+            if not match:
+                return False, "expected a readings-disclosure details element with a Recent renders summary"
+            summary_text = match.group(1)
+            tile_count_in_disclosure = match.group(2).count('class="gallery-tile"')
+            if summary_text != ("Recent renders (%d)" % tile_count_in_disclosure):
+                return False, (
+                    "expected the summary count %r to equal the number of "
+                    "gallery-tile elements actually rendered (%d)"
+                    % (summary_text, tile_count_in_disclosure))
+            if tile_count_in_disclosure != 3:
+                return False, "expected exactly 3 gallery tiles for 3 seeded entries"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Recent-renders disclosure is collapsed by default (no open attribute) and its "
+        "summary count equals the number of gallery-tile elements actually rendered inside it",
+        _recent_renders_disclosure_closed_by_default_correct_count)
+
+    def _recent_renders_disclosure_empty_gallery():
+        tmp = _mkstate("h-recent-renders-empty")
+        try:
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=[]))
+            if history_page._NO_RENDERS_HEADING not in rendered:
+                return False, "expected the render-gallery empty-state heading"
+            if 'class="gallery-grid"' in rendered:
+                return False, "did not expect a gallery-grid element with zero entries"
+            if "Recent renders (0)" not in rendered:
+                return False, "expected the disclosure summary to read 'Recent renders (0)'"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Recent-renders disclosure shows the existing no-renders empty state and a "
+        "'Recent renders (0)' summary with an empty gallery entry list",
+        _recent_renders_disclosure_empty_gallery)
+
+    def _now_showing_no_preview_freshness_apparatus():
+        # D-18: Preview's page-level freshness apparatus (its own
+        # data-loaded-at Refresh link and paired data-stale-banner) was
+        # deliberately not ported - only preview_section()'s content
+        # moved.
+        tmp = _mkstate("h-no-freshness")
+        try:
+            _write_panel_file(tmp)
+            rendered = history_page.render(_history_ctx(tmp))
+            if "data-loaded-at" in rendered:
+                return False, "did not expect a data-loaded-at attribute on the History page"
+            if "data-stale-banner" in rendered:
+                return False, "did not expect a data-stale-banner element on the History page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered History page contains no data-loaded-at attribute and no data-stale-banner "
+        "element - Preview's page-level freshness apparatus was deliberately not ported",
+        _now_showing_no_preview_freshness_apparatus)
 
     # ======================================================================
     # Section 2: companion/pages/preview_page.py
