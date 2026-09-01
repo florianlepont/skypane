@@ -64,14 +64,14 @@ TEST_PREV_ROUTE = {
 }
 
 # --- Band geometry, measured from the reference (trapezoid, not a parallelogram) ---
-# Round 7 (developer's new proposal): merge the top-right runway tag INTO
-# the top-left state label ("DEPARTING FROM ORY · RWY 3") instead of
-# shifting the band away from the tag - once nothing occupies the
-# top-right corner, the band is free to shift back right, further right
-# than the reference's own unshifted position even (BAND_SHIFT_FRAC=0
-# was the as-measured reference position; +0.08 goes past it). Still a
-# pure translation of the measured trapezoid, same width/shape.
-BAND_SHIFT_FRAC = 0.08
+# Round 9 (developer): un-merge the top labels again - RWY 3 goes back to
+# its own top-right tag - so the band needs to clear it once more, just
+# less drastically than round 3's -0.09: a smaller leftward shift keeps
+# more of round 7/8's rightward visual balance while still clearing the
+# tag's measured start (x_frac=0.8117) with a real margin. -0.07 puts the
+# band's top-right edge at 0.7823, a ~2.9pt margin. Still a pure
+# translation of the measured trapezoid, same width/shape.
+BAND_SHIFT_FRAC = -0.07
 BAND_TOP_LEFT_FRAC = 0.5818 + BAND_SHIFT_FRAC
 BAND_TOP_RIGHT_FRAC = 0.8523 + BAND_SHIFT_FRAC
 BAND_BOT_LEFT_FRAC = max(0.0, 0.0742 + BAND_SHIFT_FRAC)
@@ -191,7 +191,15 @@ def _fuselage_visual_top_y(route, aircraft_type, main_placement):
 
 def patched_draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
     draw = ImageDraw.Draw(canvas)
-    left_x = render.MARGIN
+    # Round 9 (developer): align the text block's left edge to the
+    # aircraft's own nose, not the canvas margin - main_placement.content[0]
+    # is the illustration's leftmost OPAQUE pixel column, i.e. the nose
+    # tip itself, the same ".content" (not ".rect") bbox every other
+    # measurement in this pipeline already trusts for "where the aircraft
+    # actually is" (unlike the vertical top edge, a side-view nose is a
+    # filled, rounded shape, not a thin spike, so this is a safe reuse -
+    # no separate width-profile analysis needed here).
+    left_x = main_placement.content[0]
 
     # The real content ladder, called verbatim - same functions, same
     # data, same never-shows-the-raw-callsign guarantee production uses.
@@ -229,16 +237,32 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
     route_font = render._role_font(ROUTE_LINE_FONT, weight)
     airline_font = render._role_font(AIRLINE_LINE_FONT, weight)
 
-    # Round 8 (developer): back below the illustration, now that round 7's
-    # merged top label freed the band to shift right instead of left -
-    # checked the band's position at this text block's height range
-    # (~50-55% canvas height): it now spans ~39-73% width, well clear of
-    # this left-anchored block's ~5-30% extent. No collision to dodge
-    # anymore, so no need for round 2/5's above-illustration workaround
-    # (or its measure-before-place / fuselage-visual-top machinery) -
-    # this is the real production draw_main_text_block()'s own anchor,
-    # MAIN_TEXT_GAP_PX below the illustration's opaque bottom edge.
-    y = main_placement.content[3] + render.MAIN_TEXT_GAP_PX
+    # Round 10 (developer): round 8 moved this block back below the
+    # illustration once round 7 freed the band to shift right - but round
+    # 9 un-merged the top labels again (band shifted back left, -0.07) AND
+    # nose-aligned this block's left edge (content[0] instead of MARGIN),
+    # and that combination reopens the collision round 8 had just closed:
+    # verified numerically, the band's left edge at this block's
+    # below-illustration height (~52% canvas height) sits at ~24.5% width,
+    # while the nose-aligned block's own right edge reaches ~33% - a real
+    # ~8pt overlap, confirmed visually on black-flat (text genuinely cut).
+    # There is no single BAND_SHIFT_FRAC that clears both the restored tag
+    # (needs the band pushed left) and this below-position nose-aligned
+    # text (needs the band pushed right) at once - the trapezoid's own
+    # shape makes the two constraints mutually exclusive here. Back above
+    # the illustration (round 5's fuselage-visual-top anchor, not
+    # content[1]) resolves both at once - verified numerically, band left
+    # edge stays 38-46% across that height range, clear of the
+    # nose-aligned block's ~35% max extent.
+    total_h = 0
+    if number_text:
+        total_h += draw.textbbox((0, 0), number_text, font=num_font, anchor="la")[3] + DASH_GAP + 2 + DASH_GAP + 4
+    if tracked_text:
+        total_h += render._tracked_text_bbox(route_font, (0, 0), tracked_text, render.LABEL_TRACKING_PX)[3] + 12
+    total_h += draw.textbbox((0, 0), plain_text, font=airline_font, anchor="la")[3]
+
+    fuselage_top_y = _fuselage_visual_top_y(route, flight.get("aircraft_type"), main_placement)
+    y = fuselage_top_y - ABOVE_ILLUSTRATION_GAP_PX - total_h
     first_bbox = None
 
     if number_text:
@@ -335,7 +359,6 @@ def patched_draw_previous_text_block(canvas, flight, state, route, prev_placemen
 def main():
     orig_draw_main_text_block = render.draw_main_text_block
     orig_draw_previous_text_block = render.draw_previous_text_block
-    orig_draw_top_labels = render.draw_top_labels
     candidates = [
         ("ref-band-blue-dithered", pf.IDX_BLUE, True),
         ("ref-band-blue-flat", pf.IDX_BLUE, False),
@@ -346,7 +369,9 @@ def main():
     try:
         render.draw_main_text_block = patched_draw_main_text_block
         render.draw_previous_text_block = patched_draw_previous_text_block
-        render.draw_top_labels = patched_draw_top_labels
+        # Round 9: top labels un-merged - the real, already-shipped
+        # draw_top_labels() (state label + separate tracked runway tag)
+        # runs unpatched again.
         for label, band_idx, dithered in candidates:
             pf.new_canvas = make_patched_new_canvas(band_idx, dithered)
             canvas = render.build_canvas(
@@ -366,7 +391,6 @@ def main():
     finally:
         render.draw_main_text_block = orig_draw_main_text_block
         render.draw_previous_text_block = orig_draw_previous_text_block
-        render.draw_top_labels = orig_draw_top_labels
         pf.new_canvas = _TRUE_ORIG_NEW_CANVAS
 
 

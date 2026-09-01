@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 8 moves the main card's text back below the aircraft (safe now the band shifted right), awaiting developer reaction
+verdict: PENDING - round 9 restores the tag/nose-aligns text, caught and fixed a real conflict this reopened (main text moved back above), awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -299,6 +299,37 @@ problem the top edge did (this is the same anchor the shipped production
 function has always used). Confirmed clear on both the blue-dithered and
 black-flat candidates - the two extremes (softest and hardest edge
 against the band) - with no collision on either.
+
+**Round 9 - un-merge the top labels, nose-align the main text, smaller
+leftward shift.** Developer: bring RWY 3 back to its own top-right tag,
+shift the band left again (but less than round 3's -0.09), and align the
+main text block's left edge to the aircraft's nose instead of the canvas
+margin. Un-merging is a pure revert (stopped patching
+`draw_top_labels()`, the real shipped function runs as-is). Nose
+alignment uses `main_placement.content[0]` (the nose's own leftmost
+opaque pixel) - safe to reuse directly here, unlike the vertical case:
+a side-view nose is a filled, rounded shape, not a thin spike, so no
+separate width-profile analysis was needed. `BAND_SHIFT_FRAC` set to
+`-0.07` (top-right edge at 0.7823, a ~2.9pt margin below the tag's
+0.8117 start).
+
+**Found and fixed: round 8+9 together reopened the band collision.**
+Verified numerically before showing anything: with the main text block
+still below the illustration (round 8) AND now nose-aligned (round 9),
+the band's left edge at that height (~52% canvas height, ~24.5% width)
+sits well INSIDE the text block's own right edge (~33% width) - a real
+~8pt overlap, confirmed visually on `black-flat` (text genuinely cut:
+"AF123" without its "4", "TO NEW Y" without "ORK"). There is no single
+`BAND_SHIFT_FRAC` that clears both the restored tag (wants the band
+pushed left) and the below-position nose-aligned text (wants it pushed
+right) at once - the trapezoid's own shape makes the two constraints
+mutually exclusive at that text position. Moved the main block back
+above the illustration (round 5's `_fuselage_visual_top_y()` anchor,
+not round 8's below-anchor) - verified numerically this clears both
+constraints (band's left edge stays 38-46% across that height range,
+clear of the nose-aligned block's ~35% max extent), then confirmed
+visually on both `blue-dithered` and `black-flat`. Flagged explicitly
+rather than silently reverting the developer's own round-8 request.
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13
