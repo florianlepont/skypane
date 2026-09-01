@@ -62,7 +62,17 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 101  # 06.6.4.1-07 Task 3: 1 new standing route-contract guard (nav tuple/page-titles dict/icon map size+key-set agreement, settings route constant equals NAV_TABS[0][0]) — the literal sweep found no remaining stale /config or /config-led occurrence in this file to fix, and three "five nav links"-shaped prose descriptions were reworded to stop hardcoding a route count that changes again in plan 08 (no check-count effect, prose only). # 100 = 06.6.4.1-07 Task 1: 4 new settings-route-rename checks (old path 404s authenticated, POST /settings redirects with flash, ?next=/settings hidden-field round trip, route/icon-map cross-module contract) — the five pre-existing tab-tuple/redirect/login-default/logout-refusal checks were retargeted from /config to /settings in place, not counted as new. # 96 = 06.6.4.1-02 Task 3: 4 new panel-lookup.js checks (pre-auth serving, ES5-dialect, route/src agreement, six-script-tag count) # 92 = 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
+EXPECTED_CHECK_COUNT = 102  # 06.6.4.1-08 Task 1: net +1 (101 -> 102) — 2 new
+# checks (authenticated GET /preview redirects to /history; the same
+# request with an arbitrary query string — including a next=-shaped and
+# an https://evil.example-shaped value — still redirects to the
+# identical /history location) minus 1 removed (the pre-existing
+# "authenticated GET /preview returns 200 with the Preview heading"
+# tab-iteration entry, retargeted away since D-22 retires the page and it
+# can no longer return 200/a page heading). The unauthenticated-redirect
+# and preview.png/gallery-image checks already covered the session-gate
+# and byte-serving-route acceptance criteria and needed no change. # 101 =
+# 06.6.4.1-07 Task 3: 1 new standing route-contract guard (nav tuple/page-titles dict/icon map size+key-set agreement, settings route constant equals NAV_TABS[0][0]) — the literal sweep found no remaining stale /config or /config-led occurrence in this file to fix, and three "five nav links"-shaped prose descriptions were reworded to stop hardcoding a route count that changes again in plan 08 (no check-count effect, prose only). # 100 = 06.6.4.1-07 Task 1: 4 new settings-route-rename checks (old path 404s authenticated, POST /settings redirects with flash, ?next=/settings hidden-field round trip, route/icon-map cross-module contract) — the five pre-existing tab-tuple/redirect/login-default/logout-refusal checks were retargeted from /config to /settings in place, not counted as new. # 96 = 06.6.4.1-02 Task 3: 4 new panel-lookup.js checks (pre-auth serving, ES5-dialect, route/src agreement, six-script-tag count) # 92 = 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
 # regression checks (dirty-state.js/list-filter.js/copy-button.js/
 # freshness.js, one each) + 1 new cross-file *_SCRIPT_ROUTE/*_SCRIPT_SRC
 # DOM-contract-guard check, mirroring _three_file_nav_dom_contract_guard()'s
@@ -1507,11 +1517,15 @@ def main():
         session_cookie = _login(harness)
 
         # --- authenticated: every NAV_TABS tab returns 200 with its own heading ---
+        # 06.6.4.1-08 (D-22): "/preview" removed from this tuple here (not in
+        # Task 2, which shrinks NAV_TABS itself) — the harness must stay
+        # green immediately after this task's own commit, and /preview no
+        # longer returns 200/a page heading the instant the redirect below
+        # lands. See the dedicated redirect checks just below instead.
 
         for _tab_path, _heading in (
             ("/settings", "Settings"), ("/health", "Health"),
             ("/airlines", "Airlines"), ("/history", "History"),
-            ("/preview", "Preview"),
         ):
             def _tab_ok(tab_path=_tab_path, heading=_heading):
                 status, _headers, body = http_request(base + tab_path, cookie=session_cookie)
@@ -1523,6 +1537,52 @@ def main():
             check(
                 "authenticated GET %s returns 200 and contains its own %r heading" % (_tab_path, _heading),
                 _tab_ok)
+
+        # --- 06.6.4.1-08 (D-22): the retired Preview page route now redirects
+        # to History with a fixed literal target — never derived from a query
+        # parameter, so a crafted next-style parameter provably cannot steer it ---
+
+        def _preview_redirects_to_history():
+            status, headers, body = http_request(base + "/preview", cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            if headers.get("Location") != "/history":
+                return False, "expected a redirect to /history exactly, got %r" % headers.get("Location")
+            if body:
+                return False, "expected an empty redirect body, got %d bytes of content" % len(body)
+            return True, ""
+        check(
+            "authenticated GET /preview (the retired Preview page route) redirects to /history (D-22)",
+            _preview_redirects_to_history)
+
+        def _preview_redirect_ignores_query_string():
+            status, headers, _body = http_request(
+                base + "/preview?next=/settings&evil=https://evil.example",
+                cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            if headers.get("Location") != "/history":
+                return False, (
+                    "expected the redirect location to stay /history regardless of an "
+                    "arbitrary query string, got %r" % headers.get("Location"))
+            return True, ""
+        check(
+            "authenticated GET /preview carrying an arbitrary query string (including a "
+            "next=-shaped and an https://evil.example-shaped value) still redirects to the "
+            "identical /history location — no request value influences the target",
+            _preview_redirect_ignores_query_string)
+
+        # Session gate on the retired route: covered by the pre-existing
+        # "unauthenticated GET /preview redirects to /login carrying that
+        # route as ?next=" check above (still a NAV_TABS route until Task 2
+        # shrinks the tuple) — an unauthenticated caller lands on /login, not
+        # /history, proving the redirect branch keeps its require_session()
+        # gate. Both byte-serving image routes (/preview.png, a real
+        # /gallery/{name}.png) already have their own authenticated-200/
+        # unauthenticated-redirect checks elsewhere in this file
+        # (_preview_real_panel/_preview_missing and the gallery checks below,
+        # plus the unauthenticated-redirect loop above) — confirmed still
+        # passing untouched by this task.
 
         # --- 06.6.4.1-07 (D-26): settings route rename — old path 404s
         # by design (no redirect), the merged form's POST target is

@@ -57,7 +57,6 @@ from companion.pages import (  # noqa: E402
     config_page,
     health_page,
     history_page,
-    preview_page,
 )
 from server import device_config, history_db, panel_preview  # noqa: E402
 from server.plane import illustrations  # noqa: E402
@@ -111,6 +110,11 @@ SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
 POLL_ROUTE = "/poll-now"
 THEME_ROUTE = "/ui-theme"
 LOGOUT_ROUTE = "/logout"
+# D-22 (06.6.4.1-08): the standalone Preview HTML page is retired — its
+# entire content moved into History (06.6.4.1-05) — so this route is kept
+# solely as a fixed-redirect source, not a page route. Named
+# PREVIEW_PAGE_ROUTE (not PREVIEW_ROUTE) to say what it now is.
+PREVIEW_PAGE_ROUTE = "/preview"
 PREVIEW_IMAGE_ROUTE = "/preview.png"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 # Single definition site is companion/pages/config_page.py (app.py imports
@@ -898,18 +902,23 @@ class Handler(BaseHTTPRequestHandler):
                 ui_theme=ctx["ui_theme"], flash=flash_html,
                 health_alert=ctx["health_severity"]))
 
-        if path == "/preview":
+        if path == PREVIEW_PAGE_ROUTE:
             if not self.require_session():
                 return None
-            ctx = self.page_context()
-            body = preview_page.render(ctx)
-            flash_html = (
-                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
-                if ctx["flash"] else None)
-            return self.send_html(200, layout.page_shell(
-                title="Preview", active="preview", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_severity"]))
+            # D-22: the Preview page is retired — History absorbed all of
+            # its content (06.6.4.1-05) — so this route now exists solely
+            # to send a stale bookmark/link somewhere useful. The
+            # redirect target is a fixed literal, never derived from a
+            # query parameter, form value, Referer header, or
+            # _validated_next_route()'s allowlisted next-route mechanism
+            # above: that mechanism exists to honour a caller's requested
+            # *login* destination and is allowlisted for that reason,
+            # whereas this route has exactly one correct destination, and
+            # consulting any request value here would turn a fixed
+            # redirect into an open one. self.redirect() already emits
+            # this site's one 302-class status for every redirect (303),
+            # matching D-22's requirement.
+            return self.redirect("/history")
 
         if path == PREVIEW_IMAGE_ROUTE:
             if not self.require_session():
