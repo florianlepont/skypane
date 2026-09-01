@@ -60,6 +60,7 @@ from companion.pages import (  # noqa: E402
     preview_page,
 )
 from server import device_config, history_db, panel_preview  # noqa: E402
+from server.plane import illustrations  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 DEFAULT_PORT = 8643
@@ -109,6 +110,9 @@ GALLERY_ROUTE_PREFIX = "/gallery/"
 # that module, so the reverse import would be a cycle) — rebound here
 # exactly like the FLASH_KEY_* constants below.
 RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX
+# D-15 (06.6.4.1-02): the Airlines gallery's per-variant illustration image
+# route. Naming convention matches RUNWAY_IMAGE_ROUTE_PREFIX above.
+ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -321,6 +325,20 @@ def runway_images_available(image_dir=_RUNWAY_IMAGE_DIR):
         if os.path.isfile(_runway_image_path(runway_id, image_dir)):
             available.add(runway_id)
     return available
+
+
+def _illustration_filenames():
+    """The known-safe membership set `Handler._serve_illustration_image()`
+    validates a requested key against BEFORE any filesystem path is
+    constructed (D-15) — `illustrations.target_filenames()` wrapped in a
+    `frozenset`. `target_filenames()` performs no I/O, but materialising it
+    once at import time (rather than per request) makes the "one closed,
+    server-controlled list" property visible at a glance.
+    """
+    return frozenset(illustrations.target_filenames())
+
+
+_ILLUSTRATION_FILENAMES = _illustration_filenames()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -714,6 +732,28 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)
 
+    def _serve_illustration_image(self, key):
+        # Membership test FIRST, before any path is ever constructed
+        # (validate-then-join, never sanitise-then-join — same shape as
+        # _serve_runway_image() above, D-15). An unknown key and an
+        # unreadable file both return this same 404, so a caller can never
+        # distinguish "not a real illustration" from "no file for a real
+        # one". illustrations.illustration_path_for_key()'s own
+        # _UNSAFE_KEY_RE check below is defence in depth, never a
+        # substitute for this membership test.
+        filename = key + ".png"
+        if filename not in _ILLUSTRATION_FILENAMES:
+            return self.send_html(404, self._not_found_page())
+        path = illustrations.illustration_path_for_key(key)
+        if path is None:
+            return self.send_html(404, self._not_found_page())
+        try:
+            with open(path, "rb") as fh:
+                payload = fh.read()
+        except OSError:
+            return self.send_html(404, self._not_found_page())
+        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -864,6 +904,12 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             runway_id = path[len(RUNWAY_IMAGE_ROUTE_PREFIX):-len(".png")]
             return self._serve_runway_image(runway_id)
+
+        if path.startswith(ILLUSTRATION_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
+            if not self.require_session():
+                return None
+            key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
+            return self._serve_illustration_image(key)
 
         return self.send_html(404, self._not_found_page())
 

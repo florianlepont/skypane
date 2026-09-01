@@ -62,7 +62,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 88  # 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
+EXPECTED_CHECK_COUNT = 92  # 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
 # regression checks (dirty-state.js/list-filter.js/copy-button.js/
 # freshness.js, one each) + 1 new cross-file *_SCRIPT_ROUTE/*_SCRIPT_SRC
 # DOM-contract-guard check, mirroring _three_file_nav_dom_contract_guard()'s
@@ -1626,6 +1626,64 @@ def main():
         check(
             "the canary file placed one level above the gallery directory never appears in any traversal response",
             _canary_never_returned)
+
+        # --- illustration image route (D-15, 06.6.4.1-02) ---
+
+        def _illustration_real_key_returns_png():
+            status, headers, body = http_request(
+                base + "/illustration/air-france.png", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 for a real illustration key, got %d" % status
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected Content-Type image/png, got %r" % headers.get("Content-Type")
+            if not body:
+                return False, "expected a non-empty response body"
+            return True, ""
+        check(
+            "an authenticated GET /illustration/air-france.png returns 200, image/png, and a non-empty body",
+            _illustration_real_key_returns_png)
+
+        def _illustration_unknown_key_404():
+            status, _headers, _body = http_request(
+                base + "/illustration/not-a-real-airline.png", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for a key not in the membership set, got %d" % status
+            return True, ""
+        check(
+            "an authenticated GET for an illustration key not in the membership set returns 404",
+            _illustration_unknown_key_404)
+
+        def _illustration_traversal_key_404():
+            adversarial_paths = [
+                "/illustration/..%2F..%2Fetc%2Fpasswd.png",
+                "/illustration/../../../etc/passwd.png",
+                "/illustration/style.png",
+            ]
+            for adversarial_path in adversarial_paths:
+                status, _headers, body = http_request(
+                    base + adversarial_path, cookie=session_cookie)
+                if status != 404:
+                    return False, "expected 404 for adversarial path %r, got %d" % (adversarial_path, status)
+                if body and b"root:" in body:
+                    return False, "adversarial path %r returned file content" % (adversarial_path,)
+            return True, ""
+        check(
+            "authenticated GET requests for adversarial illustration paths (path traversal) all return 404 with no file content",
+            _illustration_traversal_key_404)
+
+        def _illustration_unauthenticated_redirects_to_login():
+            status, headers, body = http_request(base + "/illustration/air-france.png")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if "/login" not in location:
+                return False, "expected a redirect to /login, got %r" % location
+            if body.startswith(PNG_SIGNATURE):
+                return False, "unauthenticated request must never return image bytes"
+            return True, ""
+        check(
+            "an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes",
+            _illustration_unauthenticated_redirects_to_login)
 
         # --- poll-trigger cooldown: server-global, not per-session ---
 
