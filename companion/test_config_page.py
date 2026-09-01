@@ -1505,7 +1505,9 @@ def main():
     def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
         # quick task 260901-re6 Task 3: the third new cross-file guard,
         # following the same index-plus-window technique the neighbouring
-        # guards above use (never a regex CSS parser).
+        # guards above use (never a regex CSS parser). quick task
+        # 260901-s5o: retargeted and extended in place (no count change)
+        # onto the floating-card treatment.
         source = _read_static("style.css")
 
         # (a) .section-caption declares only the file's existing 70%
@@ -1518,19 +1520,29 @@ def main():
         if "color-mix(in srgb, var(--color-text) 70%, transparent)" not in window:
             return False, "expected .section-caption's rule body to carry the 70% color-mix muted idiom"
 
-        # (b) the base (non-media-query) .dirty-bar rule carries the
-        # dominant surface and a top hairline, and no longer carries the
-        # old muted --color-secondary surface.
+        # (b) the base (non-media-query) .dirty-bar rule is a fully-bordered
+        # floating card: dominant surface, a full border (no top-only
+        # hairline), the card radius token, and a token-based shadow (no
+        # upward-only literal), and no longer carries the old muted
+        # --color-secondary surface.
         base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
         if not base_match:
             return False, "expected a top-level (non-media-query) .dirty-bar rule"
         base_body = base_match.group(1)
         if "var(--color-dominant)" not in base_body:
             return False, "expected the base .dirty-bar rule body to carry var(--color-dominant)"
-        if "border-top:" not in base_body:
-            return False, "expected the base .dirty-bar rule body to carry a border-top: declaration"
+        if "border: 1px solid var(--color-border)" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry a full border: 1px solid var(--color-border) declaration"
+        if "border-top:" in base_body:
+            return False, "expected the base .dirty-bar rule body to no longer carry a border-top: declaration"
         if "var(--color-secondary)" in base_body:
             return False, "expected the base .dirty-bar rule body to no longer carry var(--color-secondary)"
+        if "border-radius: var(--radius-card)" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry border-radius: var(--radius-card), now load-bearing at every width"
+        if "box-shadow: var(--shadow-card-hover)" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry box-shadow: var(--shadow-card-hover) as its first shadow layer"
+        if "box-shadow: 0 -" in base_body:
+            return False, "expected the base .dirty-bar rule body to no longer carry the retired upward-only literal shadow"
 
         # (c) the >=960px .dirty-bar rule is fixed, not sticky, and no
         # .dirty-bar rule body anywhere still says position: sticky.
@@ -1545,14 +1557,29 @@ def main():
 
         # (d) the 240px literal the fixed rule's left uses still equals
         # .dashboard-shell's grid-template-columns first track - a
-        # duplicated-not-imported must-equal pair with no shared token.
+        # duplicated-not-imported must-equal pair with no shared token,
+        # now a three-term left expression with the inset as a third addend.
         if "grid-template-columns: 240px" not in source:
             return False, "expected style.css to declare grid-template-columns: 240px on .dashboard-shell"
-        if "calc(240px + var(--space-xl))" not in media_body:
-            return False, "expected the >=960px .dirty-bar rule's left offset to be calc(240px + var(--space-xl))"
+        if "calc(240px + var(--space-xl) + var(--space-md))" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule's left offset to be calc(240px + var(--space-xl) + var(--space-md))"
+
+        # (e) the inset itself: bottom/right pulled in by var(--space-md),
+        # max-width reduced by twice the inset so the cap doesn't silently
+        # cancel it above roughly 1712px (where min(1440px, 100%) alone
+        # would size the box, flush with .dashboard-main on both sides),
+        # and no corner-squaring override left to re-dock the bar.
+        if "bottom: var(--space-md)" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry bottom: var(--space-md)"
+        if "right: var(--space-md)" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry right: var(--space-md)"
+        if "calc(min(1440px, 100%) - var(--space-md) * 2)" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule's max-width to be calc(min(1440px, 100%) - var(--space-md) * 2)"
+        if "border-radius: 0" in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to no longer carry a corner-squaring border-radius: 0 override"
         return True, ""
     check(
-        "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar (dominant surface, top hairline, no --color-secondary), the fixed-not-sticky >=960px .dirty-bar rule, and the 240px<->grid-template-columns must-equal pair (quick task 260901-re6)",
+        "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar as a floating rounded card (full border, radius token, surrounding token-based shadow, no --color-secondary), the fixed-not-sticky >=960px .dirty-bar rule inset by var(--space-md) with a correspondingly reduced max-width and no corner-squaring, and the 240px<->grid-template-columns must-equal pair (quick task 260901-re6, quick task 260901-s5o)",
         _style_css_carries_section_caption_and_restyled_fixed_dirty_bar)
 
     def _dirty_state_js_has_no_hardcoded_section_names():
