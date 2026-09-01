@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
-stopped_at: Completed 06.6.4.1-08-PLAN.md (Preview retirement — 302 redirect, nav 5→4, preview_page.py deleted). Continuing 09's closing checkpoint via quick-fix cycles as the developer finds real gaps in Safari testing — third cycle (260901-s5o) just landed: added the missing Poll section caption and redesigned the save bar from a flush edge-to-edge toolbar into a floating rounded pop-up (inset margin, all-corner radius, all-around shadow), both validated via the "Settings Save Bar Sketch" artifact and approved. Only plan 09's Task 2 (28-item developer checklist) remains — only Group A (Settings) substantively walked through so far.
-last_updated: "2026-09-01T18:35:00.000Z"
+stopped_at: Completed 06.6.4.1-08-PLAN.md (Preview retirement — 302 redirect, nav 5→4, preview_page.py deleted). Continuing 09's closing checkpoint via reactive fix cycles as the developer finds real gaps in Safari testing — quick task 260901-s5o (Poll caption + floating pop-up save bar) landed, then the developer saw it live and asked for a direct (non-quick) follow-up: the bar's shape was right but it was too wide (stretched to the full content-column width) and not visible enough — fixed with `width: fit-content` (shrinks to its own content, ~368px vs ~1096px) and a deepened ambient shadow, committed directly at e87d46d since the developer explicitly asked to bypass /gsd-quick for this one. Only plan 09's Task 2 (28-item developer checklist) remains — only Group A (Settings) substantively walked through so far.
+last_updated: "2026-09-01T18:52:00.000Z"
 last_activity: 2026-09-01
-last_activity_desc: Completed quick task 260901-s5o — Poll section caption + Discord-style floating pop-up save bar
+last_activity_desc: Direct fix (no /gsd-quick, developer-requested): shrank the save bar to content width and deepened its shadow, e87d46d
 progress:
   total_phases: 19
   completed_phases: 16
