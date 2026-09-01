@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
-stopped_at: Completed 06.6.4.1-05-PLAN.md
-last_updated: "2026-09-01T14:12:13.405Z"
+stopped_at: Completed 06.6.4.1-06-PLAN.md
+last_updated: "2026-09-01T14:32:58.035Z"
 last_activity: 2026-09-01
 last_activity_desc: Phase 06.6.4.1 execution started
 progress:
   total_phases: 19
   completed_phases: 16
   total_plans: 94
-  completed_plans: 89
-  percent: 84
+  completed_plans: 90
+  percent: 96
 ---
 
 # Project State
@@ -29,6 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 06.6.4.1 (companion-page-by-page-ia-consolidation-full-page-by-page-vi) — EXECUTING
+
+**06.6.4.1-06 executed (2026-09-01), wave 3 (depends on 01/02/04), closing D-13/D-14/D-15/D-16/D-17 — replaced Airlines' entire content: out goes the CFG-04/CFG-08 diagnostics that moved to Health in plan 04, in comes a visual gallery of the panel renderer's own 27 already-shipped illustrations with a working filter bar, leaving `airlines_page.py` reading exactly one static in-memory list, no database and no poll state.** Task 1 rewrote the module docstring/imports (added `from server.plane import illustrations`; old `history_db`/`poll_loop`/`sqlite3`/`datetime` imports stayed as dead code pending Task 3) and added `ILLUSTRATION_ROUTE_PREFIX` (duplicated-not-imported against `app.py`'s own constant, pinned by a cross-module equality check), `GALLERY_PURPOSE_TEXT`, `CARD_IMAGE_ALT_TEMPLATE`, `variant_chip_label()` (classifies a shape string by its own form — a `^[a-z]+\d[\d-]*$` letter-prefix-plus-digits pattern for type codes vs. everything else as a word-form manufacturer shape — never by `SHAPE_SLUGS` membership, so `"a350-1000"` survives), `_airline_card_html()`, and `_gallery_grid_html()`; `render()` was rewritten to `page_header("Airlines", ...)` + the grid only, which immediately invalidated 15 pre-existing Section 2 tests exercising the old registry/stats render() output — these were deleted in this same task (pulled forward from Task 3, required by the plan's own per-task green-suite verification loop) and 6 new gallery checks added (card count, image-source route-membership, Air Caraïbes' three chips including the A350-1000 trap, no-chips-container for a primary-only airline, `variant_chip_label()`'s two domains, the route-prefix cross-module equality). Task 2 redefined `_filter_bar_html()` and its four copy constants in place (same names, new UI-SPEC-pinned gallery values and History's real `<button type="button" data-filter-clear>` Clear control, not the old read-only page's anchor-link variant — D-16's read-only constraint no longer applies) — safe because the old implementation was already dead code by that point; `_airline_card_html()` gained an `index` parameter and now carries `data-filter-text`/`data-filter-group` per card; `render()` emits the filter bar between the header and the grid, guarded by "no chrome with no data". Task 3 deleted every migrated diagnostics symbol after confirming each one's live counterpart already existed in `health_page.py` (`_safe_query()`, `unresolved_rows()`, `coverage_status()`, `resolution_stats()`, the old registry row/table/section builders, the resolved-rate headline, the statistics table builder, plus the coverage/stats copy constants and the now-unused imports), added a module-level note recording where the content went, and pinned both non-goals with test guards: D-17 (no `history_db`/`poll_loop`/sqlite import anywhere in source — one auto-fixed deviation here, the docstring's own compliance sentence initially named those literal substrings and tripped its own new guard, reworded to "the history-database module"/"the poll-state module") and D-13 (the rendered Airlines page contains none of the migrated registry/stats table headers, while Health still renders both header sets). `EXPECTED_CHECK_COUNT` 72→63 (Task 1, -15+6) →68 (Task 2, +5) →72 (Task 3, +4) — back to the pre-plan value, a full page replacement of comparable test surface rather than a net addition. `git diff --stat` across all three task commits touches exactly `companion/pages/airlines_page.py` and `companion/test_status_pages.py`; `git diff --quiet companion/static/list-filter.js companion/static/style.css companion/app.py companion/pages/health_page.py` confirmed no change to any of those four files. `scripts/run-all-tests.sh` reports the same single pre-existing, unrelated `server/test_poll_loop.py` digest mismatch (42/43) — this plan touched no file under `server/`; all five other harnesses green (`companion-app` 96/96, `config-page` 60/60, `status-pages` 72/72, `view-pages` 56/56, `contrast-check` 34/34).
 
 **06.6.4.1-05 executed (2026-09-01), wave 2's third plan (depends on 01/02), closing D-18/D-19/D-20/D-21 — moved Preview's entire page content into History as a Now-showing section plus a collapsed Recent-renders disclosure, added a server-side per-row nearest-render lookup with a shared native `<dialog>` lightbox, and gave unresolved-airline rows a link to Health's Server & data anchor instead of a duplicated prefix registry.** Task 1 copied `COLOUR_CAVEAT`, the no-panel/no-renders constants, `GALLERY_DISPLAY_LIMIT`, the preview/gallery route literals, panel pixel dimensions, the gallery filename-time regex, `_gallery_name_to_iso()`, `preview_section()`, and `gallery_tiles()` from `preview_page.py` into `history_page.py` byte-for-byte, and `render()` now prepends `Now showing` plus a collapsed `Recent renders (N)` disclosure before the flight log — Preview's page-level freshness apparatus (`data-loaded-at`/`data-stale-banner`) deliberately not ported; `preview_page.py` stays on disk and stays routed until plan 08. Task 2 added `nearest_gallery_entry(entries, row_ts)` (an O(n) linear scan over the already-in-memory `ctx["gallery_entries"]` list, no DB query, comparing timezone-aware datetimes never raw strings) plus `_view_panel_button_html()`/`_lightbox_html()` and the D-20 copy/DOM-contract constants duplicated against `companion/static/panel-lookup.js`'s own literals; `render()` computes each row's match once and shares it between the desktop Timestamp cell and the mobile primary line so the two representations can never disagree, and the shared dialog is emitted only when at least one row carries a trigger — one interpretive call made here: the trigger's `data-view-panel-caption` attribute carries the full `LIGHTBOX_CAPTION_TEMPLATE % iso` string ("Panel near {iso}"), not the bare ISO, since `panel-lookup.js` copies the attribute verbatim with zero client-side templating and only the templated form reproduces UI-SPEC §8.3's approved caption copy. Task 3 added `UNRESOLVED_LINK_HREF`/`_TEXT` and the dedicated `_type_airline_cell()` builder (mirroring `_callsign_hex_cell()`'s own precedent so the Route column, which also calls the shared `_merged_cell()`, never gains the link) plus the identical link in the mobile Aircraft detail row, both keyed on `airline_label == panel_render.ROUTE_FALLBACK_TEXT`. `companion/test_view_pages.py` grew 42->56 checks across three new sections covering every behaviour bullet and acceptance criterion. `git diff --quiet` against `preview_page.py`/`panel-lookup.js`/`style.css`/`app.py` confirmed zero changes to any of those four files; the four other companion harnesses and `scripts/run-all-tests.sh` (apart from the single pre-existing, unrelated `server/test_poll_loop.py` digest mismatch) all pass.
 
@@ -215,6 +217,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.4.1 P03 | 35min | 3 tasks | 3 files |
 | Phase 06.6.4.1 P04 | 45min | 3 tasks | 2 files |
 | Phase 06.6.4.1 P05 | 55min | 3 tasks | 2 files |
+| Phase 06.6.4.1 P06 | 45min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -379,6 +382,8 @@ Recent decisions affecting current work:
 - [Phase 06.6.4.1]: Kept ANOMALY_BANNER_TEXT as a visually-hidden accessible tail inside the new pill-based anomaly banner rather than deleting it, preserving every pre-existing substring/count check — Backward-compatible test contract plus one coherent screen-reader sentence
 - [Phase 06.6.4.1]: Migrated registry/stats reads stay independent calls in health_page.render(), never folded into _read_health_inputs()'s dict — D-11: one failing source (SQLite vs poll_state.json) must degrade only its own card
 - [Phase 06.6.4.1-05]: View-panel trigger's data-view-panel-caption attribute carries the full LIGHTBOX_CAPTION_TEMPLATE % iso string ("Panel near {iso}"), not the bare ISO — panel-lookup.js copies the attribute verbatim with zero client-side templating, so only a server-built full string reproduces UI-SPEC §8.3's approved caption copy and gives the plan's explicitly-instructed constant a real call site
+- [Phase 06.6.4.1-06]: Pulled the deletion of pre-06.6.4.1 CFG-04/CFG-08 test checks forward into Task 1 (render() stops emitting that content from Task 1 onward; the per-task green-suite requirement forced this ahead of Task 3's own narration).
+- [Phase 06.6.4.1-06]: Redefined _filter_bar_html() and its four copy constants in place in Task 2 (same names, new gallery values/button Clear control) rather than adding new names, since the old registry-variant implementation was already dead code by that point.
 
 ### Pending Todos
 
@@ -430,7 +435,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-01T14:12:13.393Z
+Last session: 2026-09-01T14:32:10.311Z
 Stopped at: Completed 06.6.4.1-05-PLAN.md
 
 Resume file: None
