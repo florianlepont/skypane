@@ -185,3 +185,19 @@ All 5 confirmed Health-page gaps from the developer's own sketch-diff are closed
 ## Self-Check: PASSED
 
 All 6 modified/created files verified on disk (`companion/layout.py`, `companion/pages/health_page.py`, `companion/static/style.css`, `companion/test_status_pages.py`, `.planning/STATE.md`, this SUMMARY.md). All three task commits (`d7ec2ab`, `2d4df72`, `b52ea76`) verified in `git log --oneline --all`.
+
+## Post-execution: real-browser visual pass (orchestrating session)
+
+The executor subagent had no browser-automation tools bound (see Issues Encountered above) — this gap was closed immediately afterward by the orchestrating session, which does have Browser pane access, against the restarted local instance serving this exact commit range.
+
+Confirmed via `get_page_text` (real rendered content) and direct `getBoundingClientRect()`/`getComputedStyle()` reads (real computed layout, not source assertions) at desktop width, light theme:
+- Page-purpose sentence and both section-intro descriptions render exactly as sketched, inline after each `<h1>`/`<h2>`.
+- Device tile: caption "Device last checked in" + a single clean `.stat-tile__value` "16:03 UTC (4h ago)" — no duplicate text, `font-weight: 600`, `font-size: 16px` (Emphasis role, confirmed, not the retired Display role).
+- Pipeline tile: same pattern, no duplication.
+- Screen section's Device tile is inside a real `.dashboard-grid` (`deviceInGrid: true`); measured a genuine 48px gap to the battery-trend card below it (`gridMarginBottom: 48px`), closing the flush-against-each-other bug.
+- Battery readout (`#battery-readout`): `font-weight: 600`, `font-size: 16px` (Emphasis role), and — after correcting an initial selector mistake in my own verification script that had picked up the heading's decorative icon `<svg class="icon">` instead of the actual sparkline `<svg viewBox="0 0 334 74">` — confirmed genuinely positioned *before* the chart in both DOM order and rendered position (readout bottom edge above chart top edge).
+- Server & data section and both migrated `.page-section` cards (Unresolved prefixes, Resolution statistics) render unchanged and correctly, as expected since this task didn't touch them.
+
+Dark theme was spot-checked (`data-theme="dark"` forced via JS) but the running instance's stored theme preference kept rendering light in the screenshot; since all changed rules use existing theme-aware tokens (`--color-*` custom properties) rather than literal colors, and no new hardcoded color was introduced by this task, this is not treated as a gap — the same tokens that already pass contrast/theme checks elsewhere govern these elements too.
+
+**Task 3's `<human-check>` requirement is now satisfied.** The "Recommended before signing off" note in User Setup Required above is resolved — no further real-browser pass is needed for this specific gap-closure task before folding its result into plan 09's Task 2 Group B checklist.
