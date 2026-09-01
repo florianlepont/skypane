@@ -62,7 +62,7 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 96  # 06.6.4.1-02 Task 3: 4 new panel-lookup.js checks (pre-auth serving, ES5-dialect, route/src agreement, six-script-tag count) # 92 = 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
+EXPECTED_CHECK_COUNT = 100  # 06.6.4.1-07 Task 1: 4 new settings-route-rename checks (old path 404s authenticated, POST /settings redirects with flash, ?next=/settings hidden-field round trip, route/icon-map cross-module contract) — the five pre-existing tab-tuple/redirect/login-default/logout-refusal checks were retargeted from /config to /settings in place, not counted as new. # 96 = 06.6.4.1-02 Task 3: 4 new panel-lookup.js checks (pre-auth serving, ES5-dialect, route/src agreement, six-script-tag count) # 92 = 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
 # regression checks (dirty-state.js/list-filter.js/copy-button.js/
 # freshness.js, one each) + 1 new cross-file *_SCRIPT_ROUTE/*_SCRIPT_SRC
 # DOM-contract-guard check, mirroring _three_file_nav_dom_contract_guard()'s
@@ -1147,8 +1147,9 @@ def main():
         def _unauth_redirects_to_login(method, path, data=None, next_route=None):
             # 06.6.2-07 (UXA-03): require_session() now carries an
             # allowlisted `next` query param for any requested path that
-            # is one of layout.NAV_TABS's five routes (config/health/
-            # airlines/history/preview) — regardless of HTTP method,
+            # is one of layout.NAV_TABS's known routes (settings/health/
+            # airlines/history/preview, 06.6.4.1-07 renamed the first
+            # from config) — regardless of HTTP method,
             # since it only ever looks at self.path. A path outside that
             # set (poll-now, preview.png, a gallery image) still
             # redirects to the bare /login exactly as before this plan.
@@ -1168,7 +1169,7 @@ def main():
                 return True, ""
             return _run
 
-        for _tab_path in ("/config", "/health", "/airlines", "/history", "/preview"):
+        for _tab_path in ("/settings", "/health", "/airlines", "/history", "/preview"):
             check(
                 "unauthenticated GET %s redirects to /login carrying that route as ?next=" % _tab_path,
                 _unauth_redirects_to_login("GET", _tab_path, next_route=_tab_path))
@@ -1184,11 +1185,11 @@ def main():
             _unauth_redirects_to_login("GET", "/gallery/whatever.png"))
 
         check(
-            "unauthenticated POST /config redirects to /login carrying /config as ?next=",
+            "unauthenticated POST /settings redirects to /login carrying /settings as ?next=",
             _unauth_redirects_to_login(
-                "POST", "/config",
+                "POST", "/settings",
                 data=urllib.parse.urlencode({"ui_theme": "sky"}).encode(),
-                next_route="/config"))
+                next_route="/settings"))
 
         check(
             "unauthenticated POST /poll-now redirects to /login without page content "
@@ -1389,15 +1390,15 @@ def main():
                 data=urllib.parse.urlencode({"password": TEST_PASSWORD}).encode())
             if status != 303:
                 return False, "expected a 303 redirect on successful login, got %d" % status
-            if headers.get("Location") != "/config":
-                return False, "expected a redirect to /config, got %r" % headers.get("Location")
+            if headers.get("Location") != "/settings":
+                return False, "expected a redirect to /settings, got %r" % headers.get("Location")
             set_cookie = headers.get("Set-Cookie", "")
             for needle in ("HttpOnly", "Secure", "SameSite=Strict"):
                 if needle not in set_cookie:
                     return False, "missing %r in the session cookie header: %r" % (needle, set_cookie)
             return True, ""
         check(
-            "a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to /config",
+            "a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to /settings",
             _login_correct_password)
 
         # --- 06.6.2-07 (UXA-03): deep-link return, open-redirect rejection,
@@ -1412,7 +1413,7 @@ def main():
             if headers.get("Location") != "/login?next=%2Fhealth":
                 return False, "expected Location /login?next=%%2Fhealth, got %r" % headers.get("Location")
             # ... and a subsequent correct-password POST /login carrying
-            # that same next value returns the user to /health, not /config.
+            # that same next value returns the user to /health, not /settings.
             status, headers, _ = http_request(
                 base + "/login", method="POST",
                 data=urllib.parse.urlencode(
@@ -1424,7 +1425,7 @@ def main():
             return True, ""
         check(
             "an unauthenticated GET /health redirects with ?next=%2Fhealth, and logging in "
-            "with that next value returns the user to /health, not /config",
+            "with that next value returns the user to /health, not /settings",
             _deep_link_return_round_trip)
 
         def _open_redirect_rejected(next_value):
@@ -1436,8 +1437,8 @@ def main():
                 if status != 303:
                     return False, "expected 303 on login POST, got %d" % status
                 location = headers.get("Location", "")
-                if location != "/config":
-                    return False, "expected the safe /config fallback, got %r" % location
+                if location != "/settings":
+                    return False, "expected the safe /settings fallback, got %r" % location
                 if "evil.example" in location:
                     return False, "the crafted next value leaked into the redirect Location"
                 return True, ""
@@ -1446,7 +1447,7 @@ def main():
         for _crafted_next in ("https://evil.example", "//evil.example"):
             check(
                 "a login POST with the correct password and next=%r redirects to the "
-                "/config fallback, never to the crafted value (T-06.6.2-12)" % _crafted_next,
+                "/settings fallback, never to the crafted value (T-06.6.2-12)" % _crafted_next,
                 _open_redirect_rejected(_crafted_next))
 
         def _login_get_with_unrecognised_next_carries_no_hidden_field():
@@ -1507,7 +1508,7 @@ def main():
         # --- authenticated: all five tabs return 200 with their own heading ---
 
         for _tab_path, _heading in (
-            ("/config", "Config"), ("/health", "Health"),
+            ("/settings", "Settings"), ("/health", "Health"),
             ("/airlines", "Airlines"), ("/history", "History"),
             ("/preview", "Preview"),
         ):
@@ -1521,6 +1522,72 @@ def main():
             check(
                 "authenticated GET %s returns 200 and contains its own %r heading" % (_tab_path, _heading),
                 _tab_ok)
+
+        # --- 06.6.4.1-07 (D-26): settings route rename — old path 404s
+        # by design (no redirect), the merged form's POST target is
+        # live, the ?next= round trip works for the new slug, and the
+        # route/icon-map cross-module contract holds ---
+
+        def _old_settings_path_404s_authenticated():
+            status, _headers, body = http_request(
+                base + "/config", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for the retired /config path, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
+        check(
+            "authenticated GET /config (the retired settings path) returns 404 — D-26 "
+            "declines a redirect since this is a fresh URL at inception, not a deprecated bookmark",
+            _old_settings_path_404s_authenticated)
+
+        def _settings_post_redirects_to_settings_with_flash():
+            status, headers, _ = http_request(
+                base + "/settings", method="POST", cookie=session_cookie, data=b"")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if not location.startswith("/settings?flash="):
+                return False, "expected a redirect to /settings?flash=..., got %r" % location
+            return True, ""
+        check(
+            "an authenticated POST /settings redirects to /settings carrying a flash query",
+            _settings_post_redirects_to_settings_with_flash)
+
+        def _login_get_with_settings_next_carries_hidden_field():
+            status, _headers, body = http_request(base + "/login?next=/settings")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'name="next" value="/settings"' not in body:
+                return False, (
+                    "expected the recognised /settings ?next= value to survive the "
+                    "round trip as a rendered hidden field")
+            return True, ""
+        check(
+            "GET /login?next=/settings (a real NAV_TABS member) renders a hidden next "
+            "field carrying /settings, surviving the round trip",
+            _login_get_with_settings_next_carries_hidden_field)
+
+        def _settings_route_and_icon_map_cross_module_contract():
+            import companion.app as app_module
+            from companion.pages import config_page
+            if not (app_module.SETTINGS_ROUTE == config_page.SETTINGS_ROUTE
+                    == layout.NAV_TABS[0][0]):
+                return False, (
+                    "expected app.SETTINGS_ROUTE == config_page.SETTINGS_ROUTE == "
+                    "layout.NAV_TABS[0][0], got %r / %r / %r"
+                    % (app_module.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE,
+                       layout.NAV_TABS[0][0]))
+            nav_slugs = {route.lstrip("/") for route, _ in layout.NAV_TABS}
+            if set(layout.NAV_ICON_IDS) != nav_slugs:
+                return False, (
+                    "expected NAV_ICON_IDS' keys to equal the set of nav route "
+                    "slugs, got %r vs %r" % (set(layout.NAV_ICON_IDS), nav_slugs))
+            return True, ""
+        check(
+            "app.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE, and layout.NAV_TABS[0][0] all "
+            "agree, and NAV_ICON_IDS' keys equal the nav route slugs one-to-one",
+            _settings_route_and_icon_map_cross_module_contract)
 
         # --- logout clears the cookie; a subsequent tab request is refused again ---
 
@@ -1557,13 +1624,13 @@ def main():
             # cookie at all on the next request, exactly as a browser
             # would - resending the stale cookie value would prove
             # nothing (it would still verify, by design).
-            status, headers, _ = http_request(base + "/config")
-            # 06.6.2-07 (UXA-03): /config is a NAV_TABS route, so
-            # require_session() now carries it as ?next= too — the same
-            # allowlisted-return behavior every other unauthenticated
-            # NAV_TABS request gets.
-            if status != 303 or headers.get("Location") != "/login?next=%2Fconfig":
-                return False, "expected a redirect to /login?next=%%2Fconfig for a post-logout request, got %d/%r" % (
+            status, headers, _ = http_request(base + "/settings")
+            # 06.6.2-07 (UXA-03): /settings is a NAV_TABS route (renamed
+            # from /config, 06.6.4.1-07), so require_session() now carries
+            # it as ?next= too — the same allowlisted-return behavior
+            # every other unauthenticated NAV_TABS request gets.
+            if status != 303 or headers.get("Location") != "/login?next=%2Fsettings":
+                return False, "expected a redirect to /login?next=%%2Fsettings for a post-logout request, got %d/%r" % (
                     status, headers.get("Location"))
             return True, ""
         check(

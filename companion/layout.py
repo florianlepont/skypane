@@ -24,7 +24,16 @@ SITE_TITLE = "SkyPane"
 # deliberately absent: it is shown instead of any page when unauthenticated,
 # never as a nav tab.
 NAV_TABS = (
-    ("/config", "Config"),
+    # 06.6.4.1-07 (D-26): renamed from "/config"/"Config" to
+    # "/settings"/"Settings". Must equal
+    # companion/pages/config_page.py's own SETTINGS_ROUTE constant
+    # exactly — that module cannot import this one (page modules import
+    # layout, so the reverse would be a cycle), so this literal is
+    # duplicated under the same must-equal discipline this file's other
+    # duplicated script-source constants already carry (see
+    # NAV_DROPDOWN_SCRIPT_SRC and friends). companion/test_companion_app.py
+    # pins the cross-module equality.
+    ("/settings", "Settings"),
     ("/health", "Health"),
     ("/airlines", "Airlines"),
     ("/history", "History"),
@@ -258,7 +267,13 @@ HEALTH_NAV_SLUG = "health"
 # happen for a real NAV_TABS entry) falls through icon_html()'s own
 # whitelist-fallback ("" for an unrecognised id), never a KeyError.
 NAV_ICON_IDS = {
-    "config": "icon-nav-config",
+    # 06.6.4.1-07: key retargeted from "config" to "settings" (the new
+    # route slug, matching NAV_TABS' own rename above). The SVG symbol
+    # id value stays "icon-nav-config" unchanged — it is a gear glyph,
+    # visually correct for Settings, and renaming the symbol itself is
+    # cosmetic churn UI-SPEC §5.0 explicitly marks optional; the icon
+    # whitelist (ICON_IDS below) stays at its current membership.
+    "settings": "icon-nav-config",
     "health": "icon-nav-health",
     "airlines": "icon-nav-airlines",
     "history": "icon-nav-history",

@@ -292,19 +292,22 @@ def main():
         _every_settings_group_is_named_at_one_heading_level)
 
     def _render_opens_with_shared_page_header():
-        # 06.6.2-04 (D-16): Config's top-level heading now goes through
+        # 06.6.2-04 (D-16): Settings' top-level heading now goes through
         # layout.page_header() instead of an independent bare <h1>.
+        # 06.6.4.1-07 (D-26): the heading text itself was retargeted from
+        # "Config" to "Settings", matching the route rename and the nav
+        # label — the page's own on-screen name must agree with both.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
-        if '<h1 class="page-title">Config</h1>' not in rendered:
-            return False, "expected the page_header()-rendered <h1 class=\"page-title\">Config</h1>"
+        if '<h1 class="page-title">Settings</h1>' not in rendered:
+            return False, "expected the page_header()-rendered <h1 class=\"page-title\">Settings</h1>"
         if '<h1 class="text-heading">' in rendered:
             return False, "expected no bare <h1 class=\"text-heading\"> heading"
         return True, ""
     check(
-        "Config opens with the shared layout.page_header() component, not a bare <h1>",
+        "Settings opens with the shared layout.page_header() component, not a bare <h1>",
         _render_opens_with_shared_page_header)
 
     def _settings_form_carries_config_form_class_hook():
@@ -1354,8 +1357,11 @@ def main():
         session_cookie = _login(harness)
 
         def _save_round_trip_shows_confirmation_and_new_selection():
+            # 06.6.4.1-07 (D-26): posts to the live SETTINGS_ROUTE
+            # ("/settings") now that companion/app.py actually dispatches
+            # it — the old "/config" path 404s by design (no redirect).
             status, headers, _ = http_request(
-                base + "/config", method="POST", cookie=session_cookie,
+                base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode(
                     {"theme": "sky", "tracked_runway": "06-24"}).encode())
             if status != 303:
@@ -1394,10 +1400,13 @@ def main():
             on_disk = device_config.load_device_config(harness.tmpdir)
             if on_disk["led_enabled"] is not False:
                 return False, "expected on-disk led_enabled False after an empty-body POST, got %r" % (on_disk["led_enabled"],)
+            # 06.6.4.1-07 (D-26): the follow-up GET now targets
+            # SETTINGS_ROUTE — "/config" 404s by design after the rename.
             get_status, _get_headers, body = http_request(
-                base + "/config", cookie=session_cookie)
+                base + config_page.SETTINGS_ROUTE, cookie=session_cookie)
             if get_status != 200:
-                return False, "expected 200 on the follow-up GET /config, got %d" % get_status
+                return False, "expected 200 on the follow-up GET %s, got %d" % (
+                    config_page.SETTINGS_ROUTE, get_status)
             if b'name="led_enabled" value="on" checked' in body:
                 return False, "expected the LED checkbox to render unchecked after saving False"
             return True, ""

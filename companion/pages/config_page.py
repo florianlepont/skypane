@@ -37,13 +37,12 @@ RUNWAY_HELPER_TEXT = (
 RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
 RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
 
-# The single definition of this route in the repository (06.6.4.1, D-05).
-# companion/app.py still dispatches the OLD "/config" path (its own
-# CONFIG_ROUTE literal) until plan 07 rebinds CONFIG_ROUTE to this
-# constant, mirroring RUNWAY_IMAGE_ROUTE_PREFIX's own rebinding
-# discipline above — app.py imports this module, so the reverse import
-# would be a cycle. Do not delete companion/app.py's separate "/config"
-# dispatch before that flip lands.
+# The single definition of this route in the repository (06.6.4.1, D-05/
+# D-26). companion/app.py rebinds its own SETTINGS_ROUTE constant to this
+# value rather than re-typing the literal (06.6.4.1-07), mirroring
+# RUNWAY_IMAGE_ROUTE_PREFIX's own rebinding discipline above — app.py
+# imports this module, so the reverse import would be a cycle. The old
+# "/config" path is retired: it 404s by design, no redirect (D-26).
 SETTINGS_ROUTE = "/settings"
 LED_HELPER_TEXT = (
     "Controls the board's built-in diagnostic LED. It's lit only during "
@@ -626,7 +625,7 @@ def render(ctx):
     ) % escape_html(DIRTY_BAR_INITIAL_TEXT)
 
     return (
-        layout.page_header("Config")
+        layout.page_header("Settings")
         + '<form class="config-form" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"

@@ -102,7 +102,12 @@ FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
 # D-20 (06.6.4.1-02): companion/layout.py's PANEL_LOOKUP_SCRIPT_SRC must
 # equal this exactly, mirroring the SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
 PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
-CONFIG_ROUTE = "/config"
+# Single definition site is companion/pages/config_page.py (app.py imports
+# that module, so the reverse import would be a cycle) — rebound here
+# rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
+# FLASH_KEY_* constants below (D-26, 06.6.4.1-07: renamed from "/config"
+# to "/settings"; the old path now 404s by design, no redirect).
+SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
 LED_ROUTE = "/config-led"
 POLL_ROUTE = "/poll-now"
 THEME_ROUTE = "/ui-theme"
@@ -191,7 +196,7 @@ LOGIN_THROTTLE = auth.LoginThrottle()
 _POLL_LOCK = threading.Lock()
 
 _PAGE_TITLES = {
-    "/config": "Config",
+    "/settings": "Settings",
     "/health": "Health",
     "/airlines": "Airlines",
     "/history": "History",
@@ -206,22 +211,26 @@ LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
 
 def _validated_next_route(candidate):
     """Validate a caller-supplied `next` redirect target (a GET query
-    value or a POST form value) against `layout.NAV_TABS`'s five known
+    value or a POST form value) against `layout.NAV_TABS`'s known
     routes — 06.6.2-07 (T-06.6.2-12, high-severity open-redirect
     mitigation).
 
-    This is deliberately an exact-membership equality test against a
-    set of five literal strings — never `str.startswith("/")`, never
+    This is deliberately an exact-membership equality test against the
+    set of NAV_TABS route literals — never `str.startswith("/")`, never
     URL-parsed, never regex-matched. There is no parsing logic here an
     attacker-controlled value could exploit: `candidate` either equals
-    one of the five known routes byte-for-byte, or it is discarded
-    (returns `None`). A scheme-relative value (`//evil.example`), an
-    absolute URL (`https://evil.example`), a path-traversal-shaped
-    value, or any value not byte-identical to a real NAV_TABS route all
-    fail this test and fall back to the caller's own safe default
-    (`CONFIG_ROUTE` on a successful POST, the bare `LOGIN_ROUTE` on an
+    one of the known routes byte-for-byte, or it is discarded (returns
+    `None`). A scheme-relative value (`//evil.example`), an absolute URL
+    (`https://evil.example`), a path-traversal-shaped value, or any
+    value not byte-identical to a real NAV_TABS route all fail this
+    test and fall back to the caller's own safe default
+    (`SETTINGS_ROUTE` on a successful POST, the bare `LOGIN_ROUTE` on an
     unauthenticated GET) — an open redirect is structurally impossible
-    here, not merely discouraged.
+    here, not merely discouraged. Deliberately not stated as a literal
+    route count here (06.6.4.1-07): the allowlist is derived from
+    NAV_TABS at runtime and self-adjusts whenever that tuple's own
+    membership changes, so this docstring never needs a second edit
+    when a route is added, renamed, or removed.
 
     Mirrors `Handler._referring_tab()`'s own exact-membership allowlist
     shape, but is a module-level function (not a method) since it must
@@ -424,7 +433,7 @@ class Handler(BaseHTTPRequestHandler):
         # 06.6.2-07 (UXA-03): carry the originally-requested protected
         # route through the login round-trip via an allowlisted `next`
         # query parameter, so a successful login returns the user to
-        # the exact route they asked for instead of always /config.
+        # the exact route they asked for instead of always /settings.
         # _validated_next_route() (T-06.6.2-12) is the sole gate — an
         # unrecognised requested_path is silently discarded and the
         # redirect degrades to the bare LOGIN_ROUTE exactly as before
@@ -548,8 +557,8 @@ class Handler(BaseHTTPRequestHandler):
     def _not_found_page(self):
         body = (
             '<h1 class="text-heading">Page not found.</h1>'
-            '<p class="text-body"><a href="%s">Back to Config</a></p>'
-        ) % CONFIG_ROUTE
+            '<p class="text-body"><a href="%s">Back to Settings</a></p>'
+        ) % SETTINGS_ROUTE
         return layout.page_shell(
             title="Not Found", active="", body=body,
             ui_theme=self._resolved_ui_theme())
@@ -731,7 +740,7 @@ class Handler(BaseHTTPRequestHandler):
         # unknown id and an unreadable file both return this same 404, so
         # a caller can never distinguish "not a real runway" from "no
         # image for a real runway" — leaking nothing about the
-        # filesystem beyond the RUNWAY_IDS set the authenticated /config
+        # filesystem beyond the RUNWAY_IDS set the authenticated /settings
         # page already renders in full to the same caller.
         if runway_id not in device_config.RUNWAY_IDS:
             return self.send_html(404, self._not_found_page())
@@ -772,7 +781,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             path = ""
         allowed = {route for route, _ in layout.NAV_TABS}
-        return path if path in allowed else CONFIG_ROUTE
+        return path if path in allowed else SETTINGS_ROUTE
 
     def _render_tab(self, route, page_module):
         if not self.require_session():
@@ -796,7 +805,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == LOGIN_ROUTE:
             if self._is_authenticated():
-                return self.redirect(CONFIG_ROUTE)
+                return self.redirect(SETTINGS_ROUTE)
             # 06.6.2-07 (UXA-03): a `?next=` query value survives the
             # require_session() redirect round-trip; validated here too
             # (not only on the POST path) so an unrecognised value never
@@ -838,7 +847,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == PANEL_LOOKUP_SCRIPT_ROUTE:
             return self._serve_panel_lookup_script()
 
-        if path == "/config":
+        if path == SETTINGS_ROUTE:
             if not self.require_session():
                 return None
             ctx = self.page_context()
@@ -847,7 +856,7 @@ class Handler(BaseHTTPRequestHandler):
                 layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
                 if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
-                title="Config", active="config", body=body,
+                title="Settings", active="settings", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
                 health_alert=ctx["health_severity"]))
 
@@ -945,7 +954,7 @@ class Handler(BaseHTTPRequestHandler):
             LOGIN_THROTTLE.record_success()
             token = auth.issue_session_token()
             return self.redirect(
-                next_route or CONFIG_ROUTE,
+                next_route or SETTINGS_ROUTE,
                 set_cookie=auth.session_set_cookie_header(token))
         LOGIN_THROTTLE.record_failure()
         return self.send_html(401, self._render_login_page(
@@ -960,13 +969,13 @@ class Handler(BaseHTTPRequestHandler):
             # running" redirect instead of racing into a second poll
             # cycle or queueing silently behind a blocking acquire.
             return self.redirect(
-                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
         try:
             state_dir = self.args.state_dir
             remaining = poll_cooldown_remaining(state_dir)
             if remaining > 0:
                 return self.redirect(
-                    "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_COOLDOWN)))
+                    "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_COOLDOWN)))
             try:
                 # Pattern 3 (06-RESEARCH.md): the exact production code
                 # path the systemd timer already runs, in-process — never
@@ -975,10 +984,10 @@ class Handler(BaseHTTPRequestHandler):
                 poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
             except Exception:
                 return self.redirect(
-                    "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_FAILED)))
+                    "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_FAILED)))
             mark_poll_triggered(state_dir)
             return self.redirect(
-                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_TRIGGERED)))
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_TRIGGERED)))
         finally:
             # Always released — including on the except Exception: branch
             # above, which must stay inside this try so a failed poll
@@ -1003,13 +1012,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == LOGIN_ROUTE:
             return self._handle_login_post()
 
-        if path == "/config":
+        if path == SETTINGS_ROUTE:
             if not self.require_session():
                 return None
             form = self.read_form()
             ctx = self.page_context()
             flash_key = config_page.handle_post(form, ctx)
-            return self.redirect("%s?flash=%s" % (CONFIG_ROUTE, quote(flash_key)))
+            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
 
         if path == LED_ROUTE:
             if not self.require_session():
@@ -1017,7 +1026,7 @@ class Handler(BaseHTTPRequestHandler):
             form = self.read_form()
             ctx = self.page_context()
             flash_key = config_page.handle_led_post(form, ctx)
-            return self.redirect("%s?flash=%s" % (CONFIG_ROUTE, quote(flash_key)))
+            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
 
         if path == POLL_ROUTE:
             if not self.require_session():
