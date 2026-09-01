@@ -260,6 +260,25 @@ body {
   line-height: 1.2;
 }
 
+/* quick task 260901-re6: the single muted sentence that now sits
+ * directly under each Settings group heading (Theme/Runway/Diagnostic
+ * LED), replacing the old description-above / helper-below paragraph
+ * pair. Deliberately COMPOSES with .text-label rather than restating
+ * it — .text-label already supplies var(--font-label-size), so the
+ * markup always carries both classes together (`class="text-label
+ * section-caption"`) and this rule adds only colour: the file's
+ * existing 70% color-mix muted strength (.data-table-wrap thead, the
+ * filter-bar hint, the empty-state copy), not a new one. The absence of
+ * a margin declaration here is a decision, not an omission: unlike the
+ * `h1, h2, h3, .text-heading` heading-rhythm rule below, this role
+ * keeps the UA default paragraph margin, because the description and
+ * helper paragraphs it replaces already relied on that default and the
+ * validated sketch was measured against it. Do not "complete" this rule
+ * by adding a margin. */
+.section-caption {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* 06.6.1 (D-03): headings move onto var(--font-serif). This is a
  * headings-only treatment — body text, table cells, form controls, nav
  * links and monospace content stay on --font-ui, never var(--font-serif).

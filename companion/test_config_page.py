@@ -84,6 +84,12 @@ STARTUP_DEADLINE_S = 10.0
 # .runway-row/.led-checkbox. Task 2's retarget of
 # _runway_fieldset_returns_single_top_level_div() (one div pair -> two)
 # was in place, no count change).
+# quick task 260901-re6: 57 (pre-plan baseline) -> 57 (Task 1, no count
+# change: the runway-row containment/ordering check, the section-
+# captions-appear-once check, and the helper-texts-appear-verbatim check
+# were all retargeted in place onto the merged THEME/RUNWAY/LED
+# _SECTION_CAPTION constants and restyled markup, per this file's own
+# established retarget-without-recounting discipline).
 EXPECTED_CHECK_COUNT = 57
 
 
@@ -562,46 +568,51 @@ def main():
         "runway_fieldset() returns exactly two div pairs - the top-level .theme-status wrapper and the nested .runway-row layout container, not five flat siblings (D-01)",
         _runway_fieldset_returns_single_top_level_div)
 
-    def _runway_row_contains_and_orders_cards_before_helper_text():
-        # quick task 260901-qif: pins the new .runway-row layout container
-        # actually wraps the three cards and nothing else, and that the
-        # helper paragraph still renders after it closes, not swallowed
-        # into it.
+    def _runway_row_starts_after_caption_and_nothing_follows_it():
+        # quick task 260901-re6: inverted from the pre-merge version of
+        # this check (which asserted a trailing helper paragraph rendered
+        # AFTER .runway-row closed). Now asserts RUNWAY_SECTION_CAPTION
+        # renders BEFORE .runway-row opens, and that no <p element
+        # appears anywhere after the row closes inside the wrapper — the
+        # actual proof the second paragraph is gone, not merely moved.
         rendered = config_page.runway_fieldset("3")
+        caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
         row_open = '<div class="runway-row">'
         if rendered.count(row_open) != 1:
             return False, "expected exactly one <div class=\"runway-row\"> opening tag, got %d" % rendered.count(row_open)
+        caption_pos = rendered.index(caption)
         row_start = rendered.index(row_open)
+        if caption_pos >= row_start:
+            return False, "expected RUNWAY_SECTION_CAPTION to render before .runway-row opens"
         row_close = rendered.index("</div>", row_start)
         card_positions = [m.start() for m in re.finditer(r'<label class="runway-card', rendered)]
         if len(card_positions) != 3:
             return False, "expected exactly 3 runway-card labels, got %d" % len(card_positions)
         if not all(row_start < pos < row_close for pos in card_positions):
             return False, "expected all three runway-card labels to fall inside the .runway-row container"
-        helper_text = escape_html(config_page.RUNWAY_HELPER_TEXT)
-        helper_pos = rendered.index(helper_text)
-        if helper_pos <= row_close:
-            return False, "expected RUNWAY_HELPER_TEXT to render after the .runway-row container closes"
+        after_row = rendered[row_close + len("</div>"):]
+        if "<p" in after_row:
+            return False, "expected no <p element anywhere after .runway-row closes - the retired trailing helper paragraph must be gone, not merely moved"
         return True, ""
     check(
-        "runway_fieldset()'s .runway-row container wraps exactly the three runway-card labels and closes before RUNWAY_HELPER_TEXT renders",
-        _runway_row_contains_and_orders_cards_before_helper_text)
+        "runway_fieldset() renders RUNWAY_SECTION_CAPTION before .runway-row opens, and no <p element after .runway-row closes (quick task 260901-re6)",
+        _runway_row_starts_after_caption_and_nothing_follows_it)
 
-    def _theme_and_runway_section_descriptions_appear_exactly_once():
+    def _theme_and_runway_section_captions_appear_exactly_once():
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
-        theme_desc = escape_html(config_page.THEME_SECTION_DESCRIPTION)
-        runway_desc = escape_html(config_page.RUNWAY_SECTION_DESCRIPTION)
-        if rendered.count(theme_desc) != 1:
-            return False, "expected THEME_SECTION_DESCRIPTION exactly once, got %d" % rendered.count(theme_desc)
-        if rendered.count(runway_desc) != 1:
-            return False, "expected RUNWAY_SECTION_DESCRIPTION exactly once, got %d" % rendered.count(runway_desc)
+        theme_caption = escape_html(config_page.THEME_SECTION_CAPTION)
+        runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
+        if rendered.count(theme_caption) != 1:
+            return False, "expected THEME_SECTION_CAPTION exactly once, got %d" % rendered.count(theme_caption)
+        if rendered.count(runway_caption) != 1:
+            return False, "expected RUNWAY_SECTION_CAPTION exactly once, got %d" % rendered.count(runway_caption)
         return True, ""
     check(
-        "render() carries THEME_SECTION_DESCRIPTION and RUNWAY_SECTION_DESCRIPTION exactly once each (D-02)",
-        _theme_and_runway_section_descriptions_appear_exactly_once)
+        "render() carries THEME_SECTION_CAPTION and RUNWAY_SECTION_CAPTION exactly once each (quick task 260901-re6)",
+        _theme_and_runway_section_captions_appear_exactly_once)
 
     def _bottom_save_button_carries_static_fallback_attr():
         rendered = config_page.render({
@@ -624,21 +635,27 @@ def main():
         "render()'s bottom Save Settings button carries data-static-save-fallback exactly once (D-04)",
         _bottom_save_button_carries_static_fallback_attr)
 
-    def _helper_texts_appear_escaped_verbatim():
+    def _section_captions_appear_escaped_verbatim_exactly_once():
+        # quick task 260901-re6: retargeted onto all three merged caption
+        # constants, strengthened from "is present" to "appears exactly
+        # once" for each.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
         })
-        if escape_html(config_page.THEME_HELPER_TEXT) not in rendered:
-            return False, "theme helper text missing (escaped-verbatim)"
-        if escape_html(config_page.RUNWAY_HELPER_TEXT) not in rendered:
-            return False, "runway helper text missing (escaped-verbatim)"
-        if escape_html(config_page.LED_HELPER_TEXT) not in rendered:
-            return False, "LED helper text missing (escaped-verbatim)"
+        theme_caption = escape_html(config_page.THEME_SECTION_CAPTION)
+        runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
+        led_caption = escape_html(config_page.LED_SECTION_CAPTION)
+        if rendered.count(theme_caption) != 1:
+            return False, "expected THEME_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(theme_caption)
+        if rendered.count(runway_caption) != 1:
+            return False, "expected RUNWAY_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(runway_caption)
+        if rendered.count(led_caption) != 1:
+            return False, "expected LED_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(led_caption)
         return True, ""
     check(
-        "the theme, runway, and LED helper texts all appear escaped-verbatim in render()'s output",
-        _helper_texts_appear_escaped_verbatim)
+        "the theme, runway, and LED section captions all appear escaped-verbatim exactly once in render()'s output (quick task 260901-re6)",
+        _section_captions_appear_escaped_verbatim_exactly_once)
 
     def _current_theme_and_runway_are_selected():
         # 06.6.3-03: with THEME_IDS at its real single-member size, Theme

@@ -17,18 +17,6 @@ from companion.layout import escape_html
 import companion.layout as layout
 from server import device_config, panel_format
 
-# D-04: was "More themes will be added once Phase 7 validates additional
-# color options on real hardware." — UXA-05 flagged that wording as a
-# leaked internal planning reference (a phase number meaningless to an
-# operator). Reused verbatim by both theme_fieldset() branches (the
-# read-only status block and the >1-theme radio-group fallback) so the
-# sentence exists in exactly one place.
-THEME_HELPER_TEXT = (
-    "Additional themes will appear here once more are validated on real "
-    "hardware.")
-RUNWAY_HELPER_TEXT = (
-    "Applies on the device's next scheduled poll — not immediately.")
-
 # The single definition of this route prefix in the repository (06.4).
 # companion/app.py rebinds it (RUNWAY_IMAGE_ROUTE_PREFIX =
 # config_page.RUNWAY_IMAGE_ROUTE_PREFIX) rather than re-typing the
@@ -44,26 +32,33 @@ RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
 # imports this module, so the reverse import would be a cycle. The old
 # "/config" path is retired: it 404s by design, no redirect (D-26).
 SETTINGS_ROUTE = "/settings"
-LED_HELPER_TEXT = (
-    "Controls the board's built-in diagnostic LED. It's lit only during "
-    "the device's brief active wake window and isn't visible from the "
-    "wall-facing side. Applies on the device's next scheduled poll — not "
-    "immediately.")
 
 # The sole accepted submitted value for the LED checkbox (D-01) — shared
 # by led_group()'s markup and handle_post()'s validator so the two can
 # never drift apart.
 LED_CHECKBOX_VALUE = "on"
 
-# D-02 (06.6.4.1): one description sentence per settings group, rendered
-# directly under each group's heading. Diagnostic LED needs no entry
-# here — LED_HELPER_TEXT above already reads as a description sentence
-# and already renders under its heading (UI-SPEC §5.1's table).
-THEME_SECTION_DESCRIPTION = (
-    "The color palette used for departing and arriving flights on the "
-    "physical frame.")
-RUNWAY_SECTION_DESCRIPTION = (
-    "Which Orly runway the device watches for departures and arrivals.")
+# quick task 260901-re6: each settings group used to render a description
+# sentence above its control (THEME_SECTION_DESCRIPTION/
+# RUNWAY_SECTION_DESCRIPTION, D-02 06.6.4.1) AND a helper sentence below
+# it (THEME_HELPER_TEXT/RUNWAY_HELPER_TEXT/LED_HELPER_TEXT) — Theme and
+# Runway rendered both, LED escaped the doubling but kept its lone
+# paragraph un-muted and positioned after its control instead of before.
+# All five of those constants are retired outright. Each group now
+# carries exactly one caption, rendered once, directly under the group
+# heading and before the control, styled as a single muted sentence via
+# a CSS modifier class in companion/static/style.css. The LED group is
+# the odd one out only in that it never had a pair to merge — its single
+# paragraph is reworded and relocated, not merged with anything.
+THEME_SECTION_CAPTION = (
+    "Panel colors for departing/arriving flights. More themes appear "
+    "here once validated on real hardware.")
+RUNWAY_SECTION_CAPTION = (
+    "Which Orly runway the device watches. Applies on the next "
+    "scheduled poll, not immediately.")
+LED_SECTION_CAPTION = (
+    "Lit only during the device's brief wake window, not visible from "
+    "the wall side. Applies on the next scheduled poll.")
 # D-05 (06.6.4.1): the LED group's new user-facing heading, once it moves
 # from its own <fieldset>/<legend> into a sibling <h2>-headed group of
 # the merged form — see led_group() below.
@@ -165,7 +160,15 @@ def theme_fieldset(current_theme_id):
     original editable radio-group markup automatically the moment a
     second theme is registered; this is a `len()` check, not a hardcoded
     single-theme assumption.
+
+    Both branches render the same single `THEME_SECTION_CAPTION`
+    paragraph directly under the `<h2>` heading (quick task 260901-re6)
+    — `caption_html` below is computed once and reused by both, rather
+    than each branch carrying its own copy of the markup template.
     """
+    caption_html = (
+        '<p class="text-label section-caption">%s</p>'
+        % escape_html(THEME_SECTION_CAPTION))
     if len(device_config.THEME_IDS) == 1:
         theme_id = (
             current_theme_id if current_theme_id in device_config.THEMES
@@ -176,7 +179,7 @@ def theme_fieldset(current_theme_id):
         return (
             '<div class="theme-status" %s="%s">'
             '<h2 class="text-heading">Theme</h2>'
-            '<p class="text-body">%s</p>'
+            "%s"
             '<div class="theme-status__row">'
             '<span class="theme-swatch" aria-hidden="true">'
             '<span class="theme-swatch__chip" style="background:%s"></span>'
@@ -184,14 +187,12 @@ def theme_fieldset(current_theme_id):
             "</span>"
             '<span class="text-body">%s · current</span>'
             "</div>"
-            '<p class="text-label">%s</p>'
             "</div>"
         ) % (
             DIRTY_SECTION_ATTR, escape_html("Theme"),
-            escape_html(THEME_SECTION_DESCRIPTION),
+            caption_html,
             departing_hex, arriving_hex,
             escape_html(device_config.theme_label(theme_id)),
-            escape_html(THEME_HELPER_TEXT),
         )
 
     options = []
@@ -209,14 +210,13 @@ def theme_fieldset(current_theme_id):
     return (
         '<fieldset %s="%s">'
         "<legend>Theme</legend>"
-        '<p class="text-body">%s</p>'
         "%s"
-        '<p class="text-label">%s</p>'
+        "%s"
         "</fieldset>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Theme"),
-        escape_html(THEME_SECTION_DESCRIPTION),
-        "".join(options), escape_html(THEME_HELPER_TEXT),
+        caption_html,
+        "".join(options),
     )
 
 
@@ -241,9 +241,9 @@ def runway_fieldset(current_runway_id, images_available=()):
     session-gated `/runway-image/{id}.png` route is also rendered.
     `images_available` defaults to `()` — "no images available" — the
     safe D-03 fallback, which is also what every pre-06.4 single-argument
-    call site still gets. The CFG-12 helper text (applies on the
-    device's next scheduled poll, not immediately — D-28) renders once
-    after the card list.
+    call site still gets. The single muted `RUNWAY_SECTION_CAPTION`
+    sentence (quick task 260901-re6) renders once, directly under the
+    heading, before the card list.
 
     The whole return value is wrapped in a single `<div class="theme-status"
     data-dirty-section="Runway">` — the same wrapping idiom
@@ -255,8 +255,8 @@ def runway_fieldset(current_runway_id, images_available=()):
     wrapper stays — it is what makes this group, like Theme and the new
     LED group, a single top-level element `dirty-state.js`'s
     `data-dirty-section` walk can address as one unit, and what carries
-    the D-02 description paragraph (`RUNWAY_SECTION_DESCRIPTION`)
-    directly under the `<h2 class="text-heading">Runway</h2>` heading.
+    the caption paragraph (`RUNWAY_SECTION_CAPTION`) directly under the
+    `<h2 class="text-heading">Runway</h2>` heading.
     The group is named by that `<h2>`, not a `<legend>`, because D-04/D-05
     (06.6.3) already dropped the `<fieldset>` wrapper from both the Theme
     and Runway groups, and a `<legend>` outside a `<fieldset>` is invalid
@@ -265,14 +265,17 @@ def runway_fieldset(current_runway_id, images_available=()):
     every group in this form reads at one consistent heading level.
 
     The cards themselves are further wrapped in a nested `<div
-    class="runway-row">` (quick task 260901-qif), sitting between the
-    description paragraph and the helper paragraph — only the cards go in,
-    the `<h2>` and both `<p>`s stay outside it. The cards used to be bare
-    siblings of the heading and both paragraphs inside `.theme-status`, so
-    each block-level card took a full line and the group rendered as three
-    stacked full-width bars instead of the validated row-of-three. The row
-    is a layout container only — it carries no visual treatment of its
-    own, and the cards keep theirs.
+    class="runway-row">` (quick task 260901-qif), sitting directly after
+    the caption paragraph — only the cards go in, the `<h2>` and the `<p>`
+    stay outside it. Nothing renders after the row closes (quick task
+    260901-re6 retired the trailing helper paragraph that used to sit
+    there — the two-paragraph shape this docstring used to describe is
+    gone). The cards used to be bare siblings of the heading and both
+    paragraphs inside `.theme-status`, so each block-level card took a
+    full line and the group rendered as three stacked full-width bars
+    instead of the validated row-of-three. The row is a layout container
+    only — it carries no visual treatment of its own, and the cards keep
+    theirs.
     """
     cards = []
     for runway_id in device_config.RUNWAY_IDS:
@@ -306,14 +309,13 @@ def runway_fieldset(current_runway_id, images_available=()):
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">Runway</h2>'
-        '<p class="text-body">%s</p>'
+        '<p class="text-label section-caption">%s</p>'
         '<div class="runway-row">%s</div>'
-        '<p class="text-label">%s</p>'
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Runway"),
-        escape_html(RUNWAY_SECTION_DESCRIPTION),
-        "".join(cards), escape_html(RUNWAY_HELPER_TEXT),
+        escape_html(RUNWAY_SECTION_CAPTION),
+        "".join(cards),
     )
 
 
@@ -337,10 +339,14 @@ def led_group(current_led_enabled):
     class="text-heading">` — so all three groups read at one consistent
     heading level, matching the Poll section's own heading role.
 
-    Per UI-SPEC §5.2's table, LED needs no new D-02 description
-    sentence: `LED_HELPER_TEXT` already reads as one and renders directly
-    under the heading here, the same position Theme's and Runway's new
-    description paragraphs occupy in their own groups.
+    quick task 260901-re6: `LED_SECTION_CAPTION` is a single muted
+    caption, styled and positioned identically to Theme's and Runway's
+    own captions — directly under the heading, before the control. It
+    used to render as an un-muted `<p class="text-label">` AFTER the
+    `<label>` instead, which this task fixes; the docstring previously
+    asserted it "already renders directly under the heading here", which
+    was never true of the shipped markup and is the reason this position
+    drift went unnoticed.
 
     The `<label>` carries `class="led-checkbox"` (quick task 260901-qif):
     unclassed, it fell through to the global `input, select` rule written
@@ -355,16 +361,16 @@ def led_group(current_led_enabled):
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
         '<label class="led-checkbox">'
         '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
         "</label>"
-        '<p class="text-label">%s</p>'
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html(LED_SECTION_HEADING),
         escape_html(LED_SECTION_HEADING),
+        escape_html(LED_SECTION_CAPTION),
         escape_html(LED_CHECKBOX_VALUE), checked,
-        escape_html(LED_HELPER_TEXT),
     )
 
 
