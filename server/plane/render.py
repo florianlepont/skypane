@@ -1474,7 +1474,19 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         return first_bbox, plain_bbox
 
 
-def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight):
+# --- Phase 9 PHASE9-6: band-only previous-card text roles, ported
+# verbatim from spike 003-diagonal-band-theme's PREV_NUMBER_FONT/
+# PREV_ROUTE_FONT/PREV_AIRLINE_FONT/PREV_DASH_W/PREV_DASH_GAP (round 15,
+# "oui !") - the same right-aligned three-tier hierarchy as the main card,
+# at the previous card's existing ~57% scale.
+BAND_PREV_NUMBER_FONT = (PT_SERIF_BOLD, 32, 700)
+BAND_PREV_ROUTE_FONT = (PT_SERIF_REGULAR, 16, 400)
+BAND_PREV_AIRLINE_FONT = (PT_SERIF_REGULAR, 14, 400)
+BAND_PREV_DASH_W = 16
+BAND_PREV_DASH_GAP = 6
+
+
+def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight, band_idx=None):
     """D-26 previous flight text: two right-aligned lines. Line 1 starts
     `PREVIOUS_TEXT_GAP_PX` below the previous illustration's OPAQUE bottom edge
     (`prev_placement.content[3]`), for the same reason
@@ -1516,32 +1528,94 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     a Bold theme (08-06 on-glass finding, widened same session; see
     `_role_weight_path()`). `bg_idx` itself is retained per D-05's
     original note here.
+
+    `band_idx` (Phase 9 PHASE9-6): `None` for every one of the 11
+    pre-Phase-9 themes - in that case this function's body is untouched,
+    byte-identical to before this phase. For a band theme, this instead
+    draws the spike's validated three-tier hierarchy, right-aligned at
+    this card's existing scale, in its unchanged position - the band
+    never reaches this card's text at any candidate geometry (spike round
+    6), so unlike the main card there is no ink override here: this card
+    always draws in the caller's plain `ink_idx`, even for band_black.
     """
-    draw = ImageDraw.Draw(canvas)
-    right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
-    available_width = right_x - SAFE_BOX[0]
+    if band_idx is None:
+        draw = ImageDraw.Draw(canvas)
+        right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
+        available_width = right_x - SAFE_BOX[0]
 
-    line1_text = _flight_line1_text(flight, state, route)
-    line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
+        line1_text = _flight_line1_text(flight, state, route)
+        line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
-    top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
+        top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
 
-    if line1_text:
-        line1_font = _role_fit_text_size(PREVIOUS_LINE1_FONT, line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE, weight)
-        line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
-        _assert_within_canvas(line1_bbox, "previous flight text line 1")
-        draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
-        line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
+        if line1_text:
+            line1_font = _role_fit_text_size(PREVIOUS_LINE1_FONT, line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE, weight)
+            line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
+            _assert_within_canvas(line1_bbox, "previous flight text line 1")
+            draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
+            line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
+        else:
+            line1_bbox = None
+            line2_top = top_y
+
+        line2_font = _role_fit_text_size(PREVIOUS_LINE2_FONT, line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE, weight)
+        line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
+        _assert_within_canvas(line2_bbox, "previous flight text line 2")
+        draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
+
+        return line1_bbox, line2_bbox
     else:
-        line1_bbox = None
-        line2_top = top_y
+        draw = ImageDraw.Draw(canvas)
+        right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
 
-    line2_font = _role_fit_text_size(PREVIOUS_LINE2_FONT, line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE, weight)
-    line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
-    _assert_within_canvas(line2_bbox, "previous flight text line 2")
-    draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
+        line1_full = _flight_line1_text(flight, state, route)
+        line2_full = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
-    return line1_bbox, line2_bbox
+        identifier_raw = route.get("callsign_iata") if isinstance(route, dict) else None
+        identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
+
+        if line1_full == "":
+            number_text, tracked_text, plain_text = None, None, line2_full
+        elif identifier and line1_full.startswith(identifier + " "):
+            number_text = identifier
+            tracked_text = line1_full[len(identifier) + 1:].upper()
+            plain_text = line2_full
+        else:
+            number_text, tracked_text, plain_text = None, line1_full.upper(), line2_full
+
+        num_font = _role_font(BAND_PREV_NUMBER_FONT, weight)
+        route_font = _role_font(BAND_PREV_ROUTE_FONT, weight)
+        airline_font = _role_font(BAND_PREV_AIRLINE_FONT, weight)
+
+        y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
+        first_bbox = None
+
+        if number_text:
+            num_bbox = draw.textbbox((right_x, y), number_text, font=num_font, anchor="ra")
+            _assert_within_canvas(num_bbox, "band previous flight number")
+            draw.text((right_x, y), number_text, font=num_font, fill=ink_idx, anchor="ra")
+            first_bbox = num_bbox
+            dash_y = num_bbox[3] + BAND_PREV_DASH_GAP
+            draw.line([(right_x - BAND_PREV_DASH_W, dash_y), (right_x, dash_y)], fill=ink_idx, width=2)
+            y = dash_y + BAND_PREV_DASH_GAP + 3
+
+        if tracked_text:
+            tracked_w = _tracked_text_width(route_font, tracked_text, LABEL_TRACKING_PX)
+            tracked_x = right_x - tracked_w
+            tracked_bbox = _tracked_text_bbox(route_font, (tracked_x, y), tracked_text, LABEL_TRACKING_PX)
+            _assert_within_canvas(tracked_bbox, "band previous flight tracked route line")
+            draw_tracked_text(draw, (tracked_x, y), tracked_text, route_font, ink_idx, tracking=LABEL_TRACKING_PX)
+            if first_bbox is None:
+                first_bbox = tracked_bbox
+            y = tracked_bbox[3] + 8
+
+        plain_bbox = draw.textbbox((right_x, y), plain_text, font=airline_font, anchor="ra")
+        _assert_within_canvas(plain_bbox, "band previous flight airline·type line")
+        draw.text((right_x, y), plain_text, font=airline_font, fill=ink_idx, anchor="ra")
+        if first_bbox is None:
+            first_bbox = plain_bbox
+
+        return first_bbox, plain_bbox
 
 
 def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False, battery_low=False):
@@ -1735,7 +1809,7 @@ def _build_active_canvas(
         # footprint is the right thing to bound - unchanged by the
         # illustration-crop-text-margin fix.
         _assert_within_canvas(main_placement.rect, "main aircraft illustration")
-        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx, weight)
+        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx, weight, band_idx=band_idx)
 
     # D-25/D-26 previous flight: a real second flight card - the detection
     # immediately preceding this one (poll_loop.py's two-deep history).
@@ -1768,7 +1842,7 @@ def _build_active_canvas(
             prev_top = _top_for_centered_content(prev_resized, HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC)
             prev_placement = draw_illustration(canvas, prev_resized, prev_left, prev_top)
             _assert_within_canvas(prev_placement.rect, "previous aircraft illustration")
-            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx, weight)
+            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx, weight, band_idx=band_idx)
 
     # CFG-05: the source-fault badge, drawn last so it sits on top of
     # everything else, using the state's own resolved ink index.
