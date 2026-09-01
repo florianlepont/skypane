@@ -93,7 +93,14 @@ STARTUP_DEADLINE_S = 10.0
 # 63 + 5 (06.6.4.1-06 Task 2: gallery filter-bar four-marker check, Clear
 # is a real <button> check, label-for/input-id check, count/empty-body
 # real-total check, per-card data-filter-text/-group check)
-EXPECTED_CHECK_COUNT = 68  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 68 + 4 (06.6.4.1-06 Task 3: D-17 no-history_db/poll_loop/sqlite-import
+# source guard, D-13 Airlines-no-longer-renders-migrated-headers guard,
+# Health-still-renders-both-header-sets guard, no-deleted-diagnostics-
+# symbol-exposed guard) — every check that exercised a now-deleted
+# Airlines diagnostics symbol was already removed in Task 1, pulled
+# forward from this task by the per-task green-suite verification loop;
+# their Health-side equivalents were added by plan 04.
+EXPECTED_CHECK_COUNT = 72  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1980,6 +1987,83 @@ def main():
         "every card carries a data-filter-text equal to its own lower-cased airline name, and the set of "
         "data-filter-group values has the same size as the card count",
         _every_card_carries_distinct_filter_text_and_group)
+
+    def _airlines_page_source_has_no_history_db_poll_loop_or_sqlite_import():
+        # D-17 non-goal: the gallery shows the full static curated list
+        # and performs no detection-history cross-reference — the page
+        # module opens no database and reads no poll state.
+        with open(os.path.join(HERE, "pages", "airlines_page.py")) as fh:
+            source = fh.read()
+        for needle in ("history_db", "poll_loop", "import sqlite3"):
+            if needle in source:
+                return False, "airlines_page.py must not import %r (D-17 non-goal)" % needle
+        return True, ""
+    check(
+        "companion/pages/airlines_page.py imports no history-database module, no poll-state module, and no "
+        "sqlite module (D-17 non-goal: no detection-history cross-reference)",
+        _airlines_page_source_has_no_history_db_poll_loop_or_sqlite_import)
+
+    def _airlines_page_no_longer_renders_registry_or_stats_headers():
+        # D-13 non-goal: after this plan, exactly one page (Health)
+        # renders the unresolved-prefix registry and the resolution-
+        # statistics breakdown.
+        tmp = _mkstate("a-no-duplicate-registry")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            for header in (
+                "Prefix", "First seen", "Last seen", "Example callsign",
+                "Source", "Description",
+            ):
+                if ("<th>%s</th>" % header) in rendered:
+                    return False, "the Airlines gallery must not render the migrated %r column header (D-13)" % header
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Airlines gallery contains none of the migrated unresolved-prefix registry or "
+        "resolution-statistics table column headers (D-13 non-goal)",
+        _airlines_page_no_longer_renders_registry_or_stats_headers)
+
+    def _health_page_still_renders_both_migrated_header_sets():
+        # The content moved, it was not lost — Health must still render
+        # both header sets the check above confirms Airlines no longer
+        # does.
+        tmp = _mkstate("h-still-has-headers")
+        try:
+            registry = {
+                "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            events = [{"ts": _iso(_now()), "hex": "abc123", "route_source": "fresh_hit"}]
+            _seed_runway_events(tmp, events)
+            rendered = health_page.render(_ctx(tmp))
+            for header in (
+                "Prefix", "First seen", "Last seen", "Example callsign",
+                "Source", "Description",
+            ):
+                if ("<th>%s</th>" % header) not in rendered:
+                    return False, "expected Health to still render the migrated %r column header" % header
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered Health page still contains both migrated header sets — the content moved, it was not lost",
+        _health_page_still_renders_both_migrated_header_sets)
+
+    def _airlines_page_module_exposes_no_deleted_diagnostics_symbol():
+        for name in (
+            "unresolved_rows", "coverage_status", "resolution_stats",
+            "STATS_UNAVAILABLE_TEXT", "RESOLUTION_WINDOW_DAYS",
+            "_registry_row_html", "_registry_table_html", "_registry_section",
+            "_resolved_headline_html", "_stats_table_html", "_safe_query",
+        ):
+            if hasattr(airlines_page, name):
+                return False, "airlines_page module must no longer expose the deleted diagnostics symbol %r" % name
+        return True, ""
+    check(
+        "importing companion.pages.airlines_page raises no error, and the module exposes none of the deleted "
+        "diagnostics symbols",
+        _airlines_page_module_exposes_no_deleted_diagnostics_symbol)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
