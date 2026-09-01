@@ -669,10 +669,32 @@ a:hover {
  * <fieldset> in this slot; a bare <div> inherits none of fieldset's box
  * styling, so padding/margin-bottom are restated explicitly here to match
  * what the removed fieldset rule used to provide, avoiding a visual
- * collapse to zero spacing. */
+ * collapse to zero spacing.
+ *
+ * That was never the whole story, and it's why this wrapper shipped with a
+ * visible gap (quick task 260901-qif): restating fieldset's spacing gave
+ * the Theme, Runway and Diagnostic LED groups their padding and margin
+ * back, but never the card treatment every `.page-section` on this same
+ * page carries, so all three groups rendered as unbounded canvas-coloured
+ * regions directly beside a properly-carded Poll section. This rule is now
+ * matched declaration-for-declaration against `.page-section` below — same
+ * `--color-dominant` surface, same `--color-border` hairline at rest, same
+ * `--radius-control` corners, same no-resting-shadow, same hover/
+ * focus-within reveal. The two must be edited together if either
+ * changes. */
 .theme-status {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+}
+
+.theme-status:hover,
+.theme-status:focus-within {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
 }
 
 .theme-status__row {
