@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 15 reverts to the below-illustration position and fixes a real per-line centring bug (three lines now share one x), awaiting developer reaction
+verdict: VALIDATED - developer confirmed round 15 ("oui !"). 15 rounds of iteration, full history below; see Results for the final confirmed composition and every open item still remaining before a plan.
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -414,18 +414,48 @@ value for every line, mirroring the "one shared x for the whole block"
 principle the nose-aligned version (rounds 9-11) already used for
 `left_x`. Confirmed aligned on both `blue-dithered` and `black-flat`.
 
-**Still open:**
+**Developer confirmed round 15 ("oui !").** This is the current, final
+confirmed composition:
+
+- Band: measured trapezoid (not a parallelogram), `BAND_SHIFT_FRAC=0.0`
+  (the reference's own unshifted position - no shift needed once the tag
+  was split).
+- Top labels: split - "DEPARTING FROM ORY" / "ARRIVING TO ORY" merged
+  left, "RWY 3" alone right, both 6px-tracked, reusing the real
+  `runway_tag_text()` (partitioned, not re-derived).
+- Main card: three-tier hierarchy (big number / dash / tracked route
+  line / airline·type) built entirely from the real, unmodified content
+  ladder (`_flight_line1_text()`/`_flight_line2_text()` called verbatim,
+  same four-tier fallback, same never-raw-callsign guarantee) - centred
+  INSIDE the band, below the aircraft, all three lines sharing one
+  computed centre-x (not recomputed per line). Ink follows the band's
+  own contrast colour (white on the black candidate, black everywhere
+  else) rather than the theme's global `ink_idx`.
+- Previous card: same three-tier hierarchy, right-aligned, ~57% scale,
+  unchanged since round 6 (never needed to move - the band never reaches
+  that far right at its height).
+- 5 band colours validated end-to-end: blue light (dithered), blue,
+  green light (dithered), red, black.
+
+**Still open before this could become a plan:**
 - This entire spike is screen-preview only, per this project's own D-13
   precedent (every visual/typography change needs a real on-glass check
   before being considered final) - nothing here has been near the real
-  panel yet.
-- The previous-flight card's text (bottom-right, unchanged from
-  production) was checked visually for band collision at its height
-  range (~75-85% canvas height, band sits at ~17-46% width there) and
-  looks clear in every candidate, but wasn't measured as precisely as
-  the main block's fixed issues.
-- The main text block's now-content-aware height varies by tier (tier 1
-  is taller than tier 2/3/4, since it has an extra number+dash pair) -
-  each tier was spot-checked to still land clear of the illustration and
-  the band, but not exhaustively swept across every route/state
-  combination in the vendored illustration set.
+  panel yet, and this composition has changed enough times since the
+  last tier check (round 6, pre-band-position-changes) that all four
+  content-ladder tiers should be re-rendered against the FINAL round-15
+  geometry, not just re-trusted from an earlier round.
+- PT Serif Italic is not vendored - decided (round 10), not open: the
+  developer wants Regular project-wide on this screen, matching Phase
+  8's own "Bold reads agressif" on-glass finding.
+- The previous-flight card's text (bottom-right) was checked visually
+  for band collision at its height range and looks clear in every
+  candidate, but that check predates round 11's band-position change
+  (tag split, shift back to 0.0) - worth one more visual pass at the
+  final geometry, even though the previous card's own position never
+  needed to move.
+- The main text block's content-aware height varies by tier (tier 1 is
+  taller than tier 2/3/4) - each tier was spot-checked in earlier rounds
+  but not against the final round-15 vertical/centring logic.
+- This is still ONE new theme, additive to the 11 Phase 8 already
+  shipped - the existing themes are untouched by anything in this spike.
