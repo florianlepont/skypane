@@ -9,7 +9,7 @@ validates: |
   build_canvas() pipeline, then at least one reads well on a 6-colour
   e-ink panel, passes the real _assert_legal_palette() background-
   dominance guard rail, and does not collide with any text.
-verdict: PENDING - round 13 fixes black-flat with white ink, all 5 candidates now read cleanly, awaiting developer reaction
+verdict: PENDING - round 15 reverts to the below-illustration position and fixes a real per-line centring bug (three lines now share one x), awaiting developer reaction
 related: ["001-panel-theme-colours", "002-small-labels-and-white-rhythm"]
 tags: [render, theme, diagonal-band, layout, e-ink, palette-guard-rail]
 ---
@@ -386,6 +386,33 @@ correct) for every other candidate. `black-flat` now reads perfectly:
 white "AF1234 / TO NEW YORK / Air France · A320" fully legible against
 the black band. Confirmed `_assert_legal_palette()` still passes (White
 stays dominant even with the added white-ink text on black).
+
+**Round 14 - canvas-centre experiment, found and flagged a collision
+before presenting it as done.** Developer wanted the main text block
+vertically centred - asked which reference frame, developer's answer:
+"centre de l'écran" (`HEIGHT/2 = 800`, literal canvas centre). Checked
+numerically before rendering: the block's own height (~150px) means its
+top would land at y≈725, well above the aircraft's own bottom edge
+(y=793) - rendered it anyway to confirm the severity, and the collision
+was real and visible ("AF1234" partially hidden behind the fuselage).
+Presented this finding with the actual render rather than the intended
+result, and proposed centring within the available space below the
+aircraft instead.
+
+**Round 15 - developer's correction: revert vertical, fix a real
+alignment bug round 12 introduced.** Developer: keep the vertical
+position as it was before (round 11's real-production anchor, back
+below the illustration) - but flagged that the three text lines
+"ne sont pas centrées entre elles" (aren't centred relative to each
+other). Real bug, not a misperception: round 12's `_band_center_x()`
+call was recomputed PER LINE at that line's own y, and since the band
+is a trapezoid whose centreline shifts ~50px over this block's ~150px
+total height, the three lines ended up centred on three different x
+values - a visible stagger, not a clean aligned column. Fixed by
+computing `center_x` ONCE at the block's top and reusing that single
+value for every line, mirroring the "one shared x for the whole block"
+principle the nose-aligned version (rounds 9-11) already used for
+`left_x`. Confirmed aligned on both `blue-dithered` and `black-flat`.
 
 **Still open:**
 - This entire spike is screen-preview only, per this project's own D-13

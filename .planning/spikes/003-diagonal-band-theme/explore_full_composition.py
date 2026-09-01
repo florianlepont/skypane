@@ -266,19 +266,25 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
     route_font = render._role_font(ROUTE_LINE_FONT, weight)
     airline_font = render._role_font(AIRLINE_LINE_FONT, weight)
 
-    # Round 11 (developer's correction): back below the illustration once
-    # more. Splitting the top-right tag down to "RWY 3" alone (see
-    # patched_draw_top_labels) frees enough room that BAND_SHIFT_FRAC=0.0
-    # clears both the shorter tag AND this below-position, nose-aligned
-    # block at once (verified numerically before switching back - see
-    # that constant's own comment for the exact margins) - round 9/10's
-    # conflict doesn't reopen this time. Real production anchor again:
-    # MAIN_TEXT_GAP_PX below the illustration's opaque bottom edge.
+    # Round 15 (developer): reverted round 14's canvas-centre experiment
+    # (y=800 collided with the aircraft's own belly - confirmed visually
+    # before it was presented as done) back to round 11's real-production
+    # anchor, MAIN_TEXT_GAP_PX below the illustration's opaque bottom
+    # edge. Separately, the developer caught a genuine bug round 12
+    # introduced: centre_x was recomputed PER LINE at that line's own y,
+    # and since the band is a trapezoid (its centreline shifts ~50px over
+    # this block's ~150px total height), the three lines ended up
+    # centred on three slightly different x's instead of forming one
+    # aligned column - visible as a stagger, not a clean centred block.
+    # Fixed by computing centre_x ONCE, at the block's top, and reusing
+    # that single value for every line - same "one shared x for every
+    # line" principle the nose-aligned version (round 9-11) already used
+    # for left_x, just for a centred anchor instead of a left one.
     y = main_placement.content[3] + render.MAIN_TEXT_GAP_PX
+    center_x = _band_center_x(y, render.WIDTH)
     first_bbox = None
 
     if number_text:
-        center_x = _band_center_x(y, render.WIDTH)
         num_bbox = draw.textbbox((center_x, y), number_text, font=num_font, anchor="ma")
         draw.text((center_x, y), number_text, font=num_font, fill=ink_idx, anchor="ma")
         first_bbox = num_bbox
@@ -287,7 +293,6 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
         y = dash_y + DASH_GAP + 4
 
     if tracked_text:
-        center_x = _band_center_x(y, render.WIDTH)
         tracked_w = render._tracked_text_width(route_font, tracked_text, render.LABEL_TRACKING_PX)
         tracked_x = center_x - tracked_w / 2
         render.draw_tracked_text(draw, (tracked_x, y), tracked_text, route_font, ink_idx, render.LABEL_TRACKING_PX)
@@ -296,7 +301,6 @@ def patched_draw_main_text_block(canvas, flight, state, route, main_placement, i
             first_bbox = tracked_bbox
         y = tracked_bbox[3] + 12
 
-    center_x = _band_center_x(y, render.WIDTH)
     plain_bbox = draw.textbbox((center_x, y), plain_text, font=airline_font, anchor="ma")
     draw.text((center_x, y), plain_text, font=airline_font, fill=ink_idx, anchor="ma")
     if first_bbox is None:
