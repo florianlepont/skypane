@@ -70,7 +70,9 @@ STARTUP_DEADLINE_S = 10.0
 # not counted as new
 # 59 (pre-06.6.4.1-04) + 5 (06.6.4.1-04 Task 1: anomaly-banner category-
 # pill checks x3, corroboration-disclosure checks x2)
-EXPECTED_CHECK_COUNT = 64  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 64 + 3 (06.6.4.1-04 Task 2: sparkline axis-label check, seeded-readout
+# check, single-reading-still-no-chart regression guard)
+EXPECTED_CHECK_COUNT = 67  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -947,6 +949,94 @@ def main():
         "battery_sparkline_svg() emits per-point interactive hit targets with data-mv/data-ts/<title>, in "
         "chronological order, with roving tabindex on the latest point only",
         _sparkline_svg_has_per_point_interactive_markup)
+
+    def _sparkline_axis_labels_present_with_real_min_max():
+        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label text nodes,
+        # two carrying the fixture's real min/max mV values.
+        rows = [
+            {"ts": "2024-01-01T08:00:00", "battery_mv": 4200},
+            {"ts": "2024-01-01T09:00:00", "battery_mv": 3850},
+            {"ts": "2024-01-01T10:00:00", "battery_mv": 4000},
+        ]
+        svg = health_page.battery_sparkline_svg(rows)
+        tag_start = 0
+        label_count = 0
+        while True:
+            idx = svg.find('<text class="sparkline-axis-label"', tag_start)
+            if idx == -1:
+                break
+            tag_end = svg.index(">", idx)
+            tag = svg[idx:tag_end + 1]
+            if 'aria-hidden="true"' not in tag:
+                return False, "expected every sparkline-axis-label <text> to carry aria-hidden=\"true\" on its own tag"
+            label_count += 1
+            tag_start = tag_end
+        if label_count != 4:
+            return False, "expected exactly four sparkline-axis-label elements, got %d" % label_count
+        if "4200 mV" not in svg:
+            return False, "expected the real maximum mV value in an axis label"
+        if "3850 mV" not in svg:
+            return False, "expected the real minimum mV value in an axis label"
+        if svg.count("<polyline") != 1:
+            return False, "expected exactly one polyline after adding axis labels"
+        for forbidden in ("url(", "<image", "<script"):
+            if forbidden in svg:
+                return False, "found forbidden %r in the axis-labeled sparkline SVG" % forbidden
+        return True, ""
+    check(
+        "battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the fixture's real "
+        "min/max mV values, with every prior no-external-reference guarantee intact (D-09)",
+        _sparkline_axis_labels_present_with_real_min_max)
+
+    def _battery_readout_seeded_with_latest_reading_not_placeholder():
+        tmp = _mkstate("h-readout-seeded")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            expected_label = "4190 mV — %s" % health_page.escape_html(_iso(base))
+            readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
+            readout_tag_end = rendered.index(">", readout_start)
+            readout_text_end = rendered.index("</p>", readout_tag_end)
+            readout_text = rendered[readout_tag_end + 1:readout_text_end]
+            if readout_text != expected_label:
+                return False, "expected the readout's initial text to equal the latest reading's own label, got %r" % (readout_text,)
+            if "Tap or hover a point" in rendered:
+                return False, "did not expect the retired BATTERY_READOUT_PLACEHOLDER prompt text anywhere on the page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the battery readout's initial text equals the latest reading's own label, and the retired placeholder "
+        "prompt no longer appears (D-09)",
+        _battery_readout_seeded_with_latest_reading_not_placeholder)
+
+    def _single_reading_still_no_chart_no_readout_no_script():
+        if health_page.battery_sparkline_svg(
+                [{"ts": "t1", "battery_mv": 4200}]) != "":
+            return False, "expected battery_sparkline_svg() to return '' for a single-row input"
+        tmp = _mkstate("h-single-reading-no-chart")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [(_iso(now), 4200)])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if "<script" in rendered:
+                return False, "did not expect a <script tag with only one battery reading"
+            if health_page.BATTERY_READOUT_ID in rendered:
+                return False, "did not expect the readout element id with only one battery reading"
+            if "<polyline" in rendered:
+                return False, "did not expect a sparkline polyline with only one battery reading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "battery_sparkline_svg() still returns '' for fewer than two numeric readings, and the page emits neither "
+        "a readout element nor a chart script tag (D-09 regression guard)",
+        _single_reading_still_no_chart_no_readout_no_script)
 
     def _page_allows_exactly_one_scoped_script_no_inline_handlers():
         tmp = _mkstate("h-script-scope")

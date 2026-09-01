@@ -178,7 +178,6 @@ SPARKLINE_DOT_CLASS = "sparkline-dot"
 # importing companion.app (app.py imports pages, so importing back would
 # be circular). The test harness asserts the two stay equal.
 BATTERY_TREND_SCRIPT_SRC = "/static/battery-trend.js"
-BATTERY_READOUT_PLACEHOLDER = "Tap or hover a point on the chart to see its exact reading."
 
 # 06.6.1-03 (D-02): the battery-trend chart moved out of the Overview
 # dashboard-grid into its own full-width section, so its heading text is
@@ -271,6 +270,29 @@ def battery_trend_rows(conn):
     return history_db.recent_device_health(conn, limit=BATTERY_TREND_LIMIT)
 
 
+# D-09/§5.3: reserved space grown around the original 300x60 plot area
+# for the four axis labels — a left gutter for the two Y-axis (min/max
+# mV) labels, and a bottom strip for the two X-axis (oldest/newest
+# clock-time) labels. The polyline/marker/hit-target math below derives
+# its plot area from these constants rather than hardcoding the old
+# padding against the larger box, so a future size tweak only needs to
+# change these two numbers.
+_AXIS_LEFT_GUTTER = 34  # room for a "4200 mV"-shaped label, 10px font.
+_AXIS_BOTTOM_STRIP = 14  # room for one "HH:MM"-shaped label line.
+
+
+def _axis_clock_label(ts):
+    """"HH:MM" clock text for a battery-chart X-axis label, matching
+    `layout.concise_timestamp_html()`'s own clock-format convention
+    (`parsed.strftime("%H:%M")`). Falls back to the raw `ts` string
+    (never raising) when it fails to parse — the same graceful-
+    degradation precedent `concise_timestamp_html()`'s own unparseable-
+    `ts` branch already sets.
+    """
+    parsed = layout.parse_iso(ts)
+    return parsed.strftime("%H:%M") if parsed is not None else (ts or "")
+
+
 def battery_sparkline_svg(rows):
     """A minimal, dependency-free inline SVG sparkline built server-side
     from `rows` (newest-first, `battery_trend_rows()`'s own shape) — a
@@ -280,8 +302,14 @@ def battery_sparkline_svg(rows):
     point also carries a cosmetic marker plus a transparent, enlarged,
     keyboard-focusable hit target with `data-mv`/`data-ts` attributes and
     a `<title>` tooltip, so the exact reading is available on hover/tap
-    with no JavaScript at all. Deliberately does **not** emit a
-    script tag or the readout element itself — those are
+    with no JavaScript at all. D-09/§5.3: four `aria-hidden` axis-label
+    text nodes (Y min/max mV, X oldest/newest clock time) are also
+    emitted — no tick marks or axis lines, per UI-SPEC §5.3's "four small
+    text labels are sufficient". Every axis label is `aria-hidden`
+    because the exact reading is already announced by each point's own
+    `aria-label`/`<title>`; duplicating it as loose text would make a
+    screen reader read the chart's extremes twice. Deliberately does
+    **not** emit a script tag or the readout element itself — those are
     `_battery_section()`'s job — so this function's own no-external-
     reference guarantee (asserted directly against its return value by
     `companion/test_status_pages.py`) stays true unweakened.
@@ -294,7 +322,10 @@ def battery_sparkline_svg(rows):
     timestamp is paired with its `battery_mv` value before filtering, so
     a dropped row also drops its own timestamp — never zipping two
     independently-filtered lists, which would otherwise silently shift
-    every later point's timestamp by one.
+    every later point's timestamp by one. The same filtered `(value, ts)`
+    pairs drive both the plotted points and the X-axis oldest/newest
+    labels, so a dropped row can never shift a label away from the point
+    it describes.
     """
     chronological = list(reversed(rows))
     pairs = [
@@ -305,9 +336,13 @@ def battery_sparkline_svg(rows):
         return ""
     values = [value for value, _ts in pairs]
 
-    width, height, padding = 300, 60, 4
-    usable_w = width - 2 * padding
-    usable_h = height - 2 * padding
+    plot_width, plot_height, padding = 300, 60, 4
+    width = plot_width + _AXIS_LEFT_GUTTER
+    height = plot_height + _AXIS_BOTTOM_STRIP
+    usable_w = plot_width - 2 * padding
+    usable_h = plot_height - 2 * padding
+    plot_left = padding + _AXIS_LEFT_GUTTER
+    plot_top = padding
     lo, hi = min(values), max(values)
     span = (hi - lo) or 1
     step = usable_w / (len(values) - 1)
@@ -316,8 +351,8 @@ def battery_sparkline_svg(rows):
     markers = []
     hit_targets = []
     for index, (value, ts) in enumerate(pairs):
-        x = padding + index * step
-        y = padding + usable_h - ((value - lo) / span) * usable_h
+        x = plot_left + index * step
+        y = plot_top + usable_h - ((value - lo) / span) * usable_h
         points.append("%.1f,%.1f" % (x, y))
 
         markers.append(
@@ -345,6 +380,23 @@ def battery_sparkline_svg(rows):
             "<title>%s</title></circle>"
             % (SPARKLINE_HIT_CLASS, x, y, tabindex, value, escape_html(ts), label, label))
 
+    # Y-axis pair: max at the plot area's top, min at its bottom, both
+    # left-aligned inside the reserved gutter. X-axis pair: oldest at the
+    # plot area's left edge, newest right-anchored at its right edge,
+    # both in the reserved bottom strip.
+    x_label_y = height - 2
+    axis_labels = (
+        '<text class="sparkline-axis-label" x="2" y="%.1f" aria-hidden="true">%d mV</text>'
+        '<text class="sparkline-axis-label" x="2" y="%.1f" aria-hidden="true">%d mV</text>'
+        '<text class="sparkline-axis-label" x="%.1f" y="%.1f" aria-hidden="true">%s</text>'
+        '<text class="sparkline-axis-label" x="%.1f" y="%.1f" text-anchor="end" aria-hidden="true">%s</text>'
+    ) % (
+        plot_top + 8, hi,
+        plot_top + usable_h, lo,
+        plot_left, x_label_y, escape_html(_axis_clock_label(pairs[0][1])),
+        plot_left + usable_w, x_label_y, escape_html(_axis_clock_label(pairs[-1][1])),
+    )
+
     # Document order matters: SVG paints in document order and pointer
     # events go to the topmost element, so the transparent hit targets
     # must come last (after the cosmetic markers) or the cosmetic dots
@@ -353,11 +405,11 @@ def battery_sparkline_svg(rows):
         '<svg viewBox="0 0 %d %d" width="%d" height="%d" '
         'xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Battery trend">'
         '<polyline points="%s" fill="none" stroke="currentColor" stroke-width="2"/>'
-        "%s%s"
+        "%s%s%s"
         "</svg>"
     ) % (
         width, height, width, height, " ".join(points),
-        "".join(markers), "".join(hit_targets),
+        "".join(markers), "".join(hit_targets), axis_labels,
     )
 
 
@@ -728,15 +780,38 @@ def _battery_badge_block(state):
     return '<p class="text-body">%s</p>' % layout.status_dot(state, BATTERY_STATUS_LABEL)
 
 
-def _battery_readout_block():
+def _latest_numeric_battery_label(trend_rows):
+    """The chronologically-latest reading's own per-point label
+    ("{value} mV — {ts}", `battery_sparkline_svg()`'s own format),
+    scanning `trend_rows` (newest-first, `battery_trend_rows()`'s own
+    ordering) for the first row carrying a genuine int `battery_mv` —
+    the same numeric-only filter `battery_sparkline_svg()` applies,
+    applied here without needing that function's full chronological-
+    reversal/plotting pass. Returns `None` when no row qualifies; only
+    called on the branch where a chart already exists (`sparkline_html`
+    non-empty), so that branch always yields a real label here too.
+    """
+    for row in trend_rows:
+        value = row.get("battery_mv")
+        if isinstance(value, int) and not isinstance(value, bool):
+            return "%d mV — %s" % (value, escape_html(row.get("ts")))
+    return None
+
+
+def _battery_readout_block(latest_label):
     """The reserved-height readout line `companion/static/battery-trend.js`
-    writes into on hover/tap/keyboard reveal. `role="status"` already
-    implies a polite live region, so no separate `aria-live` attribute is
-    added.
+    writes into on hover/tap/keyboard reveal. D-09/§5.3: seeded by
+    default with `latest_label` — the latest reading's own label, in the
+    exact same "{value} mV — {ts}" format `battery_sparkline_svg()`
+    already builds per-point, so the resting text and the hover/tap text
+    are word-identical — rather than the old static prompt (retired,
+    `BATTERY_READOUT_PLACEHOLDER` no longer exists). `role="status"`
+    already implies a polite live region, so no separate `aria-live`
+    attribute is added.
     """
     return (
         '<p id="%s" class="battery-readout text-label mono" role="status">%s</p>'
-        % (BATTERY_READOUT_ID, escape_html(BATTERY_READOUT_PLACEHOLDER)))
+        % (BATTERY_READOUT_ID, escape_html(latest_label)))
 
 
 def _battery_trend_section_html(battery_html):
@@ -844,7 +919,8 @@ def _battery_section(trend_rows):
     chart_block = ""
     if sparkline_html:
         chart_block = (
-            sparkline_html + _battery_readout_block()
+            sparkline_html
+            + _battery_readout_block(_latest_numeric_battery_label(trend_rows))
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
     # D-08: the chart (when present) comes before the collapsed table in
     # both DOM and visual order — a reorder from the pre-06.6.3 shape
