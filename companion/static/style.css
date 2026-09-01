@@ -1471,8 +1471,14 @@ button:disabled {
   border: 1px solid var(--color-border);
 }
 
+/* WR-03 fix: border-color used to substitute for the accent colour here,
+ * directly contradicting the header's "border is structural only ...
+ * never substitutes for the accent" contract. Brought into line with
+ * the file's existing "focused-input outline" accent use instead (see
+ * .sparkline-hit:focus-visible below for the same idiom). */
 .filter-bar__field input:focus {
-  border-color: var(--color-accent);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 /* 06.6.4 (D-08): shrunk and muted to the same 70% text color-mix
