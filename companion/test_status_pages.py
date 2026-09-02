@@ -190,7 +190,11 @@ STARTUP_DEADLINE_S = 10.0
 # markers, the axis-label lookup, the scale-bound check, and the
 # readout-precedes-chart sparkline marker were all retargeted/rewritten
 # IN PLACE — no count change from any of them).
-EXPECTED_CHECK_COUNT = 95  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 95 + 1 (quick task 260902-gjj Task 1: the muted-caption pair — both the
+# battery heading's trailing span and the Unresolved-prefixes read-only
+# note compose section-caption with their existing sizing class, plus the
+# CSS half pinning .section-caption to a single 70%-muted declaration).
+EXPECTED_CHECK_COUNT = 96  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2016,6 +2020,51 @@ def main():
         "the migrated Unresolved-prefixes card keeps its filter bar, read-only note, and non-button Clear "
         "control (D-12)",
         _registry_card_keeps_filter_bar_note_and_non_button_clear)
+
+    def _quick_260902_gjj_muted_captions_compose_section_caption():
+        # quick task 260902-gjj (ISSUE 1): pins the markup pair (both
+        # fragments compose `section-caption` onto their existing sizing
+        # class) AND the single muted strength (style.css's
+        # .section-caption still declares exactly one property, the same
+        # 70% color-mix), together — so a future edit cannot satisfy the
+        # markup half while quietly forking a second muted value.
+        tmp = _mkstate("h-muted-captions")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            heading_at = rendered.index(">%s" % health_page.BATTERY_SECTION_HEADING)
+            heading_close = rendered.index("</h2>", heading_at) + len("</h2>")
+            heading_html = rendered[heading_at:heading_close]
+            if 'class="text-label section-caption"' not in heading_html:
+                return False, (
+                    "expected the battery heading's trailing span to compose "
+                    "text-label with section-caption, got %r" % heading_html)
+
+            note_at = rendered.index(health_page._READ_ONLY_NOTE)
+            note_open = rendered.rindex("<p", 0, note_at)
+            note_tag = rendered[note_open:rendered.index(">", note_open) + 1]
+            if 'class="text-body section-caption"' not in note_tag:
+                return False, (
+                    "expected the read-only note's own <p> to compose text-body "
+                    "with section-caption, got %r" % note_tag)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        i = css_source.index(".section-caption {")
+        body = css_source[i:css_source.index("}", i)]
+        if body.count(";") != 1 or (
+                "color-mix(in srgb, var(--color-text) 70%, transparent)" not in body):
+            return False, (
+                "expected .section-caption to still declare exactly one property, "
+                "the file's single 70%% muted color-mix, got %r" % body)
+        return True, ""
+    check(
+        "the battery heading's trailing span and the Unresolved-prefixes read-only note both compose "
+        "section-caption with their existing sizing class, and style.css's .section-caption still declares "
+        "exactly one property at the file's single 70% muted strength (quick task 260902-gjj, ISSUE 1)",
+        _quick_260902_gjj_muted_captions_compose_section_caption)
 
     def _migrated_cards_have_independent_failure_isolation():
         # D-11: the registry read (poll_loop.load_poll_state(), a

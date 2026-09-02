@@ -1241,10 +1241,22 @@ def _battery_trend_section_html(battery_html):
     trend out of the grid. All four Health signals still carry their
     icon — three on tiles, one here on the section heading — and the
     icon set stays at the contract's five.
+
+    quick task 260902-gjj (ISSUE 1): the trailing "— Latest N readings"
+    span now composes `section-caption` with its existing `text-label`
+    sizing class. `.text-label`/`.text-body` each supply a size and a
+    weight but no colour, so an element carrying only one of them
+    inherits full-strength `--color-text`; the muted strength for a
+    subtitle/caption role lives in `.section-caption` and is composed
+    onto the sizing class, never restated — `_section_intro_html()`
+    above is the in-file precedent this follows (its own description
+    paragraph pairs `text-label section-caption` for the same reason).
+    `_registry_section()`'s read-only note applies the identical fix to
+    its own `text-body` paragraph; see that function's own comment.
     """
     return (
         '<section class="%s">'
-        '<h2 class="text-heading">%s%s<span class="text-label">'
+        '<h2 class="text-heading">%s%s<span class="text-label section-caption">'
         "— Latest %d readings</span></h2>"
         "%s"
         "</section>"
@@ -1602,7 +1614,15 @@ def _registry_section(rows, now):
     # omission a later "finish matching the sketch" edit should silently
     # fill in.
     status_html = layout.status_dot(coverage_status(rows), "Coverage")
-    note_html = '<p class="text-body">%s</p>' % escape_html(_READ_ONLY_NOTE)
+    # quick task 260902-gjj (ISSUE 1): composes `section-caption` onto this
+    # note's existing `text-body` sizing class, the same fix
+    # `_battery_trend_section_html()` applies to its own trailing span —
+    # see that function's docstring for the full reasoning. Deliberately
+    # NOT switched to `text-label`: this is a full sentence of prose at
+    # Body size, and dropping it to Label size would be an unrequested
+    # size change that would also disagree with the sibling prose in this
+    # same card region.
+    note_html = '<p class="text-body section-caption">%s</p>' % escape_html(_READ_ONLY_NOTE)
     header_html = '<p class="text-body">%s</p>' % status_html + note_html
 
     if not rows:
