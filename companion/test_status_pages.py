@@ -250,7 +250,7 @@ STARTUP_DEADLINE_S = 10.0
 # gated property from different angles). battery_sparkline_svg()'s
 # widened signature (a third, defaulted `daily` parameter) needed no gate
 # retarget — no pre-existing check pinned its arity.
-EXPECTED_CHECK_COUNT = 110  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks)
+EXPECTED_CHECK_COUNT = 112  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -4494,6 +4494,33 @@ def main():
         "imported route-prefix contract)",
         _illustration_route_prefix_matches_app_constant)
 
+    def _every_card_image_carries_matching_intrinsic_dimensions():
+        # quick task 260902-req-02 Task 2: every <img> now carries explicit
+        # width/height attributes, imported from illustration_normalize's
+        # own module constants — never hand-typed — so a browser reserves
+        # the right box before the image loads and the grid does not
+        # reflow as cards stream in.
+        tmp = _mkstate("a-image-dimensions")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            tags = re.findall(r'<img class="airline-card__image"[^>]*>', rendered)
+            expected = len(illustrations.target_airline_names())
+            if len(tags) != expected:
+                return False, "expected %d .airline-card__image tags, got %d" % (expected, len(tags))
+            expected_attr = 'width="%d" height="%d"' % (
+                illustration_normalize.ILLUSTRATION_TARGET_WIDTH,
+                illustration_normalize.ILLUSTRATION_TARGET_HEIGHT)
+            for tag in tags:
+                if expected_attr not in tag:
+                    return False, "expected %r in every card image tag, missing from %r" % (expected_attr, tag)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every rendered card image carries width/height attributes matching "
+        "illustration_normalize.ILLUSTRATION_TARGET_WIDTH/HEIGHT exactly",
+        _every_card_image_carries_matching_intrinsic_dimensions)
+
     def _gallery_filter_bar_carries_all_four_contract_markers_exactly_once():
         tmp = _mkstate("a-filter-markers")
         try:
@@ -4839,6 +4866,40 @@ def main():
             "visibility-change listener (quick task 260901-tsa; extended in place by quick task 260901-uzi "
             "finding 1/2/3/4, quick task 260902-bl2 Task 3, and quick task 260902-chc)",
             _both_tabs_ok_end_to_end)
+
+        def _illustration_route_serves_normalized_bytes_end_to_end():
+            # quick task 260902-req-02 Task 2: the automated half of
+            # "verified against a real running service" for the
+            # normalization route wiring — a real subprocess, a real
+            # login, a real HTTP response, not only an in-process
+            # illustration_normalize.normalized_png_bytes() call.
+            key = illustrations.normalise_airline_key("Air France")
+            path = illustrations.illustration_path_for_key(key)
+            with open(path, "rb") as fh:
+                raw_bytes = fh.read()
+
+            status, _headers, served_bytes = http_request(
+                base + app.ILLUSTRATION_IMAGE_ROUTE_PREFIX + key + ".png", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 for a known illustration key, got %d" % status
+            if served_bytes == raw_bytes:
+                return False, "expected the served bytes to differ from the raw file bytes (normalization ran)"
+            with Image.open(io.BytesIO(served_bytes)) as decoded:
+                if decoded.size != illustration_normalize.ILLUSTRATION_TARGET_SIZE:
+                    return False, "expected the served image to decode to %r, got %r" % (
+                        illustration_normalize.ILLUSTRATION_TARGET_SIZE, decoded.size)
+
+            unknown_status, _unknown_headers, _unknown_body = http_request(
+                base + app.ILLUSTRATION_IMAGE_ROUTE_PREFIX + "not-a-real-airline-key.png",
+                cookie=session_cookie)
+            if unknown_status != 404:
+                return False, "expected 404 for an unknown illustration key, got %d" % unknown_status
+            return True, ""
+        check(
+            "GET /illustration/{key}.png against a real running service serves normalized bytes that differ "
+            "from the raw vendored file and decode to illustration_normalize.ILLUSTRATION_TARGET_SIZE, and an "
+            "unknown key still 404s",
+            _illustration_route_serves_normalized_bytes_end_to_end)
 
     finally:
         harness.stop()

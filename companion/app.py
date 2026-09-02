@@ -51,7 +51,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from companion import auth, layout  # noqa: E402
+from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -760,22 +760,32 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_illustration_image(self, key):
         # Membership test FIRST, before any path is ever constructed
         # (validate-then-join, never sanitise-then-join — same shape as
-        # _serve_runway_image() above, D-15). An unknown key and an
-        # unreadable file both return this same 404, so a caller can never
+        # _serve_runway_image() above, D-15). An unknown key, a missing
+        # file and a malformed/unreadable asset all return this same 404
+        # (quick task 260902-req-02, T-260902req-05) — a caller can never
         # distinguish "not a real illustration" from "no file for a real
-        # one". illustrations.illustration_path_for_key()'s own
-        # _UNSAFE_KEY_RE check below is defence in depth, never a
-        # substitute for this membership test.
+        # one" from "normalization failed on this one file";
+        # illustrations.illustration_path_for_key()'s own _UNSAFE_KEY_RE
+        # check below is defence in depth, never a substitute for this
+        # membership test.
         filename = key + ".png"
         if filename not in _ILLUSTRATION_FILENAMES:
             return self.send_html(404, self._not_found_page())
         path = illustrations.illustration_path_for_key(key)
         if path is None:
             return self.send_html(404, self._not_found_page())
+        # T-260902req-06: cached_normalized_png_bytes() is lru_cache'd per
+        # path+mtime, so the 43 known-safe repo-controlled assets are
+        # decoded/re-encoded once per process, not once per request — this
+        # route's input set is closed (the membership test above), never
+        # user-supplied image bytes.
         try:
-            with open(path, "rb") as fh:
-                payload = fh.read()
-        except OSError:
+            payload = illustration_normalize.cached_normalized_png_bytes(path)
+        except Exception:
+            # Any decode/normalize failure on this one asset degrades to
+            # the same 404 as a missing file (T-260902req-05), never a
+            # 500 — the membership test above already proved this is a
+            # known-safe repo-controlled path.
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)
 

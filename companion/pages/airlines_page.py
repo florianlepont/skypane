@@ -8,6 +8,18 @@ curated list from `_ILLUSTRATION_TARGETS`, never a detection-history
 cross-reference (D-17: this module opens no database and reads no poll
 state).
 
+Since quick task 260902-req-02, this page's `<img>` tags are no longer a
+bare pointer at the raw vendored PNG: `companion/app.py`'s
+`Handler._serve_illustration_image()` now serves the file through
+`companion.illustration_normalize`, which re-centres every illustration's
+painted content into one shared frame. This module's own contribution to
+that fix is cosmetic-but-load-bearing — each `<img>` carries explicit
+`width`/`height` attributes matching `illustration_normalize`'s output
+size, imported (not hand-typed) from that module's module-level constants,
+so the browser reserves the right box before the image loads and the grid
+does not reflow as cards stream in (`loading="lazy"` alone does not
+prevent that; intrinsic dimensions do).
+
 The unresolved-callsign-prefix registry (formerly CFG-04) and the
 resolution-rate statistics breakdown (formerly CFG-08) that used to live
 on this page moved to `companion/pages/health_page.py` in this same
@@ -19,6 +31,10 @@ module, and opens no database connection of any kind.
 """
 import re
 
+from companion.illustration_normalize import (
+    ILLUSTRATION_TARGET_HEIGHT,
+    ILLUSTRATION_TARGET_WIDTH,
+)
 from companion.layout import escape_html
 import companion.layout as layout
 from server.plane import illustrations
@@ -104,9 +120,11 @@ def _airline_card_html(index, airline_name, shapes):
         return ""
     image_html = (
         '<img class="airline-card__image" src="%s%s.png" '
+        'width="%d" height="%d" '
         'loading="lazy" decoding="async" alt="%s">'
     ) % (
         ILLUSTRATION_ROUTE_PREFIX, escape_html(key),
+        ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
         escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
     )
     chips_html = ""

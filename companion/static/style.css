@@ -2902,9 +2902,16 @@ summary::-webkit-details-marker {
   box-shadow: var(--shadow-card-hover);
 }
 
+/* 260902-req-02: the ratio matches companion/illustration_normalize.py's
+ * ILLUSTRATION_TARGET_SIZE (900x263) exactly — every served illustration
+ * is already normalized to that pixel size, so this reserves the same
+ * box for a browser that ignores the <img>'s own width/height attributes.
+ * object-fit: contain (not cover) mirrors the normalization's own
+ * fit-inside discipline: nothing here may ever crop an aircraft. */
 .airline-card__image {
   width: 100%;
-  height: auto;
+  aspect-ratio: 900 / 263;
+  object-fit: contain;
   display: block;
   border-radius: var(--radius-control);
   margin-bottom: var(--space-sm);
