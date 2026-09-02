@@ -431,6 +431,19 @@ def draw_diagonal_band(canvas, band_idx, dithered=False):
         ImageDraw.Draw(canvas).polygon(poly, fill=band_idx)
 
 
+def _band_edges(canvas_y, w):
+    """The diagonal band's own left/right pixel edges at a given canvas
+    `y` - the same linear interpolation `draw_diagonal_band()`'s polygon
+    corners and `_band_center_x()` already use, factored out so a caller
+    can also ask "how wide is the band here", not just "where is its
+    centre". Returns (left_x, right_x) in pixels.
+    """
+    f = canvas_y / HEIGHT
+    left_frac = BAND_TOP_LEFT_FRAC - (BAND_TOP_LEFT_FRAC - BAND_BOT_LEFT_FRAC) * f
+    right_frac = BAND_TOP_RIGHT_FRAC - (BAND_TOP_RIGHT_FRAC - BAND_BOT_RIGHT_FRAC) * f
+    return left_frac * w, right_frac * w
+
+
 def _band_center_x(canvas_y, w):
     """The diagonal band's own horizontal centre at a given canvas `y` -
     used to centre the main text block INSIDE the trapezoid instead of
@@ -447,10 +460,8 @@ def _band_center_x(canvas_y, w):
     instead of one aligned centre (round 15's fix, see
     `draw_main_text_block()`'s band branch).
     """
-    f = canvas_y / HEIGHT
-    left_frac = BAND_TOP_LEFT_FRAC - (BAND_TOP_LEFT_FRAC - BAND_BOT_LEFT_FRAC) * f
-    right_frac = BAND_TOP_RIGHT_FRAC - (BAND_TOP_RIGHT_FRAC - BAND_BOT_RIGHT_FRAC) * f
-    return (left_frac + right_frac) / 2 * w
+    left_x, right_x = _band_edges(canvas_y, w)
+    return (left_x + right_x) / 2
 
 
 # --- D-04/D-06/D-07 battery-low icon geometry (05-UI-SPEC.md, 05-02-PLAN.md)
@@ -1336,8 +1347,39 @@ def _flight_line2_text(route, aircraft_type=None):
 BAND_MAIN_NUMBER_FONT = (PT_SERIF_BOLD, 56, 700)
 BAND_MAIN_ROUTE_FONT = (PT_SERIF_REGULAR, 22, 400)
 BAND_MAIN_AIRLINE_FONT = (PT_SERIF_REGULAR, 20, 400)
-BAND_MAIN_DASH_W = 24
+BAND_MAIN_DASH_W = 48
 BAND_MAIN_DASH_GAP = 10
+
+# Real Spectra 6 glass (Phase 9 09-04 on-glass session, long-name stress
+# test reusing Phase 7's own "Compagnie Nationale Royale Air Maroc
+# Express" / "Santiago de Compostela-Rosalia de Castro" fixture): unlike
+# every other active-state text role, the three band roles above were
+# fixed-size - no fit_text_size()-style shrink-to-fit - and a long
+# airline/city name overflowed. Explicit, in-session developer
+# instruction to add the same shrink-to-fit mechanism the rest of the
+# panel already has, not just a blanket size reduction. Min sizes chosen
+# at roughly the same ~70% floor MAIN_LINE1_FONT/MAIN_LINE2_FONT already
+# use (40/28, 22/16).
+BAND_MAIN_NUMBER_MIN_SIZE = 40
+BAND_MAIN_ROUTE_MIN_SIZE = 16
+BAND_MAIN_AIRLINE_MIN_SIZE = 14
+
+
+def _role_fit_tracked_text_size(role_spec, text, tracking, max_width, min_size, weight):
+    """`_role_fit_text_size()`'s step-down loop, but measuring width via
+    `_tracked_text_width()` (which adds `tracking` px between every glyph
+    pair) instead of `font.getlength()` - `fit_text_size()` itself would
+    under-measure a tracked line's real rendered width and could still let
+    it overflow after "fitting".
+    """
+    font_path, size, _role_weight = role_spec
+    resolved_path = _role_weight_path(weight)
+    while size > min_size:
+        font = _font((resolved_path, size, None))
+        if _tracked_text_width(font, text, tracking) <= max_width:
+            return font
+        size -= _FIT_STEP_PX
+    return _font((resolved_path, min_size, None))
 
 
 def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx=None):
@@ -1409,10 +1451,15 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         return line1_bbox, line2_bbox
     else:
         draw = ImageDraw.Draw(canvas)
-        # Round 13: the black band's own contrast colour, not the theme's
-        # global ink_idx - every other band colour happens to match ink_idx
-        # already, so this only visibly changes anything for band_black.
-        effective_ink = IDX_WHITE if band_idx == IDX_BLACK else ink_idx
+        # Round 13's black-band-only white-ink override, widened on real
+        # Spectra 6 glass (Phase 9 09-04 on-glass session): the spike's
+        # screen preview said black text stayed legible on Blue/Green/Red
+        # bands, but real ink disagreed for every one of them - Blue,
+        # Green, and Red were each confirmed on real glass to need the
+        # same white-ink override Black always had. With every registered
+        # band colour needing it, this is now unconditional for any band
+        # theme rather than an enumerated list of ink_idx exceptions.
+        effective_ink = IDX_WHITE
 
         line1_full = _flight_line1_text(flight, state, route)
         line2_full = _flight_line2_text(route, flight.get("aircraft_type"))
@@ -1432,18 +1479,55 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
         else:
             number_text, tracked_text, plain_text = None, line1_full.upper(), line2_full
 
-        num_font = _role_font(BAND_MAIN_NUMBER_FONT, weight)
-        route_font = _role_font(BAND_MAIN_ROUTE_FONT, weight)
-        airline_font = _role_font(BAND_MAIN_AIRLINE_FONT, weight)
+        # First-pass fonts, fit against SAFE_BOX's width purely to get an
+        # approximate block height for the midpoint calc below - not the
+        # final constraint (see the real fit below, which uses the band's
+        # own width at each line's actual y).
+        band_safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+        num_font = _role_fit_text_size(BAND_MAIN_NUMBER_FONT, number_text or "", band_safe_width, BAND_MAIN_NUMBER_MIN_SIZE, weight)
+        route_font = _role_fit_tracked_text_size(BAND_MAIN_ROUTE_FONT, tracked_text or "", LABEL_TRACKING_PX, band_safe_width, BAND_MAIN_ROUTE_MIN_SIZE, weight)
+        airline_font = _role_fit_text_size(BAND_MAIN_AIRLINE_FONT, plain_text, band_safe_width, BAND_MAIN_AIRLINE_MIN_SIZE, weight)
 
-        # Round 15's fix: center_x is computed ONCE here, at the block's top
-        # y, and reused for every line below - never recomputed per line
-        # (round 12's confirmed bug; see _band_center_x()'s own docstring).
+        # Round 15's fix: center_x is computed ONCE and reused for every
+        # line below - never recomputed per line (round 12's confirmed
+        # bug; see _band_center_x()'s own docstring). Extended on real
+        # Spectra 6 glass (Phase 9 09-04 session): anchoring that one
+        # computation at the block's TOP left the lower line(s)
+        # increasingly offset from the band's true centreline, since the
+        # trapezoid drifts left as y increases - the number line (top)
+        # looked centred but the route/airline lines beneath it visibly
+        # didn't. Measuring the block's full vertical extent first (a
+        # dry-run pass, x-position irrelevant to the resulting heights)
+        # and anchoring center_x at the block's MIDPOINT instead spreads
+        # that drift evenly across all three lines rather than
+        # concentrating it at the bottom.
         y = main_placement.content[3] + MAIN_TEXT_GAP_PX
-        center_x = _band_center_x(y, WIDTH)
+        measure_y = y
+        if number_text:
+            num_bbox_m = draw.textbbox((0, measure_y), number_text, font=num_font, anchor="ma")
+            dash_y_m = num_bbox_m[3] + BAND_MAIN_DASH_GAP
+            measure_y = dash_y_m + BAND_MAIN_DASH_GAP + 4
+        if tracked_text:
+            tracked_bbox_m = _tracked_text_bbox(route_font, (0, measure_y), tracked_text, LABEL_TRACKING_PX)
+            measure_y = tracked_bbox_m[3] + 12
+        plain_bbox_m = draw.textbbox((0, measure_y), plain_text, font=airline_font, anchor="ma")
+        block_bottom_y = plain_bbox_m[3]
+        center_x = _band_center_x((y + block_bottom_y) / 2, WIDTH)
         first_bbox = None
 
+        # Real Spectra 6 glass (Phase 9 09-04 on-glass session, long-name
+        # stress test): white ink is only visible ON the band - a line
+        # fit merely to SAFE_BOX's width can still be wider than the band
+        # itself at its own y, so its overhang lands on the plain White
+        # field and silently vanishes (white-on-white), not a hard clip.
+        # Each line is re-fit here against the band's own width at ITS
+        # actual y (band_left/band_right, not the shared center_x's own
+        # local band width) before drawing - center_x itself still stays
+        # the one shared value from the midpoint calc above.
         if number_text:
+            band_left, band_right = _band_edges(y, WIDTH)
+            num_max_w = 2 * min(center_x - band_left, band_right - center_x)
+            num_font = _role_fit_text_size(BAND_MAIN_NUMBER_FONT, number_text, num_max_w, BAND_MAIN_NUMBER_MIN_SIZE, weight)
             num_bbox = draw.textbbox((center_x, y), number_text, font=num_font, anchor="ma")
             _assert_within_canvas(num_bbox, "band main flight number")
             draw.text((center_x, y), number_text, font=num_font, fill=effective_ink, anchor="ma")
@@ -1456,6 +1540,11 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
             y = dash_y + BAND_MAIN_DASH_GAP + 4
 
         if tracked_text:
+            band_left, band_right = _band_edges(y, WIDTH)
+            tracked_max_w = 2 * min(center_x - band_left, band_right - center_x)
+            route_font = _role_fit_tracked_text_size(
+                BAND_MAIN_ROUTE_FONT, tracked_text, LABEL_TRACKING_PX, tracked_max_w, BAND_MAIN_ROUTE_MIN_SIZE, weight
+            )
             tracked_w = _tracked_text_width(route_font, tracked_text, LABEL_TRACKING_PX)
             tracked_x = center_x - tracked_w / 2
             tracked_bbox = _tracked_text_bbox(route_font, (tracked_x, y), tracked_text, LABEL_TRACKING_PX)
@@ -1465,6 +1554,9 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
                 first_bbox = tracked_bbox
             y = tracked_bbox[3] + 12
 
+        band_left, band_right = _band_edges(y, WIDTH)
+        airline_max_w = 2 * min(center_x - band_left, band_right - center_x)
+        airline_font = _role_fit_text_size(BAND_MAIN_AIRLINE_FONT, plain_text, airline_max_w, BAND_MAIN_AIRLINE_MIN_SIZE, weight)
         plain_bbox = draw.textbbox((center_x, y), plain_text, font=airline_font, anchor="ma")
         _assert_within_canvas(plain_bbox, "band main flight airline·type line")
         draw.text((center_x, y), plain_text, font=airline_font, fill=effective_ink, anchor="ma")
@@ -1484,6 +1576,13 @@ BAND_PREV_ROUTE_FONT = (PT_SERIF_REGULAR, 16, 400)
 BAND_PREV_AIRLINE_FONT = (PT_SERIF_REGULAR, 14, 400)
 BAND_PREV_DASH_W = 16
 BAND_PREV_DASH_GAP = 6
+
+# Same real-glass long-name finding and the same explicit developer
+# instruction as BAND_MAIN_*_MIN_SIZE above - the previous card's band
+# roles were equally fixed-size with no shrink-to-fit.
+BAND_PREV_NUMBER_MIN_SIZE = 23
+BAND_PREV_ROUTE_MIN_SIZE = 12
+BAND_PREV_AIRLINE_MIN_SIZE = 10
 
 
 def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight, band_idx=None):
@@ -1583,9 +1682,10 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
         else:
             number_text, tracked_text, plain_text = None, line1_full.upper(), line2_full
 
-        num_font = _role_font(BAND_PREV_NUMBER_FONT, weight)
-        route_font = _role_font(BAND_PREV_ROUTE_FONT, weight)
-        airline_font = _role_font(BAND_PREV_AIRLINE_FONT, weight)
+        band_available_width = right_x - SAFE_BOX[0]
+        num_font = _role_fit_text_size(BAND_PREV_NUMBER_FONT, number_text or "", band_available_width, BAND_PREV_NUMBER_MIN_SIZE, weight)
+        route_font = _role_fit_tracked_text_size(BAND_PREV_ROUTE_FONT, tracked_text or "", LABEL_TRACKING_PX, band_available_width, BAND_PREV_ROUTE_MIN_SIZE, weight)
+        airline_font = _role_fit_text_size(BAND_PREV_AIRLINE_FONT, plain_text, band_available_width, BAND_PREV_AIRLINE_MIN_SIZE, weight)
 
         y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
         first_bbox = None

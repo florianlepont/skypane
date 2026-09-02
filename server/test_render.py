@@ -3375,22 +3375,26 @@ def main():
                             ink_values.add(with_pixels[x, y])
             return ink_values
 
-        black_ink_values = _ink_pixels_drawn("band_black")
-        if IDX_WHITE not in black_ink_values:
-            return False, "band_black main card: no newly-painted IDX_WHITE ink pixels found - ink swap missing"
-        if IDX_BLACK in black_ink_values:
-            return False, "band_black main card: newly-painted IDX_BLACK ink pixels found - ink swap incomplete"
-
-        red_ink_values = _ink_pixels_drawn("band_red")
-        if IDX_BLACK not in red_ink_values:
-            return False, "band_red main card: no newly-painted IDX_BLACK ink pixels found - unexpected ink"
-        if IDX_WHITE in red_ink_values:
-            return False, "band_red main card: newly-painted IDX_WHITE ink pixels found - unexpected ink swap"
+        # Round 13's black-band-only override widened to every band theme
+        # on real Spectra 6 glass (Phase 9 09-04 on-glass session): black
+        # text read poorly against Blue/Green/Red too, not just Black -
+        # every registered band theme's main card now draws in white ink,
+        # unconditionally. Proven by actual pixel colour for the full
+        # registered set, not by absence of an exception.
+        band_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+        if len(band_ids) != 5:
+            return False, "expected exactly 5 registered band theme ids, found %d: %r" % (len(band_ids), band_ids)
+        for theme_id in band_ids:
+            ink_values = _ink_pixels_drawn(theme_id)
+            if IDX_WHITE not in ink_values:
+                return False, "%s main card: no newly-painted IDX_WHITE ink pixels found - ink swap missing" % theme_id
+            if IDX_BLACK in ink_values:
+                return False, "%s main card: newly-painted IDX_BLACK ink pixels found - ink swap incomplete" % theme_id
         return True, ""
     check(
-        "band_black's main card text samples as IDX_WHITE (never IDX_BLACK) inside its own drawn bboxes, and "
-        "band_red's samples as IDX_BLACK (never IDX_WHITE) inside its own - the round-13 ink swap is proven by "
-        "actual pixel colour, not by absence of an exception (PHASE9-5)",
+        "every registered band theme's main card text samples as IDX_WHITE (never IDX_BLACK) inside its own drawn "
+        "bboxes - the round-13 ink swap, widened on real glass to every band colour, is proven by actual pixel "
+        "colour, not by absence of an exception (PHASE9-5)",
         _band_black_main_card_ink_swaps_to_white,
     )
 
