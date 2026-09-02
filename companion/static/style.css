@@ -1576,7 +1576,51 @@ button:disabled {
  * edited together: they carry equal (0,1,1)/(0,2,0)-class specificity
  * and the sticky rule sits later in source order, so leaving it on the
  * old filled background would silently repaint the header the moment a
- * long table scrolls, defeating this rule's own change. */
+ * long table scrolls, defeating this rule's own change.
+ *
+ * quick task 260902-dng (bug 2, closes 260901-uzi Finding 5 candidate
+ * (a)): top padding was zero, which is the real mechanism behind the
+ * developer's real-Safari header-clipping report. Sticky positioning
+ * itself never clips text — `.data-table-wrap th` immediately below
+ * paints an OPAQUE BACKGROUND over this rule's own padding box; with
+ * zero top padding, that opaque box began exactly at the glyph tops, so
+ * a row scrolling underneath a stuck header reached the ascenders
+ * before any background covered them. Whether that reads as visible
+ * clipping depends on where a font's ascent metric sits inside its own
+ * line box — genuinely different between WebKit and Blink, which is
+ * exactly why 260901-uzi's Finding 5 reproduced in the developer's real
+ * Safari and not in a Chromium-based measurement tool, and why that
+ * task declined to fix it blind. Real top padding extends the opaque
+ * background above the glyphs by a fixed pixel amount, so the fix does
+ * not depend on any font's ascent metric in any engine — not a
+ * WebKit-only patch.
+ *
+ * The new top value mirrors the existing bottom value (10px) rather
+ * than inventing one or reaching for a --space-* token: the bottom
+ * value is already a bare 10px literal in this same rule, and swapping
+ * it to a token (8px or 16px) to "use a token" would change a value
+ * nobody reported a problem with, on four tables at once, as a rider on
+ * an unrelated fix. Symmetric padding also centres the header's text in
+ * its own band and leaves the bottom value — and therefore this
+ * header's optical relationship to its own border-bottom hairline —
+ * byte-identical to before.
+ *
+ * Blast radius (shared rule, deliberately not Health-scoped): History's
+ * table, the Health battery-readings table, the Resolution-statistics
+ * table, and the hand-rolled unresolved-prefix registry table (which
+ * emits `<table class="data-table">` directly) all re-space together by
+ * 10px of header height. That is intended — a uniform improvement
+ * shipped on the shared rule, not a Health-only patch — which is why it
+ * belongs here rather than on a Health-scoped override.
+ *
+ * This closes 260901-uzi's Finding 5 candidate (a). Candidate (b) — the
+ * sticky background's own token, currently --color-canvas, flagged by
+ * that task's own comment on `.data-table-wrap th` below as never
+ * live-validated against the in-card tables — is deliberately NOT
+ * changed here. It remains open, still correctly reasoned in its own
+ * comment, and is a separate one-declaration decision with its own risk
+ * to History's table (the only one long enough for the sticky state to
+ * actually engage). */
 .data-table th {
   font-size: 11px;
   font-weight: var(--weight-semibold);
@@ -1584,7 +1628,7 @@ button:disabled {
   text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-align: left;
-  padding: 0 var(--space-md) 10px;
+  padding: 10px var(--space-md);
   border-bottom: 1px solid var(--color-border);
 }
 

@@ -158,7 +158,12 @@ STARTUP_DEADLINE_S = 10.0
 # every emitted coordinate asserted inside the viewBox). The three
 # pre-existing sparkline checks pin no coordinate literals, so the
 # _AXIS_LEFT_GUTTER/plot_width/plot_height resize needed no retarget.
-EXPECTED_CHECK_COUNT = 90  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 90 + 1 (quick task 260902-dng Task 2: .data-table th's padding
+# shorthand parsed from style.css, asserting a non-zero top value and
+# (by construction of the two-value shorthand) top/bottom symmetry —
+# closes 260901-uzi Finding 5 candidate (a), shipped no check of its
+# own at the time).
+EXPECTED_CHECK_COUNT = 91  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2171,6 +2176,51 @@ def main():
         "longer declares start, and .dashboard-shell's own separate start-aligned declaration (D-21's sticky "
         "sidebar) is the file's only remaining one (quick task 260901-uzi finding 1)",
         _dashboard_grid_stretches_same_row_tiles)
+
+    def _data_table_th_has_symmetric_nonzero_padding():
+        # quick task 260902-dng (bug 2, closes 260901-uzi Finding 5
+        # candidate (a)): pins both halves of the contract so a future
+        # edit cannot silently return the top to zero (reintroducing the
+        # opaque-background-starts-at-the-glyph-tops defect) or drift the
+        # top and bottom values apart (breaking the header's centred
+        # optical balance). Parses the declaration rather than
+        # string-matching the whole rule body, so this check survives an
+        # unrelated reformat of the rule.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        rule_match = re.search(r'\.data-table th \{([^}]*)\}', css_source)
+        if rule_match is None:
+            return False, "expected a `.data-table th { ... }` rule in style.css"
+        padding_match = re.search(r'padding:\s*([^;]+);', rule_match.group(1))
+        if padding_match is None:
+            return False, "expected a `padding` declaration inside `.data-table th`"
+        parts = padding_match.group(1).split()
+        if len(parts) != 2:
+            return False, (
+                "expected a two-value (vertical horizontal) padding shorthand, "
+                "got %r" % (padding_match.group(1),))
+        top_raw, _horizontal = parts
+        if not top_raw.endswith("px") or not top_raw[:-2].isdigit():
+            return False, "expected the top/bottom padding value to be a bare px literal, got %r" % top_raw
+        top_px = int(top_raw[:-2])
+        if top_px <= 0:
+            return False, (
+                "expected a non-zero top padding on .data-table th — zero top "
+                "padding is the real mechanism behind the sticky header's "
+                "opaque background starting exactly at the glyph tops")
+        # The two-value shorthand `padding: Npx Mpx` applies Npx to both
+        # top AND bottom, so parsing one value already proves symmetry —
+        # this assertion protects against a future rewrite to the
+        # four-value form (`padding: T R B L`) silently reintroducing an
+        # asymmetric top/bottom split without this check's knowledge.
+        if "padding:" not in rule_match.group(1) or len(re.findall(r'padding-top|padding-bottom', rule_match.group(1))) > 0:
+            return False, "expected the two-value shorthand form, not separate padding-top/padding-bottom declarations"
+        return True, ""
+    check(
+        "style.css's .data-table th declares a symmetric, non-zero vertical padding via the two-value shorthand "
+        "(quick task 260902-dng bug 2, closes 260901-uzi Finding 5 candidate (a))",
+        _data_table_th_has_symmetric_nonzero_padding)
 
     def _nested_heading_tier_demoted_to_emphasis_role():
         # quick task 260901-uzi Task 4 (Check 2): finding 4's markup half
