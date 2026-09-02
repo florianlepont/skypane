@@ -52,6 +52,47 @@ GALLERY_PURPOSE_TEXT = (
 
 CARD_IMAGE_ALT_TEMPLATE = "%s illustration"
 
+# quick task 260902-tli: the click-to-enlarge lightbox. This gallery
+# reuses History's already-shipped `<dialog>` lightbox and the document-
+# level click delegation companion/static/panel-lookup.js already
+# performs, rather than inventing a second mechanism — that script keys
+# on getElementById("panel-lookup-dialog") and a data-view-panel-src
+# ancestor walk, and two pages never render simultaneously, so reusing
+# its id and attribute names here creates no duplicate-id condition and
+# needs no script change of any kind. The five names below are
+# duplicated from companion/pages/history_page.py and from
+# panel-lookup.js's own literals, not imported — a page module has no
+# import path to a sibling page module (companion/pages/__init__.py's
+# boundary) and none at all to a static script — and a cross-module
+# equality guard in companion/test_view_pages.py pins all four
+# dialog/attribute constants against history_page.py's own values, so a
+# drift here would fail loudly instead of leaving the trigger silently
+# inert.
+LIGHTBOX_DIALOG_ID = "panel-lookup-dialog"
+_VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
+_VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
+_VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
+
+ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
+
+# quick task 260902-tli: went through two rounds of live developer
+# feedback. Originally named the normalized frame size in the copy
+# itself ("Shown at the shared 900x263 frame..."), which real testing
+# found meaningless. The reworded, more user-facing version ("This is
+# the same artwork the physical panel draws...") was ALSO rejected on
+# the same live pass — the developer's call was that no caption is
+# wanted here at all, unlike History's own note, which explains a real
+# possible discrepancy (a stale render) an Airlines illustration never
+# has. So this is the empty string, not a sentence — the element must
+# still exist (panel-lookup.js's shared guard clause requires
+# .lightbox__note to be present or the whole click handler never
+# attaches, for this page or History's), but style.css's
+# `.lightbox__note:empty { display: none; }` collapses it to no visible
+# space. history_page.LIGHTBOX_NOTE's own naming is kept for the
+# constant despite carrying no text, so a future non-empty note needs
+# only a value change here, not a markup change.
+LIGHTBOX_NOTE = ""
+
 # variant_chip_label()'s two shape-domain patterns. An alphanumeric type
 # code is a letter prefix immediately followed by digits, optionally with
 # a hyphenated numeric suffix ("a320", "atr72", "a330", "b737",
@@ -97,15 +138,17 @@ def variant_chip_label(shape):
 
 def _airline_card_html(index, airline_name, shapes):
     """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
-    at the session-gated `/illustration/{key}.png` route, the airline's
-    name, and one chip per fleet-type variant — the chips container is
-    omitted entirely (not rendered empty) when `shapes` is empty. Every
-    interpolated value — the key inside the URL, the name, each chip
-    label, and the alt text — goes through `escape_html()` exactly once,
-    at the point of interpolation (T-06.6.4.1-05). Returns the empty
-    string (skips the card, never crashes) for an airline whose
-    normalised key comes back falsy, mirroring
-    `illustrations.target_filenames()`'s own documented skip discipline.
+    at the session-gated `/illustration/{key}.png` route, wrapped in a
+    `.airline-card__zoom` click-to-enlarge trigger (quick task
+    260902-tli), the airline's name, and one chip per fleet-type variant
+    — the chips container is omitted entirely (not rendered empty) when
+    `shapes` is empty. Every interpolated value — the key inside the
+    URL, the name, each chip label, and the alt text — goes through
+    `escape_html()` exactly once, at the point of interpolation
+    (T-06.6.4.1-05). Returns the empty string (skips the card, never
+    crashes) for an airline whose normalised key comes back falsy,
+    mirroring `illustrations.target_filenames()`'s own documented skip
+    discipline.
 
     `index` becomes the card's `data-filter-group` value (D-16/D-20):
     this page renders one representation per airline (no mobile-card
@@ -118,14 +161,36 @@ def _airline_card_html(index, airline_name, shapes):
     key = illustrations.normalise_airline_key(airline_name)
     if not key:
         return ""
+    # Built once, interpolated into both the <img src> and the zoom
+    # trigger's data-view-panel-src below, so the two can never drift
+    # apart into pointing at different images.
+    image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
     image_html = (
-        '<img class="airline-card__image" src="%s%s.png" '
+        '<img class="airline-card__image" src="%s" '
         'width="%d" height="%d" '
         'loading="lazy" decoding="async" alt="%s">'
     ) % (
-        ILLUSTRATION_ROUTE_PREFIX, escape_html(key),
+        image_url,
         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
         escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
+    )
+    # quick task 260902-tli: wraps the image in a real <button> (not the
+    # <img> itself) — this codebase's a11y discipline (the global
+    # :focus-visible floor, aria-labelled icon buttons elsewhere) makes a
+    # non-focusable click target the wrong choice, and panel-lookup.js's
+    # click delegation walks ancestors from the event target, so a click
+    # on the inner image still resolves to this button. The aria-label
+    # deliberately overrides the inner image's alt for the button's own
+    # accessible name, so a screen reader announces the action ("Enlarge
+    # ... illustration"), not just the picture.
+    zoom_html = (
+        '<button type="button" class="airline-card__zoom" %s="%s" %s="%s" '
+        'aria-label="%s">%s</button>'
+    ) % (
+        _VIEW_PANEL_SRC_ATTR, image_url,
+        _VIEW_PANEL_CAPTION_ATTR, escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
+        escape_html(ZOOM_LABEL_TEMPLATE % airline_name),
+        image_html,
     )
     chips_html = ""
     if shapes:
@@ -142,7 +207,7 @@ def _airline_card_html(index, airline_name, shapes):
         '<p class="airline-card__name">%s</p>'
         "%s"
         "</div>"
-    ) % (filter_text, index, image_html, escape_html(airline_name), chips_html)
+    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
 
 
 def _gallery_grid_html(pairs):
@@ -155,6 +220,31 @@ def _gallery_grid_html(pairs):
         _airline_card_html(index, airline_name, shapes)
         for index, (airline_name, shapes) in enumerate(pairs))
     return '<div class="illustration-grid">%s</div>' % cards
+
+
+def _lightbox_html():
+    """The single shared click-to-enlarge `<dialog>` (quick task
+    260902-tli), emitted once per page — never once per card — by
+    `render()`, only when at least one card actually carries a zoom
+    trigger. Mirrors `history_page._lightbox_html()` element-for-element
+    and class-for-class (same order, same three `lightbox__*` elements,
+    same close-attribute button), with exactly two differences: this
+    dialog also carries the `lightbox--wide` class (the enlarged
+    illustration needs more room than History's 480px default), and the
+    note is this module's own `LIGHTBOX_NOTE`.
+
+    `companion/static/panel-lookup.js` writes the image src/alt and the
+    caption text on click; this function only emits the static note,
+    which the script never touches.
+    """
+    return (
+        '<dialog class="lightbox lightbox--wide" id="%s">'
+        '<img class="lightbox__image" src="" alt="">'
+        '<p class="lightbox__caption text-label mono"></p>'
+        '<p class="lightbox__note text-body">%s</p>'
+        '<button type="button" %s>Close</button>'
+        "</dialog>"
+    ) % (LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_NOTE), _VIEW_PANEL_CLOSE_ATTR)
 
 
 # D-16 (06.6.4.1-UI-SPEC.md §7.2): the gallery's filter-bar copy, driven
@@ -212,20 +302,24 @@ def _filter_bar_html(total):
 def render(ctx):
     """The Airlines gallery (D-13 through D-17): the page header, the
     D-16 filter bar, then one card per airline in
-    `illustrations.target_variants_by_airline()` order. `ctx` is accepted
-    for call-site parity with every other page module's `render(ctx)`
-    signature but is otherwise unused — this page reads one static
-    in-memory list, no database and no poll state.
+    `illustrations.target_variants_by_airline()` order, then the shared
+    click-to-enlarge lightbox dialog (quick task 260902-tli). `ctx` is
+    accepted for call-site parity with every other page module's
+    `render(ctx)` signature but is otherwise unused — this page reads
+    one static in-memory list, no database and no poll state.
 
-    The filter bar renders only when there is at least one card — this
-    codebase's consistent "no chrome with no data" rule — though with a
-    static curated list that branch is unreachable today; it stays a
-    genuine guard, not a claim that the list can ever be empty.
+    The filter bar and the lightbox dialog both render only when there
+    is at least one card — this codebase's consistent "no chrome with no
+    data" rule — though with a static curated list that branch is
+    unreachable today; it stays a genuine guard, not a claim that the
+    list can ever be empty.
     """
     pairs = illustrations.target_variants_by_airline()
     filter_html = _filter_bar_html(len(pairs)) if pairs else ""
+    lightbox_html = _lightbox_html() if pairs else ""
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
         + filter_html
         + _gallery_grid_html(pairs)
+        + lightbox_html
     )

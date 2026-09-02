@@ -62,6 +62,9 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
+# 108 + 0 (quick task 260902-tli Task 2: the panel-lookup.js banned-token
+# check retargeted in place — matchMedia/innerWidth added to the tuple,
+# pinning the CSS-only gate — no new check, no count change).
 EXPECTED_CHECK_COUNT = 108  # quick task 260902-qkm (2026-09-02): 1 new
 # check pinning both nav-link geometries apart after restoring
 # .mobile-nav__link's 44px/Body-size tap target (D-05 reached it by
@@ -1548,14 +1551,21 @@ def main():
             banned = (
                 "let ", "const ", "=>", "`", "fetch(", "XMLHttpRequest",
                 "setTimeout", "setInterval", "innerHTML", "document.write",
-                "eval(")
+                "eval(",
+                # quick task 260902-tli: the Airlines click-to-enlarge
+                # gate is CSS-only by design — this script must never
+                # inspect viewport dimensions or device orientation to
+                # decide whether to open the dialog.
+                "matchMedia", "innerWidth")
             for token in banned:
                 if token in src:
                     return False, "panel-lookup.js must not contain %r" % token
             return True, ""
         check(
             "panel-lookup.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
-            "fetch/XHR/timers/innerHTML/document.write/eval)",
+            "fetch/XHR/timers/innerHTML/document.write/eval), and never decides whether to open the "
+            "dialog from viewport dimensions or device orientation (no matchMedia/innerWidth) — that "
+            "gate is CSS-only, on the Airlines trigger's own rule (quick task 260902-tli)",
             _panel_lookup_script_es5_safe_and_no_html_write)
 
         def _panel_lookup_script_route_src_agree():
