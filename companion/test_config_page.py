@@ -47,7 +47,80 @@ from server import device_config  # noqa: E402
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 39
+# 06.6.3-03: 39 (pre-plan baseline) -> 42 (Task 1: D-02/D-06 LED copy
+# rename + heading-dedup checks, +3) -> 45 (Task 2: D-04/D-05 theme/runway
+# checks, net +3 — the old "theme_fieldset() emits one radio per THEMES
+# registry entry" check was replaced outright, its own assumption no
+# longer true for the real single-theme registry, by two new checks plus
+# two new runway-card checks) -> 46 (Task 3: D-03 dirty-state bar
+# nesting/ordering check, +1) -> 47 (heading-color-consistency: one
+# consistent heading level for all four settings groups, +1).
+# 06.6.4.1-03: 47 (pre-plan baseline) -> 51 (Task 1: D-01/D-02/D-05 form
+# half/D-26 single-column three-wrapped-section merged-form shape, +4 —
+# the three-dirty-sections-in-order check, the single-top-level-div
+# runway_fieldset() check, the Theme/Runway description-sentence check,
+# and the bottom-button static-fallback-attribute check; several
+# pre-existing checks were retargeted in place onto the new markup shape
+# without changing the total, per this file's own established
+# discipline) -> 56 (Task 2: D-05 handle_post() LED-merge behaviour, +5,
+# one check per <behavior> bullet) -> 60 (Task 3: D-03/D-04/D-06
+# cross-file DOM-contract guards between config_page.py's constants and
+# dirty-state.js/style.css, +4).
+# 06.6.4.1-07: 60 (pre-plan baseline) -> heading text and every /config
+# route literal retargeted to /settings in place, no count change (Task
+# 1) -> 54 (Task 2, D-05: the 8 checks exercising the now-deleted
+# led_fieldset()/led_section()/handle_led_post() were deleted outright
+# (-8; their coverage is superseded by the pre-existing handle_post()
+# LED-merge checks and the render() shape check, confirmed before
+# deleting, not re-added) plus 1 new source-assertion check that
+# config_page exposes none of the three retired symbols (+1); the two
+# live-HTTP LED checks were retargeted in place from /config-led onto
+# SETTINGS_ROUTE (no count change) and 1 new check pins the retired
+# /config-led route now 404s (+1); net -6).
+# quick task 260901-qif: 54 (pre-plan baseline) -> 57 (Task 3, +3: the
+# .runway-row containment/ordering check, the led-checkbox label class +
+# unchanged input-attribute-sequence check, and the third cross-file
+# DOM-contract guard proving style.css actually styles .theme-status/
+# .runway-row/.led-checkbox. Task 2's retarget of
+# _runway_fieldset_returns_single_top_level_div() (one div pair -> two)
+# was in place, no count change).
+# quick task 260901-re6: 57 (pre-plan baseline) -> 57 (Task 1, no count
+# change: the runway-row containment/ordering check, the section-
+# captions-appear-once check, and the helper-texts-appear-verbatim check
+# were all retargeted in place onto the merged THEME/RUNWAY/LED
+# _SECTION_CAPTION constants and restyled markup, per this file's own
+# established retarget-without-recounting discipline) -> 57 (Task 2, no
+# count change: the form-class-hook check gained the SETTINGS_FORM_ID
+# assertion in place, and the dirty-bar-nested-inside-form check was
+# inverted wholesale into a dirty-bar-is-sibling-of-form check, both
+# retargeted onto the moved/restyled save bar with no count change) -> 60
+# (Task 3, +3: observed on-disk baseline was 57 before this task; added
+# the one-caption-per-group position-assertion check, the retired-
+# helper/description-symbol source assertion check, and the cross-file
+# CSS DOM contract guard covering .section-caption, the restyled
+# .dirty-bar, fixed-not-sticky positioning, and the 240px must-equal
+# pair).
+# quick task 260901-s5o: observed on-disk baseline was 60 before this
+# task. Task 1 (+1): added the Poll-caption both-branches-and-position
+# check, and widened _section_captions_appear_escaped_verbatim_exactly_once()
+# in place to cover a fourth constant (POLL_SECTION_CAPTION), no count
+# change for that widening. Task 2 (no count change): the cross-file CSS
+# guard (_style_css_carries_section_caption_and_restyled_fixed_dirty_bar())
+# was retargeted and extended in place onto the floating-card save-bar
+# treatment.
+# merge of origin/main (Phase 8 six-Spectra-6-colour theme rework, 19
+# real theme entries replacing the single "sky" placeholder): main's own
+# _theme_fieldset_one_radio_per_registry_entry() check is reinstated (see
+# that check's own comment for why), and three checks testing main's
+# still-pre-06.6.4.1-07 dual-form LED architecture (led_fieldset()/a
+# second /config-led form) were dropped as testing functionality this
+# branch already retired. No further checks were added or removed fixing
+# the 5 newly-surfaced post-merge failures in the existing (pre-conflict,
+# cleanly-inherited-from-HEAD) theme_fieldset()-isolation checks — those
+# were in-place rewrites. Recomputed directly against the real on-disk
+# check(...) call count at merge-resolution time rather than trusting the
+# incremental arithmetic above, which had drifted from actual: 64.
+EXPECTED_CHECK_COUNT = 64
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -208,20 +281,137 @@ def main():
     # temporary state directory and a hand-built ctx dict.
     # ==================================================================
 
-    def _render_shape_three_fieldsets_and_save_button():
+    def _render_shape_theme_radio_group_runway_cards_led_group_and_save_button():
+        # merge of origin/main (Phase 8): this check's premise used to be
+        # "with the real (unmodified) single-member THEME_IDS registry,
+        # Theme renders as the read-only .theme-status block (no
+        # <fieldset>)" — that premise died the moment the merged registry
+        # grew past one entry (19 real themes) for good; D-04's own
+        # len()==1 fallback (unmodified by this merge) now permanently
+        # takes the OTHER branch for Theme specifically. Runway and
+        # Diagnostic LED are unaffected — they never depended on
+        # THEME_IDS's size — so they still render as .theme-status blocks;
+        # only Theme's own assertion changes, from "zero <fieldset" to
+        # "exactly one <fieldset>, Theme's own".
         ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        if rendered.count("<fieldset") != 3:
-            return False, "expected exactly 3 <fieldset occurrences, got %d" % rendered.count("<fieldset")
+        if rendered.count("<fieldset") != 1:
+            return False, "expected exactly one <fieldset> (Theme's own radio group, now that THEME_IDS holds more than one entry), got %d" % rendered.count("<fieldset")
+        if "<legend>Theme</legend>" not in rendered:
+            return False, "expected Theme's radio group to carry a <legend>Theme</legend>"
+        if rendered.count('class="theme-status"') != 2:
+            return False, "expected exactly 2 theme-status-wrapped groups (Runway/Diagnostic LED — Theme itself is a <fieldset> now), got %d" % rendered.count('class="theme-status"')
+        if rendered.count('<label class="runway-card') != 3:
+            return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if "Save Settings" not in rendered:
             return False, "expected the 'Save Settings' submit button copy"
         return True, ""
     check(
-        "render() emits exactly three fieldsets and a Save Settings submit button",
-        _render_shape_three_fieldsets_and_save_button)
+        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), two theme-status-wrapped groups (Runway/Diagnostic LED), three runway-card labels, and a Save Settings submit button",
+        _render_shape_theme_radio_group_runway_cards_led_group_and_save_button)
+
+    def _led_group_carries_classed_label_and_unchanged_input_attrs():
+        # quick task 260901-qif: pins the led-checkbox label class and
+        # guards the input's name/value/checked attribute sequence against
+        # a future markup edit silently reordering it - the two live-HTTP
+        # LED checks further down this file match on that exact sequence.
+        checked_html = config_page.led_group(True)
+        unchecked_html = config_page.led_group(False)
+        label_open = '<label class="led-checkbox">'
+        if checked_html.count(label_open) != 1:
+            return False, "expected led_group(True) to carry exactly one <label class=\"led-checkbox\"> occurrence"
+        if unchecked_html.count(label_open) != 1:
+            return False, "expected led_group(False) to carry exactly one <label class=\"led-checkbox\"> occurrence"
+        led_value = escape_html(config_page.LED_CHECKBOX_VALUE)
+        expected_checked = 'name="led_enabled" value="%s" checked' % led_value
+        if expected_checked not in checked_html:
+            return False, "expected led_group(True) to carry %r" % (expected_checked,)
+        expected_unchecked = 'name="led_enabled" value="%s">' % led_value
+        if expected_unchecked not in unchecked_html:
+            return False, "expected led_group(False) to carry %r with no checked flag" % (expected_unchecked,)
+        if "checked" in unchecked_html:
+            return False, "expected led_group(False) to carry no checked flag at all"
+        return True, ""
+    check(
+        "led_group() emits the led-checkbox label class and preserves the input's name/value/checked attribute sequence",
+        _led_group_carries_classed_label_and_unchanged_input_attrs)
+
+    def _every_settings_group_is_named_exactly_once():
+        # heading-color-consistency debug session, extended by 06.6.4.1
+        # (D-05): Config carries four settings groups. Before D-05's LED
+        # merge, three used <h2 class="text-heading"> (Theme/Runway/Poll)
+        # while Diagnostic LED alone kept a <legend> inside its own
+        # <fieldset> (its own independently-submittable <form>, D-06).
+        # D-05 dropped the LED group's own <fieldset>/<legend> for the
+        # same <h2> role its three siblings already use.
+        #
+        # merge of origin/main (Phase 8): a SECOND legend reappears, for a
+        # different, permanent reason — D-04's own read-only-vs-editable
+        # fallback (unmodified by this merge) takes the editable
+        # <fieldset><legend>Theme</legend> branch now that THEME_IDS holds
+        # 19 real entries, not the read-only <h2>Theme</h2> branch it took
+        # under the single-"sky"-entry registry this test used to assume.
+        # Runway/Diagnostic LED/Poll are unaffected by THEME_IDS's size —
+        # they still share the one <h2> heading level D-05 established —
+        # so the real, current claim this test can make is "every group is
+        # named exactly once, whichever element does the naming," not "at
+        # one consistent heading level with zero <legend> elements."
+        ctx = {
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        }
+        rendered = config_page.render(ctx)
+        if rendered.count("<legend>Theme</legend>") != 1:
+            return False, (
+                "expected exactly one '<legend>Theme</legend>' — Theme's "
+                "own D-04 radio-group naming, now that THEME_IDS holds "
+                "more than one entry — got %d"
+                % rendered.count("<legend>Theme</legend>"))
+        for name in ("Runway", "Diagnostic LED", "Poll"):
+            heading = '<h2 class="text-heading">%s</h2>' % name
+            if rendered.count(heading) != 1:
+                return False, (
+                    "expected exactly one %r group heading, got %d"
+                    % (heading, rendered.count(heading)))
+        if rendered.count("<legend") != 1:
+            return False, (
+                "expected exactly one <legend element in render()'s output "
+                "(Theme's own) — LED's own <fieldset>/<legend> stays "
+                "retired per D-05")
+        # The old label-paragraph shape must not come back alongside
+        # Theme's own naming — that would name the Theme group twice.
+        if '<p class="text-label">Theme</p>' in rendered:
+            return False, (
+                "the Theme group is named twice: the superseded "
+                "text-label paragraph is still present next to its own naming element")
+        return True, ""
+    check(
+        "all four Config settings groups (Theme/Runway/Diagnostic LED/Poll) are named "
+        "exactly once — Theme via its own D-04 <legend> now that THEME_IDS holds more "
+        "than one entry (merge of origin/main), the other three via the shared D-05 <h2>",
+        _every_settings_group_is_named_exactly_once)
+
+    def _render_opens_with_shared_page_header():
+        # 06.6.2-04 (D-16): Settings' top-level heading now goes through
+        # layout.page_header() instead of an independent bare <h1>.
+        # 06.6.4.1-07 (D-26): the heading text itself was retargeted from
+        # "Config" to "Settings", matching the route rename and the nav
+        # label — the page's own on-screen name must agree with both.
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if '<h1 class="page-title">Settings</h1>' not in rendered:
+            return False, "expected the page_header()-rendered <h1 class=\"page-title\">Settings</h1>"
+        if '<h1 class="text-heading">' in rendered:
+            return False, "expected no bare <h1 class=\"text-heading\"> heading"
+        return True, ""
+    check(
+        "Settings opens with the shared layout.page_header() component, not a bare <h1>",
+        _render_opens_with_shared_page_header)
 
     def _settings_form_carries_config_form_class_hook():
         # D-01 stable class hook: the settings form (POST /config) needs a
@@ -234,14 +424,79 @@ def main():
         })
         if 'class="config-form"' not in rendered:
             return False, "expected the settings form to carry class=\"config-form\""
-        if '<form class="config-form" method="post" action="/config">' not in rendered:
-            return False, "expected the config-form class, method=\"post\", and action=\"/config\" on the same form tag"
+        # 06.6.3-03 (D-03): the form tag also carries data-dirty-form now,
+        # the DOM-attribute hook dirty-state.js (06.6.3-01) reads.
+        # 06.6.4.1 (D-05): the action is now config_page.SETTINGS_ROUTE
+        # ("/settings"), not the old "/config" literal — the single
+        # definition of that route lives in config_page, never re-typed
+        # here as a literal.
+        # quick task 260901-re6: the form tag also carries an id now
+        # (config_page.SETTINGS_FORM_ID), interpolated the same way
+        # SETTINGS_ROUTE already is — never re-typed as a literal — so
+        # the dirty-bar's save button (now a sibling of the form) can
+        # associate with it via a `form=` attribute.
+        expected_tag = (
+            '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
+            % (config_page.SETTINGS_FORM_ID, config_page.SETTINGS_ROUTE))
+        if expected_tag not in rendered:
+            return False, "expected the config-form class, id, data-dirty-form, method=\"post\", and action=%r on the same form tag" % (config_page.SETTINGS_ROUTE,)
+        if rendered.count('<form class="config-form"') != 1:
+            return False, "expected exactly one config-form <form in render()'s output, got %d" % rendered.count('<form class="config-form"')
         return True, ""
     check(
         "the settings form keeps the stable config-form class hook the desktop two-column fieldset layout targets",
         _settings_form_carries_config_form_class_hook)
 
+    def _render_dirty_bar_is_sibling_of_form_last_on_page():
+        # quick task 260901-re6: inverted wholesale from the pre-merge
+        # version of this check (which asserted the bar was a genuine
+        # descendant of the form). `position: sticky` resolved against
+        # the form's own short box, so the bar detached from the
+        # viewport bottom on a tall page — the fix moves the bar to be a
+        # sibling of the form, emitted last on the page (after both
+        # </form> and the Poll section), submitting via a form= attribute
+        # instead of native DOM nesting.
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if rendered.count('<form class="config-form"') != 1:
+            return False, "expected exactly one config-form <form>, no duplicate"
+        if "</form>" not in rendered:
+            return False, "expected a closing </form> tag"
+        form_end = rendered.index("</form>")
+        if "data-dirty-bar" not in rendered:
+            return False, "expected data-dirty-bar to appear in render()'s output"
+        bar_pos = rendered.index("data-dirty-bar")
+        if bar_pos <= form_end:
+            return False, "expected data-dirty-bar to appear AFTER </form> closes, not inside it"
+        poll_heading = '<h2 class="text-heading">Poll</h2>'
+        if poll_heading not in rendered:
+            return False, "expected the Poll section heading to be present"
+        poll_pos = rendered.index(poll_heading)
+        if bar_pos <= poll_pos:
+            return False, "expected data-dirty-bar to appear after the Poll section heading too, so the bar is genuinely last on the page"
+        form_start = rendered.index('<form class="config-form"')
+        form_segment = rendered[form_start:form_end]
+        if "Save Settings" not in form_segment:
+            return False, "expected the always-visible bottom Save Settings fallback button to still appear inside the form"
+        save_button_marker = 'class="dirty-bar__save" form="%s"' % config_page.SETTINGS_FORM_ID
+        if save_button_marker not in rendered:
+            return False, "expected the dirty-bar's own save button to carry form=%r" % (config_page.SETTINGS_FORM_ID,)
+        return True, ""
+    check(
+        "render()'s dirty-state bar is a sibling of the config-form <form>, emitted last on the page after both </form> and the Poll section, with its save button carrying form=SETTINGS_FORM_ID (quick task 260901-re6)",
+        _render_dirty_bar_is_sibling_of_form_last_on_page)
+
     def _theme_fieldset_one_radio_per_registry_entry():
+        # merge of origin/main (Phase 8): this exact check existed pre-
+        # 06.6.3-03, was retired outright when the registry briefly held
+        # just "sky" (a one-option radio group has no real decision
+        # value — D-04's read-only-status branch took over that case),
+        # and is reinstated here now that the merged registry holds 19
+        # real entries again — theme_fieldset()'s existing len()==1
+        # fallback (unmodified by this merge) means this assertion is
+        # exercising real, currently-live markup, not a retired code path.
         rendered = config_page.theme_fieldset("black")
         radio_count = rendered.count('name="theme"')
         if radio_count != len(device_config.THEMES):
@@ -250,8 +505,95 @@ def main():
                 % (len(device_config.THEMES), radio_count))
         return True, ""
     check(
-        "theme_fieldset() emits one radio per THEMES registry entry",
+        "theme_fieldset() emits one radio per THEMES registry entry now that the registry holds more than one theme (merge of origin/main, Phase 8)",
         _theme_fieldset_one_radio_per_registry_entry)
+
+    def _theme_fieldset_single_theme_renders_read_only_status_with_real_swatch_hex():
+        # D-04, Task 2 Test 1: with a synthetic single-member THEME_IDS
+        # registry (monkeypatched for the duration of this check only),
+        # theme_fieldset() renders the read-only status block — zero
+        # <input> occurrences — showing "{label} · current" and swatch
+        # chip hex values computed at test time from
+        # panel_format.PALETTE_RGB, not hardcoded expected strings.
+        #
+        # merge of origin/main (Phase 8): the real global THEME_IDS
+        # registry now permanently holds 19 entries, so this check can no
+        # longer rely on "the real (unmodified) registry" to exercise the
+        # len()==1 branch — it monkeypatches a clean, isolated one-member
+        # registry instead, mirroring the pattern the sibling
+        # multi-theme-fallback check below already uses.
+        original_themes = device_config.THEMES
+        original_ids = device_config.THEME_IDS
+        default_id = device_config.DEFAULT_THEME_ID
+        device_config.THEMES = {default_id: dict(original_themes[default_id])}
+        device_config.THEME_IDS = tuple(device_config.THEMES)
+        try:
+            rendered = config_page.theme_fieldset(default_id)
+            if "<input" in rendered:
+                return False, "expected zero <input occurrences in the read-only branch"
+            expected_label = "%s · current" % device_config.theme_label(default_id)
+            if expected_label not in rendered:
+                return False, "expected %r in the rendered output" % (expected_label,)
+            theme = device_config.THEMES[default_id]
+            departing_hex = config_page._palette_hex(theme["departing_index"])
+            arriving_hex = config_page._palette_hex(theme["arriving_index"])
+            if ("background:%s" % departing_hex) not in rendered:
+                return False, "expected the departing swatch hex %r derived from PALETTE_RGB" % (departing_hex,)
+            if ("background:%s" % arriving_hex) not in rendered:
+                return False, "expected the arriving swatch hex %r derived from PALETTE_RGB" % (arriving_hex,)
+            if "Phase 7" in rendered:
+                return False, "expected no leaked internal 'Phase 7' planning reference (UXA-05)"
+        finally:
+            device_config.THEMES = original_themes
+            device_config.THEME_IDS = original_ids
+        return True, ""
+    check(
+        "theme_fieldset() renders the read-only theme-status block with real panel-color swatch hex values when THEME_IDS has one member (D-04)",
+        _theme_fieldset_single_theme_renders_read_only_status_with_real_swatch_hex)
+
+    def _theme_fieldset_falls_back_to_radio_group_when_multiple_themes_registered():
+        # D-04, Task 2 Test 2: a synthetic 2-member THEME_IDS (monkeypatched
+        # for the duration of this check only) makes theme_fieldset() fall
+        # back to the original editable radio-group markup — a len()
+        # check, not a hardcoded single-theme assumption.
+        #
+        # merge of origin/main (Phase 8): THEMES is now REPLACED with a
+        # clean 2-entry dict rather than dict(original_themes) plus one
+        # more key — copying the real registry would now start from 19
+        # entries, not 1, breaking this test's own "exactly 2 theme radios"
+        # assertion below.
+        original_themes = device_config.THEMES
+        original_ids = device_config.THEME_IDS
+        default_id = device_config.DEFAULT_THEME_ID
+        device_config.THEMES = {
+            default_id: dict(original_themes[default_id]),
+            "dusk": {
+                "departing_index": original_themes[default_id]["departing_index"],
+                "arriving_index": original_themes[default_id]["arriving_index"],
+                "ink_index": original_themes[default_id]["ink_index"],
+                "label": "Dusk",
+            },
+        }
+        device_config.THEME_IDS = tuple(device_config.THEMES)
+        try:
+            rendered = config_page.theme_fieldset(default_id)
+        finally:
+            device_config.THEMES = original_themes
+            device_config.THEME_IDS = original_ids
+        # 06.6.4.1 (D-05): the <fieldset> now also carries
+        # data-dirty-section="Theme" (escaped literal), so this no longer
+        # matches the bare "<fieldset>" substring exactly — check for the
+        # element's presence and its attribute instead.
+        if "<fieldset" not in rendered or "<legend>Theme</legend>" not in rendered:
+            return False, "expected the original fieldset/legend radio-group markup once >1 theme is registered"
+        if ('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, escape_html("Theme"))) not in rendered:
+            return False, "expected the fallback fieldset to carry data-dirty-section=\"Theme\""
+        if rendered.count('name="theme"') != 2:
+            return False, "expected 2 theme radios, got %d" % rendered.count('name="theme"')
+        return True, ""
+    check(
+        "theme_fieldset() falls back to the editable radio group the moment a second theme is registered (D-04)",
+        _theme_fieldset_falls_back_to_radio_group_when_multiple_themes_registered)
 
     def _theme_fieldset_covers_every_registered_theme_with_own_id_and_label():
         # 08-CONTEXT.md D-01/D-02/D-03/D-04, widened by the 08-06 on-glass
@@ -302,41 +644,267 @@ def main():
         "runway_fieldset() emits exactly three runway radio inputs",
         _runway_fieldset_exactly_three_radios)
 
-    def _helper_texts_appear_escaped_verbatim():
+    def _runway_fieldset_cards_visually_hidden_radio_and_selected_class():
+        # D-05, Task 2 Test 3: three .runway-card <label>s, each wrapping a
+        # visually-hidden (not display:none) native radio, with only the
+        # "3" card carrying runway-card--selected.
+        rendered = config_page.runway_fieldset("3", images_available=())
+        if rendered.count('<label class="runway-card') != 3:
+            return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
+        if rendered.count("runway-card--selected") != 1:
+            return False, "expected exactly one runway-card--selected modifier"
+        if 'value="3" class="visually-hidden" checked' not in rendered:
+            return False, "expected the selected card's radio to carry class=\"visually-hidden\" and checked"
+        if "display:none" in rendered or "display: none" in rendered:
+            return False, "expected the radio hidden via the visually-hidden utility class, never display:none"
+        if rendered.count('class="visually-hidden"') < 3:
+            return False, "expected every card's radio to carry the visually-hidden class"
+        return True, ""
+    check(
+        "runway_fieldset('3') renders three selectable cards, each wrapping a visually-hidden radio, with only the '3' card selected (D-05)",
+        _runway_fieldset_cards_visually_hidden_radio_and_selected_class)
+
+    def _runway_fieldset_cards_image_rendering_per_card():
+        # D-05, Task 2 Test 4: an <img> renders inside exactly the cards
+        # named in images_available, none inside any other card.
+        rendered = config_page.runway_fieldset("3", images_available=("3", "06-24"))
+        if rendered.count("<img") != 2:
+            return False, "expected exactly 2 <img occurrences, got %d" % rendered.count("<img")
+        if "/runway-image/3.png" not in rendered or "/runway-image/06-24.png" not in rendered:
+            return False, "expected <img> src pointing at both supplied runway images"
+        if "/runway-image/02-20.png" in rendered:
+            return False, "expected no <img> for the runway not in images_available"
+        return True, ""
+    check(
+        "runway_fieldset('3', images_available=('3', '06-24')) renders an <img> inside exactly those two cards, none in the third (D-05)",
+        _runway_fieldset_cards_image_rendering_per_card)
+
+    # ------------------------------------------------------------------
+    # 06.6.4.1 Task 1 (D-01, D-02, D-05 form half, D-26): the new
+    # single-column, three-wrapped-section, one-merged-form shape.
+    # ------------------------------------------------------------------
+
+    def _render_exactly_three_dirty_sections_in_order():
+        # Acceptance criterion: the rendered output contains exactly
+        # three elements carrying data-dirty-section, whose attribute
+        # values in document order are "Theme", "Runway", "Diagnostic LED".
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        found = re.findall(
+            r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
+        expected = ["Theme", "Runway", "Diagnostic LED"]
+        if found != expected:
+            return False, "expected %r in document order, got %r" % (expected, found)
+        return True, ""
+    check(
+        "render() carries exactly three data-dirty-section elements, in document order Theme/Runway/Diagnostic LED",
+        _render_exactly_three_dirty_sections_in_order)
+
+    def _runway_fieldset_returns_single_top_level_div():
+        # Acceptance criterion: runway_fieldset(...) returns a string
+        # that starts with a single opening div tag and ends with its
+        # matching closing tag — one top-level element, not five siblings
+        # (D-01's root-cause fix). Retargeted in place (quick task
+        # 260901-qif): the count moved from one div pair to two because a
+        # nested `.runway-row` layout container was introduced around just
+        # the cards — the original "exactly one <div> pair" wording was a
+        # proxy for the top-level invariant rather than the invariant
+        # itself. The startswith/endswith assertions are untouched; those
+        # are the ones that actually prove the single-top-level-element
+        # invariant.
+        rendered = config_page.runway_fieldset("3")
+        if not rendered.startswith('<div class="theme-status"'):
+            return False, "expected runway_fieldset() to start with a single <div class=\"theme-status\"> wrapper"
+        if not rendered.endswith("</div>"):
+            return False, "expected runway_fieldset() to end with the wrapper's matching </div>"
+        if rendered.count("<div") != 2 or rendered.count("</div>") != 2:
+            return False, "expected exactly two div pairs - the top-level .theme-status wrapper and the nested .runway-row layout container"
+        return True, ""
+    check(
+        "runway_fieldset() returns exactly two div pairs - the top-level .theme-status wrapper and the nested .runway-row layout container, not five flat siblings (D-01)",
+        _runway_fieldset_returns_single_top_level_div)
+
+    def _runway_row_starts_after_caption_and_nothing_follows_it():
+        # quick task 260901-re6: inverted from the pre-merge version of
+        # this check (which asserted a trailing helper paragraph rendered
+        # AFTER .runway-row closed). Now asserts RUNWAY_SECTION_CAPTION
+        # renders BEFORE .runway-row opens, and that no <p element
+        # appears anywhere after the row closes inside the wrapper — the
+        # actual proof the second paragraph is gone, not merely moved.
+        rendered = config_page.runway_fieldset("3")
+        caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
+        row_open = '<div class="runway-row">'
+        if rendered.count(row_open) != 1:
+            return False, "expected exactly one <div class=\"runway-row\"> opening tag, got %d" % rendered.count(row_open)
+        caption_pos = rendered.index(caption)
+        row_start = rendered.index(row_open)
+        if caption_pos >= row_start:
+            return False, "expected RUNWAY_SECTION_CAPTION to render before .runway-row opens"
+        row_close = rendered.index("</div>", row_start)
+        card_positions = [m.start() for m in re.finditer(r'<label class="runway-card', rendered)]
+        if len(card_positions) != 3:
+            return False, "expected exactly 3 runway-card labels, got %d" % len(card_positions)
+        if not all(row_start < pos < row_close for pos in card_positions):
+            return False, "expected all three runway-card labels to fall inside the .runway-row container"
+        after_row = rendered[row_close + len("</div>"):]
+        if "<p" in after_row:
+            return False, "expected no <p element anywhere after .runway-row closes - the retired trailing helper paragraph must be gone, not merely moved"
+        return True, ""
+    check(
+        "runway_fieldset() renders RUNWAY_SECTION_CAPTION before .runway-row opens, and no <p element after .runway-row closes (quick task 260901-re6)",
+        _runway_row_starts_after_caption_and_nothing_follows_it)
+
+    def _theme_and_runway_section_captions_appear_exactly_once():
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        theme_caption = escape_html(config_page.THEME_SECTION_CAPTION)
+        runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
+        if rendered.count(theme_caption) != 1:
+            return False, "expected THEME_SECTION_CAPTION exactly once, got %d" % rendered.count(theme_caption)
+        if rendered.count(runway_caption) != 1:
+            return False, "expected RUNWAY_SECTION_CAPTION exactly once, got %d" % rendered.count(runway_caption)
+        return True, ""
+    check(
+        "render() carries THEME_SECTION_CAPTION and RUNWAY_SECTION_CAPTION exactly once each (quick task 260901-re6)",
+        _theme_and_runway_section_captions_appear_exactly_once)
+
+    def _each_group_emits_exactly_one_caption_between_heading_and_control():
+        # quick task 260901-re6 Task 3: the direct proof of the merge and
+        # of the position — the check that would have caught this bug.
+        # Calls theme_fieldset()/runway_fieldset()/led_group() directly
+        # and asserts each returns markup with exactly one <p occurrence
+        # and exactly one section-caption occurrence, with the caption's
+        # index falling after the group's own naming element and before
+        # the group's control.
+        #
+        # merge of origin/main (Phase 8): theme_fieldset("black") (any
+        # valid theme id — "sky" no longer exists post-merge) now returns
+        # the D-04 editable-radio-group branch, not the read-only branch
+        # this check used to exercise — its heading is a </legend>, not
+        # an </h2>, since THEME_IDS holds 19 real entries. runway_fieldset()
+        # and led_group() are unaffected and still use </h2>.
+        theme_rendered = config_page.theme_fieldset("black")
+        runway_rendered = config_page.runway_fieldset("3")
+        led_rendered = config_page.led_group(True)
+        groups = (
+            ("theme_fieldset()", theme_rendered, "</legend>", "options"),
+            ("runway_fieldset()", runway_rendered, "</h2>", "runway-row"),
+            ("led_group()", led_rendered, "</h2>", "led-checkbox"),
+        )
+        for name, rendered, heading_close_marker, control_marker in groups:
+            if rendered.count("<p") != 1:
+                return False, "expected %s to emit exactly one <p element, got %d" % (name, rendered.count("<p"))
+            if rendered.count("section-caption") != 1:
+                return False, "expected %s to emit exactly one section-caption occurrence, got %d" % (name, rendered.count("section-caption"))
+            heading_close = rendered.index(heading_close_marker)
+            caption_pos = rendered.index("section-caption")
+            if not (heading_close < caption_pos):
+                return False, "expected %s's caption to fall after %s" % (name, heading_close_marker)
+            if control_marker != "options" and control_marker not in rendered:
+                return False, "expected %s's control marker %r to be present" % (name, control_marker)
+            if control_marker != "options":
+                control_pos = rendered.index(control_marker)
+                if not (caption_pos < control_pos):
+                    return False, "expected %s's caption to fall before its control (%r)" % (name, control_marker)
+        return True, ""
+    check(
+        "theme_fieldset()/runway_fieldset()/led_group() each emit exactly one section-caption <p> element, positioned after the group's own naming element and before its control (quick task 260901-re6, merge of origin/main)",
+        _each_group_emits_exactly_one_caption_between_heading_and_control)
+
+    def _bottom_save_button_carries_static_fallback_attr():
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR) != 1:
+            return False, (
+                "expected exactly one data-static-save-fallback occurrence, got %d"
+                % rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR))
+        button_match = re.search(
+            r'<button\b[^>]*%s[^>]*>Save Settings</button>'
+            % re.escape(config_page.STATIC_SAVE_FALLBACK_ATTR), rendered)
+        if not button_match:
+            return False, "expected the fallback attribute on a type=\"submit\" Save Settings button"
+        if 'type="submit"' not in button_match.group(0):
+            return False, "expected the fallback button to carry type=\"submit\""
+        return True, ""
+    check(
+        "render()'s bottom Save Settings button carries data-static-save-fallback exactly once (D-04)",
+        _bottom_save_button_carries_static_fallback_attr)
+
+    def _section_captions_appear_escaped_verbatim_exactly_once():
+        # quick task 260901-re6: retargeted onto all three merged caption
+        # constants, strengthened from "is present" to "appears exactly
+        # once" for each. quick task 260901-s5o: widened in place to a
+        # fourth constant, POLL_SECTION_CAPTION - same check, same
+        # assertion shape, one more constant, no new check added.
         rendered = config_page.render({
             "device_config": {"theme": "black", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
         })
-        if escape_html(config_page.THEME_HELPER_TEXT) not in rendered:
-            return False, "theme helper text missing (escaped-verbatim)"
-        if escape_html(config_page.RUNWAY_HELPER_TEXT) not in rendered:
-            return False, "runway helper text missing (escaped-verbatim)"
-        if escape_html(config_page.LED_HELPER_TEXT) not in rendered:
-            return False, "LED helper text missing (escaped-verbatim)"
+        theme_caption = escape_html(config_page.THEME_SECTION_CAPTION)
+        runway_caption = escape_html(config_page.RUNWAY_SECTION_CAPTION)
+        led_caption = escape_html(config_page.LED_SECTION_CAPTION)
+        poll_caption = escape_html(config_page.POLL_SECTION_CAPTION)
+        if rendered.count(theme_caption) != 1:
+            return False, "expected THEME_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(theme_caption)
+        if rendered.count(runway_caption) != 1:
+            return False, "expected RUNWAY_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(runway_caption)
+        if rendered.count(led_caption) != 1:
+            return False, "expected LED_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(led_caption)
+        if rendered.count(poll_caption) != 1:
+            return False, "expected POLL_SECTION_CAPTION exactly once (escaped-verbatim), got %d" % rendered.count(poll_caption)
         return True, ""
     check(
-        "the theme, runway, and LED helper texts all appear escaped-verbatim in render()'s output",
-        _helper_texts_appear_escaped_verbatim)
+        "the theme, runway, LED, and poll section captions all appear escaped-verbatim exactly once in render()'s output (quick task 260901-re6, quick task 260901-s5o)",
+        _section_captions_appear_escaped_verbatim_exactly_once)
 
     def _current_theme_and_runway_are_selected():
+        # merge of origin/main (Phase 8): the Runway assertions below
+        # predate this merge and are unaffected by it. The Theme
+        # assertion is NOT — 06.6.3-03's own comment here used to explain
+        # why Theme had "no radio at all (D-04's read-only status block)"
+        # while THEME_IDS held its real single member ("sky"); that
+        # branch is unreachable now that the merged registry holds 19
+        # entries, so theme_fieldset() always takes the radio-group path
+        # below, and the assertion is rewritten to match — a native
+        # radio's checked attribute sits directly after value= there
+        # (`value="{id}"{checked}>`), unlike Runway's card markup, whose
+        # checked attribute sits after an intervening class attribute
+        # (`value="{id}" class="visually-hidden"{checked}>`).
         rendered = config_page.render({
             "device_config": {"theme": "black", "tracked_runway": "06-24"},
             "poll_cooldown_remaining": 0,
         })
-        if 'value="06-24" checked' not in rendered:
+        if 'value="06-24" class="visually-hidden" checked' not in rendered:
             return False, "expected the non-default saved runway (06-24) to be marked selected"
-        if 'value="3" checked' in rendered:
+        if 'value="3" class="visually-hidden" checked' in rendered:
             return False, "expected runway 3 (not the saved value) to NOT be marked selected"
+        if rendered.count("runway-card--selected") != 1:
+            return False, "expected exactly one runway-card--selected modifier"
         if 'value="black" checked' not in rendered:
-            return False, "expected the saved theme (sky) to be marked selected"
+            return False, "expected the saved theme (black) to be marked selected via its radio input"
         return True, ""
     check(
-        "the currently-saved theme and (non-default) runway are the ones marked selected",
+        "the currently-saved theme is shown current and the (non-default) saved runway card is the one marked selected",
         _current_theme_and_runway_are_selected)
 
     def _poll_trigger_enabled_at_zero_cooldown():
         rendered = config_page.poll_trigger_section(0)
-        if "disabled" in rendered:
+        # UXA-15 (06.6.2-02): scoped to the <button ...> tag itself, not
+        # a bare substring search — the zero-cooldown branch's own
+        # submit-affordance script now legitimately contains the word
+        # "disabled" as a JS property name (`btn.disabled = true;`),
+        # which a whole-document substring check would false-positive
+        # on.
+        button_tag = re.search(r"<button\b[^>]*>", rendered)
+        if not button_tag:
+            return False, "expected a <button> tag to extract"
+        if "disabled" in button_tag.group(0):
             return False, "expected no disabled attribute at zero cooldown"
         if "Trigger Poll Now" not in rendered:
             return False, "expected the Trigger Poll Now button copy"
@@ -356,6 +924,56 @@ def main():
         "poll_trigger_section(17) renders a disabled button and the remaining-seconds copy",
         _poll_trigger_disabled_with_remaining_seconds)
 
+    def _poll_section_caption_renders_on_both_branches_under_the_heading():
+        # quick task 260901-s5o: the Poll section's own new caption check
+        # — the group Task 1's non-goal explicitly excludes from
+        # _each_group_emits_exactly_one_caption_between_heading_and_control()
+        # (Poll's heading lives in render(), not in poll_trigger_section(),
+        # and its disabled branch legitimately emits a second <p>).
+        poll_caption = escape_html(config_page.POLL_SECTION_CAPTION)
+        for cooldown_remaining in (0, 17):
+            rendered = config_page.poll_trigger_section(cooldown_remaining)
+            if rendered.count("section-caption") != 1:
+                return False, (
+                    "expected poll_trigger_section(%d) to emit exactly one "
+                    "section-caption occurrence, got %d"
+                    % (cooldown_remaining, rendered.count("section-caption")))
+            if rendered.count(poll_caption) != 1:
+                return False, (
+                    "expected poll_trigger_section(%d) to carry "
+                    "POLL_SECTION_CAPTION escaped-verbatim exactly once, got %d"
+                    % (cooldown_remaining, rendered.count(poll_caption)))
+            caption_pos = rendered.index("section-caption")
+            trigger_pos = rendered.index('<form method="post" action="/poll-now">')
+            if not caption_pos < trigger_pos:
+                return False, (
+                    "expected poll_trigger_section(%d)'s caption to precede "
+                    "the poll-trigger form" % cooldown_remaining)
+
+        # The render()-level position proof: the heading is emitted by
+        # render(), the caption by poll_trigger_section() — two different
+        # functions whose relative order nothing else guards.
+        page = config_page.render({
+            "device_config": {
+                "theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if page.count(poll_caption) != 1:
+            return False, (
+                "expected render() to carry POLL_SECTION_CAPTION "
+                "escaped-verbatim exactly once, got %d" % page.count(poll_caption))
+        heading_pos = page.index('<h2 class="text-heading">Poll</h2>')
+        page_caption_pos = page.index(poll_caption)
+        poll_now_pos = page.index('action="/poll-now"')
+        if not heading_pos < page_caption_pos < poll_now_pos:
+            return False, (
+                "expected the Poll caption to fall between the Poll <h2> "
+                "heading and the poll-trigger form's action attribute")
+        return True, ""
+    check(
+        "poll_trigger_section() emits POLL_SECTION_CAPTION exactly once on both the enabled and disabled branches, before the poll-trigger form, and render() places it directly under the Poll <h2> heading (quick task 260901-s5o)",
+        _poll_section_caption_renders_on_both_branches_under_the_heading)
+
     def _poll_trigger_live_countdown_seeded_from_server_value():
         # D-01: the disabled branch must ship exactly one inline <script>,
         # carrying id="poll-trigger-btn"/id="poll-cooldown-text", the
@@ -369,8 +987,15 @@ def main():
 
         if d17.count("<script") != 1:
             return False, "expected exactly one <script occurrence at cooldown=17, got %d" % d17.count("<script")
-        if z.count("<script") != 0:
-            return False, "expected zero <script occurrences at cooldown=0"
+        # UXA-15 (06.6.2-02): the zero-cooldown branch now legitimately
+        # ships its own, different <script> (the submit-affordance
+        # script, _poll_submit_script()) — no longer zero. Distinguish
+        # it from the countdown script by absence of countdown-only
+        # markers.
+        if z.count("<script") != 1:
+            return False, "expected exactly one <script occurrence at cooldown=0 (the submit-affordance script), got %d" % z.count("<script")
+        if "setInterval" in z or "removeAttribute" in z:
+            return False, "expected the zero-cooldown script to be the submit-affordance script, not the countdown script"
         if ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) not in d17:
             return False, "expected the button's id attribute"
         if ('id="%s"' % config_page.POLL_COOLDOWN_TEXT_ID) not in d17:
@@ -413,25 +1038,45 @@ def main():
 
         return True, ""
     check(
-        "poll_trigger_section() ships a live countdown script on the disabled branch, seeded exclusively via _js_literal(), leaving the zero-cooldown branch script-free (D-01)",
+        "poll_trigger_section() ships a live countdown script on the disabled branch, seeded exclusively via _js_literal(), and a different submit-affordance script on the zero-cooldown branch (D-01, UXA-15)",
         _poll_trigger_live_countdown_seeded_from_server_value)
 
-    def _poll_trigger_zero_cooldown_still_ships_no_script():
-        # Additive regression guard, deliberately separate from the
-        # pre-existing _poll_trigger_enabled_at_zero_cooldown check
-        # above (left unmodified) — pins the no-script property that
-        # check never asserted.
+    def _poll_trigger_zero_cooldown_ships_submit_affordance_script():
+        # UXA-15 (06.6.2-02): supersedes the pre-existing "no script at
+        # zero cooldown" regression guard this check used to assert —
+        # that invariant is no longer true by design. Pins the new one
+        # instead: poll_trigger_section(0) carries id="poll-trigger-btn"
+        # and exactly one <script> (the submit-affordance script, not
+        # the countdown script), while poll_trigger_section(30)'s own
+        # pre-existing _poll_cooldown_script() output stays unchanged.
         rendered = config_page.poll_trigger_section(0)
         if "Trigger Poll Now" not in rendered:
             return False, "expected the Trigger Poll Now button copy"
-        if "disabled" in rendered:
+        # Scoped to the <button ...> tag, not a bare substring search —
+        # see _poll_trigger_enabled_at_zero_cooldown()'s own comment on
+        # why (_poll_submit_script()'s body legitimately contains
+        # "disabled" as a JS property name).
+        button_tag = re.search(r"<button\b[^>]*>", rendered)
+        if not button_tag:
+            return False, "expected a <button> tag to extract"
+        if "disabled" in button_tag.group(0):
             return False, "expected no disabled attribute at zero cooldown"
-        if "<script" in rendered:
-            return False, "expected zero <script occurrences at zero cooldown"
+        if ('id="%s"' % config_page.POLL_TRIGGER_BUTTON_ID) not in rendered:
+            return False, "expected the button's id attribute"
+        if rendered.count("<script") != 1:
+            return False, "expected exactly one <script occurrence at zero cooldown"
+        if "setInterval" in rendered or "removeAttribute" in rendered:
+            return False, "expected the zero-cooldown script to be the submit-affordance script, not the countdown script"
+
+        nonzero = config_page.poll_trigger_section(30)
+        if config_page._poll_cooldown_script(30) not in nonzero:
+            return False, (
+                "expected poll_trigger_section(30) to still carry its own "
+                "pre-existing _poll_cooldown_script() output unchanged")
         return True, ""
     check(
-        "poll_trigger_section(0) still ships no <script> element of any kind (additive D-01 regression guard)",
-        _poll_trigger_zero_cooldown_still_ships_no_script)
+        "poll_trigger_section(0) ships id=\"poll-trigger-btn\" and exactly one <script> (the UXA-15 submit-affordance script), while poll_trigger_section(30) still carries its unchanged countdown script",
+        _poll_trigger_zero_cooldown_ships_submit_affordance_script)
 
     # The whole forbidden-sink family in one place, so a future reader
     # can see it at a glance (06.5-01-PLAN.md's own sink-safety gate for
@@ -462,6 +1107,28 @@ def main():
         "the inline countdown script contains none of the forbidden HTML-writing/eval/network sinks and does contain strict mode plus the permitted DOM/timer operations",
         _poll_cooldown_script_has_no_forbidden_sink)
 
+    def _poll_submit_script_has_no_forbidden_sink():
+        rendered = config_page.poll_trigger_section(0)
+        body_match = re.search(r"<script>(.*?)</script>", rendered, re.S)
+        if not body_match:
+            return False, "expected a <script>...</script> body to extract"
+        body = body_match.group(1)
+        for forbidden in _FORBIDDEN_SCRIPT_SINKS:
+            if forbidden in body:
+                return False, "forbidden sink found in the inline script: %r" % (forbidden,)
+        if config_page._js_literal(config_page.POLL_TRIGGER_BUTTON_ID) not in body:
+            return False, "expected the button id to be seeded via _js_literal(), not hardcoded"
+        if config_page._js_literal(config_page.POLL_SUBMIT_PENDING_TEXT) not in body:
+            return False, "expected the pending-label text to be seeded via _js_literal(), not hardcoded"
+        if "use strict" not in body:
+            return False, "expected strict mode"
+        if "addEventListener" not in body:
+            return False, "expected a submit event listener"
+        return True, ""
+    check(
+        "the inline submit-affordance script contains none of the forbidden HTML-writing/eval/network sinks, seeds every interpolated value via _js_literal(), and attaches a submit listener (UXA-15)",
+        _poll_submit_script_has_no_forbidden_sink)
+
     def _valid_save_writes_both_and_returns_saved_key():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
@@ -471,7 +1138,18 @@ def main():
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
-            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": True}:
+            # 06.6.4.1 (D-05): led_enabled is now resolved by handle_post()
+            # itself, with checkbox-absent-means-False semantics (never
+            # carried forward like theme/runway) — this posted form omits
+            # led_enabled entirely, so the persisted value is False, not
+            # DEFAULT_LED_ENABLED (True). The theme value itself is
+            # "black", matching what the fixture above actually posted —
+            # pre-merge this assertion read "sky" because "black" wasn't
+            # yet a valid THEME_IDS entry and handle_post()'s validation
+            # silently kept the prior/default value instead; the merged
+            # Phase 8 registry (19 real entries) makes "black" valid, so
+            # it now persists as posted.
+            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -603,49 +1281,33 @@ def main():
         _save_oserror_returns_failure_key_not_raise)
 
     # ------------------------------------------------------------------
-    # LED section checks (Task 2, D-01/D-02/T-06.2-02) - a-f are unit
-    # checks; g-h (below, inside the Harness block) drive real HTTP.
+    # 06.6.4.1 Task 2 (D-05): handle_post() absorbs LED validation as one
+    # all-or-nothing submission — one check per <behavior> bullet.
     # ------------------------------------------------------------------
 
-    def _led_fieldset_checked_true():
-        rendered = config_page.led_fieldset(True)
-        if "checked" not in rendered:
-            return False, "expected a checked attribute for led_fieldset(True)"
-        if rendered.count('name="led_enabled"') != 1:
-            return False, "expected exactly one name=\"led_enabled\" input"
-        return True, ""
-    check(
-        "led_fieldset(True) contains a checked attribute and one name=\"led_enabled\" input",
-        _led_fieldset_checked_true)
-
-    def _led_fieldset_unchecked_false():
-        rendered = config_page.led_fieldset(False)
-        if "checked" in rendered:
-            return False, "expected no checked attribute for led_fieldset(False)"
-        return True, ""
-    check(
-        "led_fieldset(False) contains no checked attribute",
-        _led_fieldset_unchecked_false)
-
-    def _render_has_second_form_for_led_route():
-        rendered = config_page.render({
-            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
-            "poll_cooldown_remaining": 0,
-        })
-        if 'action="/config"' not in rendered:
-            return False, "expected the /config form action to be present"
-        if 'action="/config-led"' not in rendered:
-            return False, "expected a second, distinct /config-led form action"
-        return True, ""
-    check(
-        "render() emits a second <form whose action is the LED route, distinct from the /config form",
-        _render_has_second_form_for_led_route)
-
-    def _handle_led_post_unchecked_persists_false():
+    # merge of origin/main (Phase 8): main's own version of this section
+    # still tested the pre-06.6.4.1-07 dual-form architecture —
+    # led_fieldset() as a standalone function, and a second, distinct
+    # <form action="/config-led"> — because main never received that
+    # plan's LED-into-the-single-Settings-form merge (see that plan's own
+    # SUMMARY: "the 8 checks exercising the now-deleted led_fieldset()/
+    # led_section()/handle_led_post() were deleted outright ... 1 new
+    # check pins the retired /config-led route now 404s"). Those three
+    # functions (_led_fieldset_checked_true, _led_fieldset_unchecked_false,
+    # _render_has_second_form_for_led_route) tested functions/routes that
+    # no longer exist on this side and are dropped, not reconciled — this
+    # is the same retirement 06.6.4.1-07 already made, main just hadn't
+    # merged it yet. The unified-form behaviour they were partially
+    # re-covering is already exercised by the bullet-per-behaviour checks
+    # below (_handle_post_empty_form_persists_led_false and its
+    # siblings), so no coverage gap is left behind.
+    def _handle_post_empty_form_persists_led_false():
+        # Bullet 1: the shape a browser sends when nothing is checked and
+        # nothing is selected.
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
             ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_led_post({}, ctx)
+            flash_key = config_page.handle_post({}, ctx)
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
@@ -655,14 +1317,15 @@ def main():
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
     check(
-        "handle_led_post({}, ctx) - the shape a browser sends for an unchecked checkbox - persists led_enabled False and returns the saved flash key",
-        _handle_led_post_unchecked_persists_false)
+        "handle_post({}, ctx) - the shape a browser sends when nothing is checked and nothing is selected - persists led_enabled False and returns the saved flash key",
+        _handle_post_empty_form_persists_led_false)
 
-    def _handle_led_post_checked_persists_true():
+    def _handle_post_led_checkbox_value_persists_led_true():
+        # Bullet 2.
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
             ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_led_post(
+            flash_key = config_page.handle_post(
                 {"led_enabled": config_page.LED_CHECKBOX_VALUE}, ctx)
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
@@ -673,28 +1336,141 @@ def main():
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
     check(
-        "handle_led_post({\"led_enabled\": LED_CHECKBOX_VALUE}, ctx) persists led_enabled True and returns the saved flash key",
-        _handle_led_post_checked_persists_true)
+        "handle_post({\"led_enabled\": LED_CHECKBOX_VALUE}, ctx) persists led_enabled True",
+        _handle_post_led_checkbox_value_persists_led_true)
 
-    def _handle_led_post_crafted_value_rejected():
+    def _handle_post_crafted_led_value_rejected_byte_identical():
+        # Bullet 3.
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
             _write_device_config(tmpdir, "black", "3", led_enabled=True)
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_led_post(
-                {"led_enabled": "<script>alert(1)</script>"}, ctx)
+            flash_key = config_page.handle_post(
+                {"led_enabled": "<crafted>"}, ctx)
             after = open(device_config.device_config_path(tmpdir), "rb").read()
             if flash_key != config_page.FLASH_SAVE_FAILED:
-                return False, "expected FLASH_SAVE_FAILED for a crafted led_enabled value, got %r" % (flash_key,)
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
             if before != after:
                 return False, "expected device_config.json to be byte-identical, it changed"
             return True, ""
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
     check(
-        "handle_led_post with a crafted non-checkbox value returns FLASH_SAVE_FAILED and leaves device_config.json byte-identical",
-        _handle_led_post_crafted_value_rejected)
+        "handle_post({\"led_enabled\": \"<crafted>\"}, ctx) returns the save-failed flash key and leaves device_config.json byte-identical",
+        _handle_post_crafted_led_value_rejected_byte_identical)
+
+    def _handle_post_invalid_theme_rejects_led_half_too():
+        # Bullet 4: an invalid theme rejects the LED half too - proving
+        # the merge stays all-or-nothing across all three fields.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "sky", "3", led_enabled=False)
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"theme": "not-a-real-theme", "led_enabled": config_page.LED_CHECKBOX_VALUE},
+                ctx)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to be byte-identical, it changed"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"theme\": \"<not a registered theme>\", \"led_enabled\": LED_CHECKBOX_VALUE}, ctx) returns save-failed and leaves the file byte-identical (an invalid theme rejects the LED half too)",
+        _handle_post_invalid_theme_rejects_led_half_too)
+
+    def _handle_post_valid_runway_and_led_persist_together_one_call():
+        # Bullet 5: persists both in one call.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"tracked_runway": "06-24", "led_enabled": config_page.LED_CHECKBOX_VALUE},
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["tracked_runway"] != "06-24":
+                return False, "expected tracked_runway 06-24 on disk, got %r" % (on_disk["tracked_runway"],)
+            if on_disk["led_enabled"] is not True:
+                return False, "expected led_enabled True on disk, got %r" % (on_disk["led_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"tracked_runway\": <a real runway id>, \"led_enabled\": LED_CHECKBOX_VALUE}, ctx) persists both in one call and returns the saved flash key",
+        _handle_post_valid_runway_and_led_persist_together_one_call)
+
+    # ------------------------------------------------------------------
+    # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()
+    # and the separate POST /config-led route were retired outright —
+    # the eight checks that used to exercise them directly were deleted
+    # here (they would now raise AttributeError against the deleted
+    # symbols). Their coverage is superseded, not lost: the merged
+    # led_group()/handle_post() checks above (D-05 handle_post() bullets)
+    # and _render_shape_read_only_theme_runway_cards_led_group_and_save_button()
+    # near the top of this file already cover the same three submitted-
+    # value shapes, the cross-field all-or-nothing rejection, and the
+    # single-heading-level/no-<fieldset> markup contract.
+    # ------------------------------------------------------------------
+
+    def _render_has_no_action_pointing_at_retired_led_route():
+        # 06.6.4.1 (D-05), retired route confirmed 06.6.4.1-07: the LED
+        # group is merged into the single settings form — render() must
+        # never emit a second, independently-submittable
+        # <form action="/config-led"> at all. The separate POST
+        # /config-led route and its handler no longer exist anywhere in
+        # the app, so this is now a pure markup regression guard.
+        rendered = config_page.render({
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if 'action="%s"' % config_page.SETTINGS_ROUTE not in rendered:
+            return False, "expected the settings form action to be present"
+        if 'action="/config-led"' in rendered:
+            return False, "expected no action=\"/config-led\" in render()'s output (D-05 merge)"
+        return True, ""
+    check(
+        "render() emits no action pointing at the retired separate LED form path (D-05)",
+        _render_has_no_action_pointing_at_retired_led_route)
+
+    def _config_page_exposes_no_retired_led_symbols():
+        # 06.6.4.1-07 (D-05): source assertion that the deleted handler,
+        # section wrapper, and markup builder are genuinely gone, not
+        # merely unreferenced.
+        for name in ("led_fieldset", "led_section", "handle_led_post"):
+            if hasattr(config_page, name):
+                return False, "expected config_page to expose no %r attribute" % name
+        return True, ""
+    check(
+        "companion.pages.config_page exposes neither led_fieldset, led_section, nor "
+        "handle_led_post (all three retired, D-05)",
+        _config_page_exposes_no_retired_led_symbols)
+
+    def _config_page_exposes_no_retired_helper_or_description_symbols():
+        # quick task 260901-re6 Task 3: source assertion that the five
+        # constants retired by Task 1 (THEME_HELPER_TEXT,
+        # THEME_SECTION_DESCRIPTION, RUNWAY_HELPER_TEXT,
+        # RUNWAY_SECTION_DESCRIPTION, LED_HELPER_TEXT) are genuinely gone,
+        # not merely unreferenced — same precedent
+        # _config_page_exposes_no_retired_led_symbols() above set for the
+        # 06.6.4.1-07 LED-route retirement.
+        retired = (
+            "THEME_HELPER_TEXT", "THEME_SECTION_DESCRIPTION",
+            "RUNWAY_HELPER_TEXT", "RUNWAY_SECTION_DESCRIPTION",
+            "LED_HELPER_TEXT")
+        for name in retired:
+            if hasattr(config_page, name):
+                return False, "expected config_page to expose no %r attribute" % name
+        return True, ""
+    check(
+        "companion.pages.config_page exposes none of THEME_HELPER_TEXT/THEME_SECTION_DESCRIPTION/"
+        "RUNWAY_HELPER_TEXT/RUNWAY_SECTION_DESCRIPTION/LED_HELPER_TEXT (all five retired, quick task 260901-re6)",
+        _config_page_exposes_no_retired_helper_or_description_symbols)
 
     # ------------------------------------------------------------------
     # Runway-image existence detection (Task 1, D-03) - each check uses
@@ -808,6 +1584,201 @@ def main():
         "render() forwards ctx['runway_images'] to runway_fieldset() rather than relying on the parameter default",
         _render_forwards_ctx_runway_images_key)
 
+    # ------------------------------------------------------------------
+    # 06.6.4.1 Task 3 (D-03, D-04, D-06): cross-file DOM-contract guards
+    # between config_page.py's constants and the two static assets that
+    # read them by literal value, dirty-state.js and style.css. Neither
+    # static file imports this module — these checks are what keeps the
+    # three in sync.
+    # ------------------------------------------------------------------
+
+    _STATIC_DIR = os.path.join(REPO_ROOT, "companion", "static")
+
+    def _read_static(name):
+        with open(os.path.join(_STATIC_DIR, name)) as fh:
+            return fh.read()
+
+    def _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax():
+        source = _read_static("dirty-state.js")
+        if config_page.DIRTY_SECTION_ATTR not in source:
+            return False, "expected dirty-state.js to reference the literal value of DIRTY_SECTION_ATTR"
+        for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
+            if forbidden in source:
+                return False, "forbidden ES5-unsafe/HTML-writing construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js references config_page.DIRTY_SECTION_ATTR's literal value and contains none of innerHTML/let /const /=>/backtick",
+        _dirty_state_js_references_dirty_section_attr_and_has_no_forbidden_syntax)
+
+    def _style_css_references_static_save_fallback_attr():
+        source = _read_static("style.css")
+        if config_page.STATIC_SAVE_FALLBACK_ATTR not in source:
+            return False, "expected style.css to reference the literal value of STATIC_SAVE_FALLBACK_ATTR"
+        idx = source.index(config_page.STATIC_SAVE_FALLBACK_ATTR)
+        window = source[idx:idx + 120]
+        if "display: none" not in window and "display:none" not in window:
+            return False, "expected the fallback-hide rule to set display: none near the attribute reference"
+        return True, ""
+    check(
+        "style.css contains the .js-gated fallback-hide rule referencing config_page.STATIC_SAVE_FALLBACK_ATTR's literal value",
+        _style_css_references_static_save_fallback_attr)
+
+    def _style_css_carries_theme_status_runway_row_and_led_checkbox_selectors():
+        # quick task 260901-qif: the third new cross-file guard - unlike
+        # DIRTY_SECTION_ATTR/STATIC_SAVE_FALLBACK_ATTR above, no Python
+        # constant carries these three class-name literals, so they are
+        # asserted directly here. Same index-plus-window technique the
+        # neighbouring guards use, never a regex CSS parser. Keeps
+        # style.css's .theme-status/.runway-row/.led-checkbox rules from
+        # silently drifting out of sync with the markup config_page.py's
+        # runway_fieldset()/led_group() now emit.
+        source = _read_static("style.css")
+
+        if ".theme-status {" not in source:
+            return False, "expected style.css to declare a .theme-status rule"
+        idx = source.index(".theme-status {")
+        window = source[idx:idx + 400]
+        if "var(--color-dominant)" not in window:
+            return False, "expected .theme-status's rule body to carry the --color-dominant card-surface token"
+        if ".theme-status:hover" not in source:
+            return False, "expected style.css to declare a .theme-status:hover selector"
+
+        if ".runway-row {" not in source:
+            return False, "expected style.css to declare a .runway-row rule"
+        idx = source.index(".runway-row {")
+        window = source[idx:idx + 200]
+        if "display: flex" not in window:
+            return False, "expected .runway-row's rule body to set display: flex"
+
+        checkbox_selector = '.led-checkbox input[type="checkbox"] {'
+        if checkbox_selector not in source:
+            return False, "expected style.css to declare a %r rule" % (checkbox_selector,)
+        idx = source.index(checkbox_selector)
+        window = source[idx:idx + 400]
+        if "min-height: 0" not in window:
+            return False, "expected .led-checkbox input[type=\"checkbox\"]'s rule body to clear the global rule's min-height"
+        return True, ""
+    check(
+        "style.css declares .theme-status (card-surface token + hover selector), .runway-row (flex display), and .led-checkbox input[type=\"checkbox\"] (cleared min-height) - the selectors config_page.py's new markup depends on",
+        _style_css_carries_theme_status_runway_row_and_led_checkbox_selectors)
+
+    def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
+        # quick task 260901-re6 Task 3: the third new cross-file guard,
+        # following the same index-plus-window technique the neighbouring
+        # guards above use (never a regex CSS parser). quick task
+        # 260901-s5o: retargeted and extended in place (no count change)
+        # onto the floating-card treatment.
+        source = _read_static("style.css")
+
+        # (a) .section-caption declares only the file's existing 70%
+        # muted color-mix idiom.
+        caption_selector = ".section-caption {"
+        if caption_selector not in source:
+            return False, "expected style.css to declare a .section-caption rule"
+        idx = source.index(caption_selector)
+        window = source[idx:idx + 200]
+        if "color-mix(in srgb, var(--color-text) 70%, transparent)" not in window:
+            return False, "expected .section-caption's rule body to carry the 70% color-mix muted idiom"
+
+        # (b) the base (non-media-query) .dirty-bar rule is a fully-bordered
+        # floating card: dominant surface, a full border (no top-only
+        # hairline), the card radius token, and a token-based shadow (no
+        # upward-only literal), and no longer carries the old muted
+        # --color-secondary surface.
+        base_match = re.search(r'^\.dirty-bar \{(.*?)^\}', source, re.MULTILINE | re.DOTALL)
+        if not base_match:
+            return False, "expected a top-level (non-media-query) .dirty-bar rule"
+        base_body = base_match.group(1)
+        if "var(--color-dominant)" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry var(--color-dominant)"
+        if "border: 1px solid var(--color-border)" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry a full border: 1px solid var(--color-border) declaration"
+        if "border-top:" in base_body:
+            return False, "expected the base .dirty-bar rule body to no longer carry a border-top: declaration"
+        if "var(--color-secondary)" in base_body:
+            return False, "expected the base .dirty-bar rule body to no longer carry var(--color-secondary)"
+        if "border-radius: var(--radius-card)" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry border-radius: var(--radius-card), now load-bearing at every width"
+        if "box-shadow: var(--shadow-card-hover)" not in base_body:
+            return False, "expected the base .dirty-bar rule body to carry box-shadow: var(--shadow-card-hover) as its first shadow layer"
+        if "box-shadow: 0 -" in base_body:
+            return False, "expected the base .dirty-bar rule body to no longer carry the retired upward-only literal shadow"
+
+        # (c) the >=960px .dirty-bar rule is fixed, not sticky, and no
+        # .dirty-bar rule body anywhere still says position: sticky.
+        media_match = re.search(r'^  \.dirty-bar \{(.*?)^  \}', source, re.MULTILINE | re.DOTALL)
+        if not media_match:
+            return False, "expected an indented (>=960px media query) .dirty-bar rule"
+        media_body = media_match.group(1)
+        if "position: fixed" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry position: fixed"
+        if "position: sticky" in base_body or "position: sticky" in media_body:
+            return False, "expected no .dirty-bar rule body to carry position: sticky anywhere"
+
+        # (d) the 240px literal the fixed rule's left uses still equals
+        # .dashboard-shell's grid-template-columns first track - a
+        # duplicated-not-imported must-equal pair with no shared token,
+        # now a three-term left expression with the inset as a third addend.
+        if "grid-template-columns: 240px" not in source:
+            return False, "expected style.css to declare grid-template-columns: 240px on .dashboard-shell"
+        if "calc(240px + var(--space-xl) + var(--space-md))" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule's left offset to be calc(240px + var(--space-xl) + var(--space-md))"
+
+        # (e) the inset itself: right pulled in by var(--space-md), bottom
+        # by the larger var(--space-lg) (260901-s5o direct follow-up: a
+        # bigger edge gap reads more clearly as "floating"), max-width
+        # reduced by twice the var(--space-md) inset so the cap doesn't
+        # silently cancel it above roughly 1712px (where min(1440px, 100%)
+        # alone would size the box, flush with .dashboard-main on both
+        # sides), and no corner-squaring override left to re-dock the bar.
+        if "bottom: var(--space-lg)" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry bottom: var(--space-lg)"
+        if "right: var(--space-md)" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry right: var(--space-md)"
+        if "calc(min(1440px, 100%) - var(--space-md) * 2)" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule's max-width to be calc(min(1440px, 100%) - var(--space-md) * 2)"
+        if "border-radius: 0" in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to no longer carry a corner-squaring border-radius: 0 override"
+
+        # (f) 260901-s5o direct follow-up: developer feedback after seeing
+        # the floating card live was "correct shape, too wide, not visible
+        # enough." `width: fit-content` is the fix for "too wide" - without
+        # it, `width:auto` plus both `left` and `right` set non-auto makes
+        # the box stretch to fill the whole positioning region (full
+        # .dashboard-main width) per the CSS2.1 abs/fixed sizing rules.
+        # The >=960px padding override is gone outright now that the bar
+        # is compact rather than full-width - it existed only to align a
+        # full-width bar's controls with the content gutter, so the base
+        # rule's plain padding: var(--space-md) now governs unmodified.
+        if "width: fit-content" not in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry width: fit-content, so it sizes to its own content instead of stretching the full column"
+        if "padding:" in media_body:
+            return False, "expected the >=960px .dirty-bar rule body to carry no padding override - the base rule's padding: var(--space-md) should apply unmodified now that the bar is compact"
+        return True, ""
+    check(
+        "style.css declares .section-caption (70% muted color-mix), the restyled base .dirty-bar as a floating rounded card (full border, radius token, surrounding token-based shadow, no --color-secondary), and the fixed-not-sticky >=960px .dirty-bar rule: inset by var(--space-md)/var(--space-lg) with a correspondingly reduced max-width, no corner-squaring, and width: fit-content so it sizes to its own content instead of stretching the full column (quick task 260901-re6, quick task 260901-s5o, 260901-s5o direct follow-up)",
+        _style_css_carries_section_caption_and_restyled_fixed_dirty_bar)
+
+    def _dirty_state_js_has_no_hardcoded_section_names():
+        source = _read_static("dirty-state.js")
+        for literal in ("Theme", "Runway", "Diagnostic LED"):
+            if literal in source:
+                return False, "expected no hardcoded occurrence of %r - section labels must come from the DOM" % (literal,)
+        return True, ""
+    check(
+        "dirty-state.js contains no hardcoded occurrence of \"Theme\", \"Runway\", or \"Diagnostic LED\" (labels come from the DOM)",
+        _dirty_state_js_has_no_hardcoded_section_names)
+
+    def _dirty_state_js_still_has_no_network_or_timer_sinks():
+        source = _read_static("dirty-state.js")
+        for forbidden in ("fetch(", "XMLHttpRequest", "setInterval", "setTimeout"):
+            if forbidden in source:
+                return False, "forbidden network/timer construct found in dirty-state.js: %r" % (forbidden,)
+        return True, ""
+    check(
+        "dirty-state.js still contains no fetch/XMLHttpRequest/setInterval/setTimeout",
+        _dirty_state_js_still_has_no_network_or_timer_sinks)
+
     # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py
     # subprocess, logs in, posts a valid theme-and-runway pair, follows
@@ -824,8 +1795,11 @@ def main():
         session_cookie = _login(harness)
 
         def _save_round_trip_shows_confirmation_and_new_selection():
+            # 06.6.4.1-07 (D-26): posts to the live SETTINGS_ROUTE
+            # ("/settings") now that companion/app.py actually dispatches
+            # it — the old "/config" path 404s by design (no redirect).
             status, headers, _ = http_request(
-                base + "/config", method="POST", cookie=session_cookie,
+                base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode(
                     {"theme": "black", "tracked_runway": "06-24"}).encode())
             if status != 303:
@@ -845,16 +1819,22 @@ def main():
                 companion_app.FLASH_MESSAGES[companion_app.FLASH_KEY_SAVED])
             if confirmation.encode() not in body:
                 return False, "expected D-07's exact confirmation copy in the response body"
-            if b'value="06-24" checked' not in body:
+            if b'value="06-24" class="visually-hidden" checked' not in body:
                 return False, "expected the newly-saved runway (06-24) to be shown selected"
             return True, ""
         check(
             "a real HTTP save round trip shows D-07's confirmation copy and the newly-saved runway selected",
             _save_round_trip_shows_confirmation_and_new_selection)
 
-        def _led_post_empty_body_saves_false_and_renders_unchecked():
+        def _settings_post_empty_body_persists_led_false_and_renders_unchecked():
+            # 06.6.4.1-07 (D-05): the separate LED route is retired — this
+            # is the live-HTTP successor to the old "empty-body POST
+            # /config-led" check, now posting to the single merged
+            # SETTINGS_ROUTE with nothing submitted at all (the shape a
+            # browser sends when nothing is checked/selected). Same
+            # persisted outcome, same redirect-with-flash shape.
             status, headers, _ = http_request(
-                base + "/config-led", method="POST", cookie=session_cookie,
+                base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
                 data=b"")
             if status != 303:
                 return False, "expected a 303 redirect on save, got %d" % status
@@ -865,22 +1845,28 @@ def main():
             if on_disk["led_enabled"] is not False:
                 return False, "expected on-disk led_enabled False after an empty-body POST, got %r" % (on_disk["led_enabled"],)
             get_status, _get_headers, body = http_request(
-                base + "/config", cookie=session_cookie)
+                base + config_page.SETTINGS_ROUTE, cookie=session_cookie)
             if get_status != 200:
-                return False, "expected 200 on the follow-up GET /config, got %d" % get_status
+                return False, "expected 200 on the follow-up GET %s, got %d" % (
+                    config_page.SETTINGS_ROUTE, get_status)
             if b'name="led_enabled" value="on" checked' in body:
                 return False, "expected the LED checkbox to render unchecked after saving False"
             return True, ""
         check(
-            "a live authenticated POST /config-led with an empty body 303-redirects to /config?flash=saved, persists led_enabled False, and a follow-up GET /config renders the control unchecked",
-            _led_post_empty_body_saves_false_and_renders_unchecked)
+            "a live authenticated POST %s with an empty body 303-redirects to %s?flash=saved, "
+            "persists led_enabled False, and a follow-up GET renders the control unchecked"
+            % (config_page.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE),
+            _settings_post_empty_body_persists_led_false_and_renders_unchecked)
 
-        def _led_post_unauthenticated_redirects_to_login_and_writes_nothing():
+        def _settings_post_unauthenticated_redirects_to_login_and_writes_nothing():
+            # 06.6.4.1-07 (D-05): live-HTTP successor to the old
+            # "unauthenticated POST /config-led" check — same target
+            # (now SETTINGS_ROUTE), same no-write assertion.
             config_path = device_config.device_config_path(harness.tmpdir)
             existed_before = os.path.exists(config_path)
             before = open(config_path, "rb").read() if existed_before else None
             status, headers, _ = http_request(
-                base + "/config-led", method="POST", data=b"")
+                base + config_page.SETTINGS_ROUTE, method="POST", data=b"")
             if status != 303:
                 return False, "expected a 303 redirect, got %d" % status
             location = headers.get("Location", "")
@@ -888,15 +1874,29 @@ def main():
                 return False, "expected a redirect to /login, got %r" % location
             exists_after = os.path.exists(config_path)
             if not existed_before and exists_after:
-                return False, "an unauthenticated POST /config-led created device_config.json"
+                return False, "an unauthenticated POST %s created device_config.json" % config_page.SETTINGS_ROUTE
             if existed_before:
                 after = open(config_path, "rb").read()
                 if before != after:
-                    return False, "an unauthenticated POST /config-led modified device_config.json"
+                    return False, "an unauthenticated POST %s modified device_config.json" % config_page.SETTINGS_ROUTE
             return True, ""
         check(
-            "an unauthenticated POST /config-led redirects to /login and writes nothing",
-            _led_post_unauthenticated_redirects_to_login_and_writes_nothing)
+            "an unauthenticated POST %s redirects to /login and writes nothing" % config_page.SETTINGS_ROUTE,
+            _settings_post_unauthenticated_redirects_to_login_and_writes_nothing)
+
+        def _led_route_retired_returns_404():
+            # 06.6.4.1-07 (D-05): the separate LED POST route no longer
+            # exists anywhere in the app — an authenticated POST to it
+            # now falls through to the standard 404, same as any other
+            # unrouted path.
+            status, _headers, _body = http_request(
+                base + "/config-led", method="POST", cookie=session_cookie, data=b"")
+            if status != 404:
+                return False, "expected 404 for the retired /config-led route, got %d" % status
+            return True, ""
+        check(
+            "an authenticated POST to the retired /config-led route returns 404 (D-05)",
+            _led_route_retired_returns_404)
 
         def _runway_image_route_requires_session():
             status, headers, _ = http_request(base + "/runway-image/3.png")

@@ -1,5 +1,7 @@
 """companion/pages/ — the SkyPane companion service's per-tab page-builder
-contract (06-CONTEXT.md D-25's five-tab navigation structure).
+contract (06-CONTEXT.md D-25's original five-tab navigation structure,
+shrunk to four by 06.6.4.1-08/D-22 once Preview's page route was retired
+and its content absorbed into History, 06.6.4.1-05).
 
 Every page module in this package exposes:
 
@@ -24,10 +26,13 @@ Every page module in this package exposes:
           companion/app.py itself (that would be a cycle)
         - gallery_entries: the newest gallery filenames
           (companion/app.py's own gallery_entries() listing helper's
-          return value) — added by plan 06-09 so preview_page can build
-          gallery tile URLs without importing companion/app.py itself
-          (that would also be a cycle); every gallery URL preview_page
-          builds is constructed only from a name in this list
+          return value) — added by plan 06-09 so companion/pages/
+          history_page.py (which absorbed this key's live-panel/gallery
+          consumer role from the now-retired preview_page.py in
+          06.6.4.1-05/06.6.4.1-08) can build gallery tile URLs without
+          importing companion/app.py itself (that would also be a
+          cycle); every gallery URL history_page.py builds from this key
+          is constructed only from a name in this list
         - runway_images: the set of `device_config.RUNWAY_IDS` members
           that currently have a real airport-diagram file on disk
           (companion/app.py's own `runway_images_available()`, computed
@@ -35,15 +40,25 @@ Every page module in this package exposes:
           decide whether to emit an `<img>` tag for a given runway
           without ever performing filesystem access itself, matching this
           module's presentation-only contract
-        - health_anomaly_active: a boolean, True when any of Health's
-          four D-14 signals is currently unhealthy
-          (companion/pages/health_page.py's own `anomaly_active()`,
-          computed once per request) — added by plan 06.6.1-04 so
-          companion/app.py can thread `health_alert=` into every
-          ctx-bearing `layout.page_shell()` call and draw the Health
-          nav-tab notification dot from every tab, without any nav
-          renderer or other page module importing health_page.py
-          directly (forbidden by this module's own contract)
+        - health_severity: "ok"/"warn"/"error", the current severity
+          derived from Health's four D-14 signals
+          (companion/pages/health_page.py's own `health_severity()`,
+          computed once per request) — originally added by plan
+          06.6.1-04 as a boolean, then widened by plan 06.6.2-06
+          (UXA-14) to a real severity string, so companion/app.py can
+          thread `health_alert=` into every ctx-bearing
+          `layout.page_shell()` call and draw the Health nav-tab
+          notification dot (and the page's own anomaly banner) from one
+          value, without any nav renderer or other page module importing
+          health_page.py directly (forbidden by this module's own
+          contract)
+        - flash_role: "status"/"alert", the ARIA role the resolved
+          `flash` text should render with (companion/app.py's own
+          `FLASH_ROLES` dict, resolved once per request from the
+          request's flash key) — added by plan 06.6.2-06 (UXA-07) so
+          `layout.flash_banner(role=...)` announces a save/poll failure
+          assertively and every other outcome politely, instead of one
+          role for every outcome
         - now: a UTC ISO-8601 timestamp string for this request
 
     handle_post(form, ctx) -> str

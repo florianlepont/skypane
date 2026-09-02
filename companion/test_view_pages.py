@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""Contract harness for companion/pages/history_page.py (CFG-06) and
-companion/pages/preview_page.py (CFG-10/CFG-11).
+"""Contract harness for companion/pages/history_page.py (CFG-06/CFG-10/
+CFG-11) — the page that absorbed companion/pages/preview_page.py's entire
+live-panel/render-gallery content in 06.6.4.1-05; that module itself was
+deleted outright by 06.6.4.1-08 (D-22) once its standalone /preview page
+route became a plain redirect to History.
 
 Covers: the flight-history log's empty state, newest-first row ordering,
 the two reused render-module presentation mappings (friendly aircraft-
@@ -8,13 +11,17 @@ type labels with a raw-designator fallback, the display-airline alias),
 route-unavailable wording agreement with server/plane/render.py's own
 ROUTE_FALLBACK_TEXT, monospace column styling, per-cell escaping
 (including a markup-shaped callsign), degrade-not-raise behaviour
-against an unreadable database; the live-preview image element and its
-honest "no panel yet" fallback, the mandatory colour caveat, the render
-gallery's empty state, its display-limit cap and newest-first ordering,
-that the gallery never gains a form-input element or an import of
-companion/app.py; and one end-to-end HTTP round trip proving
-companion/app.py's router and both page modules agree, including a real
-PNG fetched over /preview.png.
+against an unreadable database; History's own Now-showing live-preview
+image element and its honest "no panel yet" fallback, the mandatory
+colour caveat, the Recent-renders disclosure's empty state, its
+display-limit cap and newest-first ordering, that the gallery filename-
+timestamp helper degrades safely and a malformed filename still renders
+a non-empty caption, the per-row View-panel lookup and shared lightbox,
+the unresolved-airline link to Health; and one end-to-end HTTP round
+trip proving companion/app.py's router and this page module agree,
+including a real PNG fetched over /preview.png (still served — only the
+standalone Preview HTML page route was retired) and the retired
+/preview page route's redirect to /history.
 
 Every fixture is seeded programmatically into a temporary state
 directory - flight events via server/history_db.py's own writer
@@ -51,17 +58,64 @@ if REPO_ROOT not in sys.path:
 
 from companion import auth  # noqa: E402
 import companion.layout as layout  # noqa: E402
-from companion.pages import health_page, history_page, preview_page  # noqa: E402
+from companion.pages import health_page, history_page  # noqa: E402
+from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
 
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 28  # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History
-# Timestamp column reads "ISO (Nm ago)"; Task 2: Preview's Captured
-# caption reads "Captured ISO (Nm ago)"; Task 3: corroboration copy
-# cross-page drift guard, D-03)
+EXPECTED_CHECK_COUNT = 43  # 06.6.4.1-08 Task 3: 56 - 16 (Section 2's whole
+# companion/pages/preview_page.py-specific test section deleted outright —
+# the module itself is deleted, and every one of its 16 checks either has
+# a live History-side equivalent already (plan 05) or was carried over
+# onto history_page.py's absorbed symbols below) + 3 (2 carried-over
+# checks the History side did not already have — _gallery_name_to_iso()'s
+# degrade-safely fixtures, and a malformed gallery filename's
+# caption-fallback rendering in the Recent-renders disclosure — plus 1
+# new check pinning that a View-panel trigger still carries non-empty
+# <svg icon markup after the nav shrink) = 43. Section 3's end-to-end
+# check was retargeted in place (still 1 check, not counted as new) to
+# assert the /preview -> /history redirect instead of a 200/"Preview"
+# heading, while still proving /preview.png (untouched) returns a real
+# PNG. # 56 = 51 (pre-06.6.4.1-05 Task 3) + 5 (06.6.4.1-05
+# Task 3: the unresolved-airline link absent for a resolved airline,
+# present exactly once per representation for an unresolved airline,
+# keyed on the airline label and not the route label, its href matching
+# health_page.SERVER_DATA_SECTION_ID, and no prefix-registry table
+# duplicated onto History). Prior baseline: 47 (pre-06.6.4.1-05 Task 2) +
+# 4 (06.6.4.1-05 Task 2: nearest_gallery_entry()'s at-or-before/boundary/skip/None
+# behaviour; three interleaved rows' desktop+mobile View-panel triggers
+# carrying byte-identical, correctly-targeted attributes plus exactly one
+# lightbox dialog; zero triggers/zero dialog with an empty gallery entry
+# list; the LIGHTBOX_DIALOG_ID/data-view-panel-*/lightbox__* three-file
+# DOM-contract guard). Prior baseline: 42 (pre-06.6.4.1-05) + 5
+# (06.6.4.1-05 Task 1: History's own Now-showing section with a panel
+# present/absent, the Recent-renders disclosure closed by default with a
+# correct shown-count summary, the same disclosure's empty-gallery
+# no-renders empty state, and confirmation that Preview's page-level
+# freshness apparatus (data-loaded-at/data-stale-banner) was deliberately
+# not ported). Prior baseline: 41 (pre-06.6.4-05) + 1 (06.6.4-05 Task 3: the
+# shared [data-filter-clear] Clear-control contract - History renders the
+# attribute, style.css styles it by attribute, no class-keyed rule
+# competes). Prior baseline: 35 (pre-06.6.3-07) + 6 (06.6.3-07 Task 3:
+# _gallery_name_to_iso() fixtures; matte-frame/sizing/caption re-asserted
+# against the full render() output; no-panel branch stays img/frame-less
+# in the full render() output; gallery sizing/links/D-10 window label
+# re-asserted against the full render() output; a malformed gallery
+# filename's caption-fallback re-asserted against the full render()
+# output; Preview's data-loaded-at/data-stale-banner markers). Prior
+# baseline: 30 (pre-06.6.3-05) + 5 (06.6.3-05 Task 3: filter bar markers
+# present-once; data-filter-text on both representations; desktop
+# Callsign+Hex cell's 2 copy buttons + feedback siblings; mobile details
+# region's 3 copy buttons + feedback siblings; confirmed_state/
+# tracked_runway presentation labels re-asserted against the full
+# render() output). Prior baseline: 28 (pre-06.6.2-04) + 2 (06.6.2-04:
+# History/Preview page_header() shared component checks). Before that:
+# 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History Timestamp column reads
+# "ISO (Nm ago)"; Task 2: Preview's Captured caption reads "Captured ISO
+# (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -104,15 +158,11 @@ def _seed_gallery(state_dir, names):
         _write_gallery_png(os.path.join(gallery_dir, name))
 
 
-def _history_ctx(state_dir, now=None):
-    return {"state_dir": state_dir, "now": now or history_db.utc_now_iso()}
-
-
-def _preview_ctx(state_dir, gallery_entries=None, now=None):
+def _history_ctx(state_dir, now=None, gallery_entries=None):
     return {
         "state_dir": state_dir,
-        "gallery_entries": gallery_entries or [],
         "now": now or history_db.utc_now_iso(),
+        "gallery_entries": gallery_entries or [],
     }
 
 
@@ -435,6 +485,23 @@ def main():
         "companion/pages/history_page.py never redefines _TYPE_DISPLAY_LABELS locally",
         _history_page_never_redefines_type_labels)
 
+    def _history_page_opens_with_shared_page_header():
+        # 06.6.2-04 (D-16): History's top-level heading now goes through
+        # layout.page_header() instead of an independent bare <h1>.
+        tmp = _mkstate("h-page-header")
+        try:
+            rendered = history_page.render(_history_ctx(tmp))
+            if '<h1 class="page-title">History</h1>' not in rendered:
+                return False, "expected the page_header()-rendered <h1 class=\"page-title\">History</h1>"
+            if '<h1 class="text-heading">' in rendered:
+                return False, "expected no bare <h1 class=\"text-heading\"> heading"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History opens with the shared layout.page_header() component, not a bare <h1>",
+        _history_page_opens_with_shared_page_header)
+
     def _history_table_wrapped_for_horizontal_scroll_dot_survives():
         # D-03/D-22 regression pin: History's own hand-built table gained
         # the same .data-table-wrap horizontal-scroll wrapper Airlines and
@@ -509,12 +576,21 @@ def main():
             for value in ("AFR123", "39d301", expected_type_label, expected_airline_label):
                 if value not in rendered:
                     return False, "expected merged value %r to still appear somewhere" % value
-            idx = rendered.find("AFR123")
-            td_start = rendered.rfind("<td>", 0, idx)
-            td_end = rendered.find("</td>", idx)
-            if td_start == -1 or td_end == -1:
+            # Scope the same-<td> check to the desktop table's <tbody> -
+            # the mobile card representation (06.6.3-05) also renders
+            # "AFR123" earlier in the document (the primary line's
+            # <span>, outside any <td>), so a whole-document .find()
+            # would locate that occurrence instead of the table's.
+            tbody_match = re.search(r"<tbody>(.*)</tbody>", rendered, re.S)
+            if not tbody_match:
+                return False, "expected a <tbody> element in the rendered table"
+            tbody = tbody_match.group(1)
+            idx = tbody.find("AFR123")
+            td_start = tbody.rfind("<td>", 0, idx)
+            td_end = tbody.find("</td>", idx)
+            if idx == -1 or td_start == -1 or td_end == -1:
                 return False, "could not locate the callsign's enclosing <td>"
-            cell = rendered[td_start:td_end]
+            cell = tbody[td_start:td_end]
             if "39d301" not in cell:
                 return False, "expected the hex value inside the same <td> as the callsign"
             return True, ""
@@ -614,9 +690,12 @@ def main():
         _merged_cell_classes_agree_with_stylesheet)
 
     def _timestamp_column_absolute_and_relative():
-        # D-02: History's Timestamp column now reads "ISO (Nm ago)"
-        # through the shared companion.layout.absolute_and_relative()
-        # helper (06.6-01), matching Health's Device/pipeline rows.
+        # D-09 (06.6.3-05): History's Timestamp column/mobile primary
+        # line now read through the shared
+        # companion.layout.concise_timestamp_html() helper instead of
+        # the old bare "ISO (Nm ago)" text - reads the expected markup
+        # from the layout module itself, never a hand-typed literal, so
+        # the two cannot silently diverge.
         tmp = _mkstate("h-ts-relative")
         try:
             seeded_ts = "2026-08-28T13:58:02+00:00"
@@ -625,7 +704,7 @@ def main():
                 {"ts": seeded_ts, "hex": "d9", "callsign": "TS1"},
             ])
             rendered = history_page.render(_history_ctx(tmp, now=three_min_later))
-            expected = "%s (3m ago)" % seeded_ts
+            expected = layout.concise_timestamp_html(seeded_ts, three_min_later)
             if expected not in rendered:
                 return False, "expected %r in the rendered History page" % expected
 
@@ -660,7 +739,7 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History's Timestamp column reads 'ISO (Nm ago)', format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
+        "History's Timestamp column/mobile primary line read through layout.concise_timestamp_html(), format_event_row() degrades gracefully with one argument or a missing timestamp, and render() falls back when ctx carries no 'now' key",
         _timestamp_column_absolute_and_relative)
 
     def _corroboration_copy_agrees_with_health_page():
@@ -699,187 +778,721 @@ def main():
         "history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS key-by-key, and the single-source 'None' state is never labelled a failure in either table",
         _corroboration_copy_agrees_with_health_page)
 
+    def _filter_bar_markers_present_once():
+        # D-20: exactly one of each list-filter.js attribute marker,
+        # only rendered when there is data to filter (a zero-row page
+        # renders no filter bar at all, matching the table/card
+        # renderers' own "no chrome with no data" rule).
+        tmp = _mkstate("h-filter-bar")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for marker in (
+                "data-filter-input", "data-filter-count", "data-filter-clear",
+                "data-filter-empty",
+            ):
+                count = rendered.count(marker)
+                if count != 1:
+                    return False, "expected exactly one %r marker, got %d" % (marker, count)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's filter bar carries exactly one data-filter-input/-count/-clear/-empty marker each",
+        _filter_bar_markers_present_once)
+
+    def _clear_control_shared_attribute_contract():
+        # 06.6.4-05 (D-08): History's Clear <button> and Airlines' Clear
+        # <a> converge on one shared style.css rule keyed by the
+        # [data-filter-clear] attribute both pages already emit, not a
+        # new shared class - so a future author adding a class to one
+        # page and not the other is exactly how the two Clear controls
+        # would silently diverge again. Pins all three legs of that
+        # contract: History's rendered output still carries the
+        # attribute, style.css styles it via the attribute selector, and
+        # style.css contains no competing class-keyed Clear-control rule.
+        tmp = _mkstate("h-clear-attr")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "ca01", "callsign": "CA1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if "data-filter-clear" not in rendered:
+                return False, "expected History's rendered filter bar to carry data-filter-clear"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        # Comments are stripped first: this task's own commit adds prose
+        # explaining the attribute-selector choice, and that prose must
+        # not trip the check it documents.
+        declarations = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        # WR-05 fix: the rule-matching regex below requires the selector
+        # and its opening `{` on the same line, so a multi-line,
+        # comma-grouped selector (e.g. `a:focus-visible,\nbutton:focus-
+        # visible {`) would otherwise have its earlier lines silently
+        # dropped from `selector`, undermining this check's own
+        # regression guard. Joining each selector-list newline back onto
+        # one line first makes the regex robust to that style.css
+        # convention.
+        declarations = re.sub(r",\s*\n\s*", ", ", declarations)
+        if "[data-filter-clear]" not in declarations:
+            return False, "expected a [data-filter-clear] rule in style.css"
+        for m in re.finditer(r"\n([^{\n]*\{[^}]*\})", declarations):
+            rule = m.group(1)
+            selector = rule.split("{", 1)[0]
+            if "[data-filter-clear]" in selector:
+                continue
+            if "clear" in selector.lower() and (
+                    "background: none" in rule or "text-decoration: underline" in rule):
+                return False, (
+                    "found a class-keyed Clear-control rule outside "
+                    "[data-filter-clear]: %r - the shared attribute "
+                    "contract must stay the only Clear-control styling "
+                    "site" % selector.strip())
+        return True, ""
+    check(
+        "the Clear control's shared [data-filter-clear] contract holds: History renders the "
+        "attribute, style.css styles it by attribute, and no class-keyed rule competes",
+        _clear_control_shared_attribute_contract)
+
+    def _filter_text_attribute_on_both_representations():
+        # D-20/T-06.6.3-09: the same escaped, lowercased "callsign hex"
+        # value drives both the desktop <tr> and the mobile <li> for the
+        # same flight, so a filter query matches both representations
+        # identically.
+        tmp = _mkstate("h-filter-text")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "3944F0", "callsign": "AFR123"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            expected_attr = 'data-filter-text="afr123 3944f0"'
+            count = rendered.count(expected_attr)
+            if count != 2:
+                return False, (
+                    "expected %r to appear exactly twice (desktop <tr> + "
+                    "mobile <li>), got %d" % (expected_attr, count))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a real flight's data-filter-text attribute (lowercased escaped callsign+hex) appears on both the desktop <tr> and the mobile <li>",
+        _filter_text_attribute_on_both_representations)
+
+    def _desktop_callsign_hex_cell_two_copy_buttons():
+        # D-23: the dedicated Callsign+Hex cell function carries exactly
+        # 2 copy buttons (callsign, hex), each immediately followed by
+        # its data-copy-feedback sibling (copy-button.js's exact
+        # contract).
+        tmp = _mkstate("h-copy-desktop")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "cd01", "callsign": "CDONE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tbody_match = re.search(r"<tbody>(.*)</tbody>", rendered, re.S)
+            if not tbody_match:
+                return False, "expected a <tbody> element in the rendered table"
+            tbody = tbody_match.group(1)
+            idx = tbody.find("CDONE")
+            td_start = tbody.rfind("<td>", 0, idx)
+            td_end = tbody.find("</td>", idx)
+            if idx == -1 or td_start == -1 or td_end == -1:
+                return False, "could not locate the callsign's enclosing <td>"
+            cell = tbody[td_start:td_end]
+            if cell.count("data-copy-value") != 2:
+                return False, (
+                    "expected exactly 2 copy buttons in the desktop "
+                    "Callsign+Hex cell, got %d" % cell.count("data-copy-value"))
+            feedback_pairs = len(re.findall(r"</button><span[^>]*data-copy-feedback", cell))
+            if feedback_pairs != 2:
+                return False, (
+                    "expected each copy button to be immediately "
+                    "followed by its data-copy-feedback sibling, found %d pairs"
+                    % feedback_pairs)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the desktop Callsign+Hex cell contains exactly 2 copy buttons, each immediately followed by its data-copy-feedback sibling",
+        _desktop_callsign_hex_cell_two_copy_buttons)
+
+    def _mobile_details_three_copy_buttons():
+        # D-23: the mobile card's details region carries all 3 copy
+        # buttons (callsign, hex, full timestamp), each immediately
+        # followed by its data-copy-feedback sibling.
+        tmp = _mkstate("h-copy-mobile")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "cm01", "callsign": "CMONE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            details_match = re.search(
+                r'<details class="history-card__details">(.*?)</details>', rendered, re.S)
+            if not details_match:
+                return False, "expected a history-card__details block"
+            details = details_match.group(1)
+            if details.count("data-copy-value") != 3:
+                return False, (
+                    "expected exactly 3 copy buttons in the mobile "
+                    "details region, got %d" % details.count("data-copy-value"))
+            feedback_pairs = len(re.findall(r"</button><span[^>]*data-copy-feedback", details))
+            if feedback_pairs != 3:
+                return False, (
+                    "expected each mobile copy button to be immediately "
+                    "followed by its data-copy-feedback sibling, found %d pairs"
+                    % feedback_pairs)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the mobile card's details region contains exactly 3 copy buttons (callsign, hex, full timestamp), each immediately followed by its data-copy-feedback sibling",
+        _mobile_details_three_copy_buttons)
+
+    def _presentation_labels_in_full_render():
+        # UXA-05: Task 1's format_event_row()-level fixture, re-asserted
+        # against the full render() output (both the desktop cell and
+        # the mobile card), and confirms the audit's own incorrect
+        # literal state-value strings never appear.
+        #
+        # merge of origin/main (quick task 260902-j21): runway "3"'s
+        # device_config.runway_label() display text was relabelled from
+        # "Runway 3 (07/25)" to the official "Piste 3" — derived here at
+        # test time from the real registry rather than hardcoded, so this
+        # check tracks whatever label device_config actually returns
+        # instead of re-drifting the next time the copy changes.
+        tmp = _mkstate("h-labels")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "pl01", "callsign": "PL1",
+                    "confirmed_state": "departing", "tracked_runway": "3",
+                },
+                {
+                    "ts": "2026-08-27T10:01:00+00:00", "hex": "pl02", "callsign": "PL2",
+                    "confirmed_state": "taxiing",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            for expected in ("Departing", device_config.runway_label("3"), "Taxiing"):
+                if expected not in rendered:
+                    return False, "expected %r in the rendered History page" % expected
+            for wrong in ("on_runway", "approaching", 'departed"'):
+                if wrong in rendered:
+                    return False, (
+                        "did not expect the audit's own incorrect literal "
+                        "state value %r in the rendered History page" % wrong)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "confirmed_state/tracked_runway presentation labels (Task 1's format_event_row() fixture) also appear correctly through the full render() output",
+        _presentation_labels_in_full_render)
+
     # ======================================================================
-    # Section 2: companion/pages/preview_page.py
+    # Section 1b: 06.6.4.1-05 Task 1 - History's own Now-showing section
+    # and collapsed Recent-renders disclosure (D-18/D-19), moved from
+    # companion/pages/preview_page.py.
     # ======================================================================
 
-    def _panel_present_one_image_one_caveat():
-        tmp = _mkstate("p-present")
+    def _now_showing_panel_present_one_image_one_caveat():
+        tmp = _mkstate("h-now-showing-present")
         try:
             _write_panel_file(tmp)
-            rendered = preview_page.render(_preview_ctx(tmp))
+            rendered = history_page.render(_history_ctx(tmp))
+            if rendered.count('class="preview-frame"') != 1:
+                return False, "expected exactly one .preview-frame element"
             if rendered.count('src="/preview.png"') != 1:
                 return False, "expected exactly one image element pointing at /preview.png"
-            if rendered.count(preview_page.COLOUR_CAVEAT) != 1:
+            if "Captured " not in rendered:
+                return False, "expected the captured-at caption wording"
+            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
                 return False, "expected the colour caveat sentence exactly once"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a valid panel file present renders exactly one preview image element and the colour caveat exactly once",
-        _panel_present_one_image_one_caveat)
+        "History's Now-showing section renders one .preview-frame, one preview image, a "
+        "captured-at caption, and the colour caveat exactly once when a panel file exists",
+        _now_showing_panel_present_one_image_one_caveat)
 
-    def _no_panel_no_image_element():
-        tmp = _mkstate("p-absent")
+    def _now_showing_no_panel_no_image_element():
+        tmp = _mkstate("h-now-showing-absent")
         try:
-            rendered = preview_page.render(_preview_ctx(tmp))
+            rendered = history_page.render(_history_ctx(tmp))
             if 'src="/preview.png"' in rendered:
-                return False, "did not expect an image element pointing at /preview.png with no panel file"
-            if preview_page._NO_PANEL_CAPTION not in rendered:
+                return False, "did not expect a preview image element with no panel file"
+            if 'class="preview-frame"' in rendered:
+                return False, "did not expect a .preview-frame element with no panel file"
+            if history_page._NO_PANEL_CAPTION not in rendered:
                 return False, "expected the honest no-panel-yet caption"
+            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
+                return False, "expected the colour caveat sentence exactly once"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "no panel file renders no preview image element, with an honest caption instead",
-        _no_panel_no_image_element)
+        "History's Now-showing section renders no .preview-frame and no preview image element "
+        "with no panel file, still with the honest caption and the colour caveat exactly once",
+        _now_showing_no_panel_no_image_element)
 
-    def _captured_caption_absolute_and_relative():
-        # D-02: Preview's Captured caption now reads
-        # "Captured ISO (Nm ago)" through the same shared
-        # companion.layout.absolute_and_relative() helper (06.6-01),
-        # keeping the existing "Captured " wording.
-        tmp = _mkstate("p-ts-relative")
-        try:
-            _write_panel_file(tmp)
-            rendered = preview_page.render(_preview_ctx(tmp))
-            if "Captured " not in rendered:
-                return False, "expected the caption to still begin 'Captured '"
-            if " ago)" not in rendered:
-                return False, "expected a parenthesised relative age ending ' ago)'"
-
-            # The no-panel-yet branch stays honest: no image element, no
-            # relative-age suffix, exact caption text unchanged.
-            empty_tmp = _mkstate("p-ts-absent")
-            try:
-                rendered_empty = preview_page.render(_preview_ctx(empty_tmp))
-            finally:
-                shutil.rmtree(empty_tmp, ignore_errors=True)
-            if preview_page._NO_PANEL_CAPTION not in rendered_empty:
-                return False, "expected the honest no-panel-yet caption to survive unchanged"
-            if " ago)" in rendered_empty:
-                return False, "did not expect a relative-age suffix with no panel file"
-
-            # The mixed Z / +00:00 suffix pair this page actually
-            # produces must yield a relative suffix, not degrade to
-            # absolute-only.
-            mixed = layout.absolute_and_relative(
-                "2026-08-28T13:58:02Z", "2026-08-28T13:58:32+00:00")
-            if not mixed.endswith("(30s ago)"):
-                return False, (
-                    "expected the Z/+00:00 mixed-suffix pair to subtract "
-                    "cleanly, got %r" % mixed)
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "Preview's Captured caption reads 'Captured ISO (Nm ago)', the no-panel branch stays honest with no relative suffix, and the Z/+00:00 mixed-suffix mtime pair subtracts cleanly",
-        _captured_caption_absolute_and_relative)
-
-    def _zero_gallery_entries_empty_state():
-        tmp = _mkstate("p-gallery-empty")
-        try:
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=[]))
-            if preview_page._NO_RENDERS_HEADING not in rendered:
-                return False, "expected the render-gallery empty-state heading"
-            if 'class="gallery-grid"' in rendered:
-                return False, "did not expect a gallery-grid element with zero entries"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "zero gallery entries render the render-gallery empty state and no gallery-grid element",
-        _zero_gallery_entries_empty_state)
-
-    def _gallery_entries_under_limit_one_tile_each():
-        tmp = _mkstate("p-gallery-under")
+    def _recent_renders_disclosure_closed_by_default_correct_count():
+        tmp = _mkstate("h-recent-renders")
         try:
             names = ["20260827T100002Z.png", "20260827T100001Z.png", "20260827T100000Z.png"]
             _seed_gallery(tmp, names)
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names))
-            if rendered.count('class="gallery-tile"') != 3:
-                return False, "expected exactly 3 gallery tiles"
-            for name in names:
-                if ("/gallery/%s" % name) not in rendered:
-                    return False, "expected a gallery URL for %r" % name
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            if '<details class="readings-disclosure"><summary>Recent renders' not in rendered:
+                return False, (
+                    "expected a readings-disclosure details element (no open attribute) "
+                    "with a Recent renders summary")
+            match = re.search(
+                r'<details class="readings-disclosure"><summary>(Recent renders \(\d+\))'
+                r'</summary>(.*?)</details>', rendered, re.S)
+            if not match:
+                return False, "expected a readings-disclosure details element with a Recent renders summary"
+            summary_text = match.group(1)
+            tile_count_in_disclosure = match.group(2).count('class="gallery-tile"')
+            if summary_text != ("Recent renders (%d)" % tile_count_in_disclosure):
+                return False, (
+                    "expected the summary count %r to equal the number of "
+                    "gallery-tile elements actually rendered (%d)"
+                    % (summary_text, tile_count_in_disclosure))
+            if tile_count_in_disclosure != 3:
+                return False, "expected exactly 3 gallery tiles for 3 seeded entries"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "gallery entries under the display limit render one tile per entry",
-        _gallery_entries_under_limit_one_tile_each)
+        "History's Recent-renders disclosure is collapsed by default (no open attribute) and its "
+        "summary count equals the number of gallery-tile elements actually rendered inside it",
+        _recent_renders_disclosure_closed_by_default_correct_count)
 
-    def _gallery_entries_over_limit_capped_and_newest():
-        tmp = _mkstate("p-gallery-over")
+    def _recent_renders_disclosure_empty_gallery():
+        tmp = _mkstate("h-recent-renders-empty")
         try:
-            # A fixed pool size, independent of preview_page.GALLERY_DISPLAY_LIMIT
-            # itself (T-06-09 acceptance criterion: deliberately raising the
-            # module's constant must make this check fail, not just generate a
-            # bigger fixture) - list slicing can never produce more tiles than
-            # this pool has entries, so an inflated limit constant is caught
-            # the moment tile_count stops matching GALLERY_DISPLAY_LIMIT.
-            total = 30
-            names = ["20260827T1%05dZ.png" % i for i in range(total)]
-            names_newest_first = sorted(names, reverse=True)
-            _seed_gallery(tmp, names)
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names_newest_first))
-            tile_count = rendered.count('class="gallery-tile"')
-            if tile_count != preview_page.GALLERY_DISPLAY_LIMIT:
-                return False, "expected exactly GALLERY_DISPLAY_LIMIT=%d tiles, got %d" % (
-                    preview_page.GALLERY_DISPLAY_LIMIT, tile_count)
-            newest_name = names_newest_first[0]
-            oldest_name = names_newest_first[-1]
-            if ("/gallery/%s" % newest_name) not in rendered:
-                return False, "expected the newest gallery entry to be tiled"
-            if ("/gallery/%s" % oldest_name) in rendered:
-                return False, "did not expect the oldest gallery entry to be tiled (cap must keep the newest)"
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=[]))
+            if history_page._NO_RENDERS_HEADING not in rendered:
+                return False, "expected the render-gallery empty-state heading"
+            if 'class="gallery-grid"' in rendered:
+                return False, "did not expect a gallery-grid element with zero entries"
+            if "Recent renders (0)" not in rendered:
+                return False, "expected the disclosure summary to read 'Recent renders (0)'"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "gallery entries over the display limit render exactly GALLERY_DISPLAY_LIMIT tiles, keeping the newest",
-        _gallery_entries_over_limit_capped_and_newest)
+        "History's Recent-renders disclosure shows the existing no-renders empty state and a "
+        "'Recent renders (0)' summary with an empty gallery entry list",
+        _recent_renders_disclosure_empty_gallery)
 
-    def _preview_page_never_imports_app():
-        with open(os.path.join(HERE, "pages", "preview_page.py")) as fh:
-            source = fh.read()
-        if "import companion.app" in source or "from companion import app" in source:
-            return False, "preview_page.py must never import companion.app (router-import cycle)"
-        return True, ""
-    check(
-        "companion/pages/preview_page.py never imports companion.app",
-        _preview_page_never_imports_app)
-
-    def _preview_page_no_input_element():
-        with open(os.path.join(HERE, "pages", "preview_page.py")) as fh:
-            source = fh.read()
-        if "<input" in source:
-            return False, "preview_page.py must contain no <input element (D-20's deferred simulate-a-flight control)"
-        return True, ""
-    check(
-        "companion/pages/preview_page.py contains no <input element",
-        _preview_page_no_input_element)
-
-    def _every_image_has_nonempty_alt():
-        tmp = _mkstate("p-alt")
+    def _now_showing_no_preview_freshness_apparatus():
+        # D-18: Preview's page-level freshness apparatus (its own
+        # data-loaded-at Refresh link and paired data-stale-banner) was
+        # deliberately not ported - only preview_section()'s content
+        # moved.
+        tmp = _mkstate("h-no-freshness")
         try:
             _write_panel_file(tmp)
-            names = ["20260827T100000Z.png"]
-            _seed_gallery(tmp, names)
-            rendered = preview_page.render(_preview_ctx(tmp, gallery_entries=names))
-            if _img_tag_count(rendered) < 2:
-                return False, "expected at least 2 <img elements (preview + one gallery tile)"
-            for alt in _img_alt_values(rendered):
-                if not alt:
-                    return False, "found an <img with an empty alt attribute"
-            if _img_tag_count(rendered) != len(_img_alt_values(rendered)):
-                return False, "found an <img with no alt attribute at all"
+            rendered = history_page.render(_history_ctx(tmp))
+            if "data-loaded-at" in rendered:
+                return False, "did not expect a data-loaded-at attribute on the History page"
+            if "data-stale-banner" in rendered:
+                return False, "did not expect a data-stale-banner element on the History page"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "every <img element on the Preview page carries a non-empty alt attribute",
-        _every_image_has_nonempty_alt)
+        "the rendered History page contains no data-loaded-at attribute and no data-stale-banner "
+        "element - Preview's page-level freshness apparatus was deliberately not ported",
+        _now_showing_no_preview_freshness_apparatus)
+
+    def _gallery_name_to_iso_fixtures():
+        # D-22/06.6.3-RESEARCH.md Pitfall 2: the well-formed reversal only
+        # touches the time+offset portion; a missing "T" separator or a
+        # malformed time+offset portion both degrade to None rather than
+        # raising. Carried over here (06.6.4.1-08 Task 3) from
+        # companion/pages/preview_page.py's own now-deleted coverage of
+        # the identical helper, which history_page.py absorbed byte-for-
+        # byte in 06.6.4.1-05 — not otherwise duplicated on the History
+        # side.
+        well_formed = history_page._gallery_name_to_iso(
+            "2026-08-30T19-20-42+00-00.png")
+        if well_formed != "2026-08-30T19:20:42+00:00":
+            return False, (
+                "expected the well-formed fixture to reverse to %r, got %r"
+                % ("2026-08-30T19:20:42+00:00", well_formed))
+        if history_page._gallery_name_to_iso("not-a-real-name.png") is not None:
+            return False, "expected a filename with no 'T' separator to return None"
+        if history_page._gallery_name_to_iso("2026-08-30Tgarbage.png") is not None:
+            return False, "expected a malformed time+offset portion to return None"
+        return True, ""
+    check(
+        "history_page._gallery_name_to_iso() reverses a well-formed gallery filename and "
+        "returns None (never raising) on a missing 'T' separator or a "
+        "malformed time+offset portion",
+        _gallery_name_to_iso_fixtures)
+
+    def _recent_renders_malformed_filename_caption_fallback():
+        # Carried over here (06.6.4.1-08 Task 3) from
+        # companion/pages/preview_page.py's own now-deleted coverage: a
+        # manually-dropped or renamed gallery file must still render a
+        # tile with a non-empty raw-filename-derived caption, never
+        # raising and never a blank caption.
+        tmp = _mkstate("h-gallery-malformed")
+        try:
+            names = ["not-a-real-gallery-name.png"]
+            _seed_gallery(tmp, names)
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            if 'class="gallery-tile"' not in rendered:
+                return False, "expected a gallery tile to still render for a malformed filename"
+            if '<p class="text-label mono"></p>' in rendered:
+                return False, "did not expect a blank caption for a malformed filename"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "History's Recent-renders disclosure still renders a tile with a non-empty "
+        "raw-filename-derived caption for a malformed gallery filename, never raising",
+        _recent_renders_malformed_filename_caption_fallback)
+
+    def _view_panel_trigger_carries_nonempty_icon():
+        # 06.6.4.1-08 (D-22) Task 2 acceptance criterion, placed here
+        # (test_view_pages.py) rather than test_companion_app.py since
+        # this needs a full History render with a matched gallery entry
+        # — layout-level coverage that icon_html("icon-nav-preview")
+        # itself returns non-empty markup lives in
+        # test_companion_app.py's own eye-glyph-survives-nav-shrink check.
+        tmp = _mkstate("h-view-panel-icon")
+        try:
+            names = ["2026-08-27T10-00-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "vpicon1", "callsign": "VPICON"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if "data-view-panel-src" not in rendered:
+            return False, "expected at least one View-panel trigger to render"
+        trigger_start = rendered.find("data-view-panel-src")
+        button_start = rendered.rfind("<button", 0, trigger_start)
+        button_end = rendered.find("</button>", trigger_start)
+        button_markup = rendered[button_start:button_end]
+        if "<svg" not in button_markup:
+            return False, "expected the View-panel trigger button to carry non-empty <svg icon markup"
+        return True, ""
+    check(
+        "a rendered History page's View-panel trigger carries a non-empty icon (<svg markup) "
+        "for a fixture with a matched gallery entry — the eye glyph survives the nav shrink",
+        _view_panel_trigger_carries_nonempty_icon)
+
+    # ======================================================================
+    # Section 1c: 06.6.4.1-05 Task 2 - server-side nearest-render lookup,
+    # per-row View-panel buttons, and the shared lightbox (D-20).
+    # ======================================================================
+
+    def _row_block(rendered, tag, group_index):
+        pattern = r"<%s[^>]*data-filter-group=\"%d\"[^>]*>(.*?)</%s>" % (
+            tag, group_index, tag)
+        match = re.search(pattern, rendered, re.S)
+        return match.group(1) if match else None
+
+    def _nearest_gallery_entry_behaviour():
+        entries = [
+            "2026-08-27T10-05-00+00-00.png",
+            "2026-08-27T10-02-00+00-00.png",
+            "2026-08-27T10-00-00+00-00.png",
+            "not-a-real-gallery-name.png",  # unparseable - must be skipped
+        ]
+
+        # Between two entries: matches the latest one at or before row_ts.
+        match = history_page.nearest_gallery_entry(entries, "2026-08-27T10:03:00+00:00")
+        if match != ("2026-08-27T10-02-00+00-00.png", "2026-08-27T10:02:00+00:00"):
+            return False, "expected the latest entry at or before 10:03:00, got %r" % (match,)
+
+        # Exact boundary: row_ts equal to an entry's own recovered
+        # timestamp still matches that entry ("at or before" is
+        # inclusive).
+        match = history_page.nearest_gallery_entry(entries, "2026-08-27T10:02:00+00:00")
+        if match != ("2026-08-27T10-02-00+00-00.png", "2026-08-27T10:02:00+00:00"):
+            return False, "expected an exact-boundary row_ts to match its own entry, got %r" % (match,)
+
+        # Every recoverable entry strictly after row_ts -> None.
+        if history_page.nearest_gallery_entry(entries, "2026-08-27T09:00:00+00:00") is not None:
+            return False, "expected None when every recoverable entry is strictly after row_ts"
+
+        # Empty entry list -> None.
+        if history_page.nearest_gallery_entry([], "2026-08-27T10:03:00+00:00") is not None:
+            return False, "expected None for an empty entry list"
+
+        # Unparseable/empty row_ts -> None, never raising.
+        if history_page.nearest_gallery_entry(entries, "") is not None:
+            return False, "expected None for an empty row_ts"
+        if history_page.nearest_gallery_entry(entries, "not-a-real-timestamp") is not None:
+            return False, "expected None for an unparseable row_ts"
+        if history_page.nearest_gallery_entry(entries, None) is not None:
+            return False, "expected None for a None row_ts, never raising"
+
+        return True, ""
+    check(
+        "nearest_gallery_entry() matches the latest at-or-before entry (inclusive boundary), skips "
+        "an entry with an unrecoverable filename timestamp, and returns None for an empty entry "
+        "list, an empty/unparseable row_ts, or when every recoverable entry is strictly after row_ts",
+        _nearest_gallery_entry_behaviour)
+
+    def _view_panel_triggers_per_row_full_render():
+        tmp = _mkstate("h-view-panel-rows")
+        try:
+            names = [
+                "2026-08-27T10-05-00+00-00.png",
+                "2026-08-27T10-02-00+00-00.png",
+                "2026-08-27T10-00-00+00-00.png",
+            ]
+            _seed_gallery(tmp, names)
+            # Newest-first row order (history_rows()'s own ordering):
+            # VP-C (10:10) -> VP-B (10:03) -> VP-A (10:01).
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "vpa01", "callsign": "VPA"},
+                {"ts": "2026-08-27T10:03:00+00:00", "hex": "vpb01", "callsign": "VPB"},
+                {"ts": "2026-08-27T10:10:00+00:00", "hex": "vpc01", "callsign": "VPC"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+
+            expected_by_group = {
+                0: ("2026-08-27T10-05-00+00-00.png", "2026-08-27T10:05:00+00:00"),  # VPC
+                1: ("2026-08-27T10-02-00+00-00.png", "2026-08-27T10:02:00+00:00"),  # VPB
+                2: ("2026-08-27T10-00-00+00-00.png", "2026-08-27T10:00:00+00:00"),  # VPA
+            }
+            for index, (expected_name, expected_iso) in expected_by_group.items():
+                expected_src = "/gallery/%s" % expected_name
+                expected_caption = history_page.LIGHTBOX_CAPTION_TEMPLATE % expected_iso
+
+                tr_block = _row_block(rendered, "tr", index)
+                li_block = _row_block(rendered, "li", index)
+                if tr_block is None or li_block is None:
+                    return False, "could not locate row block for data-filter-group=%d" % index
+
+                for label, block in (("desktop <tr>", tr_block), ("mobile <li>", li_block)):
+                    if ('data-view-panel-src="%s"' % expected_src) not in block:
+                        return False, (
+                            "expected %s for row %d to carry data-view-panel-src=%r"
+                            % (label, index, expected_src))
+                    if ('data-view-panel-caption="%s"' % expected_caption) not in block:
+                        return False, (
+                            "expected %s for row %d to carry data-view-panel-caption=%r"
+                            % (label, index, expected_caption))
+                    if history_page.VIEW_PANEL_LABEL not in block:
+                        return False, "expected %s for row %d to carry the View-panel aria-label" % (label, index)
+
+                tr_src = re.search(r'data-view-panel-src="([^"]*)"', tr_block).group(1)
+                li_src = re.search(r'data-view-panel-src="([^"]*)"', li_block).group(1)
+                tr_caption = re.search(r'data-view-panel-caption="([^"]*)"', tr_block).group(1)
+                li_caption = re.search(r'data-view-panel-caption="([^"]*)"', li_block).group(1)
+                if tr_src != li_src or tr_caption != li_caption:
+                    return False, (
+                        "expected byte-identical trigger attributes on the desktop and mobile "
+                        "representations of row %d" % index)
+
+            if rendered.count('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) != 1:
+                return False, "expected exactly one lightbox dialog element"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "for three gallery entries and three interleaved rows, each row's desktop and mobile "
+        "View-panel trigger carries byte-identical, correctly-targeted data-view-panel-src/-caption "
+        "attributes matching its own nearest gallery entry, and exactly one lightbox dialog is emitted",
+        _view_panel_triggers_per_row_full_render)
+
+    def _view_panel_empty_gallery_zero_triggers_zero_dialog():
+        tmp = _mkstate("h-view-panel-empty-gallery")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "vpe01", "callsign": "VPEMPTY"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=[]))
+            if "data-view-panel-src" in rendered:
+                return False, "did not expect any View-panel trigger with an empty gallery entry list"
+            if ('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) in rendered:
+                return False, "did not expect a lightbox dialog element with an empty gallery entry list"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with an empty gallery entry list, History renders zero View-panel triggers and zero "
+        "lightbox dialog elements, never a disabled or broken control",
+        _view_panel_empty_gallery_zero_triggers_zero_dialog)
+
+    def _lightbox_dom_contract_three_file_guard():
+        # Source/DOM-contract guard: LIGHTBOX_DIALOG_ID, the two trigger
+        # attribute names, and the three lightbox element class names
+        # must each appear in history_page.py's own constants, in
+        # panel-lookup.js's source, and in the rendered page markup - a
+        # drift in any of the three would leave the button silently
+        # doing nothing with no signal from either file in isolation.
+        js_path = os.path.join(HERE, "static", "panel-lookup.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+
+        tmp = _mkstate("h-dom-contract")
+        try:
+            names = ["2026-08-27T10-00-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "dc01", "callsign": "DOMCONTRACT"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        tokens = (
+            history_page.LIGHTBOX_DIALOG_ID,
+            "data-view-panel-src",
+            "data-view-panel-caption",
+            "lightbox__image",
+            "lightbox__caption",
+            "lightbox__note",
+        )
+        for token in tokens:
+            if token not in js_source:
+                return False, "expected %r to appear in companion/static/panel-lookup.js" % token
+            if token not in rendered:
+                return False, "expected %r to appear in the rendered History page" % token
+        return True, ""
+    check(
+        "LIGHTBOX_DIALOG_ID, the two data-view-panel-* trigger attribute names, and the three "
+        "lightbox__* element class names each appear in companion/static/panel-lookup.js and in "
+        "the rendered History page",
+        _lightbox_dom_contract_three_file_guard)
+
+    # ======================================================================
+    # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
+    # Server & data anchor (D-21).
+    # ======================================================================
+
+    def _unresolved_link_absent_for_resolved_airline():
+        tmp = _mkstate("h-link-resolved")
+        try:
+            _seed_runway_events(tmp, [
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "lkr01", "callsign": "LINKRES",
+                    "airline": "AFR", "origin": "LFPO", "destination": "LFPG",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for a resolved-airline row"
+            if history_page.UNRESOLVED_LINK_HREF in tr_block:
+                return False, "did not expect the unresolved-airline link in the desktop cell for a resolved airline"
+            if history_page.UNRESOLVED_LINK_HREF in li_block:
+                return False, "did not expect the unresolved-airline link in the mobile details for a resolved airline"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a formatted row with a resolved airline produces a Type-and-Airline cell (desktop) and "
+        "Aircraft detail row (mobile) with no anchor pointing at the Health server-data route",
+        _unresolved_link_absent_for_resolved_airline)
+
+    def _unresolved_link_present_once_each_for_unresolved_airline():
+        tmp = _mkstate("h-link-unresolved")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "lku01", "callsign": "LINKUNR"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for an unresolved-airline row"
+            href_attr = 'href="%s"' % history_page.UNRESOLVED_LINK_HREF
+            if tr_block.count(href_attr) != 1:
+                return False, (
+                    "expected exactly one unresolved-airline link in the desktop cell, found %d"
+                    % tr_block.count(href_attr))
+            if li_block.count(href_attr) != 1:
+                return False, (
+                    "expected exactly one unresolved-airline link in the mobile details list, found %d"
+                    % li_block.count(href_attr))
+            if history_page.UNRESOLVED_LINK_TEXT not in tr_block:
+                return False, "expected the link text in the desktop cell"
+            if history_page.UNRESOLVED_LINK_TEXT not in li_block:
+                return False, "expected the link text in the mobile details list"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a formatted row whose airline label equals the route-fallback constant produces exactly "
+        "one unresolved-airline anchor in the desktop cell and exactly one in the mobile details list",
+        _unresolved_link_present_once_each_for_unresolved_airline)
+
+    def _unresolved_link_keyed_on_airline_not_route():
+        tmp = _mkstate("h-link-route-only")
+        try:
+            _seed_runway_events(tmp, [
+                # airline resolved, but no origin/destination -> route
+                # unavailable while the airline itself is not.
+                {
+                    "ts": "2026-08-27T10:00:00+00:00", "hex": "lkro1", "callsign": "LINKROUTE",
+                    "airline": "AFR",
+                },
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for a route-only-unresolved row"
+            if panel_render.ROUTE_FALLBACK_TEXT not in tr_block:
+                return False, "expected the Route cell to still render the fallback text"
+            if history_page.UNRESOLVED_LINK_HREF in tr_block:
+                return False, "did not expect the unresolved-airline link when only the route is unresolved"
+            if history_page.UNRESOLVED_LINK_HREF in li_block:
+                return False, "did not expect the unresolved-airline link in mobile details either"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a row whose route is unresolved but whose airline IS resolved produces no unresolved-"
+        "airline link - the link is keyed on the airline label, not on the route label",
+        _unresolved_link_keyed_on_airline_not_route)
+
+    def _unresolved_link_href_matches_health_anchor():
+        expected_suffix = "#" + health_page.SERVER_DATA_SECTION_ID
+        if not history_page.UNRESOLVED_LINK_HREF.endswith(expected_suffix):
+            return False, (
+                "expected history_page.UNRESOLVED_LINK_HREF to end with %r, got %r"
+                % (expected_suffix, history_page.UNRESOLVED_LINK_HREF))
+        return True, ""
+    check(
+        "history_page.UNRESOLVED_LINK_HREF ends with \"#\" + health_page.SERVER_DATA_SECTION_ID",
+        _unresolved_link_href_matches_health_anchor)
+
+    def _no_prefix_registry_duplicated_on_history():
+        tmp = _mkstate("h-no-registry")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "reg01", "callsign": "REGCHK"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            if health_page.UNRESOLVED_SECTION_HEADING in rendered:
+                return False, "did not expect Health's Unresolved-prefixes registry heading on History"
+            if "<th>Prefix</th>" in rendered or "<th>First seen</th>" in rendered:
+                return False, "did not expect the registry table's own column headers on History"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the rendered History page contains no prefix-registry table and no element carrying the "
+        "registry table's own headers",
+        _no_prefix_registry_duplicated_on_history)
 
     # ======================================================================
     # Section 3: one end-to-end check - a real companion/app.py subprocess,
@@ -897,13 +1510,22 @@ def main():
         ])
         _write_panel_file(harness.tmpdir)
 
-        def _tabs_and_preview_image_end_to_end():
-            for path, heading in (("/history", "History"), ("/preview", "Preview")):
-                status, _headers, body = http_request(base + path, cookie=session_cookie)
-                if status != 200:
-                    return False, "expected 200 for %s, got %d" % (path, status)
-                if heading.encode() not in body:
-                    return False, "expected the %r heading in %s's response body" % (heading, path)
+        def _history_preview_redirect_and_preview_image_end_to_end():
+            # 06.6.4.1-08 (D-22): /preview is retired as a page — this
+            # subprocess-level check proves the redirect, and that
+            # deleting preview_page.py did not remove anything
+            # /preview.png's byte-serving route still calls into.
+            status, _headers, body = http_request(base + "/history", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 for /history, got %d" % status
+            if b"History" not in body:
+                return False, "expected the 'History' heading in /history's response body"
+
+            status, headers, body = http_request(base + "/preview", cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect for /preview, got %d" % status
+            if headers.get("Location") != "/history":
+                return False, "expected /preview to redirect to /history, got %r" % headers.get("Location")
 
             status, headers, body = http_request(base + "/preview.png", cookie=session_cookie)
             if status != 200:
@@ -915,8 +1537,11 @@ def main():
                 return False, "expected Content-Type: image/png, got %r" % content_type
             return True, ""
         check(
-            "GET /history and GET /preview return 200 with their own heading, and GET /preview.png returns a real PNG, against a real running service",
-            _tabs_and_preview_image_end_to_end)
+            "GET /history returns 200 with its own heading, GET /preview redirects (303) to "
+            "/history, and GET /preview.png still returns a real PNG — proving the deleted "
+            "preview_page.py module removed nothing the byte-serving routes still call into, "
+            "against a real running service",
+            _history_preview_redirect_and_preview_image_end_to_end)
 
     finally:
         harness.stop()

@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 47
+EXPECTED_CHECK_COUNT = 52
 
 
 def main():
@@ -777,6 +777,71 @@ def main():
         "still present as distinct names) and the three new filenames (delivered on disk); the QT-lgt-D-01 Wizz "
         "Air Malta reuse guard holds - no Malta-specific Wizz entry exists in either list (260827-lgt)",
         _lgt_targets_present_and_wizz_reuse_guard_holds,
+    )
+
+    # --- target_variants_by_airline() (D-14, 06.6.4.1-02) --------------------
+
+    def _variants_by_airline_matches_names_order_and_count():
+        pairs = ill.target_variants_by_airline()
+        if len(pairs) != 27:
+            return False, "target_variants_by_airline() returned %d pairs, expected 27" % (len(pairs),)
+        got_names = [name for name, _shapes in pairs]
+        expected_names = ill.target_airline_names()
+        if got_names != expected_names:
+            return False, "target_variants_by_airline() names %r != target_airline_names() %r" % (got_names, expected_names)
+        return True, ""
+    check(
+        "target_variants_by_airline() returns 27 pairs in the same order as target_airline_names()",
+        _variants_by_airline_matches_names_order_and_count,
+    )
+
+    def _variants_air_caraibes_three_shapes_in_order():
+        pairs = dict(ill.target_variants_by_airline())
+        got = pairs.get("Air Caraïbes")
+        expected = ["a330", "a350-1000", "atr72"]
+        if got != expected:
+            return False, "Air Caraïbes shapes %r != expected %r" % (got, expected)
+        return True, ""
+    check(
+        "target_variants_by_airline()'s Air Caraïbes pair carries exactly ['a330', 'a350-1000', 'atr72'], in order",
+        _variants_air_caraibes_three_shapes_in_order,
+    )
+
+    def _variants_air_france_empty_list_not_none():
+        pairs = dict(ill.target_variants_by_airline())
+        got = pairs.get("Air France")
+        if got != []:
+            return False, "Air France shapes %r, expected an empty list (not a list holding None)" % (got,)
+        return True, ""
+    check(
+        "target_variants_by_airline()'s Air France pair (a single None-shape entry) carries an empty list, not [None]",
+        _variants_air_france_empty_list_not_none,
+    )
+
+    def _variants_no_none_and_a350_1000_survives():
+        pairs = ill.target_variants_by_airline()
+        for name, shapes in pairs:
+            if None in shapes:
+                return False, "airline %r's shape list contains None: %r" % (name, shapes)
+        all_shapes = [shape for _name, shapes in pairs for shape in shapes]
+        if "a350-1000" not in all_shapes:
+            return False, "'a350-1000' is missing from target_variants_by_airline()'s flattened shapes: %r" % (all_shapes,)
+        return True, ""
+    check(
+        "no target_variants_by_airline() shape list contains None, and 'a350-1000' survives "
+        "(not dropped by a SHAPE_SLUGS membership test)",
+        _variants_no_none_and_a350_1000_survives,
+    )
+
+    def _variants_derived_from_targets_no_second_table():
+        import inspect
+        source = inspect.getsource(ill.target_variants_by_airline)
+        if "_ILLUSTRATION_TARGETS" not in source:
+            return False, "target_variants_by_airline() source does not reference _ILLUSTRATION_TARGETS"
+        return True, ""
+    check(
+        "target_variants_by_airline() is derived from _ILLUSTRATION_TARGETS directly (source assertion)",
+        _variants_derived_from_targets_no_second_table,
     )
 
     total = len(results)

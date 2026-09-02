@@ -14,13 +14,8 @@ only renders the button/copy for it.
 import json
 
 from companion.layout import escape_html
-from server import device_config
-
-THEME_HELPER_TEXT = (
-    "Every colour is a pure flat variant plus a lighter, dithered variant, "
-    "each individually validated on real Spectra 6 glass (Phase 8).")
-RUNWAY_HELPER_TEXT = (
-    "Applies on the device's next scheduled poll — not immediately.")
+import companion.layout as layout
+from server import device_config, panel_format
 
 # The single definition of this route prefix in the repository (06.4).
 # companion/app.py rebinds it (RUNWAY_IMAGE_ROUTE_PREFIX =
@@ -29,16 +24,84 @@ RUNWAY_HELPER_TEXT = (
 # app.py imports this module, so the reverse import would be a cycle.
 RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
 RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
-LED_HELPER_TEXT = (
-    "Controls the board's built-in bring-up LED. It's lit only during the "
-    "device's brief active wake window and isn't visible from the "
-    "wall-facing side. Applies on the device's next scheduled poll — not "
-    "immediately.")
+
+# The single definition of this route in the repository (06.6.4.1, D-05/
+# D-26). companion/app.py rebinds its own SETTINGS_ROUTE constant to this
+# value rather than re-typing the literal (06.6.4.1-07), mirroring
+# RUNWAY_IMAGE_ROUTE_PREFIX's own rebinding discipline above — app.py
+# imports this module, so the reverse import would be a cycle. The old
+# "/config" path is retired: it 404s by design, no redirect (D-26).
+SETTINGS_ROUTE = "/settings"
+
+# quick task 260901-re6: this value is interpolated twice — once as the
+# settings <form>'s id, once as the dirty-bar save button's form
+# attribute — and the two must never be re-typed as literals, because a
+# mismatch produces a Save button that looks correct in markup and
+# silently submits nothing. Same one-definition-site discipline as
+# RUNWAY_IMAGE_ROUTE_PREFIX/SETTINGS_ROUTE above.
+SETTINGS_FORM_ID = "settings-form"
 
 # The sole accepted submitted value for the LED checkbox (D-01) — shared
-# by led_fieldset()'s markup and handle_led_post()'s validator so the two
-# can never drift apart.
+# by led_group()'s markup and handle_post()'s validator so the two can
+# never drift apart.
 LED_CHECKBOX_VALUE = "on"
+
+# quick task 260901-re6: each settings group used to render a description
+# sentence above its control (THEME_SECTION_DESCRIPTION/
+# RUNWAY_SECTION_DESCRIPTION, D-02 06.6.4.1) AND a helper sentence below
+# it (THEME_HELPER_TEXT/RUNWAY_HELPER_TEXT/LED_HELPER_TEXT) — Theme and
+# Runway rendered both, LED escaped the doubling but kept its lone
+# paragraph un-muted and positioned after its control instead of before.
+# All five of those constants are retired outright. Each group now
+# carries exactly one caption, rendered once, directly under the group
+# heading and before the control, styled as a single muted sentence via
+# a CSS modifier class in companion/static/style.css. The LED group is
+# the odd one out only in that it never had a pair to merge — its single
+# paragraph is reworded and relocated, not merged with anything.
+#
+# quick task 260901-s5o: a fourth caption, POLL_SECTION_CAPTION, joins
+# the three above. Poll was never part of the description/helper merge
+# those three came out of — it is a `<section class="page-section">`,
+# not a `.theme-status` group, and had no paragraph of its own to merge.
+# It was simply skipped, leaving the page's fourth section as the only
+# one with a bare heading. This caption is new copy, validated against
+# the Settings Save Bar Sketch, not merged from anything. Unlike the
+# other three, it is consumed by a two-branch renderer
+# (poll_trigger_section()), so it must be interpolated on both branches
+# or it would silently vanish for the whole cooldown window.
+THEME_SECTION_CAPTION = (
+    "Panel colors for departing/arriving flights. Applies on the "
+    "device's next scheduled poll, not immediately.")
+RUNWAY_SECTION_CAPTION = (
+    "Which Orly runway the device watches. Applies on the next "
+    "scheduled poll, not immediately.")
+LED_SECTION_CAPTION = (
+    "Lit only during the device's brief wake window, not visible from "
+    "the wall side. Applies on the next scheduled poll.")
+POLL_SECTION_CAPTION = (
+    "Manually trigger an immediate poll cycle instead of waiting for "
+    "the next scheduled one.")
+# D-05 (06.6.4.1): the LED group's new user-facing heading, once it moves
+# from its own <fieldset>/<legend> into a sibling <h2>-headed group of
+# the merged form — see led_group() below.
+LED_SECTION_HEADING = "Diagnostic LED"
+
+# Read elsewhere, not just here — this module's existing
+# duplicated-not-imported must-equal discipline (matches
+# OPEN_CLASS/MOBILE_NAV_OPEN_CLASS's own precedent): DIRTY_SECTION_ATTR
+# is read by companion/static/dirty-state.js (the section-aware
+# [data-dirty-count] copy walks every element carrying this attribute),
+# and STATIC_SAVE_FALLBACK_ATTR is read by a `.js`-gated rule in
+# companion/static/style.css (`.js [data-static-save-fallback] {
+# display: none; }`, landed by 06.6.4.1-01). Neither file imports this
+# module — the values must be kept equal by hand.
+DIRTY_SECTION_ATTR = "data-dirty-section"
+STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
+# D-03: the dirty-bar's seeded [data-dirty-count] text before
+# dirty-state.js's own section-aware copy ever runs (a no-JS page, or
+# the brief window before the script executes, would otherwise show
+# this raw string).
+DIRTY_BAR_INITIAL_TEXT = "Unsaved changes"
 
 # Matches 06-UI-SPEC.md's Copywriting Contract "Poll-trigger cooldown"
 # row verbatim (D-17); "{n}" is filled in with a server-computed
@@ -57,6 +120,12 @@ POLL_COOLDOWN_HELPER_TEXT = "Poll triggered recently — try again in {n}s."
 # apart.
 POLL_TRIGGER_BUTTON_ID = "poll-trigger-btn"
 POLL_COOLDOWN_TEXT_ID = "poll-cooldown-text"
+
+# UXA-15: the enabled (zero-cooldown) branch's button label while a
+# submit is pending, swapped in by _poll_submit_script() below. Cosmetic
+# only — companion/app.py's _POLL_LOCK is the actual correctness
+# boundary, this is purely the immediate-feedback affordance.
+POLL_SUBMIT_PENDING_TEXT = "Polling…"
 
 # The placeholder the client substitutes the live second count into. The
 # countdown reuses POLL_COOLDOWN_HELPER_TEXT with this token standing in
@@ -84,13 +153,74 @@ FLASH_POLL_COOLDOWN = "poll_cooldown"
 # "Couldn't save settings" for a failure that has nothing to do with
 # saving settings — confusing and actively misleading about what broke.
 FLASH_POLL_FAILED = "poll_failed"
+# Distinct from FLASH_POLL_COOLDOWN (UXA-15 fix): the cooldown key means
+# "wait, you already triggered one recently" (a stale, seconds-old fact
+# checked against history_db). This key means "a poll is executing on
+# this exact request, right now, in another thread" — companion/app.py's
+# non-blocking `_POLL_LOCK.acquire(blocking=False)` failing is the only
+# thing that ever produces it, closing the TOCTOU window where two
+# requests arriving before the first finishes could both observe zero
+# cooldown and both call `poll_loop.run_once()`.
+FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
+
+
+def _palette_hex(index):
+    """`#RRGGBB`, computed from `server.panel_format.PALETTE_RGB`'s flat
+    int list at palette index `index` — never a hardcoded hex literal, so
+    a future re-tuning of the physical panel ink (07-01-PLAN.md's own
+    real-glass Blue/Green correction precedent) automatically updates
+    every swatch that calls this helper.
+    """
+    r, g, b = panel_format.PALETTE_RGB[index * 3: index * 3 + 3]
+    return "#%02X%02X%02X" % (r, g, b)
 
 
 def theme_fieldset(current_theme_id):
-    """One radio input per `device_config.THEMES` entry, in registry
-    order, with `current_theme_id` marked selected — plus the D-11 helper
-    text explaining today's single-option registry.
+    """D-04: a read-only theme status block when exactly one theme is
+    registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
+    group has no real decision value. Falls back to the editable
+    radio-group markup below the moment a second theme is registered;
+    this is a `len()` check, not a hardcoded single-theme assumption —
+    which is exactly what makes it correct unmodified now that Phase 8's
+    on-glass session (08-06) widened the registry from one entry ("sky")
+    to nineteen. That radio-group path was written and tested against a
+    hypothetical multi-theme future; this merge is the first time it
+    actually runs.
+
+    Both branches render the same single `THEME_SECTION_CAPTION`
+    paragraph directly under the `<h2>` heading (quick task 260901-re6)
+    — `caption_html` below is computed once and reused by both, rather
+    than each branch carrying its own copy of the markup template.
     """
+    caption_html = (
+        '<p class="text-label section-caption">%s</p>'
+        % escape_html(THEME_SECTION_CAPTION))
+    if len(device_config.THEME_IDS) == 1:
+        theme_id = (
+            current_theme_id if current_theme_id in device_config.THEMES
+            else device_config.THEME_IDS[0])
+        theme = device_config.THEMES[theme_id]
+        departing_hex = _palette_hex(theme["departing_index"])
+        arriving_hex = _palette_hex(theme["arriving_index"])
+        return (
+            '<div class="theme-status" %s="%s">'
+            '<h2 class="text-heading">Theme</h2>'
+            "%s"
+            '<div class="theme-status__row">'
+            '<span class="theme-swatch" aria-hidden="true">'
+            '<span class="theme-swatch__chip" style="background:%s"></span>'
+            '<span class="theme-swatch__chip" style="background:%s"></span>'
+            "</span>"
+            '<span class="text-body">%s · current</span>'
+            "</div>"
+            "</div>"
+        ) % (
+            DIRTY_SECTION_ATTR, escape_html("Theme"),
+            caption_html,
+            departing_hex, arriving_hex,
+            escape_html(device_config.theme_label(theme_id)),
+        )
+
     options = []
     for theme_id in device_config.THEME_IDS:
         checked = " checked" if theme_id == current_theme_id else ""
@@ -104,94 +234,170 @@ def theme_fieldset(current_theme_id):
             )
         )
     return (
-        "<fieldset>"
+        '<fieldset %s="%s">'
         "<legend>Theme</legend>"
         "%s"
-        '<p class="text-label">%s</p>'
+        "%s"
         "</fieldset>"
-    ) % ("".join(options), escape_html(THEME_HELPER_TEXT))
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html("Theme"),
+        caption_html,
+        "".join(options),
+    )
 
 
 def runway_fieldset(current_runway_id, images_available=()):
-    """One radio input per `device_config.RUNWAYS` entry (exactly three
-    today), in registry order, with `current_runway_id` marked selected —
-    plus the CFG-12 helper text stating the change applies on the
-    device's next scheduled poll, not immediately (D-28).
+    """D-05: one selectable `.runway-card` per `device_config.RUNWAYS`
+    entry (exactly three today), in registry order — the entire card
+    (`<label>`) is the hit target, wrapping a visually-hidden (never
+    `display:none`) native radio input so keyboard/no-JS selection still
+    works natively. `current_runway_id` marks the matching card
+    `runway-card--selected`, computed server-side from the same
+    membership comparison the radio's own `checked` attribute uses —
+    never a client-side `:has()` CSS trick.
 
-    Each option's number/heading label is promoted into a Display-size
-    `<span>` (D-01). When `runway_id` is a member of `images_available`
-    (the `ctx["runway_images"]` set companion/app.py computes — this
-    module never touches the filesystem itself), an `<img>` pointing at
-    the session-gated `/runway-image/{id}.png` route is also rendered.
+    Each card also carries a `runway-card__check` icon-check glyph,
+    present in every card's markup — CSS shows it only on the selected
+    card via the `runway-card--selected` modifier, so no second
+    server-side conditional is needed for the icon itself.
+
+    When `runway_id` is a member of `images_available` (the
+    `ctx["runway_images"]` set companion/app.py computes — this module
+    never touches the filesystem itself), an `<img>` pointing at the
+    session-gated `/runway-image/{id}.png` route is also rendered.
     `images_available` defaults to `()` — "no images available" — the
     safe D-03 fallback, which is also what every pre-06.4 single-argument
-    call site still gets.
+    call site still gets. The single muted `RUNWAY_SECTION_CAPTION`
+    sentence (quick task 260901-re6) renders once, directly under the
+    heading, before the card list.
+
+    The whole return value is wrapped in a single `<div class="theme-status"
+    data-dirty-section="Runway">` — the same wrapping idiom
+    `theme_fieldset()`'s read-only branch already uses, reused verbatim
+    (D-01, 06.6.4.1): the group used to return five flat top-level
+    siblings (an `<h2>`, N cards, a `<p>`) with no container at all, which
+    was the actual root cause of Settings' broken Runway layout once it
+    sat inside a two-column grid. That grid is now deleted, but the
+    wrapper stays — it is what makes this group, like Theme and the new
+    LED group, a single top-level element `dirty-state.js`'s
+    `data-dirty-section` walk can address as one unit, and what carries
+    the caption paragraph (`RUNWAY_SECTION_CAPTION`) directly under the
+    `<h2 class="text-heading">Runway</h2>` heading.
+    The group is named by that `<h2>`, not a `<legend>`, because D-04/D-05
+    (06.6.3) already dropped the `<fieldset>` wrapper from both the Theme
+    and Runway groups, and a `<legend>` outside a `<fieldset>` is invalid
+    markup with no accessible group semantics — `<h2 class="text-heading">`
+    is the role the Poll section and the new LED group both use too, so
+    every group in this form reads at one consistent heading level.
+
+    The cards themselves are further wrapped in a nested `<div
+    class="runway-row">` (quick task 260901-qif), sitting directly after
+    the caption paragraph — only the cards go in, the `<h2>` and the `<p>`
+    stay outside it. Nothing renders after the row closes (quick task
+    260901-re6 retired the trailing helper paragraph that used to sit
+    there — the two-paragraph shape this docstring used to describe is
+    gone). The cards used to be bare siblings of the heading and both
+    paragraphs inside `.theme-status`, so each block-level card took a
+    full line and the group rendered as three stacked full-width bars
+    instead of the validated row-of-three. The row is a layout container
+    only — it carries no visual treatment of its own, and the cards keep
+    theirs.
     """
-    options = []
+    cards = []
     for runway_id in device_config.RUNWAY_IDS:
-        checked = " checked" if runway_id == current_runway_id else ""
+        selected = runway_id == current_runway_id
+        checked = " checked" if selected else ""
+        card_class = (
+            "runway-card runway-card--selected" if selected else "runway-card")
         label = device_config.runway_label(runway_id)
         escaped_id = escape_html(runway_id)
         image_html = ""
         if runway_id in images_available:
             image_html = (
-                '<img class="runway-option__image" src="%s%s.png" alt="%s">'
+                '<img class="runway-card__image" src="%s%s.png" alt="%s">'
                 % (
                     RUNWAY_IMAGE_ROUTE_PREFIX, escaped_id,
                     escape_html(RUNWAY_IMAGE_ALT_TEMPLATE % label),
                 )
             )
-        options.append(
-            '<label class="runway-option">'
-            '<input type="radio" name="tracked_runway" value="%s"%s>'
-            '<span class="runway-option__number">%s</span>'
+        cards.append(
+            '<label class="%s">'
+            '<input type="radio" name="tracked_runway" value="%s" class="visually-hidden"%s>'
+            '<span class="runway-card__number">%s</span>'
             "%s"
+            '<span class="runway-card__check">%s<span class="visually-hidden">Selected</span></span>'
             "</label>"
-            % (escaped_id, checked, escape_html(label), image_html)
+            % (
+                card_class, escaped_id, checked, escape_html(label),
+                image_html, layout.icon_html("icon-check"),
+            )
         )
     return (
-        "<fieldset>"
-        "<legend>Runway</legend>"
-        "%s"
-        '<p class="text-label">%s</p>'
-        "</fieldset>"
-    ) % ("".join(options), escape_html(RUNWAY_HELPER_TEXT))
+        '<div class="theme-status" %s="%s">'
+        '<h2 class="text-heading">Runway</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        '<div class="runway-row">%s</div>'
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html("Runway"),
+        escape_html(RUNWAY_SECTION_CAPTION),
+        "".join(cards),
+    )
 
 
-def led_fieldset(current_led_enabled):
-    """A single checkbox controlling the CFG-LED bring-up LED (D-01/D-02):
-    a `<label>` wrapping `<input type="checkbox" name="led_enabled"
-    value="on">`, carrying a bare `checked` attribute only when
-    `current_led_enabled` is truthy, plus the helper text explaining what
-    the control does.
+def led_group(current_led_enabled):
+    """The Diagnostic LED settings group (D-05, 06.6.4.1): a sibling of the
+    Theme and Runway groups inside the single merged `<form
+    action="{SETTINGS_ROUTE}">`, wrapped in the same `.theme-status`
+    container idiom those two groups use — the `theme-status` class name
+    is reused verbatim, not a third wrapper class invented for this group.
+
+    Deliberately carries no `<fieldset>`/`<legend>` of its own, unlike
+    the retired pre-06.6.4.1 `led_fieldset()`/`led_section()` pair
+    (removed 06.6.4.1-07, D-05: their own separate `POST /config-led`
+    route no longer exists either). The old `<fieldset>` existed because
+    the LED control used to live in its own independently-submittable
+    `<form>`, and a `<legend>` only has accessible-name semantics inside
+    a `<fieldset>`. Now that this group
+    is a sibling of two `<h2>`-headed groups in one single-column stack
+    (Theme's and Runway's own `<fieldset>` wrappers were already dropped
+    by D-04/D-05 in 06.6.3), it is named the same way they are — an `<h2
+    class="text-heading">` — so all three groups read at one consistent
+    heading level, matching the Poll section's own heading role.
+
+    quick task 260901-re6: `LED_SECTION_CAPTION` is a single muted
+    caption, styled and positioned identically to Theme's and Runway's
+    own captions — directly under the heading, before the control. It
+    used to render as an un-muted `<p class="text-label">` AFTER the
+    `<label>` instead, which this task fixes; the docstring previously
+    asserted it "already renders directly under the heading here", which
+    was never true of the shipped markup and is the reason this position
+    drift went unnoticed.
+
+    The `<label>` carries `class="led-checkbox"` (quick task 260901-qif):
+    unclassed, it fell through to the global `input, select` rule written
+    for text inputs and selects, painting an oversized 44x44 filled,
+    bordered, rounded box instead of a normal small checkbox. The class
+    scopes a normalization rule that shrinks the checkbox to its native
+    16px size while relocating the 44px touch-target floor onto this
+    label — the input's own `type`/`name`/`value`/`checked` attribute
+    sequence is untouched.
     """
     checked = " checked" if current_led_enabled else ""
     return (
-        "<fieldset>"
-        "<legend>Bring-up LED</legend>"
-        "<label>"
-        '<input type="checkbox" name="led_enabled" value="%s"%s> Enable bring-up LED'
+        '<div class="theme-status" %s="%s">'
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        '<label class="led-checkbox">'
+        '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
         "</label>"
-        '<p class="text-label">%s</p>'
-        "</fieldset>"
-    ) % (escape_html(LED_CHECKBOX_VALUE), checked, escape_html(LED_HELPER_TEXT))
-
-
-def led_section(current_led_enabled):
-    """Wraps led_fieldset() in its own dedicated, independently-submittable
-    `<section>`/`<form>` (D-01) — mirroring poll_trigger_section()'s own
-    "own dedicated form" precedent. See render()'s comment for why this is
-    NOT folded into the Theme/Runway `<form action="/config">`.
-    """
-    return (
-        '<section class="page-section">'
-        '<h2 class="text-heading">Bring-up LED</h2>'
-        '<form method="post" action="/config-led">'
-        "%s"
-        '<button type="submit">Save LED Setting</button>'
-        "</form>"
-        "</section>"
-    ) % led_fieldset(current_led_enabled)
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(LED_SECTION_HEADING),
+        escape_html(LED_SECTION_HEADING),
+        escape_html(LED_SECTION_CAPTION),
+        escape_html(LED_CHECKBOX_VALUE), checked,
+    )
 
 
 def _js_literal(value):
@@ -265,6 +471,54 @@ def _poll_cooldown_script(cooldown_remaining):
     )
 
 
+def _poll_submit_script():
+    """A `<script>` element with no attributes, rendered only on
+    `poll_trigger_section()`'s enabled (zero-cooldown) branch (UXA-15).
+    Its body is a single immediately-invoked function expression,
+    written in the same ES5-safe subset (`var`, `function`, no arrow
+    functions, no `let`/`const`, no template literals) and
+    `_js_literal()`-gated convention `_poll_cooldown_script()` above
+    establishes — never `%`/f-string interpolation into the script body.
+
+    On the button's owning form's `submit` event, disables the button
+    and swaps its label to `POLL_SUBMIT_PENDING_TEXT` — immediate
+    visible acknowledgement that the click registered, before the
+    server round-trip completes. Guards with `if (!btn) { return; }` so
+    it is inert and harmless on any page whose markup has changed. It
+    mutates the DOM only through the button's `disabled` and
+    `textContent` properties — no HTML-writing sink, no dynamic code
+    evaluation, no network call.
+
+    This is cosmetic only, never a trust boundary: companion/app.py's
+    `_POLL_LOCK` (a process-global, non-blocking `threading.Lock()`
+    guarding `_handle_poll_now()`'s entire check-run-mark sequence) is
+    the actual correctness boundary that prevents two overlapping polls
+    from ever executing concurrently. A user who re-enables this button
+    by hand in devtools, or who submits the no-JS form from two tabs,
+    still cannot trigger a second concurrent poll cycle — the
+    server-side lock alone decides that, honestly reporting
+    "already running" to whichever request loses the race.
+    """
+    return (
+        "<script>"
+        '(function () {'
+        '"use strict";'
+        "var btn = document.getElementById(%s);"
+        "if (!btn) { return; }"
+        "var form = btn.form;"
+        "if (!form) { return; }"
+        'form.addEventListener("submit", function () {'
+        "btn.disabled = true;"
+        "btn.textContent = %s;"
+        "});"
+        "})();"
+        "</script>"
+    ) % (
+        _js_literal(POLL_TRIGGER_BUTTON_ID),
+        _js_literal(POLL_SUBMIT_PENDING_TEXT),
+    )
+
+
 def poll_trigger_section(cooldown_remaining):
     """The CFG-07 manual-trigger control: an enabled button when
     `cooldown_remaining` is zero, or a native-disabled button plus the
@@ -283,36 +537,59 @@ def poll_trigger_section(cooldown_remaining):
     still sees exactly the same server-rendered copy and markup as
     before this change.
 
-    The script renders only on this disabled branch; the zero-cooldown
-    branch below is unchanged and ships no script at all. This is a UX
-    affordance only, never a trust boundary: companion/app.py's
+    The countdown script renders only on this disabled branch. The
+    zero-cooldown (enabled) branch below carries its own, different
+    script — `_poll_submit_script()`'s UXA-15 "Polling…" disable-on-
+    submit affordance — never the countdown script. Both are UX
+    affordances only, never a trust boundary: companion/app.py's
     `_handle_poll_now()` independently re-checks the cooldown
-    server-side and redirects with the cooldown flash before it would
-    ever call `poll_loop.run_once()` — so a user who re-enables the
-    button by hand in devtools still cannot poll early.
+    server-side, and its `_POLL_LOCK` independently serializes
+    execution, before it would ever call `poll_loop.run_once()` — so a
+    user who re-enables either button by hand in devtools still cannot
+    poll early or trigger two concurrent polls.
+
+    quick task 260901-s5o: the section's single muted caption
+    (`POLL_SECTION_CAPTION`) renders first on both branches, landing
+    directly under the `<h2 class="text-heading">Poll</h2>` heading that
+    `render()` — not this function — emits immediately before this
+    function's output. A caption emitted on only one branch would
+    silently disappear for the whole cooldown window, which is why
+    `caption_html` is computed once above the branch rather than inline
+    in each return.
     """
     # `> 0`, not truthy: must agree with _poll_cooldown_script()'s own
     # `remaining <= 0` early-return, or a negative value would take this
     # branch (natively disabling the button) while the script inertly
     # no-ops, leaving no way to re-enable it client-side.
+    caption_html = (
+        '<p class="text-label section-caption">%s</p>'
+        % escape_html(POLL_SECTION_CAPTION))
     if cooldown_remaining > 0:
         cooldown_text = POLL_COOLDOWN_HELPER_TEXT.format(n=cooldown_remaining)
         return (
+            "%s"
             '<form method="post" action="/poll-now">'
             '<button type="submit" id="%s" disabled>Trigger Poll Now</button>'
             "</form>"
             '<p class="text-body" id="%s">%s</p>'
             "%s"
         ) % (
+            caption_html,
             POLL_TRIGGER_BUTTON_ID,
             POLL_COOLDOWN_TEXT_ID,
             escape_html(cooldown_text),
             _poll_cooldown_script(cooldown_remaining),
         )
     return (
+        "%s"
         '<form method="post" action="/poll-now">'
-        '<button type="submit">Trigger Poll Now</button>'
+        '<button type="submit" id="%s">Trigger Poll Now</button>'
         "</form>"
+        "%s"
+    ) % (
+        caption_html,
+        POLL_TRIGGER_BUTTON_ID,
+        _poll_submit_script(),
     )
 
 
@@ -325,20 +602,57 @@ def render(ctx):
         "led_enabled", device_config.DEFAULT_LED_ENABLED)
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
 
-    # The LED section is deliberately a sibling page-section, appended
-    # AFTER the Poll section, rather than a third fieldset inside the
-    # `<form action="/config">` block above: 06.3-UI-SPEC.md line 181
-    # locks a 2-column grid over that form's fieldsets at >=960px, and a
-    # third fieldset there would become a silent 2+1 orphan row. As its
-    # own sibling page-section it stacks below like the Poll section
-    # instead, leaving that grid rule untouched. Do not "fix" this by
-    # moving it into the fieldset grid (06.2-01-PLAN.md Task 2, step 5).
+    # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
+    # appended AFTER the Poll section, rather than a third fieldset
+    # inside this form — 06.3-UI-SPEC.md line 181 locked a 2-column grid
+    # over this form's fieldsets at >=960px, and a third fieldset there
+    # would have become a silent 2+1 orphan row. That grid is deleted
+    # outright by 06.6.4.1-01 (D-01) — the premise this comment used to
+    # describe no longer exists, so the LED group (led_group(), below) is
+    # now a third sibling group inside this same <form>, after Runway,
+    # before the bottom Save Settings button. Do not restore the
+    # separate section by reading a stale rationale.
+    #
+    # D-03: data-dirty-form and the dirty-bar markup below are a JS-only
+    # enhancement layered on top of this always-server-rendered form —
+    # dirty-state.js reads these exact attributes.
+    #
+    # quick task 260901-re6: the dirty-bar used to be a genuine descendant
+    # of this <form>, between the three groups and the always-visible
+    # bottom Save Settings button, submitting natively via normal DOM
+    # nesting with no form= attribute needed. That premise broke the
+    # bar's own `position: sticky; bottom: 0` styling: a sticky element's
+    # containing block is its nearest scrolling ancestor's *box* — here
+    # the short three-section form — so the bar stopped sticking at the
+    # form's own bottom edge instead of the viewport's, visibly detaching
+    # and stopping above the Poll section on a page much taller than the
+    # form. The bar is now a sibling, emitted last on the page (after
+    # both `</form>` and the Poll `</section>`), positioned `fixed`
+    # instead of `sticky` at >=960px. companion/static/dirty-state.js
+    # needs no change for this: its `[data-dirty-bar]` /
+    # `[data-dirty-count]` / `[data-dirty-cancel]` lookups are already
+    # document-wide `document.querySelector` calls, not scoped to the
+    # form, and its cancel handler already calls `form.reset()` on its
+    # own separately-resolved form reference. The save button's
+    # `form="{SETTINGS_FORM_ID}"` attribute is what preserves native
+    # submission of the merged settings form despite the bar now living
+    # outside it in the DOM — narrowing any of those three JS lookups to
+    # a form-scoped query would silently break the bar.
+    dirty_bar_html = (
+        '<div class="dirty-bar" data-dirty-bar hidden role="status">'
+        "<span data-dirty-count>%s</span>"
+        '<button type="submit" class="dirty-bar__save" form="%s">Save settings</button>'
+        '<button type="button" class="dirty-bar__cancel" data-dirty-cancel>Cancel</button>'
+        "</div>"
+    ) % (escape_html(DIRTY_BAR_INITIAL_TEXT), SETTINGS_FORM_ID)
+
     return (
-        '<h1 class="text-heading">Config</h1>'
-        '<form class="config-form" method="post" action="/config">'
+        layout.page_header("Settings")
+        + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
         "%s"
         "%s"
-        '<button type="submit">Save Settings</button>'
+        "%s"
+        '<button type="submit" %s>Save Settings</button>'
         "</form>"
         '<section class="page-section">'
         '<h2 class="text-heading">Poll</h2>'
@@ -346,90 +660,91 @@ def render(ctx):
         "</section>"
         "%s"
     ) % (
+        SETTINGS_FORM_ID,
+        SETTINGS_ROUTE,
         theme_fieldset(current_theme_id),
         runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
+        led_group(current_led_enabled),
+        STATIC_SAVE_FALLBACK_ATTR,
         poll_trigger_section(cooldown_remaining),
-        led_section(current_led_enabled),
+        dirty_bar_html,
     )
 
 
 def handle_post(form, ctx):
-    """Validate the submitted theme/runway against `device_config`'s own
-    registries — server-side, before either value is used anywhere — and
-    persist a valid pair.
+    """Validate the submitted theme/runway/LED state against
+    `device_config`'s own registries — server-side, before any value is
+    used anywhere — and persist all three in a single
+    `save_device_config()` call (D-05, 06.6.4.1: this handler absorbed
+    what the now-retired `handle_led_post()` used to do on its own
+    separate `POST /config-led` route — removed outright in 06.6.4.1-07
+    once this route became the sole settings-writing path).
 
-    Deliberately does NOT call either of `device_config`'s two read-path
+    Deliberately does NOT call any of `device_config`'s read-path
     normalising helpers (the ones an unrecognised on-disk value silently
     degrades through to the default): those implement the *read* path's
     forgiving behaviour, whereas a *write* of an unrecognised value is a
     real client error that must be reported back to the user, not
     silently coerced — the asymmetry is deliberate (06-CONTEXT.md
     D-06/D-07, 06-RESEARCH.md's V5 threat control). Instead, each
-    submitted field is checked with an explicit membership test against
-    `device_config.THEME_IDS` / `RUNWAY_IDS` before it is ever used as a
-    dict key or passed onward.
+    submitted field is checked explicitly before it is ever used as a
+    dict key or passed onward: `theme`/`tracked_runway` by membership
+    test against `device_config.THEME_IDS`/`RUNWAY_IDS`, `led_enabled` by
+    exact equality against `LED_CHECKBOX_VALUE`.
 
-    A field absent from `form` means "leave unchanged" and is passed as
-    `None`, which `save_device_config()` carries forward from the current
-    on-disk value. A field that IS present but fails the membership test
-    rejects the *entire* submission (never a partial save) — applying
-    only the valid half would leave the on-disk state out of sync with
-    what the page would redisplay on the very next load.
+    Two properties are load-bearing here, not incidental:
+
+    First, the LED field's absent-means-False semantics is deliberately
+    different from theme's and runway's absent-means-unchanged semantics.
+    A field absent from `form` for `theme`/`tracked_runway` means "leave
+    unchanged" and is passed as `None`, which `save_device_config()`
+    carries forward from the current on-disk value — because a radio
+    group and a select always submit *some* value once one is selected,
+    absence there only ever means "this page didn't render that control."
+    An HTML checkbox is different: an *unchecked* checkbox is omitted
+    from the POST body entirely, so `led_enabled`'s absence must resolve
+    to `False`, never to "leave unchanged" — carrying it forward instead
+    would silently re-enable a disabled LED on every save that happens to
+    leave the box unchecked. Exactly three shapes are resolved for
+    `led_enabled` and no others: absent -> `False`; equal to
+    `LED_CHECKBOX_VALUE` -> `True`; anything else (a crafted/hostile
+    value) -> reject the whole submission.
+
+    Second, rejection stays all-or-nothing across all three fields, now
+    more so than before the merge: because there is now one form and one
+    `save_device_config()` call, a crafted or invalid value in ANY field
+    aborts before that call, never persisting the valid remainder —
+    applying only the valid half would leave the on-disk state out of
+    sync with what the page would redisplay on the very next load.
 
     On success, the frame's next scheduled poll cycle (server/poll_loop.py,
-    D-06/D-28) is the first place either the new theme or the new runway
-    actually take effect — no push mechanism exists, and none is added
-    here. The caller (companion/app.py) redirects back to /config, whose
-    banner then renders the D-07 confirmation copy the FLASH_SAVED key
-    maps to, telling the user their change was saved but has not yet
-    reached the physical frame.
+    D-06/D-28) is the first place any of the three changes actually take
+    effect — no push mechanism exists, and none is added here. The caller
+    (companion/app.py) redirects back to `SETTINGS_ROUTE`, whose banner
+    then renders the D-07 confirmation copy the FLASH_SAVED key maps to,
+    telling the user their change was saved but has not yet reached the
+    physical frame.
     """
     state_dir = ctx["state_dir"]
     submitted_theme = form.get("theme")
     submitted_runway = form.get("tracked_runway")
+    submitted_led = form.get("led_enabled")
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
         return FLASH_SAVE_FAILED
     if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
         return FLASH_SAVE_FAILED
-
-    try:
-        device_config.save_device_config(
-            state_dir, theme=submitted_theme, tracked_runway=submitted_runway)
-    except (ValueError, OSError):
-        return FLASH_SAVE_FAILED
-    return FLASH_SAVED
-
-
-def handle_led_post(form, ctx):
-    """Validate and persist the LED checkbox submission (D-01, T-06.2-02).
-
-    Same asymmetric-validation discipline handle_post()'s own docstring
-    states: the read path forgives via `device_config.normalise_led_enabled()`,
-    this write path rejects the whole submission and never silently
-    coerces. Exactly three shapes are resolved and no others:
-      - the field is absent from `form` (an unchecked HTML checkbox is
-        omitted from the POST body entirely) -> `led_enabled=False`;
-      - the field equals `LED_CHECKBOX_VALUE` -> `led_enabled=True`;
-      - anything else (a crafted/hostile value) -> reject the whole
-        submission with FLASH_SAVE_FAILED, before any write.
-
-    Reuses FLASH_SAVED/FLASH_SAVE_FAILED rather than adding new flash
-    keys — this action's user-facing outcome is exactly what those keys
-    already say.
-    """
-    state_dir = ctx["state_dir"]
-    submitted = form.get("led_enabled")
-
-    if submitted is None:
+    if submitted_led is None:
         led_enabled = False
-    elif submitted == LED_CHECKBOX_VALUE:
+    elif submitted_led == LED_CHECKBOX_VALUE:
         led_enabled = True
     else:
         return FLASH_SAVE_FAILED
 
     try:
-        device_config.save_device_config(state_dir, led_enabled=led_enabled)
+        device_config.save_device_config(
+            state_dir, theme=submitted_theme, tracked_runway=submitted_runway,
+            led_enabled=led_enabled)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
     return FLASH_SAVED

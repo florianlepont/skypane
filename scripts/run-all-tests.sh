@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SkyPane — the single entry point for the whole test suite.
 #
-# Runs all 15 harnesses under coverage, aggregates the result, and enforces
+# Runs all 16 harnesses under coverage, aggregates the result, and enforces
 # the coverage threshold configured in pyproject.toml. Plan 04-04's CI
 # workflow calls this script rather than restating the file list, and
 # plan 04-05's README tells contributors to run the same thing — one list,
@@ -33,11 +33,12 @@ fi
 echo "==> Clearing stale coverage data files from any previous run"
 rm -f .coverage .coverage.*
 
-# Canonical 15-file enumeration (M1, measured live during 04-02 planning;
-# phase 6 added 6 harnesses — see 06-11-PLAN.md Task 3). 04-CONTEXT.md's
-# D-07 list is 7 files and is known-stale — do NOT "correct" this list
-# back down to match it. This array is the single source of truth CI
-# (04-04) and README.md (04-05) both defer to.
+# Canonical 16-file enumeration (M1, measured live during 04-02 planning;
+# phase 6 added 6 harnesses — see 06-11-PLAN.md Task 3; 06.6.2-01 added
+# companion/test_contrast_check.py). 04-CONTEXT.md's D-07 list is 7 files
+# and is known-stale — do NOT "correct" this list back down to match it.
+# This array is the single source of truth CI (04-04) and README.md
+# (04-05) both defer to.
 HARNESSES=(
     server/test_config_history.py
     server/test_dither.py
@@ -52,6 +53,7 @@ HARNESSES=(
     stub-server/test_poll_cycle.py
     companion/test_companion_app.py
     companion/test_config_page.py
+    companion/test_contrast_check.py
     companion/test_status_pages.py
     companion/test_view_pages.py
 )

@@ -2,22 +2,53 @@
 
 ## Design Decisions
 
-**Winning variant: Sketch 003, Variant B ("Inline compact")**
+**Winning variant, origin: Sketch 003, Variant B ("Inline compact").** The core column-merge decision still holds and is current: History's table renders 7 columns (Timestamp, Callsign, Type, Route, State, Corroboration, Runway — `companion/pages/history_page.py`'s `_HEADERS`), down from an original 9, by merging Callsign+Hex and Type+Airline into single dot-separated inline cells. Row height stays the same as the pre-merge table — the deciding factor over the sketch's rejected Variant A (stacked cells, which grew row height).
 
-Reduces History's table from 9 columns (Timestamp, Callsign, Hex, Aircraft type, Airline, Route, State, Corroboration, Runway) to 7, so it fits a 13" laptop (~1280px content width) without horizontal scroll.
+- **Callsign + Hex merge:** one column, one line — callsign in bold mono (`.cell-primary`), a middle-dot separator (`.cell-inline-sep`, glyph `·`), hex in muted mono (`.cell-secondary`).
+- **Type + Airline merge:** same pattern, one column, one line.
+- Column order after merge: Timestamp, Callsign (merged), Type (merged), Route, State, Corroboration, Runway — unchanged left-to-right order, two fewer columns than the pre-06.6.1 table.
+- The 06.6 relative-timestamp dependency this file used to flag as an open risk (whether History's Timestamp column would still be a full ISO string, taking more horizontal space than the sketch assumed) is resolved: `companion/layout.py`'s `concise_timestamp_html()` ships the concise clock-time-plus-relative-age format, so the 7-column table fits as designed.
 
-- **Callsign + Hex merge:** one column, one line: `AFR123 · 39d301` — callsign in bold mono (`.cell-primary`), a middle-dot separator, hex in muted grey mono (`.cell-secondary`, 12px).
-- **Aircraft type + Airline merge:** same pattern, one column, one line: `A320 · Air France`.
-- **Row height stays the same as today** — this was the deciding factor over Variant A (stacked cells, which put callsign/hex or type/airline on two lines inside one cell, growing row height). The developer picked B specifically to keep scanning many rows fast.
-- Column order after merge: Timestamp, Callsign (merged), Type (merged), Route, State, Corroboration, Runway — same left-to-right order as today, just two fewer columns.
-- Depends on 06.6 (not yet shipped as of this sketch) also landing its relative-timestamp format (`"3m ago"` instead of the current full ISO string like `2026-08-29T07:24:05+00:00`) — the sketch assumed that shortened Timestamp column already exists. If 06.6.1 ships before 06.6, the Timestamp column will still be the long ISO string and take more horizontal space than shown in the sketch; re-verify the 7-column table actually fits without 06.6's timestamp shortening before shipping, or note it as a known interim state.
+**What the merged-cell parts actually declare — corrected.** The sketch's own CSS pattern named a `--color-text-muted` token SUPERSEDED for the secondary/separator parts. **No such token exists anywhere in this stylesheet, and its absence is deliberate** — `companion/static/style.css`'s own comment on `.cell-primary`/`.cell-secondary` states directly that inventing a new token, or hard-coding a grey, would be wrong in one of the two themes. The shipped rule instead applies `opacity: 0.7` to the existing `--color-text` token, which gives the same muted read in both light and dark mode with no per-theme value to keep in sync. Do not reach for that token name in future work on this file — it has never existed and was never adopted.
+
+**Mobile: the horizontal-scroll fallback claim is retired.** This file previously said to keep `.data-table-wrap`'s horizontal-scroll behaviour as History's own mobile fallback. That is no longer true SUPERSEDED — 06.6.3 (D-07) replaced it with a **separate card-list rendering**, `.history-cards`, shown below 960px instead of a cropped/scrollable table. The desktop `.data-table-wrap` rendering and the mobile `.history-cards` rendering are both always present in the DOM; a `.history-cards ~ .data-table-wrap` sibling-combinator rule (not a bare `.data-table-wrap` selector) toggles which one is visible at which width — scoped specifically so Airlines' and Health's own independent reuse of `.data-table-wrap` (neither of which ever renders a `.history-cards` sibling) is never hidden by this rule.
+
+**The secondary-data muting strength is shared on purpose.** History's merged Hex / Type·Airline parts render as `.cell-secondary` (opacity 0.7) in the desktop table and as `.history-card__secondary` (also opacity 0.7) in the mobile card — the *same* opacity value, deliberately, because the two are the same content at two different viewport widths. A second muting strength on either side would mean identical content reads at two different visual weights purely as a function of viewport width, which is exactly the defect this file's own accent-token comment already documents having been fixed twice elsewhere in the stylesheet.
+
+### Table restyle this file predates (06.6.4, D-07)
+
+- **Header:** moved from a filled `--color-secondary` block to a quiet uppercase 11px label with only a bottom hairline — no background at all.
+- **Zebra striping:** retired. A single row surface plus a `tbody tr:hover` 4%-tint hover cue replaces the old `tr.row-alt` alternating background. The server-side `row-alt` class computation (`companion/layout.py`'s `data_table()`, `history_page.py`, `airlines_page.py`) is deliberately left in place as inert markup rather than removed — removing it would mean three Python edits and three harness updates for zero visible gain.
+- **Last-row separator:** removed — `.data-table tbody tr:last-child td { border-bottom: none; }` gives the table a clean bottom edge instead of a trailing hairline.
+- **Sticky-header scoping:** `.data-table-wrap th` is `position: sticky; top: 0;`, scoped to the table's own scroll container so it never collides with the `>=960px` sticky sidebar. Its background token is `--color-canvas` (chosen because History's table — the only one long enough for sticky to actually engage — renders directly on the page background, not inside a card). The stylesheet itself flags this specific token as never live-validated for the in-card cases (Airlines, Health): if those tables read as a visibly mismatched strip against their white card surface once scrolled, `--color-dominant` is the documented equally-valid alternative and a one-declaration change.
 
 ## CSS Patterns
 
 ```css
-.cell-primary{ font-family:var(--font-mono); font-weight:600; }
-.cell-secondary{ font-family:var(--font-mono); color:var(--color-text-muted); font-size:12px; }
-.cell-inline-sep{ color:var(--color-text-muted); margin:0 4px; }
+.cell-primary {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+}
+.cell-secondary {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  opacity: 0.7;   /* NOT the sketch's SUPERSEDED --color-text-muted — that token has never existed */
+}
+.cell-inline-sep {
+  opacity: 0.7;
+  margin: 0 var(--space-xs);
+}
+
+/* History's mobile/desktop toggle — sibling combinator, not a bare selector */
+.history-cards ~ .data-table-wrap { display: none; }
+@media (min-width: 960px) {
+  .history-cards { display: none; }
+  .history-cards ~ .data-table-wrap { display: block; }
+}
+
+.history-card__secondary {
+  opacity: 0.7;   /* same strength as .cell-secondary — one muted role, two viewport widths */
+}
 ```
 
 ## HTML Structures
@@ -28,14 +59,18 @@ Reduces History's table from 9 columns (Timestamp, Callsign, Hex, Aircraft type,
 </td>
 ```
 
-In the real codebase, this is `companion/pages/history_page.py`'s `_history_table_html()` — it hand-builds table markup (rather than delegating to `layout.data_table()`) specifically because the Corroboration column's `layout.status_dot()` markup can't pass through `data_table()`'s escaping. The merged-cell rendering for Callsign/Hex and Type/Airline needs to go through `companion.layout.escape_html()` exactly like every other cell already does in that function — don't introduce a second escaping path.
+In the real codebase this is `companion/pages/history_page.py`'s `_merged_cell()` / `_callsign_hex_cell()` / `_type_airline_cell()` — the merged-cell rendering routes through `companion.layout.escape_html()` exactly like every other cell in the module; no second escaping path exists. `CELL_PRIMARY_CLASS`, `CELL_SECONDARY_CLASS`, `CELL_SEPARATOR_CLASS` and `CELL_SEPARATOR_TEXT` (the `·` glyph) are named module constants, not inline literals, so the class names and the stylesheet's counterpart selectors are cross-checked by a harness guard rather than left to drift.
+
+Below 960px, `_history_cards_html()` renders the same merged data as `<li class="history-card">` elements inside a `<ul class="history-cards">` — see `references/settings-page-patterns.md`'s sibling reference file set and `companion/pages/history_page.py`'s own docstrings for the card's internal structure (`.history-card__primary`, `.history-card__secondary`, `.history-card__time`, `.history-card__details`).
 
 ## What to Avoid
 
-- **Variant A ("Stacked cells")** — rejected. Two-line cells (callsign/hex or type/airline stacked vertically within one `<td>`) increase row height, which worked against the developer's stated goal of scanning many rows quickly on a small screen.
-- **Variant C ("Max density", 6 columns, merges State into Route too)** — explicitly NOT part of the locked scope for this phase. 06.6.1-CONTEXT.md's decision only covers Callsign+Hex and Type+Airline. Variant C was shown only as a "how far could this go" reference; do not implement it without a fresh discuss-phase decision extending the merge further.
-- Mobile: keep the existing horizontal-scroll fallback (`.data-table-wrap`) for the <960px case — 06.6.1-CONTEXT.md's decision was explicitly to keep scroll-on-mobile rather than switch to a stacked-card responsive pattern, since 7 columns (down from 9) is "already easier to manage" on a phone.
+- **Variant A ("Stacked cells")** — still rejected. Two-line cells increase row height, working against the goal of scanning many rows quickly on a small screen.
+- **Variant C ("Max density", 6 columns, merges State into Route too)** — still explicitly not part of locked scope. Do not implement it without a fresh discuss-phase decision extending the merge further.
+- Reaching for the sketch's SUPERSEDED `--color-text-muted` token for any secondary/muted text in this file — it does not exist; use `opacity` on `--color-text` (matching `.cell-secondary`) or `color-mix(in srgb, var(--color-text) 70%, transparent)` (matching `.data-table th`/`.filter-bar__count`), whichever this file's existing precedent for that specific element already uses.
+- Reintroducing a horizontal-scroll-only mobile fallback for History specifically — the `.history-cards` card list replaced it; other pages' `.data-table-wrap` reuse (Airlines, Health) is unaffected and still scrolls horizontally as before, since they never pair with a `.history-cards` sibling.
+- Giving `.cell-secondary` and `.history-card__secondary` two different opacity values — they render the same content at two viewport widths and must stay at one shared muting strength.
 
 ## Origin
-Synthesized from sketch: 003 (history-table-density), winner: Variant B
-Source file available in: `sources/003-history-table-density.html`
+Synthesized from sketch: 003 (history-table-density), winner: Variant B. Corrected against the shipped implementation (`companion/pages/history_page.py`, `companion/static/style.css`) per 06.6.3 (D-07, mobile card list, table restyle) and `companion/layout.py`'s `concise_timestamp_html()` (06.6.3, resolving this file's own former open timestamp-format risk) — quick task 260901-t00.
+Source file available in: `sources/003-history-table-density.html` (historical artifact, byte-identical, not current-reality documentation).

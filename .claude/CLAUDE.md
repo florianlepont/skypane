@@ -160,7 +160,7 @@ Architecture not yet mapped. Follow existing patterns found in the codebase.
 
 ## Project Skills
 
-- **Sketch findings for skypane** (validated design decisions, CSS patterns, visual direction from Phase 06.6.1's sketch experiments) → `Skill("sketch-findings-skypane")`
+- **Sketch findings for skypane** (the companion app's current design system — tokens, colour and contrast, typography, spacing, cards, control density, navigation, and page patterns — maintained continuously across phases) → `Skill("sketch-findings-skypane")`
 <!-- GSD:skills-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->

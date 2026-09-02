@@ -34,7 +34,9 @@ before binding the socket. A missing password fails closed — this
 service must never come up with authentication silently disabled.
 """
 import os
+import socket
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlsplit
@@ -49,15 +51,15 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from companion import auth, layout  # noqa: E402
+from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
     health_page,
     history_page,
-    preview_page,
 )
 from server import device_config, history_db, panel_preview  # noqa: E402
+from server.plane import illustrations  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 DEFAULT_PORT = 8643
@@ -67,6 +69,14 @@ POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abus
 PREVIEW_THUMB_WIDTH = 600  # nearest-neighbour cap for a faster mobile load (D-22).
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
+# WR-03: bounds how long a single connection's socket reads (including the
+# unauthenticated POST /login body read in read_form()) may block on a
+# slow/stalled client. Without this, a client that opens a connection with
+# a plausible Content-Length and then trickles (or never sends) the body
+# ties up a ThreadingHTTPServer worker thread indefinitely — a slowloris-
+# shaped DoS reachable before any credential check. 30s comfortably covers
+# a slow real client on this LAN/VPN deployment while bounding the worst case.
+REQUEST_SOCKET_TIMEOUT_S = 30
 
 LOGIN_ROUTE = "/login"
 STYLE_ROUTE = "/static/style.css"
@@ -80,17 +90,40 @@ SCRIPT_ROUTE = "/static/battery-trend.js"
 # two stay in sync, mirroring SCRIPT_ROUTE/BATTERY_TREND_SCRIPT_SRC's own
 # established pair above.
 NAV_SCRIPT_ROUTE = "/static/nav-dropdown.js"
-CONFIG_ROUTE = "/config"
-LED_ROUTE = "/config-led"
+# 06.6.3: four more authoritative route values — each must equal
+# companion/layout.py's matching *_SCRIPT_SRC constant exactly (this
+# plan's own checks assert the equality), mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
+DIRTY_STATE_SCRIPT_ROUTE = "/static/dirty-state.js"
+LIST_FILTER_SCRIPT_ROUTE = "/static/list-filter.js"
+COPY_BUTTON_SCRIPT_ROUTE = "/static/copy-button.js"
+FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
+# D-20 (06.6.4.1-02): companion/layout.py's PANEL_LOOKUP_SCRIPT_SRC must
+# equal this exactly, mirroring the SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
+PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
+# Single definition site is companion/pages/config_page.py (app.py imports
+# that module, so the reverse import would be a cycle) — rebound here
+# rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
+# FLASH_KEY_* constants below (D-26, 06.6.4.1-07: renamed from "/config"
+# to "/settings"; the old path now 404s by design, no redirect).
+SETTINGS_ROUTE = config_page.SETTINGS_ROUTE
 POLL_ROUTE = "/poll-now"
 THEME_ROUTE = "/ui-theme"
 LOGOUT_ROUTE = "/logout"
+# D-22 (06.6.4.1-08): the standalone Preview HTML page is retired — its
+# entire content moved into History (06.6.4.1-05) — so this route is kept
+# solely as a fixed-redirect source, not a page route. Named
+# PREVIEW_PAGE_ROUTE (not PREVIEW_ROUTE) to say what it now is.
+PREVIEW_PAGE_ROUTE = "/preview"
 PREVIEW_IMAGE_ROUTE = "/preview.png"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # exactly like the FLASH_KEY_* constants below.
 RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX
+# D-15 (06.6.4.1-02): the Airlines gallery's per-variant illustration image
+# route. Naming convention matches RUNWAY_IMAGE_ROUTE_PREFIX above.
+ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -102,6 +135,7 @@ FLASH_KEY_SAVE_FAILED = config_page.FLASH_SAVE_FAILED
 FLASH_KEY_POLL_TRIGGERED = config_page.FLASH_POLL_TRIGGERED
 FLASH_KEY_POLL_COOLDOWN = config_page.FLASH_POLL_COOLDOWN
 FLASH_KEY_POLL_FAILED = config_page.FLASH_POLL_FAILED
+FLASH_KEY_POLL_ALREADY_RUNNING = config_page.FLASH_POLL_ALREADY_RUNNING
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -118,11 +152,34 @@ FLASH_MESSAGES = {
     FLASH_KEY_POLL_FAILED: (
         "Poll trigger failed — please try again. If this keeps happening, "
         "check the companion service logs."),
+    FLASH_KEY_POLL_ALREADY_RUNNING: "A poll is already in progress — try again in a moment.",
+}
+
+# 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
+# flash banner should carry — "alert" (assertive) for a genuine failure,
+# "status" (polite) for everything else, chosen by real severity rather
+# than one role for every outcome. page_context() resolves this into
+# ctx["flash_role"], threaded into every layout.flash_banner(role=...)
+# call site below.
+FLASH_ROLES = {
+    FLASH_KEY_SAVED: "status",
+    FLASH_KEY_SAVE_FAILED: "alert",
+    FLASH_KEY_POLL_TRIGGERED: "status",
+    FLASH_KEY_POLL_COOLDOWN: "status",
+    FLASH_KEY_POLL_FAILED: "alert",
+    # Informational, not itself a failure — a different session/tab is
+    # already legitimately running a poll.
+    FLASH_KEY_POLL_ALREADY_RUNNING: "status",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
 _BATTERY_TREND_JS_PATH = os.path.join(_HERE, "static", "battery-trend.js")
 _NAV_DROPDOWN_JS_PATH = os.path.join(_HERE, "static", "nav-dropdown.js")
+_DIRTY_STATE_JS_PATH = os.path.join(_HERE, "static", "dirty-state.js")
+_LIST_FILTER_JS_PATH = os.path.join(_HERE, "static", "list-filter.js")
+_COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
+_FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
+_PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -130,13 +187,63 @@ _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 # counter to key on.
 LOGIN_THROTTLE = auth.LoginThrottle()
 
+# Same process-global-singleton shape as LOGIN_THROTTLE above (UXA-15):
+# a single, module-level `threading.Lock()` guarding the entire
+# check-cooldown -> run_once() -> mark-triggered sequence in
+# _handle_poll_now(), so two POST /poll-now requests arriving before the
+# first has finished can never both call poll_loop.run_once(). Correct
+# because main() runs exactly one ThreadingHTTPServer in a single OS
+# process (no worker/replica config anywhere in
+# deploy/skypane-companion.service) — a cross-process or file-based lock
+# would be the wrong tool here.
+_POLL_LOCK = threading.Lock()
+
 _PAGE_TITLES = {
-    "/config": "Config",
+    "/settings": "Settings",
     "/health": "Health",
     "/airlines": "Airlines",
     "/history": "History",
-    "/preview": "Preview",
+    # 06.6.4.1-08 (D-22): "/preview" entry removed — the Preview page is
+    # retired (PREVIEW_PAGE_ROUTE now only redirects); NAV_TABS shrinks to
+    # match in companion/layout.py.
 }
+
+# 06.6.2-07 (UXA-03): the login card's one-sentence purpose text, shown
+# instead of the generic "Companion Access" copy the old page_shell()-based
+# login reused.
+LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
+
+
+def _validated_next_route(candidate):
+    """Validate a caller-supplied `next` redirect target (a GET query
+    value or a POST form value) against `layout.NAV_TABS`'s known
+    routes — 06.6.2-07 (T-06.6.2-12, high-severity open-redirect
+    mitigation).
+
+    This is deliberately an exact-membership equality test against the
+    set of NAV_TABS route literals — never `str.startswith("/")`, never
+    URL-parsed, never regex-matched. There is no parsing logic here an
+    attacker-controlled value could exploit: `candidate` either equals
+    one of the known routes byte-for-byte, or it is discarded (returns
+    `None`). A scheme-relative value (`//evil.example`), an absolute URL
+    (`https://evil.example`), a path-traversal-shaped value, or any
+    value not byte-identical to a real NAV_TABS route all fail this
+    test and fall back to the caller's own safe default
+    (`SETTINGS_ROUTE` on a successful POST, the bare `LOGIN_ROUTE` on an
+    unauthenticated GET) — an open redirect is structurally impossible
+    here, not merely discouraged. Deliberately not stated as a literal
+    route count here (06.6.4.1-07): the allowlist is derived from
+    NAV_TABS at runtime and self-adjusts whenever that tuple's own
+    membership changes, so this docstring never needs a second edit
+    when a route is added, renamed, or removed.
+
+    Mirrors `Handler._referring_tab()`'s own exact-membership allowlist
+    shape, but is a module-level function (not a method) since it must
+    validate both a query-string value (GET) and a form value (POST),
+    neither of which is `self.headers.get("Referer")`.
+    """
+    allowed = {route for route, _ in layout.NAV_TABS}
+    return candidate if candidate in allowed else None
 
 
 def _resolve_flash_text(flash_key, state_dir):
@@ -238,17 +345,52 @@ def runway_images_available(image_dir=_RUNWAY_IMAGE_DIR):
     return available
 
 
+def _illustration_filenames():
+    """The known-safe membership set `Handler._serve_illustration_image()`
+    validates a requested key against BEFORE any filesystem path is
+    constructed (D-15) — `illustrations.target_filenames()` wrapped in a
+    `frozenset`. `target_filenames()` performs no I/O, but materialising it
+    once at import time (rather than per request) makes the "one closed,
+    server-controlled list" property visible at a glance.
+    """
+    return frozenset(illustrations.target_filenames())
+
+
+_ILLUSTRATION_FILENAMES = _illustration_filenames()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None
+    # WR-03: socketserver.StreamRequestHandler honours this attribute by
+    # calling self.connection.settimeout(self.timeout) before setup, so a
+    # stalled read anywhere on the connection (in particular the
+    # unauthenticated POST /login body read) raises socket.timeout instead
+    # of blocking the worker thread forever.
+    timeout = REQUEST_SOCKET_TIMEOUT_S
 
     # --- response helpers -------------------------------------------
+
+    def _send_hardening_headers(self):
+        """WR-02: baseline hardening headers applied to every response.
+
+        This is an authenticated admin panel (device config, poll
+        trigger, LED control) reachable from the public internet per
+        this module's own docstring — with no X-Frame-Options/CSP an
+        authenticated page can be framed by a third-party site for
+        clickjacking, and with no X-Content-Type-Options a MIME-sniffing
+        quirk is one upstream misconfiguration away from an XSS vector.
+        """
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "same-origin")
 
     def send_html(self, code, html_str):
         body = html_str.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self._send_hardening_headers()
         self.end_headers()
         self.wfile.write(body)
 
@@ -272,6 +414,7 @@ class Handler(BaseHTTPRequestHandler):
                 "Cache-Control", "%s, max-age=%d" % (scope, cache_seconds))
         else:
             self.send_header("Cache-Control", "no-store")
+        self._send_hardening_headers()
         self.end_headers()
         self.wfile.write(payload)
 
@@ -292,7 +435,25 @@ class Handler(BaseHTTPRequestHandler):
     def require_session(self):
         if self._is_authenticated():
             return True
-        self.redirect(LOGIN_ROUTE)
+        # 06.6.2-07 (UXA-03): carry the originally-requested protected
+        # route through the login round-trip via an allowlisted `next`
+        # query parameter, so a successful login returns the user to
+        # the exact route they asked for instead of always /settings.
+        # _validated_next_route() (T-06.6.2-12) is the sole gate — an
+        # unrecognised requested_path is silently discarded and the
+        # redirect degrades to the bare LOGIN_ROUTE exactly as before
+        # this change.
+        requested_path = urlsplit(self.path).path
+        next_route = _validated_next_route(requested_path)
+        if next_route:
+            # safe="" (never the default safe="/") so the encoded value
+            # is unambiguously a single query-string token — matching
+            # this plan's own acceptance criteria ("/login?next=%2Fhealth",
+            # not "/login?next=/health").
+            self.redirect(
+                "%s?next=%s" % (LOGIN_ROUTE, quote(next_route, safe="")))
+        else:
+            self.redirect(LOGIN_ROUTE)
         return False
 
     def _resolved_ui_theme(self):
@@ -307,6 +468,13 @@ class Handler(BaseHTTPRequestHandler):
         degrades to an empty form rather than raising (T-06-05-07) — the
         remainder of an oversized body is still drained from the socket
         so a persistent connection is not left in a corrupted state.
+
+        WR-03: `Handler.timeout` (set on the class) bounds every socket
+        read below, including this one — reachable pre-auth from
+        `POST /login`. A stalled/slow-drip body triggers `socket.timeout`
+        here, which is treated exactly like any other malformed-body case
+        (degrade to an empty form) rather than propagating and blocking
+        the worker thread indefinitely.
         """
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -314,14 +482,17 @@ class Handler(BaseHTTPRequestHandler):
             length = 0
         if length <= 0:
             return {}
-        raw = self.rfile.read(min(length, MAX_FORM_BYTES + 1))
-        if length > MAX_FORM_BYTES:
-            remaining = length - len(raw)
-            while remaining > 0:
-                chunk = self.rfile.read(min(remaining, 65536))
-                if not chunk:
-                    break
-                remaining -= len(chunk)
+        try:
+            raw = self.rfile.read(min(length, MAX_FORM_BYTES + 1))
+            if length > MAX_FORM_BYTES:
+                remaining = length - len(raw)
+                while remaining > 0:
+                    chunk = self.rfile.read(min(remaining, 65536))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                return {}
+        except socket.timeout:
             return {}
         try:
             text = raw.decode("utf-8")
@@ -339,11 +510,25 @@ class Handler(BaseHTTPRequestHandler):
         flash_key = params.get("flash", [None])[0]
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
+        # WR-04: compute once per request (fail-closed to None on any
+        # unanticipated exception — see health_page.safe_health_state()'s
+        # docstring) and thread both the derived severity and the full
+        # state dict into ctx, so health_page.render() can reuse the
+        # exact same DB-read snapshot instead of re-deriving it from a
+        # second, non-atomic set of reads when the user is on /health.
+        health_state = health_page.safe_health_state(state_dir, now)
         return {
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
             "device_config": device_config.load_device_config(state_dir),
             "flash": _resolve_flash_text(flash_key, state_dir),
+            # 06.6.2-06 (UXA-07): the ARIA role the resolved flash text
+            # should render with, looked up from the same flash_key this
+            # method already resolved above — "status" for any key not
+            # in FLASH_ROLES (including no flash at all), the same
+            # safe-fallback direction flash_banner()'s own role
+            # whitelist uses.
+            "flash_role": FLASH_ROLES.get(flash_key, "status"),
             "poll_cooldown_remaining": poll_cooldown_remaining(state_dir),
             "gallery_entries": gallery_entries(state_dir),
             "runway_images": runway_images_available(),
@@ -352,10 +537,23 @@ class Handler(BaseHTTPRequestHandler):
             # another page module — this file already imports health_page
             # legitimately (the runway_images entry above set the same
             # precedent in Phase 06.4), so this is the boundary's intended
-            # crossing point. health_page.anomaly_active() is
-            # contractually never-raising *because* this line runs on
-            # every authenticated page render.
-            "health_anomaly_active": health_page.anomaly_active(state_dir, now),
+            # crossing point. health_page.safe_health_state() (called
+            # above to build `health_state`) is contractually
+            # never-raising *because* this line runs on every
+            # authenticated page render.
+            #
+            # 06.6.2-06 (UXA-14): this key was previously a boolean
+            # named for the old anomaly_active() call; it is now the
+            # "ok"/"warn"/"error" severity string. WR-04: sourced from
+            # the single `health_state` computed above (falling back to
+            # "ok" when that computation failed) rather than a second,
+            # independent health_page.health_severity() call — every
+            # consumer below moved together in the earlier commit that
+            # introduced this key, and this one collapses the
+            # once-per-page-render duplicate DB read that commit left
+            # behind.
+            "health_severity": health_state["severity"] if health_state else "ok",
+            "health_state": health_state,
             "now": now,
         }
 
@@ -364,38 +562,61 @@ class Handler(BaseHTTPRequestHandler):
     def _not_found_page(self):
         body = (
             '<h1 class="text-heading">Page not found.</h1>'
-            '<p class="text-body"><a href="%s">Back to Config</a></p>'
-        ) % CONFIG_ROUTE
+            '<p class="text-body"><a href="%s">Back to Settings</a></p>'
+        ) % SETTINGS_ROUTE
         return layout.page_shell(
             title="Not Found", active="", body=body,
             ui_theme=self._resolved_ui_theme())
 
-    def _login_body(self, error=None, lockout_seconds=None):
+    def _login_body(self, error=None, lockout_seconds=None, next_route=None):
+        """The login card's inner markup — 06.6.2-07 (UXA-03).
+
+        `next_route` (already validated by `_validated_next_route()` at
+        every call site — never a raw, unvalidated value) is carried
+        through a hidden form field so a failed login attempt does not
+        lose the originally-requested destination, and is only ever
+        rendered when truthy.
+
+        The lockout/error paragraph (whichever applies) carries
+        `role="alert"` so assistive tech announces it immediately
+        rather than waiting for the user to discover it visually. The
+        password field carries `autocomplete="current-password"`
+        (password-manager support, T-06.6.2-14) and `autofocus`
+        unconditionally — this is the one page in the app with a
+        single, always-relevant focus target, so no error-conditional
+        branching is needed.
+        """
         parts = [
-            '<h1 class="text-heading">SkyPane</h1>',
-            '<p class="text-body">Companion Access</p>',
+            '<h1 class="page-title">SkyPane</h1>',
+            '<p class="text-body">%s</p>' % layout.escape_html(LOGIN_EXPLANATION_TEXT),
         ]
         if lockout_seconds:
             parts.append(
-                '<p class="text-body">%s</p>'
+                '<p class="text-body" role="alert">%s</p>'
                 % layout.escape_html(
                     "Too many attempts — try again in %ds." % lockout_seconds))
         elif error:
-            parts.append('<p class="text-body">%s</p>' % layout.escape_html(error))
+            parts.append(
+                '<p class="text-body" role="alert">%s</p>'
+                % layout.escape_html(error))
+        next_field_html = (
+            '<input type="hidden" name="next" value="%s">'
+            % layout.escape_html(next_route)) if next_route else ""
         parts.append(
             '<form method="post" action="%s">'
+            "%s"
             '<label for="password">Password</label>'
-            '<input type="password" id="password" name="password" required>'
+            '<input type="password" id="password" name="password" '
+            'autocomplete="current-password" autofocus required>'
             '<button type="submit">Sign In</button>'
-            "</form>" % LOGIN_ROUTE
+            "</form>" % (LOGIN_ROUTE, next_field_html)
         )
         return "".join(parts)
 
-    def _render_login_page(self, error=None, lockout_seconds=None):
-        body = self._login_body(error=error, lockout_seconds=lockout_seconds)
-        return layout.page_shell(
-            title="Login", active="", body=body,
-            ui_theme=self._resolved_ui_theme())
+    def _render_login_page(self, error=None, lockout_seconds=None, next_route=None):
+        body = self._login_body(
+            error=error, lockout_seconds=lockout_seconds, next_route=next_route)
+        return layout.login_shell(body, ui_theme=self._resolved_ui_theme())
 
     def _serve_stylesheet(self):
         try:
@@ -453,6 +674,41 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_NAV_DROPDOWN_JS_PATH)
 
+    def _serve_dirty_state_script(self):
+        """Serve companion/static/dirty-state.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_DIRTY_STATE_JS_PATH)
+
+    def _serve_list_filter_script(self):
+        """Serve companion/static/list-filter.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_LIST_FILTER_JS_PATH)
+
+    def _serve_copy_button_script(self):
+        """Serve companion/static/copy-button.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_COPY_BUTTON_JS_PATH)
+
+    def _serve_freshness_script(self):
+        """Serve companion/static/freshness.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_FRESHNESS_JS_PATH)
+
+    def _serve_panel_lookup_script(self):
+        """Serve companion/static/panel-lookup.js, pre-auth. Thin delegate
+        onto _serve_script_file(), matching _serve_nav_dropdown_script()'s
+        shape exactly.
+        """
+        return self._serve_script_file(_PANEL_LOOKUP_JS_PATH)
+
     def _serve_preview_image(self):
         state_dir = self.args.state_dir
         raw = panel_preview.read_panel_file(state_dir)
@@ -489,7 +745,7 @@ class Handler(BaseHTTPRequestHandler):
         # unknown id and an unreadable file both return this same 404, so
         # a caller can never distinguish "not a real runway" from "no
         # image for a real runway" — leaking nothing about the
-        # filesystem beyond the RUNWAY_IDS set the authenticated /config
+        # filesystem beyond the RUNWAY_IDS set the authenticated /settings
         # page already renders in full to the same caller.
         if runway_id not in device_config.RUNWAY_IDS:
             return self.send_html(404, self._not_found_page())
@@ -501,6 +757,38 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)
 
+    def _serve_illustration_image(self, key):
+        # Membership test FIRST, before any path is ever constructed
+        # (validate-then-join, never sanitise-then-join — same shape as
+        # _serve_runway_image() above, D-15). An unknown key, a missing
+        # file and a malformed/unreadable asset all return this same 404
+        # (quick task 260902-req-02, T-260902req-05) — a caller can never
+        # distinguish "not a real illustration" from "no file for a real
+        # one" from "normalization failed on this one file";
+        # illustrations.illustration_path_for_key()'s own _UNSAFE_KEY_RE
+        # check below is defence in depth, never a substitute for this
+        # membership test.
+        filename = key + ".png"
+        if filename not in _ILLUSTRATION_FILENAMES:
+            return self.send_html(404, self._not_found_page())
+        path = illustrations.illustration_path_for_key(key)
+        if path is None:
+            return self.send_html(404, self._not_found_page())
+        # T-260902req-06: cached_normalized_png_bytes() is lru_cache'd per
+        # path+mtime, so the 43 known-safe repo-controlled assets are
+        # decoded/re-encoded once per process, not once per request — this
+        # route's input set is closed (the membership test above), never
+        # user-supplied image bytes.
+        try:
+            payload = illustration_normalize.cached_normalized_png_bytes(path)
+        except Exception:
+            # Any decode/normalize failure on this one asset degrades to
+            # the same 404 as a missing file (T-260902req-05), never a
+            # 500 — the membership test above already proved this is a
+            # known-safe repo-controlled path.
+            return self.send_html(404, self._not_found_page())
+        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -508,18 +796,20 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             path = ""
         allowed = {route for route, _ in layout.NAV_TABS}
-        return path if path in allowed else CONFIG_ROUTE
+        return path if path in allowed else SETTINGS_ROUTE
 
     def _render_tab(self, route, page_module):
         if not self.require_session():
             return None
         ctx = self.page_context()
         body = page_module.render(ctx)
-        flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+        flash_html = (
+            layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+            if ctx["flash"] else None)
         html_doc = layout.page_shell(
             title=_PAGE_TITLES[route], active=route.lstrip("/"), body=body,
             ui_theme=ctx["ui_theme"], flash=flash_html,
-            health_alert=ctx["health_anomaly_active"])
+            health_alert=ctx["health_severity"])
         return self.send_html(200, html_doc)
 
     # --- GET -------------------------------------------------------------
@@ -530,8 +820,14 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == LOGIN_ROUTE:
             if self._is_authenticated():
-                return self.redirect(CONFIG_ROUTE)
-            return self.send_html(200, self._render_login_page())
+                return self.redirect(SETTINGS_ROUTE)
+            # 06.6.2-07 (UXA-03): a `?next=` query value survives the
+            # require_session() redirect round-trip; validated here too
+            # (not only on the POST path) so an unrecognised value never
+            # even renders a hidden field for the user to resubmit.
+            next_route = _validated_next_route(
+                parse_qs(parsed.query).get("next", [None])[0])
+            return self.send_html(200, self._render_login_page(next_route=next_route))
 
         if path == STYLE_ROUTE:
             return self._serve_stylesheet()
@@ -547,60 +843,94 @@ class Handler(BaseHTTPRequestHandler):
         if path == NAV_SCRIPT_ROUTE:
             return self._serve_nav_dropdown_script()
 
-        if path == "/config":
+        # 06.6.3: four more pre-auth static routes, same reasoning as
+        # NAV_SCRIPT_ROUTE immediately above — a static asset carries no
+        # per-user data, so gating it would add a session round-trip for
+        # zero benefit.
+        if path == DIRTY_STATE_SCRIPT_ROUTE:
+            return self._serve_dirty_state_script()
+
+        if path == LIST_FILTER_SCRIPT_ROUTE:
+            return self._serve_list_filter_script()
+
+        if path == COPY_BUTTON_SCRIPT_ROUTE:
+            return self._serve_copy_button_script()
+
+        if path == FRESHNESS_SCRIPT_ROUTE:
+            return self._serve_freshness_script()
+
+        if path == PANEL_LOOKUP_SCRIPT_ROUTE:
+            return self._serve_panel_lookup_script()
+
+        if path == SETTINGS_ROUTE:
             if not self.require_session():
                 return None
             ctx = self.page_context()
             body = config_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
-                title="Config", active="config", body=body,
+                title="Settings", active="settings", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
         if path == "/health":
             if not self.require_session():
                 return None
             ctx = self.page_context()
             body = health_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
                 title="Health", active="health", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
         if path == "/airlines":
             if not self.require_session():
                 return None
             ctx = self.page_context()
             body = airlines_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
                 title="Airlines", active="airlines", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
         if path == "/history":
             if not self.require_session():
                 return None
             ctx = self.page_context()
             body = history_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
+            flash_html = (
+                layout.flash_banner(ctx["flash"], role=ctx["flash_role"])
+                if ctx["flash"] else None)
             return self.send_html(200, layout.page_shell(
                 title="History", active="history", body=body,
                 ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+                health_alert=ctx["health_severity"]))
 
-        if path == "/preview":
+        if path == PREVIEW_PAGE_ROUTE:
             if not self.require_session():
                 return None
-            ctx = self.page_context()
-            body = preview_page.render(ctx)
-            flash_html = layout.flash_banner(ctx["flash"]) if ctx["flash"] else None
-            return self.send_html(200, layout.page_shell(
-                title="Preview", active="preview", body=body,
-                ui_theme=ctx["ui_theme"], flash=flash_html,
-                health_alert=ctx["health_anomaly_active"]))
+            # D-22: the Preview page is retired — History absorbed all of
+            # its content (06.6.4.1-05) — so this route now exists solely
+            # to send a stale bookmark/link somewhere useful. The
+            # redirect target is a fixed literal, never derived from a
+            # query parameter, form value, Referer header, or
+            # _validated_next_route()'s allowlisted next-route mechanism
+            # above: that mechanism exists to honour a caller's requested
+            # *login* destination and is allowlisted for that reason,
+            # whereas this route has exactly one correct destination, and
+            # consulting any request value here would turn a fixed
+            # redirect into an open one. self.redirect() already emits
+            # this site's one 302-class status for every redirect (303),
+            # matching D-22's requirement.
+            return self.redirect("/history")
 
         if path == PREVIEW_IMAGE_ROUTE:
             if not self.require_session():
@@ -618,45 +948,72 @@ class Handler(BaseHTTPRequestHandler):
             runway_id = path[len(RUNWAY_IMAGE_ROUTE_PREFIX):-len(".png")]
             return self._serve_runway_image(runway_id)
 
-        if path == LOGOUT_ROUTE:
-            return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
+        if path.startswith(ILLUSTRATION_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
+            if not self.require_session():
+                return None
+            key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
+            return self._serve_illustration_image(key)
 
         return self.send_html(404, self._not_found_page())
 
     # --- POST --------------------------------------------------------------
 
     def _handle_login_post(self):
+        # 06.6.2-07 (UXA-03/T-06.6.2-12): read and validate `next` before
+        # the lockout/password checks so it survives every branch below
+        # (lockout, incorrect password, and success) — a failed attempt
+        # must not lose the originally-requested destination.
+        form = self.read_form()
+        next_route = _validated_next_route(form.get("next"))
         if LOGIN_THROTTLE.locked_out():
             remaining = LOGIN_THROTTLE.seconds_remaining()
-            return self.send_html(429, self._render_login_page(lockout_seconds=remaining))
-        form = self.read_form()
+            return self.send_html(429, self._render_login_page(
+                lockout_seconds=remaining, next_route=next_route))
         submitted = form.get("password", "")
         if auth.password_ok(submitted):
             LOGIN_THROTTLE.record_success()
             token = auth.issue_session_token()
             return self.redirect(
-                CONFIG_ROUTE, set_cookie=auth.session_set_cookie_header(token))
+                next_route or SETTINGS_ROUTE,
+                set_cookie=auth.session_set_cookie_header(token))
         LOGIN_THROTTLE.record_failure()
-        return self.send_html(
-            401, self._render_login_page(error="Incorrect password. Try again."))
+        return self.send_html(401, self._render_login_page(
+            error="Incorrect password. Try again.", next_route=next_route))
 
     def _handle_poll_now(self):
-        state_dir = self.args.state_dir
-        remaining = poll_cooldown_remaining(state_dir)
-        if remaining > 0:
+        # UXA-15: non-blocking acquire, never a timeout (06.6.2-RESEARCH.md).
+        if not _POLL_LOCK.acquire(blocking=False):
+            # Two requests arriving before the first has finished must
+            # never both pass the cooldown check and both call
+            # run_once() — the loser gets an immediate, honest "already
+            # running" redirect instead of racing into a second poll
+            # cycle or queueing silently behind a blocking acquire.
             return self.redirect(
-                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_COOLDOWN)))
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_ALREADY_RUNNING)))
         try:
-            # Pattern 3 (06-RESEARCH.md): the exact production code path
-            # the systemd timer already runs, in-process — never a second
-            # process and never a re-parsed subprocess result.
-            poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
-        except Exception:
+            state_dir = self.args.state_dir
+            remaining = poll_cooldown_remaining(state_dir)
+            if remaining > 0:
+                return self.redirect(
+                    "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_COOLDOWN)))
+            try:
+                # Pattern 3 (06-RESEARCH.md): the exact production code
+                # path the systemd timer already runs, in-process — never
+                # a second process and never a re-parsed subprocess
+                # result.
+                poll_loop.run_once(state_dir=state_dir, geofence=self.args.geofence)
+            except Exception:
+                return self.redirect(
+                    "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_FAILED)))
+            mark_poll_triggered(state_dir)
             return self.redirect(
-                "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_FAILED)))
-        mark_poll_triggered(state_dir)
-        return self.redirect(
-            "%s?flash=%s" % (CONFIG_ROUTE, quote(FLASH_KEY_POLL_TRIGGERED)))
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_POLL_TRIGGERED)))
+        finally:
+            # Always released — including on the except Exception: branch
+            # above, which must stay inside this try so a failed poll
+            # still releases the guard for the next attempt (never a
+            # permanently wedged trigger, T-06.6.2-05).
+            _POLL_LOCK.release()
 
     def _handle_theme_post(self):
         form = self.read_form()
@@ -675,21 +1032,13 @@ class Handler(BaseHTTPRequestHandler):
         if path == LOGIN_ROUTE:
             return self._handle_login_post()
 
-        if path == "/config":
+        if path == SETTINGS_ROUTE:
             if not self.require_session():
                 return None
             form = self.read_form()
             ctx = self.page_context()
             flash_key = config_page.handle_post(form, ctx)
-            return self.redirect("%s?flash=%s" % (CONFIG_ROUTE, quote(flash_key)))
-
-        if path == LED_ROUTE:
-            if not self.require_session():
-                return None
-            form = self.read_form()
-            ctx = self.page_context()
-            flash_key = config_page.handle_led_post(form, ctx)
-            return self.redirect("%s?flash=%s" % (CONFIG_ROUTE, quote(flash_key)))
+            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
 
         if path == POLL_ROUTE:
             if not self.require_session():
@@ -698,6 +1047,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == THEME_ROUTE:
             return self._handle_theme_post()
+
+        if path == LOGOUT_ROUTE:
+            return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
 
         return self.send_html(404, self._not_found_page())
 
