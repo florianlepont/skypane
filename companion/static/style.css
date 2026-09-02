@@ -2305,12 +2305,24 @@ summary::-webkit-details-marker {
  * .stat-tile still stands — do not "complete" the pattern by adding it
  * back: no hover lift/transform (it contains an interactive chart, and
  * lifting the container under the pointer while the user is aiming at an
- * 8px-radius chart hit target is actively unhelpful). The other omission
- * this comment used to list, no border-top status accent, is unrelated to
- * this plan and still correct (this is not a status tile — it carries no
- * ok/warn/error verdict of its own). The shadow reveal added in 06.6.4
- * changes no geometry, so the transform omission's reasoning is untouched
- * by this change. */
+ * 8px-radius chart hit target is actively unhelpful). The shadow reveal
+ * added in 06.6.4 changes no geometry, so the transform omission's
+ * reasoning is untouched by that change.
+ *
+ * quick task 260902-gjj (ISSUE 2): REVERSED — the other omission this
+ * comment used to list here, no border-top status accent, was recorded
+ * as "unrelated to this plan and still correct (this is not a status
+ * tile — it carries no ok/warn/error verdict of its own)". That claim
+ * was FALSE as written: companion/pages/health_page.py's
+ * _battery_section() computes a real battery_status() verdict and
+ * renders it inside this very section — the verdict was drawn as an
+ * in-body status_dot() badge instead of a card edge, not absent. 06.5-
+ * CONTEXT.md's own D-01 reference note already expected "06.3's 3px
+ * top-border-by-status treatment" to apply to this content, before
+ * 06.6.1-03 moved it out of .stat-tile and the border-by-status
+ * treatment never followed. This task restores that original intent —
+ * see the shared status-modifier rules below .page-section's own hover
+ * rule, and layout.card_status_class(). */
 .battery-trend-section {
   padding: var(--space-md);
   background: var(--color-dominant);
@@ -2550,6 +2562,51 @@ summary::-webkit-details-marker {
 .page-section:focus-within {
   border-color: transparent;
   box-shadow: var(--shadow-card-hover);
+}
+
+/* quick task 260902-gjj (ISSUE 2): card-level status accent, shared by
+ * .battery-trend-section and .page-section (specifically the
+ * Unresolved-prefixes card — the Resolution-statistics card gets no
+ * modifier at all; see layout.card_status_class()'s own docstring for
+ * why an absent modifier, not an accent fallback, is the correct "no
+ * verdict" signal here). Reuses the exact tokens .stat-tile's own
+ * modifiers already use — no new colour value.
+ *
+ * The doubled selector form (`.battery-trend-section.battery-trend-
+ * section--ok`, no space — one class immediately followed by another)
+ * is deliberate, not decoration: both `.battery-trend-section` and
+ * `.page-section` declare a `border` SHORTHAND above, which resets
+ * `border-top-color`/`border-top-width`. A single-class modifier
+ * selector is (0,1,0), tying the base rule's own (0,1,0) and leaving the
+ * outcome to source order — the exact cascade hazard
+ * `.page-section.banner--anomaly` above already documents and solves the
+ * same way. The doubled form is (0,2,0) and wins deterministically.
+ *
+ * Placement after both hover rules above is equally load-bearing, and is
+ * the part a future "tidy the modifiers up next to their base rule" edit
+ * is most likely to break: `.battery-trend-section:hover`/`:focus-within`
+ * and `.page-section:hover`/`:focus-within` are ALSO (0,2,0) and declare
+ * `border-color: transparent` — a shorthand that includes
+ * `border-top-color`. At equal specificity the LATER rule wins, so this
+ * block must stay after both hover rules or the status colour vanishes
+ * the moment the card is hovered. That is not hypothetical:
+ * `.battery-trend-section:focus-within` fires on every chart hit target a
+ * keyboard user focuses, so a status border that lost to hover would
+ * blink out during ordinary chart traversal. A harness check pins this
+ * source order. */
+.battery-trend-section.battery-trend-section--ok,
+.page-section.page-section--ok {
+  border-top: 3px solid var(--color-status-ok);
+}
+
+.battery-trend-section.battery-trend-section--warn,
+.page-section.page-section--warn {
+  border-top: 3px solid var(--color-status-warn);
+}
+
+.battery-trend-section.battery-trend-section--error,
+.page-section.page-section--error {
+  border-top: 3px solid var(--color-status-error);
 }
 
 /* quick task 260901-uzi (finding 4): demotes the nested heading tier to

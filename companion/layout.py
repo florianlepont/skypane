@@ -103,6 +103,15 @@ _STAT_TILE_BORDER_CLASSES = {
 }
 _DEFAULT_STAT_TILE_CLASS = "stat-tile--accent"
 
+# quick task 260902-gjj (ISSUE 2): card_status_class()'s own whitelist,
+# kept as bare suffixes (not full class names) so the caller's own base
+# class never has to be typed twice.
+_CARD_STATUS_SUFFIXES = {
+    "ok": "--ok",
+    "warn": "--warn",
+    "error": "--error",
+}
+
 # --- 06.6.1-04: icon sprite (D-02) -------------------------------------
 #
 # The whitelist. Originally capped at exactly five ids by
@@ -1014,6 +1023,37 @@ def stat_tile(caption, content_html, status=None, icon=None):
         "%s"
         "</div>"
     ) % (css_class, caption_html, content_html)
+
+
+def card_status_class(base_class, status):
+    """`base_class + "--ok"/"--warn"/"--error"` for one of the three
+    whitelisted statuses; the empty string for `None` or anything
+    unrecognised.
+
+    The one status->card-modifier mapping (quick task 260902-gjj, ISSUE
+    2), living beside `_STATUS_DOT_CLASSES`/`_STAT_TILE_BORDER_CLASSES`
+    so the vocabulary has exactly one home. `status` is looked up in a
+    fixed three-key whitelist, the same discipline `status_dot()` and
+    `stat_tile()` already document — an unrecognised value can never
+    become an arbitrary, attacker-influenceable class name. `base_class`
+    is expected to be a module constant or a call-site literal, never
+    itself derived from data.
+
+    The fallback deliberately differs from `stat_tile()`'s: `stat_tile()`
+    falls back to `stat-tile--accent` because `.stat-tile`'s base rule
+    already declares a 3px top border that has to be *some* colour. A
+    page-level card's base rule (`.battery-trend-section`, `.page-section`)
+    declares a plain 1px hairline, so "no status" correctly means "no
+    modifier at all, keep the neutral edge" — the absence of a coloured
+    edge is itself the signal that the card carries no verdict. Getting
+    this backwards (defaulting to an accent modifier) would put a 3px
+    accent border on the Resolution-statistics card, which carries no
+    status field of any kind, and would require broadening style.css's
+    exhaustive accent-reservation list a second time in two days, for no
+    reported problem.
+    """
+    suffix = _CARD_STATUS_SUFFIXES.get(status)
+    return base_class + suffix if suffix else ""
 
 
 def empty_state(heading, body):

@@ -1217,25 +1217,22 @@ def _battery_readout_block(latest_reading, now):
         escape_html(raw_ts), escape_html(when_text))
 
 
-def _battery_trend_section_html(battery_html):
+def _battery_trend_section_html(battery_html, state):
     """Wrap `_battery_section()`'s already-built markup in the full-width
     `BATTERY_SECTION_CLASS` card section (D-02) that replaces its old
     240px-floor grid tile.
 
-    `battery_html` is already-safe markup (badge, an already-escaped
-    table, an SVG, a script tag) and is interpolated verbatim, with no
-    call to `escape_html()` — the same "already-built markup passes
-    through untransformed" contract `stat_tile()` and
-    `_source_fault_block()` already follow; re-escaping it here would
-    double-encode and print the raw tags as visible text instead of
-    rendering them.
+    `battery_html` is already-safe markup (an already-escaped table, an
+    SVG, a script tag) and is interpolated verbatim, with no call to
+    `escape_html()` — the same "already-built markup passes through
+    untransformed" contract `stat_tile()` and `_source_fault_block()`
+    already follow; re-escaping it here would double-encode and print the
+    raw tags as visible text instead of rendering them.
 
     06.6.1-04 (D-02): the battery icon sits inside this <h2>, before the
     heading text, and carries no tint class — deliberately asymmetric
-    with the tile icons. This section is a page section, not a status
-    tile, so there is no status modifier for a tint rule to hang off;
-    the icon correctly inherits the heading's own colour through
-    currentColor instead. This also resolves a wording drift in
+    with the tile icons; the icon correctly inherits the heading's own
+    colour through currentColor. This also resolves a wording drift in
     06.6.1-UI-SPEC.md's Layout Contract: it says "each of the 4 Overview
     tiles" gains an icon, written before plan 06.6.1-03 moved Battery
     trend out of the grid. All four Health signals still carry their
@@ -1253,7 +1250,23 @@ def _battery_trend_section_html(battery_html):
     paragraph pairs `text-label section-caption` for the same reason).
     `_registry_section()`'s read-only note applies the identical fix to
     its own `text-body` paragraph; see that function's own comment.
+
+    quick task 260902-gjj (ISSUE 2): `state` is a deliberate signature
+    widening — this function now composes its own `<section>` class
+    attribute from `BATTERY_SECTION_CLASS` plus
+    `layout.card_status_class(BATTERY_SECTION_CLASS, state)`, so the
+    card's own top edge carries the same `battery_status()` verdict the
+    now-retired in-body badge used to (06.5-CONTEXT D-01's original
+    intent, restored — see this file's `battery-trend-section` comment
+    reversal in companion/static/style.css). Unlike `_battery_section()`'s
+    own single-argument call site (pinned by sibling phase 06.5's
+    automated gate, per that function's own comment), a grep confirms
+    nothing pins this function's arity, so the widening is safe. The
+    icon above still gets no tint class of its own — the status signal
+    now lives on the section's own edge, not on the icon.
     """
+    modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
+    section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
     return (
         '<section class="%s">'
         '<h2 class="text-heading">%s%s<span class="text-label section-caption">'
@@ -1261,7 +1274,7 @@ def _battery_trend_section_html(battery_html):
         "%s"
         "</section>"
     ) % (
-        BATTERY_SECTION_CLASS, layout.icon_html(ICON_BATTERY),
+        section_class, layout.icon_html(ICON_BATTERY),
         escape_html(BATTERY_SECTION_HEADING), BATTERY_TREND_LIMIT, battery_html)
 
 
@@ -1776,8 +1789,13 @@ def render(ctx):
         DEVICE_FRESHNESS_LABEL, device_html, device_state, icon=ICON_DEVICE)
 
     # battery_state is still consumed above (collect_anomalies() still
-    # takes it) — it just no longer paints a stat-tile border, since the
-    # battery-trend chart is a page section, not a tile (D-02).
+    # takes it), and (quick task 260902-gjj, ISSUE 2) it once again paints
+    # a status-coloured border — no longer a stat-tile border (D-02
+    # already moved this content out of .stat-tile), but the
+    # battery-trend section's own card-level top edge, via
+    # _battery_trend_section_html()'s new `state` argument below. A
+    # different mechanism reaching the same original intent D-01's own
+    # reference note expected.
     server_data_tiles_html = (
         layout.stat_tile(
             PIPELINE_FRESHNESS_LABEL, pipeline_html, pipeline_state, icon=ICON_PIPELINE)
@@ -1838,8 +1856,18 @@ def render(ctx):
         _section_intro_html(
             SCREEN_SECTION_ID, SCREEN_SECTION_HEADING, SCREEN_SECTION_DESCRIPTION)
         + '<div class="dashboard-grid">' + device_tile_html + '</div>'
-        + _battery_trend_section_html(battery_html)
+        + _battery_trend_section_html(battery_html, battery_state)
     )
+    # quick task 260902-gjj (ISSUE 2): the registry card's own class
+    # attribute composes the same three pieces in the same order every
+    # harness lookup below expects — base, then the pre-existing nested
+    # modifier, then the new status modifier — so a literal-prefix lookup
+    # keyed on "page-section page-section--nested" still finds this card
+    # first (registry_class is built, never the stats card's literal,
+    # which stays exactly "page-section page-section--nested" below).
+    registry_modifier = layout.card_status_class("page-section", coverage_status(registry_rows))
+    registry_class = "page-section page-section--nested" + (
+        (" " + registry_modifier) if registry_modifier else "")
     server_data_section_html = (
         _section_intro_html(
             SERVER_DATA_SECTION_ID, SERVER_DATA_SECTION_HEADING,
@@ -1855,8 +1883,18 @@ def render(ctx):
         # sections, at the same structural level as the section headings
         # themselves, so demoting its heading would understate a real
         # fault — see that function's own class list.
-        + '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
-            escape_html(UNRESOLVED_SECTION_HEADING), _registry_section(registry_rows, now))
+        + '<section class="%s"><h2 class="text-heading">%s</h2>%s</section>' % (
+            registry_class, escape_html(UNRESOLVED_SECTION_HEADING),
+            _registry_section(registry_rows, now))
+        # quick task 260902-gjj (ISSUE 2): this card deliberately gets NO
+        # status modifier — _stats_table_html() computes no verdict (it
+        # returns either the empty string or a plain data_table), and
+        # resolution_stats() returns counts and a percentage with no
+        # status field. No status function exists for this card anywhere
+        # in this module (confirmed from source, not assumed). Its
+        # neutral hairline is therefore the correct signal that it
+        # carries no pass/fail state — not an omission to "complete the
+        # pattern" with an accent border.
         + '<section class="page-section page-section--nested"><h2 class="text-heading">%s</h2>%s</section>' % (
             escape_html(STATS_SECTION_HEADING), _stats_table_html(stats))
     )

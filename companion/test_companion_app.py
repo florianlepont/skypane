@@ -62,7 +62,11 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 105  # 06.6.4.1-08 Task 2: 3 new checks (NAV_TABS holds
+EXPECTED_CHECK_COUNT = 106  # quick task 260902-gjj Task 2 Commit A: 1 new
+# check (card_status_class() maps to base_class + a fixed suffix for the
+# three whitelisted states, empty string for None/unrecognised, diverging
+# from stat_tile()'s own accent fallback).
+# 105 = 06.6.4.1-08 Task 2: 3 new checks (NAV_TABS holds
 # exactly 4 entries in settled order; sidebar_nav()/the mobile dropdown
 # each render exactly 4 links with exactly one active; the eye glyph
 # (icon-nav-preview) stays an ICON_IDS whitelist member and icon_html()
@@ -693,6 +697,34 @@ def main():
             "stat_tile() maps status to a fixed class with an accent fallback, escapes the "
             "caption, and passes content_html through unmodified",
             _stat_tile_status_classes_caption_escape_and_content_passthrough)
+
+        def _card_status_class_whitelist_and_empty_fallback():
+            # quick task 260902-gjj (ISSUE 2): card_status_class()'s own
+            # contract, following stat_tile()'s check above in shape —
+            # the three whitelisted mappings, and the empty string (not
+            # an accent fallback class) for both None and an unrecognised
+            # status, per that function's own documented divergence from
+            # stat_tile()'s accent fallback.
+            for status, expected_class in (
+                ("ok", "page-section--ok"),
+                ("warn", "page-section--warn"),
+                ("error", "page-section--error"),
+            ):
+                got = layout.card_status_class("page-section", status)
+                if got != expected_class:
+                    return False, "expected %r to map to %r, got %r" % (status, expected_class, got)
+            if layout.card_status_class("page-section", None) != "":
+                return False, "expected status=None to fall back to the empty string"
+            if layout.card_status_class("page-section", "not-a-real-state") != "":
+                return False, "expected an unrecognised status to fall back to the empty string"
+            if layout.card_status_class("battery-trend-section", "ok") != "battery-trend-section--ok":
+                return False, "expected base_class to be reused verbatim in the modifier's own prefix"
+            return True, ""
+        check(
+            "card_status_class() maps status to base_class + a fixed suffix for the three whitelisted "
+            "states, and falls back to the empty string (not an accent class) for None or an unrecognised "
+            "status — the divergence from stat_tile()'s own fallback (quick task 260902-gjj, ISSUE 2)",
+            _card_status_class_whitelist_and_empty_fallback)
 
         def _page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
             rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")

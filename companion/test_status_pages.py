@@ -194,7 +194,12 @@ STARTUP_DEADLINE_S = 10.0
 # battery heading's trailing span and the Unresolved-prefixes read-only
 # note compose section-caption with their existing sizing class, plus the
 # CSS half pinning .section-caption to a single 70%-muted declaration).
-EXPECTED_CHECK_COUNT = 96  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 96 + 2 (quick task 260902-gjj Task 2 Commit A: the battery-trend/
+# Unresolved-prefixes cards render the correct card_status_class()
+# modifier off battery_status()/coverage_status()'s own real value, the
+# Resolution-statistics card carries none, and every doubled-form status
+# selector sits after its own component's hover rule in source order).
+EXPECTED_CHECK_COUNT = 98  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1796,10 +1801,18 @@ def main():
                 return False, "expected the Screen section to precede the Server & data section"
             if rendered.count('<h2 id="') != 2:
                 return False, "expected exactly two id-anchored <h2> elements"
-            if rendered.count(health_page.BATTERY_SECTION_CLASS) != 1:
+            # quick task 260902-gjj: retargeted from
+            # rendered.count(BATTERY_SECTION_CLASS) — once the section's
+            # own class attribute also carries a status modifier
+            # (BATTERY_SECTION_CLASS + "--ok"/"--warn"/"--error"), the
+            # bare class-name substring appears TWICE inside that one
+            # attribute, so the old literal count would silently stop
+            # meaning "one section" the moment a modifier landed. The
+            # open-tag prefix counts sections, not substrings.
+            if rendered.count('<section class="%s' % health_page.BATTERY_SECTION_CLASS) != 1:
                 return False, (
                     "expected exactly one battery-trend section, got %d"
-                    % rendered.count(health_page.BATTERY_SECTION_CLASS))
+                    % rendered.count('<section class="%s' % health_page.BATTERY_SECTION_CLASS))
             if rendered.index(health_page.BATTERY_SECTION_CLASS) <= rendered.index(screen_heading):
                 return False, "expected the battery-trend section to follow the Screen heading"
             if rendered.index(health_page.BATTERY_SECTION_CLASS) >= rendered.index(server_data_heading):
@@ -1930,8 +1943,27 @@ def main():
             # bare `'<section class="page-section">'` literal this check
             # used to key on no longer matches either — retargeted onto
             # the modifier-bearing literal below.
+            #
+            # quick task 260902-gjj (ISSUE 2): retargeted AGAIN, from the
+            # exact-literal '<section class="page-section page-section--
+            # nested">' onto this open-ended prefix — the registry card's
+            # class attribute now also carries a status modifier
+            # (coverage_status()'s own "--ok"/"--warn"), so the closing
+            # quote no longer immediately follows "page-section--nested"
+            # on that card (the Resolution-statistics card, which carries
+            # no status modifier, still matches the old exact literal —
+            # only the registry card moved). The lookup now STRENGTHENS
+            # rather than merely survives: the slice-and-check just below
+            # confirms which of the two cards this prefix actually found.
             first_section_open = rendered.index(
-                '<section class="page-section page-section--nested">')
+                '<section class="page-section page-section--nested')
+            first_section_close = rendered.index("</section>", first_section_open) + len("</section>")
+            first_section_slice = rendered[first_section_open:first_section_close]
+            if health_page.UNRESOLVED_SECTION_HEADING not in first_section_slice:
+                return False, (
+                    "expected the first nested page-section card (found via its own "
+                    "open-tag prefix) to be the Unresolved-prefixes card, got %r"
+                    % first_section_slice[:120])
             if first_section_open <= server_data_grid_open:
                 return False, (
                     "expected the first migrated page-section card to follow the "
@@ -1945,8 +1977,10 @@ def main():
                 return False, "the Unresolved-prefixes card must not appear inside the dashboard-grid"
             if health_page.STATS_SECTION_HEADING in grid_slice:
                 return False, "the Resolution-statistics card must not appear inside the dashboard-grid"
-            if rendered.count('<section class="page-section page-section--nested">') != 2:
-                return False, "expected exactly two nested page-section cards (registry + stats)"
+            if rendered.count('<section class="page-section page-section--nested') != 2:
+                return False, (
+                    "expected exactly two nested page-section cards (registry + stats), got %d"
+                    % rendered.count('<section class="page-section page-section--nested'))
             # The new invariant part B introduces: the source-fault
             # block's own page-section (rendered only when
             # META_SOURCE_FAULT is set, not seeded by this fixture) must
@@ -2161,8 +2195,12 @@ def main():
             # surviving tiles elsewhere on the page (06.6.4.1-04: now
             # including the Server & data section that follows this one)
             # would otherwise make a whole-tail "no stat-tile" search
-            # trivially fail.
-            section_start = rendered.index('<section class="%s">' % health_page.BATTERY_SECTION_CLASS)
+            # trivially fail. quick task 260902-gjj: retargeted from the
+            # exact-literal '<section class="%s">' onto this open-ended
+            # prefix — the class attribute now also carries a status
+            # modifier, so the closing quote no longer immediately
+            # follows BATTERY_SECTION_CLASS.
+            section_start = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             section_end = rendered.index("</section>", section_start) + len("</section>")
             section_html = rendered[section_start:section_end]
             if "stat-tile" in section_html:
@@ -2191,7 +2229,7 @@ def main():
             ]
             _seed_device_health(tmp, readings)
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
-            section_start = rendered.index('<section class="%s">' % health_page.BATTERY_SECTION_CLASS)
+            section_start = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             section_end = rendered.index("</section>", section_start) + len("</section>")
             section_html = rendered[section_start:section_end]
 
@@ -2257,6 +2295,126 @@ def main():
     check(
         "health_page.BATTERY_SECTION_CLASS is guarded against silent drift from companion/static/style.css",
         _battery_section_class_is_styled_in_stylesheet)
+
+    def _quick_260902_gjj_card_status_borders_render_correct_modifiers():
+        # quick task 260902-gjj (ISSUE 2): a real rendered page, with a
+        # seeded battery drop (battery_status() -> "error") and a seeded
+        # non-empty registry (coverage_status() -> "warn"), proves the
+        # battery-trend and Unresolved-prefixes cards each carry the
+        # modifier layout.card_status_class() derives from the SAME
+        # function that used to drive their now-retired status_dot()
+        # badge, and that the Resolution-statistics card carries none.
+        # Each section is located by its own heading constant, never a
+        # document-wide substring search.
+        tmp = _mkstate("h-card-status-borders")
+        try:
+            now = _now()
+            readings = [
+                (_iso(now - timedelta(minutes=1)), 4200),
+                (_iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+            ]
+            _seed_device_health(tmp, readings)
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+
+            battery_state = health_page.battery_status([
+                {"ts": _iso(now), "battery_mv": readings[1][1]},
+                {"ts": _iso(now - timedelta(minutes=1)), "battery_mv": readings[0][1]},
+            ])
+            if battery_state != "error":
+                return False, "expected the seeded battery fixture to compute an error verdict"
+            battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+            battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
+            expected_battery_modifier = layout.card_status_class(
+                health_page.BATTERY_SECTION_CLASS, battery_state)
+            if expected_battery_modifier not in battery_tag:
+                return False, (
+                    "expected the battery-trend section's own tag to carry %r, got %r"
+                    % (expected_battery_modifier, battery_tag))
+
+            coverage_state = health_page.coverage_status([("ABC", 1, "", "", "")])
+            if coverage_state != "warn":
+                return False, "expected the seeded registry fixture to compute a warn verdict"
+            registry_heading_at = rendered.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
+            registry_open = rendered.rindex('<section class="', 0, registry_heading_at)
+            registry_tag = rendered[registry_open:rendered.index(">", registry_open) + 1]
+            expected_registry_modifier = layout.card_status_class("page-section", coverage_state)
+            if expected_registry_modifier not in registry_tag:
+                return False, (
+                    "expected the Unresolved-prefixes section's own tag to carry %r, got %r"
+                    % (expected_registry_modifier, registry_tag))
+            if "page-section--nested" not in registry_tag:
+                return False, "expected the registry card to keep its pre-existing nested modifier"
+
+            stats_heading_at = rendered.index(">%s</h2>" % health_page.STATS_SECTION_HEADING)
+            stats_open = rendered.rindex('<section class="', 0, stats_heading_at)
+            stats_tag = rendered[stats_open:rendered.index(">", stats_open) + 1]
+            if stats_tag != '<section class="page-section page-section--nested">':
+                return False, (
+                    "expected the Resolution-statistics card to carry no status modifier "
+                    "at all (it computes no verdict), got %r" % stats_tag)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        for comp in ("battery-trend-section", "page-section"):
+            for status in ("ok", "warn", "error"):
+                sel = ".%s.%s--%s" % (comp, comp, status)
+                sel_at = css_source.find(sel)
+                if sel_at == -1:
+                    return False, "expected the doubled-form status rule %r in style.css" % sel
+                body = css_source[css_source.index("{", sel_at):css_source.index("}", sel_at)]
+                if "var(--color-status-%s)" % status not in body or "3px" not in body:
+                    return False, (
+                        "expected %r's rule body to declare a 3px border in var(--color-status-%s), "
+                        "got %r" % (sel, status, body))
+        return True, ""
+    check(
+        "the battery-trend and Unresolved-prefixes cards each carry the status modifier "
+        "layout.card_status_class() derives from battery_status()/coverage_status()'s own real return "
+        "value on the same rows, the Resolution-statistics card carries none, and style.css declares all "
+        "three doubled-form status rules for both card components (quick task 260902-gjj, ISSUE 2)",
+        _quick_260902_gjj_card_status_borders_render_correct_modifiers)
+
+    # quick task 260902-gjj Task 3 extends this component list with
+    # ".stat-tile" in place (see that task's own commit) — this stays the
+    # one check covering every card-status/hover-vs-status source-order
+    # fact in the file, rather than a second near-duplicate check.
+    _CARD_STATUS_HOVER_ORDER_COMPONENTS = ("battery-trend-section", "page-section")
+
+    def _card_status_modifiers_survive_hover_source_order():
+        # quick task 260902-gjj (ISSUE 2): the load-bearing fact the new
+        # status-border rules depend on — each doubled-form status
+        # modifier selector (".COMPONENT.COMPONENT--STATUS") must sit
+        # AFTER that component's own ":hover, :focus-within" rule in
+        # style.css's source order, or the hover rule's `border-color:
+        # transparent` shorthand (equal (0,2,0) specificity, later rule
+        # wins) silently erases the status colour the moment the card is
+        # hovered or a keyboard user focuses a chart point inside it.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        for comp in _CARD_STATUS_HOVER_ORDER_COMPONENTS:
+            hover_at = css_source.index(".%s:hover" % comp)
+            for status in ("ok", "warn", "error"):
+                sel = ".%s.%s--%s" % (comp, comp, status)
+                sel_at = css_source.index(sel)
+                if sel_at <= hover_at:
+                    return False, (
+                        "%r must come after %r in style.css's source order, or hovering/"
+                        "focusing the card erases its status border" % (sel, ".%s:hover" % comp))
+        return True, ""
+    check(
+        "every card-status modifier selector (battery-trend-section, page-section) sits after that "
+        "component's own :hover/:focus-within rule in style.css's source order, so the status border "
+        "survives hover and keyboard focus rather than losing to the hover shorthand (quick task "
+        "260902-gjj, ISSUE 2)",
+        _card_status_modifiers_survive_hover_source_order)
 
     def _quick_260901_tsa_css_dom_contract_guard():
         # quick task 260901-tsa (Check 5): the cross-file guard for
@@ -2780,7 +2938,7 @@ def main():
             _seed_device_health(tmp, readings)
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
 
-            section_start = rendered.index('<section class="%s">' % health_page.BATTERY_SECTION_CLASS)
+            section_start = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
             section_end = rendered.index("</section>", section_start) + len("</section>")
             section_html = rendered[section_start:section_end]
 
