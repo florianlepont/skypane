@@ -222,6 +222,15 @@ None to run the code. **Recommended before signing off:** the six-item live-brow
 
 All three fixes are implemented and pinned by harness: `companion/test_status_pages.py` 100/100; `companion/test_config_page.py` 61/61; `companion/test_view_pages.py` 43/43; `companion/test_companion_app.py` 106/106; `companion/test_contrast_check.py` 36/36. `scripts/run-all-tests.sh` reports exactly one failing harness — the pre-existing, unrelated `server/test_poll_loop.py` `panel.bin` digest mismatch — with no coverage-gate shortfall (92% total). The six-item live-browser handoff above is the concrete next action for the orchestrating session before this reversal can be considered visually verified, not just source-verified.
 
+## Post-execution: real-browser visual pass (orchestrating session)
+
+Performed against the restarted local instance with real production data, at 1280×1000.
+
+1. **Item 1 (coherent hierarchy) and item 2 (direct Settings comparison): CONFIRMED.** All three nested headings ("Battery trend", "Unresolved prefixes", "Resolution statistics") measure `font-size: 20px`, `font-weight: 400`, `font-family: Georgia` — byte-identical to Settings' own `h2.text-heading` (e.g. "Runway"), closing the exact gap the developer's screenshot comparison identified. Screenshot confirms "Battery trend" reads with proper weight, and the card's white/bordered boundary clearly signals the nesting without needing a smaller font — the hierarchy reads coherently, "Screen"/"Server & data" still clearly read as the outer grouping.
+2. **Item 3 (caption legibility): CONFIRMED.** `.stat-tile__caption` measures `font-weight: 400` (reverted from 600), `font-size: 14px` — not weak or lost against the restored 20px card titles in the screenshot.
+
+**Not performed:** dark theme, 375px width (item 4 — the plan itself notes these were never successfully re-checked after the original 260902-bl2 pass either, so this is now doubly overdue), and a genuine visual A/B against the Settings page side-by-side in the same viewport (I compared computed styles directly rather than two simultaneous screenshots, which gives equally strong evidence for the numeric claim but not a literal side-by-side image).
+
 ---
 *Phase: quick-260902-iag*
 *Completed: 2026-09-02*
