@@ -77,33 +77,92 @@ pack.
 
 ### Observation channel
 
-The observation channel for this run is `skypane-byos.service`, already
-running on the OVH VPS. This protocol does not start it — it is already
-on before the run begins and stays on after it ends. It is the same
-`stub-server/byos_server.py` file the local stub is, run under systemd
-with `Restart=always`, and its `log_telemetry()` print of
-`X-Battery-Mv` is captured by journald on every poll.
+The primary observation channel for this run is `history.db`'s
+`device_health` table at `/opt/skypane/state/history.db` on the VPS.
+`skypane-poll.timer` runs `poll_loop.run_once()` every 30 seconds, which
+calls `history_db.ingest_caddy_battery_log()`, which tails Caddy's
+durable rolled JSON access log (`SKYPANE_CADDY_ACCESS_LOG`,
+`/opt/skypane/state/caddy-access.log`) and inserts every `X-Battery-Mv`
+reading via `record_device_health()`. This has been running in
+production since Phase 6's plan 06-11, and this protocol neither starts
+it nor configures it — there is no setup step for the observation
+channel at all.
 
-The developer's machine plays no part in the run. It is not the
-device's peer, nothing on it must stay awake, and it may sleep, change
-network, or be closed for the entire run.
+The developer's machine plays no part in the run either way. It is not
+the device's peer, nothing on it must stay awake, and it may sleep,
+change network, or be closed for the entire run.
 
-The daily record is produced by piping
-`journalctl -u skypane-byos.service --since '<disconnect time>' -o
-short-iso --no-pager` over SSH into `python3 hardware/logtools.py
-from-journal`, redirected over `hardware/logs/battery-run-server.log`.
-The redirect regenerates the whole window every time, rather than
-appending — an append across overlapping `--since` windows would
-duplicate polls, and duplicated polls inflate the observed count and
-therefore coverage, which is the one number a reader would trust least
-to be wrong.
+Three properties make this the right channel:
 
-Regeneration carries its own risk: if journald ever rotates the
-earliest entries out of the window, the regenerated file starts later
-than the run did. The mitigation is that the file is committed after
-every check-in, so git holds the earlier content, and `check-battery`
-already accepts several log paths concatenated in the order given —
-which is the repair path.
+**Retention.** `device_health` is keep-forever by design (D-13,
+`server/history_db.py:18`) and is never pruned.
+
+**Idempotence.** `record_device_health()` inserts with `INSERT OR
+IGNORE` against a `UNIQUE(ts, battery_mv)` constraint, so re-reading an
+overlapping range cannot double-count.
+
+**Continuity.** Ingestion runs on the server's own 30-second cadence,
+independent of whatever sleep interval the device is on.
+
+The daily record is produced by a two-part pipeline. The remote half
+opens the database read-only through Python's standard-library
+`sqlite3` module (not the `sqlite3` CLI binary, which is not assumed
+present on the VPS) as `sqlite3.connect('file:/opt/skypane/state/history.db?mode=ro',
+uri=True)`, sets `PRAGMA busy_timeout=5000`, and prints one JSON object
+per row from `SELECT ts, battery_mv, fw_version, boot_reason, rssi FROM
+device_health WHERE ts >= ? ORDER BY ts` bounded by the recorded
+disconnect time. The read-only URI is there because the 30-second
+ingest oneshot is writing to this database continuously and an external
+reader must be incapable of corrupting the store or locking out the
+writer; the `busy_timeout` matches the discipline `history_db.connect()`
+already applies to its own connections.
+
+To survive SSH's two levels of shell parsing — a remote command is
+joined and re-parsed by the remote shell, so a `python3 -c` one-liner
+carrying quotes and semicolons breaks in ways that are tedious to debug
+at the start of a three-week run — the query script is fed to `python3
+-` on the remote's stdin via a quoted here-document, with the
+disconnect timestamp passed as a positional argument (safe, since an
+ISO-8601 timestamp contains no whitespace or shell metacharacters):
+
+```
+ssh root@<vps-ip> "python3 - '<since-iso-8601>'" <<'PY'
+import json, sqlite3, sys
+conn = sqlite3.connect('file:/opt/skypane/state/history.db?mode=ro', uri=True)
+conn.execute('PRAGMA busy_timeout=5000')
+conn.row_factory = sqlite3.Row
+rows = conn.execute(
+    'SELECT ts, battery_mv, fw_version, boot_reason, rssi '
+    'FROM device_health WHERE ts >= ? ORDER BY ts', (sys.argv[1],))
+for row in rows:
+    print(json.dumps(dict(row)))
+PY
+```
+
+The local half pipes that output into `python3 hardware/logtools.py
+from-history-db`, redirected over `hardware/logs/battery-run-server.log`.
+
+Regenerating the whole window every time is unconditionally safe on
+this channel, so there is no rotation-repair path here and none is
+needed — neither of the journald channel's two hazards, an
+earliest-entries rotation that silently shortens the window, and
+duplicated polls from appending overlapping reads, can occur against a
+keep-forever table with a uniqueness constraint on the insert.
+
+**Fallback path.** If `history.db` is ever unavailable — the file
+missing, the timer stopped, the ingest pipeline broken — the same
+record can be produced by piping `journalctl -u skypane-byos.service
+--since '<disconnect time>' -o short-iso --no-pager` over SSH into
+`python3 hardware/logtools.py from-journal`. Its two caveats travel
+with it, since they apply to it and not to the primary path: journald's
+retention window is bounded, so the regenerated file can start later
+than the run did, and the repair for that is the committed history of
+the log plus `check-battery`'s existing acceptance of several
+concatenated log paths. Both converters emit the identical bracketed
+format, so `check-battery` and every threshold behave the same
+whichever produced the file; the fallback is proven on
+`hardware/fixtures/battery-journal.log` exactly as the primary is
+proven on `hardware/fixtures/battery-history-db.jsonl`.
 
 ## Protocol Amendment
 
@@ -125,20 +184,101 @@ handling step for the pack — full charge, polarity re-check, protection
 circuit confirmation, and the reading of `boot_count=` off the wake
 line before the cable comes out. None of that moves.
 
+## Protocol Amendment
+
+**Date:** 2026-09-02.
+
+This is the second amendment to this protocol. The first (dated
+2026-08-27) is recorded above; this one supersedes it only where stated
+below. Like the first, it was made before the battery pack was ever
+connected to the board and before any measurement existed — no
+threshold could have been chosen with the answer already in hand.
+
+**What changed:** the primary observation channel only. It moves from
+tailing journald for `skypane-byos.service` to reading `history.db`'s
+`device_health` table. The reason is three mechanisms, not a
+preference: keep-forever retention against journald's bounded window,
+`INSERT OR IGNORE` idempotence against the duplicate-poll hazard, and
+continuous 30-second ingestion independent of the device's own poll
+cadence — on a pipeline that is already running in production with no
+setup step.
+
+**What also changed, as a consequence:** the daily check-in is
+downgraded from required to optional. Under journald, a missed check-in
+genuinely risked losing the earliest part of the record to rotation, so
+the check-in was a data-preservation mechanism. Under a keep-forever
+table it preserves nothing, because nothing between check-ins is at
+risk. A check-in is now purely for progress visibility and for catching
+a stalled run early — never for data preservation — and a run with no
+check-ins at all still yields a complete, gateable record.
+
+**What did not change:** the four validity thresholds (0.95 coverage, 3
+maximum gap intervals, 100 mV minimum drop, 3400 mV depletion cutoff),
+the 21-day ceiling, the exact D-07 division, and every physical
+handling step for the pack — full charge, polarity re-check, protection
+circuit confirmation, and the reading of `boot_count=` off the wake
+line before the cable comes out.
+
+**And, separately and emphatically, `SKYPANE_SLEEP_S` did not change
+and neither did the reasoning behind it.** It stays at the
+pre-registered 300 for the run and is restored to the production value
+afterwards, exactly as the first amendment set out. It is called out
+here rather than left implicit because it is the device's own measured
+wake cadence, which is the subject of this measurement and the divisor
+every coverage and gap figure is computed against, and it has nothing
+whatever to do with which channel does the observing. An amendment to
+the ingestion path that quietly moved the divisor would invalidate the
+run while every gate still reported PASS.
+
+The journald path is retained as a documented fallback rather than
+removed: `hardware/logtools.py`'s `from-journal` subcommand, its
+fixture and its selftest case all remain in place and passing.
+
 ## Daily Check-Ins
 
-*Filled in by Task 2, one row per calendar day of the run. Each row
-comes from regenerating `hardware/logs/battery-run-server.log` via the
-`journalctl -u skypane-byos.service | from-journal` pipe over SSH,
-followed by the `check-battery --status` daily check-in command.*
+*Optional, filled in by Task 2, one row per check-in actually
+performed. Each row comes from regenerating
+`hardware/logs/battery-run-server.log` via the `from-history-db`
+command (or, if the fallback was used, the `journalctl -u
+skypane-byos.service | from-journal` pipe over SSH), followed by the
+`check-battery --status` daily check-in command. Rows are collected for
+visibility rather than for preservation: a missing row for a given
+check-in does not invalidate the run, because the record is regenerated
+from `device_health` and not accumulated from these rows.*
+
+| Date/time (UTC) | Elapsed | Observed polls | Coverage | Latest mV | Last-poll age | `skypane-byos.service` |
+|---|---|---|---|---|---|---|
+| 2026-09-02T13:15 | 0.01 day | 9 | 2.30 (transition window, not a validity signal — see note) | 3998 | 319s | active, not restarted since the run began |
+
+*Note on the 2026-09-02T13:15 row's coverage figure: the sample window is
+only ~20 minutes and straddles the moment `SKYPANE_SLEEP_S` actually took
+effect on the device (a couple of polls at the old ~30-40s cadence before
+it settled to the new 300s one), so `nominal` is computed against an
+interval the device wasn't fully honouring yet. This is expected and not
+a fault; it will wash out as the run continues. Not gated against
+`--min-coverage` here - this is a visibility check-in, not the final
+Task 2 analysis.*
 
 ## Measured Inputs
 
-*Filled in by Task 2/3: `capacity_mah` and `interval_s` (the
-`SKYPANE_SLEEP_S` value read off the VPS at the start of the run, not a
-remembered constant), `boot_count_start` and `boot_count_end`, each as
-a `key: value` list item, plus the wall-clock disconnect time, the
-timestamp of the last poll, and the elapsed span.*
+- `capacity_mah`: 3000
+- `interval_s`: 300
+- `boot_count_start`: **not confirmed** — the developer did not read the
+  `boot_count=` value off the wake line before disconnecting the cable
+  this run. Recorded honestly rather than guessed; see `## Cycle Count
+  Reconciliation` in the eventual Task 3 write-up, which will need to
+  proceed on two independent cycle-count witnesses (nominal from elapsed
+  span, and observed polls in `device_health`) instead of three.
+- `boot_count_end`: *filled in by Task 3, after the run ends*
+- wall-clock disconnect time: 2026-09-02T12:55:00+00:00 (14:55 CEST,
+  developer-reported) — corroborated by the server-side record: the last
+  charging-plateau reading was 4122 mV at 12:58:13, and the first clearly
+  falling reading was 4038 mV at 12:58:50, consistent with the cable
+  coming out a few minutes earlier and the drop becoming visible once
+  the device was genuinely running off the pack under real load
+- timestamp of the last poll so far: 2026-09-02T13:15:19+00:00 (run still
+  in progress — this is not the final value, see `## Verdict`)
+- elapsed span so far: ~20 minutes (run still in progress)
 
 ## Verdict
 
@@ -175,7 +315,9 @@ projection band.*
 *Filled in by Task 3: the public host the frame was pointed at, the
 `SKYPANE_SLEEP_S` in force during the run and the value restored
 afterwards, whether `skypane-byos.service` stayed active throughout and
-whether it restarted, whether journald retention covered the whole
-window, any home-network or internet outage noticed, charge/recharge
+whether it restarted, whether `history.db` was reachable throughout and
+whether the journald fallback was needed at any point (and, only if the
+fallback was used, whether journald retention covered the whole
+window), any home-network or internet outage noticed, charge/recharge
 times, the pack's post-depletion physical condition, and any
 interruption or anomaly from the check-in table.*
