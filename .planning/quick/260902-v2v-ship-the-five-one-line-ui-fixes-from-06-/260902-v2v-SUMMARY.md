@@ -184,6 +184,8 @@ The executor had no browser tool, so the AFTER column was measured by the orches
 
 Screenshots of the after state (gitignored, orchestrator's scratch): `after-health-banner-mobile.png`, `after-airlines-desktop.png`.
 
+**Real-device sign-off (2026-09-02, developer):** the branch was served from the developer's Mac through a `cloudflared` quick tunnel (HTTPS, so the `Secure` session cookie works off-localhost) against a copy of the production state snapshot, and checked on a real phone — Health banner (UIR-03), Airlines cards (UIR-07), the Battery-trend heading (UIR-12) and the sentence-case buttons (UIR-15) all confirmed ("validé"). This closes the `<human-check>` the plan's Task 3 carried; D1 and D2's `automated_ui` verifications above are therefore both measured and human-confirmed.
+
 ## Test Harness Results
 
 Full suite via `scripts/run-all-tests.sh` (all 16 canonical harnesses, run at the end of Task 3):
