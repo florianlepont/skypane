@@ -828,8 +828,17 @@ def main():
         "the Device check-in and ADS-B pipeline rows render via the D-09 concise timestamp format",
         _device_and_pipeline_rows_use_concise_timestamp_format)
 
-    def _health_freshness_refresh_and_stale_banner_present():
-        tmp = _mkstate("h-freshness")
+    def _health_pill_reversal_guard():
+        # 260902-chc: D-12's manual Refresh link + stale-view banner
+        # pattern is reversed for Health (see health_page.py's own
+        # reversal record above _read_health_inputs()). This check pins
+        # the reversal's own rendered result — not the module source —
+        # and positively asserts both retired literals (derived from the
+        # pre-260902-chc file, not re-typed from a plan) are truly gone.
+        # An unrecorded reversal reads to the next reader as a violation
+        # of a rule still presented as current; this check exists so a
+        # later refactor cannot silently un-reverse it either.
+        tmp = _mkstate("h-refresh-pill")
         try:
             now_iso = _iso(_now())
             rendered = health_page.render(_ctx(tmp, now=now_iso))
@@ -837,23 +846,24 @@ def main():
                 return False, "expected exactly one data-loaded-at attribute"
             if ('data-loaded-at="%s"' % now_iso) not in rendered:
                 return False, "expected data-loaded-at to carry the real, request-scoped now ISO value"
-            if rendered.count("data-stale-banner") != 1:
-                return False, "expected exactly one data-stale-banner attribute"
-            seg_start = rendered.index("data-stale-banner")
-            seg = rendered[max(0, seg_start - 80):seg_start + 40]
-            if "hidden" not in seg:
-                return False, "expected the stale-view banner to carry the bare hidden attribute by default"
-            if "may be out of date" not in rendered:
-                return False, "expected the stale-view banner's copy"
             if rendered.count('<h1 class="page-title"') != 1:
                 return False, "expected page_header() to be called exactly once"
+            if "data-stale-banner" in rendered:
+                return False, "expected the retired stale-view banner marker to be gone from the rendered page"
+            if "may be out of date" in rendered:
+                return False, "expected the retired stale-view banner's copy to be gone from the rendered page"
+            if "freshness-refresh" in rendered:
+                return False, "expected the retired manual Refresh link's class to be gone from the rendered page"
+            if hasattr(health_page, "_STALE_VIEW_BANNER_HTML"):
+                return False, "expected health_page to no longer define the retired _STALE_VIEW_BANNER_HTML constant"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health carries a real Refresh action with a live data-loaded-at timestamp and a hidden-by-default "
-        "stale-view banner (D-12/UXA-13)",
-        _health_freshness_refresh_and_stale_banner_present)
+        "Health's D-12 reversal: a live data-loaded-at timestamp survives, page_header() is called exactly "
+        "once, and the retired stale-view banner marker/copy and manual Refresh-link class are gone from "
+        "both the rendered page and the module itself (260902-chc)",
+        _health_pill_reversal_guard)
 
     def _battery_badge_present_and_healthy_on_normal_trend():
         tmp = _mkstate("h-battery-badge-ok")
@@ -1480,18 +1490,23 @@ def main():
             header_slice = rendered[header_start:header_end]
             if escaped_purpose not in header_slice:
                 return False, "expected the purpose sentence inside the .page-header div, not elsewhere on the page"
-            refresh_at = rendered.index("freshness-refresh")
+            # 260902-chc: retargeted from the retired "freshness-refresh"
+            # link class onto the pill's own marker attribute — the
+            # ordering property this check tests (the header's action
+            # slot precedes the purpose sentence) is unchanged by that
+            # reversal.
+            refresh_at = rendered.index("data-refresh-pill")
             purpose_at = rendered.index(escaped_purpose)
             if refresh_at >= purpose_at:
                 return False, (
-                    "expected the purpose sentence to follow the Refresh link, matching the "
+                    "expected the purpose sentence to follow the pill, matching the "
                     "validated sketch's own DOM order")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's .page-header carries a one-sentence purpose after the Refresh link (quick task 260901-tsa, "
-        "finding A)",
+        "Health's .page-header carries a one-sentence purpose after the auto-refresh pill (quick task "
+        "260901-tsa, finding A; retargeted in place by 260902-chc)",
         _health_page_purpose_sentence_present_after_refresh)
 
     def _health_page_two_id_anchored_sections_correct_order_no_overview():
@@ -2549,11 +2564,13 @@ def main():
 
     def _health_page_four_icons_correctly_placed_and_tinted():
         # 06.6.3-04 (D-12): render() now also emits a fifth icon instance
-        # — the freshness/Refresh action's icon-refresh — alongside the
-        # four Health-signal icons this check has pinned since 06.6.1-04.
-        # The five-count assertion below accounts for that fifth,
-        # unrelated icon; every other assertion in this check still
-        # targets only the original four Health-signal icons.
+        # — originally the manual Refresh action's icon-refresh, now
+        # (260902-chc) the same icon-refresh carried by the auto-refresh
+        # pill instead — alongside the four Health-signal icons this
+        # check has pinned since 06.6.1-04. The five-count assertion
+        # below accounts for that fifth, unrelated icon; every other
+        # assertion in this check still targets only the original four
+        # Health-signal icons.
         four = (
             health_page.ICON_DEVICE, health_page.ICON_PIPELINE,
             health_page.ICON_CORROBORATION, health_page.ICON_BATTERY)
@@ -2566,7 +2583,7 @@ def main():
         try:
             rendered = health_page.render(_ctx(tmp))
             if rendered.count("<use") != 5:
-                return False, "expected exactly five <use occurrences (four Health + one Refresh), got %d" % rendered.count("<use")
+                return False, "expected exactly five <use occurrences (four Health + one pill), got %d" % rendered.count("<use")
             for icon_id in four:
                 count = rendered.count("#" + icon_id)
                 if count != 1:

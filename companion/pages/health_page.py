@@ -183,6 +183,17 @@ PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
 # matched (D-01).
 BATTERY_STATUS_LABEL = "Battery readings"
 
+# 260902-chc: the hidden-by-default auto-refresh pill's visible copy
+# (Option B of the validated Health Auto-Refresh Sketch). The sketch's
+# own label is bilingual; this app renders every page `<html lang="en">`
+# and a grep of companion/ finds not one word of French anywhere, so the
+# English half is the one that matches the shipped product — a
+# considered choice, not a dropped requirement. A single-character
+# ellipsis ("…"), matching this file's own sibling precedent for a
+# short in-flight verb (companion/pages/config_page.py's
+# POLL_SUBMIT_PENDING_TEXT = "Polling…"), not three periods.
+REFRESH_PILL_TEXT = "Updating…"
+
 # D-02: per-point interactive hit-target contract. BATTERY_READOUT_ID and
 # SPARKLINE_HIT_CLASS are looked up by companion/static/battery-trend.js
 # and styled by companion/static/style.css — the value is duplicated
@@ -1551,19 +1562,33 @@ def _read_health_inputs(state_dir, now):
     }
 
 
-# D-12/UXA-13: the stale-view banner is static, non-dynamic markup — no
-# request-specific or user-controlled data ever reaches it — so it is a
-# module-level constant rather than something built with escape_html()
-# at each render() call site. Hidden by default at render time;
-# companion/static/freshness.js (06.6.3-01's output) is the sole
-# consumer that ever clears the `hidden` attribute, and only past its
-# own client-side 10-minute threshold — the authoritative ok/warn/error
-# severity computed elsewhere on this page is never touched by this.
-_STALE_VIEW_BANNER_HTML = (
-    '<p class="banner banner--warn" data-stale-banner hidden role="status">'
-    "This view may be out of date. "
-    '<a href="/health">Refresh</a> to see the latest.'
-    "</p>")
+# --- 260902-chc: D-12 reversal, recorded at the removal site ---------------
+#
+# SUPERSEDED — D-12 (06.6.3-CONTEXT.md) gave Health "an explicit Refresh
+# action plus a stale-view warning ... no automatic background polling",
+# reasoning that this "avoids new steady-state request volume and keeps
+# authoritative health severity server-computed only". After living with
+# that manual-refresh pattern in real use, the developer chose the
+# opposite for Health specifically: this page now refreshes itself on a
+# named-interval, visibility-gated timer — see companion/static/
+# freshness.js's own header for the mechanism decision (with the losing
+# option's genuine advantages named) and the fuller reversal record.
+#
+# The stale-view banner that used to render here (`_STALE_VIEW_BANNER_HTML`,
+# retired outright, not just hidden more often) is gone for a reason
+# beyond "the audit rule changed": its entire job was reporting that the
+# page had gone stale, and a page that refreshes itself cannot go stale —
+# the banner could only ever have become a lie if kept.
+#
+# What was actually traded away is D-12's request-volume half, and it is
+# bounded: freshness.js's tab-visibility gate means a backgrounded or
+# closed Health tab still produces zero requests, exactly as before.
+#
+# D-12's OTHER half — authoritative severity stays server-computed
+# only — is NOT reversed here; it is strengthened. A whole-page reload
+# regenerates every verdict server-side on every cycle, so no health
+# state is ever recomputed client-side, and freshness.js still computes
+# no health verdict of any kind — it only reveals a pill and reloads.
 
 
 def render(ctx):
@@ -1618,15 +1643,34 @@ def render(ctx):
         + layout.stat_tile(RESOLUTION_RATE_LABEL, _resolution_rate_tile_html(stats), None)
     )
 
-    # D-12: an explicit Refresh action (a plain link/reload, no JS
-    # dependency) carrying data-loaded-at for companion/static/
-    # freshness.js to read — `now` is already computed once per request
-    # by companion/app.py's page_context(). escape_html() is required
-    # here (unlike _STALE_VIEW_BANNER_HTML above): `now` is real,
-    # request-scoped data, not a static literal.
+    # 260902-chc: SUPERSEDED — this used to be a manual Refresh link
+    # (D-12/UXA-13, see the reversal record above this function). It is
+    # now the hidden-by-default "Updating…" pill companion/static/
+    # freshness.js reveals just before each visibility-gated reload.
+    # `data-loaded-at` survives the reversal unchanged — `now` is
+    # already computed once per request by companion/app.py's
+    # page_context() — and gains a second job there (a tab returning
+    # from a long hidden stretch uses it to decide whether it owes an
+    # immediate catch-up refresh; see freshness.js's own header).
+    # escape_html() is required on `now` only: it is real, request-scoped
+    # data. REFRESH_PILL_TEXT is a static module constant and needs
+    # none, the same distinction the retired banner comment above drew.
+    #
+    # No ARIA role on the pill: a live region announces on content
+    # mutation, not on a visibility change, so a role="status" pill whose
+    # text never changes would announce nothing anyway — and the page
+    # load this pill precedes is itself announced as a navigation by
+    # every screen reader, making a second announcement redundant. The
+    # real accessibility cost this mechanism carries and does not solve:
+    # a reload that fires while a screen-reader user is reading with
+    # focus on the document body returns their virtual cursor to the
+    # top, and freshness.js's interaction-skip guard cannot detect that
+    # state. Accepted in writing, not left as an omission: the lever if
+    # this bites is the refresh interval, not the announcement, and a
+    # live screen-reader pass is named in this task's SUMMARY.
     freshness_html = (
-        '<a href="/health" class="freshness-refresh" data-loaded-at="%s">%sRefresh</a>'
-        % (escape_html(now), layout.icon_html("icon-refresh")))
+        '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
+        % (escape_html(now), layout.icon_html("icon-refresh"), REFRESH_PILL_TEXT))
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
     # Device-freshness tile wrapped in its own single-tile dashboard-grid
@@ -1676,7 +1720,6 @@ def render(ctx):
     return (
         layout.page_header(
             "Health", purpose=PAGE_PURPOSE_TEXT, freshness_html=freshness_html)
-        + _STALE_VIEW_BANNER_HTML
         + _source_fault_block(source_fault_raw)
         + banner_html
         + screen_section_html

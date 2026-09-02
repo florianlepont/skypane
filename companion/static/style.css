@@ -993,6 +993,66 @@ a:hover {
   flex: none;
 }
 
+/* Health's auto-refresh pill (260902-chc, Option B of the validated
+ * Health Auto-Refresh Sketch) — a second call site of .banner__pill's
+ * own visual primitive, declared identically apart from two differences:
+ * a small icon-to-text gap (this pill's icon has no flex-row sibling to
+ * borrow spacing from, unlike the banner's lead text + pills row), and
+ * no `flex: none` (.banner__pill needs that only because it is a flex
+ * child of the banner row; this pill sits inside .page-header's own flow
+ * instead, not inside a flex row). This is exactly the "future
+ * consolidation into one shared class is a mechanical edit" the comment
+ * above already anticipated. */
+.refresh-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  gap: 4px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: var(--weight-regular);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Without this, the native `hidden` attribute companion/static/
+ * freshness.js relies on to hide the pill at rest and between refresh
+ * cycles has no effect: the author stylesheet's `display: inline-flex`
+ * above always beats the user-agent `[hidden] { display: none }`
+ * regardless of source order — the exact collision `.dirty-bar[hidden]`'s
+ * own comment already documents, at a second call site.
+ *
+ * This rule satisfies that requirement, then makes one further,
+ * deliberate choice `.dirty-bar[hidden]` does not: it hides by
+ * VISIBILITY, not display, so the pill's own line box stays reserved and
+ * revealing it shifts nothing in the page header — the same
+ * reserved-space reasoning `.battery-readout`'s own min-height comment
+ * already established, applied here to an element that now reveals
+ * itself on a repeating cycle instead of once. That matters more here
+ * than it did for `.dirty-bar`: the dirty bar reveals at most once per
+ * editing session, in direct response to the user's own keystroke,
+ * while this pill reveals itself on a timer with no user action at
+ * all — a layout shift on reveal would read as a recurring twitch in
+ * the header, not a one-off. `visibility: hidden` removes the element
+ * from the accessibility tree exactly as `display: none` does, so the
+ * no-ARIA-role decision in health_page.py's freshness_html comment is
+ * unaffected by this choice. */
+.refresh-pill[hidden] {
+  visibility: hidden;
+}
+
+/* .icon's 20px square base equals this pill's own 20px height, so an
+ * unscoped icon would overflow its container — the same collision class
+ * the `.stat-tile svg` / `.battery-trend-section svg:not(.icon)`
+ * comments elsewhere in this file already document, at a third call
+ * site. */
+.refresh-pill .icon {
+  width: 14px;
+  height: 14px;
+}
+
 /* Forms and fieldsets */
 fieldset {
   border: 1px solid var(--color-border);
