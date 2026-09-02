@@ -28,11 +28,30 @@ Subcommands:
                  dropped-line count written to stderr. Bridges the
                  production server's journald record onto the exact
                  checker that was written for a locally captured pipe.
+                 Retained as the documented fallback for when
+                 history.db is unreachable; from-history-db (below) is
+                 the primary channel.
+
+  from-history-db
+                 Convert JSON-Lines device_health rows (one JSON object
+                 per line, as printed by the canonical read-only remote
+                 query documented in cmd_from_history_db()'s own comment
+                 block) into the same bracketed [ISO-8601] shape
+                 check-battery already parses, reading from the given
+                 file paths (concatenated in order) or from stdin when
+                 none are given. Writes converted lines to stdout only;
+                 malformed or reading-less rows are dropped, with a
+                 single dropped-line count written to stderr. This is
+                 the primary observation channel for DEVICE-05:
+                 history.db's device_health table has been filled
+                 continuously and durably by production since Phase 6,
+                 with no setup step of any kind.
 
   check-battery  Read one or more captured server stdout logs — stamped
-                 locally by `stamp`, or converted from journald by
-                 `from-journal` — (concatenated in the order given) and
-                 decide whether they show a valid unattended battery
+                 locally by `stamp`, converted from journald by
+                 `from-journal`, or converted from history.db by
+                 `from-history-db` — (concatenated in the order given)
+                 and decide whether they show a valid unattended battery
                  discharge run, as opposed to a run interrupted by a
                  sleeping host or a pack that was never actually off USB
                  power. Also computes the D-07 mAh-per-cycle figure and
@@ -46,18 +65,24 @@ Subcommands:
                  because the run has not finished yet.
 
   selftest       Run check-backoff against the three fixtures under
-                 hardware/fixtures/, and check-battery against four
-                 more (including a from-journal-converted one), each
-                 with the flags it is meant to be judged under, and
-                 assert the good ones are accepted while the bad ones
-                 are rejected. A checker that has never been shown a
-                 bad log has not been tested.
+                 hardware/fixtures/, and check-battery against five
+                 more (including a from-journal-converted one and a
+                 from-history-db-converted one) — eight fixtures in
+                 total — each with the flags it is meant to be judged
+                 under, and assert the good ones are accepted while the
+                 bad ones are rejected. A checker that has never been
+                 shown a bad log has not been tested.
 
-Only argparse, datetime, os, re, subprocess and sys are imported — no pip
-install, matching this phase's zero-external-install property.
+Only argparse, datetime, json, os, re, subprocess and sys are imported —
+no pip install, matching this phase's zero-external-install property.
+json is the sole addition beyond the original six, needed to parse
+from-history-db's JSON-Lines input; sqlite3 is deliberately not
+imported here — history.db lives on the VPS and is read over SSH, never
+opened directly by this file.
 """
 import argparse
 import datetime
+import json
 import os
 import re
 import subprocess
@@ -151,7 +176,8 @@ def parse_timestamp(line):
 
 
 def normalize_journal_timestamp(raw):
-    """Normalize a journalctl short-iso timestamp so it satisfies
+    """Normalize a journalctl short-iso timestamp - or a device_health
+    `ts` value, read by from-history-db - so it satisfies
     datetime.datetime.fromisoformat() the same way on every Python
     release this project might run under. Two changes only, nothing
     else: a trailing "Z" becomes "+00:00", and a four-digit offset
@@ -160,7 +186,10 @@ def normalize_journal_timestamp(raw):
     normalizing them here removes the whole question of which minor
     version the developer's machine or the VPS happens to run. No
     timezone conversion and no fractional-second truncation happen
-    here - the instant in time is left exactly as journald recorded it.
+    here - the instant in time is left exactly as journald (or
+    device_health) recorded it. Both cmd_from_journal() and
+    cmd_from_history_db() call this same function unchanged - no third
+    normalization is required.
     """
     if raw.endswith("Z"):
         return raw[:-1] + "+00:00"
@@ -369,9 +398,9 @@ def load_battery_polls(paths):
     a timestamp; polls is the list of BatteryPoll for the lines that
     carry both. The distinction lets check_timestamps_and_min_polls tell
     "no battery telemetry at all" apart from "battery telemetry present,
-    but the stamp filter (for a local capture) or the from-journal
-    conversion step (for a server-side capture) was left out of the
-    pipeline".
+    but the stamp filter (for a local capture), the from-journal
+    conversion step, or the from-history-db conversion step (for a
+    server-side capture) was left out of the pipeline".
     """
     all_matches = 0
     polls = []
@@ -451,9 +480,10 @@ def check_timestamps_and_min_polls(all_matches, polls):
     if not polls:
         return CheckResult(name, "FAIL",
             "battery telemetry is present but no line carries a timestamp "
-            "- the stamp filter (local capture) or the from-journal "
-            "conversion step (server-side capture) was left out of the "
-            "pipeline, destroying the elapsed-time evidence")
+            "- the stamp filter (local capture), the from-journal "
+            "conversion step, or the from-history-db conversion step "
+            "(both server-side captures) was left out of the pipeline, "
+            "destroying the elapsed-time evidence")
     if len(polls) < 2:
         return CheckResult(name, "FAIL",
             "only %d timestamped battery poll(s) found, need at least 2" %
@@ -627,6 +657,133 @@ def cmd_from_journal(args):
     return 0
 
 
+# --- from-history-db: the read-only bridge from history.db's
+# device_health table -------------------------------------------------
+#
+# The canonical remote query (run on the VPS, not by this script - this
+# file deliberately does not import sqlite3; history.db lives on the
+# server and is read over SSH, never opened directly here). Fed to
+# `python3 -` on the remote's stdin via a quoted here-document, so a
+# quote- and semicolon-laden one-liner never has to survive SSH's two
+# levels of shell re-parsing:
+#
+#   ssh root@<vps-ip> "python3 - '<since-iso-8601>'" <<'PY'
+#   import json, sqlite3, sys
+#   conn = sqlite3.connect('file:/opt/skypane/state/history.db?mode=ro', uri=True)
+#   conn.execute('PRAGMA busy_timeout=5000')
+#   conn.row_factory = sqlite3.Row
+#   rows = conn.execute(
+#       'SELECT ts, battery_mv, fw_version, boot_reason, rssi '
+#       'FROM device_health WHERE ts >= ? ORDER BY ts', (sys.argv[1],))
+#   for row in rows:
+#       print(json.dumps(dict(row)))
+#   PY
+#
+# The read-only `mode=ro` URI is load-bearing, not decorative: the
+# 30-second `skypane-poll.timer` ingest oneshot is writing to this
+# database continuously, and a read-only connection cannot create,
+# modify, or recover its WAL - so an external reader can neither corrupt
+# the store nor lock out the writer. `PRAGMA busy_timeout=5000` matches
+# the discipline `history_db.connect()` already applies to its own
+# connections (Pitfall 9), so a read landing mid-commit waits briefly
+# instead of raising "database is locked".
+#
+# Why regenerating the whole window is unconditionally safe on this
+# channel: `device_health` has keep-forever retention (D-13,
+# server/history_db.py:18) and is never pruned, and
+# record_device_health() inserts with INSERT OR IGNORE against a
+# UNIQUE(ts, battery_mv) constraint, so re-reading an overlapping range
+# cannot double-count. Neither of the two hazards the journald bridge
+# (cmd_from_journal, above) has to defend against - an earliest-entries
+# rotation that silently shortens the window, and duplicated polls from
+# appending overlapping reads - can occur against a keep-forever table
+# with a uniqueness constraint on the insert. No rotation-triggered
+# repair path is needed or provided here; this is a genuine
+# simplification relative to from-journal, not an omission.
+def cmd_from_history_db(args):
+    """Convert JSON-Lines `device_health` rows (one JSON object per line,
+    as printed by the canonical remote query documented above) into the
+    bracketed [ISO-8601] shape check-battery already parses, reading
+    from the given file paths (concatenated in order) or from stdin
+    when none are given. Writes converted lines to stdout only.
+
+    JSON Lines rather than a single JSON array is a deliberate choice: a
+    line-at-a-time parser degrades to "drop that one line and count it"
+    when anything unexpected arrives on the pipe (an SSH banner, a
+    truncated final line, a warning the remote shell emitted), whereas a
+    whole-stdin array parse fails totally on the same input. It also
+    mirrors cmd_from_journal()'s existing shape exactly, so the two
+    converters read as siblings.
+
+    A row is dropped and counted when: it is not valid JSON; it is valid
+    JSON but not an object; it has no non-empty string `ts`; or its
+    `battery_mv` cannot be coerced to int, including null or absent -
+    a real production shape, not a hypothetical one:
+    tail_caddy_battery_log() yields battery_mv=None whenever the header
+    is absent or non-integer, and such a row carries no measurement at
+    all. Extra keys the query did not ask for (e.g. `id`) are ignored
+    rather than rendered into the message. A single
+    "from-history-db: dropped N" summary is written to stderr so a
+    redirect of stdout into the run log stays clean, and a silently
+    truncated conversion still reads as visible.
+    """
+    def iter_lines():
+        if args.logs:
+            for path in args.logs:
+                with open(path, "r", errors="replace") as fh:
+                    for raw_line in fh:
+                        yield raw_line
+        else:
+            for raw_line in sys.stdin:
+                yield raw_line
+
+    dropped = 0
+    for raw_line in iter_lines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            dropped += 1
+            continue
+        if not isinstance(row, dict):
+            dropped += 1
+            continue
+        ts_raw = row.get("ts")
+        if not isinstance(ts_raw, str) or not ts_raw:
+            dropped += 1
+            continue
+        try:
+            battery_mv = int(row.get("battery_mv"))
+        except (TypeError, ValueError):
+            dropped += 1
+            continue
+
+        ts_norm = normalize_journal_timestamp(ts_raw)
+
+        tokens = []
+        for header, value in (
+            ("X-Fw-Version", row.get("fw_version")),
+            ("X-Boot-Reason", row.get("boot_reason")),
+            ("X-Rssi", row.get("rssi")),
+            ("X-Battery-Mv", battery_mv),
+        ):
+            if value is None or value == "":
+                continue
+            tokens.append("%s=%s" % (header, value))
+        message = "  telemetry: " + " ".join(tokens)
+
+        out = "[%s] %s" % (ts_norm, message)
+        if parse_timestamp(out) is None:
+            dropped += 1
+            continue
+        sys.stdout.write(out + "\n")
+    sys.stdout.flush()
+    sys.stderr.write("from-history-db: dropped %d line(s)\n" % dropped)
+    return 0
+
+
 def cmd_check_backoff(args):
     events = load_events(args.logs)
     results = [
@@ -728,14 +885,61 @@ def _telemetry_messages(path):
     return out
 
 
+def _run_converted_battery_case(script_path, battery_common, subcommand, fixture_name):
+    """Convert `fixture_name` via `subcommand` (from-journal or
+    from-history-db), then run check-battery over the converted output
+    exactly as a daily check-in would, and additionally require its
+    telemetry messages equal battery-good.log's - proving the bridge is
+    lossless for content the checker already accepts, not merely that
+    some output happened to pass. Prints one PASS/FAIL line naming
+    `fixture_name` (minus its extension) and returns True on PASS.
+    """
+    label = os.path.splitext(fixture_name)[0]
+    fixture_path = os.path.join(FIXTURES_DIR, fixture_name)
+    tmp_path = os.path.join(
+        os.environ.get("TMPDIR", "/tmp") or "/tmp",
+        "logtools-selftest-%s-%d.log" % (label, os.getpid()))
+    conv = subprocess.run(
+        [sys.executable, script_path, subcommand, fixture_path],
+        capture_output=True, text=True)
+    with open(tmp_path, "w") as fh:
+        fh.write(conv.stdout)
+    check_proc = subprocess.run(
+        [sys.executable, script_path, "check-battery", tmp_path] +
+        battery_common + ["--expect-depleted"],
+        capture_output=True, text=True)
+    accepted = (check_proc.returncode == 0)
+    converted_msgs = _telemetry_messages(tmp_path)
+    good_msgs = _telemetry_messages(os.path.join(FIXTURES_DIR, "battery-good.log"))
+    messages_match = (converted_msgs == good_msgs)
+    os.remove(tmp_path)
+
+    if accepted and messages_match:
+        print("PASS %s (accepted via %s, telemetry messages match "
+              "battery-good.log)" % (label, subcommand))
+        return True
+
+    reasons = []
+    if not accepted:
+        reasons.append("check-battery exit code %d" % check_proc.returncode)
+    if not messages_match:
+        reasons.append("converted telemetry messages differ from "
+                        "battery-good.log (%d vs %d)" %
+                        (len(converted_msgs), len(good_msgs)))
+    print("FAIL %s (%s)" % (label, "; ".join(reasons)))
+    return False
+
+
 def cmd_selftest(_args):
     """Run check-backoff and check-battery, each as a subprocess of this
     same script, against the fixtures under hardware/fixtures/ with the
     flags each one is meant to be judged under. Asserts every good
     fixture is accepted (exit 0) and every negative fixture is rejected
     (non-zero exit). Also converts battery-journal.log through
-    from-journal and asserts the result is accepted and its telemetry
-    messages are byte-identical (stripped) to battery-good.log's.
+    from-journal and battery-history-db.jsonl through from-history-db,
+    asserting each result is accepted and its telemetry messages are
+    byte-identical (stripped) to battery-good.log's - eight fixtures in
+    total.
     """
     script_path = os.path.abspath(__file__)
     battery_common = ["--interval-s", "3600", "--min-days", "1",
@@ -767,43 +971,12 @@ def cmd_selftest(_args):
             print("FAIL %s (expected to be %s, actual exit code %d)" %
                   (fixture, requirement, proc.returncode))
 
-    # battery-journal: convert via from-journal, then run check-battery
-    # over the converted output exactly as a daily check-in would, and
-    # additionally require its telemetry messages equal battery-good.log's
-    # - proving the bridge is lossless for content the checker already
-    # accepts, not merely that some output happened to pass.
-    journal_path = os.path.join(FIXTURES_DIR, "battery-journal.log")
-    tmp_path = os.path.join(
-        os.environ.get("TMPDIR", "/tmp") or "/tmp",
-        "logtools-selftest-battery-journal-%d.log" % os.getpid())
-    conv = subprocess.run(
-        [sys.executable, script_path, "from-journal", journal_path],
-        capture_output=True, text=True)
-    with open(tmp_path, "w") as fh:
-        fh.write(conv.stdout)
-    check_proc = subprocess.run(
-        [sys.executable, script_path, "check-battery", tmp_path] +
-        battery_common + ["--expect-depleted"],
-        capture_output=True, text=True)
-    journal_accepted = (check_proc.returncode == 0)
-    converted_msgs = _telemetry_messages(tmp_path)
-    good_msgs = _telemetry_messages(os.path.join(FIXTURES_DIR, "battery-good.log"))
-    messages_match = (converted_msgs == good_msgs)
-    os.remove(tmp_path)
-
-    if journal_accepted and messages_match:
-        print("PASS battery-journal.log (accepted via from-journal, "
-              "telemetry messages match battery-good.log)")
-    else:
+    if not _run_converted_battery_case(
+            script_path, battery_common, "from-journal", "battery-journal.log"):
         all_ok = False
-        reasons = []
-        if not journal_accepted:
-            reasons.append("check-battery exit code %d" % check_proc.returncode)
-        if not messages_match:
-            reasons.append("converted telemetry messages differ from "
-                            "battery-good.log (%d vs %d)" %
-                            (len(converted_msgs), len(good_msgs)))
-        print("FAIL battery-journal.log (%s)" % "; ".join(reasons))
+    if not _run_converted_battery_case(
+            script_path, battery_common, "from-history-db", "battery-history-db.jsonl"):
+        all_ok = False
 
     return 0 if all_ok else 1
 
@@ -825,6 +998,13 @@ def build_parser():
         help="convert journalctl -o short-iso lines into the bracketed "
              "[ISO-8601] shape check-battery parses")
     fj.add_argument("logs", nargs="*",
+        help="log file path(s), read and concatenated in the order given; "
+             "reads stdin when none are given")
+
+    fhd = sub.add_parser("from-history-db",
+        help="convert JSON-Lines device_health rows into the bracketed "
+             "[ISO-8601] shape check-battery parses")
+    fhd.add_argument("logs", nargs="*",
         help="log file path(s), read and concatenated in the order given; "
              "reads stdin when none are given")
 
@@ -890,6 +1070,8 @@ def main(argv=None):
         return 0
     if args.command == "from-journal":
         return cmd_from_journal(args)
+    if args.command == "from-history-db":
+        return cmd_from_history_db(args)
     if args.command == "check-backoff":
         return cmd_check_backoff(args)
     if args.command == "check-battery":
