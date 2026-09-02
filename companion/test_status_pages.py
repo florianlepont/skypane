@@ -204,7 +204,24 @@ STARTUP_DEADLINE_S = 10.0
 # Corroboration dots are asserted present, not just the two removals
 # asserted absent — and BATTERY_STATUS_LABEL/_battery_badge_block are
 # both confirmed retired via hasattr).
-EXPECTED_CHECK_COUNT = 99  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 99 + 1 (quick task 260902-iag Task 3: the two-tier-hierarchy-carried-
+# by-layout check — Health's D-10 section headings vs. the cards nested
+# inside them now read apart via containment, spacing and adjacency
+# instead of font-size. Markup half: every level-2 heading sits inside a
+# bordered card <section>, both level-1 headings sit inside the plain
+# .section-intro row with no card class, and a .dashboard-grid always
+# intervenes between a level-1 heading and its section's first level-2
+# card, in both the empty and seeded state. Stylesheet half: the four
+# spacing tiers that now carry the distinction — .battery-trend-section's
+# section-transition margin, .page-section's/.dashboard-grid's shared
+# same-section card-to-card margin, the reverted nested-heading rule's
+# retained heading-to-content margin, and the heading-rhythm rule's own
+# margin — stay strictly ordered against their real :root token values.
+# Task 1's two retargets (the demotion check inverted to assert the
+# reversal, and the caption/four-role check's nested-title assertions
+# corrected) and Task 2's full contract rewrite of the caption check
+# were all done in place — no count change from either).
+EXPECTED_CHECK_COUNT = 100  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2880,6 +2897,161 @@ def main():
         ".text-heading's 20px regular treatment with no override (quick task 260902-dng Task 3, whose promotion "
         "and reasoning are superseded, not deleted, by quick task 260902-iag Task 2)",
         _stat_tile_caption_weight_reverted_and_four_role_scale_hold)
+
+    def _two_tier_hierarchy_carried_by_layout_not_type():
+        # quick task 260902-iag Task 3: with font-size no longer
+        # distinguishing Health's two structural tiers (D-10's section
+        # headings vs. the cards nested inside them), this check pins the
+        # mechanism that replaced it — containment and spacing, read from
+        # the real rendered DOM and the real cascade, not asserted from
+        # memory. A failure here means the two tiers may have stopped
+        # reading apart, not merely that a number moved.
+        #
+        # Markup half, both empty and seeded: every level-2 heading
+        # (Battery trend, Unresolved prefixes, Resolution statistics) is
+        # the child of a <section> carrying a card class (the nested
+        # modifier or the battery-trend class); both level-1 headings
+        # (Screen, Server & data) are inside the plain .section-intro row
+        # and carry no card class at all. Every heading is located from
+        # its own module constant, never a positional index.
+        for seeded in (False, True):
+            tmp = _mkstate("h-two-tier-hierarchy-%s" % seeded)
+            try:
+                now = _now()
+                if seeded:
+                    _seed_device_health(tmp, [
+                        (_iso(now - timedelta(minutes=3)), 4200),
+                        (_iso(now - timedelta(minutes=1)), 4190),
+                    ])
+                    _seed_runway_events(tmp, [
+                        {"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+                    _seed_unresolved_prefixes(tmp, {
+                        "JAF": {"count": 4, "first_seen": _iso(now), "last_seen": _iso(now),
+                                "example_callsign": "JAF412"},
+                    })
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+
+                for section_id, heading in (
+                        (health_page.SCREEN_SECTION_ID, health_page.SCREEN_SECTION_HEADING),
+                        (health_page.SERVER_DATA_SECTION_ID, health_page.SERVER_DATA_SECTION_HEADING)):
+                    marker = '<h2 id="%s" class="text-heading">%s</h2>' % (
+                        section_id, layout.escape_html(heading))
+                    marker_at = rendered.index(marker)
+                    wrapper_open = rendered.rindex("<div class=\"", 0, marker_at)
+                    wrapper_tag = rendered[wrapper_open:rendered.index(">", wrapper_open) + 1]
+                    if "section-intro" not in wrapper_tag:
+                        return False, (
+                            "seeded=%s: expected %r's <h2> to sit inside the plain "
+                            ".section-intro row, got wrapper %r" % (seeded, heading, wrapper_tag))
+                    if "page-section" in wrapper_tag or "battery-trend-section" in wrapper_tag:
+                        return False, (
+                            "seeded=%s: %r's own wrapper must carry no card class, got %r"
+                            % (seeded, heading, wrapper_tag))
+
+                for heading in (
+                        health_page.BATTERY_SECTION_HEADING,
+                        health_page.UNRESOLVED_SECTION_HEADING,
+                        health_page.STATS_SECTION_HEADING):
+                    heading_marker_at = rendered.index(">%s" % heading)
+                    section_open = rendered.rindex("<section class=\"", 0, heading_marker_at)
+                    section_tag = rendered[section_open:rendered.index(">", section_open) + 1]
+                    if not (
+                            "page-section--nested" in section_tag
+                            or health_page.BATTERY_SECTION_CLASS in section_tag):
+                        return False, (
+                            "seeded=%s: expected %r's enclosing <section> to carry a card "
+                            "class (page-section--nested or %s), got %r"
+                            % (seeded, heading, health_page.BATTERY_SECTION_CLASS, section_tag))
+
+                # Adjacency: a .dashboard-grid always sits between a
+                # level-1 heading's own .section-intro row and the first
+                # level-2 card in that same section — the two tiers are
+                # never immediately adjacent on screen.
+                screen_intro_at = rendered.index('id="%s"' % health_page.SCREEN_SECTION_ID)
+                screen_intro_close = rendered.index("</div>", screen_intro_at) + len("</div>")
+                after_screen_intro = rendered[screen_intro_close:screen_intro_close + 40]
+                if not after_screen_intro.startswith('<div class="dashboard-grid">'):
+                    return False, (
+                        "seeded=%s: expected a .dashboard-grid immediately after the Screen "
+                        "section-intro row, got %r" % (seeded, after_screen_intro))
+                server_intro_at = rendered.index('id="%s"' % health_page.SERVER_DATA_SECTION_ID)
+                server_intro_close = rendered.index("</div>", server_intro_at) + len("</div>")
+                after_server_intro = rendered[server_intro_close:server_intro_close + 40]
+                if not after_server_intro.startswith('<div class="dashboard-grid">'):
+                    return False, (
+                        "seeded=%s: expected a .dashboard-grid immediately after the Server & "
+                        "data section-intro row, got %r" % (seeded, after_server_intro))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+
+        # Stylesheet half: the four spacing values that now carry the
+        # hierarchy, read from their own rules by selector and asserted
+        # to form the strictly ordered set the layout inspection derived
+        # — section-transition > same-section card-to-card > heading-to-
+        # content inside a card > a section-intro heading's own rhythm —
+        # against :root's real token values, so a future edit that
+        # flattens any one of them fails here instead of silently
+        # dissolving the distinction that replaced font-size.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        def _decl_px(selector_needle, prop):
+            selector_at = css_source.index(selector_needle)
+            body_open = css_source.index("{", selector_at)
+            body_close = css_source.index("}", body_open)
+            body = css_source[body_open:body_close]
+            # Matches both a bare `prop: var(--token);` declaration and a
+            # shorthand form with leading values before the var(), e.g.
+            # the heading-rhythm rule's `margin: 0 0 var(--space-sm);` —
+            # in the shorthand case this captures the LAST var() in the
+            # declaration, which is the bottom-margin component both
+            # `margin: 0 0 var(...)` and this rule's own longhand usage
+            # agree on.
+            m = re.search(r"%s:\s*[^;]*?var\(--([a-z0-9-]+)\)[^;]*;" % re.escape(prop), body)
+            if m is None:
+                return None, None
+            token_name = "--" + m.group(1)
+            root_body = css_source[css_source.index(":root"):css_source.index(":root") + 900]
+            token_match = re.search(r"%s:\s*(\d+)px;" % re.escape(token_name), root_body)
+            if token_match is None:
+                return token_name, None
+            return token_name, int(token_match.group(1))
+
+        section_token, section_gap = _decl_px(".battery-trend-section {", "margin-bottom")
+        card_token, card_gap = _decl_px(".page-section {", "margin-bottom")
+        grid_token, grid_gap = _decl_px(".dashboard-grid {", "margin-bottom")
+        head_token, head_gap = _decl_px(".page-section--nested > h2,", "margin-bottom")
+        intro_token, intro_gap = _decl_px("h1,\nh2,\nh3,\n.text-heading {", "margin")
+
+        if None in (section_gap, card_gap, grid_gap, head_gap, intro_gap):
+            return False, (
+                "expected all four spacing rules (.battery-trend-section, .page-section, "
+                ".dashboard-grid, .page-section--nested > h2, the heading-rhythm rule) to "
+                "resolve to real px token values, got tokens %r"
+                % ((section_token, card_token, grid_token, head_token, intro_token),))
+        if card_gap != grid_gap:
+            return False, (
+                "expected .page-section and .dashboard-grid to share one same-section "
+                "card-to-card value (%s=%dpx vs %s=%dpx) — the pair 260902-ep7 pinned"
+                % (card_token, card_gap, grid_token, grid_gap))
+        if not (section_gap > card_gap > head_gap > intro_gap):
+            return False, (
+                "expected the layout hierarchy's four spacing tiers to stay strictly ordered "
+                "(section-transition %dpx > card-to-card %dpx > heading-to-content %dpx > "
+                "section-intro rhythm %dpx) — this ordering is what now carries the two-tier "
+                "hierarchy quick task 260902-iag removed the type-scale distinction from"
+                % (section_gap, card_gap, head_gap, intro_gap))
+        return True, ""
+    check(
+        "Health's two-tier hierarchy (D-10 section headings vs. the cards nested inside them) still reads "
+        "apart with no font-size or font-weight distinction between the tiers: every level-2 heading (Battery "
+        "trend, Unresolved prefixes, Resolution statistics) sits inside a bordered card <section>, both level-1 "
+        "headings (Screen, Server & data) sit inside the plain .section-intro row with no card class, a "
+        ".dashboard-grid always intervenes between a level-1 heading and the first level-2 card in its own "
+        "section, and the four spacing tiers that now carry the distinction stay strictly ordered against "
+        "their real :root token values — in both the empty and seeded state (quick task 260902-iag Task 3)",
+        _two_tier_hierarchy_carried_by_layout_not_type)
 
     def _nested_card_heading_rhythm_end_to_end():
         # quick task 260902-bl2 Task 3 (Check 2): bug 2's markup half (for
