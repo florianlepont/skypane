@@ -2917,6 +2917,66 @@ summary::-webkit-details-marker {
   margin-bottom: var(--space-sm);
 }
 
+/* quick task 260902-tli: the click-to-enlarge trigger wrapping
+ * .airline-card__image above. Block-level, full-width and height: auto
+ * so it exactly cages the image it wraps; zero padding/border/
+ * background so the base `button` rule's 30px-tall/12px-padded/
+ * bordered box model contributes nothing to this control's shape — the
+ * wrapped image alone determines it. */
+.airline-card__zoom {
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-control);
+  cursor: zoom-in;
+}
+
+/* Both rules below are load-bearing, not redundant: the base
+ * `button:hover`/`button:active` rules above are (0,1,1)-specificity
+ * (one pseudo-class, one type selector) and would otherwise still apply
+ * here, re-painting a background/border wash and a 1px press-depress
+ * onto a control that must stay visually inert except for the zoom
+ * cursor. `.airline-card__zoom:hover`/`:active` match or exceed that
+ * specificity and sit later in source order, so these neutralizers win.
+ * The press-depress in particular is deliberately removed, not just
+ * muted: a full-width image nudging 1px against the card's own border
+ * reads as a layout glitch, not a button press. This control keeps the
+ * global :focus-visible outline — that is not touched here. */
+.airline-card__zoom:hover {
+  background: none;
+  border-color: transparent;
+}
+
+.airline-card__zoom:active {
+  transform: none;
+}
+
+/* quick task 260902-tli: the orientation/viewport gate for the zoom
+ * trigger above — this file's first max-width query and an intentional
+ * exception to the file's mobile-first idiom, since it is a
+ * disable-override: enabled must stay the default a non-supporting
+ * browser falls back to (the benign direction — "lightbox works"). 959px
+ * is the exact complement of this file's one min-width breakpoint below
+ * (960px), not a new magic number. Both clauses earn their place: the
+ * width clause is what keeps "desktop always works" true, the
+ * orientation clause is what keeps a small landscape window working —
+ * without it, a narrow-but-landscape phone window would also be
+ * disabled. A portrait tablet is deliberately caught by this same rule
+ * too (it is the same narrow-tall-viewport case, just less extreme).
+ * This disables the pointer path only — a stylesheet cannot remove a
+ * tab stop, and no script-side gate exists by design (see
+ * companion/static/panel-lookup.js's own standing-constraints comment),
+ * so a deliberate keyboard activation still opens the dialog here; that
+ * is documented, accepted residue, not a bug. */
+@media (max-width: 959px) and (orientation: portrait) {
+  .airline-card__zoom {
+    pointer-events: none;
+  }
+}
+
 /* Emphasis role, not a new type role. */
 .airline-card__name {
   font-size: var(--font-body-size);
@@ -3362,4 +3422,30 @@ summary::-webkit-details-marker {
  * is not a new token. */
 .lightbox::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* quick task 260902-tli: the Airlines gallery's wide lightbox variant.
+ * .lightbox's stock 480px max-width would render the normalized 900x263
+ * illustration at 480x140 — barely bigger than the grid card and not
+ * worth a modal. Equal specificity to .lightbox (one class each), so
+ * this must come later in source order to win — it does, as the last
+ * rule in this section. 900 is illustration_normalize.py's
+ * ILLUSTRATION_TARGET_WIDTH, pinned by a harness cross-file check, so
+ * the illustration is never upscaled past its own native width. */
+.lightbox--wide {
+  max-width: 900px;
+}
+
+/* width: auto here, not the base .lightbox__image rule's width: 100%,
+ * is deliberate: combined with max-height below, width: 100% + height:
+ * auto would squash the aspect ratio once the image hits the height
+ * cap. max-height: 60vh is what keeps the whole dialog — image,
+ * caption, note, Close — on screen without scrolling on a landscape
+ * phone. */
+.lightbox--wide .lightbox__image {
+  width: auto;
+  max-width: 100%;
+  max-height: 60vh;
+  margin-left: auto;
+  margin-right: auto;
 }
