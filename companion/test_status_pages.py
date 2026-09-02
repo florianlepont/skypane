@@ -134,7 +134,22 @@ STARTUP_DEADLINE_S = 10.0
 # the served stylesheet carries the description-column rule, the
 # demotion rule's new bottom margin and the prose rhythm rule's
 # selector) were done in place — no count change from either.
-EXPECTED_CHECK_COUNT = 84  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 84 + 5 (quick task 260902-chc Task 3: the D-12 reversal is recorded in
+# both prose files it touches, the auto-refresh loop's own contract from
+# freshness.js's shipped source, the pill's markup contract on a real
+# render — both seeded and on a fresh state directory with no readings —
+# the pill's stylesheet contract, and the interaction-skip guard's
+# cross-file DOM contract). Tasks 1-2's in-place retargets (the D-12
+# refresh/stale-banner check rewritten as the reversal's own guard, the
+# page-purpose ordering check's lookup retargeted onto the pill's marker
+# attribute, the five-icon check's comment/message updated from "Refresh
+# action" to "pill") and this task's live-HTTP extension of
+# _both_tabs_ok_end_to_end() (the pill hidden-by-default + zero
+# stale-banner assertions on the real /health response, plus a real fetch
+# of FRESHNESS_SCRIPT_ROUTE proving the served script carries the
+# interval constant and the visibility-change listener) were all done in
+# place — no count change from either.
+EXPECTED_CHECK_COUNT = 89  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2600,9 +2615,267 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health renders exactly five icon instances — three tinted tile icons, one heading icon, and one Refresh "
-        "action icon, all whitelisted",
+        "Health renders exactly five icon instances — three tinted tile icons, one heading icon, and one "
+        "auto-refresh pill icon, all whitelisted",
         _health_page_four_icons_correctly_placed_and_tinted)
+
+    # --- 260902-chc Task 3: pin the auto-refresh contract -------------------
+
+    def _quick_260902_chc_reversal_recorded_in_both_places():
+        # Check 1: D-12's no-automatic-polling rule was enforced by prose
+        # alone (no harness gate has ever pinned it), so prose is the
+        # only place its reversal can be recorded. Positive assertions
+        # only — a ban on the OLD wording anywhere in either file would
+        # be a trap, since both files' comments legitimately discuss
+        # D-12's old rule in the course of explaining why it changed.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+        if "260902-chc" not in js_source:
+            return False, "expected freshness.js to name this quick task"
+        if "SUPERSEDED" not in js_source:
+            return False, "expected freshness.js to carry the house superseded token"
+        if "D-12" not in js_source:
+            return False, "expected freshness.js to name the decision it reverses"
+
+        context_path = os.path.join(
+            REPO_ROOT, ".planning", "phases",
+            "06.6.3-companion-per-page-redesign-config-health-history-airlines-p",
+            "06.6.3-CONTEXT.md")
+        with open(context_path) as fh:
+            context_source = fh.read()
+        d12_start = context_source.index("- **D-12:**")
+        d12_entry = context_source[d12_start:context_source.index("\n\n", d12_start)]
+        if "SUPERSEDED" not in d12_entry:
+            return False, "expected D-12's own CONTEXT.md entry to carry the house superseded token"
+        if "260902-chc" not in d12_entry:
+            return False, "expected D-12's own CONTEXT.md entry to name this quick task"
+        if "no automatic background polling" not in d12_entry:
+            return False, (
+                "expected D-12's original decision wording to survive byte-identical — an "
+                "unrecorded reversal reads to the next reader as a violation of a rule still "
+                "presented as current")
+        return True, ""
+    check(
+        "the D-12 reversal (260902-chc) is written down at both prose sites it touches — "
+        "freshness.js's own header and D-12's own CONTEXT.md entry — each carrying the house "
+        "SUPERSEDED token and naming this quick task, with D-12's original wording intact",
+        _quick_260902_chc_reversal_recorded_in_both_places)
+
+    def _quick_260902_chc_loop_contract_guard():
+        # Check 2: the loop's own contract, pinned against freshness.js's
+        # shipped source rather than this plan's own prose.
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+
+        m = re.search(r"AUTO_REFRESH_INTERVAL_MS\s*=\s*(\d+)", js)
+        if not m:
+            return False, "expected AUTO_REFRESH_INTERVAL_MS to be a named constant"
+        interval_ms = int(m.group(1))
+        if not (30000 <= interval_ms <= 60000):
+            return False, "interval %d ms falls outside the developer's chosen 30-60s band" % interval_ms
+
+        if "setInterval" not in js or "clearInterval" not in js:
+            return False, "expected both setInterval and clearInterval — the pause half of the loop"
+        if "visibilitychange" not in js or "document.hidden" not in js:
+            return False, "expected both a visibilitychange listener and a document.hidden read"
+        if "intervalHandle !== null" not in js:
+            return False, "expected the double-start guard (a no-op start when a handle already exists)"
+        if "location.reload()" not in js:
+            return False, "expected the no-argument location.reload() form"
+
+        # test_config_page.py's own _FORBIDDEN_SCRIPT_SINKS tuple,
+        # copied here (not imported — it is a function-local inside that
+        # harness's main()) from the real source read at plan time. If
+        # that tuple's membership ever changes, this copy needs updating
+        # too.
+        forbidden_sinks = (
+            "innerHTML", "outerHTML", "insertAdjacentHTML",
+            "document.write", "eval(", "fetch(", "XMLHttpRequest",
+        )
+        for sink in forbidden_sinks:
+            if sink in js:
+                return False, "forbidden sink discipline broken: %r found in freshness.js" % sink
+        for nav in ("location.href =", "location.assign", "location.replace"):
+            if nav in js:
+                return False, "URL-taking navigation form found in freshness.js: %r" % nav
+
+        # The ES5-safe-subset portion of test_companion_app.py's own
+        # nav-dropdown.js/panel-lookup.js `banned` tuples, copied here
+        # (not imported, same reason as forbidden_sinks above) from the
+        # real source read at plan time.
+        for token in ("let ", "const ", "=>", "`"):
+            if token in js:
+                return False, "ES5-safe subset broken: %r found in freshness.js" % token
+
+        # Deliberate asymmetry, and the whole point of this task: unlike
+        # the sibling nav-dropdown.js/panel-lookup.js guards, setTimeout
+        # and setInterval must NOT be banned here — the timer ban is the
+        # ONLY discipline this task lifts on this file, and both timers
+        # must actually be present for the loop to exist at all.
+        for timer in ("setTimeout", "setInterval"):
+            if timer not in js:
+                return False, (
+                    "expected %r to be present — this task deliberately lifts the timer ban this "
+                    "file used to carry, the only discipline it lifts" % timer)
+        return True, ""
+    check(
+        "freshness.js's shipped source carries the loop's own contract — a named interval constant "
+        "inside the 30-60s band, both halves of pause (setInterval+clearInterval) and visibility "
+        "(visibilitychange+document.hidden), the double-start guard, and the no-argument reload form — "
+        "while every pre-existing discipline except the timer ban (forbidden sinks, no URL-taking "
+        "navigation form, the ES5-safe subset) still holds; the timer ban is the ONLY thing this task "
+        "lifted",
+        _quick_260902_chc_loop_contract_guard)
+
+    def _quick_260902_chc_pill_markup_contract():
+        # Check 3: the pill's own markup contract on a real render,
+        # including the state where it matters most that the pill is
+        # unconditional — a fresh state directory with no readings at
+        # all — so the pill is proven independent of the battery chart's
+        # own render branch, not accidentally coupled to it.
+        for label, seed_readings in (("seeded", True), ("fresh/no-readings", False)):
+            tmp = _mkstate("h-pill-contract-%s" % ("seeded" if seed_readings else "fresh"))
+            try:
+                now = _now()
+                if seed_readings:
+                    _seed_device_health(tmp, [
+                        (_iso(now - timedelta(minutes=1)), 4200),
+                        (_iso(now), 4190),
+                    ])
+                now_iso = _iso(now)
+                rendered = health_page.render(_ctx(tmp, now=now_iso))
+                if rendered.count("data-refresh-pill") != 1:
+                    return False, (
+                        "%s state: expected exactly one pill marker attribute, got %d"
+                        % (label, rendered.count("data-refresh-pill")))
+                start = rendered.index("data-refresh-pill")
+                tag = rendered[rendered.rindex("<", 0, start):rendered.index(">", start) + 1]
+                if not tag.startswith("<span"):
+                    return False, "%s state: expected the pill to be an inline <span>, got %r" % (label, tag[:40])
+                if " hidden" not in tag:
+                    return False, "%s state: expected the pill to carry the bare hidden attribute" % label
+                if ('data-loaded-at="%s"' % now_iso) not in rendered:
+                    return False, "%s state: expected data-loaded-at to carry the real now value" % label
+                if rendered.count("data-loaded-at") != 1:
+                    return False, "%s state: expected exactly one data-loaded-at, page-wide" % label
+                if health_page.REFRESH_PILL_TEXT not in rendered:
+                    return False, "%s state: expected the pill copy constant's own value in the rendered page" % label
+                header_start = rendered.index('<div class="page-header">')
+                header_end = rendered.index("</div>", header_start) + len("</div>")
+                if "data-refresh-pill" not in rendered[header_start:header_end]:
+                    return False, "%s state: expected the pill inside the .page-header div" % label
+                purpose_at = rendered.index(layout.escape_html(health_page.PAGE_PURPOSE_TEXT))
+                if start >= purpose_at:
+                    return False, "%s state: expected the pill to precede the purpose sentence" % label
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+        return True, ""
+    check(
+        "the auto-refresh pill's markup contract (marker attribute, inline element, hidden-by-default, "
+        "live data-loaded-at exactly once page-wide, the pill-copy constant's own value, inside "
+        ".page-header, preceding the purpose sentence) holds on a real render both seeded and on a "
+        "fresh state directory with no readings at all — proven unconditional, not coupled to the "
+        "battery chart's own render branch",
+        _quick_260902_chc_pill_markup_contract)
+
+    def _quick_260902_chc_pill_stylesheet_contract():
+        # Check 4: the pill's stylesheet contract, matching the existing
+        # CSS DOM-contract guard idiom (index()-plus-window-slicing,
+        # never a regex CSS parser — see
+        # _quick_260901_tsa_css_dom_contract_guard() above).
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        if ".refresh-pill {" not in css_source:
+            return False, "expected style.css to declare .refresh-pill"
+        pill_start = css_source.index(".refresh-pill {")
+        pill_body = css_source[pill_start:css_source.index("}", pill_start)]
+        if "display: inline-flex" not in pill_body:
+            return False, "expected .refresh-pill to declare an inline-level flex display"
+
+        if ".refresh-pill[hidden] {" not in css_source:
+            return False, "expected style.css to declare .refresh-pill[hidden]"
+        hidden_start = css_source.index(".refresh-pill[hidden] {")
+        hidden_body = css_source[hidden_start:css_source.index("}", hidden_start)]
+        if "visibility: hidden" not in hidden_body:
+            return False, (
+                "expected .refresh-pill[hidden] to hide by visibility — without this override the "
+                "pill's own display declaration beats the user-agent [hidden] rule and the pill "
+                "renders permanently visible on every page load, the exact collision "
+                ".dirty-bar[hidden]'s own comment documents")
+        if "display" in hidden_body:
+            return False, (
+                "expected .refresh-pill[hidden] to declare no display value at all — a display "
+                "declaration inside this rule would collapse the reserved line box and reintroduce "
+                "the layout shift it exists to prevent")
+
+        if ".refresh-pill .icon" not in css_source:
+            return False, "expected a pill-scoped icon-size override — .icon is 20px, the pill is 20px tall"
+
+        if css_source.index(".banner__pill {") >= pill_start:
+            return False, "expected .banner__pill to still precede .refresh-pill in source order"
+        return True, ""
+    check(
+        "style.css's .refresh-pill / .refresh-pill[hidden] / pill-scoped icon rules each carry their "
+        "load-bearing declaration — the [hidden] override hides by visibility with no display value at "
+        "all, reserving the pill's own line box — and .banner__pill still precedes .refresh-pill in "
+        "source order",
+        _quick_260902_chc_pill_stylesheet_contract)
+
+    def _quick_260902_chc_skip_guard_cross_file_contract():
+        # Check 5: the cross-file contract the interaction-skip guard
+        # depends on. This guard's failure mode is silence — when it
+        # stops matching, nothing errors and no other check moves, the
+        # page simply begins reloading out from under a user
+        # mid-interaction — so this is the only thing that would notice.
+        tmp = _mkstate("h-skip-guard-contract")
+        try:
+            now = _now()
+            _seed_device_health(tmp, [
+                (_iso(now - timedelta(minutes=1)), 4200),
+                (_iso(now), 4190),
+            ])
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {
+                    "count": 2, "first_seen": _iso(now), "last_seen": _iso(now),
+                    "example_callsign": "ABC123"},
+            })
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if "<details" not in rendered:
+                return False, "expected at least one <details> disclosure to actually render (fixture gap)"
+            if "data-filter-input" not in rendered:
+                return False, "expected the registry filter input to actually render (fixture gap)"
+            if health_page.SPARKLINE_HIT_CLASS not in rendered:
+                return False, "expected the battery chart's hit-target class to actually render (fixture gap)"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        js_path = os.path.join(HERE, "static", "freshness.js")
+        with open(js_path) as fh:
+            js = fh.read()
+        if "details[open]" not in js:
+            return False, "freshness.js no longer checks for an open <details> disclosure"
+        for tag_literal in ("INPUT", "SUMMARY"):
+            if tag_literal not in js:
+                return False, (
+                    "freshness.js no longer names %r among the focusable elements it skips on"
+                    % tag_literal)
+        if health_page.SPARKLINE_HIT_CLASS not in js:
+            return False, "freshness.js no longer references SPARKLINE_HIT_CLASS's own literal value"
+        return True, ""
+    check(
+        "the interaction-skip guard's cross-file contract: a fixture rich enough to actually render a "
+        "disclosure, a filter input and a chart hit target, and freshness.js's shipped source still "
+        "checks for an open <details>, a focused INPUT/SUMMARY, and health_page.SPARKLINE_HIT_CLASS's "
+        "own literal value — this guard's failure mode is silence, so this check is the only thing "
+        "that would notice a drift",
+        _quick_260902_chc_skip_guard_cross_file_contract)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py — the illustration
@@ -2973,6 +3246,24 @@ def main():
                                 "expected %r exactly once in the real /health HTTP response "
                                 "body, got %d" % (label, label_count))
 
+                    # 260902-chc: the automated half of "the running
+                    # service really serves the reversal" — a real
+                    # subprocess, a real login, a real seeded database, a
+                    # real HTTP response, proving the pill (not the
+                    # retired manual Refresh link/stale banner) is what
+                    # actually reaches a browser.
+                    if body_text.count("data-refresh-pill") != 1:
+                        return False, (
+                            "expected the pill marker exactly once in the real /health HTTP "
+                            "response body, got %d" % body_text.count("data-refresh-pill"))
+                    pill_start = body_text.index("data-refresh-pill")
+                    pill_tag = body_text[
+                        body_text.rindex("<", 0, pill_start):body_text.index(">", pill_start) + 1]
+                    if " hidden" not in pill_tag:
+                        return False, "expected the real /health response's pill to carry the bare hidden attribute"
+                    if "data-stale-banner" in body_text:
+                        return False, "expected zero stale-banner markers in the real /health HTTP response body"
+
                     # quick task 260901-uzi Task 4: the automated half of
                     # "verified against a real running service" for the
                     # four Health fixes — a real subprocess, a real
@@ -3037,16 +3328,36 @@ def main():
                 if needle not in css_text:
                     return False, (
                         "expected %s (%r) in the real %s response body" % (label, needle, app.STYLE_ROUTE))
+
+            # 260902-chc: beside the STYLE_ROUTE fetch above and
+            # following its exact pattern — a real fetch of the
+            # freshness-script route from this same running service,
+            # proving the process hands a browser the new loop, not only
+            # that the on-disk file says so.
+            js_status, _js_headers, js_body = http_request(
+                base + app.FRESHNESS_SCRIPT_ROUTE, cookie=session_cookie)
+            if js_status != 200:
+                return False, "expected 200 for %s, got %d" % (app.FRESHNESS_SCRIPT_ROUTE, js_status)
+            js_text = js_body.decode("utf-8", errors="replace")
+            for needle, label in (
+                    ("AUTO_REFRESH_INTERVAL_MS", "the named interval constant"),
+                    ("visibilitychange", "the visibility-change listener registration")):
+                if needle not in js_text:
+                    return False, (
+                        "expected %s (%r) in the real %s response body"
+                        % (label, needle, app.FRESHNESS_SCRIPT_ROUTE))
             return True, ""
         check(
             "GET /health and GET /airlines both return 200 with their own page heading against a real running "
             "service, /health's real HTTP response body carries the page purpose, both section descriptions, "
-            "no duplicated freshness label, the nested modifier twice, the prose modifier once, both readout "
-            "spans, no raw ISO in the readout's own slice, and the desc-class cells at their expected count "
-            "after the Resolution-statistics heading, and the real served stylesheet (STYLE_ROUTE) carries the "
-            "description-column rule, the demotion rule's new bottom margin and the prose rhythm rule's "
-            "selector (quick task 260901-tsa; extended in place by quick task 260901-uzi finding 1/2/3/4 and "
-            "quick task 260902-bl2 Task 3)",
+            "no duplicated freshness label, the auto-refresh pill (hidden) and zero stale-banner markers, the "
+            "nested modifier twice, the prose modifier once, both readout spans, no raw ISO in the readout's "
+            "own slice, and the desc-class cells at their expected count after the Resolution-statistics "
+            "heading, and the real served stylesheet (STYLE_ROUTE) carries the description-column rule, the "
+            "demotion rule's new bottom margin and the prose rhythm rule's selector, and the real served "
+            "freshness script (FRESHNESS_SCRIPT_ROUTE) carries the interval constant and the "
+            "visibility-change listener (quick task 260901-tsa; extended in place by quick task 260901-uzi "
+            "finding 1/2/3/4, quick task 260902-bl2 Task 3, and quick task 260902-chc)",
             _both_tabs_ok_end_to_end)
 
     finally:
