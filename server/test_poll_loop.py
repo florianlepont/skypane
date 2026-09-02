@@ -244,7 +244,15 @@ EXPECTED_CHECK_COUNT = 44
 # value from a real CI FAIL log, never from a local computation,
 # containerized or not. Check 30 is the both-branch proof that the
 # Linux-strict path is genuinely preserved by this change.
-_DEFAULT_CONFIG_DIGEST = "46c18ea48d711bf62520570367cd019e2144073019dabe1d4282766d3ae4be51"
+#
+# 2026-09-02 (quick task 260902-req): THIS IS a re-pin, for a real reason -
+# render.py's main-illustration vertical anchor moved from the source
+# rectangle's naive top to the actually-painted-content bbox (up to 120.5px
+# of drift measured across the 43 vendored files), which genuinely changes
+# rendered pixels for the FLIGHT1 fixture too. Re-pinned from CI's own FAIL
+# output (PR #28, github.com/florianlepont/skypane/actions/runs/33668126790),
+# per the standing rule above - not recomputed locally on this Mac.
+_DEFAULT_CONFIG_DIGEST = "f8cb1f8d358d45e6977ccd56639e1f42eb76d394f4a7cf1b03217d314f4ba2d3"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
 # offset from zero and no assertion depends on the real wall clock.

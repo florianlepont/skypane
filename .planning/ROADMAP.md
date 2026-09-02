@@ -306,6 +306,138 @@ Plans:
 
 - [x] 06.6-03-PLAN.md — History's Timestamp column and Preview's Captured caption onto the shared helper, plus the D-03 corroboration verification and its cross-page drift guard (D-02, D-03)
 
+### Phase 06.6.4: Companion sober visual refinement — Linear-inspired sobriety pass across buttons, cards/surfaces, banners, navigation, stat tiles, filter bar, icon buttons, segmented control, and tables (INSERTED)
+
+**Goal:** Apply the already-fully-validated "sober, Linear-inspired" visual spec to the real companion codebase. Structural restraint only, not a rebrand: cards trade their resting shadow for a hairline with the shadow revealed on interaction; text buttons drop 44px→30px (a deliberate WCAG 2.5.5 AAA trade-off the developer accepted three times, still 2.5.8 AA-compliant) with an inset-highlighted primary and near-invisible quiet variants; icon buttons shrink to 28px while keeping a real 44px hit area via a pseudo-element; banners lose their colour wash for a neutral surface with a 3px edge and a status dot; both nav renderers tighten to 32px with a single tinted-pill active signal; the theme picker becomes one segmented control; tables lose zebra striping for a hover tint under quiet uppercase headers; and the filter bar tightens with both Clear controls converged on one rule. Every value was chosen and confirmed live against a rendered design-system artifact across ~8 rounds before planning began — this phase is pure application, with no design exploration remaining. Inserted urgently after the developer real-browser-tested Phase 06.6.3's shipped UI and reacted "c'est catastrophique d'un point de vue UI et UX".
+**Requirements**: None — unmapped backlog phase, matching every prior `06.6.x` decimal phase's precedent (`requirements.mark-complete` returning `not_found` for these IDs is expected, not an error). Traced instead against `06.6.4-CONTEXT.md`'s own locked decisions D-01, D-01a, D-01b, D-01c, D-02, D-03, D-03a, D-04, D-04a, D-05, D-05a, D-06, D-06a, D-07, D-07a, D-08, D-09, plus the two explicit non-goals D-10 and D-11.
+**Depends on:** Phase 06.6.3 (all its shipped markup/CSS) and the `heading-color-consistency` debug session (commit `01235a6`, already merged — this phase consumes its accent/status tokens and its serif/`legend` heading rule without revisiting them)
+**Plans:** 6/6 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 06.6.4-01-PLAN.md — Emphasis typography and the card hairline treatment across all six card components, plus removal of the two dark-mode card-edge overrides that would pin the border on during hover (D-03, D-03a, D-09)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 06.6.4-02-PLAN.md — Button system: 30px text buttons, primary inset highlight, quiet-at-rest secondaries with a hover reveal, pressed state, and the 28×28 icon button with a synthesized 44×44 hit area (D-01, D-01a, D-01b, D-01c, D-02)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 06.6.4-03-PLAN.md — Flat banner surface with a 3px coloured edge and status dot across all three severities, the combined card-and-banner reconciliation for Health's source-fault block, and a contrast guard for the new surface (D-04, D-04a)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 06.6.4-04-PLAN.md — Both nav renderers at 32px with a single tinted-pill active signal and `:not()`-scoped hover states, and the theme picker as a CSS-only segmented control (D-05, D-05a, D-06, D-06a)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 06.6.4-05-PLAN.md — Data-table shell (both header rules together, no zebra striping, hover row tint) and filter bar, with both Clear controls converged via the existing data attribute and zero page-module edits (D-07, D-07a, D-08)
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 06.6.4-06-PLAN.md — Closing wave: non-goal regression gate proving the typeface and every accent/status token held, full-suite gate, and the blocking developer real-browser verification in both themes (D-10, D-11)
+
+### Phase 06.6.4.1: Companion page-by-page IA consolidation — Airlines→Health merge, Preview→History merge, Airlines reborn as illustration gallery (INSERTED)
+
+**Goal:** Full page-by-page visual/content pass across all 5 companion pages, validated interactively against sketch artifacts this session. Settings (renamed from Config): single-column stacked sections replacing the broken 2-column runway grid, per-section descriptions, one page-level Discord-style unified unsaved-changes save bar replacing per-section dirty-bars (fixes a real dirty-state.js bug where the static fallback Save button never hides), backend route merge (LED form folds into the same POST route as Theme+Runway). Health absorbs the OLD Airlines page's diagnostics content entirely: anomaly banner uses short category-label pills instead of repeating tile sentences; Corroboration detail rows collapse behind a native details disclosure; Battery trend becomes a full-width interactive chart with labeled axes and a default latest-reading value; page restructures into Screen (device/battery) and Server-and-data (pipeline, corroboration, and a new resolution-rate tile) sections, with the old Airlines page's two sections (Unresolved prefixes registry, Resolution-statistics breakdown) demoted from cramped stat-tile grid cards into full-width stacked cards under Server-and-data — this fixes both the No-resolution-data-yet contradiction and the nested horizontal-scroll bug. History absorbs Preview entirely (Preview removed as a standalone nav item): a new Now-showing section carries the live-panel image plus colour caveat, with the render gallery demoted into a collapsed details disclosure; every History row gains a small icon-button that looks up the nearest-by-timestamp gallery render; unresolved-airline rows get a lightweight link to Health instead of duplicating the prefixes table. Airlines is REBORN, not removed: the nav slot is repurposed into a visual gallery of the panel's real illustration set (`server/plane/illustrations.py`/`server/assets/icons/illustrations/`, already-shipped art for 27 airlines, no new asset pipeline) — one card per airline with its real PNG (served through a new session-gated, membership-validated route mirroring the existing `/runway-image/{id}.png` pattern) and its fleet-type variant chips, plus a filter bar. Net navigation stays at 4 items (Settings/Health/Airlines/History) — the diagnostics content moves out of Airlines into Health, but the Airlines nav slot itself survives, repurposed. This phase also folds in and closes 06.6.3-08's own still-open closing checkpoint (Task 2), per the developer's explicit choice this session to fold that dangling checkpoint into this new pass rather than close it separately. All sketches were built and iteratively validated as standalone HTML artifacts against the real CSS design tokens and real page/asset content before this phase was opened — nothing in companion/ has been touched yet.
+**Requirements**: None — unmapped backlog phase, matching every prior 06.6.x decimal phase's own precedent. Traced against `06.6.4.1-CONTEXT.md`'s 26 locked decisions D-01 through D-26 (all covered; see `06.6.4.1-ARTIFACTS.md`). Reorganizes the presentation of CFG-04, CFG-06, CFG-08, CFG-10 and CFG-11, all already marked complete under Phase 6 — this phase delivers no new requirement scope, so `requirements.mark-complete` returning `not_found` for its D-* ids is correct, not a gap.
+**Depends on:** Phase 06.6.4
+**Plans:** 8/9 plans executed
+
+Plans:
+**Wave 1** *(parallel, disjoint files — additive foundation only, nothing renamed or deleted)*
+
+- [x] 06.6.4.1-01-PLAN.md — Shared CSS foundation: every class the four page plans consume, landed once in `style.css` (gallery cards, lightbox, chart axis labels, banner pills, the JS-gated save-fallback rule), plus the deletion of the two-column Settings grid (D-01, D-04, D-07, D-09, D-14, D-20)
+- [x] 06.6.4.1-02-PLAN.md — Shared plumbing: the per-airline fleet-variant accessor, the session-gated validate-then-join illustration image route, and `panel-lookup.js` with its pre-auth static route (D-14, D-15, D-20)
+
+**Wave 2** *(blocked on Wave 1; three page modules in parallel, disjoint files)*
+
+- [x] 06.6.4.1-03-PLAN.md — Settings: single-column wrapped sections with descriptions, unified section-naming save bar, no-JS fallback fix, LED merged into one form and one all-or-nothing handler (D-01 through D-06, D-26)
+- [x] 06.6.4.1-04-PLAN.md — Health: anomaly pills, Corroboration disclosure, interactive axis-labeled battery chart, Screen/Server-and-data restructure, and the old Airlines diagnostics absorbed as full-width cards (D-07 through D-12)
+- [x] 06.6.4.1-05-PLAN.md — History absorbs Preview: Now-showing section, collapsed Recent-renders disclosure, server-side per-row nearest-render lookup with a native-dialog lightbox, unresolved-airline link to Health (D-18 through D-21)
+
+**Wave 3** *(blocked on Wave 2 — closes the deliberate one-wave registry duplication)*
+
+- [x] 06.6.4.1-06-PLAN.md — Airlines reborn as an illustration gallery: 27 cards with real art and fleet-variant chips, filter bar, and removal of the diagnostics content that moved to Health (D-13 through D-17)
+
+**Wave 4** *(blocked on Wave 2 — shared route table)*
+
+- [x] 06.6.4.1-07-PLAN.md — Settings route rename to `/settings` across router and nav, and retirement of the separate LED POST route, its handler, and its orphaned builders (D-05, D-26)
+
+**Wave 5** *(blocked on Waves 2 and 4 — shared route table)*
+
+- [x] 06.6.4.1-08-PLAN.md — Preview retirement: fixed 302 to `/history`, navigation shrunk from five items to four, `preview_page.py` deleted (D-22)
+
+**Wave 6** *(blocked on all — blocking developer checkpoint)*
+
+- [ ] 06.6.4.1-09-PLAN.md — Closing: full-suite and live-route gates, completed validation record, and the blocking 28-item developer verification pass translating 06.6.3-08's checklist, including the twice-deferred assistive-technology pass and production walkthrough (D-23, D-24, D-25)
+
+### Phase 06.6.3: Companion per-page redesign — Config, Health, History, Airlines, Preview (INSERTED)
+
+**Goal:** Carry Phase 06.6.2's foundation (tokens, page-header pattern, sidebar, severity function, contrast checker) into a real recomposition of every companion page: Config's dirty-state save bar, read-only Theme status and runway cards; Health's roving-tabindex battery chart, specific anomaly summary, and disclosure-collapsed readings; History's mobile compact cards, filtering, and copy-to-clipboard; Airlines' filtering and simplified hierarchy; Preview's centered matte treatment, freshness signal, and task-oriented gallery captions. Split out 2026-08-31 from Phase 06.6.2 for context-budget reasons (see 06.6.2's Goal) — carries the nine per-page CONTEXT.md decisions and audit findings that need 06.6.2's shared primitives to land cleanly, avoiding double-touching the same page files.
+**Requirements**: None — unmapped backlog phase. Traced against `06.6.3-CONTEXT.md`'s own locked decisions D-02 through D-05, D-06 (heading-dedup half), D-07 through D-10, D-12, D-13, D-18, D-20, D-22, D-23, plus the audit's UXA-01 (mobile-card half), UXA-05, UXA-06, UXA-11, UXA-13, UXA-16, UXA-17, UXA-18, and UXA-08 (Config-specific half).
+**Depends on:** Phase 06.6.2 (consumes its design tokens, `page_header()`, sidebar footer region, and severity function)
+**Plans:** 7/8 plans executed
+
+Plans:
+**Wave 1** *(parallel, no shared files)*
+
+- [x] 06.6.3-01-PLAN.md — Shared foundation: `layout.concise_timestamp_html()`, `data_table(raw_columns=)`, 4 new icons, and 4 new pre-auth static JS files (dirty-state, list-filter, copy-button, freshness) wired through `app.py`
+- [x] 06.6.3-02-PLAN.md — Shared foundation CSS: every new class this phase's five page plans reference (theme status, runway cards, dirty-bar, disclosures, history cards, filter bar, copy button, matte frame), landed once so no later plan touches `style.css`
+
+**Wave 2** *(blocked on Wave 1; parallel with each other, disjoint files)*
+
+- [x] 06.6.3-03-PLAN.md — Config: D-02/D-06 LED rename+dedup, D-04 read-only Theme swatch, D-05 Runway selectable cards, D-03 dirty-state save bar
+- [x] 06.6.3-04-PLAN.md — Health: D-08 readings disclosure + chart reorder, UXA-06 specific anomaly copy, UXA-05 corroboration copy fix, D-13/UXA-11 roving-tabindex chart, D-12/UXA-13 freshness + stale-view banner
+- [x] 06.6.3-05-PLAN.md — History: D-07/UXA-01 mobile compact cards, UXA-05 confirmed_state/runway labels, D-09 concise timestamps, D-20 filter bar, D-23 copy-to-clipboard
+
+**Wave 3** *(blocked on Wave 2's shared-test-file plans; parallel with each other)*
+
+- [x] 06.6.3-06-PLAN.md — Airlines: D-18 headline promotion + simplified hierarchy, D-09 raw_columns timestamps, D-20 filter bar
+- [x] 06.6.3-07-PLAN.md — Preview: D-18 matte frame, UXA-16 sizing/loading hints, D-22 gallery caption reverse-parse, D-10 window label, D-12 freshness + stale-view banner
+
+**Wave 4** *(blocked on all)*
+
+- [ ] 06.6.3-08-PLAN.md — Full-suite gate plus a blocking local browser/keyboard/phone verification checkpoint across all five redesigned pages, closing this phase's two carried-forward deferred items (real assistive-technology testing, production authenticated walkthrough)
+
+### Phase 06.6.2: Companion UX, accessibility, and responsive hardening (INSERTED)
+
+**Goal:** Ship the shared UX/accessibility/design-token foundation the rest of the companion redesign builds on: color/surface/typography/motion tokens, a WCAG contrast checker, the joint mobile-nav closed-state + no-JS fallback fix, desktop table containment, a shared page-header pattern and refined sidebar (incl. sticky), warning/error severity propagation, a dedicated login shell with deep-link return and logout→POST, poll-trigger concurrency locking, and programmatic feedback roles. Split out 2026-08-31 from a single oversized "companion UX hardening" phase — the planner found the combined scope (~16 dense plans touching the same handful of already-shipped files) exceeded this project's own largest prior single-phase precedent (Phase 6's 12 plans, which was mostly additive). Nothing from the original 23 CONTEXT.md decisions or the audit's 18 findings was dropped — nine per-page items (Config/Health/History/Airlines/Preview redesign) moved to the new Phase 06.6.3, which depends on this phase's shared primitives.
+**Requirements**: None — unmapped backlog phase (promoted from the 06.6.1-UX-AUDIT.md follow-up, itself promoted from real-device findings). Traced against `06.6.2-CONTEXT.md`'s own locked decisions D-01, D-06 (accent-color token half), D-11, D-14 through D-17, D-19, D-21, plus the audit's UXA-01 (desktop-containment half), UXA-02/03/04/07/09/10/14/15, and UXA-08 (accent-color half).
+**Depends on:** Phase 06.6
+**Plans:** 8/8 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 06.6.2-01-PLAN.md — Design tokens (3 surface levels), a pure-Python WCAG contrast checker, UXA-04's light-accent fix, D-06's native-control accent-color, D-19's motion polish
+- [x] 06.6.2-02-PLAN.md — UXA-15's server-side poll-concurrency lock plus a "Polling…" button affordance
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [x] 06.6.2-03-PLAN.md — UXA-01's desktop History-containment fix and the joint UXA-02/UXA-12 mobile-nav semantic closed-state fix
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [x] 06.6.2-04-PLAN.md — `layout.page_header()` + a distinct page-title typography role, applied across all five pages (D-15/D-16)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [x] 06.6.2-05-PLAN.md — Sidebar refinement (active pill, per-tab icons, sticky), a footer region grouping the theme picker with a new POST-only Sign out control, plus skip-link/aria-current/favicon (D-11/D-17/D-21/UXA-10)
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [x] 06.6.2-06-PLAN.md — `health_severity()`/`overall_severity()` and severity-aware nav dot/banner/flash roles, closing UXA-14 and this phase's UXA-07 scope
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [x] 06.6.2-07-PLAN.md — Dedicated `login_shell()`, allowlisted deep-link return, autocomplete/error-role/focus, and the D-01/UXA-09 language-policy regression, closing UXA-03
+
+**Wave 7** *(blocked on all)*
+
+- [x] 06.6.2-08-PLAN.md — Full-suite gate plus a blocking local browser/keyboard/contrast verification checkpoint
+
 ### Phase 06.6.1: Companion visual polish pass (INSERTED)
 
 **Goal:** A second visual-design pass on the companion web app, evolving 06.3's shipped system rather than replacing it, driven by `06.6.1-UI-SPEC.md` (approved 6/6 by `gsd-ui-checker`) and three `/gsd-sketch` explorations. Five changes land together: (1) **a new token layer** — a warm system-serif family for headings and the "SkyPane" wordmark (body, tables, form controls and nav links stay sans-serif), a terracotta accent (`#E8622C` / `#FF8A5C`) replacing 06.3's blue and deliberately hue-separated from the amber warn-status colour, card shadows and softer radii replacing hairline outlines, warm off-white light-mode surfaces, and airier spacing globally; (2) **a real mobile hamburger menu** below 960px — a toggle in the header opening a push-down dropdown holding the five nav links and the relocated theme picker, closing on a second tap or Escape, with `aria-expanded` as the single source of truth for its state — replacing (and deleting) the horizontally-scrollable strip that real-device testing found hid Health/Airlines/History/Preview behind an undiscoverable swipe; (3) **Health density and redundancy cleanup** — the anomaly banner's detail list removed (the Overview tiles already carry the same information in colour), the battery-trend chart moved out of its 240px grid track into a full-width card section, and a five-symbol inline icon sprite giving each signal its own status-tinted icon; (4) **a notification dot on the Health nav link** whenever an anomaly is active, driven by a new never-raising cross-page `ctx` signal so no page module imports another; (5) **History cut from 9 columns to 7** by merging Callsign·Hex and Type·Airline into single one-line cells at today's row height. The phase closes with a blocking real-phone-and-real-browser sign-off — the step 06.3/06.4/06.5 all skipped in favour of computed-style inspection, which is precisely why this phase exists.

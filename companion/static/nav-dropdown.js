@@ -22,6 +22,14 @@
 (function () {
   "use strict";
 
+  // Progressive-enhancement marker (UXA-02/UXA-12's joint fix). This must
+  // run unconditionally, before any dropdown-specific lookup below and
+  // even on a page whose header has no dropdown at all — style.css's
+  // .js .mobile-nav clipping rule (and any other .js-scoped rule a
+  // future page adds) must never be left permanently un-resolved just
+  // because this particular page has no toggle/panel pair to find.
+  document.documentElement.className += " js";
+
   // This script is served to every page on the site (a single cached
   // static asset, not re-emitted per page). This early return is
   // load-bearing, not defensive noise, matching battery-trend.js's own
@@ -38,6 +46,18 @@
   // three-file DOM contract guard (06.6.1-05 Task 3) reads this file from
   // disk and asserts that constant's value appears here.
   var OPEN_CLASS = "mobile-nav--open";
+
+  var reduceMotion = false;
+  if (window.matchMedia) {
+    reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  // Explicit initial closed state, matching the server-rendered
+  // aria-expanded="false" baseline. Without this, the panel would be
+  // visually clipped by the new .js .mobile-nav CSS rule but still
+  // present in the accessibility tree/tab order until the user's first
+  // toggle — reopening exactly the bug this task closes.
+  panel.hidden = true;
 
   function isOpen() {
     // aria-expanded is deliberately the single source of truth for the
@@ -56,10 +76,47 @@
     // plain string. This file operates on an HTMLElement, where classList
     // is universally available and unambiguous — a deliberate, reasoned
     // difference from the sibling file, not an inconsistency.
+    //
+    // hidden and the CSS open-state class both derive from this single
+    // function, never set independently elsewhere in this file — that is
+    // what keeps the two findings this task closes (UXA-02's tab-order/
+    // accessibility-tree removal and UXA-12's no-JS floor) from silently
+    // re-diverging.
     if (next) {
-      panel.classList.add(OPEN_CLASS);
+      // A hidden element has no box to transition from, so hidden must
+      // be cleared before the open class is added.
+      panel.hidden = false;
+      if (reduceMotion) {
+        panel.classList.add(OPEN_CLASS);
+      } else {
+        window.requestAnimationFrame(function () {
+          // Re-check isOpen() before applying the class: a fast
+          // setOpen(true) followed by setOpen(false) (both synchronous,
+          // before this frame runs) would otherwise allow this stale
+          // callback to re-open a panel that has already been told to
+          // close, so aria-expanded="false" and the rendered panel
+          // state would visibly disagree (WR-01).
+          if (isOpen()) {
+            panel.classList.add(OPEN_CLASS);
+          }
+        });
+      }
     } else {
       panel.classList.remove(OPEN_CLASS);
+      if (reduceMotion) {
+        panel.hidden = true;
+      } else {
+        // Apply hidden only after the collapse transition completes —
+        // a hidden element renders nothing at all mid-transition, which
+        // would otherwise cut the close animation off instantly.
+        panel.addEventListener(
+          "transitionend",
+          function _onCollapsed() {
+            panel.hidden = true;
+          },
+          { once: true }
+        );
+      }
     }
   }
 

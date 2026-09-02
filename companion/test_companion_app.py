@@ -35,11 +35,13 @@ import hashlib
 import hmac
 import html
 import os
+import re
 import shutil
 import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -60,11 +62,63 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 69  # 68 (06.6.1's own additions: 62 + 2 (06.6.1-05
-# Task 1: nav-dropdown.js) + 4 (Task 3: toggle/dropdown/DOM-contract/no-JS))
-# + 1 (2026-08-29 quick task 260829-0rl, merged independently via origin/main
-# PR #19: the gallery route's private caching-scope regression check, WR-02
-# from 06.4-REVIEW.md) — see that check for detail.
+EXPECTED_CHECK_COUNT = 108  # quick task 260902-qkm (2026-09-02): 1 new
+# check pinning both nav-link geometries apart after restoring
+# .mobile-nav__link's 44px/Body-size tap target (D-05 reached it by
+# mistake) while .sidebar-link keeps its D-05 32px/Label-size compaction.
+# 107 = quick task 260902-l9w Task 2 Commit B: 1 new
+# check pinning both halves of the hidden-runway-radio touch-target fix:
+# the new input.visually-hidden/select.visually-hidden rule exists, and
+# the global input/select rule still declares both 44px minimums.
+# 106 = quick task 260902-gjj Task 2 Commit A: 1 new
+# check (card_status_class() maps to base_class + a fixed suffix for the
+# three whitelisted states, empty string for None/unrecognised, diverging
+# from stat_tile()'s own accent fallback).
+# 105 = 06.6.4.1-08 Task 2: 3 new checks (NAV_TABS holds
+# exactly 4 entries in settled order; sidebar_nav()/the mobile dropdown
+# each render exactly 4 links with exactly one active; the eye glyph
+# (icon-nav-preview) stays an ICON_IDS whitelist member and icon_html()
+# returns non-empty markup for it) — the unauthenticated-redirect loop's
+# "/preview" iteration was retargeted into its own explicit check in
+# place (still a net +0 for that piece, folded into Task 1's own count
+# below), not counted twice. # 102 = 06.6.4.1-08 Task 1: net +1 (101 -> 102) — 2 new
+# checks (authenticated GET /preview redirects to /history; the same
+# request with an arbitrary query string — including a next=-shaped and
+# an https://evil.example-shaped value — still redirects to the
+# identical /history location) minus 1 removed (the pre-existing
+# "authenticated GET /preview returns 200 with the Preview heading"
+# tab-iteration entry, retargeted away since D-22 retires the page and it
+# can no longer return 200/a page heading). The unauthenticated-redirect
+# and preview.png/gallery-image checks already covered the session-gate
+# and byte-serving-route acceptance criteria and needed no change. # 101 =
+# 06.6.4.1-07 Task 3: 1 new standing route-contract guard (nav tuple/page-titles dict/icon map size+key-set agreement, settings route constant equals NAV_TABS[0][0]) — the literal sweep found no remaining stale /config or /config-led occurrence in this file to fix, and three "five nav links"-shaped prose descriptions were reworded to stop hardcoding a route count that changes again in plan 08 (no check-count effect, prose only). # 100 = 06.6.4.1-07 Task 1: 4 new settings-route-rename checks (old path 404s authenticated, POST /settings redirects with flash, ?next=/settings hidden-field round trip, route/icon-map cross-module contract) — the five pre-existing tab-tuple/redirect/login-default/logout-refusal checks were retargeted from /config to /settings in place, not counted as new. # 96 = 06.6.4.1-02 Task 3: 4 new panel-lookup.js checks (pre-auth serving, ES5-dialect, route/src agreement, six-script-tag count) # 92 = 06.6.4.1-02 Task 2: 4 new illustration-image-route checks (real key, unknown key, traversal, unauthenticated) # 88 = 85 + 3 (heading-color-consistency: serif-heading contract both directions, single error token)  # 06.6.3-01 Task 2: 4 new pre-auth static-script
+# regression checks (dirty-state.js/list-filter.js/copy-button.js/
+# freshness.js, one each) + 1 new cross-file *_SCRIPT_ROUTE/*_SCRIPT_SRC
+# DOM-contract-guard check, mirroring _three_file_nav_dom_contract_guard()'s
+# own pattern; previously 80 = 06.6.2-08 code-review fix CR-01 added 1 regression check
+# (skip-link tabindex="-1"); before that 79 = 73 (72 (71 (70 (69 (68: 06.6.1's own additions: 62 + 2
+# (06.6.1-05 Task 1: nav-dropdown.js) + 4 (Task 3:
+# toggle/dropdown/DOM-contract/no-JS)) + 1 (2026-08-29 quick task 260829-0rl,
+# merged independently via origin/main PR #19: the gallery route's private
+# caching-scope regression check, WR-02 from 06.4-REVIEW.md)) + 1
+# (06.6.2-02: the genuine two-thread concurrent POST /poll-now check
+# proving _POLL_LOCK serializes execution)) + 1 (06.6.2-03 Task 2: the new
+# nav-dropdown.js progressive-enhancement state-machine check — the
+# existing no-JS check was rewritten in place, not counted as new)) + 1
+# (06.6.2-05 Task 3: GET /logout now 404s (D-11) — the pre-existing
+# logout-cookie check was renamed to POST /logout, not counted as new)) + 1
+# (06.6.2-06 Task 3: a new check pinning health_alert="warn"'s dot--warn
+# treatment — the pre-existing health-nav-dot check was updated in place
+# to True/False -> "error"/None, not counted as new)) + 6 (06.6.2-07 Task 3:
+# deep-link-return round-trip, two open-redirect-rejection checks
+# (https://evil.example and //evil.example, both exercised — the plan's
+# own text names one "(or the other)" but both are cheap and directly
+# threat-model-relevant, T-06.6.2-12), the GET-path next= validation
+# no-hidden-field check, the login_shell() markup check, and the D-01/
+# UXA-09 page_shell()/login_shell() lang="en" agreement guard — the five
+# pre-existing NAV_TABS-redirect checks and the one POST /config redirect
+# check were updated in place for the new ?next= carrying behavior, not
+# counted as new).
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -456,7 +510,8 @@ def main():
                 return False, "missing nav link hrefs: %r" % (missing,)
             return True, ""
         check(
-            "page_shell() renders one document with lang/viewport/stylesheet/title/five nav links",
+            "page_shell() renders one document with lang/viewport/stylesheet/title/a nav link "
+            "for every NAV_TABS route",
             _page_shell_document_shape)
 
         def _page_shell_marks_only_the_active_dropdown_link():
@@ -570,6 +625,62 @@ def main():
             "sidebar_nav() matches no tab and stays script-free for a hostile active value",
             _sidebar_nav_escapes_hostile_active)
 
+        def _nav_tabs_shrunk_to_four_settled_order():
+            # 06.6.4.1-08 (D-22): NAV_TABS shrinks from five entries to
+            # four — Preview is retired, its whole content absorbed into
+            # History (06.6.4.1-05). Order matters: every nav renderer
+            # walks NAV_TABS in this exact order.
+            if len(layout.NAV_TABS) != 4:
+                return False, "expected exactly 4 NAV_TABS entries, got %d" % len(layout.NAV_TABS)
+            expected_routes = ("/settings", "/health", "/airlines", "/history")
+            actual_routes = tuple(route for route, _ in layout.NAV_TABS)
+            if actual_routes != expected_routes:
+                return False, (
+                    "expected NAV_TABS routes in order %r, got %r"
+                    % (expected_routes, actual_routes))
+            return True, ""
+        check(
+            "layout.NAV_TABS holds exactly 4 entries, in order settings/health/airlines/history",
+            _nav_tabs_shrunk_to_four_settled_order)
+
+        def _sidebar_and_dropdown_render_exactly_four_links_one_active_each():
+            sidebar_markup = layout.sidebar_nav("history")
+            sidebar_link_count = sidebar_markup.count('<a class="sidebar-link')
+            if sidebar_link_count != 4:
+                return False, "expected exactly 4 sidebar nav links, got %d" % sidebar_link_count
+            if sidebar_markup.count("sidebar-link--active") != 1:
+                return False, "expected exactly one active sidebar link"
+
+            doc = layout.page_shell(title="T", active="history", body="<p>b</p>")
+            panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
+            panel = doc[panel_start:doc.index("</header>")]
+            dropdown_link_count = panel.count('<a class="mobile-nav__link')
+            if dropdown_link_count != 4:
+                return False, "expected exactly 4 mobile dropdown links, got %d" % dropdown_link_count
+            if panel.count("mobile-nav__link--active") != 1:
+                return False, "expected exactly one active mobile dropdown link"
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly four sidebar nav links and exactly "
+            "four mobile dropdown links, with exactly one marked active in each",
+            _sidebar_and_dropdown_render_exactly_four_links_one_active_each)
+
+        def _eye_glyph_survives_nav_shrink():
+            # 06.6.4.1-08 (D-22): "icon-nav-preview" (the eye glyph) stays
+            # in the ICON_IDS whitelist even though NAV_ICON_IDS no longer
+            # maps a "preview" slug to it — companion/pages/history_page.py's
+            # View-panel trigger is its sole remaining consumer.
+            if "icon-nav-preview" not in layout.ICON_IDS:
+                return False, "expected icon-nav-preview to remain an ICON_IDS whitelist member"
+            markup = layout.icon_html("icon-nav-preview")
+            if not markup or "<svg" not in markup:
+                return False, "expected icon_html('icon-nav-preview') to return non-empty <svg markup"
+            return True, ""
+        check(
+            "the eye glyph (icon-nav-preview) is still a whitelist member and icon_html() returns "
+            "non-empty markup for it, even though its nav-slug mapping was removed",
+            _eye_glyph_survives_nav_shrink)
+
         def _stat_tile_status_classes_caption_escape_and_content_passthrough():
             for status, expected_class in (
                 ("ok", "stat-tile--ok"),
@@ -595,12 +706,40 @@ def main():
             "caption, and passes content_html through unmodified",
             _stat_tile_status_classes_caption_escape_and_content_passthrough)
 
+        def _card_status_class_whitelist_and_empty_fallback():
+            # quick task 260902-gjj (ISSUE 2): card_status_class()'s own
+            # contract, following stat_tile()'s check above in shape —
+            # the three whitelisted mappings, and the empty string (not
+            # an accent fallback class) for both None and an unrecognised
+            # status, per that function's own documented divergence from
+            # stat_tile()'s accent fallback.
+            for status, expected_class in (
+                ("ok", "page-section--ok"),
+                ("warn", "page-section--warn"),
+                ("error", "page-section--error"),
+            ):
+                got = layout.card_status_class("page-section", status)
+                if got != expected_class:
+                    return False, "expected %r to map to %r, got %r" % (status, expected_class, got)
+            if layout.card_status_class("page-section", None) != "":
+                return False, "expected status=None to fall back to the empty string"
+            if layout.card_status_class("page-section", "not-a-real-state") != "":
+                return False, "expected an unrecognised status to fall back to the empty string"
+            if layout.card_status_class("battery-trend-section", "ok") != "battery-trend-section--ok":
+                return False, "expected base_class to be reused verbatim in the modifier's own prefix"
+            return True, ""
+        check(
+            "card_status_class() maps status to base_class + a fixed suffix for the three whitelisted "
+            "states, and falls back to the empty string (not an accent class) for None or an unrecognised "
+            "status — the divergence from stat_tile()'s own fallback (quick task 260902-gjj, ISSUE 2)",
+            _card_status_class_whitelist_and_empty_fallback)
+
         def _page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
             rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")
             for needle in (
                 '<div class="dashboard-shell">',
                 '<aside class="dashboard-sidebar">',
-                '<main class="page-content dashboard-main">',
+                '<main class="page-content dashboard-main" id="main-content" tabindex="-1">',
             ):
                 if needle not in rendered:
                     return False, "expected %r in the rendered shell" % needle
@@ -623,6 +762,21 @@ def main():
             "and both theme-form copies present",
             _page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme)
 
+        def _page_shell_skip_link_target_is_focusable():
+            # CR-01: the skip link's href="#main-content" target must
+            # itself be focusable (tabindex="-1") or activating the link
+            # scrolls the viewport without moving keyboard focus, per the
+            # HTML fragment-navigation focusing steps (WCAG SCR28/G1).
+            rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")
+            if '<a class="skip-link" href="#main-content">Skip to content</a>' not in rendered:
+                return False, "expected the skip link to point at #main-content"
+            if 'id="main-content" tabindex="-1"' not in rendered:
+                return False, "expected the skip link's target to carry tabindex=\"-1\""
+            return True, ""
+        check(
+            "page_shell()'s skip link target carries tabindex=\"-1\" so it actually receives focus",
+            _page_shell_skip_link_target_is_focusable)
+
         def _page_shell_escapes_hostile_body():
             escaped_hostile_body = layout.escape_html("<script>alert(1)</script>")
             rendered = layout.page_shell(title="Health", active="health", body=escaped_hostile_body)
@@ -637,16 +791,20 @@ def main():
 
         def _icon_sprite_integrity():
             import re
-            if len(layout.ICON_IDS) != 5:
-                return False, "expected exactly five ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 5:
+            # 06.6.3: the whitelist grew from ten to fourteen members
+            # (icon-check/icon-copy/icon-refresh/icon-search, D-05/
+            # D-23/D-12/D-20) — see layout.py's own header comment on
+            # ICON_IDS for the supersession note.
+            if len(layout.ICON_IDS) != 14:
+                return False, "expected exactly fourteen ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 14:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 5:
-                return False, "expected exactly five <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 14:
+                return False, "expected exactly fourteen <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -654,7 +812,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly five unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly fourteen unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -701,15 +859,16 @@ def main():
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if doc.count("<defs") != 1:
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
-            if doc.count("<symbol") != 5:
-                return False, "expected exactly five <symbol, got %d" % doc.count("<symbol")
+            if doc.count("<symbol") != 14:
+                return False, "expected exactly fourteen <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, five <symbol) before dashboard-shell, no inline styles",
+            "page_shell() emits exactly one sprite (one <defs, fourteen <symbol) before dashboard-shell, "
+            "no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
         def _icon_classes_match_stylesheet():
@@ -724,6 +883,157 @@ def main():
             "the icon/icon-defs/STAT_TILE_ICON_CLASS class names all appear in companion/static/style.css",
             _icon_classes_match_stylesheet)
 
+        # --- heading-color-consistency debug session -------------------
+        #
+        # D-03's serif-headings contract lived only as an allow-list in a
+        # style.css comment, and `legend` was never added to it — so
+        # `<legend>Diagnostic LED</legend>` rendered sans-serif semibold
+        # directly above a serif-regular `<h2 class="text-heading">Poll
+        # </h2>` at the same 20px size on the Config page. These two
+        # checks make the contract executable in both directions: every
+        # heading role IS serif, and no dense/tabular role IS NOT.
+
+        def _every_heading_role_is_serif():
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            # The single selector that grants the serif family. Every
+            # heading role in the app must be a member of it.
+            start = css.find("h1,\nh2,\nh3,\nlegend,\n.text-heading {")
+            if start == -1:
+                return False, (
+                    "expected one combined serif-heading selector listing "
+                    "h1, h2, h3, legend and .text-heading — a heading role "
+                    "was removed from it, or the selector was reformatted "
+                    "(if reformatted, update this check deliberately)")
+            block = css[start:css.index("}", start)]
+            for declaration in (
+                    "font-family: var(--font-serif)",
+                    "font-weight: var(--weight-regular)"):
+                if declaration not in block:
+                    return False, (
+                        "the serif-heading rule no longer declares %r"
+                        % (declaration,))
+            # legend must not restate font-weight in its own later rule:
+            # both selectors are bare `legend` (0,0,1), so a weight
+            # declared there silently beats the rule above regardless of
+            # what the rule above says. This is the exact defect.
+            legend_start = css.find("\nlegend {")
+            if legend_start == -1:
+                return False, "expected a bare `legend` rule in style.css"
+            legend_block = css[legend_start:css.index("}", legend_start)]
+            if "font-weight" in legend_block:
+                return False, (
+                    "the standalone `legend` rule declares font-weight "
+                    "again; at equal specificity it wins over the serif "
+                    "heading rule and re-breaks legend/h2 consistency")
+            return True, ""
+        check(
+            "every heading role (h1/h2/h3/legend/.text-heading) shares one "
+            "serif rule, and `legend` does not override its weight",
+            _every_heading_role_is_serif)
+
+        def _serif_never_reaches_dense_content():
+            # D-03's other half: serif is headings-only. Body, tables,
+            # form controls, nav links and mono content stay on
+            # --font-ui. Guards against the rejected "serif partout"
+            # option creeping back in one rule at a time.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            forbidden = (
+                ".data-table", ".cell-primary", ".cell-secondary",
+                ".mono", ".text-body", ".sidebar-link", ".mobile-nav__link")
+            for selector in forbidden:
+                index = css.find("\n%s {" % selector)
+                if index == -1:
+                    continue
+                block = css[index:css.index("}", index)]
+                if "--font-serif" in block:
+                    return False, (
+                        "%s applies --font-serif; serif is a headings-only "
+                        "treatment (D-03), never dense/tabular content"
+                        % selector)
+            return True, ""
+        check(
+            "--font-serif never reaches table, body, mono or nav-link rules "
+            "(D-03's headings-only boundary)",
+            _serif_never_reaches_dense_content)
+
+        def _nav_link_geometries_stay_diverged():
+            # 260902-qkm: D-05 (06.6.4-04) reached .mobile-nav__link by
+            # mistake — the mobile dropdown is the phone's only nav, with
+            # no desktop compactness argument to trade against, while
+            # .sidebar-link is structurally desktop-only (hidden below
+            # 960px). The two renderings are now deliberately different
+            # sizes: the mobile link keeps a real tap target, the desktop
+            # sidebar stays compact, and neither may drift into the other.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+
+            def block_for(selector):
+                index = css.find("\n%s {" % selector)
+                if index == -1:
+                    return None
+                return css[index:css.index("}", index)]
+
+            mobile_block = block_for(".mobile-nav__link")
+            if mobile_block is None:
+                return False, "expected a `.mobile-nav__link` rule in style.css"
+            if "min-height: 44px" not in mobile_block:
+                return False, (
+                    ".mobile-nav__link lost its restored min-height: 44px "
+                    "tap target (260902-qkm)")
+            if "font-size: var(--font-body-size)" not in mobile_block:
+                return False, (
+                    ".mobile-nav__link's font size drifted off "
+                    "var(--font-body-size) (260902-qkm)")
+
+            sidebar_block = block_for(".sidebar-link")
+            if sidebar_block is None:
+                return False, "expected a `.sidebar-link` rule in style.css"
+            if "height: 32px" not in sidebar_block:
+                return False, (
+                    ".sidebar-link's D-05 32px desktop compaction was "
+                    "reverted — it is structurally desktop-only and "
+                    "should stay compact, unlike the mobile dropdown link")
+            if "font-size: var(--font-label-size)" not in sidebar_block:
+                return False, (
+                    ".sidebar-link's font size drifted off "
+                    "var(--font-label-size)")
+            return True, ""
+        check(
+            "mobile dropdown nav link keeps its restored 44px/Body-size "
+            "tap target while the desktop sidebar link stays at its D-05 "
+            "32px/Label-size compaction (260902-qkm)",
+            _nav_link_geometries_stay_diverged)
+
+        def _one_error_signal_token():
+            # --color-destructive and --color-status-error held identical
+            # values in all four token blocks while being used
+            # interchangeably for one concept, so "change the error
+            # colour" silently meant "change two tokens in four places".
+            # The duplicate is gone; this keeps it gone.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            # Comments are stripped first: the rules that used to read
+            # this token now carry comments explaining why they no
+            # longer do, and that prose must not trip the check it
+            # documents.
+            declarations = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+            if "--color-destructive" in declarations:
+                return False, (
+                    "--color-destructive is back; it duplicated "
+                    "--color-status-error exactly and is the reason the two "
+                    "could drift. Use --color-status-error")
+            return True, ""
+        check(
+            "there is exactly one error-signal colour token "
+            "(--color-status-error), no --color-destructive duplicate",
+            _one_error_signal_token)
+
         # --- 06.6.1-04 Task 3 / 06.6.1-05: Health nav notification dot ---
         #
         # Retargeted a third time by 06.6.1-05, beyond the plan's own
@@ -736,18 +1046,18 @@ def main():
 
         def _health_nav_notification_dot():
             on = layout.page_shell(
-                title="T", active="health", body="<p>b</p>", health_alert=True)
+                title="T", active="health", body="<p>b</p>", health_alert="error")
             off = layout.page_shell(
-                title="T", active="health", body="<p>b</p>", health_alert=False)
+                title="T", active="health", body="<p>b</p>", health_alert=None)
             default = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if on.count(layout.NAV_NOTIFICATION_CLASS) != 2:
-                return False, "expected the notification class exactly twice (one per nav renderer) when health_alert=True"
+                return False, "expected the notification class exactly twice (one per nav renderer) when health_alert='error'"
             if on.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 2:
-                return False, "expected the alert suffix text exactly twice when health_alert=True"
+                return False, "expected the alert suffix text exactly twice when health_alert='error'"
             if off.count(layout.NAV_NOTIFICATION_CLASS) != 0:
-                return False, "expected zero notification-class occurrences when health_alert=False"
+                return False, "expected zero notification-class occurrences when health_alert=None"
             if off.count(layout.HEALTH_ALERT_SUFFIX_TEXT) != 0:
-                return False, "expected zero alert-suffix occurrences when health_alert=False"
+                return False, "expected zero alert-suffix occurrences when health_alert=None"
             if default != off:
                 return False, "expected the health_alert flag to default to off"
             side = on[on.index("sidebar-nav"):on.index("</aside>")]
@@ -763,7 +1073,7 @@ def main():
             if not (drop_href_index < drop_dot_index < drop_anchor_close_index):
                 return False, "expected the dot to sit inside the Health dropdown link"
             other_active = layout.page_shell(
-                title="T", active="config", body="", health_alert=True)
+                title="T", active="config", body="", health_alert="error")
             if other_active.count(layout.NAV_NOTIFICATION_CLASS) != 2:
                 return False, "expected exactly two dot occurrences (one per nav renderer) regardless of the active tab"
             css_path = os.path.join(HERE, "static", "style.css")
@@ -776,8 +1086,68 @@ def main():
             return True, ""
         check(
             "the Health notification dot appears inside the Health link in both nav renderers "
-            "when health_alert=True, nowhere when False/omitted, and never on another link",
+            "when health_alert='error', nowhere when None/omitted, and never on another link",
             _health_nav_notification_dot)
+
+        def _hidden_form_control_floor_and_global_floor_both_survive():
+            # quick task 260902-l9w: the runway radio's own utility class
+            # (visually-hidden) is inert on an <input> unless the global
+            # `input, select` rule's 44px minimums are separately cleared
+            # for it — a rule that only asserts the new clearing rule
+            # would still pass after someone deleted the global 44px
+            # floor site-wide, and a rule that only asserts the floor
+            # would still pass after someone deleted the clearing fix.
+            # This check fails if either half is missing.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            if "input.visually-hidden" not in css:
+                return False, (
+                    "expected an input.visually-hidden (or "
+                    "select.visually-hidden) rule clearing the global "
+                    "44px touch-target floor off hidden form controls "
+                    "(the runway radio's own utility class is otherwise "
+                    "clamped back up to 44x44 by the global input/select "
+                    "rule below)")
+            global_start = css.find("\ninput,\nselect {")
+            if global_start == -1:
+                return False, (
+                    "expected the global `input,\\nselect {` rule; it may "
+                    "have been reformatted (update this check "
+                    "deliberately) or removed")
+            global_block = css[global_start:css.index("}", global_start)]
+            for declaration in ("min-height: 44px", "min-width: 44px"):
+                if declaration not in global_block:
+                    return False, (
+                        "the global input/select rule no longer declares "
+                        "%r; this is a deliberate, developer-accepted "
+                        "WCAG 2.5.5 floor for every native field except "
+                        "the ones explicitly scoped away from it (D-08, "
+                        "the LED checkbox, and now the hidden runway "
+                        "radio) and must survive byte-identical"
+                        % (declaration,))
+            return True, ""
+        check(
+            "input.visually-hidden/select.visually-hidden clears the 44px "
+            "touch-target floor off hidden form controls, and the global "
+            "input/select rule still declares both 44px minimums for "
+            "every other field",
+            _hidden_form_control_floor_and_global_floor_both_survive)
+
+        def _health_nav_notification_dot_warn_severity():
+            warn = layout.page_shell(
+                title="T", active="health", body="<p>b</p>", health_alert="warn")
+            if warn.count(layout.NAV_NOTIFICATION_CLASS) != 2:
+                return False, "expected the notification class exactly twice (one per nav renderer) when health_alert='warn'"
+            if "dot--warn" not in warn:
+                return False, "expected dot--warn to appear when health_alert='warn'"
+            if "dot--error" in warn:
+                return False, "expected no dot--error class anywhere when health_alert='warn'"
+            return True, ""
+        check(
+            "layout.page_shell(..., health_alert='warn') also renders the notification dot, "
+            "using dot--warn rather than dot--error",
+            _health_nav_notification_dot_warn_severity)
 
         # --- 06.6.1-05 Task 1: nav-dropdown.js ES5-safe/side-effect-free dialect ---
 
@@ -852,7 +1222,7 @@ def main():
                     return False, "expected every nav link to precede the theme form in the dropdown"
             return True, ""
         check(
-            "the dropdown panel holds all five NAV_TABS links (exactly one active) followed by the "
+            "the dropdown panel holds every NAV_TABS link (exactly one active) followed by the "
             "theme form, in that order",
             _dropdown_contents_and_order)
 
@@ -894,12 +1264,12 @@ def main():
             _three_file_nav_dom_contract_guard)
 
         def _dropdown_survives_with_javascript_disabled():
-            # The no-JS floor: every link stays in the DOM and the
-            # accessibility tree with JavaScript disabled — only the
-            # expand/collapse interaction is lost. The dropdown's
-            # collapsed appearance comes from a CSS max-height transition
-            # (companion/static/style.css's .mobile-nav rule), a visual
-            # constraint, never a removal from the tree.
+            # UXA-02/UXA-12's joint fix, verified against the
+            # server-rendered document only (this harness has no real
+            # browser). The SSR default must be unclipped/complete — the
+            # `.js .mobile-nav` CSS clipping rule and nav-dropdown.js's
+            # `panel.hidden` toggling only ever apply once client-side
+            # script has run, never from the server.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
             panel = doc[panel_start:doc.index("</header>")]
@@ -910,11 +1280,50 @@ def main():
             for route, _label in layout.NAV_TABS:
                 if ('href="%s"' % route) not in panel:
                     return False, "missing dropdown href for %r with JavaScript disabled" % route
+            html_tag_end = doc.index(">", doc.index("<html"))
+            html_tag = doc[:html_tag_end]
+            if 'class="js"' in html_tag or ' js"' in html_tag or ' js ' in html_tag:
+                return False, "server-rendered <html> tag must never carry the .js marker class"
             return True, ""
         check(
             "with JavaScript disabled every nav link stays present in the dropdown panel's DOM "
-            "(the collapsed look is a CSS max-height constraint, not a hidden attribute or display:none)",
+            "(the collapsed look is a CSS max-height constraint, not a hidden attribute or "
+            "display:none) and the server-rendered <html> tag carries no .js marker class",
             _dropdown_survives_with_javascript_disabled)
+
+        def _nav_dropdown_js_progressive_enhancement_state_machine():
+            # UXA-02/UXA-12's joint fix, client-side half. The .js marker
+            # add must run before the dropdown-specific element lookup
+            # (so pages without a dropdown still get the marker), and the
+            # hidden-attribute/transitionend/reduced-motion state machine
+            # must be present exactly as the plan specifies.
+            js_path = os.path.join(
+                os.path.dirname(__file__), "static", "nav-dropdown.js")
+            with open(js_path) as fh:
+                js = fh.read()
+            marker_idx = js.index('className += " js"')
+            toggle_idx = js.index('getElementById("site-nav-toggle")')
+            if marker_idx >= toggle_idx:
+                return False, ".js marker class must be added before the dropdown lookup"
+            for needle in (
+                "panel.hidden = true", "panel.hidden = false",
+                "transitionend", "matchMedia", "prefers-reduced-motion",
+            ):
+                if needle not in js:
+                    return False, "nav-dropdown.js is missing %r" % needle
+            css_path = os.path.join(
+                os.path.dirname(__file__), "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            for needle in (".js .mobile-nav {", ".js .mobile-nav--open {"):
+                if needle not in css:
+                    return False, "style.css is missing %r" % needle
+            return True, ""
+        check(
+            "nav-dropdown.js adds the .js marker class before its dropdown element lookup and "
+            "implements the hidden-attribute/transitionend/reduced-motion state machine, matched "
+            "by style.css's .js-scoped clipping rules",
+            _nav_dropdown_js_progressive_enhancement_state_machine)
 
     finally:
         if previous_password is not None:
@@ -943,39 +1352,64 @@ def main():
         # bypass, so each route below is its own check, not a shared loop
         # collapsed into one assertion.
 
-        def _unauth_redirects_to_login(method, path, data=None):
+        def _unauth_redirects_to_login(method, path, data=None, next_route=None):
+            # 06.6.2-07 (UXA-03): require_session() now carries an
+            # allowlisted `next` query param for any requested path that
+            # is one of layout.NAV_TABS's known routes (settings/health/
+            # airlines/history, 06.6.4.1-07 renamed the first from config;
+            # 06.6.4.1-08 removed preview — D-22 retires that page) —
+            # regardless of HTTP method, since it only ever looks at
+            # self.path. A path outside that set (poll-now, the retired
+            # /preview redirect source, preview.png, a gallery image)
+            # still redirects to the bare /login exactly as before this
+            # plan.
+            expected_location = (
+                "/login?next=%s" % urllib.parse.quote(next_route, safe="")
+                if next_route else "/login")
+
             def _run():
                 status, headers, body = http_request(base + path, method=method, data=data)
                 if status != 303:
                     return False, "expected 303, got %d" % status
-                if headers.get("Location") != "/login":
-                    return False, "expected a redirect to /login, got %r" % headers.get("Location")
+                if headers.get("Location") != expected_location:
+                    return False, "expected a redirect to %r, got %r" % (
+                        expected_location, headers.get("Location"))
                 if body:
                     return False, "expected an empty redirect body, got %d bytes of content" % len(body)
                 return True, ""
             return _run
 
-        for _tab_path in ("/config", "/health", "/airlines", "/history", "/preview"):
+        for _tab_path in ("/settings", "/health", "/airlines", "/history"):
             check(
-                "unauthenticated GET %s redirects to /login without page content" % _tab_path,
-                _unauth_redirects_to_login("GET", _tab_path))
+                "unauthenticated GET %s redirects to /login carrying that route as ?next=" % _tab_path,
+                _unauth_redirects_to_login("GET", _tab_path, next_route=_tab_path))
 
         check(
-            "unauthenticated GET /preview.png redirects to /login without page content",
+            "unauthenticated GET /preview (the retired Preview page's redirect source) redirects "
+            "to /login without page content (D-22 removed it from NAV_TABS, so no ?next= is carried "
+            "— it lands on /login, not /history, proving the redirect branch keeps its own session gate)",
+            _unauth_redirects_to_login("GET", "/preview"))
+
+        check(
+            "unauthenticated GET /preview.png redirects to /login without page content "
+            "(not a NAV_TABS route, so no ?next= is carried)",
             _unauth_redirects_to_login("GET", "/preview.png"))
 
         check(
-            "unauthenticated GET of a gallery image route redirects to /login without page content",
+            "unauthenticated GET of a gallery image route redirects to /login without page content "
+            "(not a NAV_TABS route, so no ?next= is carried)",
             _unauth_redirects_to_login("GET", "/gallery/whatever.png"))
 
         check(
-            "unauthenticated POST /config redirects to /login without page content",
+            "unauthenticated POST /settings redirects to /login carrying /settings as ?next=",
             _unauth_redirects_to_login(
-                "POST", "/config",
-                data=urllib.parse.urlencode({"ui_theme": "sky"}).encode()))
+                "POST", "/settings",
+                data=urllib.parse.urlencode({"ui_theme": "sky"}).encode(),
+                next_route="/settings"))
 
         check(
-            "unauthenticated POST /poll-now redirects to /login without page content",
+            "unauthenticated POST /poll-now redirects to /login without page content "
+            "(not a NAV_TABS route, so no ?next= is carried)",
             _unauth_redirects_to_login("POST", "/poll-now"))
 
         # --- stylesheet: public, no session required ---
@@ -1043,6 +1477,112 @@ def main():
             "and serves the real file",
             _nav_dropdown_script_public)
 
+        # --- 06.6.3: four more pre-auth static scripts, same shape as
+        # _nav_dropdown_script_public() above ---
+
+        def _static_script_public(route):
+            def _run():
+                status, headers, body = http_request(base + route)
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                content_type = headers.get("Content-Type", "")
+                if "text/javascript" not in content_type:
+                    return False, "expected a text/javascript content type, got %r" % content_type
+                if not body:
+                    return False, "expected a non-empty script body"
+                cache_control = headers.get("Cache-Control", "")
+                if "max-age=300" not in cache_control:
+                    return False, "expected Cache-Control max-age=300, got %r" % cache_control
+                return True, ""
+            return _run
+
+        for _script_route in (
+                "/static/dirty-state.js", "/static/list-filter.js",
+                "/static/copy-button.js", "/static/freshness.js"):
+            check(
+                "GET %s succeeds without a session and returns a shared-cacheable "
+                "JavaScript content type" % _script_route,
+                _static_script_public(_script_route))
+
+        def _four_new_static_routes_dom_contract_guard():
+            # Cross-file-equality half, mirroring
+            # _three_file_nav_dom_contract_guard()'s own pattern: each new
+            # companion.app.py *_SCRIPT_ROUTE constant must equal its
+            # matching companion/layout.py *_SCRIPT_SRC constant, and
+            # page_shell() must emit a <script src="..."> tag for each.
+            import companion.app as app_module
+            pairs = (
+                (app_module.DIRTY_STATE_SCRIPT_ROUTE, layout.DIRTY_STATE_SCRIPT_SRC),
+                (app_module.LIST_FILTER_SCRIPT_ROUTE, layout.LIST_FILTER_SCRIPT_SRC),
+                (app_module.COPY_BUTTON_SCRIPT_ROUTE, layout.COPY_BUTTON_SCRIPT_SRC),
+                (app_module.FRESHNESS_SCRIPT_ROUTE, layout.FRESHNESS_SCRIPT_SRC),
+            )
+            for route_const, src_const in pairs:
+                if route_const != src_const:
+                    return False, "script route drift: %r vs %r" % (route_const, src_const)
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            for _route_const, src_const in pairs:
+                if ('<script src="%s" defer></script>' % src_const) not in doc:
+                    return False, "expected a deferred <script> tag for %r" % src_const
+            return True, ""
+        check(
+            "companion.app.py's 4 new *_SCRIPT_ROUTE constants equal companion/layout.py's 4 new "
+            "*_SCRIPT_SRC constants, and page_shell() emits a <script> tag for each",
+            _four_new_static_routes_dom_contract_guard)
+
+        # --- 06.6.4.1-02 Task 3: panel-lookup.js (D-20) ---
+
+        check(
+            "GET /static/panel-lookup.js succeeds without a session and returns a shared-cacheable "
+            "JavaScript content type",
+            _static_script_public("/static/panel-lookup.js"))
+
+        def _panel_lookup_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "panel-lookup.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "fetch(", "XMLHttpRequest",
+                "setTimeout", "setInterval", "innerHTML", "document.write",
+                "eval(")
+            for token in banned:
+                if token in src:
+                    return False, "panel-lookup.js must not contain %r" % token
+            return True, ""
+        check(
+            "panel-lookup.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "fetch/XHR/timers/innerHTML/document.write/eval)",
+            _panel_lookup_script_es5_safe_and_no_html_write)
+
+        def _panel_lookup_script_route_src_agree():
+            import companion.app as app_module
+            if layout.PANEL_LOOKUP_SCRIPT_SRC != app_module.PANEL_LOOKUP_SCRIPT_ROUTE:
+                return False, "panel-lookup script route drift: %r vs %r" % (
+                    layout.PANEL_LOOKUP_SCRIPT_SRC, app_module.PANEL_LOOKUP_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.PANEL_LOOKUP_SCRIPT_SRC equals companion.app.PANEL_LOOKUP_SCRIPT_ROUTE",
+            _panel_lookup_script_route_src_agree)
+
+        def _six_deferred_scripts_before_closing_body():
+            doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
+            body_close = doc.index("</body>")
+            head = doc[:body_close]
+            count = head.count('<script src=')
+            if count != 6:
+                return False, "expected exactly 6 deferred <script src= tags before </body>, got %d" % count
+            if ('<script src="%s" defer></script>' % layout.PANEL_LOOKUP_SCRIPT_SRC) not in doc:
+                return False, "expected a deferred <script> tag for PANEL_LOOKUP_SCRIPT_SRC"
+            return True, ""
+        check(
+            "a rendered authenticated page contains exactly six deferred <script src= tags before "
+            "the closing body tag, including panel-lookup.js",
+            _six_deferred_scripts_before_closing_body)
+
         # --- login: wrong password, right password, cookie flags ---
 
         def _login_wrong_password():
@@ -1066,25 +1606,131 @@ def main():
                 data=urllib.parse.urlencode({"password": TEST_PASSWORD}).encode())
             if status != 303:
                 return False, "expected a 303 redirect on successful login, got %d" % status
-            if headers.get("Location") != "/config":
-                return False, "expected a redirect to /config, got %r" % headers.get("Location")
+            if headers.get("Location") != "/settings":
+                return False, "expected a redirect to /settings, got %r" % headers.get("Location")
             set_cookie = headers.get("Set-Cookie", "")
             for needle in ("HttpOnly", "Secure", "SameSite=Strict"):
                 if needle not in set_cookie:
                     return False, "missing %r in the session cookie header: %r" % (needle, set_cookie)
             return True, ""
         check(
-            "a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to /config",
+            "a login POST with the right password sets a cookie with HttpOnly/Secure/SameSite=Strict and redirects to /settings",
             _login_correct_password)
+
+        # --- 06.6.2-07 (UXA-03): deep-link return, open-redirect rejection,
+        # login_shell() markup, D-01 language-policy regression ---
+
+        def _deep_link_return_round_trip():
+            # An unauthenticated GET /health carries the requested route
+            # as an allowlisted ?next= (T-06.6.2-12) ...
+            status, headers, _ = http_request(base + "/health")
+            if status != 303:
+                return False, "expected 303 for GET /health, got %d" % status
+            if headers.get("Location") != "/login?next=%2Fhealth":
+                return False, "expected Location /login?next=%%2Fhealth, got %r" % headers.get("Location")
+            # ... and a subsequent correct-password POST /login carrying
+            # that same next value returns the user to /health, not /settings.
+            status, headers, _ = http_request(
+                base + "/login", method="POST",
+                data=urllib.parse.urlencode(
+                    {"password": TEST_PASSWORD, "next": "/health"}).encode())
+            if status != 303:
+                return False, "expected 303 on login POST, got %d" % status
+            if headers.get("Location") != "/health":
+                return False, "expected Location /health after login with next=/health, got %r" % headers.get("Location")
+            return True, ""
+        check(
+            "an unauthenticated GET /health redirects with ?next=%2Fhealth, and logging in "
+            "with that next value returns the user to /health, not /settings",
+            _deep_link_return_round_trip)
+
+        def _open_redirect_rejected(next_value):
+            def _run():
+                status, headers, _ = http_request(
+                    base + "/login", method="POST",
+                    data=urllib.parse.urlencode(
+                        {"password": TEST_PASSWORD, "next": next_value}).encode())
+                if status != 303:
+                    return False, "expected 303 on login POST, got %d" % status
+                location = headers.get("Location", "")
+                if location != "/settings":
+                    return False, "expected the safe /settings fallback, got %r" % location
+                if "evil.example" in location:
+                    return False, "the crafted next value leaked into the redirect Location"
+                return True, ""
+            return _run
+
+        for _crafted_next in ("https://evil.example", "//evil.example"):
+            check(
+                "a login POST with the correct password and next=%r redirects to the "
+                "/settings fallback, never to the crafted value (T-06.6.2-12)" % _crafted_next,
+                _open_redirect_rejected(_crafted_next))
+
+        def _login_get_with_unrecognised_next_carries_no_hidden_field():
+            status, _headers, body = http_request(
+                base + "/login?next=/nonexistent-route")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'name="next"' in body:
+                return False, (
+                    "an unrecognised ?next= value must not render a hidden next "
+                    "field — _validated_next_route() must be applied on the GET "
+                    "path too, not only the POST path")
+            return True, ""
+        check(
+            "GET /login?next=/nonexistent-route (not a real NAV_TABS member) renders "
+            "the plain login form with no hidden next input",
+            _login_get_with_unrecognised_next_carries_no_hidden_field)
+
+        def _login_page_uses_dedicated_login_shell():
+            status, _headers, body = http_request(base + "/login")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            text = body.decode("utf-8", errors="replace")
+            if '<html lang="en"' not in text:
+                return False, "expected <html lang=\"en\" in the login page"
+            if 'autocomplete="current-password"' not in text:
+                return False, "expected autocomplete=\"current-password\" on the password field"
+            for absent in ("sidebar-nav", "dashboard-shell", "site-nav-toggle"):
+                if absent in text:
+                    return False, (
+                        "the login page must render layout.login_shell(), not "
+                        "page_shell() — found %r in the response body" % absent)
+            return True, ""
+        check(
+            "GET /login (no session) is rendered by the dedicated login_shell(), not "
+            "page_shell() — no sidebar/mobile-nav markup, autocomplete present",
+            _login_page_uses_dedicated_login_shell)
+
+        def _both_shells_agree_on_document_language():
+            # D-01/UXA-09: a single, cheap, permanent guard that
+            # page_shell() and login_shell() can never diverge on
+            # document language.
+            page_doc = layout.page_shell(
+                title="Config", active="config", body="<p>x</p>")
+            login_doc = layout.login_shell("<p>x</p>")
+            if 'lang="en"' not in page_doc:
+                return False, "expected lang=\"en\" in page_shell()'s output"
+            if 'lang="en"' not in login_doc:
+                return False, "expected lang=\"en\" in login_shell()'s output"
+            return True, ""
+        check(
+            "page_shell() and login_shell() both emit lang=\"en\" (D-01/UXA-09 "
+            "language-policy regression guard)",
+            _both_shells_agree_on_document_language)
 
         session_cookie = _login(harness)
 
-        # --- authenticated: all five tabs return 200 with their own heading ---
+        # --- authenticated: every NAV_TABS tab returns 200 with its own heading ---
+        # 06.6.4.1-08 (D-22): "/preview" removed from this tuple here (not in
+        # Task 2, which shrinks NAV_TABS itself) — the harness must stay
+        # green immediately after this task's own commit, and /preview no
+        # longer returns 200/a page heading the instant the redirect below
+        # lands. See the dedicated redirect checks just below instead.
 
         for _tab_path, _heading in (
-            ("/config", "Config"), ("/health", "Health"),
+            ("/settings", "Settings"), ("/health", "Health"),
             ("/airlines", "Airlines"), ("/history", "History"),
-            ("/preview", "Preview"),
         ):
             def _tab_ok(tab_path=_tab_path, heading=_heading):
                 status, _headers, body = http_request(base + tab_path, cookie=session_cookie)
@@ -1097,17 +1743,183 @@ def main():
                 "authenticated GET %s returns 200 and contains its own %r heading" % (_tab_path, _heading),
                 _tab_ok)
 
+        # --- 06.6.4.1-08 (D-22): the retired Preview page route now redirects
+        # to History with a fixed literal target — never derived from a query
+        # parameter, so a crafted next-style parameter provably cannot steer it ---
+
+        def _preview_redirects_to_history():
+            status, headers, body = http_request(base + "/preview", cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            if headers.get("Location") != "/history":
+                return False, "expected a redirect to /history exactly, got %r" % headers.get("Location")
+            if body:
+                return False, "expected an empty redirect body, got %d bytes of content" % len(body)
+            return True, ""
+        check(
+            "authenticated GET /preview (the retired Preview page route) redirects to /history (D-22)",
+            _preview_redirects_to_history)
+
+        def _preview_redirect_ignores_query_string():
+            status, headers, _body = http_request(
+                base + "/preview?next=/settings&evil=https://evil.example",
+                cookie=session_cookie)
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            if headers.get("Location") != "/history":
+                return False, (
+                    "expected the redirect location to stay /history regardless of an "
+                    "arbitrary query string, got %r" % headers.get("Location"))
+            return True, ""
+        check(
+            "authenticated GET /preview carrying an arbitrary query string (including a "
+            "next=-shaped and an https://evil.example-shaped value) still redirects to the "
+            "identical /history location — no request value influences the target",
+            _preview_redirect_ignores_query_string)
+
+        # Session gate on the retired route: covered by the "unauthenticated
+        # GET /preview ... redirects to /login without page content" check
+        # above (06.6.4.1-08 Task 2 removed /preview from NAV_TABS, so it no
+        # longer carries a ?next=) — an unauthenticated caller lands on
+        # /login, not /history, proving the redirect branch keeps its
+        # require_session() gate. Both byte-serving image routes
+        # (/preview.png, a real /gallery/{name}.png) already have their own
+        # authenticated-200/unauthenticated-redirect checks elsewhere in
+        # this file (_preview_real_panel/_preview_missing and the gallery
+        # checks below, plus the unauthenticated-redirect loop above) — confirmed still
+        # passing untouched by this task.
+
+        # --- 06.6.4.1-07 (D-26): settings route rename — old path 404s
+        # by design (no redirect), the merged form's POST target is
+        # live, the ?next= round trip works for the new slug, and the
+        # route/icon-map cross-module contract holds ---
+
+        def _old_settings_path_404s_authenticated():
+            status, _headers, body = http_request(
+                base + "/config", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for the retired /config path, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
+        check(
+            "authenticated GET /config (the retired settings path) returns 404 — D-26 "
+            "declines a redirect since this is a fresh URL at inception, not a deprecated bookmark",
+            _old_settings_path_404s_authenticated)
+
+        def _settings_post_redirects_to_settings_with_flash():
+            status, headers, _ = http_request(
+                base + "/settings", method="POST", cookie=session_cookie, data=b"")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if not location.startswith("/settings?flash="):
+                return False, "expected a redirect to /settings?flash=..., got %r" % location
+            return True, ""
+        check(
+            "an authenticated POST /settings redirects to /settings carrying a flash query",
+            _settings_post_redirects_to_settings_with_flash)
+
+        def _login_get_with_settings_next_carries_hidden_field():
+            status, _headers, body = http_request(base + "/login?next=/settings")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if b'name="next" value="/settings"' not in body:
+                return False, (
+                    "expected the recognised /settings ?next= value to survive the "
+                    "round trip as a rendered hidden field")
+            return True, ""
+        check(
+            "GET /login?next=/settings (a real NAV_TABS member) renders a hidden next "
+            "field carrying /settings, surviving the round trip",
+            _login_get_with_settings_next_carries_hidden_field)
+
+        def _settings_route_and_icon_map_cross_module_contract():
+            import companion.app as app_module
+            from companion.pages import config_page
+            if not (app_module.SETTINGS_ROUTE == config_page.SETTINGS_ROUTE
+                    == layout.NAV_TABS[0][0]):
+                return False, (
+                    "expected app.SETTINGS_ROUTE == config_page.SETTINGS_ROUTE == "
+                    "layout.NAV_TABS[0][0], got %r / %r / %r"
+                    % (app_module.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE,
+                       layout.NAV_TABS[0][0]))
+            nav_slugs = {route.lstrip("/") for route, _ in layout.NAV_TABS}
+            if set(layout.NAV_ICON_IDS) != nav_slugs:
+                return False, (
+                    "expected NAV_ICON_IDS' keys to equal the set of nav route "
+                    "slugs, got %r vs %r" % (set(layout.NAV_ICON_IDS), nav_slugs))
+            return True, ""
+        check(
+            "app.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE, and layout.NAV_TABS[0][0] all "
+            "agree, and NAV_ICON_IDS' keys equal the nav route slugs one-to-one",
+            _settings_route_and_icon_map_cross_module_contract)
+
+        def _nav_page_titles_icon_route_standing_contract_guard():
+            # 06.6.4.1-07 Task 3: a standing guard mirroring this file's
+            # existing three-file DOM-contract guards
+            # (_three_file_nav_dom_contract_guard(),
+            # _four_new_static_routes_dom_contract_guard() above) — makes
+            # the next nav-route change (plan 08) fail loudly here
+            # instead of silently, if any of these four route
+            # collections is missed: the nav tuple itself, the
+            # page-titles dict, the slug-to-icon map, and the settings
+            # page module's own route constant.
+            import companion.app as app_module
+            nav_routes = [route for route, _ in layout.NAV_TABS]
+            nav_slugs = {route.lstrip("/") for route in nav_routes}
+            page_title_keys = set(app_module._PAGE_TITLES)
+            if page_title_keys != set(nav_routes):
+                return False, (
+                    "expected _PAGE_TITLES' keys to equal the set of NAV_TABS "
+                    "routes, got %r vs %r" % (page_title_keys, set(nav_routes)))
+            if len(app_module._PAGE_TITLES) != len(layout.NAV_TABS):
+                return False, (
+                    "expected _PAGE_TITLES and NAV_TABS to have the same "
+                    "length, got %d vs %d"
+                    % (len(app_module._PAGE_TITLES), len(layout.NAV_TABS)))
+            icon_slugs = set(layout.NAV_ICON_IDS)
+            if icon_slugs != nav_slugs:
+                return False, (
+                    "expected NAV_ICON_IDS' keys to equal the set of NAV_TABS "
+                    "slugs one-to-one, got %r vs %r" % (icon_slugs, nav_slugs))
+            if app_module.SETTINGS_ROUTE != layout.NAV_TABS[0][0]:
+                return False, (
+                    "expected app.SETTINGS_ROUTE to equal NAV_TABS' first "
+                    "route, got %r vs %r"
+                    % (app_module.SETTINGS_ROUTE, layout.NAV_TABS[0][0]))
+            return True, ""
+        check(
+            "the nav tuple, the page-titles dict, and the slug-to-icon map all agree in size "
+            "and key set, and the settings page module's own route constant is the nav "
+            "tuple's first route — a standing guard against silent drift when the route "
+            "set changes again",
+            _nav_page_titles_icon_route_standing_contract_guard)
+
         # --- logout clears the cookie; a subsequent tab request is refused again ---
 
         def _logout_clears_cookie():
-            status, headers, _ = http_request(base + "/logout", cookie=session_cookie)
+            # D-11: /logout moved from GET to POST, so a stray prefetch,
+            # crawler, or <img src="/logout">-shaped link can no longer
+            # end a session — see the sibling GET check just below.
+            status, headers, _ = http_request(
+                base + "/logout", method="POST", cookie=session_cookie)
             if status != 303:
                 return False, "expected a 303 redirect on logout, got %d" % status
             set_cookie = headers.get("Set-Cookie", "")
             if "Max-Age=0" not in set_cookie:
                 return False, "expected the logout cookie header to carry Max-Age=0, got %r" % set_cookie
             return True, ""
-        check("GET /logout clears the session cookie (Max-Age=0)", _logout_clears_cookie)
+        check("POST /logout clears the session cookie (Max-Age=0)", _logout_clears_cookie)
+
+        def _get_logout_no_longer_ends_session():
+            status, _headers, _body = http_request(base + "/logout", cookie=session_cookie)
+            if status != 404:
+                return False, "expected GET /logout to 404 (D-11), got %d" % status
+            return True, ""
+        check(
+            "GET /logout no longer accepts the request (404) — D-11 closes the GET-triggered logout hole",
+            _get_logout_no_longer_ends_session)
 
         def _tab_refused_after_logout():
             # Sessions are stateless signed cookies (companion/auth.py has
@@ -1119,9 +1931,13 @@ def main():
             # cookie at all on the next request, exactly as a browser
             # would - resending the stale cookie value would prove
             # nothing (it would still verify, by design).
-            status, headers, _ = http_request(base + "/config")
-            if status != 303 or headers.get("Location") != "/login":
-                return False, "expected a redirect to /login for a post-logout request, got %d/%r" % (
+            status, headers, _ = http_request(base + "/settings")
+            # 06.6.2-07 (UXA-03): /settings is a NAV_TABS route (renamed
+            # from /config, 06.6.4.1-07), so require_session() now carries
+            # it as ?next= too — the same allowlisted-return behavior
+            # every other unauthenticated NAV_TABS request gets.
+            if status != 303 or headers.get("Location") != "/login?next=%2Fsettings":
+                return False, "expected a redirect to /login?next=%%2Fsettings for a post-logout request, got %d/%r" % (
                     status, headers.get("Location"))
             return True, ""
         check(
@@ -1238,6 +2054,64 @@ def main():
             "the canary file placed one level above the gallery directory never appears in any traversal response",
             _canary_never_returned)
 
+        # --- illustration image route (D-15, 06.6.4.1-02) ---
+
+        def _illustration_real_key_returns_png():
+            status, headers, body = http_request(
+                base + "/illustration/air-france.png", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200 for a real illustration key, got %d" % status
+            if headers.get("Content-Type") != "image/png":
+                return False, "expected Content-Type image/png, got %r" % headers.get("Content-Type")
+            if not body:
+                return False, "expected a non-empty response body"
+            return True, ""
+        check(
+            "an authenticated GET /illustration/air-france.png returns 200, image/png, and a non-empty body",
+            _illustration_real_key_returns_png)
+
+        def _illustration_unknown_key_404():
+            status, _headers, _body = http_request(
+                base + "/illustration/not-a-real-airline.png", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for a key not in the membership set, got %d" % status
+            return True, ""
+        check(
+            "an authenticated GET for an illustration key not in the membership set returns 404",
+            _illustration_unknown_key_404)
+
+        def _illustration_traversal_key_404():
+            adversarial_paths = [
+                "/illustration/..%2F..%2Fetc%2Fpasswd.png",
+                "/illustration/../../../etc/passwd.png",
+                "/illustration/style.png",
+            ]
+            for adversarial_path in adversarial_paths:
+                status, _headers, body = http_request(
+                    base + adversarial_path, cookie=session_cookie)
+                if status != 404:
+                    return False, "expected 404 for adversarial path %r, got %d" % (adversarial_path, status)
+                if body and b"root:" in body:
+                    return False, "adversarial path %r returned file content" % (adversarial_path,)
+            return True, ""
+        check(
+            "authenticated GET requests for adversarial illustration paths (path traversal) all return 404 with no file content",
+            _illustration_traversal_key_404)
+
+        def _illustration_unauthenticated_redirects_to_login():
+            status, headers, body = http_request(base + "/illustration/air-france.png")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if "/login" not in location:
+                return False, "expected a redirect to /login, got %r" % location
+            if body.startswith(PNG_SIGNATURE):
+                return False, "unauthenticated request must never return image bytes"
+            return True, ""
+        check(
+            "an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes",
+            _illustration_unauthenticated_redirects_to_login)
+
         # --- poll-trigger cooldown: server-global, not per-session ---
 
         def _poll_trigger_first_call():
@@ -1308,6 +2182,64 @@ def main():
         check(
             "a genuine poll-trigger failure redirects with the distinct poll_failed flash key, never save_failed",
             _poll_trigger_failure_uses_distinct_flash_key)
+
+        # UXA-15: two genuinely overlapping threads issuing POST
+        # /poll-now against the same running subprocess, on a session
+        # with zero cooldown, must never both reach run_once() — the
+        # server-side _POLL_LOCK (companion/app.py) is the correctness
+        # boundary, not merely a claim verified by reading the source.
+        # A fresh Harness/session is used (rather than reusing the
+        # cooldown-exhausted session_cookie above) so the cooldown gate
+        # never confounds which flash key each response carries.
+        def _poll_now_concurrent_requests_serialize_on_the_lock():
+            concurrent_harness = Harness()
+            try:
+                concurrent_harness.start()
+                cbase = concurrent_harness.base_url()
+                concurrent_cookie = _login(concurrent_harness)
+
+                start_event = threading.Event()
+                responses = []
+                responses_lock = threading.Lock()
+
+                def _worker():
+                    start_event.wait()
+                    status, headers, _ = http_request(
+                        cbase + "/poll-now", method="POST", cookie=concurrent_cookie)
+                    with responses_lock:
+                        responses.append((status, headers.get("Location", "")))
+
+                threads = [threading.Thread(target=_worker) for _ in range(2)]
+                for t in threads:
+                    t.start()
+                # Released together, after both threads are already
+                # blocked on it — the tightest overlap this harness can
+                # produce without instrumenting the server itself.
+                start_event.set()
+                for t in threads:
+                    t.join(timeout=30)
+
+                if len(responses) != 2:
+                    return False, "expected two responses, got %d: %r" % (len(responses), responses)
+                for status, _location in responses:
+                    if status != 303:
+                        return False, "expected both responses to be 303 redirects, got %r" % (responses,)
+                already_running_count = sum(
+                    1 for _status, location in responses
+                    if "flash=poll_already_running" in location)
+                if already_running_count != 1:
+                    return False, (
+                        "expected exactly one of the two overlapping /poll-now "
+                        "requests to receive the poll_already_running flash key "
+                        "(the other must complete/fail on its own honest "
+                        "outcome), got %d of 2: %r" % (already_running_count, responses))
+                return True, ""
+            finally:
+                concurrent_harness.stop()
+                concurrent_harness.cleanup()
+        check(
+            "two genuinely overlapping POST /poll-now requests: exactly one gets the poll_already_running flash key, proving the server-side _POLL_LOCK serializes execution",
+            _poll_now_concurrent_requests_serialize_on_the_lock)
 
     finally:
         harness.stop()

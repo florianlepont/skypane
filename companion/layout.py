@@ -24,11 +24,23 @@ SITE_TITLE = "SkyPane"
 # deliberately absent: it is shown instead of any page when unauthenticated,
 # never as a nav tab.
 NAV_TABS = (
-    ("/config", "Config"),
+    # 06.6.4.1-07 (D-26): renamed from "/config"/"Config" to
+    # "/settings"/"Settings". Must equal
+    # companion/pages/config_page.py's own SETTINGS_ROUTE constant
+    # exactly — that module cannot import this one (page modules import
+    # layout, so the reverse would be a cycle), so this literal is
+    # duplicated under the same must-equal discipline this file's other
+    # duplicated script-source constants already carry (see
+    # NAV_DROPDOWN_SCRIPT_SRC and friends). companion/test_companion_app.py
+    # pins the cross-module equality.
+    ("/settings", "Settings"),
     ("/health", "Health"),
     ("/airlines", "Airlines"),
     ("/history", "History"),
-    ("/preview", "Preview"),
+    # 06.6.4.1-08 (D-22): "/preview"/"Preview" removed — the standalone
+    # Preview page is retired, its whole content absorbed into History
+    # (06.6.4.1-05). companion/app.py's PREVIEW_PAGE_ROUTE now redirects
+    # that URL to History's route above rather than rendering a fifth tab.
 )
 
 # --- 06.6.1-05: hamburger nav DOM contract (D-06) -----------------------
@@ -62,6 +74,19 @@ NAV_TOGGLE_LABEL = "Open menu"
 # assert the equality.
 NAV_DROPDOWN_SCRIPT_SRC = "/static/nav-dropdown.js"
 
+# 06.6.3: four more pre-auth static JS route constants, same
+# duplicated-not-imported contract as NAV_DROPDOWN_SCRIPT_SRC above —
+# each must equal companion/app.py's matching *_SCRIPT_ROUTE constant
+# exactly (that module's own Task 2 checks assert the equality).
+DIRTY_STATE_SCRIPT_SRC = "/static/dirty-state.js"
+LIST_FILTER_SCRIPT_SRC = "/static/list-filter.js"
+COPY_BUTTON_SCRIPT_SRC = "/static/copy-button.js"
+FRESHNESS_SCRIPT_SRC = "/static/freshness.js"
+
+# D-20 (06.6.4.1-02): must equal companion/app.py's PANEL_LOOKUP_SCRIPT_ROUTE
+# exactly, same duplicated-not-imported contract as the four constants above.
+PANEL_LOOKUP_SCRIPT_SRC = "/static/panel-lookup.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 _STATUS_DOT_CLASSES = {
@@ -78,20 +103,76 @@ _STAT_TILE_BORDER_CLASSES = {
 }
 _DEFAULT_STAT_TILE_CLASS = "stat-tile--accent"
 
+# quick task 260902-gjj (ISSUE 2): card_status_class()'s own whitelist,
+# kept as bare suffixes (not full class names) so the caller's own base
+# class never has to be typed twice.
+_CARD_STATUS_SUFFIXES = {
+    "ok": "--ok",
+    "warn": "--warn",
+    "error": "--error",
+}
+
 # --- 06.6.1-04: icon sprite (D-02) -------------------------------------
 #
-# The whitelist. Capped at exactly five ids by 06.6.1-UI-SPEC.md's Design
-# System contract — this is not an incomplete set to extend later, it is
-# the whole set. The hamburger member is consumed by plan 06.6.1-05's
-# mobile-nav toggle button; it is defined here anyway (rather than by
-# that later plan) so the sprite in ICON_DEFS_HTML stays the single
-# write site for every icon in the app, never two.
+# The whitelist. Originally capped at exactly five ids by
+# 06.6.1-UI-SPEC.md's Design System contract. 06.6.2-05 (D-17) supersedes
+# that cap: five per-nav-label icons (`icon-nav-*`) are added below so
+# every sidebar/mobile-nav label carries a small outline glyph — the
+# whitelist grows from five to ten members, and this is now the current
+# whole set again, not an incomplete one. The hamburger member is
+# consumed by plan 06.6.1-05's mobile-nav toggle button; it is defined
+# here anyway (rather than by that later plan) so the sprite in
+# ICON_DEFS_HTML stays the single write site for every icon in the app,
+# never two.
 ICON_IDS = (
     "icon-device",
     "icon-pipeline",
     "icon-corroboration",
+    # quick task 260902-j8w: as of this quick task, "icon-battery" has no
+    # consumer anywhere in the app — companion/pages/health_page.py's
+    # ICON_BATTERY constant and its one call site (the Battery-trend
+    # section heading) were both removed at the developer's own
+    # instruction. Retained here anyway, on purpose, not as an
+    # oversight: pruning it would force a matching `<symbol>` deletion
+    # below plus four assertion edits in test_companion_app.py's
+    # `_icon_sprite_integrity()` (the fourteen-member count, the
+    # duplicate check, the symbol-id/ICON_IDS set-equality check, and
+    # the `<symbol` count) — a cross-page change to this shared
+    # component, well outside a one-heading-glyph removal's scope. This
+    # whitelist is an injection guard on icon_html()'s fragment
+    # reference, not a usage index of what is currently rendered —
+    # "icon-nav-preview" below is this file's existing precedent for
+    # exactly that reading. The sprite is `display: none`
+    # (companion/static/style.css's `.icon-defs` rule) and the retained
+    # symbol costs roughly 200 bytes. Pruning `icon-battery` (and its
+    # `<symbol>` below, and the four test_companion_app.py assertions)
+    # is a real, optional follow-up the developer can take or decline —
+    # not done here.
     "icon-battery",
     "icon-hamburger",
+    "icon-nav-config",
+    "icon-nav-health",
+    "icon-nav-airlines",
+    "icon-nav-history",
+    # 06.6.4.1-08 (D-22): stays a whitelist member even though NAV_TABS/
+    # NAV_ICON_IDS no longer reference a "preview" nav tab — its consumer
+    # is now companion/pages/history_page.py's View-panel trigger button
+    # (the eye glyph on each row's "View panel near this time" control),
+    # not a nav tab. Do not remove this as apparently-orphaned: an id
+    # outside this whitelist makes icon_html() silently return "" and the
+    # trigger button would render an empty box with no error.
+    "icon-nav-preview",
+)
+
+# 06.6.3: four more icons for the per-page redesign plans (D-05/D-23/
+# D-12/D-20) grow the whitelist from ten to fourteen. Appended, not
+# reordered, so ICON_DEFS_HTML's own symbol-id/ICON_IDS agreement check
+# stays a straightforward set comparison.
+ICON_IDS = ICON_IDS + (
+    "icon-check",
+    "icon-copy",
+    "icon-refresh",
+    "icon-search",
 )
 
 # One shared inline sprite, emitted once per document by page_shell().
@@ -146,6 +227,59 @@ ICON_DEFS_HTML = (
     '<line x1="4" y1="12" x2="20" y2="12"/>'
     '<line x1="4" y1="17" x2="20" y2="17"/>'
     "</symbol>"
+    '<symbol id="icon-nav-config" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M3 5h8M15 5h2"/><circle cx="12" cy="5" r="2"/>'
+    '<path d="M3 10h2M9 10h8"/><circle cx="7" cy="10" r="2"/>'
+    '<path d="M3 15h8M15 15h2"/><circle cx="12" cy="15" r="2"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-health" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M2 10h4l2-5 3 10 2-5h5"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-airlines" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M3 3h7l7 7-7 7-7-7z"/><circle cx="7" cy="7" r="1.5"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-history" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="7"/><path d="M10 6v4l3 2"/>'
+    "</symbol>"
+    '<symbol id="icon-nav-preview" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M2 10s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5z"/>'
+    '<circle cx="10" cy="10" r="2.5"/>'
+    "</symbol>"
+    # 06.6.3: four more glyphs (D-05/D-23/D-12/D-20), same viewBox/stroke
+    # language as the ten above.
+    '<symbol id="icon-check" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M4 10.5l4 4 8-9"/>'
+    "</symbol>"
+    '<symbol id="icon-copy" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<rect x="3" y="3" width="10" height="10" rx="1.5"/>'
+    '<path d="M7 17h8a2 2 0 0 0 2-2V7"/>'
+    "</symbol>"
+    '<symbol id="icon-refresh" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M16 10a6 6 0 1 1-2-4.5"/>'
+    '<path d="M16 2.5v4h-4"/>'
+    "</symbol>"
+    '<symbol id="icon-search" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<circle cx="8.5" cy="8.5" r="5.5"/>'
+    '<path d="M13.5 13.5L17.5 17.5"/>'
+    "</symbol>"
     "</defs>"
     "</svg>"
 )
@@ -165,6 +299,53 @@ STAT_TILE_ICON_CLASS = "stat-tile__icon"
 # Health link without re-deriving it from an already-escaped route
 # string.
 HEALTH_NAV_SLUG = "health"
+
+# 06.6.2-05 (D-17): slug -> icon-id, one per NAV_TABS entry. Consumed by
+# sidebar_nav()/_mobile_nav_html() via _nav_links()'s already-computed
+# `slug` (route.lstrip("/")) — a slug not present here (which cannot
+# happen for a real NAV_TABS entry) falls through icon_html()'s own
+# whitelist-fallback ("" for an unrecognised id), never a KeyError.
+NAV_ICON_IDS = {
+    # 06.6.4.1-07: key retargeted from "config" to "settings" (the new
+    # route slug, matching NAV_TABS' own rename above). The SVG symbol
+    # id value stays "icon-nav-config" unchanged — it is a gear glyph,
+    # visually correct for Settings, and renaming the symbol itself is
+    # cosmetic churn UI-SPEC §5.0 explicitly marks optional; the icon
+    # whitelist (ICON_IDS below) stays at its current membership.
+    "settings": "icon-nav-config",
+    "health": "icon-nav-health",
+    "airlines": "icon-nav-airlines",
+    "history": "icon-nav-history",
+    # 06.6.4.1-08 (D-22): "preview" key removed along with NAV_TABS' own
+    # preview entry above. "icon-nav-preview" (the eye glyph) itself stays
+    # in ICON_IDS below, unremoved — its consumer is now
+    # companion/pages/history_page.py's View-panel trigger button, not a
+    # nav tab. Removing the glyph from the whitelist (rather than just
+    # this map entry) would make that trigger render an empty box with no
+    # error, since icon_html() silently returns "" for an id outside
+    # ICON_IDS.
+}
+
+# 06.6.2-05 (UXA-10): the fragment id the skip-link's first-focusable
+# <a href="#..."> points at and <main> carries as its own id. Named once
+# so page_shell() never has the two literals drift apart.
+SKIP_LINK_TARGET_ID = "main-content"
+
+# 06.6.2-05 (UXA-10): a zero-external-dependency local favicon — a data
+# URI needs neither a new static file nor a new route. #B13F16 is the
+# light-mode --color-accent token (companion/static/style.css, plan
+# 06.6.2-01). Held as its own module constant (rather than inlined
+# directly in page_shell()'s format string) specifically so plan
+# 06.6.2-07's new login_shell() function can reuse this exact literal
+# later without duplicating it.
+FAVICON_LINK_HTML = (
+    '<link rel="icon" href="data:image/svg+xml,'
+    '%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 20 20%27%3E'
+    '%3Crect width=%2720%27 height=%2720%27 rx=%274%27 fill=%27%23B13F16%27/%3E'
+    '%3Ctext x=%2710%27 y=%2714%27 text-anchor=%27middle%27 '
+    'font-family=%27Georgia,serif%27 font-size=%2712%27 fill=%27%23FFFFFF%27'
+    '%3ES%3C/text%3E%3C/svg%3E">'
+)
 
 # The dot's own class, layered on top of the existing .dot/.dot--error
 # classes (see _health_alert_markup()) rather than a new colour. Its
@@ -199,10 +380,16 @@ def icon_html(icon_id, size=20, extra_class=""):
     This mirrors how the battery sparkline already carries both fixed
     attributes and a CSS override.
 
-    `aria-hidden="true"` is set unconditionally: every icon this phase
-    renders sits beside its own visible text label (a tile caption, a
-    section heading), so the icon is decorative and announcing it would
-    duplicate the label. Do not "improve" this by adding a `<title>`.
+    `aria-hidden="true"` is set unconditionally: every icon in this app
+    sits beside its own visible text label — a tile caption, a nav link
+    label, a filter-bar/pill label — so the icon is decorative and
+    announcing it would duplicate the label. Do not "improve" this by
+    adding a `<title>`. (SUPERSEDED, quick task 260902-j8w: a section
+    heading — Health's `Battery trend` — used to be named here too, as
+    the one place a glyph sat beside a heading rather than a tile/control
+    label. That heading's glyph was removed at the developer's own
+    instruction; glyphs in this app are now a tile/control affordance
+    only, never a heading one.)
     """
     if icon_id not in ICON_IDS:
         return ""
@@ -322,6 +509,44 @@ def absolute_and_relative(ts, now_ts, fallback="no reading yet"):
     return "%s (%s)" % (ts, relative_age_text(age))
 
 
+def concise_timestamp_html(ts, now_ts, fallback="no reading yet"):
+    """"<span class="mono" title="<full ISO>"><HH:MM> UTC (<relative>)</span>"
+    — D-09's concise-timestamp-by-default format (06.6.3-UI-SPEC.md's New
+    Component Contracts). The full ISO string is demoted to the `title`
+    attribute; the visible text is a concise clock time plus the existing
+    relative_age_text() suffix, preserving absolute_and_relative()'s
+    established absolute-first ordering convention (do not reverse to
+    relative-first).
+
+    THIS IS A RAW-MARKUP-PRODUCING FUNCTION: callers interpolate the
+    return value verbatim — never re-escape it — and place it only in
+    data_table()'s new raw_columns parameter, or directly in
+    already-safe markup (never in a data_table() column outside
+    raw_columns).
+
+    Returns the escaped `fallback` (a bare string, no markup — matching
+    absolute_and_relative()'s own no-markup fallback contract) when `ts`
+    is falsy. When `ts` fails to parse (or age_seconds() cannot compute,
+    e.g. a mismatched now_ts), returns a span with the raw value in both
+    the title and visible-text slots rather than raising.
+
+    absolute_and_relative() is not deleted by this function's addition —
+    it remains the right choice for any plain-text-only call site (e.g.
+    Preview's no-panel caption); do not replace those call sites with
+    this function.
+    """
+    if not ts:
+        return escape_html(fallback)
+    parsed = parse_iso(ts)
+    age = age_seconds(ts, now_ts)
+    if parsed is None or age is None:
+        return '<span class="mono" title="%s">%s</span>' % (
+            escape_html(ts), escape_html(ts))
+    clock = parsed.strftime("%H:%M")
+    return '<span class="mono" title="%s">%s UTC (%s)</span>' % (
+        escape_html(ts), escape_html(clock), escape_html(relative_age_text(age)))
+
+
 def ui_theme_from_cookie(cookies):
     """Return the CFG-09 UI theme named by `cookies`, or "auto" when the
     cookie is missing or holds a value outside UI_THEME_CHOICES.
@@ -369,7 +594,7 @@ def _nav_links(active):
 # _nav_links() above.
 
 
-def _health_alert_markup():
+def _health_alert_markup(severity):
     """The Health nav-tab notification dot plus its visually-hidden
     screen-reader suffix (06.6.1-UI-SPEC.md's Layout Contract / D-02),
     built once so both `_nav_html()`-style and `sidebar_nav()` renderers
@@ -377,10 +602,12 @@ def _health_alert_markup():
     calls this (the horizontal `_nav_html()` renderer is retired by plan
     06.6.1-05 rather than gaining this markup itself).
 
-    Reuses the existing `dot`/`dot--error` classes — the same visual
-    treatment the Battery/Device/Pipeline error state already uses —
-    plus NAV_NOTIFICATION_CLASS to override size/spacing only, rather
-    than introducing a fourth status colour.
+    `severity` is `"warn"` or `"error"` — this function is only ever
+    called when the caller has already checked severity is not `"ok"`/
+    falsy (06.6.2-06, UXA-14). The dot class is looked up via the same
+    `_STATUS_DOT_CLASSES` dict `status_dot()` uses (reused, not
+    duplicated), so a warning-only Health state draws `dot--warn` rather
+    than always the maximal `dot--error` treatment.
 
     Appends a visually-hidden text suffix rather than an `aria-label` on
     the link: an `aria-label` would *replace* the link's accessible
@@ -395,13 +622,14 @@ def _health_alert_markup():
     badge already set in this codebase: nothing is rendered when
     everything is fine, so there is no "all good" chrome to ignore.
     """
+    dot_class = _STATUS_DOT_CLASSES.get(severity, _DEFAULT_STATUS_DOT_CLASS)
     return (
-        '<span class="dot dot--error %s"></span>'
+        '<span class="dot %s %s"></span>'
         '<span class="visually-hidden">%s</span>'
-    ) % (NAV_NOTIFICATION_CLASS, escape_html(HEALTH_ALERT_SUFFIX_TEXT))
+    ) % (dot_class, NAV_NOTIFICATION_CLASS, escape_html(HEALTH_ALERT_SUFFIX_TEXT))
 
 
-def sidebar_nav(active, health_alert=False):
+def sidebar_nav(active, health_alert=None):
     """The vertical Primary-navigation landmark shown by page_shell()'s
     dashboard sidebar column at desktop width.
 
@@ -412,24 +640,42 @@ def sidebar_nav(active, health_alert=False):
     viewport width; this function has no opinion on visibility.
 
     `health_alert` (06.6.1-04, keyword-with-default so no existing
-    positional call site changes meaning) appends _health_alert_markup()
-    after the label text of the link whose slug matches HEALTH_NAV_SLUG,
-    and only that link. The markup is already-built safe HTML and is
-    interpolated verbatim, exactly like status_dot()'s output is in
-    other builders — it is not routed through escape_html() again.
+    positional call site changes meaning; 06.6.2-06/UXA-14 widened the
+    contract from a boolean to a severity string) is `None`/`"ok"` for
+    no dot, or `"warn"`/`"error"` to append `_health_alert_markup()`
+    (drawn with that exact severity) after the label text of the link
+    whose slug matches HEALTH_NAV_SLUG, and only that link. The markup
+    is already-built safe HTML and is interpolated verbatim, exactly
+    like status_dot()'s output is in other builders — it is not routed
+    through escape_html() again.
+
+    06.6.2-05 (D-17/UXA-10): each link is prefixed with its
+    NAV_ICON_IDS-mapped icon (icon_html()'s own whitelist-fallback
+    contract makes an unrecognised slug render no icon rather than
+    raising — this cannot happen for a real NAV_TABS entry, but keeps
+    the call safe). The active link's `<a>` carries `aria-current="page"`
+    — never the inactive links — so exactly one link at a time announces
+    "current page" to assistive tech. The active-pill *visual* treatment
+    (background tint, radius) lives in companion/static/style.css's
+    `.sidebar-link--active` rule, not here; the class names themselves
+    are unchanged.
     """
     links = []
     for is_active, route, label, slug in _nav_links(active):
         if is_active:
             css_class = "sidebar-link sidebar-link--active"
+            aria_current = ' aria-current="page"'
         else:
             css_class = "sidebar-link"
+            aria_current = ""
+        icon = icon_html(
+            NAV_ICON_IDS.get(slug, ""), extra_class="sidebar-link__icon")
         alert_html = (
-            _health_alert_markup()
-            if health_alert and slug == HEALTH_NAV_SLUG else "")
+            _health_alert_markup(health_alert)
+            if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
         links.append(
-            '<a class="%s" href="%s">%s%s</a>'
-            % (css_class, route, label, alert_html))
+            '<a class="%s" href="%s"%s>%s%s%s</a>'
+            % (css_class, route, aria_current, icon, label, alert_html))
     return (
         '<nav class="sidebar-nav" aria-label="Primary navigation">%s</nav>'
         % "".join(links))
@@ -451,7 +697,31 @@ def _theme_form_html(resolved_theme):
         % "".join(options))
 
 
-def _mobile_nav_html(active, theme_form_html, health_alert=False):
+def _logout_form_html():
+    """The POST `/logout` sign-out control (06.6.2-05, D-11/D-17), shared
+    verbatim by both the sidebar footer and the mobile-nav dropdown
+    footer built below — one write site for the Sign out control, never
+    two independent copies.
+
+    The literal `/logout` path is hard-coded here rather than imported
+    from `companion.app` — the same precedent `_theme_form_html()`'s own
+    hard-coded `action="/ui-theme"` literal already sets, documented
+    there for the same reason: `companion/app.py` imports this module,
+    so the reverse import would be a cycle.
+
+    `method="post"` matters: D-11 moves `/logout` off GET specifically so
+    a stray prefetch, crawler, or `<img src="/logout">`-shaped link can
+    no longer end a session. A plain `<a href="/logout">` here would
+    reopen exactly that hole.
+    """
+    return (
+        '<form method="post" action="/logout" class="logout-form">'
+        '<button type="submit">Sign out</button>'
+        "</form>"
+    )
+
+
+def _mobile_nav_html(active, theme_form_html, health_alert=None):
     """The hamburger toggle button plus the dropdown panel it controls —
     the <960px nav renderer (D-06, 06.6.1-UI-SPEC.md's Layout Contract).
 
@@ -471,6 +741,11 @@ def _mobile_nav_html(active, theme_form_html, health_alert=False):
     nav-dropdown.js is what adds/removes the class client-side, keyed off
     the toggle's own aria-expanded attribute (the single source of truth
     for the open state, never a second variable to keep in sync).
+
+    `health_alert` (06.6.2-06/UXA-14): `None`/`"ok"` draws no dot;
+    `"warn"`/`"error"` draws `_health_alert_markup()` with that exact
+    severity after the Health link's label, mirroring sidebar_nav()'s
+    own contract exactly so the two nav renderers can never disagree.
     """
     links = []
     for is_active, route, label, slug in _nav_links(active):
@@ -478,8 +753,8 @@ def _mobile_nav_html(active, theme_form_html, health_alert=False):
             "mobile-nav__link mobile-nav__link--active"
             if is_active else "mobile-nav__link")
         alert_html = (
-            _health_alert_markup()
-            if health_alert and slug == HEALTH_NAV_SLUG else "")
+            _health_alert_markup(health_alert)
+            if health_alert in ("warn", "error") and slug == HEALTH_NAV_SLUG else "")
         links.append(
             '<a class="%s" href="%s">%s%s</a>'
             % (css_class, route, label, alert_html))
@@ -489,18 +764,74 @@ def _mobile_nav_html(active, theme_form_html, health_alert=False):
     ) % (
         NAV_TOGGLE_ID, escape_html(NAV_TOGGLE_LABEL), MOBILE_NAV_ID,
         icon_html("icon-hamburger", size=24))
+    footer_html = (
+        '<div class="mobile-nav__footer">%s%s</div>'
+        % (theme_form_html, _logout_form_html()))
     panel_html = (
         '<div id="%s" class="mobile-nav">'
         '<nav class="mobile-nav__nav" aria-label="Primary navigation">%s</nav>'
         "%s"
         "</div>"
-    ) % (MOBILE_NAV_ID, "".join(links), theme_form_html)
+    ) % (MOBILE_NAV_ID, "".join(links), footer_html)
     return toggle_html + panel_html
+
+
+def login_shell(body, ui_theme="auto"):
+    """A dedicated, minimal HTML5 document for the pre-authentication
+    login page — 06.6.2-07 (UXA-03).
+
+    This function exists specifically because page_shell() always
+    renders the full authenticated sidebar/mobile-nav/theme-form-footer
+    regardless of the `active=""` value login's old call site passed —
+    that is UXA-03's root cause (a real, reproduced production defect:
+    the login page visually implied the whole site's navigation was
+    usable before signing in). login_shell() is a deliberately
+    separate, smaller sibling of page_shell(), not a parameterized
+    branch inside it — it shares page_shell()'s outer document
+    structure (doctype, `<html lang="en" data-ui-theme="...">`,
+    `<head>` with charset/viewport/title/stylesheet link/
+    FAVICON_LINK_HTML, reusing that constant rather than duplicating
+    the data-URI literal) but its `<body>` contains only the login
+    card: no ICON_DEFS_HTML sprite (nothing on this page uses an
+    icon), no skip link (there is no nav to skip past), no sidebar, no
+    mobile-nav dropdown, no NAV_DROPDOWN_SCRIPT_SRC script tag.
+
+    `body` is the caller's own already-built, already-escaped markup —
+    the same "caller has escaped its own dynamic parts" contract every
+    other body-accepting builder in this module follows (page_shell(),
+    stat_tile(), etc.) — and is interpolated verbatim into
+    `<div class="login-card">`.
+    """
+    resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
+    return (
+        "<!DOCTYPE html>\n"
+        '<html lang="en" data-ui-theme="%s">\n'
+        "<head>\n"
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        "<title>Login - %s</title>\n"
+        '<link rel="stylesheet" href="/static/style.css">\n'
+        "%s\n"
+        "</head>\n"
+        "<body>\n"
+        '<div class="login-shell">\n'
+        '<div class="login-card">\n'
+        "%s\n"
+        "</div>\n"
+        "</div>\n"
+        "</body>\n"
+        "</html>\n"
+    ) % (
+        escape_html(resolved_theme),
+        escape_html(SITE_TITLE),
+        FAVICON_LINK_HTML,
+        body,
+    )
 
 
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
-        health_alert=False):
+        health_alert=None):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and every nav label are escaped here. `body`, `flash` and
@@ -509,11 +840,13 @@ def page_shell(
     output of this module's other builders, which already escape).
 
     `health_alert` (06.6.1-04, keyword-with-default, placed last so no
-    positional call site shifts) is threaded through to sidebar_nav() and
-    (06.6.1-05) _mobile_nav_html(). It is a display signal only,
-    defaulting off, so any caller without a request context — login, 404,
-    the preview-image error pages — draws no dot, which is correct rather
-    than merely convenient.
+    positional call site shifts; 06.6.2-06/UXA-14 widened the contract
+    from a boolean to a severity string) is threaded through to
+    sidebar_nav() and (06.6.1-05) _mobile_nav_html(). It is `None`/`"ok"`
+    (no dot) or `"warn"`/`"error"` (a dot with that class), a display
+    signal only, defaulting to no dot, so any caller without a request
+    context — login, 404, the preview-image error pages — draws no dot,
+    which is correct rather than merely convenient.
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     sidebar_html = sidebar_nav(active, health_alert=health_alert)
@@ -522,6 +855,21 @@ def page_shell(
         active, theme_form_html, health_alert=health_alert)
     flash_html = flash or ""
     banner_html = banner or ""
+
+    # 06.6.2-05 (D-17): the sidebar's theme picker and Sign out control,
+    # grouped into one footer region — the exact artifact Phase 06.6.3
+    # was told to expect by name (a .sidebar-footer wrapper). Replaces
+    # the previous bare theme_form_html-only slot.
+    sidebar_footer_html = (
+        '<div class="sidebar-footer">%s%s</div>'
+        % (theme_form_html, _logout_form_html()))
+
+    # 06.6.2-05 (UXA-10): the first focusable element in <body>, before
+    # even ICON_DEFS_HTML — a keyboard/screen-reader user's very first
+    # tab stop on every page.
+    skip_link_html = (
+        '<a class="skip-link" href="#%s">Skip to content</a>'
+        % SKIP_LINK_TARGET_ID)
 
     # The <aside> deliberately precedes the <header> in source order: at
     # desktop width, where CSS hides the header entirely, a keyboard user
@@ -555,8 +903,10 @@ def page_shell(
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         "<title>%s - %s</title>\n"
         '<link rel="stylesheet" href="/static/style.css">\n'
+        "%s\n"
         "</head>\n"
         "<body>\n"
+        "%s\n"
         "%s\n"
         '<div class="dashboard-shell">\n'
         '<aside class="dashboard-sidebar">\n'
@@ -568,35 +918,83 @@ def page_shell(
         '<span class="site-title">%s</span>\n'
         "%s\n"
         "</header>\n"
-        '<main class="page-content dashboard-main">\n'
+        '<main class="page-content dashboard-main" id="%s" tabindex="-1">\n'
         "%s\n%s\n%s\n"
         "</main>\n"
         "</div>\n"
+        '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
         escape_html(resolved_theme),
         escape_html(title), escape_html(SITE_TITLE),
+        FAVICON_LINK_HTML,
+        skip_link_html,
         ICON_DEFS_HTML,
         escape_html(SITE_TITLE),
         sidebar_html,
-        theme_form_html,
+        sidebar_footer_html,
         escape_html(SITE_TITLE),
         mobile_nav_html,
+        SKIP_LINK_TARGET_ID,
         flash_html, banner_html, body,
         NAV_DROPDOWN_SCRIPT_SRC,
+        # 06.6.3: emitted unconditionally on every authenticated page,
+        # matching nav-dropdown.js/battery-trend.js's own "served
+        # everywhere, no-ops via guard clause" convention — never
+        # conditionally included per page.
+        DIRTY_STATE_SCRIPT_SRC,
+        LIST_FILTER_SCRIPT_SRC,
+        COPY_BUTTON_SCRIPT_SRC,
+        FRESHNESS_SCRIPT_SRC,
+        # 06.6.4.1-02 (D-20): sixth script, same unconditional/no-op-via-
+        # guard-clause convention — only History renders #panel-lookup-dialog.
+        PANEL_LOOKUP_SCRIPT_SRC,
     )
 
 
-def flash_banner(message):
-    """An accent-bordered confirmation block (D-07's save confirmation)."""
-    return '<div class="banner banner--flash">%s</div>' % escape_html(message)
+_FLASH_ROLES = {"status", "alert"}
 
 
-def anomaly_banner(message):
-    """A destructive/warning-bordered block for D-14's anomaly flagging."""
-    return '<div class="banner banner--anomaly">%s</div>' % escape_html(message)
+def flash_banner(message, role="status"):
+    """An accent-bordered confirmation block (D-07's save confirmation).
+
+    `role` (06.6.2-06, UXA-07) is validated against `_FLASH_ROLES`
+    (falling back to `"status"` for anything else) — the same
+    whitelist-with-safe-fallback discipline `status_dot()`'s `state`
+    parameter already uses — and rendered as the `<div>`'s ARIA `role`
+    attribute, so a save/poll failure announces as `role="alert"`
+    (assertive) while every other outcome stays `role="status"`
+    (polite), chosen by the caller's real severity rather than one role
+    for every outcome.
+    """
+    resolved_role = role if role in _FLASH_ROLES else "status"
+    return (
+        '<div class="banner banner--flash" role="%s">%s</div>'
+        % (resolved_role, escape_html(message)))
+
+
+def anomaly_banner(message, severity="error"):
+    """A warning/destructive-bordered block for D-14's anomaly flagging.
+
+    `severity` (06.6.2-06, UXA-14) chooses both the CSS class and the
+    ARIA role: `"error"` (the default, preserving every existing
+    positional/no-keyword call site's prior meaning) renders
+    `banner--anomaly`/`role="alert"`; anything else (in practice only
+    `"warn"`) renders the new `banner--warn`/`role="status"` — a
+    warning-only Health state is announced politely, not as an
+    assertive interruption.
+    """
+    css_class = "banner--anomaly" if severity == "error" else "banner--warn"
+    role = "alert" if severity == "error" else "status"
+    return (
+        '<div class="banner %s" role="%s">%s</div>'
+        % (css_class, role, escape_html(message)))
 
 
 def status_dot(state, label):
@@ -653,6 +1051,37 @@ def stat_tile(caption, content_html, status=None, icon=None):
     ) % (css_class, caption_html, content_html)
 
 
+def card_status_class(base_class, status):
+    """`base_class + "--ok"/"--warn"/"--error"` for one of the three
+    whitelisted statuses; the empty string for `None` or anything
+    unrecognised.
+
+    The one status->card-modifier mapping (quick task 260902-gjj, ISSUE
+    2), living beside `_STATUS_DOT_CLASSES`/`_STAT_TILE_BORDER_CLASSES`
+    so the vocabulary has exactly one home. `status` is looked up in a
+    fixed three-key whitelist, the same discipline `status_dot()` and
+    `stat_tile()` already document — an unrecognised value can never
+    become an arbitrary, attacker-influenceable class name. `base_class`
+    is expected to be a module constant or a call-site literal, never
+    itself derived from data.
+
+    The fallback deliberately differs from `stat_tile()`'s: `stat_tile()`
+    falls back to `stat-tile--accent` because `.stat-tile`'s base rule
+    already declares a 3px top border that has to be *some* colour. A
+    page-level card's base rule (`.battery-trend-section`, `.page-section`)
+    declares a plain 1px hairline, so "no status" correctly means "no
+    modifier at all, keep the neutral edge" — the absence of a coloured
+    edge is itself the signal that the card carries no verdict. Getting
+    this backwards (defaulting to an accent modifier) would put a 3px
+    accent border on the Resolution-statistics card, which carries no
+    status field of any kind, and would require broadening style.css's
+    exhaustive accent-reservation list a second time in two days, for no
+    reported problem.
+    """
+    suffix = _CARD_STATUS_SUFFIXES.get(status)
+    return base_class + suffix if suffix else ""
+
+
 def empty_state(heading, body):
     """The escaped two-part empty-state block (06-UI-SPEC.md's Copywriting
     Contract) used for the flight log, the gallery, and the unresolved-
@@ -666,13 +1095,127 @@ def empty_state(heading, body):
     ) % (escape_html(heading), escape_html(body))
 
 
-def data_table(headers, rows, mono_columns=()):
+def page_header(title, purpose=None, freshness_html=None, action_html=None):
+    """The shared page-header component (06.6.2 D-16) every authenticated
+    page's render() opens with, in place of an independent bare <h1>.
+
+    THIS SIGNATURE IS A LITERAL CONTRACT: Phase 06.6.3's five per-page
+    redesign plans call page_header(title, purpose=None,
+    freshness_html=None, action_html=None) by this exact name and
+    parameter order — do not rename or reorder these parameters after
+    this plan ships. Every call site this plan adds passes only `title`
+    (positional); those calls remain byte-compatible with later call
+    sites that also pass `purpose`/`freshness_html`/`action_html`.
+
+    `title` is escaped here and wrapped in an <h1 class="page-title">
+    (06.6.2 D-15's distinct ~30px serif page-title role, separate from
+    the existing 20px .text-heading section-heading role).
+
+    `purpose` is escaped here too, when truthy, and rendered as a
+    one-sentence <p class="page-header__purpose text-body">.
+
+    `freshness_html` and `action_html`, when truthy, are each the
+    caller's own already-safe markup and are interpolated verbatim —
+    no call to escape_html(), no other transformation. This is the same
+    "escape the caption, pass already-built content through verbatim"
+    contract stat_tile()'s `content_html` parameter uses; re-encoding
+    either of these two here would double-encode already-escaped tags
+    and print them as visible text instead of rendering. Callers are
+    responsible for escaping/composing any user-influenced data before
+    passing it through either parameter.
+
+    Quick task 260901-tsa: `freshness_block` and `action_block` are
+    concatenated BEFORE `purpose_html` below — title, then the Refresh
+    link/action row, then the purpose sentence last. That is the
+    validated Health sketch's own header markup: the title and the
+    Refresh anchor sit inside one `.page-header` element, with the
+    purpose sentence following after it, not wedged between the title
+    and its action link. The LITERAL CONTRACT paragraph above covers the
+    signature — parameter names and their order — which this edit does
+    not touch; the order the three optional blocks are concatenated into
+    the returned string is a separate thing and was never part of that
+    contract. Blast radius: Health is the only call site today passing
+    both a purpose and a freshness block. For a caller passing exactly
+    one of the three optional blocks (every other page, today), the
+    concatenation produces the identical string either way — `"%s%s%s" %
+    (p, "", "")` and `"%s%s%s" % ("", "", p)` are the same string — so
+    Settings, Airlines and History are byte-identical before and after
+    this reorder; this is a Health-only visual change. With the purpose
+    paragraph now the last in-flow child of a block-level `.page-header`
+    that has no padding and no border, its own bottom margin collapses
+    with the parent's `margin-bottom`, so the gap below the header block
+    is unchanged rather than doubled.
+    """
+    purpose_html = (
+        '<p class="page-header__purpose text-body">%s</p>' % escape_html(purpose)
+        if purpose else "")
+    freshness_block = freshness_html if freshness_html else ""
+    action_block = action_html if action_html else ""
+    return (
+        '<div class="page-header">'
+        '<h1 class="page-title">%s</h1>'
+        "%s%s%s"
+        "</div>"
+    ) % (escape_html(title), freshness_block, action_block, purpose_html)
+
+
+def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), prose=False):
     """A header row plus alternating body rows, every value escaped.
 
     `mono_columns` names the zero-based column indices that get the
     monospace class (callsigns, hex codes, prefixes, timestamps, per
     06-UI-SPEC.md's Typography section). Returns empty_state()'s output
     instead of an empty table when `rows` is empty.
+
+    `raw_columns` (06.6.3, D-09) names the zero-based column indices
+    whose cell value is ALREADY-SAFE, pre-built HTML — the same
+    "already-built content passed through verbatim" contract
+    stat_tile()'s `content_html` parameter documents — and is
+    interpolated without a call to escape_html(). Every other column
+    (the default for all of them) is escaped exactly as before this
+    parameter existed; every pre-existing call site passing no
+    raw_columns argument is byte-identical. Only ever place the output
+    of a builder that already escapes internally (concise_timestamp_html(),
+    status_dot()) in a raw_columns cell — never a bare string; doing so
+    would reopen the exact XSS-shaped defect this module's single-
+    escaping-choke-point discipline otherwise closes (06.6.3-RESEARCH.md
+    Pitfall 3). `mono_columns` and `raw_columns` are orthogonal (one
+    controls a CSS class, the other controls escaping) and may safely
+    name the same index, though concise_timestamp_html()'s own
+    `<span class="mono">` makes a redundant mono_columns entry
+    pointless for that specific case.
+
+    `desc_columns` (quick task 260902-bl2) is `mono_columns`' direct
+    sibling: the zero-based column indices that get the description
+    role's class (`desc`) — a column holding descriptive prose rather
+    than data, which the validated Health sketch renders in the muted
+    secondary strength so the eye lands on the values beside it. Added
+    because the Resolution-statistics table's Description column
+    measured full-strength `--color-text` (`rgb(23, 25, 31)`) with an
+    empty `classList`: before this keyword, `data_table()` had no
+    column-role class hook for anything but the monospace role, so a
+    column of prose had no class for a stylesheet rule to target at
+    all. Changes no cell content and no escaping — the same boundary
+    `mono_columns` already keeps. `mono_columns`, `raw_columns` and
+    `desc_columns` are mutually orthogonal (one controls a class, one
+    controls escaping, one controls a class) and may safely name the
+    same index.
+
+    `prose` (quick task 260901-uzi) adds the modifier class
+    `data-table--prose` to the emitted `<table>` when true; the default,
+    false, is byte-identical to this function's pre-existing output.
+    `.data-table` carries `min-width: max-content` in style.css so that
+    tables of short values (callsigns, hex codes, prefixes, timestamps)
+    are never cropped — but a cell's max-content width is its text with
+    no wrapping at all, which is correct for those short values and wrong
+    for a column holding full sentences: the table then cannot fit any
+    container narrower than the whole unwrapped sentence, and
+    `.data-table-wrap`'s horizontal scroll becomes a permanent state
+    rather than a safety net. Measured on the Resolution-statistics
+    table: 1172px of content inside an 831px container. This keyword
+    changes no cell's content or escaping — it only adds a class the
+    stylesheet uses to release that one table from the shared no-crop
+    floor.
     """
     if not rows:
         return empty_state("No data yet.", "Nothing to show here yet.")
@@ -685,15 +1228,26 @@ def data_table(headers, rows, mono_columns=()):
         row_class = "row-alt" if row_index % 2 else "row"
         cells = []
         for column_index, cell in enumerate(row):
-            cell_class = ' class="mono"' if column_index in mono_columns else ""
-            cells.append("<td%s>%s</td>" % (cell_class, escape_html(cell)))
+            # mono is joined first so a mono-only cell's attribute string
+            # stays byte-identical to this loop's pre-desc_columns output
+            # — test_view_pages.py::_mono_columns_present() asserts that
+            # merged-cell mono output and must stay green unedited.
+            cell_roles = []
+            if column_index in mono_columns:
+                cell_roles.append("mono")
+            if column_index in desc_columns:
+                cell_roles.append("desc")
+            cell_class = ' class="%s"' % " ".join(cell_roles) if cell_roles else ""
+            cell_html = cell if column_index in raw_columns else escape_html(cell)
+            cells.append("<td%s>%s</td>" % (cell_class, cell_html))
         body_rows.append('<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
 
+    table_class = "data-table data-table--prose" if prose else "data-table"
     return (
         '<div class="data-table-wrap">'
-        '<table class="data-table">'
+        '<table class="%s">'
         "<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
         "</div>"
-    ) % (header_cells, "".join(body_rows))
+    ) % (table_class, header_cells, "".join(body_rows))

@@ -34,6 +34,20 @@
     return;
   }
 
+  // quick task 260901-uzi (finding 3): looked up once, beside the
+  // readout itself. This file's own header comment used to list this
+  // file as "not edited" by quick task 260901-tsa — correct for a pure
+  // reposition, and not correct here, because the readout's FORMAT is
+  // changing and reveal() below is what builds that format; a
+  // server-only change would be silently undone by the very first
+  // hover/tap/arrow-key move. Both spans must be present for the
+  // two-span write path below; if either is missing (the one-wave-skew
+  // case this file's own header comment already documents), reveal()
+  // falls through to its original single-string textContent write
+  // instead.
+  var readoutValue = readout.querySelector(".battery-readout__value");
+  var readoutDetail = readout.querySelector(".battery-readout__detail");
+
   var points = document.querySelectorAll(".sparkline-hit");
   if (points.length === 0) {
     return;
@@ -47,10 +61,38 @@
     // research sketch, kept for that one reason.
     var mv = point.getAttribute("data-mv");
     var ts = point.getAttribute("data-ts");
+    var when = point.getAttribute("data-when");
     if (mv === null || ts === null) {
       return;
     }
-    readout.textContent = mv + " mV — " + ts;
+    // quick task 260901-uzi (finding 3): this function used to compose
+    // the whole readout string itself ("{mv} mV — {ts}", the raw ISO
+    // timestamp) on every reveal — that composition is finding 3's own
+    // root cause, since it means a server-side format change alone
+    // would be reverted by the first hover. The server now humanises
+    // the detail once (companion/pages/health_page.py's own
+    // _battery_reading_parts()) and shares it through the data-when
+    // attribute; this function reads it back rather than reformatting a
+    // timestamp itself, which is why it still needs no date-formatting
+    // logic of its own.
+    //
+    // textContent remains the only content sink here: value/detail are
+    // plain strings written to two existing elements' textContent,
+    // never HTML. The one new attribute write below is `title`, which
+    // is not an HTML sink either — so this file still needs no escaping
+    // function and 06.5-RESEARCH.md's ASVS V5 reasoning is unchanged.
+    if (when !== null && readoutValue && readoutDetail) {
+      readoutValue.textContent = mv + " mV";
+      readoutDetail.textContent = " — " + when;
+      readoutDetail.setAttribute("title", ts);
+    } else {
+      // Fallback: this script is a single cached static asset served to
+      // every page, and can ship one wave ahead of the markup that
+      // references it (the same reason the early-return above exists).
+      // A missing data-when attribute, or a missing span, must degrade
+      // to this readable line, never to an empty readout.
+      readout.textContent = mv + " mV — " + ts;
+    }
 
     // Mark exactly one point as active: the one just revealed, toggled on;
     // every other point, toggled off.
@@ -70,6 +112,30 @@
         .split(" sparkline-hit--active ").join(" ")
         .replace(/^\s+|\s+$/g, "");
     }
+  }
+
+  // D-13/UXA-11: roving tabindex. companion/pages/health_page.py's
+  // battery_sparkline_svg() emits exactly one hit target with
+  // tabindex="0" (the chronologically-latest point, rightmost in
+  // `points`) and tabindex="-1" on every other one, so Tab visits the
+  // chart exactly once instead of once per reading. moveFocusTo()
+  // clamps to [0, points.length - 1] — it never wraps at either end —
+  // sets every point's tabindex attribute via setAttribute() (never the
+  // dataset/property form, matching this file's own getAttribute()-not-
+  // dataset discipline), then calls .focus() on the newly-current
+  // point. .focus() fires the "focus" listener registered below, which
+  // already calls reveal(), so no duplicate reveal() call is needed
+  // here.
+  function moveFocusTo(index) {
+    if (index < 0) {
+      index = 0;
+    } else if (index > points.length - 1) {
+      index = points.length - 1;
+    }
+    for (var k = 0; k < points.length; k++) {
+      points[k].setAttribute("tabindex", k === index ? "0" : "-1");
+    }
+    points[index].focus();
   }
 
   // Classic indexed for loop with a per-iteration closure (an inner IIFE),
@@ -99,6 +165,27 @@
         if (evt.key === "Enter" || evt.key === " ") {
           evt.preventDefault();
           reveal(point);
+        }
+      });
+      // D-13/UXA-11: a separate keydown listener (not merged into the
+      // Enter/Space listener above) for roving-tabindex chart
+      // navigation. Array.prototype.indexOf.call() is used rather than
+      // an ES6 array-conversion helper (ES5-safe against a NodeList —
+      // no conversion is needed, just an index lookup).
+      point.addEventListener("keydown", function (evt) {
+        var currentIndex = Array.prototype.indexOf.call(points, point);
+        if (evt.key === "ArrowRight" || evt.key === "ArrowDown") {
+          evt.preventDefault();
+          moveFocusTo(currentIndex + 1);
+        } else if (evt.key === "ArrowLeft" || evt.key === "ArrowUp") {
+          evt.preventDefault();
+          moveFocusTo(currentIndex - 1);
+        } else if (evt.key === "Home") {
+          evt.preventDefault();
+          moveFocusTo(0);
+        } else if (evt.key === "End") {
+          evt.preventDefault();
+          moveFocusTo(points.length - 1);
         }
       });
     })(points[i]);

@@ -315,7 +315,26 @@ FRAME_INSET_FRAC = 0.025  # ~2.5% of canvas WIDTH, inset from every edge
 FRAME_STROKE_PX = 2
 
 MAIN_ILLUSTRATION_WIDTH_FRAC = 0.87  # of the inner (post-frame-inset) canvas width
-MAIN_ILLUSTRATION_TOP_FRAC = 0.30  # of canvas height
+# Of canvas height. Corrected from MAIN_ILLUSTRATION_TOP_FRAC (0.30 - a
+# fraction applied to the SOURCE RECTANGLE's top, computed before the file
+# was even loaded) to a fraction of the PAINTED CONTENT's centre - quick task
+# 260902-req, the sixth position anchor the illustration-crop-text-margin
+# debug session missed (that session converted the other five: main
+# horizontal centring, the previous card's right-alignment and vertical
+# centring, and both text blocks' vertical gaps). Top transparent padding
+# spans 6-124px across the 43 vendored files (spread 118px), so the
+# rectangle-top anchor put the aircraft's visible vertical centre anywhere
+# from y=621.0 (air-caraibes-atr72.png) to y=741.5 (generic-a330.png) - a
+# 120.5px drift purely by which airline was flying, the developer's reported
+# "inconsistent aircraft centering". 0.4006 is the fraction at which
+# air-france.png - 03-UI-SPEC.md's own confirmed reference render - lands on
+# the exact same row it did before (visible centre 641.0 either way), so the
+# approved on-glass look is preserved while the per-file drift is removed
+# (post-fix spread 0.5px, measured across all 43 files). SIZING still
+# derives from `.rect` (unchanged - see the sizing note on the previous
+# card's own placement, `_build_active_canvas()` below); only POSITION now
+# follows painted pixels.
+MAIN_ILLUSTRATION_CENTER_Y_FRAC = 0.4006
 MAIN_LINE_GAP_PX = 8  # gap between main line 1's bottom and line 2's top
 
 PREVIOUS_ILLUSTRATION_WIDTH_FRAC = 0.57  # of the MAIN illustration's own rendered width
@@ -1893,16 +1912,22 @@ def _build_active_canvas(
     # illustration, always nose-left (D-24 - no mirroring).
     inner_width = WIDTH * (1 - 2 * FRAME_INSET_FRAC)
     main_w = round(inner_width * MAIN_ILLUSTRATION_WIDTH_FRAC)
-    main_top = round(HEIGHT * MAIN_ILLUSTRATION_TOP_FRAC)
 
     main_path = illustrations.select_illustration(route, flight.get("aircraft_type"))
     main_placement = None
     main_resized = _load_illustration_safely(main_path, main_w)
     if main_resized is not None:
-        # D-26 centres the main illustration horizontally. Centre the pixels
-        # that are actually painted, not the source rectangle - see
-        # `_left_for_centered_content()`.
+        # D-26 centres the main illustration on both axes. Centre the pixels
+        # that are actually painted, not the source rectangle - horizontally
+        # via `_left_for_centered_content()`, and (quick task 260902-req)
+        # vertically via `_top_for_centered_content()` - the exact helper the
+        # previous card below already uses. main_top can only be computed
+        # here, after main_resized exists: `_top_for_centered_content()`
+        # reads the resized image's own opaque bbox, so it cannot run against
+        # an unloaded source rectangle the way the old MAIN_ILLUSTRATION_TOP_
+        # FRAC arithmetic did.
         main_left = _left_for_centered_content(main_resized, WIDTH / 2)
+        main_top = _top_for_centered_content(main_resized, HEIGHT * MAIN_ILLUSTRATION_CENTER_Y_FRAC)
         main_placement = draw_illustration(canvas, main_resized, main_left, main_top)
         # The full placement rectangle, not `.content`: this is a "does the
         # element fall off the canvas" guard, so the conservative geometric

@@ -40,7 +40,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 118
+EXPECTED_CHECK_COUNT = 119
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -493,8 +493,12 @@ def main():
             return False, "illustrations.select_illustration(TEST_ROUTE) returned None - no vendored file resolved"
         inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
         main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
-        main_top = round(panel_format.HEIGHT * render.MAIN_ILLUSTRATION_TOP_FRAC)
         resized = render._resize_illustration(path, main_w)
+        # quick task 260902-req: main_top now follows the PAINTED content's
+        # centre, same as `_build_active_canvas()` itself computes it, so
+        # this locally-derived bbox keeps lining up with where the real
+        # render actually places the illustration.
+        main_top = render._top_for_centered_content(resized, panel_format.HEIGHT * render.MAIN_ILLUSTRATION_CENTER_Y_FRAC)
         left = (panel_format.WIDTH - resized.size[0]) // 2
         bbox = (left, main_top, left + resized.size[0], main_top + resized.size[1])
 
@@ -3471,6 +3475,79 @@ def main():
         "plus the source-fault badge when present) stays _assert_legal_palette()-legal across both active "
         "states (PHASE9-4/PHASE9-5/PHASE9-6 full sweep)",
         _band_themes_full_composition_stays_palette_legal,
+    )
+
+    # 119. The one anchor the illustration-crop-text-margin debug session
+    # missed: the MAIN illustration's VISIBLE VERTICAL centre must be a
+    # property of the LAYOUT, not of whichever airline is flying. Measured on
+    # this branch, at the real render scale (main_w=992px), across all 43
+    # vendored files under server/assets/icons/illustrations/: top
+    # transparent padding spans 6-124px (spread 118px), so under the anchor
+    # that applies a fraction of canvas height to the SOURCE RECTANGLE's top
+    # (main_top = round(HEIGHT * MAIN_ILLUSTRATION_TOP_FRAC), computed before
+    # the file is even loaded), the aircraft's visible vertical centre
+    # drifted 120.5px - from 621.0 (air-caraibes-atr72.png) to 741.5
+    # (generic-a330.png) on a 1600px-tall canvas. This is the developer's
+    # reported "inconsistent aircraft centering".
+    #
+    # Deliberately asserts on the SPREAD across files, never on any file's
+    # absolute position: absolute position is a design constant that gets
+    # re-derived independently (03-UI-SPEC.md) - pinning an absolute value
+    # here would force this check to be edited in lockstep with that
+    # constant, which is exactly the "the test moved with the bug" failure
+    # mode. The spread is the invariant that must hold no matter what the
+    # constant becomes.
+    #
+    # main_w and the vertical anchor are both derived from render.py's own
+    # constants/helpers, never hardcoded copies, so this keeps measuring the
+    # real render path if that geometry moves.
+    MAIN_VERTICAL_DRIFT_TOLERANCE_PX = 2  # pre-fix spread was 120.5px; see above
+    def _main_illustration_vertical_centre_has_no_per_file_drift():
+        illustrations_dir = os.path.join(REPO_ROOT, "server", "assets", "icons", "illustrations")
+        filenames = sorted(f for f in os.listdir(illustrations_dir) if f.lower().endswith(".png"))
+        if len(filenames) < 40:
+            return False, (
+                "found only %d vendored illustration files under %r - expected around 43; the fixture set may "
+                "have moved" % (len(filenames), illustrations_dir)
+            )
+        inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
+        main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
+        center_y = panel_format.HEIGHT * render.MAIN_ILLUSTRATION_CENTER_Y_FRAC
+        centres = {}
+        for filename in filenames:
+            path = os.path.join(illustrations_dir, filename)
+            resized = render._resize_illustration(path, main_w)
+            bbox = render._opaque_bbox(resized)
+            if bbox is None:
+                continue  # documented fallback case (nothing painted) - not a failure
+            # quick task 260902-req: main_top now follows the painted
+            # content's centre (`_top_for_centered_content()`, the same
+            # helper `_build_active_canvas()` itself calls), not a fraction
+            # of the source rectangle's top - that is precisely the fix this
+            # check exists to pin.
+            main_top = render._top_for_centered_content(resized, center_y)
+            centres[filename] = main_top + (bbox[1] + bbox[3]) / 2.0
+        if len(centres) < 40:
+            return False, (
+                "only %d of %d vendored files produced an opaque bbox - too few to measure drift"
+                % (len(centres), len(filenames))
+            )
+        spread = max(centres.values()) - min(centres.values())
+        if spread > MAIN_VERTICAL_DRIFT_TOLERANCE_PX:
+            worst_low = min(centres, key=centres.get)
+            worst_high = max(centres, key=centres.get)
+            return False, (
+                "the main aircraft's visible vertical centre drifts %.1fpx across %d vendored files (%s=%.1f, "
+                "%s=%.1f) - the main illustration's vertical position is anchored to its source rectangle's top, "
+                "not its painted pixels"
+                % (spread, len(centres), worst_low, centres[worst_low], worst_high, centres[worst_high])
+            )
+        return True, ""
+    check(
+        "the main illustration's VISIBLE vertical centre sits on one fixed canvas line (within "
+        "MAIN_VERTICAL_DRIFT_TOLERANCE_PX) across all vendored files, instead of drifting with each file's own "
+        "transparent top padding (illustration-crop-text-margin's missed sixth anchor)",
+        _main_illustration_vertical_centre_has_no_per_file_drift,
     )
 
     total = len(results)

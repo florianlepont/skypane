@@ -752,6 +752,37 @@ def target_filenames():
     return names
 
 
+def target_variants_by_airline():
+    """Return one `(airline_name, [shape, ...])` pair per distinct airline
+    in `_ILLUSTRATION_TARGETS`, first-appearance order - the same order and
+    length `target_airline_names()` produces. Each airline's list collects
+    every non-`None` shape recorded for it, in `_ILLUSTRATION_TARGETS`
+    order; an airline with only a `None`-shape (primary-only) entry maps to
+    an empty list, never a list holding `None`. Derived from
+    `_ILLUSTRATION_TARGETS` directly - never a second hardcoded
+    airline-to-shape table.
+
+    Trap: the shape strings returned here are free-text filename suffixes
+    (e.g. `"a350-1000"`), a different domain from `SHAPE_SLUGS`' seven-member
+    ICAO-type classification. A caller must NOT validate a variant against
+    `SHAPE_SLUGS` before displaying it - `"a350-1000"` is a real entry that
+    such a check would silently drop.
+
+    This is `companion/pages/airlines_page.py`'s sole entry point onto
+    `_ILLUSTRATION_TARGETS` - that module stays private, holding this
+    project's consistent "no cross-module private-name reach" pattern.
+    """
+    order = []
+    shapes_by_name = {}
+    for airline_name, shape, _note in _ILLUSTRATION_TARGETS:
+        if airline_name not in shapes_by_name:
+            order.append(airline_name)
+            shapes_by_name[airline_name] = []
+        if shape is not None:
+            shapes_by_name[airline_name].append(shape)
+    return [(name, shapes_by_name[name]) for name in order]
+
+
 def required_filenames():
     """Return the immovable baseline - the pre-03.1 set (one filename per
     live-resolved covered airline in `_LIVE_RESOLVED_AIRLINES`, plus the

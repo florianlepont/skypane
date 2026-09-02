@@ -23,7 +23,8 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 29
+# 260902-l0b: +1 (_daily_battery_averages_groups_excludes_and_bounds_correctly)
+EXPECTED_CHECK_COUNT = 30
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -686,6 +687,61 @@ def main():
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check("ingest_caddy_battery_log() inserts exactly 2 rows from a mixed fixture, and 0 more on an unchanged re-run", _ingest_caddy_battery_log_is_idempotent)
+
+    def _daily_battery_averages_groups_excludes_and_bounds_correctly():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            with history_db.open_db(tmpdir) as conn:
+                if history_db.daily_battery_averages(conn) != []:
+                    return False, "an empty database must return an empty list"
+
+                # Three consecutive days, three readings each, unambiguous means.
+                day_dates = ["2026-09-02", "2026-09-01", "2026-08-31"]
+                day_values = [[4000, 4100, 4200], [4001, 4101, 4201], [4002, 4102, 4202]]
+                for day_date, values in zip(day_dates, day_values):
+                    for hour, mv in zip((2, 14, 23), values):
+                        ts = "%sT%02d:00:00+00:00" % (day_date, hour)
+                        history_db.record_device_health(conn, ts, battery_mv=mv)
+                # Excluded: NULL battery, unparseable ts, and a real reading
+                # older than the cutoff (day 0 is 2026-09-02, so 90 days back
+                # is 2026-06-04 - put this well before that).
+                history_db.record_device_health(conn, "2026-09-02T20:00:00+00:00", battery_mv=None)
+                history_db.record_device_health(conn, "not-a-timestamp", battery_mv=9999)
+                history_db.record_device_health(conn, "2026-03-01T00:00:00+00:00", battery_mv=1234)
+
+                bounded = history_db.daily_battery_averages(conn, since="2026-06-04T00:00:00+00:00")
+                unbounded = history_db.daily_battery_averages(conn)
+
+            if len(bounded) != 3:
+                return False, "expected exactly 3 day buckets inside the window, got %r" % (bounded,)
+            days = [row["ts"] for row in bounded]
+            if days != ["2026-09-02", "2026-09-01", "2026-08-31"]:
+                return False, "expected newest-first UTC calendar days, got %r" % (days,)
+            for row, expected_mean in zip(bounded, (4100, 4101, 4102)):
+                if not isinstance(row["battery_mv"], int) or isinstance(row["battery_mv"], bool):
+                    return False, "battery_mv must be a real int: %r" % (row,)
+                if row["battery_mv"] != expected_mean:
+                    return False, "daily mean wrong: %r expected %d" % (row, expected_mean)
+                if row["reading_count"] != 3:
+                    return False, "reading_count must be the contributing reading count: %r" % (row,)
+            plotted = [row["battery_mv"] for row in bounded]
+            if 9999 in plotted:
+                return False, "an unparseable-timestamp row must not form a bucket"
+            if 1234 in plotted:
+                return False, "a row older than the cutoff must be excluded"
+            if None in [row["ts"] for row in bounded]:
+                return False, "no NULL day bucket may survive"
+            if len(unbounded) != 4 or unbounded[-1]["battery_mv"] != 1234:
+                return False, "since=None must return every day including the out-of-window one, got %r" % (unbounded,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "daily_battery_averages() groups by UTC calendar day, rounds the mean, orders newest-first, "
+        "honours since=, and excludes NULL-battery and unparseable-timestamp rows (260902-l0b)",
+        _daily_battery_averages_groups_excludes_and_bounds_correctly,
+    )
 
     def _all_sql_uses_placeholders_not_string_formatting():
         src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
