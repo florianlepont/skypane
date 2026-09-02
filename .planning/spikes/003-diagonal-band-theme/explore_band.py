@@ -109,7 +109,6 @@ TOP_ZONE = (0, MARGIN, render.WIDTH, MARGIN * 3)
 
 def band_overlaps_top_zone(top_cx_frac, bot_cx_frac, width_frac):
     w, h = render.WIDTH, render.HEIGHT
-    poly = _band_polygon(w, h, top_cx_frac, bot_cx_frac, width_frac)
     # y range within TOP_ZONE is [MARGIN, MARGIN*3]; approximate band x-range
     # there by linear interpolation between the top (y=0) and bottom (y=h) edges.
     frac_at_margin1 = MARGIN / h
