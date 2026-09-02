@@ -251,6 +251,21 @@ None to run the code. **Recommended before signing off:** the 12-item live-brows
 
 All five fixes are implemented and pinned by harness: `companion/test_status_pages.py` 95/95; `companion/test_view_pages.py` 43/43; `companion/test_contrast_check.py` 36/36. `scripts/run-all-tests.sh` reports exactly one failing harness, the pre-existing, unrelated `server/test_poll_loop.py` `panel.bin` digest mismatch, with no coverage-gate shortfall (92% total). The 12-item live-browser handoff above is the concrete next action for the orchestrating session before this can be considered visually verified, not just source-verified — bug 4's interactive path (item 10) and fill/axis-legibility (items 5-6) are the priority items.
 
+## Post-execution: real-browser visual pass (orchestrating session)
+
+Performed against the restarted local instance with real production data, at 1280×1000. All four fixes visually confirmed via screenshot plus computed-style/DOM measurement.
+
+1. **BUG 1 (header gap): CONFIRMED FIXED.** `h1`-to-purpose gap now measures exactly 4px, matching Airlines' own gap byte-for-byte.
+2. **BUG 2 (card gap): CONFIRMED FIXED.** Device-tile-to-battery-trend gap now measures 24px (was 48px).
+3. **BUG 3 (summary accent): CONFIRMED FIXED.** `<summary>` computes to `color: rgb(177, 63, 22)` (`--color-accent`, `#B13F16`). Screenshot confirms "View 20 readings" now reads as an accent-colored link.
+4. **BUG 4 (chart): CONFIRMED FIXED for structure and fill.** `viewBox` attribute genuinely absent. Chart now measures 794×160px in its card (was ~366px wide) — fills nearly the full available width. Real `<rect class="sparkline-axis">` elements present (6 total: axis lines/frame). Screenshot confirms a dramatically improved chart: proportionally small, legible axis labels, a visible axis frame, normal-weight line and dots — a complete resolution of "trop petit"/"pas d'axes."
+
+**BUG 4's interactive path (item 10, the plan's own flagged highest-risk item): PARTIALLY confirmed, with an important, honest caveat.**
+- **Mouse hover: CONFIRMED WORKING.** Dispatched a real `mouseenter` event on the first point — the readout correctly updated from the latest reading (3878 mV) to that point's own reading (3874 mV). The click/tap path uses the identical `reveal()` function, so this is strong evidence tap works too.
+- **Keyboard focus/arrow-key: INCONCLUSIVE, not confirmed broken.** Both a simulated arrow-key keydown and a direct `.focus()` call moved `document.activeElement` correctly to the target point (confirmed via `data-mv`), but the readout text did NOT update and the point's `sparkline-hit--active` class was NOT toggled — meaning the `'focus'` event listener `battery-trend.js` registers never fired, even though focus genuinely moved. Investigated the cause: `document.hasFocus()` returns `false` for this tab — the same OS-level window-focus limitation this session has hit repeatedly today (`document.hidden` reporting `true` regardless of tab-front state, blank screenshots). Browsers commonly alter or suppress `'focus'` event dispatch for programmatically-focused elements when the containing document lacks real OS focus, which is a plausible and likely explanation distinct from a real code defect — `battery-trend.js` itself is confirmed byte-for-byte unmodified by this task, and its focus-listener wiring reads no different from before. **This could not be verified either way in this environment and must be tested by the developer in a genuinely OS-focused browser window** — do not treat this as either confirmed-working or confirmed-broken.
+
+**Not performed:** 375px width, dark theme, and real Safari testing (all four fixes, but especially axis-line color legibility in dark theme, and the header-gap/chart fixes' behavior at narrow width).
+
 ---
 *Phase: quick-260902-ep7*
 *Completed: 2026-09-02*
