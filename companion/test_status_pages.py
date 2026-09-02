@@ -2420,26 +2420,35 @@ def main():
         _quick_260902_gjj_card_status_borders_render_correct_modifiers)
 
     # quick task 260902-gjj Task 3 extends this component list with
-    # ".stat-tile" in place (see that task's own commit) — this stays the
-    # one check covering every card-status/hover-vs-status source-order
-    # fact in the file, rather than a second near-duplicate check.
-    _CARD_STATUS_HOVER_ORDER_COMPONENTS = ("battery-trend-section", "page-section")
+    # "stat-tile" (its own four modifiers: ok/warn/error/accent, one more
+    # than the two page-level cards' three) in place — this stays the one
+    # check covering every card-status/hover-vs-status source-order fact
+    # in the file, rather than a second near-duplicate check. An in-place
+    # strengthening: no count change.
+    _CARD_STATUS_HOVER_ORDER_COMPONENTS = (
+        ("battery-trend-section", ("ok", "warn", "error")),
+        ("page-section", ("ok", "warn", "error")),
+        ("stat-tile", ("ok", "warn", "error", "accent")),
+    )
 
     def _card_status_modifiers_survive_hover_source_order():
-        # quick task 260902-gjj (ISSUE 2): the load-bearing fact the new
-        # status-border rules depend on — each doubled-form status
-        # modifier selector (".COMPONENT.COMPONENT--STATUS") must sit
-        # AFTER that component's own ":hover, :focus-within" rule in
-        # style.css's source order, or the hover rule's `border-color:
-        # transparent` shorthand (equal (0,2,0) specificity, later rule
-        # wins) silently erases the status colour the moment the card is
-        # hovered or a keyboard user focuses a chart point inside it.
+        # quick task 260902-gjj (ISSUE 2, extended by Task 3 to cover
+        # .stat-tile): the load-bearing fact every card-status-border rule
+        # depends on — each doubled-form status modifier selector
+        # (".COMPONENT.COMPONENT--STATUS") must sit AFTER that
+        # component's own ":hover, :focus-within" rule in style.css's
+        # source order, or the hover rule's `border-color: transparent`
+        # shorthand (equal (0,2,0) specificity, later rule wins) silently
+        # erases the status colour the moment the card is hovered or a
+        # keyboard user focuses a chart point inside it. Task 3 found
+        # this exact defect already latent in `.stat-tile` itself (the
+        # rule this pattern was modelled on) and fixed it the same way.
         css_path = os.path.join(HERE, "static", "style.css")
         with open(css_path) as fh:
             css_source = fh.read()
-        for comp in _CARD_STATUS_HOVER_ORDER_COMPONENTS:
+        for comp, statuses in _CARD_STATUS_HOVER_ORDER_COMPONENTS:
             hover_at = css_source.index(".%s:hover" % comp)
-            for status in ("ok", "warn", "error"):
+            for status in statuses:
                 sel = ".%s.%s--%s" % (comp, comp, status)
                 sel_at = css_source.index(sel)
                 if sel_at <= hover_at:
@@ -2448,10 +2457,10 @@ def main():
                         "focusing the card erases its status border" % (sel, ".%s:hover" % comp))
         return True, ""
     check(
-        "every card-status modifier selector (battery-trend-section, page-section) sits after that "
-        "component's own :hover/:focus-within rule in style.css's source order, so the status border "
-        "survives hover and keyboard focus rather than losing to the hover shorthand (quick task "
-        "260902-gjj, ISSUE 2)",
+        "every card-status modifier selector (battery-trend-section, page-section, and — quick task "
+        "260902-gjj Task 3 — stat-tile) sits after that component's own :hover/:focus-within rule in "
+        "style.css's source order, so the status border survives hover and keyboard focus rather than "
+        "losing to the hover shorthand",
         _card_status_modifiers_survive_hover_source_order)
 
     def _quick_260902_gjj_dot_removal_scoped_not_global():

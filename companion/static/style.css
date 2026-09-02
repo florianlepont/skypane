@@ -2081,10 +2081,26 @@ summary::-webkit-details-marker {
 /* 06.6.4 (D-03) supersedes 06.6.1's D-02 shadow-at-rest direction: the
  * hairline outline is back, and the resting shadow is gone — the shadow
  * now appears only on hover/focus-within, below. Do not restore both at
- * once; the two are mutually exclusive states, not additive. The
- * status-coloured top border is unaffected either way: it draws from a
- * different property (border-top) than the general border, so the two
- * always coexist without fighting each other. */
+ * once; the two are mutually exclusive states, not additive.
+ *
+ * quick task 260902-gjj (Task 3): CORRECTED — the claim this comment
+ * used to make here, "the status-coloured top border is unaffected
+ * either way: it draws from a different property (border-top) than the
+ * general border, so the two always coexist without fighting each
+ * other," was FALSE. `.stat-tile:hover, .stat-tile:focus-within` below
+ * is (0,2,0) and declares `border-color: transparent` — a SHORTHAND that
+ * expands to all four `border-*-color` longhands, including
+ * `border-top-color`. Each `.stat-tile--{status}` modifier below was
+ * (0,1,0), so on hover/focus-within it lost to the hover rule and the
+ * status-coloured top border resolved to transparent — a latent defect,
+ * pre-existing and not introduced by this task, worth fixing here
+ * because Task 2 of this same quick task extends this exact pattern to
+ * two page-level cards and cites this rule's own (false) reasoning as
+ * precedent. The modifiers below are now written in the doubled
+ * (0,2,0) form, matching the fix `.battery-trend-section`/`.page-section`
+ * already use (see those rules' own status-modifier block) — a harness
+ * check pins the doubled form and the required after-hover source
+ * order. */
 .stat-tile {
   min-width: 0;
   padding: var(--space-md);
@@ -2107,19 +2123,19 @@ summary::-webkit-details-marker {
   transform: translateY(-1px);
 }
 
-.stat-tile--ok {
+.stat-tile.stat-tile--ok {
   border-top-color: var(--color-status-ok);
 }
 
-.stat-tile--warn {
+.stat-tile.stat-tile--warn {
   border-top-color: var(--color-status-warn);
 }
 
-.stat-tile--error {
+.stat-tile.stat-tile--error {
   border-top-color: var(--color-status-error);
 }
 
-.stat-tile--accent {
+.stat-tile.stat-tile--accent {
   border-top-color: var(--color-accent);
 }
 
