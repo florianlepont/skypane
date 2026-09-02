@@ -250,7 +250,16 @@ STARTUP_DEADLINE_S = 10.0
 # gated property from different angles). battery_sparkline_svg()'s
 # widened signature (a third, defaulted `daily` parameter) needed no gate
 # retarget — no pre-existing check pinned its arity.
-EXPECTED_CHECK_COUNT = 112  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks)
+# 106 + 4 (quick task 260902-tli Task 1: every card's zoom-button
+# source/caption/aria-label attributes check, the once-per-page
+# lightbox--wide dialog markup + own-note-text check, the style.css
+# comment-stripped .airline-card__zoom-neutralizes-the-base-button-rule
+# check (rewritten in place, same live test, once the click-gating media
+# block it originally also pinned was found to be a misreading of the
+# developer's own request and removed outright), and the
+# .lightbox--wide max-width cross-file pin against
+# illustration_normalize.ILLUSTRATION_TARGET_WIDTH).
+EXPECTED_CHECK_COUNT = 116  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -4687,6 +4696,167 @@ def main():
         "importing companion.pages.airlines_page raises no error, and the module exposes none of the deleted "
         "diagnostics symbols",
         _airlines_page_module_exposes_no_deleted_diagnostics_symbol)
+
+    # ------------------------------------------------------------------
+    # quick task 260902-tli: the click-to-enlarge lightbox.
+    # ------------------------------------------------------------------
+
+    def _airline_card_zoom_button_attrs_match_expected():
+        tmp = _mkstate("a-zoom-button-attrs")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            for airline_name in ("Air Caraïbes", "Air France"):
+                card_slice = _card_slice(rendered, airline_name)
+                zoom_buttons = re.findall(
+                    r'<button type="button" class="airline-card__zoom"[^>]*>', card_slice)
+                if len(zoom_buttons) != 1:
+                    return False, "expected exactly one .airline-card__zoom button wrapping %r's image, got %d" % (
+                        airline_name, len(zoom_buttons))
+                button_tag = zoom_buttons[0]
+
+                img_src_match = re.search(r'<img class="airline-card__image" src="([^"]+)"', card_slice)
+                if not img_src_match:
+                    return False, "expected an .airline-card__image with a src attribute for %r" % (airline_name,)
+                img_src = img_src_match.group(1)
+
+                src_attr_match = re.search(r'data-view-panel-src="([^"]+)"', button_tag)
+                if not src_attr_match or src_attr_match.group(1) != img_src:
+                    return False, (
+                        "expected the zoom button's data-view-panel-src to be byte-identical to %r's card image "
+                        "src (%r), got %r" % (
+                            airline_name, img_src, src_attr_match.group(1) if src_attr_match else None))
+
+                expected_caption = layout.escape_html(airlines_page.CARD_IMAGE_ALT_TEMPLATE % airline_name)
+                caption_attr_match = re.search(r'data-view-panel-caption="([^"]+)"', button_tag)
+                if not caption_attr_match or caption_attr_match.group(1) != expected_caption:
+                    return False, "expected %r's zoom button caption attribute to equal %r, got %r" % (
+                        airline_name, expected_caption, caption_attr_match.group(1) if caption_attr_match else None)
+
+                expected_aria = layout.escape_html(airlines_page.ZOOM_LABEL_TEMPLATE % airline_name)
+                aria_match = re.search(r'aria-label="([^"]+)"', button_tag)
+                if not aria_match or aria_match.group(1) != expected_aria:
+                    return False, "expected %r's zoom button aria-label to equal %r, got %r" % (
+                        airline_name, expected_aria, aria_match.group(1) if aria_match else None)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every card wraps its image in exactly one .airline-card__zoom button whose data-view-panel-src is "
+        "byte-identical to that same card's <img src>, whose data-view-panel-caption equals "
+        "CARD_IMAGE_ALT_TEMPLATE %% name, and whose aria-label equals ZOOM_LABEL_TEMPLATE %% name",
+        _airline_card_zoom_button_attrs_match_expected)
+
+    def _lightbox_dialog_renders_once_wide_with_own_note_text():
+        tmp = _mkstate("a-lightbox-dialog")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            dialog_count = rendered.count('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
+            if dialog_count != 1:
+                return False, "expected exactly one #%s dialog, got %d" % (
+                    airlines_page.LIGHTBOX_DIALOG_ID, dialog_count)
+            if '<dialog class="lightbox lightbox--wide"' not in rendered:
+                return False, "expected the dialog to carry both the lightbox and lightbox--wide classes"
+            for marker in (
+                "lightbox__image", "lightbox__caption", "lightbox__note",
+                airlines_page._VIEW_PANEL_CLOSE_ATTR,
+            ):
+                if marker not in rendered:
+                    return False, "expected %r in the rendered dialog markup" % (marker,)
+            # Went through two rounds of live developer feedback: first
+            # the width/height-naming wording was rejected as meaningless
+            # implementation detail, then the reworded version was ALSO
+            # rejected outright — no note is wanted here at all, unlike
+            # History's own (which explains a real possible discrepancy
+            # an Airlines illustration never has). LIGHTBOX_NOTE is
+            # therefore the empty string; the element must still exist
+            # for panel-lookup.js's shared guard clause, so it renders
+            # empty rather than absent, and style.css's
+            # .lightbox__note:empty rule collapses it to zero space.
+            if airlines_page.LIGHTBOX_NOTE != "":
+                return False, (
+                    "expected airlines_page.LIGHTBOX_NOTE to be the empty string (developer's own call "
+                    "that this lightbox needs no note), got %r" % (airlines_page.LIGHTBOX_NOTE,))
+            if '<p class="lightbox__note text-body"></p>' not in rendered:
+                return False, (
+                    "expected the note element to render empty (present only for panel-lookup.js's "
+                    "shared guard clause, collapsed to zero space by style.css's .lightbox__note:empty rule)")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the shared lightbox dialog is emitted exactly once, carries both the lightbox and lightbox--wide "
+        "classes plus all three lightbox__* elements and the close attribute, and its note element renders "
+        "empty (LIGHTBOX_NOTE is deliberately '' after two rounds of live developer feedback rejected both "
+        "the original and the reworded copy; the element still exists for panel-lookup.js's shared guard "
+        "clause) — quick task 260902-tli",
+        _lightbox_dialog_renders_once_wide_with_own_note_text)
+
+    def _airline_card_zoom_stylesheet_contract():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        # This file is comment-heavy — matching raw text would read prose
+        # as declarations, so comment spans are stripped first, non-
+        # greedily (a greedy match would eat past the first real `*/`
+        # into unrelated later comments).
+        stripped = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+
+        zoom_rule_bodies = re.findall(r"\.airline-card__zoom\s*\{([^}]*)\}", stripped)
+        if not zoom_rule_bodies:
+            return False, "expected a .airline-card__zoom rule in style.css"
+        base_body = zoom_rule_bodies[0]
+        for expected in ("height: auto", "padding: 0", "border: none", "background: none", "cursor: zoom-in"):
+            if expected not in base_body:
+                return False, "expected %r inside the base .airline-card__zoom rule, got %r" % (expected, base_body)
+
+        # An earlier version of this feature disabled the trigger's
+        # pointer path on narrow portrait viewports via a
+        # `pointer-events: none` declaration inside an
+        # `@media (max-width: 959px) and (orientation: portrait)` block
+        # — a misreading of the developer's own request (they meant the
+        # ENLARGED VIEW should present the wide illustration in a
+        # landscape-style layout, not that the click itself should be
+        # gated behind device orientation). Removed on the same live
+        # developer test that first exercised it. This check now pins
+        # the removal itself: the trigger must declare no pointer-events
+        # property anywhere, and that media block must not exist at all,
+        # so the wrong gate cannot silently return.
+        if any("pointer-events" in body for body in zoom_rule_bodies):
+            return False, (
+                "expected no .airline-card__zoom rule to declare pointer-events at all — the click "
+                "must work unconditionally at every viewport size and orientation")
+        media_marker = "@media (max-width: 959px) and (orientation: portrait)"
+        if media_marker in stripped:
+            return False, "expected the retired orientation gate (%r) to be fully removed" % (media_marker,)
+        return True, ""
+    check(
+        ".airline-card__zoom neutralizes the base button rule's height/padding/border/background and declares "
+        "the zoom cursor, and declares no pointer-events property anywhere — the retired orientation gate "
+        "(a misreading of the developer's original request, corrected on the same live test) must not "
+        "silently return",
+        _airline_card_zoom_stylesheet_contract)
+
+    def _lightbox_wide_max_width_matches_illustration_target_width():
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        stripped = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+        wide_match = re.search(r"\.lightbox--wide\s*\{([^}]*)\}", stripped)
+        if not wide_match:
+            return False, "expected a .lightbox--wide rule in style.css"
+        width_match = re.search(r"max-width:\s*(\d+)px", wide_match.group(1))
+        if not width_match:
+            return False, "expected a max-width: Npx declaration inside .lightbox--wide"
+        got_width = int(width_match.group(1))
+        if got_width != illustration_normalize.ILLUSTRATION_TARGET_WIDTH:
+            return False, (
+                "expected .lightbox--wide's max-width to equal illustration_normalize.ILLUSTRATION_TARGET_WIDTH "
+                "(%d), got %d" % (illustration_normalize.ILLUSTRATION_TARGET_WIDTH, got_width))
+        return True, ""
+    check(
+        ".lightbox--wide's max-width equals illustration_normalize.ILLUSTRATION_TARGET_WIDTH — a future change "
+        "to the normalized frame size cannot silently leave the dialog capped at a stale width",
+        _lightbox_wide_max_width_matches_illustration_target_width)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,

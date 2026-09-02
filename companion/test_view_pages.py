@@ -58,7 +58,7 @@ if REPO_ROOT not in sys.path:
 
 from companion import auth  # noqa: E402
 import companion.layout as layout  # noqa: E402
-from companion.pages import health_page, history_page  # noqa: E402
+from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
@@ -66,7 +66,13 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 43  # 06.6.4.1-08 Task 3: 56 - 16 (Section 2's whole
+EXPECTED_CHECK_COUNT = 44  # 43 + 1 (quick task 260902-tli Task 2: the
+# airlines_page/history_page cross-module LIGHTBOX_DIALOG_ID/
+# _VIEW_PANEL_*_ATTR equality guard. _lightbox_dom_contract_three_file_
+# guard() was widened in place to also assert the six shared tokens
+# against a real airlines_page.render() output - no count change from
+# that retarget).
+# 43 = 06.6.4.1-08 Task 3: 56 - 16 (Section 2's whole
 # companion/pages/preview_page.py-specific test section deleted outright —
 # the module itself is deleted, and every one of its 16 checks either has
 # a live History-side equivalent already (plan 05) or was carried over
@@ -1332,10 +1338,12 @@ def main():
     def _lightbox_dom_contract_three_file_guard():
         # Source/DOM-contract guard: LIGHTBOX_DIALOG_ID, the two trigger
         # attribute names, and the three lightbox element class names
-        # must each appear in history_page.py's own constants, in
-        # panel-lookup.js's source, and in the rendered page markup - a
-        # drift in any of the three would leave the button silently
-        # doing nothing with no signal from either file in isolation.
+        # must each appear in panel-lookup.js's source, and in the
+        # rendered markup of every page that shares this mechanism -
+        # since quick task 260902-tli that is both History and the
+        # Airlines gallery (widened from History-only). A drift in any
+        # of the three would leave the button silently doing nothing
+        # with no signal from any file in isolation.
         js_path = os.path.join(HERE, "static", "panel-lookup.js")
         with open(js_path) as fh:
             js_source = fh.read()
@@ -1347,9 +1355,14 @@ def main():
             _seed_runway_events(tmp, [
                 {"ts": "2026-08-27T10:01:00+00:00", "hex": "dc01", "callsign": "DOMCONTRACT"},
             ])
-            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            history_rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+        # airlines_page.render() reads nothing from ctx - a plain dict is
+        # call-site parity only, matching every other page module's
+        # render(ctx) signature.
+        airlines_rendered = airlines_page.render({})
 
         tokens = (
             history_page.LIGHTBOX_DIALOG_ID,
@@ -1362,14 +1375,41 @@ def main():
         for token in tokens:
             if token not in js_source:
                 return False, "expected %r to appear in companion/static/panel-lookup.js" % token
-            if token not in rendered:
+            if token not in history_rendered:
                 return False, "expected %r to appear in the rendered History page" % token
+            if token not in airlines_rendered:
+                return False, "expected %r to appear in the rendered Airlines page" % token
         return True, ""
     check(
         "LIGHTBOX_DIALOG_ID, the two data-view-panel-* trigger attribute names, and the three "
         "lightbox__* element class names each appear in companion/static/panel-lookup.js and in "
-        "the rendered History page",
+        "the rendered markup of both History and the Airlines gallery (quick task 260902-tli)",
         _lightbox_dom_contract_three_file_guard)
+
+    def _airlines_lightbox_constants_match_history():
+        # quick task 260902-tli: the dialog id and the three
+        # data-view-panel-* attribute names are duplicated, not imported
+        # (a page module has no import path to a sibling page module),
+        # into airlines_page.py from history_page.py's own values -
+        # pinned here so a drift fails loudly instead of leaving the
+        # Airlines trigger silently inert.
+        pairs = (
+            ("LIGHTBOX_DIALOG_ID", airlines_page.LIGHTBOX_DIALOG_ID, history_page.LIGHTBOX_DIALOG_ID),
+            ("_VIEW_PANEL_SRC_ATTR", airlines_page._VIEW_PANEL_SRC_ATTR, history_page._VIEW_PANEL_SRC_ATTR),
+            ("_VIEW_PANEL_CAPTION_ATTR", airlines_page._VIEW_PANEL_CAPTION_ATTR,
+                history_page._VIEW_PANEL_CAPTION_ATTR),
+            ("_VIEW_PANEL_CLOSE_ATTR", airlines_page._VIEW_PANEL_CLOSE_ATTR, history_page._VIEW_PANEL_CLOSE_ATTR),
+        )
+        for name, airlines_value, history_value in pairs:
+            if airlines_value != history_value:
+                return False, (
+                    "expected airlines_page.%s (%r) to equal history_page.%s (%r)"
+                    % (name, airlines_value, name, history_value))
+        return True, ""
+    check(
+        "airlines_page's LIGHTBOX_DIALOG_ID and its three _VIEW_PANEL_*_ATTR constants each equal "
+        "history_page's own values (the duplicated-not-imported shared-lightbox contract)",
+        _airlines_lightbox_constants_match_history)
 
     # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's

@@ -953,7 +953,9 @@ def page_shell(
         COPY_BUTTON_SCRIPT_SRC,
         FRESHNESS_SCRIPT_SRC,
         # 06.6.4.1-02 (D-20): sixth script, same unconditional/no-op-via-
-        # guard-clause convention — only History renders #panel-lookup-dialog.
+        # guard-clause convention — served every page; since quick task
+        # 260902-tli both History and the Airlines gallery render
+        # #panel-lookup-dialog.
         PANEL_LOOKUP_SCRIPT_SRC,
     )
 

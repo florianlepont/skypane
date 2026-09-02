@@ -2917,6 +2917,57 @@ summary::-webkit-details-marker {
   margin-bottom: var(--space-sm);
 }
 
+/* quick task 260902-tli: the click-to-enlarge trigger wrapping
+ * .airline-card__image above. Block-level, full-width and height: auto
+ * so it exactly cages the image it wraps; zero padding/border/
+ * background so the base `button` rule's 30px-tall/12px-padded/
+ * bordered box model contributes nothing to this control's shape — the
+ * wrapped image alone determines it. */
+.airline-card__zoom {
+  display: block;
+  width: 100%;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radius-control);
+  cursor: zoom-in;
+}
+
+/* Both rules below are load-bearing, not redundant: the base
+ * `button:hover`/`button:active` rules above are (0,1,1)-specificity
+ * (one pseudo-class, one type selector) and would otherwise still apply
+ * here, re-painting a background/border wash and a 1px press-depress
+ * onto a control that must stay visually inert except for the zoom
+ * cursor. `.airline-card__zoom:hover`/`:active` match or exceed that
+ * specificity and sit later in source order, so these neutralizers win.
+ * The press-depress in particular is deliberately removed, not just
+ * muted: a full-width image nudging 1px against the card's own border
+ * reads as a layout glitch, not a button press. This control keeps the
+ * global :focus-visible outline — that is not touched here. */
+.airline-card__zoom:hover {
+  background: none;
+  border-color: transparent;
+}
+
+.airline-card__zoom:active {
+  transform: none;
+}
+
+/* quick task 260902-tli: an earlier version of this feature disabled the
+ * zoom trigger's pointer path on narrow portrait viewports via a
+ * `@media (max-width: 959px) and (orientation: portrait) { pointer-
+ * events: none; }` block — a misreading of the developer's own request.
+ * "En mode paysage" meant the ENLARGED VIEW should present the wide
+ * illustration in a landscape-style layout (which `.lightbox--wide`'s
+ * own sizing below already does, regardless of the phone's physical
+ * rotation), not that the click itself should be gated behind the
+ * device's reported orientation. Removed outright — corrected on the
+ * same live developer test that first exercised it, before that
+ * (wrong) gate ever shipped to a real device. The trigger now works
+ * unconditionally at every viewport size, matching "desktop always
+ * works" and extending it to "phone always works" too. */
+
 /* Emphasis role, not a new type role. */
 .airline-card__name {
   font-size: var(--font-body-size);
@@ -3327,9 +3378,20 @@ summary::-webkit-details-marker {
  * card in this file carries: this is a floating modal overlay, not a
  * page-flow card, so its resting state should already read as elevated.
  * width: calc(...) keeps the dialog off the viewport edge on a phone
- * without a separate media-query block. */
+ * without a separate media-query block.
+ *
+ * quick task 260902-tli (bug found live, dark mode): `color` is now set
+ * explicitly. A <dialog> promoted to the top layer via showModal() does
+ * not reliably inherit `color` from its DOM ancestors the way a normal
+ * in-flow element does — every browser tested here fell back to its own
+ * UA-stylesheet black regardless of the page's actual theme, so
+ * .lightbox__caption/.lightbox__note (which set no color of their own,
+ * relying on inheritance) rendered black-on-near-black in dark mode.
+ * Declaring `color` here, on the dialog itself, is what the child rules'
+ * inheritance actually resolves against. */
 .lightbox {
   background: var(--color-dominant);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   padding: var(--space-lg);
@@ -3357,9 +3419,46 @@ summary::-webkit-details-marker {
   margin: var(--space-sm) 0 0;
 }
 
+/* quick task 260902-tli: airlines_page.LIGHTBOX_NOTE is deliberately the
+ * empty string (developer's own call, on a live test, that the Airlines
+ * lightbox needed no note at all) — the element itself still has to
+ * exist, since panel-lookup.js's shared guard clause requires it, so an
+ * empty one collapses to zero visible space instead of leaving a bare
+ * top-margin gap. History's own note is never empty, so this rule never
+ * touches it. */
+.lightbox__note:empty {
+  display: none;
+}
+
 /* No scrim token exists in this file; a raw rgba value here is
  * consistent with this file's existing raw-rgba shadow values, so this
  * is not a new token. */
 .lightbox::backdrop {
   background: rgba(0, 0, 0, 0.5);
+}
+
+/* quick task 260902-tli: the Airlines gallery's wide lightbox variant.
+ * .lightbox's stock 480px max-width would render the normalized 900x263
+ * illustration at 480x140 — barely bigger than the grid card and not
+ * worth a modal. Equal specificity to .lightbox (one class each), so
+ * this must come later in source order to win — it does, as the last
+ * rule in this section. 900 is illustration_normalize.py's
+ * ILLUSTRATION_TARGET_WIDTH, pinned by a harness cross-file check, so
+ * the illustration is never upscaled past its own native width. */
+.lightbox--wide {
+  max-width: 900px;
+}
+
+/* width: auto here, not the base .lightbox__image rule's width: 100%,
+ * is deliberate: combined with max-height below, width: 100% + height:
+ * auto would squash the aspect ratio once the image hits the height
+ * cap. max-height: 60vh is what keeps the whole dialog — image,
+ * caption, note, Close — on screen without scrolling on a landscape
+ * phone. */
+.lightbox--wide .lightbox__image {
+  width: auto;
+  max-width: 100%;
+  max-height: 60vh;
+  margin-left: auto;
+  margin-right: auto;
 }
