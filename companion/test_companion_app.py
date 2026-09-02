@@ -62,7 +62,11 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 106  # quick task 260902-gjj Task 2 Commit A: 1 new
+EXPECTED_CHECK_COUNT = 107  # quick task 260902-l9w Task 2 Commit B: 1 new
+# check pinning both halves of the hidden-runway-radio touch-target fix:
+# the new input.visually-hidden/select.visually-hidden rule exists, and
+# the global input/select rule still declares both 44px minimums.
+# 106 = quick task 260902-gjj Task 2 Commit A: 1 new
 # check (card_status_class() maps to base_class + a fixed suffix for the
 # three whitelisted states, empty string for None/unrecognised, diverging
 # from stat_tile()'s own accent fallback).
@@ -1031,6 +1035,51 @@ def main():
             "the Health notification dot appears inside the Health link in both nav renderers "
             "when health_alert='error', nowhere when None/omitted, and never on another link",
             _health_nav_notification_dot)
+
+        def _hidden_form_control_floor_and_global_floor_both_survive():
+            # quick task 260902-l9w: the runway radio's own utility class
+            # (visually-hidden) is inert on an <input> unless the global
+            # `input, select` rule's 44px minimums are separately cleared
+            # for it — a rule that only asserts the new clearing rule
+            # would still pass after someone deleted the global 44px
+            # floor site-wide, and a rule that only asserts the floor
+            # would still pass after someone deleted the clearing fix.
+            # This check fails if either half is missing.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+            if "input.visually-hidden" not in css:
+                return False, (
+                    "expected an input.visually-hidden (or "
+                    "select.visually-hidden) rule clearing the global "
+                    "44px touch-target floor off hidden form controls "
+                    "(the runway radio's own utility class is otherwise "
+                    "clamped back up to 44x44 by the global input/select "
+                    "rule below)")
+            global_start = css.find("\ninput,\nselect {")
+            if global_start == -1:
+                return False, (
+                    "expected the global `input,\\nselect {` rule; it may "
+                    "have been reformatted (update this check "
+                    "deliberately) or removed")
+            global_block = css[global_start:css.index("}", global_start)]
+            for declaration in ("min-height: 44px", "min-width: 44px"):
+                if declaration not in global_block:
+                    return False, (
+                        "the global input/select rule no longer declares "
+                        "%r; this is a deliberate, developer-accepted "
+                        "WCAG 2.5.5 floor for every native field except "
+                        "the ones explicitly scoped away from it (D-08, "
+                        "the LED checkbox, and now the hidden runway "
+                        "radio) and must survive byte-identical"
+                        % (declaration,))
+            return True, ""
+        check(
+            "input.visually-hidden/select.visually-hidden clears the 44px "
+            "touch-target floor off hidden form controls, and the global "
+            "input/select rule still declares both 44px minimums for "
+            "every other field",
+            _hidden_form_control_floor_and_global_floor_both_survive)
 
         def _health_nav_notification_dot_warn_severity():
             warn = layout.page_shell(
