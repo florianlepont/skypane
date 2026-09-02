@@ -146,7 +146,19 @@ The live-HTTP half is automated and passing (Section 3's extended `_both_tabs_ok
 
 ## User Setup Required
 
-None to run the code. **Recommended before signing off this checkpoint item:** a real-browser visual pass on `/health` (desktop + narrow width, light + dark, real Safari for the gap-arithmetic discrepancy specifically), since genuine screenshot/interaction verification could not be performed by this agent in this session.
+None to run the code. **Recommended before signing off this checkpoint item:** a real-browser visual pass on `/health` (desktop + narrow width, light + dark, real Safari for finding 5), since genuine screenshot/interaction verification could not be performed by this agent in this session.
+
+## Post-execution: real-browser visual pass (orchestrating session)
+
+Performed against the restarted local instance with real production data. Confirmed via `getComputedStyle()`/`getBoundingClientRect()`:
+
+1. **Description-column colour (item 1): confirmed fixed.** All 4 cells carry `class="desc"` and compute to `color(srgb 0.09 0.098 0.122 / 0.7)` — the file's standard 70% muted strength, not full-strength text.
+2. **Nested-card heading rhythm (item 2): confirmed fixed and consistent.** All three cards now measure **16px** between their heading and the first thing under it (Resolution-statistics: heading→table directly; Unresolved-prefixes and Battery-trend: heading→intro paragraph), with a further **8px** from that intro paragraph to the real content where one exists. Exactly the sketch's `.wide-card__caption`/`.read-only-note` values, applied uniformly.
+3. **Gap-arithmetic discrepancy (item 3): resolved — it was my own measurement bug, not a real one.** My first verification pass reused a JS helper from an earlier session that read a sibling paragraph's `getBoundingClientRect().bottom` instead of `.top` when computing the heading→paragraph gap — which adds the paragraph's own height (~24px) on top of the real gap, turning a genuine 16px into the reported "40px" both times I measured it (before AND after this fix, since the bug was in my script, not the page). Rewriting the check correctly confirms **16px**, matching the plan's own cascade arithmetic exactly. There was never a real discrepancy for the plan to have missed.
+4. **Scoping (item 4): not independently re-checked**, but the fix's own scoping (a modifier class + a `> p.text-body` child combinator) makes cross-page leakage structurally unlikely; not treated as a concern.
+5. **Finding 5 (Safari disclosure clipping): still open**, unchanged from 260901-uzi.
+
+**Not performed:** narrow-width and dark-theme re-checks (this session's browser tooling had another round of intermittent screenshot/interaction failures — clicks not registering during login, requiring a direct `form.submit()` via script, and blank screenshots requiring a fallback to computed-style verification). These, plus finding 5, remain for the developer's own next real-browser pass.
 
 ## Next Phase Readiness
 
