@@ -1900,6 +1900,18 @@ button:disabled {
   margin: 0 var(--space-xs);
 }
 
+/* quick task 260902-w4t (UIR-05): the unresolved-airline link
+ * (history_page.py's UNRESOLVED_LINK_CLASS) was reading as glued to the
+ * airline text it follows - the separator span above already uses
+ * `space-xs` on both sides, so this link takes the next step up
+ * (`space-sm`) to read as a distinct affordance rather than another
+ * inline part of the cell. Follows .nav-notification's own
+ * `margin-left: var(--space-xs)` precedent for spacing an appended
+ * inline element; uses an existing token, no new one introduced. */
+.cell-unresolved-link {
+  margin-left: var(--space-sm);
+}
+
 /* History mobile card list (06.6.3, D-07) — the compact-card
  * representation that replaces the cropped horizontal-scroll table below
  * 960px. History's own markup renders both `.history-cards` and its

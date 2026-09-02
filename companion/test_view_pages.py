@@ -66,7 +66,12 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 44  # 43 + 1 (quick task 260902-tli Task 2: the
+EXPECTED_CHECK_COUNT = 45  # 44 + 1 (quick task 260902-w4t Task 1, UIR-05:
+# _airline_fallback_distinct_from_route_fallback - a no-airline row's
+# AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT are distinct strings in
+# distinct columns, and the unresolved-link's UNRESOLVED_LINK_CLASS is
+# styled in style.css and present on the rendered anchor).
+# 44 = 43 + 1 (quick task 260902-tli Task 2: the
 # airlines_page/history_page cross-module LIGHTBOX_DIALOG_ID/
 # _VIEW_PANEL_*_ATTR equality guard. _lightbox_dom_contract_three_file_
 # guard() was widened in place to also assert the six shared tokens
@@ -1503,6 +1508,54 @@ def main():
         "a row whose route is unresolved but whose airline IS resolved produces no unresolved-"
         "airline link - the link is keyed on the airline label, not on the route label",
         _unresolved_link_keyed_on_airline_not_route)
+
+    def _airline_fallback_distinct_from_route_fallback():
+        # quick task 260902-w4t (UIR-05): a no-airline row must render
+        # AIRLINE_FALLBACK_TEXT ("Airline unknown") in the Type+Airline
+        # cell/Aircraft detail row and panel_render.ROUTE_FALLBACK_TEXT
+        # ("Route unavailable") in the Route cell/detail row - two
+        # distinct strings in two distinct columns, never the same
+        # phrase borrowed twice. Also pins the new anchor class
+        # (UNRESOLVED_LINK_CLASS) into both the rendered page and
+        # style.css, matching _merged_cell_classes_agree_with_stylesheet's
+        # own cross-file drift discipline.
+        if history_page.AIRLINE_FALLBACK_TEXT == panel_render.ROUTE_FALLBACK_TEXT:
+            return False, "AIRLINE_FALLBACK_TEXT must not equal ROUTE_FALLBACK_TEXT"
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        if history_page.UNRESOLVED_LINK_CLASS.split()[-1] not in css:
+            return False, (
+                "expected UNRESOLVED_LINK_CLASS's spacing class to be styled in style.css")
+        tmp = _mkstate("h-airline-fallback")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "af01", "callsign": "AIRFB1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for a no-airline row"
+            for label, block in (("desktop", tr_block), ("mobile", li_block)):
+                if history_page.AIRLINE_FALLBACK_TEXT not in block:
+                    return False, "expected AIRLINE_FALLBACK_TEXT in the %s row" % label
+                if panel_render.ROUTE_FALLBACK_TEXT not in block:
+                    return False, "expected ROUTE_FALLBACK_TEXT in the %s row" % label
+                if block.count(panel_render.ROUTE_FALLBACK_TEXT) != 1:
+                    return False, (
+                        "expected ROUTE_FALLBACK_TEXT exactly once (Route column only) in "
+                        "the %s row, found %d" % (label, block.count(panel_render.ROUTE_FALLBACK_TEXT)))
+                if 'class="%s"' % history_page.UNRESOLVED_LINK_CLASS not in block:
+                    return False, "expected the unresolved-link's class attribute in the %s row" % label
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a no-airline row renders AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT as two distinct "
+        "strings in two distinct columns, and the unresolved-link's spacing class is styled in "
+        "style.css and present in the rendered anchor (quick task 260902-w4t, UIR-05)",
+        _airline_fallback_distinct_from_route_fallback)
 
     def _unresolved_link_href_matches_health_anchor():
         expected_suffix = "#" + health_page.SERVER_DATA_SECTION_ID

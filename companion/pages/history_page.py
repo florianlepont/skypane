@@ -317,6 +317,20 @@ _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 # health_page.SERVER_DATA_SECTION_ID value, never a re-typed literal).
 UNRESOLVED_LINK_HREF = "/health#server-data"
 UNRESOLVED_LINK_TEXT = "View unresolved prefixes"
+# quick task 260902-w4t (UIR-05): the anchor's own class, so it renders
+# visibly separated from the airline text it follows instead of reading
+# as one glued run - `text-label` for the existing quiet-link treatment,
+# plus a dedicated spacing hook styled in style.css.
+UNRESOLVED_LINK_CLASS = "text-label cell-unresolved-link"
+
+# quick task 260902-w4t (UIR-05): a missing AIRLINE used to fall back to
+# `panel_render.ROUTE_FALLBACK_TEXT` ("Route unavailable") - a string
+# that describes a different noun (the route, not the airline) and made
+# the exact same phrase appear twice in one unresolved row (once in the
+# Type+Airline cell, once in the Route cell). This constant gives the
+# airline its own fallback text so the two columns stop sharing one
+# string.
+AIRLINE_FALLBACK_TEXT = "Airline unknown"
 
 # UXA-05/06.6.3-RESEARCH.md Pitfall 1: the audit's own evidence names
 # "on_runway"/"approaching"/"departed" as the raw confirmed_state values
@@ -498,7 +512,7 @@ def format_event_row(row, now=None):
     airline = row.get("airline")
     airline_label = (
         panel_render.display_airline_name(airline) if airline
-        else panel_render.ROUTE_FALLBACK_TEXT)
+        else AIRLINE_FALLBACK_TEXT)
 
     origin = row.get("origin")
     destination = row.get("destination")
@@ -614,9 +628,13 @@ def _callsign_hex_cell(callsign, hex_value):
 def _unresolved_link_html():
     """The D-21 inline link to Health's Server & data section, used by
     both the desktop Type+Airline cell and the mobile Aircraft detail
-    row when a row's airline could not be resolved.
+    row when a row's airline could not be resolved. Carries
+    UNRESOLVED_LINK_CLASS (quick task 260902-w4t, UIR-05) so it renders
+    visibly separated from the airline text it follows instead of
+    reading as one glued run.
     """
-    return '<a class="text-label" href="%s">%s</a>' % (
+    return '<a class="%s" href="%s">%s</a>' % (
+        escape_html(UNRESOLVED_LINK_CLASS),
         escape_html(UNRESOLVED_LINK_HREF), escape_html(UNRESOLVED_LINK_TEXT))
 
 
@@ -625,14 +643,16 @@ def _type_airline_cell(row):
     reproduces `_merged_cell()`'s primary/separator/secondary markup
     exactly, then appends `_unresolved_link_html()` immediately after it
     only when this row's airline could not be resolved, compared against
-    the imported `panel_render.ROUTE_FALLBACK_TEXT` constant, never a
-    re-typed literal. A dedicated function rather than a `_merged_cell()`
-    parameter, matching `_callsign_hex_cell()`'s own precedent: the
-    Route column also calls the shared `_merged_cell()` and must never
-    gain this link.
+    the module's own `AIRLINE_FALLBACK_TEXT` constant (quick task
+    260902-w4t, UIR-05 — was `panel_render.ROUTE_FALLBACK_TEXT`, a
+    different noun's fallback, before AIRLINE_FALLBACK_TEXT existed),
+    never a re-typed literal. A dedicated function rather than a
+    `_merged_cell()` parameter, matching `_callsign_hex_cell()`'s own
+    precedent: the Route column also calls the shared `_merged_cell()`
+    and must never gain this link.
     """
     html = _merged_cell(row["aircraft_type_label"], row["airline_label"])
-    if row["airline_label"] == panel_render.ROUTE_FALLBACK_TEXT:
+    if row["airline_label"] == AIRLINE_FALLBACK_TEXT:
         html = html[:-len("</td>")] + _unresolved_link_html() + "</td>"
     return html
 
@@ -782,11 +802,12 @@ def _history_cards_html(formatted_rows, now=None):
         # "same button+feedback-sibling shape" contract everywhere.
         # D-21: the same unresolved-airline link the desktop Type+Airline
         # cell carries, appended after the airline value here too - keyed
-        # on the same airline_label/ROUTE_FALLBACK_TEXT comparison, so
+        # on the same airline_label/AIRLINE_FALLBACK_TEXT comparison
+        # (quick task 260902-w4t, UIR-05 — was ROUTE_FALLBACK_TEXT), so
         # the mobile representation never silently loses the affordance.
         unresolved_link = (
             _unresolved_link_html()
-            if row["airline_label"] == panel_render.ROUTE_FALLBACK_TEXT else "")
+            if row["airline_label"] == AIRLINE_FALLBACK_TEXT else "")
         details = (
             '<details class="history-card__details">'
             "<summary>More details</summary>"
