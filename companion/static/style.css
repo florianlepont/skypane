@@ -670,6 +670,36 @@ a:hover {
   border: 0;
 }
 
+/* quick task 260902-l9w: this utility's own 1px sizing above is inert on
+ * an `<input>` or `<select>`, because a `min-height`/`min-width` from
+ * another rule is a floor applied at layout time, not a cascade
+ * competitor — the same mechanism `.led-checkbox input[type="checkbox"]`
+ * and `.filter-bar__field input` (below) already clear for their own
+ * elements, and their comments already spell out. This is the third
+ * site needing the same clearing, and the reason it was missed twice
+ * already: those two are visible controls someone was actively
+ * resizing, this one is invisible by design, so nobody measured it
+ * until a real mobile browser painted a stray 44px radio dot over the
+ * Runway picker (config_page.py's runway_fieldset()). Clearing the
+ * floor here is safe specifically because this input has no hit area
+ * of its own — the wrapping `.runway-card` <label> is the real
+ * activation target and exceeds 44px in both axes on every viewport, so
+ * this is delegation, not a WCAG 2.5.5 trade (see the touch-target
+ * floor register above the `button` rule, which lists the global
+ * `input, select` rule below as one of the three that KEPT the floor —
+ * that rule is deliberately untouched here). This rule wins over it on
+ * specificity (a class plus a type selector beats a bare type
+ * selector), independent of source order. The `select.visually-hidden`
+ * half is a forward guard only; there is no `<select>` in this codebase
+ * today. */
+input.visually-hidden,
+select.visually-hidden {
+  min-height: 0;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
 /* 06.6.2-05 (UXA-10): the skip-to-content link — the first focusable
  * element in <body> (layout.page_shell()). Visually hidden off-screen
  * until it receives keyboard focus, at which point it becomes the
