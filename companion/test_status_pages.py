@@ -178,7 +178,12 @@ STARTUP_DEADLINE_S = 10.0
 # margin-bottom must equal .page-section's own card-to-card value while
 # staying smaller than .battery-trend-section's untouched section-
 # transition value).
-EXPECTED_CHECK_COUNT = 93  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 93 + 1 (quick task 260902-ep7 Task 2 Commit B: BUG 3's disclosure-
+# summary accent broadening, pinned as a pair — the bare summary rule
+# declares var(--color-accent), and style.css's own exhaustive
+# accent-reservation list explicitly names the summary's label text, not
+# just its ::marker).
+EXPECTED_CHECK_COUNT = 94  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -3151,6 +3156,44 @@ def main():
         ".battery-trend-section's section-transition margin-bottom stays the larger, untouched "
         "var(--space-2xl) (260902-ep7 BUG 2)",
         _quick_260902_ep7_dashboard_grid_card_gap_two_role_split)
+
+    def _quick_260902_ep7_summary_accent_and_reservation_list():
+        # quick task 260902-ep7 (BUG 3): pins both halves of the fix as
+        # a pair — the bare `summary` rule must declare the accent
+        # colour, AND style.css's own exhaustive accent-reservation list
+        # must name the summary's label text (not just its ::marker) —
+        # so the list cannot drift back to naming only the marker while
+        # the rule keeps the broader use, or vice versa.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        if "\nsummary {" not in css_source:
+            return False, "expected style.css to declare a bare summary rule"
+        start = css_source.index("\nsummary {")
+        summary_body = css_source[start:css_source.index("}", start)]
+        if "var(--color-accent)" not in summary_body:
+            return False, "expected the bare summary rule to declare the accent colour"
+
+        # The reservation list lives in the file's opening comment block,
+        # well before the first real rule — slice to the first "*/" to
+        # stay inside it and avoid a false match against some unrelated
+        # later comment mentioning "summary".
+        header_end = css_source.index("*/")
+        header = css_source[:header_end]
+        if "summary" not in header:
+            return False, "expected the accent-reservation list to mention <summary> at all"
+        if "label text" not in header:
+            return False, (
+                "expected the accent-reservation list to explicitly name the summary's own label "
+                "text, not just its ::marker — the broadening this task makes must be recorded, not "
+                "silent")
+        return True, ""
+    check(
+        "the bare summary rule declares var(--color-accent), and style.css's own exhaustive "
+        "accent-reservation list explicitly names the summary's label text (not just its ::marker) — "
+        "the broadening is recorded, not silent (260902-ep7 BUG 3)",
+        _quick_260902_ep7_summary_accent_and_reservation_list)
 
     def _quick_260902_chc_skip_guard_cross_file_contract():
         # Check 5: the cross-file contract the interaction-skip guard

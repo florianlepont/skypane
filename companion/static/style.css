@@ -17,9 +17,12 @@
  * hamburger toggle's active state, a stat tile's icon tint and top
  * accent when no ok/warn/error status applies, the skip link's fill,
  * the selected runway card's border and check glyph, the native
- * `accent-color` of radios/checkboxes, a `<summary>` disclosure marker,
- * the neutral (non-anomaly) banner's left edge, and the favicon. Do not
- * broaden this list without updating 06.6.1-UI-SPEC.md's Color section.
+ * `accent-color` of radios/checkboxes, a `<summary>` disclosure's marker
+ * (260902-ep7: this is a genuine broadening, not a clarification — the
+ * marker pseudo-element was already on this list; its own label text
+ * was not, and is now added too), the neutral (non-anomaly) banner's
+ * left edge, and the favicon. Do not broaden this list without updating
+ * 06.6.1-UI-SPEC.md's Color section.
  *
  * Colour-separation contract (heading-color-consistency debug session):
  * `--color-accent` must stay measurably distinguishable from every
@@ -2016,11 +2019,35 @@ button:disabled {
  * interactive element's floor (D-22); both marker rules are required
  * since Safari supports only the -webkit- form on <summary> specifically,
  * unlike <li>. */
+/* quick task 260902-ep7 (BUG 3): `color: var(--color-accent)` added.
+ * Before this, the element's own label text (not just its ::marker,
+ * below) declared no colour at all and inherited full-strength
+ * `--color-text`, so a disclosure control was visually indistinguishable
+ * from static text except by hovering over it. A <summary> is a
+ * disclosure CONTROL — the same interaction class as this file's
+ * already-listed "links" accent use — which is the reasoning that
+ * admits it to the accent-reservation list in the file header above.
+ * `cursor: pointer`, the 44px hit-target floor and the flex centring
+ * below are unchanged and were already correct.
+ *
+ * Deliberately declined: the validated sketch also declares
+ * `font-size: var(--font-label-size)` on its two summaries
+ * (`summary.readings-summary` / `details.more-details summary`). Not
+ * applied here — a size change was not the reported defect, is not what
+ * makes the element read as interactive, and would land on all four
+ * real disclosure call sites at once as an unrequested rider (health_page
+ * .py's readings table and Corroboration "More details", history_page
+ * .py's mobile per-card "More details" and its migrated-from-Preview
+ * "Recent renders (N)" gallery disclosure — verified by grep; a prior
+ * draft of this task's own plan double-counted the migrated gallery
+ * disclosure as two sites and is corrected here). Recorded here so the
+ * delta from the sketch stays visible rather than forgotten. */
 summary {
   cursor: pointer;
   min-height: 44px;
   display: flex;
   align-items: center;
+  color: var(--color-accent);
 }
 
 summary::marker {
