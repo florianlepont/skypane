@@ -2145,63 +2145,58 @@ summary::-webkit-details-marker {
  * state that the small-caps uppercase treatment is intentionally
  * abandoned here, not accidentally lost.
  *
- * quick task 260902-dng (Task 3): promotes the caption to
- * --weight-semibold, keeping the 14px size and the serif family
- * untouched. Two prior rounds (260901-uzi finding 4, 260902-bl2) each
- * re-confirmed the type-scale math against D-09 and left this alone; a
- * third repetition of that answer was not available here, because
- * something concrete changed in the 24 hours before this task: 260901-
- * uzi's own finding 4 demoted `.page-section--nested > h2` (the nested
- * card title — "Battery trend", "Unresolved prefixes", "Resolution
- * statistics") from 20px regular to 16px SEMIBOLD, which is this file's
- * Emphasis role — the same role `.stat-tile__value` already occupies.
- * That demotion is correct on its own terms (it fixed the tile-value-
- * vs-section-heading inversion it targeted) but it created a second,
- * new collision this task's brief asked to resolve: the tile value
- * (16px semibold sans) and the nested card title (16px semibold serif)
- * are now identical in size AND weight, distinguished only by font
- * family — confirmed from source, not assumed (see this rule's own
- * neighbours: .stat-tile__value below inherits body's --font-ui/16px
- * and declares --weight-semibold; `.page-section--nested > h2` a few
- * hundred lines down declares the same --font-body-size/--weight-
- * semibold pair with serif inherited from the h1/h2/h3/.text-heading
- * rule).
+ * SUPERSEDED (quick task 260902-dng, Task 3): this rule used to promote
+ * the caption to --weight-semibold, keeping the 14px size and the serif
+ * family untouched. Reasoning, kept readable rather than deleted:
+ * 260901-uzi's own finding 4 had just demoted `.page-section--nested >
+ * h2` (the nested card title — "Battery trend", "Unresolved prefixes",
+ * "Resolution statistics") from 20px regular to 16px SEMIBOLD, which
+ * created a collision this task's brief asked to resolve — hypothesis
+ * (ii): the caption and the nested card title are both this file's "name
+ * of a card" role, and until that promotion they rendered at two
+ * different weights (14px regular serif vs 16px semibold serif). D-09's
+ * four-size scale ruled out a size fix, so weight was the only lever;
+ * promoting the caption made the two "card name" roles agree on weight
+ * while the unchanged 14/16 size gap kept signalling a tile's name as
+ * subordinate to a section-level card's own name.
  *
- * Verdict: that collision (hypothesis (i) in the SUMMARY) is real, but
- * it is a tile-value/nested-title relationship, not this caption's to
- * fix — .stat-tile__value's own weight is Finding 4's deliberate
- * Emphasis-role placement and is not touched here. The developer's
- * actual complaint, re-read against the region as it stands today, is
- * hypothesis (ii): the caption and the nested card title are both this
- * file's "name of a card" role — one per stat tile, one per nested
- * section — and until this change they rendered at two different
- * tiers: 14px REGULAR serif for a tile's name, 16px SEMIBOLD serif for
- * a nested card's name. Two elements playing the same structural role
- * should not read at two different weights in the same region; the tile
- * caption was the one that read as an afterthought next to it. Weight
- * is the only lever that fixes (ii) without touching size: D-09
- * prohibits a fifth size (this file's contract is four sizes: 14/16/
- * 20/30), so 15px or 16px for the caption were never options; a colour
- * or letter-spacing change (Option B, considered and rejected) would
- * treat the caption's own weakness but leaves the nested title
- * untouched, so the two "card name" roles would still disagree with
- * each other, only less visibly. Promoting the caption's weight instead
- * makes the caption and the nested title agree on the one property
- * (weight) that actually signals "this names something" at a glance,
- * while the 14px/16px size gap (unchanged) still correctly signals that
- * a tile's name is one tier subordinate to a section-level card's own
- * name. The caption also stays strictly below `.stat-tile__value` in
- * BOTH its size (14 vs 16) and its now-shared weight tier, so the
- * datum stays the single loudest thing inside its own tile — the
- * property Finding 4 was protecting is preserved, not reopened. No
- * fifth size introduced; no new token introduced. */
+ * quick task 260902-iag re-adjudicated this promotion when 260901-uzi's
+ * finding 4 was itself reverted (see `.page-section--nested > h2`'s own
+ * comment). The promotion's ONLY stated reason was matching the nested
+ * card title's weight; reverting that title to regular does not merely
+ * remove the reason, it INVERTS it:
+ *
+ * Premise test — does hypothesis (ii)'s premise survive? No. It asserted
+ * the two "card name" roles disagreed on weight and should agree. After
+ * the revert the nested card title is 20px regular. A semibold caption
+ * does not restore agreement — it recreates the disagreement in the
+ * opposite direction, with the smaller role (14px) now the bolder one
+ * next to the larger role (20px) that is regular.
+ *
+ * Inversion test — which roles in the Server & data region carry
+ * semibold after the revert? Only the two smallest: this 14px caption
+ * (if kept) and `.stat-tile__value`'s 16px (D-09's Emphasis role,
+ * untouched by this adjudication — see that rule below). Both 20px
+ * roles — the section heading and the reverted nested card title — stay
+ * regular. Weight would increase as size decreases across the region:
+ * the same class of inverted hierarchy this session has repeatedly been
+ * asked to fix (finding 4 itself was a version of exactly this
+ * complaint, one structural level up).
+ *
+ * Both tests point the same way, and no fresh justification independent
+ * of the reverted 16px tier survives the inversion test — the validated
+ * Merged Health Sketch's own `.stat-tile__caption` rule (14px muted
+ * uppercase, no weight promotion) is a data point in the same direction.
+ * Verdict: REVERTED. The caption declares no font-weight of its own
+ * again, inheriting `.text-label`'s regular weight — the plain Label
+ * role it held before 260902-dng. No fifth size introduced either way;
+ * no new token introduced. */
 .stat-tile__caption {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
   margin: 0 0 var(--space-sm);
   font-family: var(--font-serif);
-  font-weight: var(--weight-semibold);
   text-transform: none;
   letter-spacing: normal;
 }

@@ -2777,16 +2777,34 @@ def main():
         "260902-iag)",
         _nested_heading_tier_reverted_to_standard_heading_role)
 
-    def _stat_tile_caption_weight_and_four_role_type_scale_hold():
-        # quick task 260902-dng (Task 3): pins both halves of the
-        # verdict — the one declaration that changed (.stat-tile__caption
-        # gains --weight-semibold, keeping its 14px size and serif
-        # family), and that the region's four text roles still form a
-        # coherent, source-grounded set afterwards: strictly increasing
-        # size with structural level (caption < value == nested title <
-        # section heading), no fifth size anywhere in the set, and the
-        # caption/value/nested-title trio sharing one weight tier while
-        # the section heading alone stays regular.
+    def _stat_tile_caption_weight_reverted_and_four_role_scale_hold():
+        # SUPERSEDED (quick task 260902-dng, Task 3): this check used to
+        # pin .stat-tile__caption declaring --weight-semibold, and the
+        # region's four text roles sharing a caption/value/nested-title
+        # semibold trio below one regular-weight section heading. quick
+        # task 260902-iag rewrote this check's whole contract in place —
+        # not just the assertions — because 260901-uzi's finding 4 (the
+        # nested card title's 16px semibold demotion) was itself reverted
+        # by quick task 260902-iag Task 1, and 260902-dng's promotion's
+        # only stated reason was matching that now-reverted title. Task 2
+        # re-adjudicated the promotion against both a premise test and an
+        # inversion test (see .stat-tile__caption's own comment in
+        # style.css for the full reasoning) and reverted it: the caption
+        # is back to the plain Label role it held before 260902-dng.
+        #
+        # This check's post-reversal contract: the four roles' sizes
+        # still form a coherent, source-grounded set against the real
+        # :root token values (caption 14px, strictly below the tile value
+        # and the nested card title at 16px and 20px respectively, both
+        # at or below the 20px section heading — no fifth size anywhere);
+        # the caption declares no size of its own and keeps its named
+        # serif exception; the tile value keeps its own D-09 Emphasis-role
+        # size and weight, untouched by this adjudication; the nested
+        # card title and the section heading both declare regular weight
+        # or inherit it with no override; and the caption declares no
+        # font-weight of its own either, inheriting .text-label's
+        # regular weight — the verdict Task 2 shipped, asserted
+        # explicitly in that direction.
         css_path = os.path.join(HERE, "static", "style.css")
         with open(css_path) as fh:
             css_source = fh.read()
@@ -2798,8 +2816,12 @@ def main():
             return css_source[body_open:body_close]
 
         caption_body = _rule_body(".stat-tile__caption {")
-        if "font-weight: var(--weight-semibold)" not in caption_body:
-            return False, "expected .stat-tile__caption to declare --weight-semibold"
+        if "font-weight" in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare no font-weight of its own — quick "
+                "task 260902-iag Task 2 reverted the semibold promotion back to .text-label's "
+                "inherited regular weight; a font-weight reappearing here is that promotion "
+                "returning without the fresh, non-circular justification the revert requires")
         if "font-size" in caption_body:
             return False, (
                 "expected .stat-tile__caption to declare no font-size of its own "
@@ -2814,10 +2836,9 @@ def main():
         if "font-weight: var(--weight-semibold)" not in value_body:
             return False, "expected .stat-tile__value to stay semibold — Finding 4's own contract"
 
-        # quick task 260902-iag Task 1 (minimal in-place correction — Task
-        # 2 owns this check's full contract rewrite): the nested card
-        # title's demotion was reverted, so it now inherits 20px regular
-        # from .text-heading and declares neither a font-size nor a
+        # quick task 260902-iag Task 1: the nested card title's demotion
+        # was reverted, so it now inherits 20px regular from
+        # .text-heading and declares neither a font-size nor a
         # font-weight of its own.
         nested_body = _rule_body(".page-section--nested > h2,")
         if "font-size" in nested_body:
@@ -2833,8 +2854,8 @@ def main():
         if "font-weight: var(--weight-regular)" not in heading_body:
             return False, (
                 "expected the h1/h2/h3/legend/.text-heading rule to stay regular weight — "
-                "the section heading is this region's one regular-weight role, the ceiling "
-                "the caption/value/nested-title trio must never reach")
+                "the section heading and the reverted nested card title both inherit this, "
+                "and neither should ever carry its own weight override again")
 
         # Token values themselves, so this check fails loudly (not
         # silently) if a future edit changes what 14/16/20 actually mean.
@@ -2849,12 +2870,16 @@ def main():
 
         return True, ""
     check(
-        "style.css's .stat-tile__caption declares --weight-semibold with no font-size of its own (staying on "
-        ".text-label's inherited 14px, no fifth size), and the Server & data region's four text roles still form "
-        "a coherent set afterwards — caption (14/semibold) strictly below tile value and nested card title "
-        "(16/semibold each), both strictly below the section heading (20/regular), the one role that stays "
-        "regular weight (quick task 260902-dng Task 3)",
-        _stat_tile_caption_weight_and_four_role_type_scale_hold)
+        "style.css's four Server & data text roles form a coherent, source-grounded set after both the nested "
+        "card title's reversal and the stat-tile caption's re-adjudication (quick task 260902-iag): the caption "
+        "(14px, no font-size or font-weight of its own, keeping its named serif exception) declares no weight "
+        "promotion — reverted back to .text-label's inherited regular, since its only stated reason (matching "
+        "the now-reverted 16px-semibold nested title) evaporated and would otherwise recreate the same weight-"
+        "vs-size inversion this session has repeatedly fixed — while .stat-tile__value keeps its own untouched "
+        "D-09 Emphasis-role size/weight, and both the nested card title and the section heading inherit "
+        ".text-heading's 20px regular treatment with no override (quick task 260902-dng Task 3, whose promotion "
+        "and reasoning are superseded, not deleted, by quick task 260902-iag Task 2)",
+        _stat_tile_caption_weight_reverted_and_four_role_scale_hold)
 
     def _nested_card_heading_rhythm_end_to_end():
         # quick task 260902-bl2 Task 3 (Check 2): bug 2's markup half (for
