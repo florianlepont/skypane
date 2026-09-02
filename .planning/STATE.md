@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 9
 current_phase_name: Diagonal band theme
 status: complete
-stopped_at: Phase 9 complete (4/4 plans), verified 8/8 must-haves, on-glass sign-off recorded
-last_updated: "2026-09-02T11:16:01.000Z"
+stopped_at: "Completed quick task 260902-ipj: archived 2 fulfilled seeds (bring-up LED fully fulfilled, fault-icon partially fulfilled pointing to DEVICE-06)"
+last_updated: "2026-09-02T11:42:26.505Z"
 last_activity: 2026-09-02
-last_activity_desc: "Completed quick task 260902-i1p: platform-gated server/test_poll_loop.py's pinned panel.bin digest check via _digest_verdict() (Linux-strict, non-Linux-informational), new check 30 proving both branches, EXPECTED_CHECK_COUNT 43->44 - local macOS run now 44/44 (was 42/43)"
+last_activity_desc: "Completed quick task 260902-ipj: archived 2 fulfilled seeds (bring-up-debug-led-remote-toggle.md status: fulfilled, on-device-fault-icon.md status: partially-fulfilled pointing to DEVICE-06)"
 progress:
   total_phases: 17
   completed_phases: 16
@@ -171,6 +171,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 09 P01 | 12min | 2 tasks | 2 files |
 | Phase 09 P02 | 20min | 3 tasks | 2 files |
 | Phase 9 P09-03 | 40min | 3 tasks | 2 files |
+| Phase quick-260902-ipj P01 | 4min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -297,6 +298,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Ported spike 003's draw_reference_band()/patched_draw_top_labels() verbatim (round-15 confirmed geometry/split) rather than re-deriving
 - [Phase ?]: draw_top_labels() band_theme defaults to False so every pre-Phase-9 call site stays byte-identical unless a caller explicitly opts in
 - [Phase ?]: Ported spike _band_center_x()/patched_draw_main_text_block()/patched_draw_previous_text_block() verbatim; band_idx=None wraps the entire pre-existing function body unchanged
+- [Phase ?]: Introduced partially-fulfilled as a third seed status value (alongside dormant/fulfilled) for the half-shipped fault-icon seed
+- [Phase ?]: on-device-fault-icon.md points to REQUIREMENTS.md's DEVICE-06 as the authoritative home for its open half rather than restating that scope
 
 ### Pending Todos
 
@@ -352,8 +355,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-02T11:10:03.740Z
-Stopped at: Phase 9 plan 03 (of 4) complete
+Last session: 2026-09-02T11:42:26.496Z
+Stopped at: Completed quick task 260902-ipj: archived 2 fulfilled seeds (bring-up LED fully fulfilled, fault-icon partially fulfilled pointing to DEVICE-06)
 
 Resume file: .planning/phases/09-diagonal-band-theme/09-04-PLAN.md
 
