@@ -62,7 +62,11 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 107  # quick task 260902-l9w Task 2 Commit B: 1 new
+EXPECTED_CHECK_COUNT = 108  # quick task 260902-qkm (2026-09-02): 1 new
+# check pinning both nav-link geometries apart after restoring
+# .mobile-nav__link's 44px/Body-size tap target (D-05 reached it by
+# mistake) while .sidebar-link keeps its D-05 32px/Label-size compaction.
+# 107 = quick task 260902-l9w Task 2 Commit B: 1 new
 # check pinning both halves of the hidden-runway-radio touch-target fix:
 # the new input.visually-hidden/select.visually-hidden rule exists, and
 # the global input/select rule still declares both 44px minimums.
@@ -955,6 +959,55 @@ def main():
             "--font-serif never reaches table, body, mono or nav-link rules "
             "(D-03's headings-only boundary)",
             _serif_never_reaches_dense_content)
+
+        def _nav_link_geometries_stay_diverged():
+            # 260902-qkm: D-05 (06.6.4-04) reached .mobile-nav__link by
+            # mistake — the mobile dropdown is the phone's only nav, with
+            # no desktop compactness argument to trade against, while
+            # .sidebar-link is structurally desktop-only (hidden below
+            # 960px). The two renderings are now deliberately different
+            # sizes: the mobile link keeps a real tap target, the desktop
+            # sidebar stays compact, and neither may drift into the other.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css = fh.read()
+
+            def block_for(selector):
+                index = css.find("\n%s {" % selector)
+                if index == -1:
+                    return None
+                return css[index:css.index("}", index)]
+
+            mobile_block = block_for(".mobile-nav__link")
+            if mobile_block is None:
+                return False, "expected a `.mobile-nav__link` rule in style.css"
+            if "min-height: 44px" not in mobile_block:
+                return False, (
+                    ".mobile-nav__link lost its restored min-height: 44px "
+                    "tap target (260902-qkm)")
+            if "font-size: var(--font-body-size)" not in mobile_block:
+                return False, (
+                    ".mobile-nav__link's font size drifted off "
+                    "var(--font-body-size) (260902-qkm)")
+
+            sidebar_block = block_for(".sidebar-link")
+            if sidebar_block is None:
+                return False, "expected a `.sidebar-link` rule in style.css"
+            if "height: 32px" not in sidebar_block:
+                return False, (
+                    ".sidebar-link's D-05 32px desktop compaction was "
+                    "reverted — it is structurally desktop-only and "
+                    "should stay compact, unlike the mobile dropdown link")
+            if "font-size: var(--font-label-size)" not in sidebar_block:
+                return False, (
+                    ".sidebar-link's font size drifted off "
+                    "var(--font-label-size)")
+            return True, ""
+        check(
+            "mobile dropdown nav link keeps its restored 44px/Body-size "
+            "tap target while the desktop sidebar link stays at its D-05 "
+            "32px/Label-size compaction (260902-qkm)",
+            _nav_link_geometries_stay_diverged)
 
         def _one_error_signal_token():
             # --color-destructive and --color-status-error held identical

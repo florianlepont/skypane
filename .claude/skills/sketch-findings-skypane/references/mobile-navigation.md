@@ -14,7 +14,7 @@
 
 **Panel surface and shadow.** `.mobile-nav` uses `background: var(--color-secondary)` (the elevated/nav surface, not the primary card surface) and `box-shadow: var(--shadow-card-hover)` unconditionally at rest — this is a floating-overlay exception to the hairline-at-rest card contract (see `references/control-density.md`), appropriate since the dropdown genuinely floats over the content below it once open.
 
-**Link geometry.** `.mobile-nav__link` is `height: 32px` with `font-size: var(--font-label-size)` (14px) — it does **not** carry a 44px tap-target floor; that floor was traded away in the same 06.6.4 (D-05) pass that resized `.sidebar-link` to match, so the two nav renderings stay visually and dimensionally identical. `font-family` is explicitly `var(--font-ui)` (sans), stated in code as a deliberate boundary: the sketch prototype rendered these links in serif at 18px, and that detail was never carried into the shipped contract.
+**Link geometry.** `.mobile-nav__link` carries `min-height: 44px` at `font-size: var(--font-body-size)` (16px) — a deliberate divergence from the desktop sidebar link, which stays at its own 06.6.4 D-05 compaction (see `references/control-density.md`) because it is structurally desktop-only (`.dashboard-sidebar` is `display: none` below the 960px breakpoint). The 06.6.4 (D-05) pass that compacted the desktop sidebar link also landed on this selector by mistake, trading away its 44px tap-target floor on the one nav rendering that has no compactness argument to trade against — a phone has no pointer, and this is the only nav a phone has. Quick task 260902-qkm reverted that mistake here on the developer's own report that it made phone navigation harder. `font-family` is explicitly `var(--font-ui)` (sans), stated in code as a deliberate boundary: the sketch prototype rendered these links in serif at 18px, and that detail was never carried into the shipped contract.
 
 **Current tab set, count, and the renamed/retired entries.** Four tabs, in order: Settings, Health, Airlines, History. This was five (Config, Health, Airlines, History, Preview) SUPERSEDED — 06.6.4.1 (D-26) renamed "/config"/"Config" to "/settings"/"Settings" (the old path 404s by design, no redirect), and 06.6.4.1 (D-22, still open) retired the standalone Preview tab outright, absorbing its content into History. Both nav renderings (`sidebar_nav()` and `_mobile_nav_html()` in `companion/layout.py`) consume the same `NAV_TABS`/`_nav_links()` iteration, so the two can never disagree on the tab set.
 
@@ -54,8 +54,8 @@
 .js .mobile-nav--open { max-height: 420px; }
 
 .mobile-nav__link {
-  height: 32px;
-  font-size: var(--font-label-size);
+  min-height: 44px;
+  font-size: var(--font-body-size);
   font-family: var(--font-ui);
 }
 .mobile-nav__link--active {
