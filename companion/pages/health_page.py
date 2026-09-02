@@ -255,17 +255,28 @@ BATTERY_SECTION_HEADING = "Battery trend"
 # against silent drift by a cross-file check in test_status_pages.py.
 BATTERY_SECTION_CLASS = "battery-trend-section"
 
-# 06.6.1-04 (D-02): one icon id per Health signal, each a member of
+# 06.6.1-04 (D-02): one icon id per Health tile signal, each a member of
 # layout.ICON_IDS — the whitelist itself is what keeps a typo here from
 # ever becoming a raw-markup injection: icon_html() renders nothing at
 # all for an id it doesn't recognise, which is safe but invisible, so
 # this module's own test harness separately asserts every one of these
-# four constants is a genuine ICON_IDS member (a typo therefore fails a
+# three constants is a genuine ICON_IDS member (a typo therefore fails a
 # check loudly instead of silently rendering no icon).
+#
+# SUPERSEDED (quick task 260902-j8w): a fourth constant, ICON_BATTERY =
+# "icon-battery", used to live here. It was the only one of the four
+# passed to layout.icon_html() directly rather than to stat_tile()'s
+# `icon=` keyword — it rendered inside the Battery-trend section's own
+# `<h2>`, not inside a tile caption. Removed at the developer's direct
+# instruction ("supprime le logo de la batterie, car c'est inconsistant
+# avec le reste") because it was the only glyph on any of Health's five
+# headings; the id itself stays a `layout.ICON_IDS` / sprite member (see
+# that whitelist's own comment for why pruning it is a deliberate
+# non-goal), so only this module's use of it — and this comment's own
+# "four" — changed.
 ICON_DEVICE = "icon-device"
 ICON_PIPELINE = "icon-pipeline"
 ICON_CORROBORATION = "icon-corroboration"
-ICON_BATTERY = "icon-battery"
 
 # --- 06.6.4.1-04 (D-10): the two id-anchored sections Health's body is
 # now split into. SERVER_DATA_SECTION_ID is a cross-page coupling:
@@ -1243,15 +1254,35 @@ def _battery_trend_section_html(battery_html, state):
     already follow; re-escaping it here would double-encode and print the
     raw tags as visible text instead of rendering them.
 
-    06.6.1-04 (D-02): the battery icon sits inside this <h2>, before the
-    heading text, and carries no tint class — deliberately asymmetric
-    with the tile icons; the icon correctly inherits the heading's own
-    colour through currentColor. This also resolves a wording drift in
-    06.6.1-UI-SPEC.md's Layout Contract: it says "each of the 4 Overview
-    tiles" gains an icon, written before plan 06.6.1-03 moved Battery
-    trend out of the grid. All four Health signals still carry their
+    SUPERSEDED (quick task 260902-j8w): this <h2> now emits only its
+    escaped heading text plus the trailing "— Latest N readings" caption
+    span — structurally identical to the `Unresolved prefixes` and
+    `Resolution statistics` headings elsewhere on this page. The
+    developer's own instruction was explicit: "supprime le logo de la
+    batterie, car c'est inconsistant avec le reste" (remove the battery
+    logo, it is inconsistent with the rest) — Health rendered exactly
+    five <h2> elements and this was the only one that carried a glyph.
+    This is a return to the validated Merged Health Sketch's own
+    direction rather than a departure from it: the sketch's `<defs>`
+    defines an `#icon-battery` glyph but its battery-trend section never
+    references it via `<use>` — every `<use>` in the sketch sits inside
+    a `.stat-tile__head`. The heading placement below was plan
+    06.6.1-04's own reading of D-02, not something the sketch itself
+    showed.
+
+    What the paragraph below used to say, kept readable as history: the
+    battery icon sat inside this <h2>, before the heading text, and
+    carried no tint class — deliberately asymmetric with the tile icons;
+    the icon inherited the heading's own colour through currentColor.
+    That also resolved a wording drift in 06.6.1-UI-SPEC.md's Layout
+    Contract (itself now further out of date): it says "each of the 4
+    Overview tiles" gains an icon, written before plan 06.6.1-03 moved
+    Battery trend out of the grid. All four Health signals carried their
     icon — three on tiles, one here on the section heading — and the
-    icon set stays at the contract's five.
+    icon set stayed at the contract's five. `06.6.1-VERIFICATION.md`'s
+    criterion 26 ("Battery trend heading carries the battery icon —
+    VERIFIED") is a completed phase's historical verification record and
+    is left as written; it now describes a superseded state.
 
     quick task 260902-gjj (ISSUE 1): the trailing "— Latest N readings"
     span now composes `section-caption` with its existing `text-label`
@@ -1276,19 +1307,20 @@ def _battery_trend_section_html(battery_html, state):
     own single-argument call site (pinned by sibling phase 06.5's
     automated gate, per that function's own comment), a grep confirms
     nothing pins this function's arity, so the widening is safe. The
-    icon above still gets no tint class of its own — the status signal
-    now lives on the section's own edge, not on the icon.
+    status signal lives on the section's own edge (this modifier class),
+    not on any icon — quick task 260902-j8w later removed the heading
+    icon entirely, so this is no longer even a tint-class question.
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
     return (
         '<section class="%s">'
-        '<h2 class="text-heading">%s%s<span class="text-label section-caption">'
+        '<h2 class="text-heading">%s<span class="text-label section-caption">'
         "— Latest %d readings</span></h2>"
         "%s"
         "</section>"
     ) % (
-        section_class, layout.icon_html(ICON_BATTERY),
+        section_class,
         escape_html(BATTERY_SECTION_HEADING), BATTERY_TREND_LIMIT, battery_html)
 
 

@@ -3510,47 +3510,96 @@ def main():
         "battery and corroboration section-builder markup (dot, table, svg) survives the stat-tile reframe untouched",
         _health_page_section_builder_markup_survives_reframe)
 
-    def _health_page_four_icons_correctly_placed_and_tinted():
-        # 06.6.3-04 (D-12): render() now also emits a fifth icon instance
-        # — originally the manual Refresh action's icon-refresh, now
-        # (260902-chc) the same icon-refresh carried by the auto-refresh
-        # pill instead — alongside the four Health-signal icons this
-        # check has pinned since 06.6.1-04. The five-count assertion
-        # below accounts for that fifth, unrelated icon; every other
-        # assertion in this check still targets only the original four
-        # Health-signal icons.
-        four = (
+    def _health_page_tile_icons_only_no_glyph_in_any_heading():
+        # quick task 260902-j8w: retargeted IN PLACE (same slot, same
+        # EXPECTED_CHECK_COUNT contribution — no check added or removed).
+        # This used to pin a fourth, heading-only icon (ICON_BATTERY,
+        # rendered via layout.icon_html() straight into the Battery-trend
+        # <h2>) alongside the three tile icons. The developer's own
+        # instruction — "supprime le logo de la batterie, car c'est
+        # inconsistant avec le reste" — removed that glyph because it was
+        # the only one of Health's five headings carrying an <svg>. The
+        # two former battery-position assertions below are inverted into
+        # the positive invariant the complaint actually names: no Health
+        # heading, on any render, carries a glyph. A glyph reappearing
+        # inside a heading here is exactly the inconsistency this quick
+        # task removed at the developer's explicit instruction, not
+        # merely a count drifting.
+        #
+        # 06.6.3-04 (D-12): render() also emits an unrelated icon-refresh
+        # instance for the auto-refresh pill (originally the manual
+        # Refresh action's icon, now (260902-chc) the pill's) — the
+        # empty-render <use> count below accounts for that.
+        three = (
             health_page.ICON_DEVICE, health_page.ICON_PIPELINE,
-            health_page.ICON_CORROBORATION, health_page.ICON_BATTERY)
-        if len(set(four)) != 4:
-            return False, "expected the four Health icon constants to be distinct: %r" % (four,)
-        for icon_id in four:
+            health_page.ICON_CORROBORATION)
+        if len(set(three)) != 3:
+            return False, "expected the three tile-only Health icon constants to be distinct: %r" % (three,)
+        for icon_id in three:
             if icon_id not in layout.ICON_IDS:
                 return False, "%r is not a member of layout.ICON_IDS" % icon_id
+        if hasattr(health_page, "ICON_BATTERY"):
+            return False, (
+                "health_page.ICON_BATTERY must be gone from the module namespace — quick task "
+                "260902-j8w removed the heading glyph and its now-unused constant together")
+
+        def _headings_carry_no_glyph(rendered, context_label):
+            heads = re.findall(r"<h2\b.*?</h2>", rendered, re.S)
+            if len(heads) != 5:
+                return "expected Health (%s) to still render five headings, got %d" % (context_label, len(heads))
+            for head in heads:
+                if "<svg" in head:
+                    return "no Health heading may carry a glyph any more (%s), found one in: %r" % (
+                        context_label, head[:140])
+            if "#icon-battery" in rendered:
+                return "the retired icon-battery glyph must not be referenced anywhere in the page body (%s)" % (
+                    context_label)
+            return None
+
         tmp = _mkstate("h-icons")
         try:
-            rendered = health_page.render(_ctx(tmp))
-            if rendered.count("<use") != 5:
-                return False, "expected exactly five <use occurrences (four Health + one pill), got %d" % rendered.count("<use")
-            for icon_id in four:
-                count = rendered.count("#" + icon_id)
+            empty_rendered = health_page.render(_ctx(tmp))
+            if empty_rendered.count("<use") != 4:
+                return False, (
+                    "expected exactly four <use occurrences on the empty render (three tile icons "
+                    "— device, pipeline, corroboration — plus the auto-refresh pill icon), got %d"
+                    % empty_rendered.count("<use"))
+            for icon_id in three:
+                count = empty_rendered.count("#" + icon_id)
                 if count != 1:
                     return False, "expected %r exactly once, got %d" % (icon_id, count)
-            if rendered.count(layout.STAT_TILE_ICON_CLASS) != 3:
-                return False, "expected exactly the three tile icons to carry the tint class, got %d" % (
-                    rendered.count(layout.STAT_TILE_ICON_CLASS))
-            section_start = rendered.index(health_page.BATTERY_SECTION_CLASS)
-            icon_index = rendered.index("#" + health_page.ICON_BATTERY)
-            heading_close = rendered.index("</h2>", section_start)
-            if not (section_start < icon_index < heading_close):
-                return False, "expected the battery icon to sit inside the section heading"
+            if empty_rendered.count(layout.STAT_TILE_ICON_CLASS) != 3:
+                return False, (
+                    "expected exactly three glyphs to carry the tile tint class — every Health-signal "
+                    "glyph on this page is now a tile glyph, with none left over — got %d" % (
+                        empty_rendered.count(layout.STAT_TILE_ICON_CLASS)))
+            failure = _headings_carry_no_glyph(empty_rendered, "empty render")
+            if failure:
+                return False, failure
+
+            now = _now()
+            registry = {
+                "ABC": {
+                    "count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
+                    "example_callsign": "ABC123"},
+            }
+            _seed_unresolved_prefixes(tmp, registry)
+            seeded_rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if seeded_rendered.count("<use") != 5:
+                return False, (
+                    "expected exactly five <use occurrences on a seeded render (the same four plus "
+                    "icon-search in the unresolved-prefixes filter bar), got %d" % seeded_rendered.count("<use"))
+            failure = _headings_carry_no_glyph(seeded_rendered, "seeded render")
+            if failure:
+                return False, failure
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health renders exactly five icon instances — three tinted tile icons, one heading icon, and one "
-        "auto-refresh pill icon, all whitelisted",
-        _health_page_four_icons_correctly_placed_and_tinted)
+        "Health's three Health-signal icons are tile-only (device, pipeline, corroboration, all "
+        "whitelisted and tile-tinted) and no Health <h2> — empty or seeded render — carries a glyph "
+        "any more; health_page.ICON_BATTERY is gone from the module namespace (quick task 260902-j8w)",
+        _health_page_tile_icons_only_no_glyph_in_any_heading)
 
     # --- 260902-chc Task 3: pin the auto-refresh contract -------------------
 
