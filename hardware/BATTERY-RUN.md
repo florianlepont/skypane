@@ -246,13 +246,39 @@ visibility rather than for preservation: a missing row for a given
 check-in does not invalidate the run, because the record is regenerated
 from `device_health` and not accumulated from these rows.*
 
+| Date/time (UTC) | Elapsed | Observed polls | Coverage | Latest mV | Last-poll age | `skypane-byos.service` |
+|---|---|---|---|---|---|---|
+| 2026-09-02T13:15 | 0.01 day | 9 | 2.30 (transition window, not a validity signal — see note) | 3998 | 319s | active, not restarted since the run began |
+
+*Note on the 2026-09-02T13:15 row's coverage figure: the sample window is
+only ~20 minutes and straddles the moment `SKYPANE_SLEEP_S` actually took
+effect on the device (a couple of polls at the old ~30-40s cadence before
+it settled to the new 300s one), so `nominal` is computed against an
+interval the device wasn't fully honouring yet. This is expected and not
+a fault; it will wash out as the run continues. Not gated against
+`--min-coverage` here - this is a visibility check-in, not the final
+Task 2 analysis.*
+
 ## Measured Inputs
 
-*Filled in by Task 2/3: `capacity_mah` and `interval_s` (the
-`SKYPANE_SLEEP_S` value read off the VPS at the start of the run, not a
-remembered constant), `boot_count_start` and `boot_count_end`, each as
-a `key: value` list item, plus the wall-clock disconnect time, the
-timestamp of the last poll, and the elapsed span.*
+- `capacity_mah`: 3000
+- `interval_s`: 300
+- `boot_count_start`: **not confirmed** — the developer did not read the
+  `boot_count=` value off the wake line before disconnecting the cable
+  this run. Recorded honestly rather than guessed; see `## Cycle Count
+  Reconciliation` in the eventual Task 3 write-up, which will need to
+  proceed on two independent cycle-count witnesses (nominal from elapsed
+  span, and observed polls in `device_health`) instead of three.
+- `boot_count_end`: *filled in by Task 3, after the run ends*
+- wall-clock disconnect time: 2026-09-02T12:55:00+00:00 (14:55 CEST,
+  developer-reported) — corroborated by the server-side record: the last
+  charging-plateau reading was 4122 mV at 12:58:13, and the first clearly
+  falling reading was 4038 mV at 12:58:50, consistent with the cable
+  coming out a few minutes earlier and the drop becoming visible once
+  the device was genuinely running off the pack under real load
+- timestamp of the last poll so far: 2026-09-02T13:15:19+00:00 (run still
+  in progress — this is not the final value, see `## Verdict`)
+- elapsed span so far: ~20 minutes (run still in progress)
 
 ## Verdict
 
