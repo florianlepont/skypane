@@ -4744,7 +4744,7 @@ def main():
         "CARD_IMAGE_ALT_TEMPLATE %% name, and whose aria-label equals ZOOM_LABEL_TEMPLATE %% name",
         _airline_card_zoom_button_attrs_match_expected)
 
-    def _lightbox_dialog_renders_once_wide_with_real_note_values():
+    def _lightbox_dialog_renders_once_wide_with_own_note_text():
         tmp = _mkstate("a-lightbox-dialog")
         try:
             rendered = airlines_page.render(_ctx(tmp))
@@ -4760,23 +4760,17 @@ def main():
             ):
                 if marker not in rendered:
                     return False, "expected %r in the rendered dialog markup" % (marker,)
-            expected_note = airlines_page.LIGHTBOX_NOTE_TEMPLATE % (
-                illustration_normalize.ILLUSTRATION_TARGET_WIDTH,
-                illustration_normalize.ILLUSTRATION_TARGET_HEIGHT)
-            if layout.escape_html(expected_note) not in rendered:
-                return False, (
-                    "expected the lightbox note to contain the real ILLUSTRATION_TARGET_WIDTH/HEIGHT values "
-                    "(%d/%d), not re-typed digits" % (
-                        illustration_normalize.ILLUSTRATION_TARGET_WIDTH,
-                        illustration_normalize.ILLUSTRATION_TARGET_HEIGHT))
+            if layout.escape_html(airlines_page.LIGHTBOX_NOTE) not in rendered:
+                return False, "expected airlines_page.LIGHTBOX_NOTE's own text in the rendered dialog"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the shared lightbox dialog is emitted exactly once, carries both the lightbox and lightbox--wide "
-        "classes plus all three lightbox__* elements and the close attribute, and its note names the real "
-        "ILLUSTRATION_TARGET_WIDTH/HEIGHT values",
-        _lightbox_dialog_renders_once_wide_with_real_note_values)
+        "classes plus all three lightbox__* elements and the close attribute, and its note is "
+        "airlines_page.LIGHTBOX_NOTE's own text (real user feedback on a live test found the original "
+        "wording's technical frame-size framing meaningless to a viewer; quick task 260902-tli)",
+        _lightbox_dialog_renders_once_wide_with_own_note_text)
 
     def _airline_card_zoom_stylesheet_contract():
         css_path = os.path.join(HERE, "static", "style.css")

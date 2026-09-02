@@ -3387,9 +3387,20 @@ summary::-webkit-details-marker {
  * card in this file carries: this is a floating modal overlay, not a
  * page-flow card, so its resting state should already read as elevated.
  * width: calc(...) keeps the dialog off the viewport edge on a phone
- * without a separate media-query block. */
+ * without a separate media-query block.
+ *
+ * quick task 260902-tli (bug found live, dark mode): `color` is now set
+ * explicitly. A <dialog> promoted to the top layer via showModal() does
+ * not reliably inherit `color` from its DOM ancestors the way a normal
+ * in-flow element does — every browser tested here fell back to its own
+ * UA-stylesheet black regardless of the page's actual theme, so
+ * .lightbox__caption/.lightbox__note (which set no color of their own,
+ * relying on inheritance) rendered black-on-near-black in dark mode.
+ * Declaring `color` here, on the dialog itself, is what the child rules'
+ * inheritance actually resolves against. */
 .lightbox {
   background: var(--color-dominant);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   padding: var(--space-lg);

@@ -75,14 +75,18 @@ _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 
 ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 
-# The normalized frame size, never hand-typed digits — this is the same
-# shared canvas illustration_normalize.py fits every illustration into
-# (quick task 260902-req-02), and the same source art the panel itself
-# draws, so the enlarged view is not a different or higher-fidelity
-# rendering, just a bigger one.
-LIGHTBOX_NOTE_TEMPLATE = (
-    "Shown at the shared %dx%d frame every illustration is normalized "
-    "to — the same source art the panel itself draws.")
+# quick task 260902-tli: originally named the normalized frame size in
+# the copy itself ("Shown at the shared 900x263 frame...") — real user
+# feedback on a live test found that meaningless (an implementation
+# detail no viewer needs), and reported alongside a genuine bug (the
+# same fix pass), so the wording changed at the same time. Says what a
+# viewer actually cares about instead: this enlarged view is the exact
+# same art the physical panel draws, not a separate or higher-fidelity
+# rendering. No template substitution needed, so this is a plain
+# constant, matching history_page.LIGHTBOX_NOTE's own naming.
+LIGHTBOX_NOTE = (
+    "This is the same artwork the physical panel draws for this "
+    "airline — just shown larger here.")
 
 # variant_chip_label()'s two shape-domain patterns. An alphanumeric type
 # code is a letter prefix immediately followed by digits, optionally with
@@ -222,13 +226,12 @@ def _lightbox_html():
     same close-attribute button), with exactly two differences: this
     dialog also carries the `lightbox--wide` class (the enlarged
     illustration needs more room than History's 480px default), and the
-    note is this module's own `LIGHTBOX_NOTE_TEMPLATE`.
+    note is this module's own `LIGHTBOX_NOTE`.
 
     `companion/static/panel-lookup.js` writes the image src/alt and the
     caption text on click; this function only emits the static note,
     which the script never touches.
     """
-    note = LIGHTBOX_NOTE_TEMPLATE % (ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT)
     return (
         '<dialog class="lightbox lightbox--wide" id="%s">'
         '<img class="lightbox__image" src="" alt="">'
@@ -236,7 +239,7 @@ def _lightbox_html():
         '<p class="lightbox__note text-body">%s</p>'
         '<button type="button" %s>Close</button>'
         "</dialog>"
-    ) % (LIGHTBOX_DIALOG_ID, escape_html(note), _VIEW_PANEL_CLOSE_ATTR)
+    ) % (LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_NOTE), _VIEW_PANEL_CLOSE_ATTR)
 
 
 # D-16 (06.6.4.1-UI-SPEC.md §7.2): the gallery's filter-bar copy, driven
