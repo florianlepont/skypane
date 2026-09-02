@@ -27,7 +27,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 50
+EXPECTED_CHECK_COUNT = 52
 
 
 def load_fixture(name):
@@ -284,6 +284,48 @@ def main():
     check(
         "to_sentence_case_city lower-cases interior connective particles but capitalises the first word and all other words",
         _sentence_case_lowercases_interior_particles,
+    )
+
+    # 13.5. Phase 9 09-04 on-glass finding: OurAirports/adsbdb list every
+    #       commune an airport serves "/"-separated in its own municipality
+    #       field (confirmed live against api.adsbdb.com - Toulon-Hyeres
+    #       Airport's real municipality is "Toulon/Hyeres/Le Palyvestre",
+    #       serving Orly) - no panel text role has room for the full
+    #       compound name. _primary_city_name() reduces it to its first
+    #       segment before sentence-casing.
+    def _primary_city_name_reduces_compound_municipality():
+        cases = {
+            "Toulon/Hyeres/Le Palyvestre": "Toulon",
+            "Toulouse/Blagnac": "Toulouse",
+            "Paris": "Paris",  # no "/" - passes through unchanged
+        }
+        for raw, expected in cases.items():
+            got = enrich._primary_city_name(raw)
+            if got != expected:
+                return False, "_primary_city_name(%r) = %r, expected %r" % (raw, got, expected)
+        return True, ""
+    check(
+        "_primary_city_name() reduces a '/'-separated compound municipality name to its first segment, unchanged "
+        "when there is no '/'",
+        _primary_city_name_reduces_compound_municipality,
+    )
+
+    def _parse_route_applies_primary_city_name_to_both_cities():
+        compound = copy.deepcopy(hit_body)
+        compound["response"]["flightroute"]["origin"]["municipality"] = "Toulon/Hyeres/Le Palyvestre"
+        compound["response"]["flightroute"]["destination"]["municipality"] = "Bordeaux/Merignac"
+        route = enrich._parse_route(compound)
+        if route is None:
+            return False, "_parse_route() returned None for a valid fixture with compound municipality names"
+        if route.get("origin_city") != "Toulon":
+            return False, "origin_city = %r, expected 'Toulon'" % (route.get("origin_city"),)
+        if route.get("destination_city") != "Bordeaux":
+            return False, "destination_city = %r, expected 'Bordeaux'" % (route.get("destination_city"),)
+        return True, ""
+    check(
+        "_parse_route() applies _primary_city_name() to both origin_city and destination_city, not just one "
+        "(D-09-style, Phase 9 09-04)",
+        _parse_route_applies_primary_city_name_to_both_cities,
     )
 
     # 14. T-02-04-02: a hostile/malformed callsign shape is rejected before

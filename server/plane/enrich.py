@@ -135,6 +135,20 @@ def to_sentence_case_city(raw):
     return " ".join(out)
 
 
+def _primary_city_name(raw):
+    """Reduce an adsbdb/OurAirports-style compound municipality name
+    (e.g. "Toulon/Hyeres/Le Palyvestre" for Toulon-Hyeres Airport, which
+    serves several communes) to just its first, primary segment
+    ("Toulon"). OurAirports lists every served commune "/"-separated in
+    the same field - real, not a fabricated edge case (confirmed live
+    against api.adsbdb.com during the Phase 9 09-04 on-glass session) -
+    but no panel text role has room to show all of them; even the widest
+    band role still overflowed at its smallest legible size against the
+    unreduced string. Names without a "/" pass through unchanged.
+    """
+    return raw.split("/", 1)[0].strip()
+
+
 def default_transport(callsign, timeout=DEFAULT_TIMEOUT):
     """Thin `requests.get()` wrapper: GET the adsbdb endpoint for
     `callsign` (already normalised by the caller) and return
@@ -211,9 +225,9 @@ def _parse_route(body):
     return {
         "airline_name": airline_name,
         "origin_iata": origin_iata,
-        "origin_city": to_sentence_case_city(origin_city_raw),
+        "origin_city": to_sentence_case_city(_primary_city_name(origin_city_raw)),
         "destination_iata": destination_iata,
-        "destination_city": to_sentence_case_city(destination_city_raw),
+        "destination_city": to_sentence_case_city(_primary_city_name(destination_city_raw)),
         "callsign_iata": callsign_iata,
     }
 
