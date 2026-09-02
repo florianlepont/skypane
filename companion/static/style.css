@@ -373,7 +373,44 @@ h3,
   margin: 0 0 var(--space-lg);
 }
 
+/* 260902-ep7: `.page-header` establishes a containing block for the
+ * pill's own out-of-flow rule further down this file. Everything below
+ * the divider is about WHY that pill is taken out of flow at all.
+ *
+ * The mechanism the pill's own out-of-flow gap used to leave behind:
+ * .page-header is a plain block box. On Health it has three children —
+ * a block <h1>, an inline-level <span class="refresh-pill"> (its own
+ * rule declares `display: inline-flex`, which is inline-LEVEL, not
+ * block-level), and a block <p>. CSS block layout cannot mix an
+ * inline-level child directly between two block-level siblings in one
+ * block container, so the renderer wraps the stranded span in an
+ * anonymous block box of its own. That anonymous box generates a line
+ * box exactly as tall as its content — the pill's own 20px — and
+ * `.refresh-pill[hidden]`'s `visibility: hidden` (kept below,
+ * deliberately) suppresses PAINTING that box, never its LAYOUT, so the
+ * 20px line box is consumed on every render whether or not the pill is
+ * showing. Combined with .page-title's own 4px margin-bottom and the
+ * line box's own half-leading, that produced the measured 28px gap
+ * between Health's <h1> and its purpose sentence, against Airlines'
+ * 4px (Airlines' .page-header has only the <h1> and <p> — two children,
+ * no stranded inline-level sibling, no anonymous block box). Before
+ * 260902-chc the same three-line stack existed but the middle line held
+ * a visible Refresh link, so the space was visually motivated; 260902-chc
+ * replaced that link with an invisible pill and the space became
+ * unexplained.
+ *
+ * Fix: take the pill out of normal flow entirely with `position:
+ * absolute`, scoped to a page-header-scoped pill rule further down this
+ * file (see that rule's own comment for the offsets and the rejected
+ * alternatives).
+ * An out-of-flow box reserves no line box and participates in no flow
+ * at all, so this preserves 260902-chc's real goal (revealing the pill
+ * shifts nothing in the header) STRICTLY MORE STRONGLY than the
+ * reserved-line-box mechanism it replaces — the no-shift-on-reveal
+ * guarantee becomes structural instead of depending on the hidden box's
+ * height matching the visible box's height. */
 .page-header {
+  position: relative;
   margin-bottom: var(--space-lg);
 }
 
@@ -999,10 +1036,12 @@ a:hover {
  * a small icon-to-text gap (this pill's icon has no flex-row sibling to
  * borrow spacing from, unlike the banner's lead text + pills row), and
  * no `flex: none` (.banner__pill needs that only because it is a flex
- * child of the banner row; this pill sits inside .page-header's own flow
- * instead, not inside a flex row). This is exactly the "future
- * consolidation into one shared class is a mechanical edit" the comment
- * above already anticipated. */
+ * child of the banner row; 260902-ep7 takes this pill out of
+ * .page-header's flow entirely instead — see the page-header-scoped
+ * pill rule below — so it is not a flex child of anything and needs no
+ * `flex` declaration of its own). This is exactly the "future consolidation
+ * into one shared class is a mechanical edit" the comment above already
+ * anticipated. */
 .refresh-pill {
   display: inline-flex;
   align-items: center;
@@ -1051,6 +1090,47 @@ a:hover {
 .refresh-pill .icon {
   width: 14px;
   height: 14px;
+}
+
+/* 260902-ep7 (BUG 1): scoped to `.page-header` deliberately, never to the
+ * bare `.refresh-pill` — this positioning is specific to sitting inside a
+ * page header next to a title, not a property of the pill component
+ * itself. Offsets derived, not guessed: `.page-header` declares no
+ * padding and no border, so its content box starts exactly at the <h1>'s
+ * own line box top. That line box is --font-page-title-size (30px) at
+ * line-height 1.2 = 36px tall; the pill is 20px tall; (36 - 20) / 2 = 8,
+ * which centres the pill vertically against the page title's own line.
+ * `right: 0` puts it flush with the header's right edge. Re-derive this
+ * if either --font-page-title-size or .refresh-pill's height moves.
+ *
+ * Rejected alternatives:
+ *   - Flex/grid `.page-header`: the pill would still be a flex/grid ITEM
+ *     occupying its own row in a column layout, so the 20px band
+ *     survives; making it a row instead needs a markup change to keep
+ *     the purpose sentence on its own line.
+ *   - `float: right` on the pill: does remove it from block-level
+ *     stacking, but the following paragraph's line boxes shorten around
+ *     the float, so the purpose sentence would wrap around the pill
+ *     instead of reading as a title-adjacent status indicator.
+ *   - Restructuring layout.page_header() to wrap the title and pill in a
+ *     flex row: touches a shared component every authenticated page
+ *     renders, adds a wrapper element to four pages that will never
+ *     carry a pill, and risks any `.page-header > h1`-shaped selector.
+ *     Zero markup change (this rule) is preferable and available.
+ *
+ * Collision risk: an absolutely positioned pill can overlap its
+ * siblings. Health is the only page passing freshness_html today
+ * (companion/layout.py's page_header() call sites — confirmed from
+ * source), and its title is the single word "Health", so at the
+ * narrowest real header width there is no collision. Scoping this rule
+ * to inside .page-header (not the bare .refresh-pill class) means a
+ * future non-header pill call site cannot inherit this positioning by
+ * accident. Re-check condition: a future page pairing a LONG title with
+ * a pill. */
+.page-header .refresh-pill {
+  position: absolute;
+  top: 8px;
+  right: 0;
 }
 
 /* Forms and fieldsets */

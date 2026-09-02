@@ -3056,12 +3056,36 @@ def main():
 
         if css_source.index(".banner__pill {") >= pill_start:
             return False, "expected .banner__pill to still precede .refresh-pill in source order"
+
+        # 260902-ep7 (BUG 1): the pill is taken out of .page-header's
+        # block flow entirely rather than kept in flow with a reserved
+        # line box, so this contract must also pin the out-of-flow
+        # mechanism itself — a .page-header rule establishing a
+        # containing block, and a .page-header-scoped .refresh-pill rule
+        # positioned absolutely within it. Strengthened in place, no
+        # count change.
+        if ".page-header {" not in css_source:
+            return False, "expected style.css to declare .page-header"
+        header_start = css_source.index(".page-header {")
+        header_body = css_source[header_start:css_source.index("}", header_start)]
+        if "position: relative" not in header_body:
+            return False, "expected .page-header to establish a containing block for the out-of-flow pill"
+
+        if ".page-header .refresh-pill {" not in css_source:
+            return False, "expected a .page-header-scoped .refresh-pill rule taking it out of block flow"
+        scoped_start = css_source.index(".page-header .refresh-pill {")
+        scoped_body = css_source[scoped_start:css_source.index("}", scoped_start)]
+        if "position: absolute" not in scoped_body:
+            return False, "expected .page-header .refresh-pill to be positioned absolutely"
+        if "top:" not in scoped_body or "right:" not in scoped_body:
+            return False, "expected .page-header .refresh-pill to declare explicit top/right offsets"
         return True, ""
     check(
         "style.css's .refresh-pill / .refresh-pill[hidden] / pill-scoped icon rules each carry their "
         "load-bearing declaration — the [hidden] override hides by visibility with no display value at "
-        "all, reserving the pill's own line box — and .banner__pill still precedes .refresh-pill in "
-        "source order",
+        "all — .banner__pill still precedes .refresh-pill in source order, and the pill is taken out of "
+        ".page-header's block flow entirely via a .page-header-scoped absolute-position rule rather than "
+        "kept in flow with a reserved line box (260902-ep7)",
         _quick_260902_chc_pill_stylesheet_contract)
 
     def _quick_260902_chc_skip_guard_cross_file_contract():
