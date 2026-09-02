@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 6.6.1: Companion visual polish pass** (INSERTED) - Second visual-design pass on the companion app: serif headings and a crafted wordmark, a terracotta accent, card relief, airier spacing, a real mobile hamburger nav replacing the horizontal-scroll strip, Health density/redundancy cleanup with per-signal icons and a nav notification dot, a full-width battery chart, and History cut 9 columns to 7. Planned 2026-08-29 (6 plans across 4 waves). All 6 plans executed 2026-08-30; the blocking real-phone sign-off (plan 06) found 2 confirmed, root-caused CSS defects (`.mobile-nav`'s `position:absolute` prevented the push-down behavior D-06 requires; `.stat-tile svg`'s `width:100%` rule unintentionally stretched the new icon SVGs) — see `06.6.1-06-SUMMARY.md`. Both fixed directly (developer chose a quick fix over formal gap-closure planning, since both root causes were already precisely identified), re-verified live in-browser and by `gsd-verifier` (46/46 must-haves, `06.6.1-VERIFICATION.md`). (completed 2026-08-30)
 - [x] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog) (completed 2026-08-28)
 - [x] **Phase 8: Panel theme rework** - White default theme + Black/Yellow/Red/Blue/Green as optional CFG-01 themes, PT Serif Bold replaces the text backing-plate, `adsbdb` `callsign_iata` threaded through so the raw ADS-B callsign never displays, previous-card text sizing/alignment fix, and a required on-glass verification pass — implements spike `.planning/spikes/001-panel-theme-colours/`. Planned 2026-08-31: 6 plans across 5 waves (0/6 executed). (completed 2026-08-31)
-- [ ] **Phase 9: Diagonal band theme** - A new dedicated theme (additive to Phase 8's 11) adding a diagonal decorative trapezoid band behind the aircraft illustration in 5 colours (blue/blue-light-dithered/green-light-dithered/red/black), a split top-label tag, a three-tier flight-identifier hierarchy centred inside the band for both the main and previous cards, band-aware ink colour, and a required on-glass verification pass — implements spike `.planning/spikes/003-diagonal-band-theme/`. Planned 2026-09-02: 4 plans across 4 waves (0/4 executed).
+- [x] **Phase 9: Diagonal band theme** - A new dedicated theme (additive to Phase 8's 11) adding a diagonal decorative trapezoid band behind the aircraft illustration in 5 colours (blue/blue-light-dithered/green-light-dithered/red/black), a split top-label tag, a three-tier flight-identifier hierarchy centred inside the band for both the main and previous cards, band-aware ink colour, and a required on-glass verification pass — implements spike `.planning/spikes/003-diagonal-band-theme/`. Planned 2026-09-02: 4 plans across 4 waves (0/4 executed). (completed 2026-09-02)
 
 ## Phase Details
 
@@ -485,7 +485,7 @@ Plans:
 
 **Requirements**: None — unmapped polish/refinement phase, no REQ-ID in REQUIREMENTS.md maps to it (`Requirements: TBD` at phase-add time, confirmed unmapped by `/gsd-plan-phase`). No `09-CONTEXT.md` exists either (developer explicitly skipped `/gsd-discuss-phase` and `/gsd-research-phase` for this phase, going straight from the validated spike to planning) — so unlike Phase 8's `D-01..D-13`, there are no CONTEXT.md decision IDs to trace against. Each plan's `requirements` frontmatter instead cites `PHASE9-1` through `PHASE9-8`, one per numbered clause of this Goal paragraph above (see `09-01-PLAN.md`'s objective for the full table) — the same traceability role D-XX decisions play elsewhere, anchored to this Goal text instead of a CONTEXT.md.
 **Depends on:** Phase 8
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 **Wave 1**
@@ -502,4 +502,4 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 09-04-PLAN.md — Blocking on-glass verification battery (5 band colours × both states, all 4 content-ladder tiers, previous-card clearance) and hardware/BRINGUP-LOG.md recording (PHASE9-8)
+- [x] 09-04-PLAN.md — Blocking on-glass verification battery (5 band colours × both states, all 4 content-ladder tiers, previous-card clearance) and hardware/BRINGUP-LOG.md recording (PHASE9-8)
