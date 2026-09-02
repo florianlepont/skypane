@@ -246,6 +246,17 @@ None to run the code. **Recommended before signing off:** the nine-item live-bro
 
 All three fixes are implemented and pinned by harness: `companion/test_status_pages.py` 99/99; `companion/test_companion_app.py` 106/106; `companion/test_view_pages.py` 43/43; `companion/test_config_page.py` 61/61; `companion/test_contrast_check.py` 36/36. `scripts/run-all-tests.sh` reports exactly one failing harness — the pre-existing, unrelated `server/test_poll_loop.py` `panel.bin` digest mismatch — with no coverage-gate shortfall (92% total). The nine-item live-browser handoff above is the concrete next action for the orchestrating session before this can be considered visually verified, not just source-verified — items 6 (hover/focus survival) and 4 (does the edge read right at card width) are the priority items.
 
+## Post-execution: real-browser visual pass (orchestrating session)
+
+Performed against the restarted local instance with real production data, at 1280×1000.
+
+1. **Issue 1 (muted captions): CONFIRMED FIXED.** Both the "— Latest 20 readings" trailing label and the "read-only by design" note compute to the 70%-muted color, matching the rest of the page's caption treatment.
+2. **Issue 2 (card status border, dots removed): CONFIRMED FIXED.** `.battery-trend-section` now carries class `battery-trend-section--ok` with `border-top: 3px solid rgb(22,163,74)` (green); the Unresolved-prefixes card carries `page-section--warn` with `border-top: 3px solid rgb(217,119,6)` (orange). Both dot+label indicators confirmed fully removed (0 remaining in each card). Screenshot confirms this reads clearly and consistently with the Device/Pipeline stat-tiles' own status-border treatment.
+3. **Item 6 (hover/focus survival — the plan's own flagged highest-risk item): CONFIRMED FIXED, empirically.** Captured the battery card's `border-top-color` before interaction (`rgb(22,163,74)`), then (a) called `.focus()` on a chart hit-target circle mid-chart (simulating keyboard arrow-key navigation landing inside the card) and (b) dispatched a real `mouseenter` on the card itself. Border color was **identical** in all three states — the specificity fix genuinely prevents the status color from vanishing during hover or keyboard chart navigation, closing the latent bug the plan discovered in the pre-existing `.stat-tile` pattern too.
+4. **Item 4 (does the 3px edge read right at full card width): visually confirmed via screenshot — reads clearly, not heavy-handed**, at ~846px card width. No numeric measurement taken, but no visual concern either.
+
+**Not performed:** dark theme, 375px width, real Safari, and a genuine VoiceOver pass (item 8, the plan's own explicit ask re: confirming no accessible state information was lost) — all remain for the developer's own testing. Item 9 of the plan (whether this task's hover/focus fix incidentally resolves 260902-ep7's still-inconclusive keyboard-interaction question) was not re-tested here since this task's fix is a CSS specificity fix unrelated to the 'focus' event dispatch issue traced to `document.hasFocus()` — the two are different mechanisms and this fix does not bear on that open question.
+
 ---
 *Phase: quick-260902-gjj*
 *Completed: 2026-09-02*
