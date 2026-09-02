@@ -18,7 +18,7 @@ accent-vs-warn pair, and nothing measured it — which is exactly how
 06.6.2's WCAG-AA accent darkening (#E8622C -> #B13F16) moved the accent
 to within dE76 22.9 / 15.9 degrees of --color-status-error #DC2626 with
 all 16 contrast checks still green, producing an app where the primary
-"Save Settings" button and the "something is wrong" banner edge read as
+"Save settings" button and the "something is wrong" banner edge read as
 the same brick red. Contrast and separation are orthogonal: two colours
 can have near-identical contrast against a shared background while being
 the same hue.
