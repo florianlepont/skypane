@@ -123,7 +123,18 @@ STARTUP_DEADLINE_S = 10.0
 # from either. Finding 5 (the readings-history disclosure header
 # clipping) shipped no code change and therefore adds no check; its
 # verdict is recorded in the SUMMARY, not the harness.
-EXPECTED_CHECK_COUNT = 82  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 82 + 2 (quick task 260902-bl2 Task 3: Check 1 — the Description column
+# is the only muted column end to end (markup + builder + stylesheet);
+# Check 2 — all three nested cards show one heading-to-content rhythm,
+# in both the empty and seeded state (markup + stylesheet)). Tasks 1-2's
+# in-place retargets (none were needed — no pre-existing check keyed on
+# a bare Description <td> or on the pre-fix heading-to-content gap) and
+# this task's live-HTTP extension of _both_tabs_ok_end_to_end() (the
+# desc-class cell count/position, plus a real STYLE_ROUTE fetch proving
+# the served stylesheet carries the description-column rule, the
+# demotion rule's new bottom margin and the prose rhythm rule's
+# selector) were done in place — no count change from either.
+EXPECTED_CHECK_COUNT = 84  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2089,6 +2100,79 @@ def main():
         "(quick task 260901-uzi finding 4, Check 2)",
         _nested_heading_tier_demoted_to_emphasis_role)
 
+    def _nested_card_heading_rhythm_end_to_end():
+        # quick task 260902-bl2 Task 3 (Check 2): bug 2's markup half (for
+        # each of the three nested cards, in both the empty and seeded
+        # state, the element immediately following </h2> is either the
+        # rhythm-governed p.text-body or a member of the no-top-margin
+        # allowlist Task 2 verified — or the card is empty) plus the
+        # stylesheet half (the demotion rule's longhand margin-bottom, the
+        # prose rhythm rule's selector list/declaration, and its position
+        # after the heading rule in source order).
+        allowed = ('<p class="text-body">', "<div ", "<details", "<svg ")
+        for seeded in (False, True):
+            tmp = _mkstate("h-card-rhythm-%s" % seeded)
+            try:
+                now = _now()
+                if seeded:
+                    _seed_device_health(tmp, [
+                        (_iso(now - timedelta(minutes=3)), 4200),
+                        (_iso(now - timedelta(minutes=1)), 4190),
+                    ])
+                    _seed_runway_events(tmp, [
+                        {"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+                    _seed_unresolved_prefixes(tmp, {
+                        "JAF": {"count": 4, "first_seen": _iso(now), "last_seen": _iso(now),
+                                "example_callsign": "JAF412"},
+                    })
+                rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+                for heading in (
+                        health_page.BATTERY_SECTION_HEADING,
+                        health_page.UNRESOLVED_SECTION_HEADING,
+                        health_page.STATS_SECTION_HEADING):
+                    heading_at = rendered.index(">%s" % heading)
+                    after = rendered[rendered.index("</h2>", heading_at) + len("</h2>"):]
+                    if after.startswith("</section>"):
+                        continue
+                    if not after.startswith(allowed):
+                        return False, (
+                            "seeded=%s: %r is followed by %r, outside the no-top-margin allowlist — "
+                            "either the new element needs the .page-section--nested/.battery-trend-section "
+                            "> p.text-body rhythm rule or its own zero-top-margin rule; this check is the "
+                            "replacement for the catch-all rule quick task 260902-bl2 deliberately declined"
+                            % (seeded, heading, after[:60]))
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        heading_sel_at = css_source.index(".page-section--nested > h2,")
+        heading_open = css_source.index("{", heading_sel_at)
+        heading_close = css_source.index("}", heading_open)
+        heading_body = css_source[heading_open:heading_close]
+        if "margin-bottom: var(--space-md)" not in heading_body:
+            return False, "expected the demotion rule to declare the sketch's medium bottom margin"
+        prose_sel_at = css_source.index(".page-section--nested > p.text-body")
+        if prose_sel_at < heading_close:
+            return False, "expected the prose rhythm rule to sit after the heading rule it pairs with"
+        prose_open = css_source.index("{", prose_sel_at)
+        prose_close = css_source.index("}", prose_open)
+        prose_selector_list = css_source[prose_sel_at:prose_open]
+        prose_body = css_source[prose_open:prose_close]
+        if ".battery-trend-section > p.text-body" not in prose_selector_list:
+            return False, "expected the prose rhythm rule to also cover .battery-trend-section > p.text-body"
+        if "margin: 0 0 var(--space-sm)" not in prose_body:
+            return False, "expected the prose rhythm rule to declare zero above and the small space below"
+        return True, ""
+    check(
+        "all three nested Health cards (Battery trend, Unresolved prefixes, Resolution statistics) show one "
+        "heading-to-content rhythm in both the empty and seeded state — the element after </h2> is either "
+        "rhythm-governed p.text-body or a member of the verified no-top-margin allowlist — and style.css's "
+        "demotion rule/prose rhythm rule carry the sketch's two margin values in the right source order "
+        "(quick task 260902-bl2 Task 3, Check 2)",
+        _nested_card_heading_rhythm_end_to_end)
+
     def _prose_table_opts_out_alone():
         # quick task 260901-uzi Task 4 (Check 3): finding 2's markup half
         # (exactly one table — the Resolution-statistics one, located from
@@ -2147,6 +2231,94 @@ def main():
         ".data-table with the shared max-content floor still intact on the base rule (quick task 260901-uzi "
         "finding 2, Check 3)",
         _prose_table_opts_out_alone)
+
+    def _desc_column_muted_end_to_end():
+        # quick task 260902-bl2 Task 3 (Check 1): bug 1's markup half (the
+        # Description column is the only muted column, located from
+        # health_page.STATS_SECTION_HEADING rather than a first-occurrence
+        # index; neither the registry table's slice nor the battery
+        # readings table's slice contains one) plus the builder half
+        # (layout.data_table()'s desc_columns contract, called directly)
+        # plus the stylesheet half (.data-table td.desc's declaration
+        # block, and the file-wide no-muted-token guard).
+        tmp = _mkstate("h-desc-column-muted")
+        try:
+            now = _now()
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+
+            expected = len(health_page._SOURCE_ROWS)
+            desc_count = rendered.count('<td class="desc">')
+            if desc_count != expected:
+                return False, (
+                    "expected exactly %d desc-class cells (one per _SOURCE_ROWS entry), got %d — an "
+                    "unclassed Description cell is the original full-black bug returning"
+                    % (expected, desc_count))
+
+            stats_at = rendered.index(health_page.STATS_SECTION_HEADING)
+            unresolved_at = rendered.index(health_page.UNRESOLVED_SECTION_HEADING)
+            battery_at = rendered.index(health_page.BATTERY_SECTION_HEADING)
+            first_desc_at = rendered.index('<td class="desc">')
+            if first_desc_at < stats_at:
+                return False, "expected every desc cell to live in the Resolution-statistics table (after its own heading)"
+            if unresolved_at < first_desc_at < stats_at:
+                return False, "the unresolved-prefix registry table must carry no desc cell"
+            if battery_at < first_desc_at < unresolved_at:
+                return False, "the battery readings table must carry no desc cell"
+
+            # Builder half — layout.data_table()'s desc_columns contract,
+            # called directly.
+            plain = layout.data_table(["A", "B"], [["1", "2"]])
+            if 'class="desc"' in plain or 'class="mono"' in plain:
+                return False, "expected the default data_table() output to carry no cell class at all"
+            mono_only = layout.data_table(["A", "B"], [["1", "2"]], mono_columns=(0,))
+            if '<td class="mono">1</td>' not in mono_only:
+                return False, "expected the mono-only output to stay byte-identical to its pre-desc_columns form"
+            desc_only = layout.data_table(["A", "B"], [["1", "2"]], desc_columns=(1,))
+            if desc_only.replace(' class="desc"', "") != plain:
+                return False, "expected desc_columns to change only the added class, nothing else"
+            both = layout.data_table(["A", "B"], [["1", "2"]], mono_columns=(0,), desc_columns=(0,))
+            if '<td class="mono desc">1</td>' not in both:
+                return False, "expected a cell named by both keywords to carry both classes, mono first"
+
+            # Stylesheet half.
+            css_path = os.path.join(HERE, "static", "style.css")
+            with open(css_path) as fh:
+                css_source = fh.read()
+            desc_css_at = css_source.index(".data-table td.desc {")
+            desc_body = css_source[desc_css_at:css_source.index("}", desc_css_at)]
+            if "color: color-mix(in srgb, var(--color-text) 70%, transparent)" not in desc_body:
+                return False, "expected .data-table td.desc to reuse the file's existing 70% muted strength"
+            if "min-width" in desc_body:
+                return False, (
+                    "a min-width in .data-table td.desc is the horizontal overflow .data-table--prose "
+                    "removed returning one breakpoint down")
+            if "opacity" in desc_body:
+                return False, "expected colour, not opacity — opacity would fade the cell's border hairline too"
+            if "var(--color-text-muted)" in css_source or "--color-text-muted:" in css_source:
+                # Note: the literal substring "--color-text-muted" appears
+                # elsewhere in this file as plain prose inside .cell-primary's
+                # own comment ("no --color-text-muted token exists..."),
+                # explaining why the token is NOT used — a bare substring
+                # match would false-positive on that sentence, so this
+                # checks for a real usage (var(...)) or declaration (...:)
+                # only.
+                return False, "a second muted value/token is the thing this stylesheet's own comments forbid"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Description column is the only muted column end to end — markup (exactly len(_SOURCE_ROWS) desc "
+        "cells, all inside Resolution-statistics), builder (data_table()'s desc_columns contract: inert "
+        "default, byte-identical mono-only output, additive-only desc-only output, both-roles joining mono "
+        "first) and stylesheet (.data-table td.desc's 70% muted colour, no min-width, no opacity, no muted "
+        "token anywhere in the file) (quick task 260902-bl2 Task 3, Check 1)",
+        _desc_column_muted_end_to_end)
 
     def _humanised_readout_end_to_end():
         # quick task 260901-uzi Task 4 (Check 4): finding 3's markup half
@@ -2811,13 +2983,53 @@ def main():
                         return False, (
                             "expected no raw ISO string in the real /health response's readout "
                             "own slice, got %r" % visible)
+
+                    # quick task 260902-bl2 Task 3: the automated half of
+                    # "verified against a real running service" for the
+                    # Description-column fix — a real subprocess, a real
+                    # login, a real seeded database, a real HTTP response,
+                    # not only an in-process render() call.
+                    desc_count = body_text.count('<td class="desc">')
+                    expected_desc = len(health_page._SOURCE_ROWS)
+                    if desc_count != expected_desc:
+                        return False, (
+                            "expected exactly %d desc-class cells in the real /health HTTP response "
+                            "body, got %d" % (expected_desc, desc_count))
+                    stats_at = body_text.index(health_page.STATS_SECTION_HEADING)
+                    first_desc_at = body_text.index('<td class="desc">')
+                    if first_desc_at < stats_at:
+                        return False, (
+                            "expected the desc-class cells to fall after the Resolution-statistics "
+                            "heading in the real /health HTTP response body")
+
+            # quick task 260902-bl2 Task 3: the automated half of "the new
+            # CSS is actually served" — companion/app.py's pre-auth
+            # STYLE_ROUTE, fetched from this same running service, proving
+            # the running process hands the new/changed rules to a
+            # browser, not only that the on-disk file says the right
+            # thing (Checks 1/2 above already cover the on-disk half).
+            css_status, _css_headers, css_body = http_request(
+                base + app.STYLE_ROUTE, cookie=session_cookie)
+            if css_status != 200:
+                return False, "expected 200 for %s, got %d" % (app.STYLE_ROUTE, css_status)
+            css_text = css_body.decode("utf-8", errors="replace")
+            for needle, label in (
+                    (".data-table td.desc {", "the description-column rule"),
+                    ("margin-bottom: var(--space-md)", "the demotion rule's new bottom margin"),
+                    (".page-section--nested > p.text-body", "the prose rhythm rule's selector")):
+                if needle not in css_text:
+                    return False, (
+                        "expected %s (%r) in the real %s response body" % (label, needle, app.STYLE_ROUTE))
             return True, ""
         check(
             "GET /health and GET /airlines both return 200 with their own page heading against a real running "
-            "service, and /health's real HTTP response body carries the page purpose, both section "
-            "descriptions, no duplicated freshness label, the nested modifier twice, the prose modifier once, "
-            "both readout spans, and no raw ISO in the readout's own slice (quick task 260901-tsa; extended in "
-            "place by quick task 260901-uzi finding 1/2/3/4)",
+            "service, /health's real HTTP response body carries the page purpose, both section descriptions, "
+            "no duplicated freshness label, the nested modifier twice, the prose modifier once, both readout "
+            "spans, no raw ISO in the readout's own slice, and the desc-class cells at their expected count "
+            "after the Resolution-statistics heading, and the real served stylesheet (STYLE_ROUTE) carries the "
+            "description-column rule, the demotion rule's new bottom margin and the prose rhythm rule's "
+            "selector (quick task 260901-tsa; extended in place by quick task 260901-uzi finding 1/2/3/4 and "
+            "quick task 260902-bl2 Task 3)",
             _both_tabs_ok_end_to_end)
 
     finally:
