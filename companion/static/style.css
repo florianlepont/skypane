@@ -2131,10 +2131,70 @@ summary::-webkit-details-marker {
  * catch that too, reproducing the exact `.stat-tile svg` collision
  * already fixed above (06.6.1-06-SUMMARY.md) in a second location this
  * rule was never updated for. `:not(.icon)` excludes it explicitly
- * rather than relying on the sparkline being the only match by luck. */
+ * rather than relying on the sparkline being the only match by luck.
+ *
+ * quick task 260902-dng (bug 1): `height: auto` was the defect. With
+ * `width: 100%` and an auto height, the browser's default `xMidYMid
+ * meet` scaling makes the uniform scale factor `containerWidth /
+ * viewBoxWidth` — unbounded above — so every SVG-user-unit value (the
+ * 10px axis-label font, `stroke-width: 2`, the r=3 markers, the r=8 hit
+ * targets) is multiplied by whatever that ratio happens to be. The
+ * developer measured this live: a 334-wide viewBox rendered at 846px in
+ * its full-width card at a 1280px viewport, a 2.53x blow-up (846/334) —
+ * 10px labels rendering at ~25px, 2px strokes at ~5px. Root cause: this
+ * chart's canvas was sized while it lived inside a narrow `.stat-tile`;
+ * 06.6.1 plan 03 moved it into its own full-width card and this rule was
+ * never recalibrated for the wider container.
+ *
+ * Real container-width range, derived from this file's own rules rather
+ * than the single 846px measurement (so the fix is provably bounded, not
+ * just observed correct at one viewport): at >= 960px, `.dashboard-shell`
+ * is `240px minmax(0, 1fr)` with a `--space-xl` (32px) column-gap, so the
+ * main column is `viewport - 272`; `.dashboard-main` then caps at
+ * `min(1440px, 100%)` and adds `--space-2xl`/`--space-3xl` (48/64px)
+ * padding, giving content width `min(1440, column) - 128`; this section's
+ * own `--space-md` (16px) padding plus its 1px border on each side
+ * subtracts another 34, so the SVG's containing block is `content - 34`.
+ * Below 960px, `.page-content` applies `--space-xl`/`--space-lg` (32/24px)
+ * padding, so content is `viewport - 48` and the SVG container is
+ * `viewport - 82`. Evaluated: 375px viewport -> 293px (the narrowest real
+ * container); 959px -> 877px; 960px -> 526px; 1280px -> 846px (matches
+ * the live measurement exactly, which is the proof this derivation is
+ * right); >= 1568px -> 1278px (the 1440px max-width caps it — the range
+ * is genuinely bounded above). Real range: 293px to 1278px, a 4.36x
+ * spread.
+ *
+ * The fix: replace the auto height with a FIXED pixel height equal to
+ * `battery_sparkline_svg()`'s own emitted `height` attribute (120, from
+ * its 366x120 viewBox — see health_page.py's canvas-constant comments).
+ * The effective uniform scale becomes `min(containerWidth / viewBoxWidth,
+ * cssHeight / viewBoxHeight)`; with cssHeight == the SVG's own height
+ * attribute, the second term is always exactly 1.0, which caps the whole
+ * expression at 1.0 by construction, at every container width, present
+ * and future — not just the one width anyone happened to measure. This
+ * equality (CSS declared height == SVG height attribute) is the entire
+ * mechanism; a harness check in test_status_pages.py pins it across both
+ * files, because a future edit to either number alone silently breaks
+ * the bound with no visual signal until someone measures again. A fixed
+ * height also stops the card's own height from changing with viewport
+ * width — a free second benefit.
+ *
+ * Rejected: the validated Merged Health Sketch's own strategy, pairing
+ * `preserveAspectRatio="none"` with this same fixed CSS height. That
+ * does hold the VERTICAL scale at exactly 1.0, but it lets the
+ * HORIZONTAL scale run independently at `containerWidth / viewBoxWidth`
+ * — over this file's real 293-1278px container range, that is 0.33x at
+ * a 375px viewport against the sketch's 900-wide viewBox. At 0.33x
+ * horizontal, the four axis labels' glyphs are squashed to a third of
+ * their natural width (illegible, overlapping) and the D-02 r=8
+ * keyboard hit targets become ~2.6px-wide slivers, breaking the tap-
+ * target floor phase 06.5 validated. The sketch's 900-wide viewBox is
+ * only ever near 1:1 around a 900px container, the one width it was
+ * ever viewed at. Uniform scaling with a 1.0 cap (this rule) keeps
+ * glyphs and circles undistorted at every width instead. */
 .battery-trend-section svg:not(.icon) {
   width: 100%;
-  height: auto;
+  height: 120px;
 }
 
 /* 06.6.4 (D-03) removes the D-14 dark-mode card-edge override that used

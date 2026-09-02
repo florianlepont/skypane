@@ -149,7 +149,16 @@ STARTUP_DEADLINE_S = 10.0
 # of FRESHNESS_SCRIPT_ROUTE proving the served script carries the
 # interval constant and the visibility-change listener) were all done in
 # place — no count change from either.
-EXPECTED_CHECK_COUNT = 89  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 89 + 1 (quick task 260902-dng Task 1: the battery-trend chart's
+# scale-bound check — viewBox/width/height/preserveAspectRatio parsed
+# off a real battery_sparkline_svg() return, the CSS declared height
+# parsed off style.css and asserted equal to the SVG's own height
+# attribute, min(containerWidth/viewBoxWidth, 1) computed at the five
+# derived real container widths and asserted within [0.80, 1.00], and
+# every emitted coordinate asserted inside the viewBox). The three
+# pre-existing sparkline checks pin no coordinate literals, so the
+# _AXIS_LEFT_GUTTER/plot_width/plot_height resize needed no retarget.
+EXPECTED_CHECK_COUNT = 90  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1159,6 +1168,110 @@ def main():
         "battery_sparkline_svg() emits exactly four aria-hidden axis-label text nodes carrying the fixture's real "
         "min/max mV values, with every prior no-external-reference guarantee intact (D-09)",
         _sparkline_axis_labels_present_with_real_min_max)
+
+    def _sparkline_scale_bounded_at_one_across_real_container_widths():
+        # quick task 260902-dng (bug 1): proves the whole scale-bound
+        # mechanism from source, not just that the function returns
+        # non-empty output. See health_page.py's _AXIS_LEFT_GUTTER
+        # comment and style.css's .battery-trend-section svg:not(.icon)
+        # comment for the full derivation this check pins.
+        #
+        # Real container-width range, derived from this file's own CSS
+        # chain (reproduced here rather than re-imported, so this check
+        # fails loudly if the CSS derivation and this comment ever
+        # diverge): >= 960px, .dashboard-shell's 240px + --space-xl
+        # (32px) column-gap leaves `viewport - 272` for the main column;
+        # .dashboard-main caps at min(1440px, 100%) and adds
+        # --space-2xl/--space-3xl (48/64px) padding, giving content width
+        # `min(1440, column) - 128`; .battery-trend-section's own
+        # --space-md (16px) padding plus its 1px border on each side
+        # subtracts 34 more. Below 960px, .page-content's --space-xl/
+        # --space-lg (32/24px) padding leaves `viewport - 48` for
+        # content, then another 34 for the section's own padding+border.
+        # Evaluated: 375px viewport -> 293px; 959px -> 877px;
+        # 960px -> 526px; 1280px -> 846px; >= 1568px -> 1278px (the
+        # 1440px max-width caps it).
+        container_widths = [293, 526, 846, 877, 1278]
+
+        rows = [
+            {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
+            for i in range(5)]
+        svg = health_page.battery_sparkline_svg(rows)
+
+        vb_match = re.search(r'viewBox="0 0 (\d+) (\d+)"', svg)
+        if vb_match is None:
+            return False, "expected a `viewBox=\"0 0 W H\"` attribute on the sparkline <svg>"
+        vb_w, vb_h = int(vb_match.group(1)), int(vb_match.group(2))
+
+        w_match = re.search(r'\bwidth="(\d+)"', svg)
+        h_match = re.search(r'\bheight="(\d+)"', svg)
+        if w_match is None or h_match is None:
+            return False, "expected width/height attributes on the sparkline <svg>"
+        if int(w_match.group(1)) != vb_w or int(h_match.group(1)) != vb_h:
+            return False, (
+                "expected the <svg> width/height attributes to equal the viewBox "
+                "dimensions, got width=%s height=%s against viewBox %dx%d"
+                % (w_match.group(1), h_match.group(1), vb_w, vb_h))
+
+        if 'preserveAspectRatio="' not in svg:
+            return False, "expected an explicit preserveAspectRatio attribute on the sparkline <svg>"
+
+        css = open(os.path.join(HERE, "static", "style.css")).read()
+        rule_match = re.search(
+            r'\.battery-trend-section svg:not\(\.icon\)\s*\{([^}]*)\}', css)
+        if rule_match is None:
+            return False, "expected a `.battery-trend-section svg:not(.icon)` rule in style.css"
+        css_h_match = re.search(r'height:\s*(\d+)px', rule_match.group(1))
+        if css_h_match is None:
+            return False, "expected a fixed px `height` declaration on `.battery-trend-section svg:not(.icon)`"
+        css_h = int(css_h_match.group(1))
+
+        # This equality is the entire mechanism: with the CSS declared
+        # height equal to the SVG's own height attribute, the height
+        # term of min(cW/viewBoxW, cssH/viewBoxH) is always exactly 1.0,
+        # which caps the whole expression at 1.0 by construction.
+        if css_h != vb_h:
+            return False, (
+                "the CSS declared height (%dpx) must equal the sparkline SVG's "
+                "own height attribute (%d) — this equality is the entire "
+                "mechanism that bounds the chart's scale at 1.0" % (css_h, vb_h))
+
+        scales = [min(cw / vb_w, css_h / vb_h) for cw in container_widths]
+        for cw, scale in zip(container_widths, scales):
+            if not (0.80 <= scale <= 1.00):
+                return False, (
+                    "expected the scale factor at a %dpx container to be within "
+                    "[0.80, 1.00], got %.4f (viewBox %dx%d, css height %dpx)"
+                    % (cw, scale, vb_w, vb_h, css_h))
+
+        # Every emitted coordinate must fall inside the viewBox box —
+        # polyline points, marker/hit-target cx/cy, and axis-label x/y.
+        coords = []
+        pts_match = re.search(r'<polyline points="([^"]+)"', svg)
+        if pts_match is None:
+            return False, "expected a <polyline points=\"...\"> element"
+        for pair in pts_match.group(1).split():
+            px, py = pair.split(",")
+            coords.append((float(px), float(py), "polyline point"))
+        for cx, cy in re.findall(r'cx="([\d.]+)" cy="([\d.]+)"', svg):
+            coords.append((float(cx), float(cy), "circle cx/cy"))
+        for x, y in re.findall(r'<text class="sparkline-axis-label" x="([\d.]+)" y="([\d.]+)"', svg):
+            coords.append((float(x), float(y), "axis-label x/y"))
+        if len(coords) < 5 + 5 + 5 + 4:  # 5 polyline points, 5 markers, 5 hit targets, 4 labels
+            return False, "expected at least 19 emitted coordinates for a 5-row fixture, got %d" % len(coords)
+        for x, y, kind in coords:
+            if not (0 <= x <= vb_w and 0 <= y <= vb_h):
+                return False, (
+                    "expected every %s to fall inside the 0..%d x 0..%d viewBox, "
+                    "found (%.1f, %.1f)" % (kind, vb_w, vb_h, x, y))
+
+        return True, ""
+    check(
+        "battery_sparkline_svg()'s viewBox/width/height/preserveAspectRatio, style.css's matching fixed SVG "
+        "height, and the resulting min(containerWidth/viewBoxWidth, 1) scale factor stay within [0.80, 1.00] "
+        "across the derived 293-1278px real container-width range, with every emitted coordinate inside the "
+        "viewBox (quick task 260902-dng bug 1)",
+        _sparkline_scale_bounded_at_one_across_real_container_widths)
 
     def _battery_readout_seeded_with_latest_reading_not_placeholder():
         # quick task 260901-uzi (finding 3): rebuilds the expected markup

@@ -387,14 +387,39 @@ def battery_trend_rows(conn):
     return history_db.recent_device_health(conn, limit=BATTERY_TREND_LIMIT)
 
 
-# D-09/§5.3: reserved space grown around the original 300x60 plot area
-# for the four axis labels — a left gutter for the two Y-axis (min/max
-# mV) labels, and a bottom strip for the two X-axis (oldest/newest
+# D-09/§5.3: reserved space grown around the 322x106 plot area for the
+# four axis labels — a left gutter for the two Y-axis (min/max mV)
+# labels, and a bottom strip for the two X-axis (oldest/newest
 # clock-time) labels. The polyline/marker/hit-target math below derives
 # its plot area from these constants rather than hardcoding the old
 # padding against the larger box, so a future size tweak only needs to
 # change these two numbers.
-_AXIS_LEFT_GUTTER = 34  # room for a "4200 mV"-shaped label, 10px font.
+#
+# quick task 260902-dng (bug 1): both constants, and plot_width/
+# plot_height below, were resized together to fix a 2.53x scale-up
+# defect — see the long comment on `.battery-trend-section svg:not(.icon)`
+# in style.css for the full container-width derivation and the
+# min(cW/viewBoxW, 1) bound this resize exists to satisfy. In short: the
+# canvas was never recalibrated after 06.6.1 plan 03 moved this chart out
+# of a narrow .stat-tile into its own full-width card, so the CSS's old
+# `height: auto` scaled a 334-wide viewBox up to as much as 846px wide —
+# a 2.53x blow-up of every SVG-user-unit value (10px labels rendering at
+# ~25px, 2px strokes at ~5px). The fix bounds the CSS height instead of
+# leaving it auto, which caps the scale at 1.0 by construction; widening
+# the viewBox itself (this resize) is what keeps that 1.0-capped chart
+# legible rather than shrunk, while staying under the 366px width that
+# the narrowest real container (293px, a 375px viewport) can still show
+# at >= 0.80 scale.
+#
+# _AXIS_LEFT_GUTTER grew from 34 to 44: 34 user units was sized for a
+# "4200 mV"-shaped label (7 characters) at the 10px .sparkline-axis-label
+# size plus the label's own x="2" inset, which under-measures a 10px
+# sans-ish label at roughly 0.6em/char (7 * 6 = 42, + the 2px inset = 44).
+# This under-measure was invisible while the whole chart rendered 2.53x
+# oversized (a 34-unit gutter still read as ~86px on screen); it is
+# corrected here because it becomes visible for the first time at true
+# 1:1 scale.
+_AXIS_LEFT_GUTTER = 44  # room for a "4200 mV"-shaped label, 10px font.
 _AXIS_BOTTOM_STRIP = 14  # room for one "HH:MM"-shaped label line.
 
 
@@ -505,7 +530,11 @@ def battery_sparkline_svg(rows, now=None):
         return ""
     values = [value for value, _ts in pairs]
 
-    plot_width, plot_height, padding = 300, 60, 4
+    # quick task 260902-dng (bug 1): 300x60 -> 322x106 (viewBox 366x120
+    # once the axis gutter/strip are added) — see _AXIS_LEFT_GUTTER's own
+    # comment above and .battery-trend-section svg:not(.icon)'s comment in
+    # style.css for the full derivation this canvas size satisfies.
+    plot_width, plot_height, padding = 322, 106, 4
     width = plot_width + _AXIS_LEFT_GUTTER
     height = plot_height + _AXIS_BOTTOM_STRIP
     usable_w = plot_width - 2 * padding
@@ -576,8 +605,20 @@ def battery_sparkline_svg(rows, now=None):
     # events go to the topmost element, so the transparent hit targets
     # must come last (after the cosmetic markers) or the cosmetic dots
     # would intercept taps meant for the hit targets underneath.
+    # quick task 260902-dng (bug 1): explicit preserveAspectRatio, rather
+    # than the SVG default (xMidYMid meet). xMinYMid left-aligns the chart
+    # within the section's now-fixed-height container at wide viewports
+    # (where the container is wider than the 366-unit viewBox after the
+    # scale is capped at 1.0), so the chart's left edge lines up with the
+    # readout text above it instead of the default centring splitting the
+    # spare width on both sides. "meet" (not "slice") is unchanged from
+    # the SVG default — the whole viewBox must stay visible, never
+    # cropped. See style.css's rejection of preserveAspectRatio="none"
+    # (which would instead stretch to fill, distorting glyphs/circles at
+    # narrow widths) on .battery-trend-section svg:not(.icon).
     return (
         '<svg viewBox="0 0 %d %d" width="%d" height="%d" '
+        'preserveAspectRatio="xMinYMid meet" '
         'xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Battery trend">'
         '<polyline points="%s" fill="none" stroke="currentColor" stroke-width="2"/>'
         "%s%s%s"
