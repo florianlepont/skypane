@@ -259,7 +259,7 @@ STARTUP_DEADLINE_S = 10.0
 # developer's own request and removed outright), and the
 # .lightbox--wide max-width cross-file pin against
 # illustration_normalize.ILLUSTRATION_TARGET_WIDTH).
-EXPECTED_CHECK_COUNT = 116  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks)
+EXPECTED_CHECK_COUNT = 122  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -4857,6 +4857,190 @@ def main():
         ".lightbox--wide's max-width equals illustration_normalize.ILLUSTRATION_TARGET_WIDTH — a future change "
         "to the normalized frame size cannot silently leave the dialog capped at a stale width",
         _lightbox_wide_max_width_matches_illustration_target_width)
+
+    # ------------------------------------------------------------------
+    # quick task 260902-v26: the per-card "replace this image" control.
+    # ------------------------------------------------------------------
+
+    def _replace_form_action_matches_route_membership():
+        tmp = _mkstate("a-replace-action-membership")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            targets = set(illustrations.target_filenames())
+            prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
+            actions = re.findall(r'<form class="airline-card__replace-form"[^>]*\baction="([^"]+)"', rendered)
+            expected = len(illustrations.target_airline_names())
+            if len(actions) != expected:
+                return False, "expected %d replace forms (one per target airline), got %d" % (expected, len(actions))
+            for action in actions:
+                if not action.startswith(prefix) or not action.endswith(".png"):
+                    return False, "expected every replace form action to be %s{key}.png, got %r" % (prefix, action)
+                filename = action[len(prefix):]
+                if filename not in targets:
+                    return False, "%r is not a member of illustrations.target_filenames()" % (filename,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every rendered card carries exactly one replace form (one per illustrations.target_airline_names() "
+        "entry) whose action, with the route prefix stripped, is a member of illustrations.target_filenames() "
+        "— mirroring the existing image-source membership check",
+        _replace_form_action_matches_route_membership)
+
+    def _replace_form_declares_post_and_multipart_enctype():
+        tmp = _mkstate("a-replace-method-enctype")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            forms = re.findall(r'<form class="airline-card__replace-form"[^>]*>', rendered)
+            expected = len(illustrations.target_airline_names())
+            if len(forms) != expected:
+                return False, "expected %d replace forms, got %d" % (expected, len(forms))
+            for form_tag in forms:
+                if 'method="post"' not in form_tag:
+                    return False, "expected method=\"post\" in %r" % (form_tag,)
+                if 'enctype="multipart/form-data"' not in form_tag:
+                    return False, (
+                        "expected enctype=\"multipart/form-data\" in %r — a form missing the enctype would "
+                        "silently send the file as a filename string, a real failure mode" % (form_tag,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every replace form declares method=\"post\" and enctype=\"multipart/form-data\" — a missing enctype "
+        "would silently send the file as a filename string, a real failure mode, not a formality",
+        _replace_form_declares_post_and_multipart_enctype)
+
+    def _replace_form_file_input_ids_are_unique_and_labelled():
+        tmp = _mkstate("a-replace-input-ids")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            input_ids = re.findall(r'<input type="file" id="([^"]+)"', rendered)
+            expected = len(illustrations.target_airline_names())
+            if len(input_ids) != expected:
+                return False, "expected %d file inputs, got %d" % (expected, len(input_ids))
+            if len(set(input_ids)) != len(input_ids):
+                return False, "expected every file input id to be unique, got duplicates in %r" % (input_ids,)
+            label_fors = set(re.findall(r'<label for="([^"]+)">', rendered))
+            for input_id in input_ids:
+                if input_id not in label_fors:
+                    return False, "expected a <label for=\"%s\"> matching that file input's id" % (input_id,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "every replace-form file input id is unique across the whole rendered page, and each is the target of "
+        "a label's for attribute",
+        _replace_form_file_input_ids_are_unique_and_labelled)
+
+    def _cache_buster_absent_with_no_state_dir_and_keyed_on_mtime_with_an_override():
+        rendered_no_state = airlines_page.render(_ctx(None))
+        if "?v=" in rendered_no_state:
+            return False, "expected no cache-busting query string anywhere when ctx carries no effective state_dir"
+
+        tmp = _mkstate("a-cache-buster")
+        try:
+            key = illustrations.normalise_airline_key("Air France")
+            override_dir = os.path.join(tmp, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME)
+            os.makedirs(override_dir)
+            override_path = os.path.join(override_dir, key + ".png")
+            with open(override_path, "wb") as fh:
+                fh.write(b"not a real png - only this file's own mtime matters to this check")
+            mtime = int(os.stat(override_path).st_mtime)
+
+            rendered = airlines_page.render(_ctx(tmp))
+            expected_url = "%s%s.png?v=%d" % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key, mtime)
+            img_srcs = re.findall(r'<img class="airline-card__image" src="([^"]+)"', rendered)
+            zoom_srcs = re.findall(r'data-view-panel-src="([^"]+)"', rendered)
+            if img_srcs.count(expected_url) != 1:
+                return False, "expected exactly one <img src> equal to %r, got %r" % (expected_url, img_srcs)
+            if zoom_srcs.count(expected_url) != 1:
+                return False, (
+                    "expected exactly one data-view-panel-src equal to %r, got %r" % (expected_url, zoom_srcs))
+            for src in img_srcs:
+                if src != expected_url and "?v=" in src:
+                    return False, "expected only Air France's <img src> to carry a cache buster, found one on %r" % (src,)
+            for src in zoom_srcs:
+                if src != expected_url and "?v=" in src:
+                    return False, (
+                        "expected only Air France's data-view-panel-src to carry a cache buster, found one on "
+                        "%r" % (src,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "render() with no effective state_dir produces no cache-busting query string anywhere; with a "
+        "state_dir whose override directory holds Air France's override file, exactly one URL is busted, "
+        "keyed on that file's own mtime, identically in both the <img src> and the zoom trigger's "
+        "data-view-panel-src, and every other card's URL stays unbusted",
+        _cache_buster_absent_with_no_state_dir_and_keyed_on_mtime_with_an_override)
+
+    def _replace_control_escapes_hostile_airline_name():
+        # A hostile airline name can only reach this page through
+        # illustrations.target_variants_by_airline() itself (a curated
+        # in-repo list, never user input) - monkeypatched for the
+        # duration of this check only, mirroring the monkeypatch-and-
+        # restore technique companion/test_config_page.py's own THEME_IDS
+        # checks already use.
+        original_target_variants_by_airline = illustrations.target_variants_by_airline
+        hostile_name = '<script>alert(1)</script>"'
+        illustrations.target_variants_by_airline = lambda: [(hostile_name, [])]
+        try:
+            rendered = airlines_page.render({})
+        finally:
+            illustrations.target_variants_by_airline = original_target_variants_by_airline
+        if hostile_name in rendered:
+            return False, "the raw hostile airline name survived unescaped somewhere in the rendered page"
+        if "<script>" in rendered:
+            return False, "a raw '<script>' fragment from the hostile name survived into the rendered page"
+        escaped_summary = layout.escape_html(airlines_page.REPLACE_SUMMARY_TEMPLATE % hostile_name)
+        escaped_label = layout.escape_html(airlines_page.REPLACE_LABEL_TEMPLATE % hostile_name)
+        if escaped_summary not in rendered:
+            return False, "expected the escaped replace-summary text %r in the rendered page" % (escaped_summary,)
+        if escaped_label not in rendered:
+            return False, "expected the escaped replace-label text %r in the rendered page" % (escaped_label,)
+        return True, ""
+    check(
+        "a hostile airline name reaching the replace control's summary text, label text and input id is "
+        "escaped, never interpolated raw (extends T-06.6.4.1-05's existing discipline to this feature's new "
+        "interpolation points)",
+        _replace_control_escapes_hostile_airline_name)
+
+    def _replace_disclosure_contains_no_revert_or_reset_control():
+        tmp = _mkstate("a-no-revert-control")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        disclosures = re.findall(r'<details class="airline-card__replace">.*?</details>', rendered, re.DOTALL)
+        expected = len(illustrations.target_airline_names())
+        if len(disclosures) != expected:
+            return False, "expected %d replace disclosures, got %d" % (expected, len(disclosures))
+        # Scoped to each replace disclosure's own markup, and to this
+        # feature's own copy constants - not a bare negative grep over
+        # the whole rendered document, which would be brittle against
+        # unrelated future copy elsewhere on the page (D-04).
+        revert_shaped_words = ("revert", "reset", "restore", "undo", "original")
+        for disclosure in disclosures:
+            lowered = disclosure.lower()
+            for word in revert_shaped_words:
+                if word in lowered:
+                    return False, (
+                        "expected no revert-shaped word %r inside a replace disclosure (D-04), found in %r"
+                        % (word, disclosure))
+        for constant_text in (
+            airlines_page.REPLACE_SUMMARY_TEMPLATE, airlines_page.REPLACE_LABEL_TEMPLATE,
+            airlines_page.REPLACE_BUTTON_TEXT,
+        ):
+            lowered_constant = constant_text.lower()
+            for word in revert_shaped_words:
+                if word in lowered_constant:
+                    return False, "expected %r to not contain revert-shaped word %r" % (constant_text, word)
+        return True, ""
+    check(
+        "no replace disclosure anywhere in the rendered Airlines gallery offers restoring or resetting the "
+        "original image (D-04, explicitly out of scope) - checked both within each disclosure's own markup "
+        "and as a membership test over this feature's own copy constants",
+        _replace_disclosure_contains_no_revert_or_reset_control)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,

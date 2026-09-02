@@ -66,12 +66,15 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 44  # 43 + 1 (quick task 260902-tli Task 2: the
+EXPECTED_CHECK_COUNT = 45  # 43 + 1 (quick task 260902-tli Task 2: the
 # airlines_page/history_page cross-module LIGHTBOX_DIALOG_ID/
 # _VIEW_PANEL_*_ATTR equality guard. _lightbox_dom_contract_three_file_
 # guard() was widened in place to also assert the six shared tokens
 # against a real airlines_page.render() output - no count change from
-# that retarget).
+# that retarget) + 1 (quick task 260902-v26 Task 3: render({}) with a
+# literal empty dict still contains the .illustration-grid gallery
+# container, pinning the ctx.get("state_dir") tolerance render(ctx) grew
+# in this task).
 # 43 = 06.6.4.1-08 Task 3: 56 - 16 (Section 2's whole
 # companion/pages/preview_page.py-specific test section deleted outright —
 # the module itself is deleted, and every one of its 16 checks either has
@@ -1410,6 +1413,22 @@ def main():
         "airlines_page's LIGHTBOX_DIALOG_ID and its three _VIEW_PANEL_*_ATTR constants each equal "
         "history_page's own values (the duplicated-not-imported shared-lightbox contract)",
         _airlines_lightbox_constants_match_history)
+
+    def _airlines_render_empty_ctx_still_contains_gallery_grid():
+        # quick task 260902-v26 threaded an optional state_dir read
+        # through render(ctx) via ctx.get("state_dir") - this pins that
+        # render({}) with a literal empty dict (exactly what
+        # _lightbox_dom_contract_three_file_guard() above already calls)
+        # still succeeds and its output still contains the gallery grid,
+        # not just that it doesn't raise.
+        rendered = airlines_page.render({})
+        if "illustration-grid" not in rendered:
+            return False, "expected render({}) to still contain the .illustration-grid gallery container"
+        return True, ""
+    check(
+        "airlines_page.render({}) with a literal empty dict still succeeds and its output still contains the "
+        "gallery grid (quick task 260902-v26's ctx.get(\"state_dir\") tolerance)",
+        _airlines_render_empty_ctx_still_contains_gallery_grid)
 
     # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's
