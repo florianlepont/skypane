@@ -33,6 +33,7 @@ Startup refusal: `main()` calls `companion.auth.configured_password()`
 before binding the socket. A missing password fails closed — this
 service must never come up with authentication silently disabled.
 """
+import email.message
 import os
 import socket
 import sys
@@ -69,6 +70,13 @@ POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abus
 PREVIEW_THUMB_WIDTH = 600  # nearest-neighbour cap for a faster mobile load (D-22).
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
+# quick task 260902-v26: comfortably above any real high-resolution
+# transparent aircraft PNG — every vendored asset in
+# server/assets/icons/illustrations/ is well under this — while bounding
+# a single request's peak memory to a few MB on a CX22-class VPS.
+# Enforcing this size is the caller's job (Handler._read_upload_body(),
+# plan 02's Task 2), not parse_single_uploaded_file()'s own.
+MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
 # WR-03: bounds how long a single connection's socket reads (including the
 # unauthenticated POST /login body read in read_form()) may block on a
 # slow/stalled client. Without this, a client that opens a connection with
@@ -357,6 +365,87 @@ def _illustration_filenames():
 
 
 _ILLUSTRATION_FILENAMES = _illustration_filenames()
+
+
+def parse_single_uploaded_file(content_type, body):
+    """Parse a `multipart/form-data` body known to hold exactly one file
+    part, returning that part's raw payload `bytes`, or `None` for
+    anything that doesn't match that exact shape. Never raises, for any
+    input including `None`/empty/truncated/binary-garbage `body` and a
+    `None` `content_type` — every failure mode degrades to `None`
+    (quick task 260902-v26, matching `read_form()`'s own never-raises
+    discipline above).
+
+    This is deliberately NOT a general multipart parser. The one form
+    this route ever serves carries a single file input and nothing else,
+    so refusing anything but exactly one part is the smallest
+    provably-correct behaviour, not an arbitrary restriction — a second
+    part, a missing part, or a malformed delimiter structure all return
+    `None` rather than being tolerated or best-effort-parsed.
+
+    The part's header block (its declared filename, field name, and
+    declared media type) is discarded entirely and never parsed — by
+    construction, not merely by convention, this function has no code
+    path that reads a client-declared filename. The destination path an
+    upload is eventually written to is derived solely from the URL key
+    the caller has already membership-validated (`_ILLUSTRATION_FILENAMES`),
+    never from anything in this body. Likewise, a client-declared media
+    type is not evidence of anything: `illustrations.validate_illustration_
+    file()`'s own Pillow-based header read is the sole authority on
+    "is this really an image", not this parser and not this header block.
+
+    Enforcing `MAX_ILLUSTRATION_UPLOAD_BYTES` is the caller's
+    responsibility (`Handler._read_upload_body()`, plan 02's Task 2), not
+    this function's — this parser only ever sees bytes the caller already
+    decided to hand it and never independently bounds anything by size.
+
+    Boundary/media-type parsing uses `email.message.Message` (assign the
+    raw header value, then `get_content_type()`/`get_param("boundary")`)
+    — the non-deprecated stdlib replacement for `cgi.parse_header` on
+    this project's pinned Python 3.11 venv. Do not "modernise" this back
+    to the `cgi` module: it is deprecated there and removed outright in
+    Python 3.13.
+    """
+    try:
+        message = email.message.Message()
+        message["content-type"] = content_type
+        if message.get_content_type() != "multipart/form-data":
+            return None
+        boundary = message.get_param("boundary")
+        if not isinstance(boundary, str) or not boundary:
+            return None
+        boundary_bytes = boundary.encode("ascii")
+        if len(boundary_bytes) > 70:  # RFC 2046 boundary length ceiling.
+            return None
+
+        delimiter = b"--" + boundary_bytes
+        segments = body.split(delimiter)
+        # Exactly one part: a preamble, the part itself, and an epilogue.
+        # Zero parts, two-or-more parts, and a missing closing delimiter
+        # all produce a different segment count and are rejected here.
+        if len(segments) != 3:
+            return None
+        preamble, part, epilogue = segments
+        if preamble.strip(b"\r\n \t") != b"":
+            return None
+        if not epilogue.startswith(b"--"):
+            return None
+
+        if not part.startswith(b"\r\n"):
+            return None
+        part = part[2:]
+        header_block, separator, payload = part.partition(b"\r\n\r\n")
+        if not separator:
+            return None
+        del header_block  # deliberately discarded — see docstring above.
+
+        if payload.endswith(b"\r\n"):
+            payload = payload[:-2]
+        if not payload:
+            return None
+        return payload
+    except Exception:
+        return None
 
 
 class Handler(BaseHTTPRequestHandler):

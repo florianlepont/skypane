@@ -62,10 +62,15 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
+# 116 = 108 + 8 (quick task 260902-v26 Plan 02 Task 1: parse_single_
+# uploaded_file()'s 8 in-process checks — happy path with a traversal-
+# shaped declared filename, two-part rejection, non-multipart media type,
+# missing boundary, empty body, missing header/body separator, None
+# content_type, empty file-part payload).
 # 108 + 0 (quick task 260902-tli Task 2: the panel-lookup.js banned-token
 # check retargeted in place — matchMedia/innerWidth added to the tuple,
 # pinning the CSS-only gate — no new check, no count change).
-EXPECTED_CHECK_COUNT = 108  # quick task 260902-qkm (2026-09-02): 1 new
+EXPECTED_CHECK_COUNT = 116  # quick task 260902-qkm (2026-09-02): 1 new
 # check pinning both nav-link geometries apart after restoring
 # .mobile-nav__link's 44px/Body-size tap target (D-05 reached it by
 # mistake) while .sidebar-link keeps its D-05 32px/Label-size compaction.
@@ -283,6 +288,31 @@ def _sign_with_secret(payload, secret):
     signature = hmac.new(
         secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return "%s.%s" % (payload, signature)
+
+
+def _encode_multipart(
+        payload, boundary=b"SkyPaneTestBoundary7Q2vpH",
+        filename="upload.png", field_name="file", content_type="image/png"):
+    """Hand-build a single-file `multipart/form-data` body — quick task
+    260902-v26. This harness deliberately does not import a multipart-
+    encoding library, matching `companion.app.parse_single_uploaded_
+    file()`'s own zero-third-party-dependency discipline. Returns
+    `(body_bytes, content_type_header)`, shared by both the in-process
+    parser checks (Section 2/Task 1) and the real-HTTP round-trip checks
+    (Section 3/Task 3) so every caller builds a request the same way.
+    """
+    boundary_str = boundary.decode("ascii")
+    header = (
+        'Content-Disposition: form-data; name="%s"; filename="%s"\r\n'
+        'Content-Type: %s\r\n\r\n'
+    ) % (field_name, filename, content_type)
+    body = (
+        b"--" + boundary + b"\r\n"
+        + header.encode("utf-8")
+        + payload
+        + b"\r\n--" + boundary + b"--\r\n"
+    )
+    return body, "multipart/form-data; boundary=%s" % boundary_str
 
 
 def main():
@@ -1327,6 +1357,114 @@ def main():
             "implements the hidden-attribute/transitionend/reduced-motion state machine, matched "
             "by style.css's .js-scoped clipping rules",
             _nav_dropdown_js_progressive_enhancement_state_machine)
+
+        # --- 260902-v26 Task 1: parse_single_uploaded_file(), stdlib-only ---
+        # --- single-part multipart parser. Pure in-process checks — no   ---
+        # --- Harness needed, unlike Section 3 below.                    ---
+
+        import companion.app as app_module
+
+        _VALID_UPLOAD_PAYLOAD = b"\x89PNG-fixture-bytes-not-a-real-decodable-png"
+
+        def _parser_happy_path_ignores_traversal_filename():
+            body, content_type = _encode_multipart(
+                _VALID_UPLOAD_PAYLOAD, filename="../../../etc/passwd")
+            result = app_module.parse_single_uploaded_file(content_type, body)
+            if result != _VALID_UPLOAD_PAYLOAD:
+                return False, (
+                    "expected the payload back even with a traversal-shaped "
+                    "declared filename, got %r" % (result,))
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns the payload for a well-formed single-part body, "
+            "even when the part header declares a traversal-shaped filename (never read)",
+            _parser_happy_path_ignores_traversal_filename)
+
+        def _parser_two_parts_returns_none():
+            boundary = b"SkyPaneTwoPartBoundary9k2"
+            body = (
+                b"--" + boundary + b"\r\n"
+                b'Content-Disposition: form-data; name="a"; filename="a.png"\r\n\r\n'
+                b"AAAA\r\n"
+                b"--" + boundary + b"\r\n"
+                b'Content-Disposition: form-data; name="b"; filename="b.png"\r\n\r\n'
+                b"BBBB\r\n"
+                b"--" + boundary + b"--\r\n"
+            )
+            content_type = "multipart/form-data; boundary=%s" % boundary.decode("ascii")
+            result = app_module.parse_single_uploaded_file(content_type, body)
+            if result is not None:
+                return False, "expected None for a two-part body, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for a two-part body — this route accepts "
+            "exactly one file part and nothing else",
+            _parser_two_parts_returns_none)
+
+        def _parser_urlencoded_media_type_returns_none():
+            result = app_module.parse_single_uploaded_file(
+                "application/x-www-form-urlencoded", b"field=value")
+            if result is not None:
+                return False, "expected None for a non-multipart media type, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for a non-multipart media type",
+            _parser_urlencoded_media_type_returns_none)
+
+        def _parser_missing_boundary_returns_none():
+            body, _content_type = _encode_multipart(_VALID_UPLOAD_PAYLOAD)
+            result = app_module.parse_single_uploaded_file("multipart/form-data", body)
+            if result is not None:
+                return False, "expected None with no boundary parameter, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None when the boundary parameter is missing",
+            _parser_missing_boundary_returns_none)
+
+        def _parser_empty_body_returns_none():
+            result = app_module.parse_single_uploaded_file(
+                "multipart/form-data; boundary=anything", b"")
+            if result is not None:
+                return False, "expected None for an empty body, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for an empty body",
+            _parser_empty_body_returns_none)
+
+        def _parser_missing_header_body_separator_returns_none():
+            boundary = b"SkyPaneNoSepBoundaryF4x"
+            body = (
+                b"--" + boundary + b"\r\n"
+                b"No blank line separates this from anything\r\n"
+                b"--" + boundary + b"--\r\n"
+            )
+            content_type = "multipart/form-data; boundary=%s" % boundary.decode("ascii")
+            result = app_module.parse_single_uploaded_file(content_type, body)
+            if result is not None:
+                return False, "expected None with no header/body CRLFCRLF separator, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None when the part has no header/body separator",
+            _parser_missing_header_body_separator_returns_none)
+
+        def _parser_none_content_type_returns_none():
+            result = app_module.parse_single_uploaded_file(None, b"anything at all")
+            if result is not None:
+                return False, "expected None for a None content_type, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for a None content_type",
+            _parser_none_content_type_returns_none)
+
+        def _parser_empty_payload_returns_none():
+            body, content_type = _encode_multipart(b"")
+            result = app_module.parse_single_uploaded_file(content_type, body)
+            if result is not None:
+                return False, "expected None for an empty file part payload, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for an empty file part payload",
+            _parser_empty_payload_returns_none)
 
     finally:
         if previous_password is not None:
