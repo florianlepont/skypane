@@ -43,10 +43,6 @@ All three verified together in one live screenshot: real running `companion/app.
 
 `companion/test_status_pages.py`: 116/116 (the stylesheet-contract check rewritten in place to pin the gate's *absence* rather than its presence, so it cannot silently return). `ruff check companion/`: clean. `scripts/run-all-tests.sh`: fully green throughout.
 
-## Outstanding — Task 3 checkpoint, still open
+## Task 3 checkpoint — approved
 
-Not yet approved by the developer. Needs a real browser and, ideally, a real phone in both orientations (this session already found once that computed-style/emulation checks alone can miss a real device bug):
-
-1. **Desktop**: hover shows a zoom cursor; click opens the dialog with the illustration enlarged, no note gap, correct caption, no distortion, legible in both light and dark mode; Escape closes it; clicking a different card shows that card's own aircraft.
-2. **Phone, either orientation**: tapping the illustration always opens the dialog now (the orientation gate is gone) — confirm the enlarged image reads well in both portrait and landscape.
-3. **History's own lightbox still works** — it shares the same script, dialog id, and now the same `color`/note-collapse CSS rules, so a regression there is the main risk worth a specific look, especially the dark-mode fix.
+Developer approved on re-check, via the same real-phone tunnel used for the earlier `260902-l9w`/`260902-qkm` checkpoints. All three fixes confirmed working on a real device: click opens the dialog in every orientation, dark-mode text is legible, no note gap.
