@@ -163,7 +163,13 @@ STARTUP_DEADLINE_S = 10.0
 # (by construction of the two-value shorthand) top/bottom symmetry —
 # closes 260901-uzi Finding 5 candidate (a), shipped no check of its
 # own at the time).
-EXPECTED_CHECK_COUNT = 91  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 91 + 1 (quick task 260902-dng Task 3: .stat-tile__caption's new
+# --weight-semibold declaration (with no font-size of its own, so no
+# fifth size), plus the Server & data region's four text roles —
+# section heading (20/regular), stat-tile caption (14/semibold), tile
+# value (16/semibold), nested card title (16/semibold) — still forming
+# a coherent, strictly-size-ordered set against the real token values).
+EXPECTED_CHECK_COUNT = 92  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2292,6 +2298,76 @@ def main():
         "untouched, and style.css's demotion rule sets the Body size and semibold weight with no font family "
         "(quick task 260901-uzi finding 4, Check 2)",
         _nested_heading_tier_demoted_to_emphasis_role)
+
+    def _stat_tile_caption_weight_and_four_role_type_scale_hold():
+        # quick task 260902-dng (Task 3): pins both halves of the
+        # verdict — the one declaration that changed (.stat-tile__caption
+        # gains --weight-semibold, keeping its 14px size and serif
+        # family), and that the region's four text roles still form a
+        # coherent, source-grounded set afterwards: strictly increasing
+        # size with structural level (caption < value == nested title <
+        # section heading), no fifth size anywhere in the set, and the
+        # caption/value/nested-title trio sharing one weight tier while
+        # the section heading alone stays regular.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        def _rule_body(selector_needle):
+            selector_at = css_source.index(selector_needle)
+            body_open = css_source.index("{", selector_at)
+            body_close = css_source.index("}", body_open)
+            return css_source[body_open:body_close]
+
+        caption_body = _rule_body(".stat-tile__caption {")
+        if "font-weight: var(--weight-semibold)" not in caption_body:
+            return False, "expected .stat-tile__caption to declare --weight-semibold"
+        if "font-size" in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare no font-size of its own "
+                "(it must keep inheriting .text-label's 14px) — a fifth size "
+                "would violate D-09's four-size scale")
+        if "var(--font-serif)" not in caption_body:
+            return False, "expected .stat-tile__caption to keep its named serif exception"
+
+        value_body = _rule_body(".stat-tile__value {")
+        if "font-size: var(--font-body-size)" not in value_body:
+            return False, "expected .stat-tile__value to stay on the Body size (16px) — Finding 4's own contract"
+        if "font-weight: var(--weight-semibold)" not in value_body:
+            return False, "expected .stat-tile__value to stay semibold — Finding 4's own contract"
+
+        nested_body = _rule_body(".page-section--nested > h2,")
+        if "font-size: var(--font-body-size)" not in nested_body:
+            return False, "expected the nested card title to stay on the Body size (16px) — Finding 4's own contract"
+        if "font-weight: var(--weight-semibold)" not in nested_body:
+            return False, "expected the nested card title to stay semibold — Finding 4's own contract"
+
+        heading_body = _rule_body("h1,\nh2,\nh3,\nlegend,\n.text-heading {")
+        if "font-weight: var(--weight-regular)" not in heading_body:
+            return False, (
+                "expected the h1/h2/h3/legend/.text-heading rule to stay regular weight — "
+                "the section heading is this region's one regular-weight role, the ceiling "
+                "the caption/value/nested-title trio must never reach")
+
+        # Token values themselves, so this check fails loudly (not
+        # silently) if a future edit changes what 14/16/20 actually mean.
+        tokens_body = css_source[css_source.index(":root"):css_source.index(":root") + 800]
+        for name, expected in (
+                ("--font-label-size", "14px"),
+                ("--font-body-size", "16px"),
+                ("--font-heading-size", "20px")):
+            token_match = re.search(r"%s:\s*(\S+);" % re.escape(name), tokens_body)
+            if token_match is None or token_match.group(1) != expected:
+                return False, "expected %s to be %s in :root" % (name, expected)
+
+        return True, ""
+    check(
+        "style.css's .stat-tile__caption declares --weight-semibold with no font-size of its own (staying on "
+        ".text-label's inherited 14px, no fifth size), and the Server & data region's four text roles still form "
+        "a coherent set afterwards — caption (14/semibold) strictly below tile value and nested card title "
+        "(16/semibold each), both strictly below the section heading (20/regular), the one role that stays "
+        "regular weight (quick task 260902-dng Task 3)",
+        _stat_tile_caption_weight_and_four_role_type_scale_hold)
 
     def _nested_card_heading_rhythm_end_to_end():
         # quick task 260902-bl2 Task 3 (Check 2): bug 2's markup half (for
