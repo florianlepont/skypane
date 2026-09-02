@@ -562,26 +562,39 @@ _SPARKLINE_HIT_RADIUS_PX = 8
 # The point count at which the 90-day daily chart's cosmetic dots stop
 # reading as separate marks and start reading as a continuous caterpillar
 # — a different visual language from the thin line the developer asked
-# to keep. Derived, not chosen by taste, against the narrowest real
-# canvas this file's own `.battery-trend-section svg:not(.icon)` comment
-# already measured and cited (style.css: "375px viewport -> 293px (the
-# narrowest real container)") — an upper bound on the canvas itself,
-# since the Y-axis label column's real width is browser-measured
-# (`.sparkline`'s `auto` first grid column) and cannot be known from CSS
-# alone; using the wider figure is the conservative direction here; a
-# canvas narrower than 293px in practice would only mean dots merge
-# *before* this derived threshold, never after.
+# to keep. Derived twice, and the second derivation corrects the first:
+#
+# Planning-time estimate (293px): this file's own `.battery-trend-section
+# svg:not(.icon)` comment in style.css already measured and cited "375px
+# viewport -> 293px (the narrowest real container)" — but that number is
+# the whole `.sparkline` GRID's content width (both columns), not the
+# canvas alone, and was used here as if it were the canvas.
+#
+# Live-measured correction (226px), from a real Chrome instance against
+# `companion/app.py` at a 375px viewport with a realistic 90-day dataset
+# seeded: `.sparkline__canvas`'s own `getBoundingClientRect().width` was
+# 226px, not 293px — `.sparkline__y`'s auto-sized Y-axis label column
+# (43.8px, for this project's realistic 4-digit "NNNN mV" labels — a
+# LiPo battery's whole usable range, ~3000-4200mV, is always 4 digits)
+# plus its `column-gap` (`--space-sm`, 8px) claims the other ~52px of
+# that 278px grid. The planning-time estimate ignored this because the
+# label column's real width is browser-measured and was assumed
+# unknowable from CSS alone — true in general, but a live measurement
+# resolves it for one real, cited data point, and this task's own human-
+# verification pass is exactly what surfaced the gap between the
+# estimate and reality.
 #
 # `_point_x()` below spreads `point_count` points evenly across the
-# canvas's full width, so consecutive points sit `293 / (point_count - 1)`
+# canvas's full width, so consecutive points sit `226 / (point_count - 1)`
 # CSS pixels apart. They stop reading as separate marks once that gap
 # drops below the cosmetic dot's own diameter (2 * _SPARKLINE_DOT_RADIUS_PX
-# = 6px): `293 / (point_count - 1) < 6` => `point_count > 293 / 6 + 1`
-# => `point_count > 49.83`, so 50 is the first integer point count where
-# suppression is warranted. Re-derive this figure if the narrowest real
-# container width (293px, from style.css's own derivation) or the
-# cosmetic dot radius above ever changes.
-_SPARKLINE_DENSE_POINT_THRESHOLD = 50
+# = 6px): `226 / (point_count - 1) < 6` => `point_count > 226 / 6 + 1`
+# => `point_count > 38.67`, so 39 is the first integer point count where
+# suppression is warranted. Re-derive this figure (from a real running
+# instance, not from memory) if the canvas's own measured width, the
+# realistic Y-label digit count, or the cosmetic dot radius above ever
+# changes.
+_SPARKLINE_DENSE_POINT_THRESHOLD = 39
 
 # The reduced hit-target radius used at/above the density threshold —
 # smaller than the normal 8px so heavily overlapping hit circles no
