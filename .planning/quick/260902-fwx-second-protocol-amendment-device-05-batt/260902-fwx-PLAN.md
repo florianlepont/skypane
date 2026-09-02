@@ -455,5 +455,3 @@ print('05-01 tasks 2 and 3 re-scoped to history.db; physical steps, thresholds, 
 <output>
 Create `.planning/quick/260902-fwx-second-protocol-amendment-device-05-batt/260902-fwx-SUMMARY.md` when done.
 </output>
-</content>
-</invoke>
