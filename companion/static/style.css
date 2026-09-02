@@ -559,7 +559,7 @@ a:hover {
 }
 
 /* Unified save bar (06.6.4.1 D-04): hides the form's always-rendered
- * bottom Save Settings button once client-side script has proven it is
+ * bottom Save settings button once client-side script has proven it is
  * running, so the dirty-state bar (JS-only) is the sole visible save
  * affordance rather than both showing at once. `.js` is added to
  * <html> unconditionally as `nav-dropdown.js`'s very first statement on
@@ -1283,8 +1283,8 @@ button {
   transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
 }
 
-/* Primary-action buttons (Save Settings, Trigger Poll Now, Save LED
- * Setting, Sign In) — accent fill. Theme-picker buttons are also
+/* Primary-action buttons (Save settings, Trigger poll now, Save LED
+ * Setting, Sign in) — accent fill. Theme-picker buttons are also
  * type="submit" but are excluded via the higher-specificity
  * `.theme-form .theme-option` rule above, which is what actually keeps
  * them out of this accent treatment, not their absence from this
@@ -1346,7 +1346,7 @@ button:active {
 }
 
 /* Config dirty-state bar (06.6.3 D-03) — a JS-only enhancement layered on
- * top of the always-present, always-server-rendered `Save Settings` submit
+ * top of the always-present, always-server-rendered `Save settings` submit
  * button at the bottom of the form (the no-JS fallback path is unchanged).
  * Full-width, in normal flow below 960px; the >=960px fixed variant is
  * added inside that breakpoint's own @media block below (quick task

@@ -1,11 +1,11 @@
 """companion/pages/config_page.py — CFG-01 (theme picker), CFG-12 (runway
-picker), and CFG-07's "Trigger Poll Now" control (06-CONTEXT.md).
+picker), and CFG-07's "Trigger poll now" control (06-CONTEXT.md).
 
 Both `render()` and `handle_post()` are real and live as of this plan
 (06-07): the Theme and Runway fieldsets render from `server.device_config`'s
 own registries with the current values pre-selected, and a POST validates
 both fields against those same registries — server-side — before ever
-calling `device_config.save_device_config()`. The "Trigger Poll Now"
+calling `device_config.save_device_config()`. The "Trigger poll now"
 control below is unrelated plumbing owned by companion/app.py (plan
 06-05): its POST /poll-now target, cooldown gate, and in-process
 server.poll_loop.run_once() call all live there, not here — this module
@@ -569,7 +569,7 @@ def poll_trigger_section(cooldown_remaining):
         return (
             "%s"
             '<form method="post" action="/poll-now">'
-            '<button type="submit" id="%s" disabled>Trigger Poll Now</button>'
+            '<button type="submit" id="%s" disabled>Trigger poll now</button>'
             "</form>"
             '<p class="text-body" id="%s">%s</p>'
             "%s"
@@ -583,7 +583,7 @@ def poll_trigger_section(cooldown_remaining):
     return (
         "%s"
         '<form method="post" action="/poll-now">'
-        '<button type="submit" id="%s">Trigger Poll Now</button>'
+        '<button type="submit" id="%s">Trigger poll now</button>'
         "</form>"
         "%s"
     ) % (
@@ -610,7 +610,7 @@ def render(ctx):
     # outright by 06.6.4.1-01 (D-01) — the premise this comment used to
     # describe no longer exists, so the LED group (led_group(), below) is
     # now a third sibling group inside this same <form>, after Runway,
-    # before the bottom Save Settings button. Do not restore the
+    # before the bottom Save settings button. Do not restore the
     # separate section by reading a stale rationale.
     #
     # D-03: data-dirty-form and the dirty-bar markup below are a JS-only
@@ -619,7 +619,7 @@ def render(ctx):
     #
     # quick task 260901-re6: the dirty-bar used to be a genuine descendant
     # of this <form>, between the three groups and the always-visible
-    # bottom Save Settings button, submitting natively via normal DOM
+    # bottom Save settings button, submitting natively via normal DOM
     # nesting with no form= attribute needed. That premise broke the
     # bar's own `position: sticky; bottom: 0` styling: a sticky element's
     # containing block is its nearest scrolling ancestor's *box* — here
@@ -652,7 +652,7 @@ def render(ctx):
         "%s"
         "%s"
         "%s"
-        '<button type="submit" %s>Save Settings</button>'
+        '<button type="submit" %s>Save settings</button>'
         "</form>"
         '<section class="page-section">'
         '<h2 class="text-heading">Poll</h2>'
