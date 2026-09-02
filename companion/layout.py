@@ -128,6 +128,26 @@ ICON_IDS = (
     "icon-device",
     "icon-pipeline",
     "icon-corroboration",
+    # quick task 260902-j8w: as of this quick task, "icon-battery" has no
+    # consumer anywhere in the app — companion/pages/health_page.py's
+    # ICON_BATTERY constant and its one call site (the Battery-trend
+    # section heading) were both removed at the developer's own
+    # instruction. Retained here anyway, on purpose, not as an
+    # oversight: pruning it would force a matching `<symbol>` deletion
+    # below plus four assertion edits in test_companion_app.py's
+    # `_icon_sprite_integrity()` (the fourteen-member count, the
+    # duplicate check, the symbol-id/ICON_IDS set-equality check, and
+    # the `<symbol` count) — a cross-page change to this shared
+    # component, well outside a one-heading-glyph removal's scope. This
+    # whitelist is an injection guard on icon_html()'s fragment
+    # reference, not a usage index of what is currently rendered —
+    # "icon-nav-preview" below is this file's existing precedent for
+    # exactly that reading. The sprite is `display: none`
+    # (companion/static/style.css's `.icon-defs` rule) and the retained
+    # symbol costs roughly 200 bytes. Pruning `icon-battery` (and its
+    # `<symbol>` below, and the four test_companion_app.py assertions)
+    # is a real, optional follow-up the developer can take or decline —
+    # not done here.
     "icon-battery",
     "icon-hamburger",
     "icon-nav-config",
@@ -360,10 +380,16 @@ def icon_html(icon_id, size=20, extra_class=""):
     This mirrors how the battery sparkline already carries both fixed
     attributes and a CSS override.
 
-    `aria-hidden="true"` is set unconditionally: every icon this phase
-    renders sits beside its own visible text label (a tile caption, a
-    section heading), so the icon is decorative and announcing it would
-    duplicate the label. Do not "improve" this by adding a `<title>`.
+    `aria-hidden="true"` is set unconditionally: every icon in this app
+    sits beside its own visible text label — a tile caption, a nav link
+    label, a filter-bar/pill label — so the icon is decorative and
+    announcing it would duplicate the label. Do not "improve" this by
+    adding a `<title>`. (SUPERSEDED, quick task 260902-j8w: a section
+    heading — Health's `Battery trend` — used to be named here too, as
+    the one place a glyph sat beside a heading rather than a tile/control
+    label. That heading's glyph was removed at the developer's own
+    instruction; glyphs in this app are now a tile/control affordance
+    only, never a heading one.)
     """
     if icon_id not in ICON_IDS:
         return ""

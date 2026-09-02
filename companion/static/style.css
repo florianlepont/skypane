@@ -2351,17 +2351,25 @@ summary::-webkit-details-marker {
 }
 
 /* This selector shrinks the sparkline canvas to the section's own
- * width — but the section's heading also carries an `icon-battery`
- * `<svg class="icon">` now (06.6.1 plan 04/06 gap fix), and a bare `svg`
- * element selector would catch that too, reproducing the exact
+ * width. It used to also need `:not(.icon)` to exclude the section
+ * heading's own `icon-battery` `<svg class="icon">` (06.6.1 plan 04/06
+ * gap fix) from a bare `svg` element selector, reproducing the exact
  * `.stat-tile svg` collision already fixed above (06.6.1-06-SUMMARY.md)
- * in a second location this rule was never updated for. `:not(.icon)`
- * excludes it explicitly rather than relying on the sparkline being the
- * only match by luck. Specificity note, still load-bearing: this
- * selector is (0,2,1), which out-specifies any bare `.sparkline__canvas`
- * class rule (0,1,0) — the canvas's size is declared HERE ONLY; a second
- * declaration on the class selector would lose a silent specificity
- * fight rather than override anything.
+ * in a second location this rule was never updated for. SUPERSEDED
+ * (quick task 260902-j8w): that heading glyph is gone — removed at the
+ * developer's own instruction, it was the only glyph inside any Health
+ * `<h2>` — so `:not(.icon)` now matches nothing in this section and is
+ * vestigial. It is retained anyway, as belt-and-braces against any
+ * future `.icon` element landing inside `.battery-trend-section`: three
+ * assertions in test_status_pages.py key on this exact selector string
+ * as a literal (one of them scanning every `@media` block), and the
+ * specificity note two sentences below is stated against this precise
+ * selector form, so tidying the guard away would break all three for a
+ * reason unrelated to any change actually being made. Specificity note,
+ * still load-bearing: this selector is (0,2,1), which out-specifies any
+ * bare `.sparkline__canvas` class rule (0,1,0) — the canvas's size is
+ * declared HERE ONLY; a second declaration on the class selector would
+ * lose a silent specificity fight rather than override anything.
  *
  * HISTORY (kept as evidence the fixed-viewBox design this replaces
  * could never have worked here, not as a live constraint — nothing
@@ -2691,8 +2699,16 @@ summary::-webkit-details-marker {
  * Removed by this reversal: the note that used to live here about the
  * battery heading's icon rendering larger than its text at the demoted
  * 16px size — a consequence of a demotion this rule no longer performs.
- * At 20px the icon and the text are the same size again, so the note has
- * nothing left to explain. */
+ * At 20px the icon and the text were the same size again, so the note
+ * had nothing left to explain.
+ *
+ * SUPERSEDED (quick task 260902-j8w): the question that note asked can
+ * no longer even arise. One task after this reversal, the battery
+ * heading's icon itself was removed — at the developer's own explicit
+ * instruction ("supprime le logo de la batterie, car c'est inconsistant
+ * avec le reste"), because it was the only glyph inside any Health <h2>.
+ * There is no icon left in this heading to be any size, at 20px or
+ * otherwise. */
 .page-section--nested > h2,
 .battery-trend-section > h2 {
   margin-bottom: var(--space-md);
