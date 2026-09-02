@@ -580,23 +580,28 @@ a:hover {
   padding: var(--space-sm);
 }
 
-/* The 44px floor was D-22's original guarantee for this rule; D-05
- * (06.6.4-04) deliberately trades it away — see the floor register
- * comment above the base `button` rule (06.6.4-02) for the full list of
- * selectors that gave up the floor this phase. The explicit --font-ui is
- * still D-03's boundary stated in code: the sketch prototype rendered
- * these links in serif at 18px and that detail was deliberately not
- * carried into the contract — nav links stay Label-size sans-serif here,
- * matching the sidebar. */
+/* The 44px floor was D-22's original guarantee for this rule. D-05
+ * (06.6.4-04) was a desktop compactness pass whose trade belonged only on
+ * the desktop sidebar renderer (.sidebar-link, below) — but the same edit
+ * also landed here by mistake. This selector is the mobile-only nav below
+ * the 960px breakpoint with no compensating override anywhere in the
+ * file, so the trade reached the one place it had no argument: a phone
+ * has no pointer-driven compactness case, and a 32px row at Label size is
+ * a worse tap target than the 44px/Body-size row it replaced. Quick task
+ * 260902-qkm restored the floor on the developer's report that it made
+ * phone navigation harder. The explicit --font-ui is still D-03's
+ * boundary stated in code: the sketch prototype rendered these links in
+ * serif at 18px and that detail was deliberately not carried into the
+ * contract — nav links stay sans-serif here. */
 .mobile-nav__link {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  height: 32px;
+  min-height: 44px;
   padding: 0 var(--space-sm);
   color: var(--color-text);
   text-decoration: none;
-  font-size: var(--font-label-size);
+  font-size: var(--font-body-size);
   font-family: var(--font-ui);
   border-radius: var(--radius-control);
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
@@ -1219,19 +1224,23 @@ select {
 
 /* 06.6.4 (D-01c) — 44px touch-target floor register, exhaustive audit.
  * Gave the floor up this phase: text buttons (this rule, 30px — D-01),
- * nav links (.sidebar-link/.mobile-nav__link, 32px — D-05, plan
- * 06.6.4-04), theme-picker segments (.theme-form .theme-option, 28px —
- * D-06, plan 06.6.4-04), and the filter input (.filter-bar__field input,
- * 32px — D-08, plan 06.6.4-05). The icon button (.copy-btn, D-02) is
+ * desktop sidebar nav links (.sidebar-link, 32px — D-05, plan 06.6.4-04),
+ * theme-picker segments (.theme-form .theme-option, 28px — D-06, plan
+ * 06.6.4-04), and the filter input (.filter-bar__field input, 32px —
+ * D-08, plan 06.6.4-05). The icon button (.copy-btn, D-02) is
  * deliberately NOT in this list — it keeps a genuine 44x44 hit area via
  * a `::before` pseudo-element, no accessibility trade-off. Kept the
  * floor: the hamburger toggle (.site-nav-toggle), the global native
- * `input, select` rule directly above, and the disclosure `summary` rule
- * — none named by CONTEXT.md, all must stay intact. Criterion: WCAG
- * 2.5.8 (Level AA, 24px) is met everywhere, including every selector
- * that gave up the floor; it is 2.5.5 (Level AAA, 44px) that was
- * consciously traded away on the four named selectors only, with the
- * developer's recorded acceptance (06.6.4-CONTEXT.md Provenance note). */
+ * `input, select` rule directly above, the disclosure `summary` rule, and
+ * the mobile dropdown nav link (.mobile-nav__link) — D-05's compaction
+ * reached this selector by mistake (it is mobile-only, with no desktop
+ * compactness argument to trade against) and quick task 260902-qkm
+ * restored its 44px floor. None of these are named by CONTEXT.md, all
+ * must stay intact. Criterion: WCAG 2.5.8 (Level AA, 24px) is met
+ * everywhere, including every selector that gave up the floor; it is
+ * 2.5.5 (Level AAA, 44px) that was consciously traded away on the four
+ * named selectors only, with the developer's recorded acceptance
+ * (06.6.4-CONTEXT.md Provenance note). */
 button {
   height: 30px;
   padding: 0 12px;
