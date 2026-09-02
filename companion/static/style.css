@@ -2954,28 +2954,19 @@ summary::-webkit-details-marker {
   transform: none;
 }
 
-/* quick task 260902-tli: the orientation/viewport gate for the zoom
- * trigger above — this file's first max-width query and an intentional
- * exception to the file's mobile-first idiom, since it is a
- * disable-override: enabled must stay the default a non-supporting
- * browser falls back to (the benign direction — "lightbox works"). 959px
- * is the exact complement of this file's one min-width breakpoint below
- * (960px), not a new magic number. Both clauses earn their place: the
- * width clause is what keeps "desktop always works" true, the
- * orientation clause is what keeps a small landscape window working —
- * without it, a narrow-but-landscape phone window would also be
- * disabled. A portrait tablet is deliberately caught by this same rule
- * too (it is the same narrow-tall-viewport case, just less extreme).
- * This disables the pointer path only — a stylesheet cannot remove a
- * tab stop, and no script-side gate exists by design (see
- * companion/static/panel-lookup.js's own standing-constraints comment),
- * so a deliberate keyboard activation still opens the dialog here; that
- * is documented, accepted residue, not a bug. */
-@media (max-width: 959px) and (orientation: portrait) {
-  .airline-card__zoom {
-    pointer-events: none;
-  }
-}
+/* quick task 260902-tli: an earlier version of this feature disabled the
+ * zoom trigger's pointer path on narrow portrait viewports via a
+ * `@media (max-width: 959px) and (orientation: portrait) { pointer-
+ * events: none; }` block — a misreading of the developer's own request.
+ * "En mode paysage" meant the ENLARGED VIEW should present the wide
+ * illustration in a landscape-style layout (which `.lightbox--wide`'s
+ * own sizing below already does, regardless of the phone's physical
+ * rotation), not that the click itself should be gated behind the
+ * device's reported orientation. Removed outright — corrected on the
+ * same live developer test that first exercised it, before that
+ * (wrong) gate ever shipped to a real device. The trigger now works
+ * unconditionally at every viewport size, matching "desktop always
+ * works" and extending it to "phone always works" too. */
 
 /* Emphasis role, not a new type role. */
 .airline-card__name {
@@ -3426,6 +3417,17 @@ summary::-webkit-details-marker {
 
 .lightbox__note {
   margin: var(--space-sm) 0 0;
+}
+
+/* quick task 260902-tli: airlines_page.LIGHTBOX_NOTE is deliberately the
+ * empty string (developer's own call, on a live test, that the Airlines
+ * lightbox needed no note at all) — the element itself still has to
+ * exist, since panel-lookup.js's shared guard clause requires it, so an
+ * empty one collapses to zero visible space instead of leaving a bare
+ * top-margin gap. History's own note is never empty, so this rule never
+ * touches it. */
+.lightbox__note:empty {
+  display: none;
 }
 
 /* No scrim token exists in this file; a raw rgba value here is

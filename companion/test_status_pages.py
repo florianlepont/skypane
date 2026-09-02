@@ -252,9 +252,11 @@ STARTUP_DEADLINE_S = 10.0
 # retarget — no pre-existing check pinned its arity.
 # 106 + 4 (quick task 260902-tli Task 1: every card's zoom-button
 # source/caption/aria-label attributes check, the once-per-page
-# lightbox--wide dialog markup + real-note-values check, the style.css
+# lightbox--wide dialog markup + own-note-text check, the style.css
 # comment-stripped .airline-card__zoom-neutralizes-the-base-button-rule
-# + single-portrait-gated-pointer-events check, and the
+# check (rewritten in place, same live test, once the click-gating media
+# block it originally also pinned was found to be a misreading of the
+# developer's own request and removed outright), and the
 # .lightbox--wide max-width cross-file pin against
 # illustration_normalize.ILLUSTRATION_TARGET_WIDTH).
 EXPECTED_CHECK_COUNT = 116  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks)
@@ -4760,16 +4762,33 @@ def main():
             ):
                 if marker not in rendered:
                     return False, "expected %r in the rendered dialog markup" % (marker,)
-            if layout.escape_html(airlines_page.LIGHTBOX_NOTE) not in rendered:
-                return False, "expected airlines_page.LIGHTBOX_NOTE's own text in the rendered dialog"
+            # Went through two rounds of live developer feedback: first
+            # the width/height-naming wording was rejected as meaningless
+            # implementation detail, then the reworded version was ALSO
+            # rejected outright — no note is wanted here at all, unlike
+            # History's own (which explains a real possible discrepancy
+            # an Airlines illustration never has). LIGHTBOX_NOTE is
+            # therefore the empty string; the element must still exist
+            # for panel-lookup.js's shared guard clause, so it renders
+            # empty rather than absent, and style.css's
+            # .lightbox__note:empty rule collapses it to zero space.
+            if airlines_page.LIGHTBOX_NOTE != "":
+                return False, (
+                    "expected airlines_page.LIGHTBOX_NOTE to be the empty string (developer's own call "
+                    "that this lightbox needs no note), got %r" % (airlines_page.LIGHTBOX_NOTE,))
+            if '<p class="lightbox__note text-body"></p>' not in rendered:
+                return False, (
+                    "expected the note element to render empty (present only for panel-lookup.js's "
+                    "shared guard clause, collapsed to zero space by style.css's .lightbox__note:empty rule)")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the shared lightbox dialog is emitted exactly once, carries both the lightbox and lightbox--wide "
-        "classes plus all three lightbox__* elements and the close attribute, and its note is "
-        "airlines_page.LIGHTBOX_NOTE's own text (real user feedback on a live test found the original "
-        "wording's technical frame-size framing meaningless to a viewer; quick task 260902-tli)",
+        "classes plus all three lightbox__* elements and the close attribute, and its note element renders "
+        "empty (LIGHTBOX_NOTE is deliberately '' after two rounds of live developer feedback rejected both "
+        "the original and the reworded copy; the element still exists for panel-lookup.js's shared guard "
+        "clause) — quick task 260902-tli",
         _lightbox_dialog_renders_once_wide_with_own_note_text)
 
     def _airline_card_zoom_stylesheet_contract():
@@ -4789,48 +4808,32 @@ def main():
         for expected in ("height: auto", "padding: 0", "border: none", "background: none", "cursor: zoom-in"):
             if expected not in base_body:
                 return False, "expected %r inside the base .airline-card__zoom rule, got %r" % (expected, base_body)
-        if "pointer-events" in base_body:
-            return False, (
-                "expected the base .airline-card__zoom rule to declare no pointer-events property at all — "
-                "enabled must stay the default a non-supporting browser falls back to")
 
-        # Style.css declares an unrelated, pre-existing pointer-events:
-        # none on two decorative elements elsewhere in the file
-        # (.filter-bar__field .icon, .sparkline-dot) — this check is
-        # scoped to .airline-card__zoom's own rule bodies specifically,
-        # not a whole-file count, so those do not collide with it.
-        gated_bodies = [body for body in zoom_rule_bodies if "pointer-events: none" in body]
-        if len(gated_bodies) != 1:
+        # An earlier version of this feature disabled the trigger's
+        # pointer path on narrow portrait viewports via a
+        # `pointer-events: none` declaration inside an
+        # `@media (max-width: 959px) and (orientation: portrait)` block
+        # — a misreading of the developer's own request (they meant the
+        # ENLARGED VIEW should present the wide illustration in a
+        # landscape-style layout, not that the click itself should be
+        # gated behind device orientation). Removed on the same live
+        # developer test that first exercised it. This check now pins
+        # the removal itself: the trigger must declare no pointer-events
+        # property anywhere, and that media block must not exist at all,
+        # so the wrong gate cannot silently return.
+        if any("pointer-events" in body for body in zoom_rule_bodies):
             return False, (
-                "expected exactly one .airline-card__zoom rule to declare pointer-events: none — the desktop "
-                "path must be impossible to disable by accident — got %d" % len(gated_bodies))
-
+                "expected no .airline-card__zoom rule to declare pointer-events at all — the click "
+                "must work unconditionally at every viewport size and orientation")
         media_marker = "@media (max-width: 959px) and (orientation: portrait)"
-        if stripped.count(media_marker) != 1:
-            return False, "expected exactly one %r block, got %d" % (media_marker, stripped.count(media_marker))
-        media_at = stripped.index(media_marker)
-        brace_at = stripped.index("{", media_at)
-        depth = 0
-        end = None
-        for pos in range(brace_at, len(stripped)):
-            ch = stripped[pos]
-            if ch == "{":
-                depth += 1
-            elif ch == "}":
-                depth -= 1
-                if depth == 0:
-                    end = pos
-                    break
-        if end is None:
-            return False, "expected a balanced %r block" % (media_marker,)
-        if "pointer-events: none" not in stripped[brace_at:end]:
-            return False, "expected the trigger's pointer-events: none to fall inside %r" % (media_marker,)
+        if media_marker in stripped:
+            return False, "expected the retired orientation gate (%r) to be fully removed" % (media_marker,)
         return True, ""
     check(
         ".airline-card__zoom neutralizes the base button rule's height/padding/border/background and declares "
-        "the zoom cursor, its default (unmedia-gated) rule declares no pointer-events property at all, and "
-        "its one pointer-events: none declaration falls inside @media (max-width: 959px) and "
-        "(orientation: portrait) — the desktop path must be impossible to disable by accident",
+        "the zoom cursor, and declares no pointer-events property anywhere — the retired orientation gate "
+        "(a misreading of the developer's original request, corrected on the same live test) must not "
+        "silently return",
         _airline_card_zoom_stylesheet_contract)
 
     def _lightbox_wide_max_width_matches_illustration_target_width():

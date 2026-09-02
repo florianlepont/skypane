@@ -75,18 +75,23 @@ _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 
 ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 
-# quick task 260902-tli: originally named the normalized frame size in
-# the copy itself ("Shown at the shared 900x263 frame...") — real user
-# feedback on a live test found that meaningless (an implementation
-# detail no viewer needs), and reported alongside a genuine bug (the
-# same fix pass), so the wording changed at the same time. Says what a
-# viewer actually cares about instead: this enlarged view is the exact
-# same art the physical panel draws, not a separate or higher-fidelity
-# rendering. No template substitution needed, so this is a plain
-# constant, matching history_page.LIGHTBOX_NOTE's own naming.
-LIGHTBOX_NOTE = (
-    "This is the same artwork the physical panel draws for this "
-    "airline — just shown larger here.")
+# quick task 260902-tli: went through two rounds of live developer
+# feedback. Originally named the normalized frame size in the copy
+# itself ("Shown at the shared 900x263 frame..."), which real testing
+# found meaningless. The reworded, more user-facing version ("This is
+# the same artwork the physical panel draws...") was ALSO rejected on
+# the same live pass — the developer's call was that no caption is
+# wanted here at all, unlike History's own note, which explains a real
+# possible discrepancy (a stale render) an Airlines illustration never
+# has. So this is the empty string, not a sentence — the element must
+# still exist (panel-lookup.js's shared guard clause requires
+# .lightbox__note to be present or the whole click handler never
+# attaches, for this page or History's), but style.css's
+# `.lightbox__note:empty { display: none; }` collapses it to no visible
+# space. history_page.LIGHTBOX_NOTE's own naming is kept for the
+# constant despite carrying no text, so a future non-empty note needs
+# only a value change here, not a markup change.
+LIGHTBOX_NOTE = ""
 
 # variant_chip_label()'s two shape-domain patterns. An alphanumeric type
 # code is a letter prefix immediately followed by digits, optionally with
