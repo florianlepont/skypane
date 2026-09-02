@@ -2998,6 +2998,64 @@ summary::-webkit-details-marker {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* quick task 260902-v26: the per-card "replace this image" disclosure.
+ * A quiet secondary affordance, deliberately not competing with the
+ * illustration above it — this is a maintenance action a developer opens
+ * on purpose, not something the gallery wants to draw the eye to. */
+.airline-card__replace {
+  margin-top: var(--space-sm);
+}
+
+/* The global `summary` rule (native <details>/<summary> disclosures,
+ * 06.6.3) declares `color: var(--color-accent)` — correct for THAT
+ * summary's own role as this file's documented accent use ("a <summary>
+ * disclosure marker" in the header comment's accent-reservation list),
+ * but this file's accent-reservation list is otherwise exhaustive, and
+ * this specific summary is not on it: a second accent-coloured control
+ * sitting directly under an already-accent-coloured zoom cursor would
+ * read as two competing calls to action on one card. Overridden here to
+ * the same neutral, colour-mixed muted tone the sub-scale label tier
+ * (.airline-card__chip, .data-table th) already uses, rather than a new
+ * colour token. The global 44px touch-target floor and flex centring
+ * from the base `summary` rule are both kept as-is — nothing below fights
+ * either of them, so no comment is needed pinning "the floor wins". Font
+ * size matches the sub-scale label tier the chips already established
+ * (11-13px), not a new size. */
+.airline-card__replace summary {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airline-card__replace summary::marker {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airline-card__replace summary::-webkit-details-marker {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The open form: a simple vertical stack, spacing-scale gap. `min-width:
+ * 0` is load-bearing on a grid/flex descendant exactly the way
+ * .stat-tile's own copy of this declaration already documents above —
+ * without it, a long uploaded filename's intrinsic content width can
+ * propagate up and force this card wider than its .illustration-grid
+ * column (`repeat(auto-fill, minmax(200px, 1fr))` — 200px is a real,
+ * reachable column width, not a hypothetical). `max-width: 100%` on the
+ * file input below is the other half of that same fix. Neither the
+ * native file input (kept at its own global 44px floor) nor the submit
+ * button (kept at the global 30px primary treatment) is restyled here. */
+.airline-card__replace-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  margin-top: var(--space-xs);
+}
+
+.airline-card__replace-form input[type="file"] {
+  max-width: 100%;
+}
+
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
  * readout line. */
 
