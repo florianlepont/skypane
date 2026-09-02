@@ -991,6 +991,10 @@ def _pipeline_section(pipeline_ts, now):
 
 
 def _battery_badge_block(state):
+    # quick task 260902-bl2 (bug 2): same considered rejection as
+    # _registry_section()'s own comment — the sketch's status-dot-in-the-
+    # caption-row move was not made here either; see that function's
+    # comment for the full reasoning.
     return '<p class="text-body">%s</p>' % layout.status_dot(state, BATTERY_STATUS_LABEL)
 
 
@@ -1449,6 +1453,19 @@ def _registry_table_html(rows, now):
 
 
 def _registry_section(rows, now):
+    # quick task 260902-bl2 (bug 2): the validated Merged Health Sketch
+    # places this card's status dot inside its card-title row, as a
+    # space-between flex pair (the sketch's `.wide-card__caption` role).
+    # This function deliberately keeps the dot as its own line below the
+    # heading instead: the developer's finding here was about spacing,
+    # the spacing is now the sketch's (see the `.page-section--nested >
+    # h2` demotion rule's margin-bottom, style.css), and moving the dot
+    # would restructure three cards (this one, Battery trend, and by
+    # symmetry any future migration), introduce a new flex heading
+    # treatment, and retarget several harness checks — for a change
+    # nobody asked for. Recorded here as a considered rejection, not an
+    # omission a later "finish matching the sketch" edit should silently
+    # fill in.
     status_html = layout.status_dot(coverage_status(rows), "Coverage")
     note_html = '<p class="text-body">%s</p>' % escape_html(_READ_ONLY_NOTE)
     header_html = '<p class="text-body">%s</p>' % status_html + note_html

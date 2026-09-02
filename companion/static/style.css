@@ -2217,11 +2217,65 @@ summary::-webkit-details-marker {
  * a trailing label span, so at this demoted size the icon is now larger
  * than the text beside it — the same proportion .stat-tile__caption
  * (14px text, 20px icon) has already shipped and been validated with,
- * which is why it needs no icon rule of its own. */
+ * which is why it needs no icon rule of its own.
+ *
+ * Fifth (quick task 260902-bl2, bug 2): margin-bottom, added below.
+ * The two cards migrated by 06.6.4.1-04 measured wildly different
+ * heading-to-content gaps in a real browser, and the cause was that
+ * nothing in this file had ever governed that gap — it was whatever the
+ * composition of the heading-rhythm rule's own `margin: 0 0
+ * var(--space-sm)` and an unstated UA paragraph margin happened to
+ * produce. The value comes from the validated sketch's own card-title
+ * role (`.wide-card__caption`), which declares the same medium space
+ * below every card title unconditionally, in both cards — this is that
+ * declaration, not a middle value chosen to split the difference.
+ * Longhand only: the heading-rhythm rule above still owns the zeroed top
+ * and sides, and a `margin` shorthand here would restate three values it
+ * does not mean to change. Paired with the `> p.text-body` rhythm rule
+ * immediately below, the heading now owns the whole gap and no following
+ * element contributes any of its own, so the gap is the same 16px
+ * regardless of whether a paragraph, a table wrapper, a filter bar or an
+ * empty state comes next. */
 .page-section--nested > h2,
 .battery-trend-section > h2 {
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-md);
+}
+
+/* quick task 260902-bl2 (bug 2): direct-child prose immediately under one
+ * of the three nested-card headings above owns the sketch's own
+ * intervening-prose rhythm — the same `.read-only-note` role the
+ * validated sketch declares (zero above, the small space below) — rather
+ * than falling through to the UA `margin-block: 1em` this file has never
+ * stated for `.text-body` (see that rule's own comment: no margin is a
+ * deliberate decision there, not an omission, because Settings' own
+ * `.section-caption` role relies on the same UA default in a different
+ * context; the zeroing belongs here, on the container where these three
+ * cards' own layout is owned, not inside `.text-body` itself — the same
+ * precedent `.section-intro > p` sets a few hundred lines above this one,
+ * for the same reason, at a different structural position).
+ *
+ * Both the child combinator and the `.text-body` qualifier are
+ * load-bearing. The child combinator keeps this off paragraphs inside a
+ * nested `.empty-state` (not siblings of any heading, so unreachable
+ * through it regardless). The qualifier keeps it off `.battery-readout`
+ * — a direct-child `<p>` of `.battery-trend-section` that carries no
+ * `text-body` class and already declares its own `margin: 0 0
+ * var(--space-sm)` above; a bare `> p` selector would silently take that
+ * ownership away.
+ *
+ * No catch-all is added for "whatever follows the heading" — deliberately
+ * not needed: every other element type that can sit directly under one
+ * of these three headings (the table wrapper, the filter bar, the empty
+ * state, the readout, the chart, the disclosure) already carries no top
+ * margin of its own. A markup check in test_status_pages.py pins the
+ * allowlist of element types instead, so a future element carrying a UA
+ * top margin fails a test rather than silently reintroducing the
+ * inconsistency this task fixes. */
+.page-section--nested > p.text-body,
+.battery-trend-section > p.text-body {
+  margin: 0 0 var(--space-sm);
 }
 
 /* health_page.py's source-fault block combines page-section with banner
