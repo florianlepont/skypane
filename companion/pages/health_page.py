@@ -552,6 +552,59 @@ _SPARKLINE_CANVAS_HEIGHT_PX = 160
 # _SPARKLINE_CANVAS_HEIGHT_PX above ever changes.
 _SPARKLINE_VERTICAL_INSET_PERCENT = 3.75
 
+# 260902-l0b: the cosmetic marker's and the normal hit target's radii,
+# named (they were literals — `r="3"`/`r="8"` — inside the point loop
+# before this task) so the density rule below can reference them instead
+# of restating the numbers.
+_SPARKLINE_DOT_RADIUS_PX = 3
+_SPARKLINE_HIT_RADIUS_PX = 8
+
+# The point count at which the 90-day daily chart's cosmetic dots stop
+# reading as separate marks and start reading as a continuous caterpillar
+# — a different visual language from the thin line the developer asked
+# to keep. Derived, not chosen by taste, against the narrowest real
+# canvas this file's own `.battery-trend-section svg:not(.icon)` comment
+# already measured and cited (style.css: "375px viewport -> 293px (the
+# narrowest real container)") — an upper bound on the canvas itself,
+# since the Y-axis label column's real width is browser-measured
+# (`.sparkline`'s `auto` first grid column) and cannot be known from CSS
+# alone; using the wider figure is the conservative direction here; a
+# canvas narrower than 293px in practice would only mean dots merge
+# *before* this derived threshold, never after.
+#
+# `_point_x()` below spreads `point_count` points evenly across the
+# canvas's full width, so consecutive points sit `293 / (point_count - 1)`
+# CSS pixels apart. They stop reading as separate marks once that gap
+# drops below the cosmetic dot's own diameter (2 * _SPARKLINE_DOT_RADIUS_PX
+# = 6px): `293 / (point_count - 1) < 6` => `point_count > 293 / 6 + 1`
+# => `point_count > 49.83`, so 50 is the first integer point count where
+# suppression is warranted. Re-derive this figure if the narrowest real
+# container width (293px, from style.css's own derivation) or the
+# cosmetic dot radius above ever changes.
+_SPARKLINE_DENSE_POINT_THRESHOLD = 50
+
+# The reduced hit-target radius used at/above the density threshold —
+# smaller than the normal 8px so heavily overlapping hit circles no
+# longer nearly-fully overlap, though every point stays reachable (the
+# roving-tabindex/arrow-key keyboard path below is entirely unaffected;
+# only the pointer/touch hit area shrinks). The honest trade: this costs
+# tap-target size and buys pointing precision among ~50+ closely-spaced
+# points — real only on a real device, hence this task's own
+# human-verification list.
+_SPARKLINE_DENSE_HIT_RADIUS_PX = 4
+
+# 260902-l0b: a fixed, English month-abbreviation table, deliberately NOT
+# `datetime.strftime("%b")` — this app's own UI text is English
+# throughout regardless of the developer's own French (see this page's
+# other timestamp helpers' docstrings), and `%b` is locale-dependent: a
+# server process with any other locale active would silently render a
+# French/German/etc. abbreviation here. A fixed table has no such
+# failure mode.
+_MONTH_ABBR = (
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+)
+
 
 def _axis_clock_label(ts):
     """"HH:MM" clock text for a battery-chart X-axis label, matching
@@ -563,6 +616,33 @@ def _axis_clock_label(ts):
     """
     parsed = layout.parse_iso(ts)
     return parsed.strftime("%H:%M") if parsed is not None else (ts or "")
+
+
+def _axis_day_label(ts):
+    """(260902-l0b) "D Mon" day-of-month-plus-abbreviated-month X-axis
+    label for the chart's daily mode — `_axis_clock_label()`'s sibling,
+    for a series whose `ts` names a whole UTC calendar day
+    (`daily_battery_averages()`'s `"YYYY-MM-DD"` shape) rather than a
+    moment. A day string parses fine via `layout.parse_iso()`
+    (`datetime.fromisoformat()` accepts a date-only ISO string, at
+    midnight), so `_axis_clock_label()` itself would "work" here but
+    print a lie — every day's label would read "00:00". This sibling
+    exists specifically to avoid that.
+
+    The day is composed from the parsed `datetime`'s own `.day` integer,
+    never from `strftime`'s no-pad day-of-month directive (the
+    dash-prefixed variant) — that flag is a glibc/BSD extension, not
+    portable, and not guaranteed by the C standard Windows's C runtime
+    implements. The month uses this module's own `_MONTH_ABBR` table,
+    not `strftime`'s locale-dependent month-abbreviation directive — see
+    `_MONTH_ABBR`'s own comment for why. Falls back to the raw `ts`
+    string (never raising) when it fails to parse — the same
+    graceful-degradation precedent `_axis_clock_label()` above sets.
+    """
+    parsed = layout.parse_iso(ts)
+    if parsed is None:
+        return ts or ""
+    return "%d %s" % (parsed.day, _MONTH_ABBR[parsed.month - 1])
 
 
 def _battery_reading_parts(mv, ts, now):
@@ -607,7 +687,40 @@ def _battery_reading_parts(mv, ts, now):
     return value, when
 
 
-def battery_sparkline_svg(rows, now=None):
+def _daily_reading_parts(mv, ts, reading_count):
+    """(260902-l0b) `_battery_reading_parts()`'s sibling for one point on
+    the chart's daily-average series — the same plain, UNESCAPED
+    `(value, when)` tuple contract (every caller escapes at the point of
+    interpolation), so the existing escape-at-interpolation discipline is
+    unchanged and `companion/static/battery-trend.js` keeps working with
+    no edit of its own (it reads `data-when` back out through
+    `textContent`, agnostic to what format the string carries).
+
+    This is what stops the readout from lying on hover: at rest it shows
+    the latest RAW reading (`_battery_reading_parts()`, unchanged), and
+    hovering/tapping a chart point in daily mode replaces it with an
+    AVERAGE — this label is the only thing on the page that tells the
+    developer which of the two they are looking at, so it must say so
+    explicitly, in the parenthetical `_battery_reading_parts()` already
+    established for a detail clause ("HH:MM UTC (Nx ago)").
+
+    `when` is "`{day label} — daily average ({N} reading(s))`", singular
+    /plural handled. When `reading_count` is missing or not a real
+    positive int, degrades to "`{day label} — daily average`" — a bare
+    parenthetical naming zero or an unknown count of readings would be
+    actively misleading, so it is omitted rather than printed empty.
+    """
+    value = "%d mV" % mv
+    day_label = _axis_day_label(ts)
+    if isinstance(reading_count, int) and not isinstance(reading_count, bool) and reading_count > 0:
+        noun = "reading" if reading_count == 1 else "readings"
+        when = "%s — daily average (%d %s)" % (day_label, reading_count, noun)
+    else:
+        when = "%s — daily average" % day_label
+    return value, when
+
+
+def battery_sparkline_svg(rows, now=None, daily=False):
     """A minimal, dependency-free battery-trend chart built server-side
     from `rows` (newest-first, `battery_trend_rows()`'s own shape). No
     external reference (`url(`, `<image`, or a script tag) of any kind,
@@ -666,21 +779,47 @@ def battery_sparkline_svg(rows, now=None):
     to `_battery_reading_parts()` for each point's humanised `(value,
     when)` label, replacing the raw-ISO label this function used to build
     inline.
+
+    260902-l0b: `daily` is a third, defaulted parameter — every existing
+    call site and every direct-call harness fixture keeps today's
+    behaviour byte-for-byte when it is left `False`. `True` says the rows
+    being plotted are daily aggregates (`daily_battery_averages()`'s own
+    shape — `ts` names a whole UTC calendar day) rather than individual
+    readings, and switches three things together, driven by one flag so
+    they can never disagree: the X-axis endpoint labels use
+    `_axis_day_label()` instead of `_axis_clock_label()` (a day string
+    would otherwise parse fine and silently print "00:00" — see
+    `_axis_day_label()`'s own docstring), each point's hover/tap label is
+    built by `_daily_reading_parts()` instead of `_battery_reading_parts()`
+    (naming the day and that the value is an average, never a raw
+    reading), and cosmetic dots are suppressed once `point_count` reaches
+    `_SPARKLINE_DENSE_POINT_THRESHOLD` (see that constant's own
+    derivation) — the daily series is the only one this file ever plots
+    at a point count anywhere near that threshold, but the rule itself is
+    keyed on point count alone, not on `daily`, so a future caller with a
+    dense non-daily series gets the same protection.
     """
     if now is None:
         now = history_db.utc_now_iso()
     chronological = list(reversed(rows))
     pairs = [
-        (row.get("battery_mv"), row.get("ts")) for row in chronological
+        (row.get("battery_mv"), row.get("ts"), row.get("reading_count"))
+        for row in chronological
         if isinstance(row.get("battery_mv"), int) and not isinstance(row.get("battery_mv"), bool)
     ]
     if len(pairs) < 2:
         return ""
-    values = [value for value, _ts in pairs]
+    values = [value for value, _ts, _count in pairs]
     lo, hi = min(values), max(values)
     span = (hi - lo) or 1
     point_count = len(pairs)
     inset = _SPARKLINE_VERTICAL_INSET_PERCENT
+    # 260902-l0b: the density rule — see _SPARKLINE_DENSE_POINT_THRESHOLD's
+    # own derivation for why 50. Keyed on point_count alone (never on
+    # `daily`), so the same protection would apply to any future dense
+    # non-daily series too.
+    dense = point_count >= _SPARKLINE_DENSE_POINT_THRESHOLD
+    hit_radius = _SPARKLINE_DENSE_HIT_RADIUS_PX if dense else _SPARKLINE_HIT_RADIUS_PX
 
     def _point_x(index):
         # Spans the full 0-100% width, edge to edge — "the chart fills
@@ -738,7 +877,7 @@ def battery_sparkline_svg(rows, now=None):
     line_segments = []
     circles = []
     prev_x = prev_y = None
-    for index, (value, ts) in enumerate(pairs):
+    for index, (value, ts, reading_count) in enumerate(pairs):
         x = _point_x(index)
         y = _point_y(value)
         if prev_x is not None:
@@ -747,9 +886,15 @@ def battery_sparkline_svg(rows, now=None):
                 % (SPARKLINE_LINE_CLASS, prev_x, prev_y, x, y))
         prev_x, prev_y = x, y
 
-        circles.append(
-            '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="3" aria-hidden="true"/>'
-            % (SPARKLINE_DOT_CLASS, x, y))
+        # 260902-l0b: above the density threshold, the cosmetic marker is
+        # not emitted at all (see _SPARKLINE_DENSE_POINT_THRESHOLD's own
+        # derivation) — the hit target below still is, at its own reduced
+        # radius, so every point stays reachable even though it is no
+        # longer individually visible as a dot.
+        if not dense:
+            circles.append(
+                '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" aria-hidden="true"/>'
+                % (SPARKLINE_DOT_CLASS, x, y, _SPARKLINE_DOT_RADIUS_PX))
 
         # quick task 260901-uzi (finding 3): the server now builds this
         # point's label from the same humanised (value, when) pair the
@@ -758,7 +903,14 @@ def battery_sparkline_svg(rows, now=None):
         # below rather than composing its own copy, which is what keeps
         # hover text and tap readout identical BY CONSTRUCTION rather
         # than by two matching format literals kept in sync by hand.
-        value_text, when_text = _battery_reading_parts(value, ts, now)
+        # 260902-l0b: in daily mode, _daily_reading_parts() plays the same
+        # role — the "when" half explicitly names the day and that the
+        # value is a daily average, so the readout can never silently
+        # mix an average with a raw reading.
+        if daily:
+            value_text, when_text = _daily_reading_parts(value, ts, reading_count)
+        else:
+            value_text, when_text = _battery_reading_parts(value, ts, now)
         escaped_when = escape_html(when_text)
         label = escape_html("%s — %s" % (value_text, when_text))
         # D-13/UXA-11: roving tabindex — only the chronologically-latest
@@ -772,10 +924,10 @@ def battery_sparkline_svg(rows, now=None):
         is_latest = index == point_count - 1
         tabindex = "0" if is_latest else "-1"
         circles.append(
-            '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="8" tabindex="%s" '
+            '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="%d" tabindex="%s" '
             'role="button" data-mv="%d" data-ts="%s" data-when="%s" aria-label="%s">'
             "<title>%s</title></circle>"
-            % (SPARKLINE_HIT_CLASS, x, y, tabindex, value, escape_html(ts),
+            % (SPARKLINE_HIT_CLASS, x, y, hit_radius, tabindex, value, escape_html(ts),
                escaped_when, label, label))
 
     # Y-axis pair: max label first, min label second — .sparkline__y
@@ -796,8 +948,8 @@ def battery_sparkline_svg(rows, now=None):
         '<span class="sparkline-axis-label" aria-hidden="true">%s</span>'
         "</div>"
     ) % (
-        escape_html(_axis_clock_label(pairs[0][1])),
-        escape_html(_axis_clock_label(pairs[-1][1])),
+        escape_html(_axis_day_label(pairs[0][1]) if daily else _axis_clock_label(pairs[0][1])),
+        escape_html(_axis_day_label(pairs[-1][1]) if daily else _axis_clock_label(pairs[-1][1])),
     )
 
     svg_html = (
@@ -1507,8 +1659,14 @@ def _battery_section(trend_rows, daily_rows=None):
     # 260902-l0b: the series the CHART plots — the daily series when it is
     # usable, the raw series otherwise (the day-1 fallback). Everything
     # above and below this line keeps working from trend_rows unchanged.
-    plot_rows = daily_rows if _battery_daily_series_usable(daily_rows) else trend_rows
-    sparkline_html = battery_sparkline_svg(plot_rows, now=now) if len(plot_rows) >= 2 else ""
+    # One predicate (plot_daily) decides both the series AND the label
+    # mode passed to battery_sparkline_svg() below, so the two can never
+    # disagree about what is on screen.
+    plot_daily = _battery_daily_series_usable(daily_rows)
+    plot_rows = daily_rows if plot_daily else trend_rows
+    sparkline_html = (
+        battery_sparkline_svg(plot_rows, now=now, daily=plot_daily)
+        if len(plot_rows) >= 2 else "")
     # The script tag and readout element are emitted only when a chart
     # actually exists (sparkline_html is non-empty) — a single-reading
     # device, or one whose only rows have non-numeric millivolts, gets no

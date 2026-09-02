@@ -235,7 +235,15 @@ STARTUP_DEADLINE_S = 10.0
 # place onto the 3-month default caption (an empty render has no chart
 # at all now, so the retired "Latest 20 readings" label it pinned no
 # longer applies) — zero count change.
-EXPECTED_CHECK_COUNT = 103  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 103 + 3 (quick task 260902-l0b Task 3: the daily-mode date-endpoint-
+# label check, the daily point's data-when day/average/reading-count
+# check, and the density-rule check — both sides of the derived
+# threshold boundary plus the below-threshold non-daily regression guard
+# folded into that one check, since all three assert the same threshold-
+# gated property from different angles). battery_sparkline_svg()'s
+# widened signature (a third, defaulted `daily` parameter) needed no gate
+# retarget — no pre-existing check pinned its arity.
+EXPECTED_CHECK_COUNT = 106  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1609,6 +1617,112 @@ def main():
         "least one full-width horizontal axis <rect>, and at least two tick <rect> elements, all carrying "
         "SPARKLINE_AXIS_CLASS and aria-hidden=\"true\" on their own tags (quick task 260902-ep7 BUG 4)",
         _sparkline_axis_chrome_present)
+
+    def _sparkline_daily_mode_shows_date_endpoints_not_clock():
+        # 260902-l0b: in daily mode, the X-axis endpoints must be
+        # day-plus-month date labels (_axis_day_label()), never the
+        # clock-format labels a day string would otherwise silently
+        # render as ("00:00" — see _axis_day_label()'s own docstring for
+        # why _axis_clock_label() would "work" but lie here).
+        rows = [
+            {"ts": "2026-09-02", "battery_mv": 4100, "reading_count": 12},
+            {"ts": "2026-09-01", "battery_mv": 4101, "reading_count": 9},
+            {"ts": "2026-08-31", "battery_mv": 4102, "reading_count": 1},
+        ]
+        svg = health_page.battery_sparkline_svg(rows, now="2026-09-02T12:00:00+00:00", daily=True)
+        labels = re.findall(r'<span class="sparkline-axis-label"[^>]*>([^<]*)</span>', svg)
+        if len(labels) != 4:
+            return False, "expected exactly four axis labels (2 Y, 2 X), got %r" % (labels,)
+        x_labels = labels[2:]
+        if x_labels != ["31 Aug", "2 Sep"]:
+            return False, "expected the oldest-then-newest date endpoints '31 Aug'/'2 Sep', got %r" % (x_labels,)
+        if re.search(r">\d{2}:\d{2}<", svg):
+            return False, "found a clock-format (HH:MM) label — a day string must never render through the clock formatter"
+        return True, ""
+    check(
+        "battery_sparkline_svg(daily=True) renders day-plus-month date endpoint labels ('31 Aug'/'2 Sep'), "
+        "never the clock-format labels a day string would otherwise silently print (260902-l0b)",
+        _sparkline_daily_mode_shows_date_endpoints_not_clock)
+
+    def _sparkline_daily_point_label_names_day_and_average_count():
+        # 260902-l0b: each daily point's hover/tap label must say it is an
+        # average and how many readings formed it — the only thing on the
+        # page that tells the developer the readout switched from a raw
+        # reading (at rest) to an average (on hover/tap).
+        rows = [
+            {"ts": "2026-09-02", "battery_mv": 4100, "reading_count": 12},
+            {"ts": "2026-09-01", "battery_mv": 4101, "reading_count": 9},
+            {"ts": "2026-08-31", "battery_mv": 4102, "reading_count": 1},
+        ]
+        svg = health_page.battery_sparkline_svg(rows, now="2026-09-02T12:00:00+00:00", daily=True)
+        whens = re.findall(r'data-when="([^"]*)"', svg)
+        if len(whens) != 3:
+            return False, "expected one humanised label per point, got %r" % (whens,)
+        newest = whens[-1]
+        if "2 Sep" not in newest or "12" not in newest:
+            return False, "expected the newest point's label to name its day and its 12-reading count: %r" % newest
+        if "average" not in newest.lower():
+            return False, "expected the newest point's label to say it is a daily average: %r" % newest
+        oldest = whens[0]
+        if not re.search(r"\b1 reading\b", oldest):
+            return False, "expected a single-reading day to read singular ('1 reading', not '1 readings'): %r" % oldest
+        return True, ""
+    check(
+        "each daily chart point's data-when names its day, says it is a daily average, and gives the singular/"
+        "plural-correct contributing reading count (260902-l0b)",
+        _sparkline_daily_point_label_names_day_and_average_count)
+
+    def _sparkline_density_rule_suppresses_dots_only_above_threshold():
+        # 260902-l0b: the density rule is threshold-gated, not
+        # unconditional — below the derived threshold every point still
+        # gets its cosmetic dot and full-size hit target; at/above it,
+        # dots stop being emitted but every hit target survives (at the
+        # smaller dense radius), so no point becomes unreachable.
+        threshold_names = [name for name in dir(health_page) if "DENSE" in name]
+        if not threshold_names:
+            return False, "expected a named, documented DENSE* density-threshold constant, not a literal in the loop"
+        threshold = max(
+            getattr(health_page, name) for name in threshold_names
+            if isinstance(getattr(health_page, name), int) and getattr(health_page, name) > 10)
+
+        dense_rows = [
+            {"ts": "2026-06-%02d" % ((i % 28) + 1), "battery_mv": 4000 + i}
+            for i in range(threshold + 5)]
+        dense_svg = health_page.battery_sparkline_svg(
+            dense_rows, now="2026-09-02T12:00:00+00:00", daily=True)
+        if health_page.SPARKLINE_DOT_CLASS in dense_svg:
+            return False, "expected no cosmetic dots above the density threshold"
+        if dense_svg.count(health_page.SPARKLINE_HIT_CLASS) != len(dense_rows):
+            return False, "expected every point to keep its own hit target above the density threshold"
+        if 'r="8"' in dense_svg:
+            return False, "expected the reduced dense hit radius above the threshold, not the normal r=\"8\""
+        if dense_svg.count(health_page.SPARKLINE_LINE_CLASS) != len(dense_rows) - 1:
+            return False, "expected the thin trend line to still carry one segment per adjacent pair above the threshold"
+
+        just_under_rows = [
+            {"ts": "2026-06-%02d" % ((i % 28) + 1), "battery_mv": 4000 + i}
+            for i in range(threshold - 1)]
+        just_under_svg = health_page.battery_sparkline_svg(
+            just_under_rows, now="2026-09-02T12:00:00+00:00", daily=True)
+        if health_page.SPARKLINE_DOT_CLASS not in just_under_svg:
+            return False, "expected cosmetic dots to survive just below the density threshold"
+        if 'r="8"' not in just_under_svg:
+            return False, "expected the normal, full-size hit radius just below the density threshold"
+
+        sparse_rows = [{"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4200 - i * 10} for i in range(3)]
+        sparse_svg = health_page.battery_sparkline_svg(sparse_rows)
+        if health_page.SPARKLINE_DOT_CLASS not in sparse_svg:
+            return False, "a below-threshold, non-daily call must keep its cosmetic dots (regression guard)"
+        if 'r="8"' not in sparse_svg:
+            return False, "a below-threshold, non-daily call must keep its normal hit radius (regression guard)"
+        if not re.search(r">\d{2}:\d{2}<", sparse_svg):
+            return False, "a below-threshold, non-daily call must keep its clock endpoint labels (regression guard)"
+        return True, ""
+    check(
+        "the density rule suppresses cosmetic dots only at/above the derived threshold (every hit target "
+        "still reachable, at the reduced radius), survives untouched just below it, and a below-threshold "
+        "non-daily call stays byte-for-byte what it is today (260902-l0b)",
+        _sparkline_density_rule_suppresses_dots_only_above_threshold)
 
     def _battery_readout_seeded_with_latest_reading_not_placeholder():
         # quick task 260901-uzi (finding 3): rebuilds the expected markup
