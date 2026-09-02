@@ -204,17 +204,18 @@ REFRESH_PILL_TEXT = "Updating…"
 BATTERY_READOUT_ID = "battery-readout"
 SPARKLINE_HIT_CLASS = "sparkline-hit"
 SPARKLINE_DOT_CLASS = "sparkline-dot"
-# quick task 260902-ep7 (BUG 4): one more cross-file class literal,
-# following the same established pattern as the two above.
-# SPARKLINE_LINE_CLASS is the harness's stable marker for "a trend
-# segment rendered", replacing the retired single-<polyline> marker (a
-# percentage-coordinate <polyline> can't exist — percentages aren't
-# permitted in a `points` list — so the line is now n-1 <line> segments,
-# one per consecutive pair of points). Not read by companion/static/
-# battery-trend.js — that file queries SPARKLINE_HIT_CLASS only — so
-# this is a test/style convenience, not a JS cross-file contract like
-# the two above.
+# quick task 260902-ep7 (BUG 4): two more cross-file class literals,
+# following the same established pattern as the two above. SPARKLINE_LINE_CLASS
+# is the harness's stable marker for "a trend segment rendered", replacing
+# the retired single-<polyline> marker (a percentage-coordinate <polyline>
+# can't exist — percentages aren't permitted in a `points` list — so the
+# line is now n-1 <line> segments, one per consecutive pair of points).
+# SPARKLINE_AXIS_CLASS marks the drawn axis/tick <rect> elements this task
+# adds. Neither is read by companion/static/battery-trend.js — that file
+# queries SPARKLINE_HIT_CLASS only — so this pair is a test/style
+# convenience, not a JS cross-file contract like the two above.
 SPARKLINE_LINE_CLASS = "sparkline-line"
+SPARKLINE_AXIS_CLASS = "sparkline-axis"
 # Must equal companion/app.py's SCRIPT_ROUTE — duplicated, not imported,
 # because companion/pages/__init__.py's contract forbids a page module
 # importing companion.app (app.py imports pages, so importing back would
@@ -512,10 +513,10 @@ def battery_sparkline_svg(rows, now=None):
     cosmetic marker plus a transparent, enlarged, keyboard-focusable hit
     target with `data-mv`/`data-ts` attributes and a `<title>` tooltip,
     so the exact reading is available on hover/tap with no JavaScript at
-    all — also unchanged. D-09/§5.3: the four `aria-hidden` axis labels
-    (Y min/max mV, X oldest/newest clock time) are still emitted, now as
-    HTML `<span>` elements outside the SVG rather than SVG `<text>` nodes
-    inside it (quick task 260902-ep7 — see below for why).
+    all — also unchanged. D-09/§5.3, extended by quick task 260902-ep7:
+    real drawn axis lines and tick marks now exist (not just four
+    floating text labels), and the four axis labels themselves are HTML
+    `<span>` elements outside the SVG, not SVG `<text>` nodes inside it.
 
     quick task 260902-ep7 (BUG 4): the return value is now a `<div
     class="sparkline">` wrapper (a CSS grid: an auto-sized label column
@@ -589,6 +590,38 @@ def battery_sparkline_svg(rows, now=None):
         # PERCENT's own derivation above); the y-axis is inverted (higher
         # mV -> smaller y%) to match SVG's top-down coordinate direction.
         return inset + (1 - (value - lo) / span) * (100 - 2 * inset)
+
+    # Axis chrome first (paint order — see the note below the point loop
+    # for why order matters at all). Filled <rect> elements, not stroked
+    # <line> elements, for a real reason: an axis-aligned integer-width
+    # filled rect has no stroke-centring or half-pixel-rounding to reason
+    # about, and a rect can pair a percentage position with an absolute
+    # size in a way no stroked line can (needed below, since every tick
+    # mixes a percentage axis coordinate with an absolute pixel length).
+    # `--color-border` (style.css) is this file's existing "structural
+    # only, never an interactive-state signal" token — precisely what a
+    # chart axis is; no new colour value is introduced.
+    axis_chrome = (
+        # Y axis: a full-height 1px-wide vertical rect at the left edge.
+        '<rect class="%s" x="0" y="0" width="1" height="100%%" aria-hidden="true"/>'
+        # X axis: a full-width 1px-tall horizontal rect at the bottom edge.
+        '<rect class="%s" x="0" y="100%%" width="100%%" height="1" aria-hidden="true"/>'
+        # Y ticks at the max/min levels, poking left into the label
+        # column's own gap (style.css's .sparkline grid column-gap).
+        '<rect class="%s" x="-4" y="%.2f%%" width="4" height="1" aria-hidden="true"/>'
+        '<rect class="%s" x="-4" y="%.2f%%" width="4" height="1" aria-hidden="true"/>'
+        # X ticks at the oldest/newest point positions, hanging below the
+        # axis (a percentage y="100%%" paired with an absolute height).
+        '<rect class="%s" x="%.2f%%" y="100%%" width="1" height="4" aria-hidden="true"/>'
+        '<rect class="%s" x="%.2f%%" y="100%%" width="1" height="4" aria-hidden="true"/>'
+    ) % (
+        SPARKLINE_AXIS_CLASS,
+        SPARKLINE_AXIS_CLASS,
+        SPARKLINE_AXIS_CLASS, _point_y(hi),
+        SPARKLINE_AXIS_CLASS, _point_y(lo),
+        SPARKLINE_AXIS_CLASS, _point_x(0),
+        SPARKLINE_AXIS_CLASS, _point_x(point_count - 1),
+    )
 
     # Document order matters: SVG paints in document order and pointer
     # events go to the topmost element. Within each point, the cosmetic
@@ -666,9 +699,9 @@ def battery_sparkline_svg(rows, now=None):
 
     svg_html = (
         '<svg class="sparkline__canvas" role="group" aria-label="Battery trend">'
-        "%s%s"
+        "%s%s%s"
         "</svg>"
-    ) % ("".join(line_segments), "".join(circles))
+    ) % (axis_chrome, "".join(line_segments), "".join(circles))
 
     # Grid document order: the Y-label column first (grid column 1, row
     # 1), then the canvas (auto-placed into column 2, row 1 — the only

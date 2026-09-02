@@ -2850,7 +2850,7 @@ summary::-webkit-details-marker {
  * occupies row 1. A flex row with the same space-between as .sparkline__y,
  * so document order (oldest label, then newest — see
  * battery_sparkline_svg()) places oldest on the left, newest on the
- * right, each under its own point's own x-position on the canvas above. */
+ * right, aligned under their own X ticks. */
 .sparkline__x {
   grid-column: 2;
   display: flex;
@@ -2867,6 +2867,21 @@ summary::-webkit-details-marker {
   stroke-width: 2;
   stroke-linecap: round;
   fill: none;
+}
+
+/* Drawn axis lines and ticks (quick task 260902-ep7, BUG 4 — 06.6.4.1-
+ * UI-SPEC.md §5.3's "no tick marks or axis lines are required" was a
+ * stated FLOOR, not a prohibition; this is a permitted extension of it,
+ * and that section is updated to say so). `--color-border` is this
+ * file's existing "structural only, never an interactive-state signal"
+ * token (file header comment) — precisely what a chart axis is, so no
+ * new colour value is introduced. If this proves too faint against the
+ * card surface in the live-browser pass, the recorded fallback is this
+ * file's existing `color-mix(in srgb, var(--color-text) 12%, transparent)`
+ * edge value (already used by .banner__pill and .refresh-pill), not a
+ * newly invented one. */
+.sparkline-axis {
+  fill: var(--color-border);
 }
 
 /* Cosmetic marker only — never receives pointer events, or it would steal

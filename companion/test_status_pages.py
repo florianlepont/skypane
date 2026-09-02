@@ -183,13 +183,14 @@ STARTUP_DEADLINE_S = 10.0
 # declares var(--color-accent), and style.css's own exhaustive
 # accent-reservation list explicitly names the summary's label text, not
 # just its ::marker).
-# 94 + 0 (quick task 260902-ep7 Task 3 Commit A: BUG 4's viewBox-free
-# percentage-coordinate canvas and HTML axis-label grid. The six
-# pre-existing <polyline-based "a chart rendered" markers, the axis-label
-# lookup, the scale-bound check, and the readout-precedes-chart sparkline
-# marker were all retargeted/rewritten IN PLACE — no count change from
-# any of them).
-EXPECTED_CHECK_COUNT = 94  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 94 + 1 (quick task 260902-ep7 Task 3: BUG 4's real axis chrome — at
+# least one full-height vertical axis <rect>, at least one full-width
+# horizontal axis <rect>, and at least two tick <rect> elements, all
+# aria-hidden. The six pre-existing <polyline-based "a chart rendered"
+# markers, the axis-label lookup, the scale-bound check, and the
+# readout-precedes-chart sparkline marker were all retargeted/rewritten
+# IN PLACE — no count change from any of them).
+EXPECTED_CHECK_COUNT = 95  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1350,6 +1351,49 @@ def main():
         "canvas height exactly once for this selector and never inside a @media block (quick task 260902-ep7 "
         "BUG 4, rewritten in place from 260902-dng's retired scale-bound mechanism)",
         _sparkline_scale_bounded_at_one_across_real_container_widths)
+
+    def _sparkline_axis_chrome_present():
+        # quick task 260902-ep7 (BUG 4): the new check for the drawn axis
+        # lines and ticks — real <rect class="sparkline-axis"> elements,
+        # not just the four floating text labels 06.6.4.1-UI-SPEC.md
+        # §5.3 previously called sufficient. Same per-tag aria-hidden
+        # discipline _sparkline_axis_labels_present_with_real_min_max()
+        # above already uses, not a document-wide substring search.
+        rows = [
+            {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
+            for i in range(5)]
+        svg = health_page.battery_sparkline_svg(rows)
+
+        axis_rects = []
+        tag_start = 0
+        while True:
+            idx = svg.find('<rect class="%s"' % health_page.SPARKLINE_AXIS_CLASS, tag_start)
+            if idx == -1:
+                break
+            tag_end = svg.index(">", idx)
+            tag = svg[idx:tag_end + 1]
+            if 'aria-hidden="true"' not in tag:
+                return False, "expected every sparkline-axis <rect> to carry aria-hidden=\"true\" on its own tag"
+            axis_rects.append(tag)
+            tag_start = tag_end
+
+        vertical = [t for t in axis_rects if 'height="100%"' in t]
+        horizontal = [t for t in axis_rects if 'width="100%"' in t]
+        if not vertical:
+            return False, "expected at least one full-height vertical axis <rect> (height=\"100%\")"
+        if not horizontal:
+            return False, "expected at least one full-width horizontal axis <rect> (width=\"100%\")"
+
+        ticks = [t for t in axis_rects if t not in vertical and t not in horizontal]
+        if len(ticks) < 2:
+            return False, "expected at least two tick <rect> elements (neither full-height nor full-width), got %d" % len(ticks)
+
+        return True, ""
+    check(
+        "battery_sparkline_svg() draws real axis chrome — at least one full-height vertical axis <rect>, at "
+        "least one full-width horizontal axis <rect>, and at least two tick <rect> elements, all carrying "
+        "SPARKLINE_AXIS_CLASS and aria-hidden=\"true\" on their own tags (quick task 260902-ep7 BUG 4)",
+        _sparkline_axis_chrome_present)
 
     def _battery_readout_seeded_with_latest_reading_not_placeholder():
         # quick task 260901-uzi (finding 3): rebuilds the expected markup
