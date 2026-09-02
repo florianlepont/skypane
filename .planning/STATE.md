@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 09
+current_phase: 9
+current_phase_name: Diagonal band theme
 status: complete
 stopped_at: Phase 9 complete (4/4 plans), verified 8/8 must-haves, on-glass sign-off recorded
-last_updated: "2026-09-02T09:25:23.316Z"
+last_updated: "2026-09-02T11:22:00.000Z"
 last_activity: 2026-09-02
-last_activity_desc: Phase 09 complete
+last_activity_desc: "Completed quick task 260902-i4f: superseded the KLJ never-live-confirmed comment in server/plane/enrich.py with a dated 2026-09-02 confirmation, retaining the original investigation record as history"
 progress:
   total_phases: 17
   completed_phases: 16
   total_plans: 73
   completed_plans: 73
-  percent: 100
-current_phase_name: Diagonal band theme
+  percent: 94
 ---
 
 # Project State
@@ -339,6 +339,7 @@ None yet.
 | 260829-0rl | Fixed Cache-Control on session-gated byte-serving responses in `companion/app.py` — `Handler.send_bytes()` gained a fail-closed `public` flag (default False) deciding shared vs. private caching scope; `_serve_gallery_image()` (behind `require_session()`) now emits `private, max-age=3600` instead of the previous `public, max-age=3600` (closing an information-disclosure gap where a shared/intermediary cache could replay an authenticated gallery image to a client that never presented the session cookie); `_serve_stylesheet()` (a documented D-02 gate exemption) explicitly opts in with `public=True`, keeping its header byte-identical. TDD RED->GREEN: new gallery caching-scope check observed genuinely failing (51/52) before the fix, 52/52 after; existing stylesheet check strengthened in place (no count change from it). Closes finding WR-02 from Phase 06.4's code review, deliberately left out of scope at the time. A pre-existing, unrelated `server/test_poll_loop.py` pinned-digest drift was found during full-suite verification and deferred (see `.planning/quick/260829-0rl-fix-cache-control-on-session-gated-byte-/deferred-items.md`) — third instance of the same render-output-digest drift pattern already logged above (260828-k5r), not caused by this task. | 2026-08-29 | e6bfe26 | [260829-0rl-fix-cache-control-on-session-gated-byte-](./quick/260829-0rl-fix-cache-control-on-session-gated-byte-/) |
 | 260831-njw | Implemented spike 002a's validated finding: 6px letter-spacing (tracking) on the panel's two smallest top-row text roles (`STATE_LABEL_FONT`/`TOP_TAG_FONT`) — resurrected `draw_tracked_text()`/`_tracked_text_width()`/`_tracked_text_bbox()` verbatim from before commit `73a6eb2` removed them in an unrelated layout redesign; `draw_top_labels()` rewritten to draw both labels glyph-by-glyph with the new `LABEL_TRACKING_PX = 6` constant, the runway tag's right-alignment now pre-computed from tracked width instead of Pillow's `anchor="ra"`. `server/test_render.py` grew 101->107 checks. Full suite green except the same known cross-platform digest exception (deliberately not re-pinned — a separate CI-based workflow, out of scope for a quick task). Worktree-isolated dispatch failed the base-mismatch guard first try (the isolation mechanism forked from `main` post-PR-#23-merge instead of this feature branch) — re-dispatched sequentially without isolation, which succeeded cleanly. **NOT VERIFIED ON REAL SPECTRA 6 GLASS** — screen-preview only, matching D-13's standing requirement; a real on-glass check remains open before this can be considered final. | 2026-08-31 | f0ed5df | [260831-njw-add-6px-letter-spacing-tracking-to-the-t](./quick/260831-njw-add-6px-letter-spacing-tracking-to-the-t/) |
 | 260902-h40 | Closed out A-02-02-01 (the +200 ft/min departure-side deadband threshold, D-P2-04) — open since Phase 2, previously validated only via forced/synthetic renders. Queried the real production VPS live with the developer: `history_db`'s `runway_events` table returned 20 real `confirmed_state='departing'` rows (2026-09-01/09-02, distinct real callsigns incl. FPO683/TAP441/DAH1007/EJU9041), and `journalctl -u skypane-poll` counted 13327 real `confirmed_state=arriving` vs. 4183 real `confirmed_state=departing` across the service's full log history. All 6 STATE.md mentions of A-02-02-01 updated (1 rewritten as the evidence-of-record in Blockers/Concerns, 5 annotated `[CLOSED 2026-09-02]` in place). Worktree-isolated dispatch again failed the base-mismatch guard first try (isolation forked from `main` instead of this feature branch, same recurring pattern as 260831-njw) — re-dispatched sequentially without isolation, succeeded cleanly. Docs-only, no code touched. | 2026-09-02 | b746aa4 | [260902-h40-close-out-a-02-02-01-departure-threshold](./quick/260902-h40-close-out-a-02-02-01-departure-threshold/) |
+| 260902-i4f | Superseded `server/plane/enrich.py`'s 15-line KLJ (KlasJet) never-live-confirmed comment (quick task 260827-lgt, QT-lgt-D-06) with a dated 2026-09-02 confirmation that a real KLJ-prefixed flight was observed at Orly, developer-confirmed — resolving the open question in the direction that CONFIRMS the KlasJet attribution. New 27-line block leads with the confirmation, marks the prior lower-confidence framing `SUPERSEDED 2026-09-02`, retains the original investigation record (~25 adsbdb misses, wet-lease/ACMI reasoning) as history, and keeps the Remediation pointer as a standing safeguard. No specific callsign was captured or invented; the mapping value `"KLJ": "KlasJet"` is byte-identical. Comment-only change, one file touched, zero test changes (52/52 `test_enrich.py` unmodified). Five other stale never-live-confirmed sites (`illustrations.py` x3, VENDOR.md, HANDOFF.md) plus two `test_enrich.py` check-description strings were left untouched per plan scope, recorded as a follow-up candidate. Ran directly on this worktree/branch per dispatcher instruction — no nested worktree created. | 2026-09-02 | c981821 | [260902-i4f-update-klj-klasjet-confidence-comment-in](./quick/260902-i4f-update-klj-klasjet-confidence-comment-in/) |
 
 ## Deferred Items
 
@@ -350,7 +351,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-02T00:42:00.000Z
+Last session: 2026-09-02T11:10:03.740Z
 Stopped at: Phase 9 plan 03 (of 4) complete
 
 Resume file: .planning/phases/09-diagonal-band-theme/09-04-PLAN.md
