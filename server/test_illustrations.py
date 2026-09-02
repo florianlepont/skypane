@@ -25,6 +25,7 @@ server/assets/icons/illustrations/ where they are stable and pass
 built programmatically in a temp directory since no broken binary should
 ever be committed to the repo.
 """
+import hashlib
 import os
 import re
 import shutil
@@ -37,7 +38,14 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 52
+# 58 (quick task 260902-v26). 52 (03-03) + 6 new checks covering the
+# override-resolution layer added to illustrations.py: resolved_illustration_
+# path()'s override-vs-vendored precedence, select_illustration()'s new
+# state_dir parameter (including its Tier 1 override-vs-vendored
+# precedence), hostile-key confinement across BOTH directories, vendored-
+# file-immutability, and set_override_state_dir()'s process-default round
+# trip.
+EXPECTED_CHECK_COUNT = 58
 
 
 def main():
@@ -842,6 +850,214 @@ def main():
     check(
         "target_variants_by_airline() is derived from _ILLUSTRATION_TARGETS directly (source assertion)",
         _variants_derived_from_targets_no_second_table,
+    )
+
+    # --- override resolution layer (D-01/D-02, quick task 260902-v26) -------
+
+    def _touch_override_file(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(b"not a real png - path-existence fixture only")
+
+    def _resolved_path_override_vs_vendored():
+        state_tmp = tempfile.mkdtemp(prefix="skypane-illustrations-state-")
+        try:
+            vendored = ill.illustration_path_for_key("air-france")
+            if vendored is None or not os.path.isfile(vendored):
+                return False, "expected the real vendored air-france.png to exist as a baseline"
+            got = ill.resolved_illustration_path("air-france", state_tmp)
+            if got != vendored:
+                return False, "with no override present, resolved_illustration_path() returned %r, expected the vendored path %r" % (
+                    got, vendored,
+                )
+            override_path = os.path.join(state_tmp, ill.ILLUSTRATION_OVERRIDE_DIRNAME, "air-france.png")
+            _touch_override_file(override_path)
+            got = ill.resolved_illustration_path("air-france", state_tmp)
+            if got != override_path:
+                return False, "with an override present, resolved_illustration_path() returned %r, expected the override path %r" % (
+                    got, override_path,
+                )
+            return True, ""
+        finally:
+            shutil.rmtree(state_tmp, ignore_errors=True)
+    check(
+        "resolved_illustration_path() returns the override path when it exists, and the vendored path when it "
+        "does not (260902-v26)",
+        _resolved_path_override_vs_vendored,
+    )
+
+    def _select_illustration_state_dir_override_vs_no_state_dir():
+        state_tmp = tempfile.mkdtemp(prefix="skypane-illustrations-state-")
+        try:
+            vendored = ill.illustration_path_for_key("air-france")
+            override_path = os.path.join(state_tmp, ill.ILLUSTRATION_OVERRIDE_DIRNAME, "air-france.png")
+            _touch_override_file(override_path)
+            with_state_dir = ill.select_illustration({"airline_name": "Air France"}, state_dir=state_tmp)
+            without_state_dir = ill.select_illustration({"airline_name": "Air France"})
+            if with_state_dir != override_path:
+                return False, "select_illustration(..., state_dir=tmp) returned %r, expected the override path %r" % (
+                    with_state_dir, override_path,
+                )
+            if without_state_dir != vendored:
+                return False, "select_illustration() with no state_dir returned %r, expected the vendored path %r" % (
+                    without_state_dir, vendored,
+                )
+            if with_state_dir == without_state_dir:
+                return False, "the two calls must be provably different values, got the same path %r for both" % (with_state_dir,)
+            return True, ""
+        finally:
+            shutil.rmtree(state_tmp, ignore_errors=True)
+    check(
+        "select_illustration(..., state_dir=tmp) returns the override path when one exists for that key; the "
+        "same call with no state_dir still returns the vendored path (260902-v26)",
+        _select_illustration_state_dir_override_vs_no_state_dir,
+    )
+
+    def _tier1_override_precedence_and_tier_isolation():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        state_tmp = tempfile.mkdtemp(prefix="skypane-illustrations-state-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, "acme-air-a320.png"))
+
+            # An override for the Tier 1 key (airline-shape) wins over the
+            # vendored Tier 1 file.
+            tier1_override = os.path.join(state_tmp, ill.ILLUSTRATION_OVERRIDE_DIRNAME, "acme-air-a320.png")
+            _touch_override_file(tier1_override)
+            path = ill.select_illustration({"airline_name": "Acme Air"}, "A320", state_dir=state_tmp)
+            if path != tier1_override:
+                return False, "Tier 1 override did not win: got %r, expected %r" % (path, tier1_override)
+
+            # An override for the bare airline (Tier 2) key must NOT
+            # displace the vendored Tier 1 file - tier precedence is
+            # unchanged, only the per-tier source changes.
+            os.remove(tier1_override)
+            tier2_override = os.path.join(state_tmp, ill.ILLUSTRATION_OVERRIDE_DIRNAME, "acme-air.png")
+            _touch_override_file(tier2_override)
+            path = ill.select_illustration({"airline_name": "Acme Air"}, "A320", state_dir=state_tmp)
+            vendored_tier1 = os.path.join(fixture_dir, "acme-air-a320.png")
+            if path != vendored_tier1:
+                return False, "a Tier 2 override must not displace the vendored Tier 1 file: got %r, expected %r" % (
+                    path, vendored_tier1,
+                )
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+            shutil.rmtree(state_tmp, ignore_errors=True)
+    check(
+        "select_illustration() Tier 1 override wins over the vendored Tier 1 file; an override for the bare "
+        "Tier 2 airline key does not displace a vendored Tier 1 file - tier precedence is unchanged, only the "
+        "per-tier source changes (260902-v26)",
+        _tier1_override_precedence_and_tier_isolation,
+    )
+
+    def _override_hostile_key_confinement():
+        fixture_dir = tempfile.mkdtemp(prefix="skypane-illustrations-tiers-")
+        state_tmp = tempfile.mkdtemp(prefix="skypane-illustrations-state-")
+        original_dir = ill.ILLUSTRATION_DIR
+        try:
+            ill.ILLUSTRATION_DIR = fixture_dir
+            _make_fixture_png(os.path.join(fixture_dir, ill.GENERIC_FALLBACK_FILENAME))
+
+            hostile_keys = ("../../etc/passwd", "..\\..\\windows", "a/b/c", "..", "/etc/passwd")
+            for bad_key in hostile_keys:
+                got = ill.override_path_for_key(bad_key, state_tmp)
+                if got is not None:
+                    return False, "override_path_for_key(%r) returned %r, expected None" % (bad_key, got)
+
+            hostile_types = (
+                "../../etc/passwd", "..\\..\\windows", "/etc/passwd", "..",
+                "a" * 5000, None, 123, [], {}, object(),
+            )
+            malformed_routes = (
+                None, {}, {"airline_name": None}, {"airline_name": 123}, "not-a-dict",
+                42, ["a", "list"], {"airline_name": "../../etc/passwd"},
+            )
+            fixture_dir_real = os.path.realpath(fixture_dir)
+            override_dir_real = os.path.realpath(os.path.join(state_tmp, ill.ILLUSTRATION_OVERRIDE_DIRNAME))
+            for aircraft_type in hostile_types:
+                for route in malformed_routes:
+                    got = ill.select_illustration(route, aircraft_type, state_dir=state_tmp)  # must not raise
+                    if got is not None:
+                        got_real = os.path.realpath(got)
+                        in_vendored = os.path.commonpath([got_real, fixture_dir_real]) == fixture_dir_real
+                        in_override = os.path.commonpath([got_real, override_dir_real]) == override_dir_real
+                        if not in_vendored and not in_override:
+                            return False, "select_illustration(%r, %r, state_dir=...) returned a path outside " \
+                                "both ILLUSTRATION_DIR and the override dir: %r" % (route, aircraft_type, got)
+            return True, ""
+        finally:
+            ill.ILLUSTRATION_DIR = original_dir
+            shutil.rmtree(fixture_dir, ignore_errors=True)
+            shutil.rmtree(state_tmp, ignore_errors=True)
+    check(
+        "override_path_for_key() returns None for a battery of hostile keys, and select_illustration() with a "
+        "state_dir never returns a path outside ILLUSTRATION_DIR or the override directory, across a hostile "
+        "aircraft_type x malformed-route matrix (T-v26-01-01)",
+        _override_hostile_key_confinement,
+    )
+
+    def _vendored_file_immutable_after_override_resolution():
+        vendored = ill.illustration_path_for_key("air-france")
+        with open(vendored, "rb") as f:
+            before = hashlib.sha256(f.read()).hexdigest()
+        state_tmp = tempfile.mkdtemp(prefix="skypane-illustrations-state-")
+        try:
+            override_path = os.path.join(state_tmp, ill.ILLUSTRATION_OVERRIDE_DIRNAME, "air-france.png")
+            _touch_override_file(override_path)
+            ill.resolved_illustration_path("air-france", state_tmp)
+            ill.select_illustration({"airline_name": "Air France"}, state_dir=state_tmp)
+            ill.select_illustration({"airline_name": "Air France"})
+        finally:
+            shutil.rmtree(state_tmp, ignore_errors=True)
+        with open(vendored, "rb") as f:
+            after = hashlib.sha256(f.read()).hexdigest()
+        if before != after:
+            return False, "vendored air-france.png bytes changed after override resolution calls (before=%s after=%s)" % (
+                before, after,
+            )
+        return True, ""
+    check(
+        "the vendored file's bytes are unchanged after a battery of override resolution calls (260902-v26, "
+        "T-v26-01-02)",
+        _vendored_file_immutable_after_override_resolution,
+    )
+
+    def _set_override_state_dir_round_trip():
+        state_tmp = tempfile.mkdtemp(prefix="skypane-illustrations-state-")
+        try:
+            override_path = os.path.join(state_tmp, ill.ILLUSTRATION_OVERRIDE_DIRNAME, "air-france.png")
+            _touch_override_file(override_path)
+            vendored = ill.illustration_path_for_key("air-france")
+
+            ill.set_override_state_dir(state_tmp)
+            got_with_default = ill.select_illustration({"airline_name": "Air France"})
+            if got_with_default != override_path:
+                return False, "after set_override_state_dir(tmp), a bare select_illustration() call returned %r, expected the override path %r" % (
+                    got_with_default, override_path,
+                )
+
+            ill.set_override_state_dir(None)
+            got_after_reset = ill.select_illustration({"airline_name": "Air France"})
+            if got_after_reset != vendored:
+                return False, "after set_override_state_dir(None), select_illustration() returned %r, expected the vendored path %r - the reset did not take effect" % (
+                    got_after_reset, vendored,
+                )
+            return True, ""
+        finally:
+            # Idempotent safety net - the reset MUST already have happened
+            # above, but this leaves no path where a raised exception
+            # mid-check could leak the process default into every
+            # subsequent check in this file (T-v26-01-04).
+            ill.set_override_state_dir(None)
+            shutil.rmtree(state_tmp, ignore_errors=True)
+    check(
+        "set_override_state_dir() round trip: setting it makes a bare select_illustration() call pick up the "
+        "override; resetting to None restores the vendored path, and the reset is guaranteed by a finally block "
+        "(260902-v26, T-v26-01-04)",
+        _set_override_state_dir_round_trip,
     )
 
     total = len(results)
