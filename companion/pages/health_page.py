@@ -204,6 +204,17 @@ REFRESH_PILL_TEXT = "Updating…"
 BATTERY_READOUT_ID = "battery-readout"
 SPARKLINE_HIT_CLASS = "sparkline-hit"
 SPARKLINE_DOT_CLASS = "sparkline-dot"
+# quick task 260902-ep7 (BUG 4): one more cross-file class literal,
+# following the same established pattern as the two above.
+# SPARKLINE_LINE_CLASS is the harness's stable marker for "a trend
+# segment rendered", replacing the retired single-<polyline> marker (a
+# percentage-coordinate <polyline> can't exist — percentages aren't
+# permitted in a `points` list — so the line is now n-1 <line> segments,
+# one per consecutive pair of points). Not read by companion/static/
+# battery-trend.js — that file queries SPARKLINE_HIT_CLASS only — so
+# this is a test/style convenience, not a JS cross-file contract like
+# the two above.
+SPARKLINE_LINE_CLASS = "sparkline-line"
 # Must equal companion/app.py's SCRIPT_ROUTE — duplicated, not imported,
 # because companion/pages/__init__.py's contract forbids a page module
 # importing companion.app (app.py imports pages, so importing back would
@@ -387,40 +398,55 @@ def battery_trend_rows(conn):
     return history_db.recent_device_health(conn, limit=BATTERY_TREND_LIMIT)
 
 
-# D-09/§5.3: reserved space grown around the 322x106 plot area for the
-# four axis labels — a left gutter for the two Y-axis (min/max mV)
-# labels, and a bottom strip for the two X-axis (oldest/newest
-# clock-time) labels. The polyline/marker/hit-target math below derives
-# its plot area from these constants rather than hardcoding the old
-# padding against the larger box, so a future size tweak only needs to
-# change these two numbers.
+# quick task 260902-ep7 (BUG 4): _AXIS_LEFT_GUTTER and _AXIS_BOTTOM_STRIP
+# (a hand-estimated left gutter and bottom strip reserved around the plot
+# area for the axis labels — grown once already, from 34 to 44 user
+# units, by quick task 260902-dng, when its own under-measurement became
+# visible for the first time at true 1:1 scale) are DELETED outright, not
+# just resized again. Reserving gutter space in Python was always an
+# ESTIMATE of how wide a browser would actually render a given label —
+# this whole class of error (estimate now, hope a browser agrees later)
+# goes with them. The replacement is structural: `battery_sparkline_svg()`
+# now returns a CSS-grid wrapper (`.sparkline`, style.css) whose first
+# column is sized `auto` — the browser measures the REAL rendered width
+# of the widest Y-axis label and reserves exactly that, every time, for
+# every label string, at every font a user's system substitutes. The
+# bottom strip's job is done the same way, as a second grid row sized by
+# its own row's content height. Axis labels are `<span>` elements in that
+# grid now, not SVG `<text>` nodes — see below.
 #
-# quick task 260902-dng (bug 1): both constants, and plot_width/
-# plot_height below, were resized together to fix a 2.53x scale-up
-# defect — see the long comment on `.battery-trend-section svg:not(.icon)`
-# in style.css for the full container-width derivation and the
-# min(cW/viewBoxW, 1) bound this resize exists to satisfy. In short: the
-# canvas was never recalibrated after 06.6.1 plan 03 moved this chart out
-# of a narrow .stat-tile into its own full-width card, so the CSS's old
-# `height: auto` scaled a 334-wide viewBox up to as much as 846px wide —
-# a 2.53x blow-up of every SVG-user-unit value (10px labels rendering at
-# ~25px, 2px strokes at ~5px). The fix bounds the CSS height instead of
-# leaving it auto, which caps the scale at 1.0 by construction; widening
-# the viewBox itself (this resize) is what keeps that 1.0-capped chart
-# legible rather than shrunk, while staying under the 366px width that
-# the narrowest real container (293px, a 375px viewport) can still show
-# at >= 0.80 scale.
+# The chart's plot geometry itself no longer needs a "gutter" concept at
+# all: with no viewBox, 1 SVG user unit == 1 CSS pixel, and cx is a
+# PERCENTAGE of the canvas's own rendered width — the canvas IS the plot
+# area, edge to edge, with nothing reserved inside it. This is also what
+# makes "the chart fills its card" a structural property of the layout
+# rather than a tuned number: there is no scale factor anywhere in this
+# pipeline for a future edit to silently break.
 #
-# _AXIS_LEFT_GUTTER grew from 34 to 44: 34 user units was sized for a
-# "4200 mV"-shaped label (7 characters) at the 10px .sparkline-axis-label
-# size plus the label's own x="2" inset, which under-measures a 10px
-# sans-ish label at roughly 0.6em/char (7 * 6 = 42, + the 2px inset = 44).
-# This under-measure was invisible while the whole chart rendered 2.53x
-# oversized (a 34-unit gutter still read as ~86px on screen); it is
-# corrected here because it becomes visible for the first time at true
-# 1:1 scale.
-_AXIS_LEFT_GUTTER = 44  # room for a "4200 mV"-shaped label, 10px font.
-_AXIS_BOTTOM_STRIP = 14  # room for one "HH:MM"-shaped label line.
+# The chart canvas's own fixed height, in CSS pixels — declared exactly
+# ONCE, here and in style.css's `.battery-trend-section svg:not(.icon)`
+# rule (a harness check pins that the CSS declares it nowhere else,
+# especially not inside a `@media` block: since every point coordinate
+# is now a percentage of this height, a responsive height would silently
+# move every point). Chosen against three criteria, all satisfied by
+# 160px: at least the validated sketch's own 150px (the only height this
+# chart has ever been reviewed at), no more than ~180px so the card does
+# not dominate the page, and tall enough that a small millivolt spread
+# still reads as a trend rather than a flat line.
+_SPARKLINE_CANVAS_HEIGHT_PX = 160
+
+# The vertical inset — the margin, top and bottom, inside the canvas the
+# plotted line never crosses, as a PERCENT of the canvas height. Derived,
+# not chosen by taste: it must be at least the 3-unit cosmetic-marker
+# radius so no visible dot is ever clipped, and it is set here to equal
+# half the axis label's own line box (as a fraction of the canvas
+# height) so that `justify-content: space-between` (style.css's
+# `.sparkline__y`) places each Y label's optical centre exactly on the
+# level it names. A 10px label at `line-height: 1.2` is a 12px line box;
+# half of that is 6px; 6 / 160 * 100 = 3.75. Re-derive this figure if
+# either the label's font-size/line-height or
+# _SPARKLINE_CANVAS_HEIGHT_PX above ever changes.
+_SPARKLINE_VERTICAL_INSET_PERCENT = 3.75
 
 
 def _axis_clock_label(ts):
@@ -478,19 +504,37 @@ def _battery_reading_parts(mv, ts, now):
 
 
 def battery_sparkline_svg(rows, now=None):
-    """A minimal, dependency-free inline SVG sparkline built server-side
-    from `rows` (newest-first, `battery_trend_rows()`'s own shape) — a
-    fixed viewBox, exactly one `<polyline>`, no external reference
-    (`url(`, `<image`, or a script tag) of any kind, consistent with the
-    zero-new-dependencies constraint (T-06-08-SC). D-02: each plotted
-    point also carries a cosmetic marker plus a transparent, enlarged,
-    keyboard-focusable hit target with `data-mv`/`data-ts` attributes and
-    a `<title>` tooltip, so the exact reading is available on hover/tap
-    with no JavaScript at all. D-09/§5.3: four `aria-hidden` axis-label
-    text nodes (Y min/max mV, X oldest/newest clock time) are also
-    emitted — no tick marks or axis lines, per UI-SPEC §5.3's "four small
-    text labels are sufficient". Every axis label is `aria-hidden`
-    because the exact reading is already announced by each point's own
+    """A minimal, dependency-free battery-trend chart built server-side
+    from `rows` (newest-first, `battery_trend_rows()`'s own shape). No
+    external reference (`url(`, `<image`, or a script tag) of any kind,
+    consistent with the zero-new-dependencies constraint (T-06-08-SC) —
+    that goal is unchanged. D-02: each plotted point also carries a
+    cosmetic marker plus a transparent, enlarged, keyboard-focusable hit
+    target with `data-mv`/`data-ts` attributes and a `<title>` tooltip,
+    so the exact reading is available on hover/tap with no JavaScript at
+    all — also unchanged. D-09/§5.3: the four `aria-hidden` axis labels
+    (Y min/max mV, X oldest/newest clock time) are still emitted, now as
+    HTML `<span>` elements outside the SVG rather than SVG `<text>` nodes
+    inside it (quick task 260902-ep7 — see below for why).
+
+    quick task 260902-ep7 (BUG 4): the return value is now a `<div
+    class="sparkline">` wrapper (a CSS grid: an auto-sized label column
+    beside the canvas, a labelled row below it — see style.css), not a
+    bare `<svg>`. The `<svg>` inside it carries NO `viewBox` and NO
+    `preserveAspectRatio` — the docstring's old claim of "a fixed
+    viewBox, exactly one `<polyline>`" described a MECHANISM, not a
+    goal, and that mechanism is exactly what changed. With no viewBox, 1
+    SVG user unit == 1 CSS pixel and percentage geometry resolves
+    against the canvas's own real rendered size, so every horizontal
+    position emitted below is a percentage in [0, 100] and every size
+    (marker radius, hit-target radius, stroke width, tick dimensions) is
+    an absolute CSS pixel value at every container width, forever —
+    there is no scale factor anywhere in this pipeline to bound. The
+    single `<polyline>` is replaced by `n - 1` `<line class="sparkline-
+    line">` segments (percentages are not permitted inside a `<polyline>`
+    `points` list, so a polyline could not carry this coordinate scheme
+    even if kept). Every axis label is still `aria-hidden` because the
+    exact reading is already announced by each point's own
     `aria-label`/`<title>`; duplicating it as loose text would make a
     screen reader read the chart's extremes twice. Deliberately does
     **not** emit a script tag or the readout element itself — those are
@@ -529,32 +573,46 @@ def battery_sparkline_svg(rows, now=None):
     if len(pairs) < 2:
         return ""
     values = [value for value, _ts in pairs]
-
-    # quick task 260902-dng (bug 1): 300x60 -> 322x106 (viewBox 366x120
-    # once the axis gutter/strip are added) — see _AXIS_LEFT_GUTTER's own
-    # comment above and .battery-trend-section svg:not(.icon)'s comment in
-    # style.css for the full derivation this canvas size satisfies.
-    plot_width, plot_height, padding = 322, 106, 4
-    width = plot_width + _AXIS_LEFT_GUTTER
-    height = plot_height + _AXIS_BOTTOM_STRIP
-    usable_w = plot_width - 2 * padding
-    usable_h = plot_height - 2 * padding
-    plot_left = padding + _AXIS_LEFT_GUTTER
-    plot_top = padding
     lo, hi = min(values), max(values)
     span = (hi - lo) or 1
-    step = usable_w / (len(values) - 1)
+    point_count = len(pairs)
+    inset = _SPARKLINE_VERTICAL_INSET_PERCENT
 
-    points = []
-    markers = []
-    hit_targets = []
+    def _point_x(index):
+        # Spans the full 0-100% width, edge to edge — "the chart fills
+        # its card" is a property of this formula, not a tuned margin.
+        return index / (point_count - 1) * 100
+
+    def _point_y(value):
+        # `inset` on both top and bottom keeps every marker's 3-unit
+        # radius fully inside the canvas (see _SPARKLINE_VERTICAL_INSET_
+        # PERCENT's own derivation above); the y-axis is inverted (higher
+        # mV -> smaller y%) to match SVG's top-down coordinate direction.
+        return inset + (1 - (value - lo) / span) * (100 - 2 * inset)
+
+    # Document order matters: SVG paints in document order and pointer
+    # events go to the topmost element. Within each point, the cosmetic
+    # marker is emitted immediately before its own hit target — unchanged
+    # from before this task — so a hit target is never visually painted
+    # under its own marker; `.sparkline-dot`'s own `pointer-events: none`
+    # (style.css) is the actual reason a tap always reaches the
+    # transparent target beneath, independent of paint order, but the
+    # emission order is kept anyway to match the existing convention this
+    # file's own prior comment already established here.
+    line_segments = []
+    circles = []
+    prev_x = prev_y = None
     for index, (value, ts) in enumerate(pairs):
-        x = plot_left + index * step
-        y = plot_top + usable_h - ((value - lo) / span) * usable_h
-        points.append("%.1f,%.1f" % (x, y))
+        x = _point_x(index)
+        y = _point_y(value)
+        if prev_x is not None:
+            line_segments.append(
+                '<line class="%s" x1="%.2f%%" y1="%.2f%%" x2="%.2f%%" y2="%.2f%%"/>'
+                % (SPARKLINE_LINE_CLASS, prev_x, prev_y, x, y))
+        prev_x, prev_y = x, y
 
-        markers.append(
-            '<circle class="%s" cx="%.1f" cy="%.1f" r="3" aria-hidden="true"/>'
+        circles.append(
+            '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="3" aria-hidden="true"/>'
             % (SPARKLINE_DOT_CLASS, x, y))
 
         # quick task 260901-uzi (finding 3): the server now builds this
@@ -575,58 +633,50 @@ def battery_sparkline_svg(rows, now=None):
         # order and the x-coordinate math above already places the last
         # index rightmost, so this one condition identifies both
         # "latest" and "rightmost" simultaneously.
-        is_latest = index == len(pairs) - 1
+        is_latest = index == point_count - 1
         tabindex = "0" if is_latest else "-1"
-        hit_targets.append(
-            '<circle class="%s" cx="%.1f" cy="%.1f" r="8" tabindex="%s" '
+        circles.append(
+            '<circle class="%s" cx="%.2f%%" cy="%.2f%%" r="8" tabindex="%s" '
             'role="button" data-mv="%d" data-ts="%s" data-when="%s" aria-label="%s">'
             "<title>%s</title></circle>"
             % (SPARKLINE_HIT_CLASS, x, y, tabindex, value, escape_html(ts),
                escaped_when, label, label))
 
-    # Y-axis pair: max at the plot area's top, min at its bottom, both
-    # left-aligned inside the reserved gutter. X-axis pair: oldest at the
-    # plot area's left edge, newest right-anchored at its right edge,
-    # both in the reserved bottom strip.
-    x_label_y = height - 2
-    axis_labels = (
-        '<text class="sparkline-axis-label" x="2" y="%.1f" aria-hidden="true">%d mV</text>'
-        '<text class="sparkline-axis-label" x="2" y="%.1f" aria-hidden="true">%d mV</text>'
-        '<text class="sparkline-axis-label" x="%.1f" y="%.1f" aria-hidden="true">%s</text>'
-        '<text class="sparkline-axis-label" x="%.1f" y="%.1f" text-anchor="end" aria-hidden="true">%s</text>'
+    # Y-axis pair: max label first, min label second — .sparkline__y
+    # (style.css) is a flex column with justify-content: space-between,
+    # so document order top-to-bottom is what places max above min. X-axis
+    # pair: oldest first, newest second — .sparkline__x is a flex row with
+    # the same space-between, so document order left-to-right places
+    # oldest before newest.
+    y_labels_html = (
+        '<div class="sparkline__y">'
+        '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
+        '<span class="sparkline-axis-label" aria-hidden="true">%d mV</span>'
+        "</div>"
+    ) % (hi, lo)
+    x_labels_html = (
+        '<div class="sparkline__x">'
+        '<span class="sparkline-axis-label" aria-hidden="true">%s</span>'
+        '<span class="sparkline-axis-label" aria-hidden="true">%s</span>'
+        "</div>"
     ) % (
-        plot_top + 8, hi,
-        plot_top + usable_h, lo,
-        plot_left, x_label_y, escape_html(_axis_clock_label(pairs[0][1])),
-        plot_left + usable_w, x_label_y, escape_html(_axis_clock_label(pairs[-1][1])),
+        escape_html(_axis_clock_label(pairs[0][1])),
+        escape_html(_axis_clock_label(pairs[-1][1])),
     )
 
-    # Document order matters: SVG paints in document order and pointer
-    # events go to the topmost element, so the transparent hit targets
-    # must come last (after the cosmetic markers) or the cosmetic dots
-    # would intercept taps meant for the hit targets underneath.
-    # quick task 260902-dng (bug 1): explicit preserveAspectRatio, rather
-    # than the SVG default (xMidYMid meet). xMinYMid left-aligns the chart
-    # within the section's now-fixed-height container at wide viewports
-    # (where the container is wider than the 366-unit viewBox after the
-    # scale is capped at 1.0), so the chart's left edge lines up with the
-    # readout text above it instead of the default centring splitting the
-    # spare width on both sides. "meet" (not "slice") is unchanged from
-    # the SVG default — the whole viewBox must stay visible, never
-    # cropped. See style.css's rejection of preserveAspectRatio="none"
-    # (which would instead stretch to fill, distorting glyphs/circles at
-    # narrow widths) on .battery-trend-section svg:not(.icon).
-    return (
-        '<svg viewBox="0 0 %d %d" width="%d" height="%d" '
-        'preserveAspectRatio="xMinYMid meet" '
-        'xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Battery trend">'
-        '<polyline points="%s" fill="none" stroke="currentColor" stroke-width="2"/>'
-        "%s%s%s"
+    svg_html = (
+        '<svg class="sparkline__canvas" role="group" aria-label="Battery trend">'
+        "%s%s"
         "</svg>"
-    ) % (
-        width, height, width, height, " ".join(points),
-        "".join(markers), "".join(hit_targets), axis_labels,
-    )
+    ) % ("".join(line_segments), "".join(circles))
+
+    # Grid document order: the Y-label column first (grid column 1, row
+    # 1), then the canvas (auto-placed into column 2, row 1 — the only
+    # cell left open once the label column claims column 1), then the
+    # X-label row last (explicitly column 2 in style.css, which the grid
+    # auto-places into row 2, the only open cell in that column). See
+    # style.css's `.sparkline` rule for the full grid contract.
+    return '<div class="sparkline">%s%s%s</div>' % (y_labels_html, svg_html, x_labels_html)
 
 
 def battery_status(rows):

@@ -2327,77 +2327,85 @@ summary::-webkit-details-marker {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* The sparkline still carries fixed width/height attributes and needs
- * this override to shrink to the section's width — but the section's
- * heading also carries an `icon-battery` `<svg class="icon">` now
- * (06.6.1 plan 04/06 gap fix), and a bare `svg` element selector would
- * catch that too, reproducing the exact `.stat-tile svg` collision
- * already fixed above (06.6.1-06-SUMMARY.md) in a second location this
- * rule was never updated for. `:not(.icon)` excludes it explicitly
- * rather than relying on the sparkline being the only match by luck.
+/* This selector shrinks the sparkline canvas to the section's own
+ * width — but the section's heading also carries an `icon-battery`
+ * `<svg class="icon">` now (06.6.1 plan 04/06 gap fix), and a bare `svg`
+ * element selector would catch that too, reproducing the exact
+ * `.stat-tile svg` collision already fixed above (06.6.1-06-SUMMARY.md)
+ * in a second location this rule was never updated for. `:not(.icon)`
+ * excludes it explicitly rather than relying on the sparkline being the
+ * only match by luck. Specificity note, still load-bearing: this
+ * selector is (0,2,1), which out-specifies any bare `.sparkline__canvas`
+ * class rule (0,1,0) — the canvas's size is declared HERE ONLY; a second
+ * declaration on the class selector would lose a silent specificity
+ * fight rather than override anything.
  *
- * quick task 260902-dng (bug 1): `height: auto` was the defect. With
- * `width: 100%` and an auto height, the browser's default `xMidYMid
- * meet` scaling makes the uniform scale factor `containerWidth /
- * viewBoxWidth` — unbounded above — so every SVG-user-unit value (the
- * 10px axis-label font, `stroke-width: 2`, the r=3 markers, the r=8 hit
- * targets) is multiplied by whatever that ratio happens to be. The
- * developer measured this live: a 334-wide viewBox rendered at 846px in
- * its full-width card at a 1280px viewport, a 2.53x blow-up (846/334) —
- * 10px labels rendering at ~25px, 2px strokes at ~5px. Root cause: this
- * chart's canvas was sized while it lived inside a narrow `.stat-tile`;
- * 06.6.1 plan 03 moved it into its own full-width card and this rule was
- * never recalibrated for the wider container.
+ * HISTORY (kept as evidence the fixed-viewBox design this replaces
+ * could never have worked here, not as a live constraint — nothing
+ * below this paragraph governs the current rule):
  *
- * Real container-width range, derived from this file's own rules rather
- * than the single 846px measurement (so the fix is provably bounded, not
- * just observed correct at one viewport): at >= 960px, `.dashboard-shell`
- * is `240px minmax(0, 1fr)` with a `--space-xl` (32px) column-gap, so the
- * main column is `viewport - 272`; `.dashboard-main` then caps at
- * `min(1440px, 100%)` and adds `--space-2xl`/`--space-3xl` (48/64px)
- * padding, giving content width `min(1440, column) - 128`; this section's
- * own `--space-md` (16px) padding plus its 1px border on each side
- * subtracts another 34, so the SVG's containing block is `content - 34`.
- * Below 960px, `.page-content` applies `--space-xl`/`--space-lg` (32/24px)
- * padding, so content is `viewport - 48` and the SVG container is
- * `viewport - 82`. Evaluated: 375px viewport -> 293px (the narrowest real
- * container); 959px -> 877px; 960px -> 526px; 1280px -> 846px (matches
- * the live measurement exactly, which is the proof this derivation is
- * right); >= 1568px -> 1278px (the 1440px max-width caps it — the range
- * is genuinely bounded above). Real range: 293px to 1278px, a 4.36x
- * spread.
+ * quick task 260902-dng (bug 1) found that `height: auto` let the
+ * browser's default `xMidYMid meet` scaling multiply every SVG-user-unit
+ * value by `containerWidth / viewBoxWidth`, unbounded above — a measured
+ * 2.53x blow-up (846px rendered / a 334-wide viewBox) with 10px labels
+ * rendering at ~25px. That task derived this file's real container-width
+ * range from its own layout rules (not just the one width anyone
+ * happened to measure): at >= 960px, `.dashboard-shell`'s 240px column
+ * plus a `--space-xl` (32px) gap leaves `viewport - 272` for the main
+ * column; `.dashboard-main` caps at `min(1440px, 100%)` and adds
+ * `--space-2xl`/`--space-3xl` (48/64px) padding; this section's own
+ * `--space-md` (16px) padding plus its 1px border subtracts 34 more.
+ * Below 960px, `.page-content`'s `--space-xl`/`--space-lg` (32/24px)
+ * padding leaves `viewport - 48`, then the same 34 for this section's
+ * own padding/border. Evaluated: 375px viewport -> 293px (the narrowest
+ * real container); 959px -> 877px; **960px -> 526px** (a real
+ * discontinuity — the container DROPS as the sidebar appears);
+ * 1280px -> 846px (matches the live measurement exactly); >= 1568px ->
+ * 1278px (the 1440px max-width caps it). Real range: 293px to 1278px, a
+ * 4.36x spread, non-monotonic in viewport width.
  *
- * The fix: replace the auto height with a FIXED pixel height equal to
- * `battery_sparkline_svg()`'s own emitted `height` attribute (120, from
- * its 366x120 viewBox — see health_page.py's canvas-constant comments).
- * The effective uniform scale becomes `min(containerWidth / viewBoxWidth,
- * cssHeight / viewBoxHeight)`; with cssHeight == the SVG's own height
- * attribute, the second term is always exactly 1.0, which caps the whole
- * expression at 1.0 by construction, at every container width, present
- * and future — not just the one width anyone happened to measure. This
- * equality (CSS declared height == SVG height attribute) is the entire
- * mechanism; a harness check in test_status_pages.py pins it across both
- * files, because a future edit to either number alone silently breaks
- * the bound with no visual signal until someone measures again. A fixed
- * height also stops the card's own height from changing with viewport
- * width — a free second benefit.
+ * quick task 260902-dng's own fix bounded the scale at 1.0 (a fixed CSS
+ * height equal to the SVG's own height attribute, capping
+ * `min(containerWidth/viewBoxWidth, cssHeight/viewBoxHeight)` at 1.0) —
+ * correct as far as it went, but it left the chart under-filling its
+ * card at most widths in the range above (a 366-unit-wide plot area
+ * inside an 846px-wide card at 1280px, for instance). quick task
+ * 260902-ep7 (BUG 4) evaluated and rejected a breakpoint-aware dual
+ * canvas as the fix for that: it would break battery-trend.js outright
+ * (two `<svg>` in the DOM means `document.querySelectorAll(".sparkline-
+ * hit")` returns 2N points, half inside a `display: none` subtree where
+ * `.focus()` silently fails, plus two conflicting `tabindex="0"` Tab
+ * stops), and even setting that aside, each breakpoint band still spans
+ * a wide ratio of this range (293-877px below 960px, 526-1278px above
+ * it) so neither canvas would fill its own band's full range either.
  *
- * Rejected: the validated Merged Health Sketch's own strategy, pairing
- * `preserveAspectRatio="none"` with this same fixed CSS height. That
- * does hold the VERTICAL scale at exactly 1.0, but it lets the
- * HORIZONTAL scale run independently at `containerWidth / viewBoxWidth`
- * — over this file's real 293-1278px container range, that is 0.33x at
- * a 375px viewport against the sketch's 900-wide viewBox. At 0.33x
- * horizontal, the four axis labels' glyphs are squashed to a third of
- * their natural width (illegible, overlapping) and the D-02 r=8
- * keyboard hit targets become ~2.6px-wide slivers, breaking the tap-
- * target floor phase 06.5 validated. The sketch's 900-wide viewBox is
- * only ever near 1:1 around a 900px container, the one width it was
- * ever viewed at. Uniform scaling with a 1.0 cap (this rule) keeps
- * glyphs and circles undistorted at every width instead. */
+ * The fix actually taken: delete the viewBox entirely (see
+ * health_page.py's `battery_sparkline_svg()`). With no viewBox there is
+ * no scaling transform of any kind — 1 SVG user unit IS 1 CSS pixel, and
+ * percentage geometry resolves against this element's own real rendered
+ * size. "The chart fills its card" becomes a property of the layout,
+ * not a tuned number, and the entire class of defect quick task
+ * 260902-dng fixed (and this bug report's own "doesn't fill the card"
+ * complaint) becomes structurally unreachable rather than merely
+ * bounded. `preserveAspectRatio="none"` (the validated Merged Health
+ * Sketch's own strategy, already rejected once by 260902-dng for
+ * distorting glyphs/circles at narrow widths under a fixed viewBox) is
+ * now simply MOOT — there is no scaled canvas left for it to apply to.
+ *
+ * **New hazard this design introduces, in place of the old scale-bound
+ * one — read this before touching `height` below:** every point
+ * coordinate `battery_sparkline_svg()` emits is a PERCENTAGE OF THIS
+ * DECLARED HEIGHT. The height must be declared exactly once, here, and
+ * must never be varied inside a `@media` block — a responsive height
+ * would silently move every point on the chart with no other visual
+ * signal that anything broke. A harness check in test_status_pages.py
+ * pins this: it asserts the height is declared on this selector and
+ * declared nowhere else, especially not inside `@media`. */
 .battery-trend-section svg:not(.icon) {
   width: 100%;
-  height: 120px;
+  height: 160px;
+  overflow: visible;
+  display: block;
 }
 
 /* 06.6.4 (D-03) removes the D-14 dark-mode card-edge override that used
@@ -2800,6 +2808,67 @@ summary::-webkit-details-marker {
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
  * readout line. */
 
+/* quick task 260902-ep7 (BUG 4): the chart's outer wrapper —
+ * health_page.py's battery_sparkline_svg() returns this grid, not a bare
+ * <svg>, now. The `auto` first column is the entire point: the browser
+ * measures the REAL rendered width of the widest Y-axis label in
+ * .sparkline__y below and reserves exactly that — this is what replaces
+ * _AXIS_LEFT_GUTTER, a Python-side ESTIMATE of that same width, deleted
+ * along with _AXIS_BOTTOM_STRIP in health_page.py. The second row (the
+ * X-axis label row, below the canvas) does the same job for the bottom
+ * strip, sized by its own content height rather than a second estimate. */
+.sparkline {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-sm);
+  row-gap: var(--space-xs);
+}
+
+/* Column 1, row 1 (explicit — the canvas and the X-label row below are
+ * auto-placed into the remaining cells; see .sparkline's own comment and
+ * .sparkline__x's below). A flex column stretched to the grid row's own
+ * height (grid's default `align-items: stretch`, which for row 1 means
+ * this element's height equals the canvas's own declared height, in
+ * .battery-trend-section svg:not(.icon)) with justify-content:
+ * space-between, so document order (max label, then min label — see
+ * battery_sparkline_svg()) places max at the top and min at the bottom,
+ * each one's optical centre landing on the level it names by the same
+ * half-line-box arithmetic health_page.py's _SPARKLINE_VERTICAL_INSET_
+ * PERCENT comment derives. */
+.sparkline__y {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+/* Column 2 explicit; the grid auto-places this into row 2, the only open
+ * cell left in that column once the canvas (auto-placed into row 1,
+ * column 2 — the sole remaining cell once .sparkline__y claims column 1)
+ * occupies row 1. A flex row with the same space-between as .sparkline__y,
+ * so document order (oldest label, then newest — see
+ * battery_sparkline_svg()) places oldest on the left, newest on the
+ * right, each under its own point's own x-position on the canvas above. */
+.sparkline__x {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* The trend line: one <line> per consecutive pair of points (percentages
+ * are not permitted inside a <polyline>'s points list, which is why this
+ * is n - 1 line segments rather than one polyline). stroke-linecap:
+ * round makes consecutive segments' joins read as one continuous line
+ * rather than mitred gaps. */
+.sparkline-line {
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  fill: none;
+}
+
 /* Cosmetic marker only — never receives pointer events, or it would steal
  * them from the larger .sparkline-hit target painted at the same
  * coordinates. */
@@ -2832,16 +2901,23 @@ summary::-webkit-details-marker {
   outline-offset: 1px;
 }
 
-/* Battery-chart axis labels (D-09, §5.3) — SVG `text` nodes, so `fill`
- * not `color` sets the visible ink. 10px reuses this file's already-
- * documented sub-scale exception tier (.data-table th at 11px,
- * .cell-secondary at 12px), one step further down because chart-axis
- * micro-labels sit below secondary table text in the hierarchy —
- * explicitly not a fifth content type role. */
+/* Battery-chart axis labels (D-09, §5.3). quick task 260902-ep7 (BUG 4):
+ * these are now HTML <span> elements inside the .sparkline__y/.sparkline__x
+ * grid rows above, not SVG `text` nodes — so `color` sets the visible
+ * ink now, not `fill` (was `fill` before this task; the same property
+ * rename health_page.py's own axis-label markup already made). 10px
+ * reuses this file's already-documented sub-scale exception tier
+ * (.data-table th at 11px, .cell-secondary at 12px), one step further
+ * down because chart-axis micro-labels sit below secondary table text
+ * in the hierarchy — explicitly not a fifth content type role.
+ * `line-height: 1.2` is added because health_page.py's
+ * _SPARKLINE_VERTICAL_INSET_PERCENT arithmetic depends on this being a
+ * known number (half the label's line box), not an inherited value. */
 .sparkline-axis-label {
   font-size: 10px;
   font-weight: var(--weight-regular);
-  fill: color-mix(in srgb, var(--color-text) 70%, transparent);
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* Reserves a fixed-height line so the first reveal never shifts the page

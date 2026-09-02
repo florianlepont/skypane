@@ -183,6 +183,12 @@ STARTUP_DEADLINE_S = 10.0
 # declares var(--color-accent), and style.css's own exhaustive
 # accent-reservation list explicitly names the summary's label text, not
 # just its ::marker).
+# 94 + 0 (quick task 260902-ep7 Task 3 Commit A: BUG 4's viewBox-free
+# percentage-coordinate canvas and HTML axis-label grid. The six
+# pre-existing <polyline-based "a chart rendered" markers, the axis-label
+# lookup, the scale-bound check, and the readout-precedes-chart sparkline
+# marker were all retargeted/rewritten IN PLACE — no count change from
+# any of them).
 EXPECTED_CHECK_COUNT = 94  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
@@ -545,16 +551,24 @@ def main():
     # 06.6.1-04: "no <svg" stopped being a valid proxy for "no sparkline"
     # the moment the page gained four icon instances (D-02) — a plain
     # <svg> count would now always be non-zero. Retargeted to assert on
-    # the sparkline specifically (zero <polyline, zero SPARKLINE_DOT_CLASS),
-    # which is what this check always actually meant.
+    # the sparkline specifically (zero trend-line segments, zero
+    # SPARKLINE_DOT_CLASS), which is what this check always actually
+    # meant. quick task 260902-ep7 (BUG 4): retargeted IN PLACE again,
+    # from the retired <polyline marker (a single <polyline> no longer
+    # exists in the redesigned chart at all — replaced by n - 1
+    # <line class="sparkline-line"> segments) onto SPARKLINE_LINE_CLASS.
+    # This is one of the plan's two NEGATIVE assertions on this marker —
+    # left pointing at a marker that no longer exists anywhere, it would
+    # pass vacuously, silently gutting the check, so retargeting is
+    # mandatory here, not cosmetic.
     def _battery_empty_state_no_sparkline():
         tmp = _mkstate("h-battery-empty")
         try:
             rendered = health_page.render(_ctx(tmp))
             if "No battery readings yet." not in rendered:
                 return False, "expected the battery good-news empty-state heading"
-            if "<polyline" in rendered:
-                return False, "did not expect a sparkline <polyline with zero battery rows"
+            if health_page.SPARKLINE_LINE_CLASS in rendered:
+                return False, "did not expect a sparkline trend-line segment with zero battery rows"
             if health_page.SPARKLINE_DOT_CLASS in rendered:
                 return False, "did not expect a sparkline dot with zero battery rows"
             return True, ""
@@ -582,18 +596,26 @@ def main():
             # instances (D-02), so a bare "<svg" count of 1 no longer
             # proves "one sparkline" — subtract the icon <use>
             # references (one per icon <svg>) to isolate the sparkline's
-            # own non-icon <svg>. The <polyline> count below is the
-            # check's real, unweakened meaning and is unchanged.
+            # own non-icon <svg>. quick task 260902-ep7 (BUG 4): the
+            # trend-line assertion below is retargeted in place from the
+            # retired single-<polyline> marker onto SPARKLINE_LINE_CLASS —
+            # a percentage-coordinate <polyline> can't exist (percentages
+            # aren't permitted in a `points` list), so the redesigned
+            # chart emits n - 1 <line> segments instead of one polyline;
+            # for this 3-row fixture that is 2 segments.
             non_icon_svg_count = rendered.count("<svg") - rendered.count("<use")
             if non_icon_svg_count != 1:
                 return False, "expected exactly one non-icon <svg, got %d" % non_icon_svg_count
-            if rendered.count("<polyline") != 1:
-                return False, "expected exactly one <polyline, got %d" % rendered.count("<polyline")
+            if rendered.count(health_page.SPARKLINE_LINE_CLASS) != 2:
+                return False, (
+                    "expected exactly 2 trend-line segments (n - 1 for 3 points), got %d"
+                    % rendered.count(health_page.SPARKLINE_LINE_CLASS))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "three battery rows render the full trend (not just the latest value) and exactly one <svg><polyline>",
+        "three battery rows render the full trend (not just the latest value) and exactly one <svg> with "
+        "exactly n - 1 trend-line segments (260902-ep7: retargeted from the retired single-<polyline> marker)",
         _battery_trend_shows_all_readings_and_one_sparkline)
 
     def _battery_trend_timestamps_show_concise_format():
@@ -1133,8 +1155,15 @@ def main():
             return False, "expected exactly 1 tabindex=\"0\" hit target (roving tabindex), got %d" % svg.count('tabindex="0"')
         if svg.count('tabindex="-1"') != 2:
             return False, "expected exactly 2 tabindex=\"-1\" hit targets, got %d" % svg.count('tabindex="-1"')
-        if svg.count("<polyline") != 1:
-            return False, "expected exactly 1 <polyline, got %d" % svg.count("<polyline")
+        # quick task 260902-ep7 (BUG 4): retargeted in place from the
+        # retired single-<polyline> marker onto SPARKLINE_LINE_CLASS — a
+        # percentage-coordinate <polyline> can't exist (percentages
+        # aren't permitted in a `points` list), so this 3-row fixture now
+        # emits n - 1 = 2 <line> segments instead of one polyline.
+        if svg.count(health_page.SPARKLINE_LINE_CLASS) != 2:
+            return False, (
+                "expected exactly 2 trend-line segments (n - 1 for 3 points), got %d"
+                % svg.count(health_page.SPARKLINE_LINE_CLASS))
         for _ts, mv in [(r["ts"], r["battery_mv"]) for r in rows]:
             if ('data-mv="%d"' % mv) not in svg:
                 return False, "expected battery_mv=%d to appear inside a data-mv attribute" % mv
@@ -1142,7 +1171,7 @@ def main():
         middle_index = svg.find("2024-01-02T00:00:00")
         newest_index = svg.find("2024-01-03T00:00:00")
         if not (oldest_index < middle_index < newest_index):
-            return False, "expected timestamps in chronological (oldest-first) order, matching the polyline's own ordering"
+            return False, "expected timestamps in chronological (oldest-first) order, matching the trend line's own left-to-right ordering"
         # The tabindex="0" hit target must belong to the newest point
         # (data-ts="2024-01-03..."), not merely appear somewhere.
         newest_circle_start = svg.rfind("<circle", 0, newest_index)
@@ -1157,8 +1186,15 @@ def main():
         _sparkline_svg_has_per_point_interactive_markup)
 
     def _sparkline_axis_labels_present_with_real_min_max():
-        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label text nodes,
-        # two carrying the fixture's real min/max mV values.
+        # 06.6.4.1-04 (D-09/§5.3): four aria-hidden axis-label elements,
+        # two carrying the fixture's real min/max mV values. quick task
+        # 260902-ep7 (BUG 4): retargeted in place from SVG `<text
+        # class="sparkline-axis-label"` onto HTML `<span
+        # class="sparkline-axis-label"` — the labels moved out of the
+        # SVG's scaled coordinate space entirely, into an HTML grid
+        # column/row sized by the browser's own real text measurement.
+        # The per-tag aria-hidden assertion, the four-label count and the
+        # real-min/max-value assertions are otherwise unchanged.
         rows = [
             {"ts": "2024-01-01T08:00:00", "battery_mv": 4200},
             {"ts": "2024-01-01T09:00:00", "battery_mv": 3850},
@@ -1168,13 +1204,13 @@ def main():
         tag_start = 0
         label_count = 0
         while True:
-            idx = svg.find('<text class="sparkline-axis-label"', tag_start)
+            idx = svg.find('<span class="sparkline-axis-label"', tag_start)
             if idx == -1:
                 break
             tag_end = svg.index(">", idx)
             tag = svg[idx:tag_end + 1]
             if 'aria-hidden="true"' not in tag:
-                return False, "expected every sparkline-axis-label <text> to carry aria-hidden=\"true\" on its own tag"
+                return False, "expected every sparkline-axis-label <span> to carry aria-hidden=\"true\" on its own tag"
             label_count += 1
             tag_start = tag_end
         if label_count != 4:
@@ -1183,8 +1219,13 @@ def main():
             return False, "expected the real maximum mV value in an axis label"
         if "3850 mV" not in svg:
             return False, "expected the real minimum mV value in an axis label"
-        if svg.count("<polyline") != 1:
-            return False, "expected exactly one polyline after adding axis labels"
+        # quick task 260902-ep7 (BUG 4): retargeted in place from the
+        # retired single-<polyline> marker onto SPARKLINE_LINE_CLASS — 2
+        # trend-line segments (n - 1) for this 3-row fixture.
+        if svg.count(health_page.SPARKLINE_LINE_CLASS) != 2:
+            return False, (
+                "expected exactly 2 trend-line segments (n - 1 for 3 points) after adding axis labels, got %d"
+                % svg.count(health_page.SPARKLINE_LINE_CLASS))
         for forbidden in ("url(", "<image", "<script"):
             if forbidden in svg:
                 return False, "found forbidden %r in the axis-labeled sparkline SVG" % forbidden
@@ -1195,17 +1236,14 @@ def main():
         _sparkline_axis_labels_present_with_real_min_max)
 
     def _sparkline_scale_bounded_at_one_across_real_container_widths():
-        # quick task 260902-dng (bug 1): proves the whole scale-bound
-        # mechanism from source, not just that the function returns
-        # non-empty output. See health_page.py's _AXIS_LEFT_GUTTER
-        # comment and style.css's .battery-trend-section svg:not(.icon)
-        # comment for the full derivation this check pins.
-        #
-        # Real container-width range, derived from this file's own CSS
-        # chain (reproduced here rather than re-imported, so this check
-        # fails loudly if the CSS derivation and this comment ever
-        # diverge): >= 960px, .dashboard-shell's 240px + --space-xl
-        # (32px) column-gap leaves `viewport - 272` for the main column;
+        # quick task 260902-dng (bug 1) wrote this check to prove a
+        # min(containerWidth/viewBoxWidth, 1) scale-bound mechanism from
+        # source, across the real container-width range derived below
+        # (kept here as HISTORY — the reason that mechanism existed and
+        # what it was verified against — not because anything below still
+        # depends on it). That derivation, reproduced for the record:
+        # >= 960px, .dashboard-shell's 240px + --space-xl (32px)
+        # column-gap leaves `viewport - 272` for the main column;
         # .dashboard-main caps at min(1440px, 100%) and adds
         # --space-2xl/--space-3xl (48/64px) padding, giving content width
         # `min(1440, column) - 128`; .battery-trend-section's own
@@ -1213,89 +1251,104 @@ def main():
         # subtracts 34 more. Below 960px, .page-content's --space-xl/
         # --space-lg (32/24px) padding leaves `viewport - 48` for
         # content, then another 34 for the section's own padding+border.
-        # Evaluated: 375px viewport -> 293px; 959px -> 877px;
-        # 960px -> 526px; 1280px -> 846px; >= 1568px -> 1278px (the
+        # Evaluated: 375px viewport -> 293px; 959px -> 877px; **960px ->
+        # 526px** (a real discontinuity — the container drops as the
+        # sidebar appears); 1280px -> 846px; >= 1568px -> 1278px (the
         # 1440px max-width caps it).
-        container_widths = [293, 526, 846, 877, 1278]
-
+        #
+        # quick task 260902-ep7 (BUG 4) rewrites this check IN PLACE (no
+        # count change) as the NO-SCALE-FACTOR check it becomes once the
+        # viewBox is deleted outright: there is no longer a scale factor
+        # to bound, so the check now proves there is no scale factor
+        # anywhere in the pipeline, and pins the one new hazard this
+        # design introduces in its place (the canvas height must be
+        # declared exactly once, never inside a media query).
         rows = [
             {"ts": "2024-01-01T0%d:00:00" % i, "battery_mv": 4000 + i * 40}
             for i in range(5)]
         svg = health_page.battery_sparkline_svg(rows)
 
-        vb_match = re.search(r'viewBox="0 0 (\d+) (\d+)"', svg)
-        if vb_match is None:
-            return False, "expected a `viewBox=\"0 0 W H\"` attribute on the sparkline <svg>"
-        vb_w, vb_h = int(vb_match.group(1)), int(vb_match.group(2))
+        svg_tag = svg[svg.index("<svg"):svg.index(">", svg.index("<svg"))]
+        if "viewBox" in svg_tag:
+            return False, "expected no viewBox attribute on the sparkline <svg> — a scaling transform must not exist"
+        if "preserveAspectRatio" in svg_tag:
+            return False, "expected no preserveAspectRatio attribute on the sparkline <svg> — there is no scaled canvas to apply it to"
 
-        w_match = re.search(r'\bwidth="(\d+)"', svg)
-        h_match = re.search(r'\bheight="(\d+)"', svg)
-        if w_match is None or h_match is None:
-            return False, "expected width/height attributes on the sparkline <svg>"
-        if int(w_match.group(1)) != vb_w or int(h_match.group(1)) != vb_h:
+        cx_values = re.findall(r'cx="([\d.]+)%"', svg)
+        cy_values = re.findall(r'cy="([\d.]+)%"', svg)
+        if len(cx_values) != 10 or len(cy_values) != 10:
             return False, (
-                "expected the <svg> width/height attributes to equal the viewBox "
-                "dimensions, got width=%s height=%s against viewBox %dx%d"
-                % (w_match.group(1), h_match.group(1), vb_w, vb_h))
+                "expected 10 percentage cx and 10 percentage cy values (5 markers + 5 hit "
+                "targets for a 5-row fixture), got %d/%d" % (len(cx_values), len(cy_values)))
+        for value in cx_values + cy_values:
+            if not (0.0 <= float(value) <= 100.0):
+                return False, "expected every cx/cy percentage inside [0, 100], got %r" % value
 
-        if 'preserveAspectRatio="' not in svg:
-            return False, "expected an explicit preserveAspectRatio attribute on the sparkline <svg>"
+        # Document order interleaves each point's marker then its own hit
+        # target (both at the same x), so every other cx value (starting
+        # at index 0) is the chronological run of marker x-positions —
+        # this replaces the old "every emitted coordinate inside the
+        # viewBox" sweep with the equivalent left-to-right ordering proof
+        # that mattered from it.
+        marker_xs = [float(v) for v in cx_values[::2]]
+        if marker_xs != sorted(marker_xs) or len(set(marker_xs)) != len(marker_xs):
+            return False, "expected strictly increasing, distinct marker x-positions (chronological order), got %r" % marker_xs
+
+        if svg.count('r="3"') != 5 or svg.count('r="8"') != 5:
+            return False, (
+                "expected the unchanged absolute marker radius (r=\"3\", x5) and hit-target "
+                "radius (r=\"8\", x5) — got r=\"3\" x%d, r=\"8\" x%d"
+                % (svg.count('r="3"'), svg.count('r="8"')))
 
         css = open(os.path.join(HERE, "static", "style.css")).read()
         rule_match = re.search(
             r'\.battery-trend-section svg:not\(\.icon\)\s*\{([^}]*)\}', css)
         if rule_match is None:
             return False, "expected a `.battery-trend-section svg:not(.icon)` rule in style.css"
-        css_h_match = re.search(r'height:\s*(\d+)px', rule_match.group(1))
-        if css_h_match is None:
-            return False, "expected a fixed px `height` declaration on `.battery-trend-section svg:not(.icon)`"
-        css_h = int(css_h_match.group(1))
+        if re.search(r'height:\s*\d', rule_match.group(1)) is None:
+            return False, "expected a fixed px height declaration on `.battery-trend-section svg:not(.icon)`"
 
-        # This equality is the entire mechanism: with the CSS declared
-        # height equal to the SVG's own height attribute, the height
-        # term of min(cW/viewBoxW, cssH/viewBoxH) is always exactly 1.0,
-        # which caps the whole expression at 1.0 by construction.
-        if css_h != vb_h:
-            return False, (
-                "the CSS declared height (%dpx) must equal the sparkline SVG's "
-                "own height attribute (%d) — this equality is the entire "
-                "mechanism that bounds the chart's scale at 1.0" % (css_h, vb_h))
-
-        scales = [min(cw / vb_w, css_h / vb_h) for cw in container_widths]
-        for cw, scale in zip(container_widths, scales):
-            if not (0.80 <= scale <= 1.00):
+        # The new hazard this design introduces: every point coordinate
+        # is a percentage of this declared height, so a responsive height
+        # inside a media query would silently move every point with no
+        # other visual signal. Scan every @media block in the file (a
+        # nested-brace-aware walk, since a naive `[^}]*` regex would stop
+        # at the FIRST inner rule's own closing brace) and confirm none
+        # of them re-declares a height for this selector.
+        media_start = 0
+        while True:
+            at_media = css.find("@media", media_start)
+            if at_media == -1:
+                break
+            block_open = css.index("{", at_media)
+            depth = 1
+            cursor = block_open + 1
+            while depth > 0:
+                nxt_open = css.find("{", cursor)
+                nxt_close = css.find("}", cursor)
+                if nxt_close == -1:
+                    return False, "unterminated @media block while scanning style.css"
+                if nxt_open != -1 and nxt_open < nxt_close:
+                    depth += 1
+                    cursor = nxt_open + 1
+                else:
+                    depth -= 1
+                    cursor = nxt_close + 1
+            media_block = css[block_open:cursor]
+            if ".battery-trend-section svg:not(.icon)" in media_block and re.search(r'height:\s*\d', media_block):
                 return False, (
-                    "expected the scale factor at a %dpx container to be within "
-                    "[0.80, 1.00], got %.4f (viewBox %dx%d, css height %dpx)"
-                    % (cw, scale, vb_w, vb_h, css_h))
-
-        # Every emitted coordinate must fall inside the viewBox box —
-        # polyline points, marker/hit-target cx/cy, and axis-label x/y.
-        coords = []
-        pts_match = re.search(r'<polyline points="([^"]+)"', svg)
-        if pts_match is None:
-            return False, "expected a <polyline points=\"...\"> element"
-        for pair in pts_match.group(1).split():
-            px, py = pair.split(",")
-            coords.append((float(px), float(py), "polyline point"))
-        for cx, cy in re.findall(r'cx="([\d.]+)" cy="([\d.]+)"', svg):
-            coords.append((float(cx), float(cy), "circle cx/cy"))
-        for x, y in re.findall(r'<text class="sparkline-axis-label" x="([\d.]+)" y="([\d.]+)"', svg):
-            coords.append((float(x), float(y), "axis-label x/y"))
-        if len(coords) < 5 + 5 + 5 + 4:  # 5 polyline points, 5 markers, 5 hit targets, 4 labels
-            return False, "expected at least 19 emitted coordinates for a 5-row fixture, got %d" % len(coords)
-        for x, y, kind in coords:
-            if not (0 <= x <= vb_w and 0 <= y <= vb_h):
-                return False, (
-                    "expected every %s to fall inside the 0..%d x 0..%d viewBox, "
-                    "found (%.1f, %.1f)" % (kind, vb_w, vb_h, x, y))
+                    "expected .battery-trend-section svg:not(.icon) to declare no height inside any "
+                    "@media block — every point coordinate is a percentage of the single declared "
+                    "height, so a responsive height would silently move every point")
+            media_start = cursor
 
         return True, ""
     check(
-        "battery_sparkline_svg()'s viewBox/width/height/preserveAspectRatio, style.css's matching fixed SVG "
-        "height, and the resulting min(containerWidth/viewBoxWidth, 1) scale factor stay within [0.80, 1.00] "
-        "across the derived 293-1278px real container-width range, with every emitted coordinate inside the "
-        "viewBox (quick task 260902-dng bug 1)",
+        "battery_sparkline_svg()'s <svg> carries no viewBox/preserveAspectRatio (no scale factor exists), "
+        "every cx/cy is a percentage inside [0, 100] with strictly increasing chronological marker "
+        "x-positions, marker/hit-target radii stay the unchanged absolute 3/8, and style.css declares the "
+        "canvas height exactly once for this selector and never inside a @media block (quick task 260902-ep7 "
+        "BUG 4, rewritten in place from 260902-dng's retired scale-bound mechanism)",
         _sparkline_scale_bounded_at_one_across_real_container_widths)
 
     def _battery_readout_seeded_with_latest_reading_not_placeholder():
@@ -1355,8 +1408,12 @@ def main():
                 return False, "did not expect a <script tag with only one battery reading"
             if health_page.BATTERY_READOUT_ID in rendered:
                 return False, "did not expect the readout element id with only one battery reading"
-            if "<polyline" in rendered:
-                return False, "did not expect a sparkline polyline with only one battery reading"
+            # quick task 260902-ep7 (BUG 4): retargeted in place from the
+            # retired <polyline marker (see _battery_empty_state_no_sparkline()
+            # above for why retargeting this negative assertion is
+            # mandatory, not cosmetic).
+            if health_page.SPARKLINE_LINE_CLASS in rendered:
+                return False, "did not expect a sparkline trend-line segment with only one battery reading"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -1397,11 +1454,15 @@ def main():
             # 06.6.1-04: "no <svg" stopped being a valid proxy for "no
             # sparkline" once the page gained four icon instances (D-02)
             # — retargeted to the sparkline-specific markers, same fix
-            # as _battery_empty_state_no_sparkline() above. The
+            # as _battery_empty_state_no_sparkline() above. quick task
+            # 260902-ep7 (BUG 4): retargeted in place again, from the
+            # retired <polyline marker onto SPARKLINE_LINE_CLASS — another
+            # negative assertion that would pass vacuously if left
+            # pointing at a marker that no longer exists. The
             # <script>/readout assertions below are unaffected and are
             # this check's real, unchanged subject.
-            if "<polyline" in rendered:
-                return False, "did not expect a sparkline <polyline with zero battery rows"
+            if health_page.SPARKLINE_LINE_CLASS in rendered:
+                return False, "did not expect a sparkline trend-line segment with zero battery rows"
             if health_page.SPARKLINE_DOT_CLASS in rendered:
                 return False, "did not expect a sparkline dot with zero battery rows"
             if health_page.BATTERY_READOUT_ID in rendered:
@@ -2048,10 +2109,13 @@ def main():
             readout_html = section_html[readout_open:readout_close]
             # The sparkline SVG (battery_sparkline_svg()'s own opening) is
             # distinguishable from the section heading's icon-battery
-            # <svg class="icon"> by its own '<svg viewBox="0 0' opening
-            # — the heading icon carries no viewBox attribute of that
-            # shape — so this is what makes "the chart" unambiguous.
-            sparkline_at = section_html.index('<svg viewBox="0 0')
+            # <svg class="icon"> by its own '<svg class="sparkline__canvas"'
+            # opening — the heading icon carries no such class — so this
+            # is what makes "the chart" unambiguous. quick task 260902-ep7
+            # (BUG 4): retargeted in place from the retired
+            # '<svg viewBox="0 0' marker, which no longer exists now that
+            # the chart's <svg> carries no viewBox at all.
+            sparkline_at = section_html.index('<svg class="sparkline__canvas"')
             script_at = section_html.index("<script")
             if not (readout_open < sparkline_at < script_at):
                 return False, (
