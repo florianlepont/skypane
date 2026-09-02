@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 9
 current_phase_name: Diagonal band theme
 status: complete
-stopped_at: "Completed quick task 260902-ipj: archived 2 fulfilled seeds (bring-up LED fully fulfilled, fault-icon partially fulfilled pointing to DEVICE-06)"
-last_updated: "2026-09-02T11:42:26.505Z"
+stopped_at: "Completed quick task 260902-j21: committed 3 runway diagram PNGs and relabelled RUNWAYS to official Piste 3/4/2 numbers"
+last_updated: "2026-09-02T11:54:45.998Z"
 last_activity: 2026-09-02
-last_activity_desc: "Completed quick task 260902-ipj: archived 2 fulfilled seeds (bring-up-debug-led-remote-toggle.md status: fulfilled, on-device-fault-icon.md status: partially-fulfilled pointing to DEVICE-06)"
+last_activity_desc: "Completed quick task 260902-j21: committed 3 runway diagram PNGs (closing RUNWAY-IMAGES.md's drop-in asset contract) and relabelled server/device_config.py's RUNWAYS to official Piste 3/4/2 numbers, keys/tag_text/empty_heading unchanged"
 progress:
   total_phases: 17
   completed_phases: 16
@@ -172,6 +172,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 09 P02 | 20min | 3 tasks | 2 files |
 | Phase 9 P09-03 | 40min | 3 tasks | 2 files |
 | Phase quick-260902-ipj P01 | 4min | 2 tasks | 2 files |
+| Phase quick-260902-j21 P01 | 15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -300,6 +301,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Ported spike _band_center_x()/patched_draw_main_text_block()/patched_draw_previous_text_block() verbatim; band_idx=None wraps the entire pre-existing function body unchanged
 - [Phase ?]: Introduced partially-fulfilled as a third seed status value (alongside dormant/fulfilled) for the half-shipped fault-icon seed
 - [Phase ?]: on-device-fault-icon.md points to REQUIREMENTS.md's DEVICE-06 as the authoritative home for its open half rather than restating that scope
+- [Phase ?]: RUNWAYS dict keys (3/06-24/02-20) stay byte-identical; only the label field text changes to official Piste 3/4/2 numbers, keeping tag_text/empty_heading and the panel render path untouched
 
 ### Pending Todos
 
@@ -344,6 +346,7 @@ None yet.
 | 260902-h40 | Closed out A-02-02-01 (the +200 ft/min departure-side deadband threshold, D-P2-04) — open since Phase 2, previously validated only via forced/synthetic renders. Queried the real production VPS live with the developer: `history_db`'s `runway_events` table returned 20 real `confirmed_state='departing'` rows (2026-09-01/09-02, distinct real callsigns incl. FPO683/TAP441/DAH1007/EJU9041), and `journalctl -u skypane-poll` counted 13327 real `confirmed_state=arriving` vs. 4183 real `confirmed_state=departing` across the service's full log history. All 6 STATE.md mentions of A-02-02-01 updated (1 rewritten as the evidence-of-record in Blockers/Concerns, 5 annotated `[CLOSED 2026-09-02]` in place). Worktree-isolated dispatch again failed the base-mismatch guard first try (isolation forked from `main` instead of this feature branch, same recurring pattern as 260831-njw) — re-dispatched sequentially without isolation, succeeded cleanly. Docs-only, no code touched. | 2026-09-02 | b746aa4 | [260902-h40-close-out-a-02-02-01-departure-threshold](./quick/260902-h40-close-out-a-02-02-01-departure-threshold/) |
 | 260902-i4f | Superseded `server/plane/enrich.py`'s 15-line KLJ (KlasJet) never-live-confirmed comment (quick task 260827-lgt, QT-lgt-D-06) with a dated 2026-09-02 confirmation that a real KLJ-prefixed flight was observed at Orly, developer-confirmed — resolving the open question in the direction that CONFIRMS the KlasJet attribution. New 27-line block leads with the confirmation, marks the prior lower-confidence framing `SUPERSEDED 2026-09-02`, retains the original investigation record (~25 adsbdb misses, wet-lease/ACMI reasoning) as history, and keeps the Remediation pointer as a standing safeguard. No specific callsign was captured or invented; the mapping value `"KLJ": "KlasJet"` is byte-identical. Comment-only change, one file touched, zero test changes (52/52 `test_enrich.py` unmodified). Five other stale never-live-confirmed sites (`illustrations.py` x3, VENDOR.md, HANDOFF.md) plus two `test_enrich.py` check-description strings were left untouched per plan scope, recorded as a follow-up candidate. Ran directly on this worktree/branch per dispatcher instruction — no nested worktree created. | 2026-09-02 | c981821 | [260902-i4f-update-klj-klasjet-confidence-comment-in](./quick/260902-i4f-update-klj-klasjet-confidence-comment-in/) |
 | 260902-i1p | Made `server/test_poll_loop.py`'s pinned `panel.bin` digest regression check platform-aware: new module-level `_digest_verdict(digest, expected)` helper (Linux — CI + the production VPS — stays a hard FAIL on mismatch; every other platform, i.e. macOS dev machines, degrades to an informational `NOTE ` line plus a plain PASS), `_default_config_byte_identity()` (check 10) rewired to delegate to it, and a dated 2026-09-02 provenance-comment entry stating this is NOT a re-pin and restating the standing re-pin-only-from-CI rule. New check 30 proves both branches hermetically by forcing `platform.system()` at call time against the real helper; the mandatory live "invert the condition, observe genuine FAIL, revert" demonstration was performed, observed failing on sub-assertion (b) (`forced Linux mismatch returned ok=True, expected False`), then reverted before any commit. `EXPECTED_CHECK_COUNT` 43->44; local macOS run now `44/44` (was `42/43`), `_DEFAULT_CONFIG_DIGEST`'s pinned value confirmed byte-unchanged. One environmental deviation: a concurrent, unrelated agent process writing to this same non-isolated working tree swept Task 1's already-staged `server/test_poll_loop.py` changes into its own unrelated commit (`b9be828`, quick task 260902-i4f) — verified byte-for-byte identical to Task 1's intended diff, documented rather than rewritten (git history rewrite of another commit is prohibited); Task 2 landed cleanly in its own commit (`eb67aaa`). Ran directly on this worktree/branch per dispatcher instruction — no nested worktree created. | 2026-09-02 | eb67aaa | [260902-i1p-make-test-poll-loop-py-s-pinned-panel-bi](./quick/260902-i1p-make-test-poll-loop-py-s-pinned-panel-bi/) |
+| 260902-j21 | Tracked the three developer-supplied runway diagram PNGs (`companion/static/runway-{3,06-24,02-20}.png`, each re-verified as a genuine non-degenerate PNG via Pillow before staging), closing `companion/static/RUNWAY-IMAGES.md`'s drop-in asset contract left empty since Phase 06.4 — the Config page's runway picker now renders a real `<img>` for all three registered runways. Relabelled `server/device_config.py`'s `RUNWAYS[id]['label']` from aviation heading-pair IDs (`Runway 3 (07/25)`/`Runway 06/24`/`Runway 02/20`) to the official Aeroport de Paris runway-works signage (`Piste 3`/`Piste 4`/`Piste 2`); dict keys, `RUNWAY_IDS`, `DEFAULT_RUNWAY_ID`, and all six `tag_text`/`empty_heading` panel-facing strings confirmed byte-identical, keeping `server/plane/render.py` untouched. Extended the module's dated provenance-comment convention (matching `THEMES`'s own pattern) with the Piste mapping and key-stability rationale. `server/test_config_history.py` 29/29, `companion/test_config_page.py` 39/39, both unmodified; full `scripts/run-all-tests.sh` reports `Result: PASS` (15/15 harnesses, 91% coverage), including `server/test_poll_loop.py` at a clean 44/44 with no shape change from before this task. Ran directly on this worktree/branch per dispatcher instruction (worktree isolation known to fork from `main` in this environment) — no nested worktree created. | 2026-09-02 | 353b95f | [260902-j21-commit-the-3-runway-diagram-pngs-and-sim](./quick/260902-j21-commit-the-3-runway-diagram-pngs-and-sim/) |
 
 ## Deferred Items
 
@@ -355,8 +358,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-02T11:42:26.496Z
-Stopped at: Completed quick task 260902-ipj: archived 2 fulfilled seeds (bring-up LED fully fulfilled, fault-icon partially fulfilled pointing to DEVICE-06)
+Last session: 2026-09-02T11:53:38.492Z
+Stopped at: Completed quick task 260902-j21: committed 3 runway diagram PNGs and relabelled RUNWAYS to official Piste 3/4/2 numbers
 
 Resume file: .planning/phases/09-diagonal-band-theme/09-04-PLAN.md
 
