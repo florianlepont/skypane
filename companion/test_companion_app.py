@@ -62,6 +62,14 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
+# 125 = 116 + 9 (quick task 260902-v26 Plan 02 Task 3: the live
+# end-to-end illustration-upload proof against a real running
+# companion/app.py subprocess — round trip, D-03 same-pipeline
+# equivalence, override written to the expected single path, the
+# vendored original provably byte-identical after, the panel-side
+# select_illustration() effect, non-image rejection, oversized-upload
+# rejection + post-drain health, unknown/traversal-key 404s, and
+# unauthenticated POST).
 # 116 = 108 + 8 (quick task 260902-v26 Plan 02 Task 1: parse_single_
 # uploaded_file()'s 8 in-process checks — happy path with a traversal-
 # shaped declared filename, two-part rejection, non-multipart media type,
@@ -70,7 +78,7 @@ STARTUP_DEADLINE_S = 10.0
 # 108 + 0 (quick task 260902-tli Task 2: the panel-lookup.js banned-token
 # check retargeted in place — matchMedia/innerWidth added to the tuple,
 # pinning the CSS-only gate — no new check, no count change).
-EXPECTED_CHECK_COUNT = 116  # quick task 260902-qkm (2026-09-02): 1 new
+EXPECTED_CHECK_COUNT = 125  # quick task 260902-qkm (2026-09-02): 1 new
 # check pinning both nav-link geometries apart after restoring
 # .mobile-nav__link's 44px/Body-size tap target (D-05 reached it by
 # mistake) while .sidebar-link keeps its D-05 32px/Label-size compaction.
@@ -153,16 +161,24 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_NoRedirectHandler)
 
 
-def http_request(url, method="GET", data=None, cookie=None, timeout=10):
+def http_request(url, method="GET", data=None, cookie=None, timeout=10, content_type=None):
     """Minimal stdlib HTTP client (mirrors
     stub-server/test_poll_cycle.py's http_request()): returns
     (status, headers_dict, raw_bytes) for both success and HTTP-error
     responses; connection-level failures propagate.
+
+    `content_type` (quick task 260902-v26): an explicit override for the
+    Content-Type request header — used by the illustration-upload checks
+    to send `multipart/form-data; boundary=...` instead of the default
+    urlencoded type a POST otherwise gets. `None` (the default) preserves
+    every existing caller's behaviour exactly.
     """
     headers = {}
     if cookie:
         headers["Cookie"] = cookie
-    if data is not None and method == "POST":
+    if content_type is not None:
+        headers["Content-Type"] = content_type
+    elif data is not None and method == "POST":
         headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
@@ -2259,6 +2275,249 @@ def main():
         check(
             "an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes",
             _illustration_unauthenticated_redirects_to_login)
+
+        # --- 260902-v26 Task 3: the live upload round trip, against this ---
+        # --- real running companion/app.py subprocess (D-01/D-02/D-03).  ---
+
+        import companion.app as app_module
+
+        _VENDORED_ILLUSTRATIONS_DIR = os.path.join(
+            REPO_ROOT, "server", "assets", "icons", "illustrations")
+        _vendored_air_france_path = os.path.join(_VENDORED_ILLUSTRATIONS_DIR, "air-france.png")
+        with open(_vendored_air_france_path, "rb") as fh:
+            _pre_upload_vendored_hash = hashlib.sha256(fh.read()).hexdigest()
+        _pre_upload_vendored_stat = os.stat(_vendored_air_france_path)
+
+        _illustration_pre_upload_render = []  # populated by the round-trip check below
+
+        def _illustration_upload_round_trip_replaces_served_bytes():
+            # vueling-airlines.png is guaranteed to pass validate_illustration_
+            # file() — server/test_illustrations.py already asserts every
+            # vendored file does — and is visibly a different aircraft, so a
+            # successful override is unambiguous.
+            with open(os.path.join(_VENDORED_ILLUSTRATIONS_DIR, "vueling-airlines.png"), "rb") as fh:
+                vueling_bytes = fh.read()
+
+            pre_status, _pre_headers, pre_body = http_request(
+                base + "/illustration/air-france.png", cookie=session_cookie)
+            if pre_status != 200:
+                return False, "expected 200 for the pre-upload GET, got %d" % pre_status
+            _illustration_pre_upload_render.append(pre_body)
+
+            # A traversal-shaped declared filename in the part header: the
+            # same request that proves the happy path also proves the
+            # filename is never read (T-v26-02-01).
+            body, content_type = _encode_multipart(
+                vueling_bytes, filename="../../../etc/passwd", field_name="illustration")
+            status, headers, _resp_body = http_request(
+                base + "/illustration/air-france.png", method="POST", data=body,
+                cookie=session_cookie, content_type=content_type)
+            if status != 303:
+                return False, "expected a 303 redirect after a valid upload, got %d" % status
+            location = headers.get("Location", "")
+            if "/airlines" not in location:
+                return False, "expected the redirect Location to point at /airlines, got %r" % location
+            if ("flash=%s" % app_module.FLASH_KEY_ILLUSTRATION_REPLACED) not in location:
+                return False, "expected the success flash key in the redirect, got %r" % location
+
+            post_status, _post_headers, post_body = http_request(
+                base + "/illustration/air-france.png", cookie=session_cookie)
+            if post_status != 200:
+                return False, "expected 200 for the post-upload GET, got %d" % post_status
+            if not post_body.startswith(PNG_SIGNATURE):
+                return False, "expected the post-upload body to start with the PNG signature"
+            if post_body == pre_body:
+                return False, "expected the served bytes to change after a successful upload"
+            return True, ""
+        check(
+            "uploading a real PNG over real HTTP to a real companion/app.py subprocess changes "
+            "what GET /illustration/air-france.png serves, even with a traversal-shaped declared "
+            "filename in the part header",
+            _illustration_upload_round_trip_replaces_served_bytes)
+
+        def _illustration_override_uses_same_normalization_pipeline():
+            if not _illustration_pre_upload_render:
+                return False, "no pre-upload render was captured by the round-trip check above"
+            pre_body = _illustration_pre_upload_render[0]
+            override_status, _h1, override_body = http_request(
+                base + "/illustration/air-france.png", cookie=session_cookie)
+            vueling_status, _h2, vueling_body = http_request(
+                base + "/illustration/vueling-airlines.png", cookie=session_cookie)
+            if override_status != 200 or vueling_status != 200:
+                return False, "expected 200 for both routes, got %d/%d" % (override_status, vueling_status)
+            if override_body == vueling_body:
+                return True, ""
+            # Fallback (D-03, documented in the plan 02 SUMMARY): if the
+            # store-time Pillow RGBA re-encode turns out not to be
+            # byte-for-byte lossless against illustration_normalize's own
+            # re-encode of the untouched vendored file, fall back to a
+            # weaker-but-still-meaningful equivalence check rather than
+            # silently accepting inequality.
+            if not override_body.startswith(PNG_SIGNATURE):
+                return False, "expected the override render to start with the PNG signature even on the fallback path"
+            if override_body == pre_body:
+                return False, "expected the override render to differ from the pre-upload render"
+            if len(override_body) != len(vueling_body):
+                return False, (
+                    "fallback check failed too: override render length %d != vueling render "
+                    "length %d (byte-for-byte equality did not hold)"
+                    % (len(override_body), len(vueling_body)))
+            return True, ""
+        check(
+            "the overridden air-france render and the vueling-airlines render (the same source "
+            "image) come out of the identical illustration_normalize pipeline (D-03)",
+            _illustration_override_uses_same_normalization_pipeline)
+
+        def _illustration_override_written_to_expected_path_only():
+            override_path = harness.state_path("illustration_overrides", "air-france.png")
+            if not os.path.isfile(override_path):
+                return False, "expected an override file at %r" % override_path
+            override_dir = harness.state_path("illustration_overrides")
+            entries = sorted(os.listdir(override_dir))
+            if entries != ["air-france.png"]:
+                return False, (
+                    "expected exactly one file (air-france.png) in the override directory, got %r"
+                    % entries)
+            return True, ""
+        check(
+            "the upload was written to {state_dir}/illustration_overrides/air-france.png, and "
+            "nothing else was created in that directory",
+            _illustration_override_written_to_expected_path_only)
+
+        def _illustration_vendored_original_untouched_after_upload():
+            with open(_vendored_air_france_path, "rb") as fh:
+                post_hash = hashlib.sha256(fh.read()).hexdigest()
+            if post_hash != _pre_upload_vendored_hash:
+                return False, "the vendored air-france.png file's bytes changed after an upload"
+            post_stat = os.stat(_vendored_air_france_path)
+            if post_stat.st_size != _pre_upload_vendored_stat.st_size:
+                return False, "the vendored air-france.png file's size changed after an upload"
+            if post_stat.st_mtime_ns != _pre_upload_vendored_stat.st_mtime_ns:
+                return False, "the vendored air-france.png file's mtime changed after an upload"
+            return True, ""
+        check(
+            "the vendored server/assets/icons/illustrations/air-france.png file is provably "
+            "byte-identical (hash, size, and mtime) after a successful upload",
+            _illustration_vendored_original_untouched_after_upload)
+
+        def _illustration_override_reaches_select_illustration():
+            # The panel-side effect (plan 01's whole point), asserted
+            # against the exact override file the real HTTP route above
+            # just wrote — never a hand-placed fixture.
+            from server.plane import illustrations as server_illustrations
+            override_result = server_illustrations.select_illustration(
+                {"airline_name": "Air France"}, state_dir=harness.tmpdir)
+            vendored_result = server_illustrations.select_illustration(
+                {"airline_name": "Air France"})
+            expected_override_path = harness.state_path("illustration_overrides", "air-france.png")
+            if override_result != expected_override_path:
+                return False, (
+                    "expected select_illustration(..., state_dir=harness.tmpdir) to return %r, got %r"
+                    % (expected_override_path, override_result))
+            if vendored_result != _vendored_air_france_path:
+                return False, (
+                    "expected select_illustration() with no state_dir to still return the "
+                    "vendored path, got %r" % (vendored_result,))
+            return True, ""
+        check(
+            "select_illustration() given the harness's own state_dir resolves Air France to the "
+            "override the real route just wrote; with no state_dir it still resolves to the "
+            "vendored file",
+            _illustration_override_reaches_select_illustration)
+
+        def _illustration_non_image_upload_is_rejected():
+            body, content_type = _encode_multipart(
+                b"not a real image, just some text bytes", filename="fake.png")
+            status, headers, _resp_body = http_request(
+                base + "/illustration/easyjet.png", method="POST", data=body,
+                cookie=session_cookie, content_type=content_type)
+            if status != 303:
+                return False, "expected a 303 redirect for a non-image upload, got %d" % status
+            location = headers.get("Location", "")
+            if ("flash=%s" % app_module.FLASH_KEY_ILLUSTRATION_REJECTED) not in location:
+                return False, "expected the rejection flash key in the redirect, got %r" % location
+            override_path = harness.state_path("illustration_overrides", "easyjet.png")
+            if os.path.exists(override_path):
+                return False, "expected no override file to be written for a rejected non-image upload"
+            return True, ""
+        check(
+            "POSTing a non-image payload is rejected with the rejection flash key and writes "
+            "no override file",
+            _illustration_non_image_upload_is_rejected)
+
+        def _illustration_oversized_upload_is_rejected_and_connection_stays_healthy():
+            oversized_payload = b"\x00" * (app_module.MAX_ILLUSTRATION_UPLOAD_BYTES + 4096)
+            body, content_type = _encode_multipart(oversized_payload, filename="huge.png")
+            status, headers, _resp_body = http_request(
+                base + "/illustration/corsair.png", method="POST", data=body,
+                cookie=session_cookie, content_type=content_type)
+            if status != 303:
+                return False, "expected a 303 redirect for an oversized upload, got %d" % status
+            location = headers.get("Location", "")
+            if ("flash=%s" % app_module.FLASH_KEY_ILLUSTRATION_REJECTED) not in location:
+                return False, "expected the rejection flash key in the redirect, got %r" % location
+            override_path = harness.state_path("illustration_overrides", "corsair.png")
+            if os.path.exists(override_path):
+                return False, "expected no override file to be written for a rejected oversized upload"
+            # A fresh, ordinary authenticated GET on a new connection proves
+            # the over-cap drain (T-v26-02-03) left the service healthy.
+            health_status, _headers2, _body2 = http_request(base + "/health", cookie=session_cookie)
+            if health_status != 200:
+                return False, (
+                    "expected a fresh authenticated GET after the oversized-upload drain to "
+                    "still return 200, got %d" % health_status)
+            return True, ""
+        check(
+            "POSTing a body over MAX_ILLUSTRATION_UPLOAD_BYTES is rejected, writes no override "
+            "file, and the drain leaves the service healthy for the next request",
+            _illustration_oversized_upload_is_rejected_and_connection_stays_healthy)
+
+        def _illustration_post_unknown_and_traversal_keys_returns_404():
+            small_body, small_content_type = _encode_multipart(
+                b"irrelevant - membership test runs before the body is read", filename="x.png")
+            override_dir = harness.state_path("illustration_overrides")
+            before_entries = sorted(os.listdir(override_dir))
+            adversarial_paths = [
+                "/illustration/not-a-real-airline.png",
+                "/illustration/..%2F..%2Fetc%2Fpasswd.png",
+                "/illustration/../../../etc/passwd.png",
+                "/illustration/style.png",
+            ]
+            for adversarial_path in adversarial_paths:
+                status, _headers, _body = http_request(
+                    base + adversarial_path, method="POST", data=small_body,
+                    cookie=session_cookie, content_type=small_content_type)
+                if status != 404:
+                    return False, "expected 404 for POST %r, got %d" % (adversarial_path, status)
+            after_entries = sorted(os.listdir(override_dir))
+            if after_entries != before_entries:
+                return False, (
+                    "expected the override directory to gain nothing from rejected POSTs, "
+                    "before=%r after=%r" % (before_entries, after_entries))
+            return True, ""
+        check(
+            "POSTing a valid payload to a key outside the membership set, and to three "
+            "traversal-shaped paths, all 404 and write nothing to the override directory",
+            _illustration_post_unknown_and_traversal_keys_returns_404)
+
+        def _illustration_unauthenticated_post_redirects_to_login_and_writes_nothing():
+            body, content_type = _encode_multipart(
+                b"irrelevant - require_session() runs before anything else", filename="x.png")
+            status, headers, _resp_body = http_request(
+                base + "/illustration/tunisair.png", method="POST", data=body, content_type=content_type)
+            if status != 303:
+                return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+            location = headers.get("Location", "")
+            if "/login" not in location:
+                return False, "expected a redirect to /login, got %r" % location
+            override_path = harness.state_path("illustration_overrides", "tunisair.png")
+            if os.path.exists(override_path):
+                return False, "expected no override file to be written for an unauthenticated POST"
+            return True, ""
+        check(
+            "an unauthenticated POST /illustration/tunisair.png redirects to /login and writes "
+            "no override file",
+            _illustration_unauthenticated_post_redirects_to_login_and_writes_nothing)
 
         # --- poll-trigger cooldown: server-global, not per-session ---
 
