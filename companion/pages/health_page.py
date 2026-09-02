@@ -1293,10 +1293,13 @@ def _anomaly_banner_html(severity, anomalies):
     anything else (in practice only `"warn"`) renders `banner--warn` /
     `role="status"`.
 
-    Emits, as flex children of the `.banner` row: one escaped `<span>`
-    carrying the count-and-noun lead ("N warning(s)"/"N error(s)"), one
-    `<span class="banner__pill">` per `_anomaly_category_labels()` entry,
-    and finally a `<span class="visually-hidden">` accessible tail
+    Emits, as flex children of the `.banner` row: one escaped
+    `<span class="banner__label">` carrying the count-and-noun lead
+    ("N warning(s)"/"N error(s)") — `white-space: nowrap`, so the label
+    itself never breaks mid-phrase when `.banner` wraps at narrow
+    viewports (UIR-03) — one `<span class="banner__pill">` per
+    `_anomaly_category_labels()` entry, and finally a
+    `<span class="visually-hidden">` accessible tail
     carrying `_anomaly_category_text()`'s own comma-joined clause plus
     `ANOMALY_BANNER_TEXT` — the exact sentence this banner rendered
     before pills existed. That tail is what keeps every existing
@@ -1310,7 +1313,8 @@ def _anomaly_banner_html(severity, anomalies):
     noun = _SEVERITY_BANNER_NOUNS.get(severity, "issue")
     count = len(anomalies)
     plural = "" if count == 1 else "s"
-    lead_html = "<span>%s</span>" % escape_html("%d %s%s:" % (count, noun, plural))
+    lead_html = '<span class="banner__label">%s</span>' % escape_html(
+        "%d %s%s:" % (count, noun, plural))
     pills_html = "".join(
         '<span class="banner__pill">%s</span>' % escape_html(label)
         for label in _anomaly_category_labels(anomalies)
@@ -1571,7 +1575,7 @@ def _battery_trend_section_html(battery_html, state, caption=None):
     return (
         '<section class="%s">'
         '<h2 class="text-heading">%s<span class="text-label section-caption">'
-        "— %s</span></h2>"
+        " — %s</span></h2>"
         "%s"
         "</section>"
     ) % (

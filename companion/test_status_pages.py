@@ -259,7 +259,10 @@ STARTUP_DEADLINE_S = 10.0
 # developer's own request and removed outright), and the
 # .lightbox--wide max-width cross-file pin against
 # illustration_normalize.ILLUSTRATION_TARGET_WIDTH).
-EXPECTED_CHECK_COUNT = 116  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks)
+# quick task 260902-v2v (2026-09-02): 1 new — pins the UIR-03/07/12/13 one-line fixes (banner wrap +
+# banner__label nowrap + banner__pill min-width, airline-card__image height: auto, data-table--prose
+# first-column nowrap placement, battery-trend em dash spacing) together in one check.
+EXPECTED_CHECK_COUNT = 117  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -4123,6 +4126,114 @@ def main():
         ".page-header's block flow entirely via a .page-header-scoped absolute-position rule rather than "
         "kept in flow with a reserved line box (260902-ep7)",
         _quick_260902_chc_pill_stylesheet_contract)
+
+    def _quick_260902_v2v_uir_03_07_12_13_fixes():
+        # quick task 260902-v2v: pins all four one-line fixes together in
+        # one check so a partial fix (e.g. the CSS half without the
+        # markup half, or vice versa) cannot satisfy it.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        # UIR-03a: .banner wraps.
+        if ".banner {" not in css_source:
+            return False, "expected style.css to declare .banner"
+        banner_start = css_source.index(".banner {")
+        banner_body = css_source[banner_start:css_source.index("}", banner_start)]
+        if "flex-wrap: wrap" not in banner_body:
+            return False, "expected .banner to declare flex-wrap: wrap (UIR-03)"
+
+        # UIR-03b: .banner__label exists and is nowrap.
+        if ".banner__label {" not in css_source:
+            return False, "expected style.css to declare .banner__label (UIR-03)"
+        label_start = css_source.index(".banner__label {")
+        label_body = css_source[label_start:css_source.index("}", label_start)]
+        if "white-space: nowrap" not in label_body:
+            return False, "expected .banner__label to declare white-space: nowrap (UIR-03)"
+
+        # UIR-03c: .banner__pill keeps flex: none and gains min-width: 0,
+        # and still precedes .refresh-pill in source order (re-asserting
+        # the neighbouring source-order contract the check above already
+        # owns, so an edit near this rule cannot silently reorder it).
+        pill_start = css_source.index(".banner__pill {")
+        pill_body = css_source[pill_start:css_source.index("}", pill_start)]
+        if "min-width: 0" not in pill_body:
+            return False, "expected .banner__pill to declare min-width: 0 (UIR-03)"
+        if "flex: none" not in pill_body:
+            return False, "expected .banner__pill to still declare flex: none (UIR-03)"
+        if pill_start >= css_source.index(".refresh-pill {"):
+            return False, "expected .banner__pill to still precede .refresh-pill in source order"
+
+        # UIR-07: .airline-card__image gains height: auto and keeps its
+        # aspect-ratio.
+        image_start = css_source.index(".airline-card__image {")
+        image_body = css_source[image_start:css_source.index("}", image_start)]
+        if "height: auto" not in image_body:
+            return False, "expected .airline-card__image to declare height: auto (UIR-07)"
+        if "aspect-ratio: 900 / 263" not in image_body:
+            return False, "expected .airline-card__image to still declare its aspect-ratio (UIR-07)"
+
+        # UIR-13: a .data-table--prose-scoped :first-child nowrap rule
+        # exists and sits after the base .data-table--prose rule.
+        prose_at = css_source.index(".data-table--prose {")
+        if ".data-table--prose th:first-child" not in css_source:
+            return False, "expected a .data-table--prose th:first-child rule (UIR-13)"
+        prose_nowrap_start = css_source.index(".data-table--prose th:first-child")
+        if prose_nowrap_start <= prose_at:
+            return False, (
+                "expected the .data-table--prose :first-child nowrap rule to follow the base "
+                ".data-table--prose rule in source order (UIR-13)")
+        prose_nowrap_body = css_source[
+            prose_nowrap_start:css_source.index("}", prose_nowrap_start)]
+        if "white-space: nowrap" not in prose_nowrap_body:
+            return False, (
+                "expected the .data-table--prose :first-child rule to declare white-space: nowrap "
+                "(UIR-13)")
+
+        # UIR-03 markup half: a real anomaly-banner render carries the
+        # class on the lead span, not a bare <span>.
+        tmp = _mkstate("h-v2v-banner-label")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            if 'class="banner banner--warn"' not in rendered and 'class="banner banner--anomaly"' not in rendered:
+                return False, "expected a fresh empty state dir to render an anomaly banner"
+            banner_at = rendered.index('<div class="banner ')
+            if 'class="banner__label"' not in rendered[banner_at:]:
+                return False, "expected the banner's lead span to carry class=\"banner__label\""
+            label_open = rendered.index('<span class="banner__label">', banner_at)
+            label_close = rendered.index("</span>", label_open)
+            label_text = rendered[label_open:label_close]
+            if not re.search(r">\d+ (warning|error)s?:\Z", label_text):
+                return False, (
+                    "expected the count-and-noun lead text inside the banner__label span, got %r"
+                    % label_text)
+            bare_lead_at = rendered.find("<span>", banner_at, label_open)
+            if bare_lead_at != -1:
+                return False, "expected no bare <span> lead ahead of the banner__label span"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        # UIR-12 markup half: the Battery trend caption span opens with a
+        # space before its em dash.
+        tmp2 = _mkstate("h-v2v-em-dash")
+        try:
+            rendered2 = health_page.render(_ctx(tmp2))
+            if 'section-caption"> — ' not in rendered2:
+                return False, (
+                    "expected the Battery trend caption span to open with a space before its "
+                    "em dash (UIR-12)")
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
+
+        return True, ""
+    check(
+        "the four UIR-03/07/12/13 one-line fixes hold together: .banner wraps with a nowrap "
+        ".banner__label rendered on the anomaly banner's lead span, .banner__pill gains min-width: 0 "
+        "while keeping flex: none and its source position before .refresh-pill, .airline-card__image "
+        "gains height: auto alongside its surviving aspect-ratio, the .data-table--prose first-column "
+        "nowrap rule exists after the base rule, and the rendered Battery trend heading carries a space "
+        "before its em dash (quick task 260902-v2v)",
+        _quick_260902_v2v_uir_03_07_12_13_fixes)
 
     def _quick_260902_ep7_dashboard_grid_card_gap_two_role_split():
         # quick task 260902-ep7 (BUG 2): pins the two-role spacing split

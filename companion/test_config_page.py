@@ -306,11 +306,11 @@ def main():
             return False, "expected exactly 2 theme-status-wrapped groups (Runway/Diagnostic LED — Theme itself is a <fieldset> now), got %d" % rendered.count('class="theme-status"')
         if rendered.count('<label class="runway-card') != 3:
             return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
-        if "Save Settings" not in rendered:
-            return False, "expected the 'Save Settings' submit button copy"
+        if "Save settings" not in rendered:
+            return False, "expected the 'Save settings' submit button copy"
         return True, ""
     check(
-        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), two theme-status-wrapped groups (Runway/Diagnostic LED), three runway-card labels, and a Save Settings submit button",
+        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), two theme-status-wrapped groups (Runway/Diagnostic LED), three runway-card labels, and a Save settings submit button",
         _render_shape_theme_radio_group_runway_cards_led_group_and_save_button)
 
     def _led_group_carries_classed_label_and_unchanged_input_attrs():
@@ -478,8 +478,8 @@ def main():
             return False, "expected data-dirty-bar to appear after the Poll section heading too, so the bar is genuinely last on the page"
         form_start = rendered.index('<form class="config-form"')
         form_segment = rendered[form_start:form_end]
-        if "Save Settings" not in form_segment:
-            return False, "expected the always-visible bottom Save Settings fallback button to still appear inside the form"
+        if "Save settings" not in form_segment:
+            return False, "expected the always-visible bottom Save settings fallback button to still appear inside the form"
         save_button_marker = 'class="dirty-bar__save" form="%s"' % config_page.SETTINGS_FORM_ID
         if save_button_marker not in rendered:
             return False, "expected the dirty-bar's own save button to carry form=%r" % (config_page.SETTINGS_FORM_ID,)
@@ -825,15 +825,15 @@ def main():
                 "expected exactly one data-static-save-fallback occurrence, got %d"
                 % rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR))
         button_match = re.search(
-            r'<button\b[^>]*%s[^>]*>Save Settings</button>'
+            r'<button\b[^>]*%s[^>]*>Save settings</button>'
             % re.escape(config_page.STATIC_SAVE_FALLBACK_ATTR), rendered)
         if not button_match:
-            return False, "expected the fallback attribute on a type=\"submit\" Save Settings button"
+            return False, "expected the fallback attribute on a type=\"submit\" Save settings button"
         if 'type="submit"' not in button_match.group(0):
             return False, "expected the fallback button to carry type=\"submit\""
         return True, ""
     check(
-        "render()'s bottom Save Settings button carries data-static-save-fallback exactly once (D-04)",
+        "render()'s bottom Save settings button carries data-static-save-fallback exactly once (D-04)",
         _bottom_save_button_carries_static_fallback_attr)
 
     def _section_captions_appear_escaped_verbatim_exactly_once():
@@ -906,8 +906,8 @@ def main():
             return False, "expected a <button> tag to extract"
         if "disabled" in button_tag.group(0):
             return False, "expected no disabled attribute at zero cooldown"
-        if "Trigger Poll Now" not in rendered:
-            return False, "expected the Trigger Poll Now button copy"
+        if "Trigger poll now" not in rendered:
+            return False, "expected the Trigger poll now button copy"
         return True, ""
     check(
         "poll_trigger_section(0) renders an enabled button",
@@ -1050,8 +1050,8 @@ def main():
         # the countdown script), while poll_trigger_section(30)'s own
         # pre-existing _poll_cooldown_script() output stays unchanged.
         rendered = config_page.poll_trigger_section(0)
-        if "Trigger Poll Now" not in rendered:
-            return False, "expected the Trigger Poll Now button copy"
+        if "Trigger poll now" not in rendered:
+            return False, "expected the Trigger poll now button copy"
         # Scoped to the <button ...> tag, not a bare substring search —
         # see _poll_trigger_enabled_at_zero_cooldown()'s own comment on
         # why (_poll_submit_script()'s body legitimately contains

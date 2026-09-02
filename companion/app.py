@@ -608,7 +608,7 @@ class Handler(BaseHTTPRequestHandler):
             '<label for="password">Password</label>'
             '<input type="password" id="password" name="password" '
             'autocomplete="current-password" autofocus required>'
-            '<button type="submit">Sign In</button>'
+            '<button type="submit">Sign in</button>'
             "</form>" % (LOGIN_ROUTE, next_field_html)
         )
         return "".join(parts)
