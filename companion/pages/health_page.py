@@ -1475,11 +1475,20 @@ def _stats_table_html(stats):
     deliberately NOT opted in: its five columns hold short values whose
     combined max-content width is bounded, and the wrapper absorbs it
     exactly as designed.
+
+    quick task 260902-bl2 (bug 1): the same reason this is the only
+    table that opts out of the no-crop floor is the reason it is the
+    only one whose middle column opts into the `desc` column role — it
+    is the only table in the app whose cells hold prose rather than
+    values, and the validated sketch's own Resolution-statistics table
+    (`td.desc`) mutes exactly that column so the Source labels and
+    Counts stay the scannable part.
     """
     if stats is _DB_UNAVAILABLE or stats["total"] == 0:
         return ""
     return layout.data_table(
-        ["Source", "Description", "Count"], stats["rows"], prose=True)
+        ["Source", "Description", "Count"], stats["rows"],
+        desc_columns=(1,), prose=True)
 
 
 def _resolution_rate_tile_html(stats):

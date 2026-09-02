@@ -1558,6 +1558,44 @@ button:disabled {
   border-bottom: 1px solid var(--color-border);
 }
 
+/* quick task 260902-bl2 (bug 1): the Resolution-statistics table's
+ * Description column measured full-strength --color-text with an empty
+ * classList — not a rule written wrong, a missing hook: before this,
+ * layout.data_table() had a column-role class only for the monospace
+ * role (mono_columns), so a table whose middle column holds prose had no
+ * class for any rule to target at all.
+ *
+ * The value is this file's existing 70% color-mix muted strength — the
+ * same literal .section-caption, .data-table th, .filter-bar__count and
+ * .battery-readout__detail already carry. The sketch this table came
+ * from names a --color-text-muted token; .cell-primary's own comment
+ * below already decided in writing that no such token exists in this
+ * file, and none is introduced here — this is the file's one muted
+ * strength, reused, not a fourth value or a new token.
+ *
+ * color, not opacity: .cell-secondary reaches this same 70% read via
+ * opacity, but .data-table td above declares its own border-bottom
+ * hairline, and opacity would fade that separator along with the text on
+ * exactly these four rows and nowhere else in the table.
+ *
+ * Two things deliberately not carried from the sketch's own td.desc
+ * rule. First, a fixed min-width — declined, because .data-table--prose's
+ * own comment above already argues a pixel floor on this exact column
+ * re-creates the horizontal overflow that modifier was written to
+ * remove, one breakpoint down. Second, any selector scoping beyond the
+ * class itself: the CLASS is the scope — `desc` is emitted only where a
+ * caller opts in via data_table()'s desc_columns keyword, exactly as
+ * `mono` is, and the stats table is the only caller that does; History's
+ * table and the unresolved-prefix registry hand-roll their own markup
+ * and never reach this builder at all.
+ *
+ * test_contrast_check.py's existing "muted detail text on card surface"
+ * pairs already pin this exact foreground/background combination in
+ * both themes — no new pair is needed here. */
+.data-table td.desc {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* 06.6.4 (D-07): a clean bottom edge — the last row carries no trailing
  * separator line. */
 .data-table tbody tr:last-child td {

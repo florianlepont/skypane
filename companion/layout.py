@@ -1093,7 +1093,7 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
     ) % (escape_html(title), freshness_block, action_block, purpose_html)
 
 
-def data_table(headers, rows, mono_columns=(), raw_columns=(), prose=False):
+def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), prose=False):
     """A header row plus alternating body rows, every value escaped.
 
     `mono_columns` names the zero-based column indices that get the
@@ -1118,6 +1118,22 @@ def data_table(headers, rows, mono_columns=(), raw_columns=(), prose=False):
     name the same index, though concise_timestamp_html()'s own
     `<span class="mono">` makes a redundant mono_columns entry
     pointless for that specific case.
+
+    `desc_columns` (quick task 260902-bl2) is `mono_columns`' direct
+    sibling: the zero-based column indices that get the description
+    role's class (`desc`) — a column holding descriptive prose rather
+    than data, which the validated Health sketch renders in the muted
+    secondary strength so the eye lands on the values beside it. Added
+    because the Resolution-statistics table's Description column
+    measured full-strength `--color-text` (`rgb(23, 25, 31)`) with an
+    empty `classList`: before this keyword, `data_table()` had no
+    column-role class hook for anything but the monospace role, so a
+    column of prose had no class for a stylesheet rule to target at
+    all. Changes no cell content and no escaping — the same boundary
+    `mono_columns` already keeps. `mono_columns`, `raw_columns` and
+    `desc_columns` are mutually orthogonal (one controls a class, one
+    controls escaping, one controls a class) and may safely name the
+    same index.
 
     `prose` (quick task 260901-uzi) adds the modifier class
     `data-table--prose` to the emitted `<table>` when true; the default,
@@ -1146,7 +1162,16 @@ def data_table(headers, rows, mono_columns=(), raw_columns=(), prose=False):
         row_class = "row-alt" if row_index % 2 else "row"
         cells = []
         for column_index, cell in enumerate(row):
-            cell_class = ' class="mono"' if column_index in mono_columns else ""
+            # mono is joined first so a mono-only cell's attribute string
+            # stays byte-identical to this loop's pre-desc_columns output
+            # — test_view_pages.py::_mono_columns_present() asserts that
+            # merged-cell mono output and must stay green unedited.
+            cell_roles = []
+            if column_index in mono_columns:
+                cell_roles.append("mono")
+            if column_index in desc_columns:
+                cell_roles.append("desc")
+            cell_class = ' class="%s"' % " ".join(cell_roles) if cell_roles else ""
             cell_html = cell if column_index in raw_columns else escape_html(cell)
             cells.append("<td%s>%s</td>" % (cell_class, cell_html))
         body_rows.append('<tr class="%s">%s</tr>' % (row_class, "".join(cells)))
