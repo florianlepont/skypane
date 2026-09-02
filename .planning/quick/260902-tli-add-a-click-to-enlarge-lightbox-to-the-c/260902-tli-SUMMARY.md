@@ -31,11 +31,22 @@ Every Airlines gallery card's illustration is now click-to-enlarge, reusing Hist
 - Live running-service check (throwaway script, not committed): against a real `companion/app.py` instance — `GET /airlines` serves exactly one `#panel-lookup-dialog` and 27 `.airline-card__zoom` buttons (one per card); `GET /static/style.css` carries the `.airline-card__zoom` rule and the orientation gate; `GET /static/panel-lookup.js` returns 200.
 - `git diff companion/static/panel-lookup.js`: comment lines only, confirmed.
 
-## Outstanding — Task 3, blocking developer checkpoint
+## Task 3 checkpoint — developer feedback and corrections (commits `d6b6da2`, `b401eb7`)
 
-Not self-approved, per the plan's own explicit instruction. Needs a real browser and, for steps 2-3, a real phone (not DevTools emulation — the gate keys on the device's actual reported orientation):
+The developer's own live-device test (Chrome, then a real phone via a tunnel) found three real issues, all fixed on the same pass:
 
-1. **Desktop**: hover shows a zoom cursor; click opens the dialog with the illustration enlarged, correct caption, no distortion; Escape closes it; clicking a different card shows that card's own aircraft.
-2. **Phone portrait**: tapping the illustration does nothing at all — no dialog, no flash, no dead-tap feedback.
-3. **Phone landscape**: tapping opens the dialog, and the whole dialog fits on screen without the page jumping.
-4. **History's own lightbox still works** — it now shares the same script and dialog id, so a regression there is the main risk worth a specific look.
+1. **Note copy was meaningless.** The original wording ("Shown at the shared 900x263 frame every illustration is normalized to...") named an implementation detail no viewer needs. Reworded once, then the reworded version was ALSO rejected — no note is wanted here at all. `LIGHTBOX_NOTE` is now the empty string; the `<p class="lightbox__note">` element still exists (required by `panel-lookup.js`'s shared guard clause) but collapses to zero visible space via a new `.lightbox__note:empty { display: none; }` rule.
+2. **Dark-mode text was illegible.** A native `<dialog>` promoted to the top layer via `showModal()` does not reliably inherit `color` from its DOM ancestors — every browser tested fell back to UA-stylesheet black regardless of the page's theme, so `.lightbox__caption`/`.lightbox__note` (which set no color of their own) rendered black-on-near-black in dark mode. Fixed by declaring `color: var(--color-text)` explicitly on `.lightbox` — benefits History's own dialog too, which had the same latent bug.
+3. **Misread the original spec — a real design correction, not just a bug.** "En mode paysage" meant the enlarged view should present the illustration in a landscape-style (wide) layout, which `.lightbox--wide`'s own sizing already provides — not that the click should be gated behind the device's physical orientation. The implemented `@media (max-width: 959px) and (orientation: portrait) { pointer-events: none }` gate disabled the trigger on the developer's real phone in BOTH orientations. Removed outright; the trigger now works unconditionally at every viewport/orientation, and the existing wide-dialog sizing already handles presentation correctly on a narrow phone.
+
+All three verified together in one live screenshot: real running `companion/app.py`, 375×812 portrait viewport, dark color-scheme — dialog opens, text legible, no note gap, illustration displayed wide.
+
+`companion/test_status_pages.py`: 116/116 (the stylesheet-contract check rewritten in place to pin the gate's *absence* rather than its presence, so it cannot silently return). `ruff check companion/`: clean. `scripts/run-all-tests.sh`: fully green throughout.
+
+## Outstanding — Task 3 checkpoint, still open
+
+Not yet approved by the developer. Needs a real browser and, ideally, a real phone in both orientations (this session already found once that computed-style/emulation checks alone can miss a real device bug):
+
+1. **Desktop**: hover shows a zoom cursor; click opens the dialog with the illustration enlarged, no note gap, correct caption, no distortion, legible in both light and dark mode; Escape closes it; clicking a different card shows that card's own aircraft.
+2. **Phone, either orientation**: tapping the illustration always opens the dialog now (the orientation gate is gone) — confirm the enlarged image reads well in both portrait and landscape.
+3. **History's own lightbox still works** — it shares the same script, dialog id, and now the same `color`/note-collapse CSS rules, so a regression there is the main risk worth a specific look, especially the dark-mode fix.
