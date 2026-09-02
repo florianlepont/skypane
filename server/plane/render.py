@@ -173,6 +173,14 @@ EMPTY_BODY_FONT = (PT_SERIF_REGULAR, 40, 400)
 # in Phase 2/3). On-glass check remains OPEN per D-13.
 LABEL_TRACKING_PX = 6
 
+# Phase 9 PHASE9-3: band-theme top-label direction word, ported verbatim
+# from spike 003's `_MERGED_LABEL_DIRECTION` (round 11's correction to
+# rounds 7/9). Only consulted by `draw_top_labels()` when `band_theme=True`.
+_BAND_TOP_LABEL_DIRECTION = {
+    runway_config.STATE_DEPARTING: "FROM",
+    runway_config.STATE_ARRIVING: "TO",
+}
+
 # Overflow floors (fit_text_size()'s per-role minimums) - real city/airline
 # names shrink in small steps rather than clipping, wrapping mid-word, or
 # overflowing, but never below these named limits.
@@ -370,6 +378,91 @@ PREVIOUS_TEXT_LEFT_OFFSET_PX = 20
 # So the confirmed look is preserved; only its per-file variance is removed.
 MAIN_TEXT_GAP_PX = 54  # main text top = main illustration's OPAQUE bottom + this
 PREVIOUS_TEXT_GAP_PX = 47  # previous text top = its OPAQUE bottom + this
+
+# --- Phase 9 PHASE9-1: diagonal band geometry, ported verbatim from spike
+# 003-diagonal-band-theme's `draw_reference_band()`. Measured from the
+# developer's reference image via per-row pixel scanning + linear
+# regression (spike round 2/11), confirmed final at round 15 ("oui !",
+# .planning/spikes/003-diagonal-band-theme/README.md). A trapezoid, not a
+# parallelogram: the top and bottom edges span different fractions of the
+# canvas width. `BAND_SHIFT_FRAC` is the reference's own unshifted, as-
+# measured position (0.0) - round 11 found that splitting the top-right tag
+# (see `_BAND_TOP_LABEL_DIRECTION`/`draw_top_labels()` below) already clears
+# both the shorter tag and the below-illustration text with margin, so no
+# extra shift is needed. `BAND_BOT_LEFT_FRAC` is floored at 0.0 as a defensive
+# guard against a future negative shift walking the polygon off-canvas.
+BAND_SHIFT_FRAC = 0.0
+BAND_TOP_LEFT_FRAC = 0.5818 + BAND_SHIFT_FRAC
+BAND_TOP_RIGHT_FRAC = 0.8523 + BAND_SHIFT_FRAC
+BAND_BOT_LEFT_FRAC = max(0.0, 0.0742 + BAND_SHIFT_FRAC)
+BAND_BOT_RIGHT_FRAC = 0.4772 + BAND_SHIFT_FRAC
+
+
+def draw_diagonal_band(canvas, band_idx, dithered=False):
+    """Paint the Phase 9 diagonal trapezoid band directly onto `canvas`, in
+    `band_idx`'s colour - flat or dithered ~40% toward White depending on
+    `dithered`. `band_idx` must be one of the 6 legal `panel_format.IDX_*`
+    values (never a bare integer), so `_assert_legal_palette()` downstream
+    stays satisfied.
+
+    MUST be called before any text/illustration drawing, so the band sits
+    behind everything else on the canvas - matching D-24's already-proven
+    "illustrations occlude the band naturally" behaviour from the spike.
+
+    Geometry is measured from the developer's reference image and confirmed
+    final at spike round 15 - see the `BAND_*_FRAC` constants above for the
+    full provenance. This is a verbatim, renamed port of the spike's
+    `draw_reference_band()`: no geometry or drawing-logic change, just moving
+    it from a monkeypatch into a real production function that operates
+    directly on the caller's canvas (no return value - the caller already
+    holds the canvas reference).
+    """
+    w, h = canvas.size
+    poly = [
+        (BAND_TOP_LEFT_FRAC * w, 0), (BAND_TOP_RIGHT_FRAC * w, 0),
+        (BAND_BOT_RIGHT_FRAC * w, h), (BAND_BOT_LEFT_FRAC * w, h),
+    ]
+    if dithered:
+        band_fill = dither.dithered_state_background(band_idx)
+        mask = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(mask).polygon(poly, fill=255)
+        canvas.paste(band_fill, (0, 0), mask)
+    else:
+        ImageDraw.Draw(canvas).polygon(poly, fill=band_idx)
+
+
+def _band_edges(canvas_y, w):
+    """The diagonal band's own left/right pixel edges at a given canvas
+    `y` - the same linear interpolation `draw_diagonal_band()`'s polygon
+    corners and `_band_center_x()` already use, factored out so a caller
+    can also ask "how wide is the band here", not just "where is its
+    centre". Returns (left_x, right_x) in pixels.
+    """
+    f = canvas_y / HEIGHT
+    left_frac = BAND_TOP_LEFT_FRAC - (BAND_TOP_LEFT_FRAC - BAND_BOT_LEFT_FRAC) * f
+    right_frac = BAND_TOP_RIGHT_FRAC - (BAND_TOP_RIGHT_FRAC - BAND_BOT_RIGHT_FRAC) * f
+    return left_frac * w, right_frac * w
+
+
+def _band_center_x(canvas_y, w):
+    """The diagonal band's own horizontal centre at a given canvas `y` -
+    used to centre the main text block INSIDE the trapezoid instead of
+    beside it. The trapezoid's centreline shifts left as `y` increases (the
+    same linear interpolation `draw_diagonal_band()`'s own polygon corners
+    already use), so this is a function of `y`, not a constant.
+
+    Verbatim port of spike 003-diagonal-band-theme's `_band_center_x()`
+    (round 12, confirmed final at round 15 - see
+    `.planning/spikes/003-diagonal-band-theme/README.md`). Callers must
+    compute this ONCE per text block, at the block's top y, and reuse that
+    single value for every line - round 12 introduced a since-fixed bug
+    where recomputing this per line produced a visibly staggered column
+    instead of one aligned centre (round 15's fix, see
+    `draw_main_text_block()`'s band branch).
+    """
+    left_x, right_x = _band_edges(canvas_y, w)
+    return (left_x + right_x) / 2
+
 
 # --- D-04/D-06/D-07 battery-low icon geometry (05-UI-SPEC.md, 05-02-PLAN.md)
 # The two POSITION constants (LEFT/BOTTOM) still derive from MARGIN, unchanged
@@ -717,7 +810,9 @@ def draw_battery_icon(canvas, draw, ink_idx):
 # record, so neither is re-litigated here without new information.
 
 
-def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID):
+def draw_top_labels(
+    canvas, state, ink_idx, bg_idx, weight, runway_id=device_config.DEFAULT_RUNWAY_ID, band_theme=False
+):
     """D-26 top row: the state label (top-left) and the CFG-12 runway tag
     (top-right, `runway_tag_text(runway_id)`), at the small sizes D-26
     confirmed (20px/18px, unchanged), both at the existing `MARGIN` inset
@@ -743,11 +838,32 @@ def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_con
     `bg_idx` itself is retained per D-05's original note here - still no
     direct use in this function beyond being available to callers/future
     roles.
+
+    `band_theme` (PHASE9-3, default `False` - every pre-Phase-9 call site's
+    behaviour is byte-identical to before this phase): when `True`, the
+    state label and runway tag are split differently for the diagonal-band
+    themes, ported verbatim from spike 003's `patched_draw_top_labels()`
+    (round 11's correction to rounds 7/9) - the state label absorbs a
+    direction word and the tag's airport-code half ("DEPARTING FROM ORY"),
+    and the top-right tag shrinks to just the runway-part half ("RWY 3"
+    alone), which starts far enough right to clear the diagonal band with
+    margin at `BAND_SHIFT_FRAC=0.0` (no shift needed). Both halves are
+    derived from `runway_tag_text(runway_id)`'s real return value via
+    `.partition(" · ")` - never a hardcoded "ORY"/"RWY 3" literal, so a
+    future runway selection (CFG-12, "06-24"/"02-20") splits correctly too.
     """
     draw = ImageDraw.Draw(canvas)
     label_font = _role_font(STATE_LABEL_FONT, weight)
     tag_font = _role_font(TOP_TAG_FONT, weight)
-    tag_text = runway_tag_text(runway_id)
+    full_tag = runway_tag_text(runway_id)
+
+    if band_theme:
+        airport_code, _sep, runway_part = full_tag.partition(" · ")
+        label_text = "%s %s %s" % (STATE_LABEL_TEXT[state], _BAND_TOP_LABEL_DIRECTION[state], airport_code)
+        tag_text = runway_part
+    else:
+        label_text = STATE_LABEL_TEXT[state]
+        tag_text = full_tag
 
     # _assert_within_canvas(), not the strict _assert_in_safe_box(): real
     # font glyph metrics can carry a 1-2px negative left/right bearing at
@@ -760,7 +876,6 @@ def draw_top_labels(canvas, state, ink_idx, bg_idx, weight, runway_id=device_con
     # draw.textbbox(): the latter measures an untracked run and would
     # under-report a tracked one's width, silently stopping the guard from
     # protecting anything (T-njw-02).
-    label_text = STATE_LABEL_TEXT[state]
     label_bbox = _tracked_text_bbox(label_font, (MARGIN, MARGIN), label_text, LABEL_TRACKING_PX)
     _assert_within_canvas(label_bbox, "state label")
     draw_tracked_text(draw, (MARGIN, MARGIN), label_text, label_font, ink_idx, tracking=LABEL_TRACKING_PX)
@@ -1221,7 +1336,53 @@ def _flight_line2_text(route, aircraft_type=None):
     return "%s" % (display_name,)
 
 
-def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
+# --- Phase 9 PHASE9-4/PHASE9-5: band-only main-card text roles, ported
+# verbatim from spike 003-diagonal-band-theme's FLIGHT_NUMBER_FONT/
+# ROUTE_LINE_FONT/AIRLINE_LINE_FONT/DASH_W/DASH_GAP (round 15, "oui !").
+# Declared weight ("700"/"400" in the tuple) is never read directly -
+# `_role_font()` resolves the real weight from the active theme's `weight`
+# field (all 5 band themes register `weight: "regular"`, per this plan's
+# own `<interfaces>` note), same mechanism every other active-state role
+# already uses.
+BAND_MAIN_NUMBER_FONT = (PT_SERIF_BOLD, 56, 700)
+BAND_MAIN_ROUTE_FONT = (PT_SERIF_REGULAR, 22, 400)
+BAND_MAIN_AIRLINE_FONT = (PT_SERIF_REGULAR, 20, 400)
+BAND_MAIN_DASH_W = 48
+BAND_MAIN_DASH_GAP = 10
+
+# Real Spectra 6 glass (Phase 9 09-04 on-glass session, long-name stress
+# test reusing Phase 7's own "Compagnie Nationale Royale Air Maroc
+# Express" / "Santiago de Compostela-Rosalia de Castro" fixture): unlike
+# every other active-state text role, the three band roles above were
+# fixed-size - no fit_text_size()-style shrink-to-fit - and a long
+# airline/city name overflowed. Explicit, in-session developer
+# instruction to add the same shrink-to-fit mechanism the rest of the
+# panel already has, not just a blanket size reduction. Min sizes chosen
+# at roughly the same ~70% floor MAIN_LINE1_FONT/MAIN_LINE2_FONT already
+# use (40/28, 22/16).
+BAND_MAIN_NUMBER_MIN_SIZE = 40
+BAND_MAIN_ROUTE_MIN_SIZE = 16
+BAND_MAIN_AIRLINE_MIN_SIZE = 14
+
+
+def _role_fit_tracked_text_size(role_spec, text, tracking, max_width, min_size, weight):
+    """`_role_fit_text_size()`'s step-down loop, but measuring width via
+    `_tracked_text_width()` (which adds `tracking` px between every glyph
+    pair) instead of `font.getlength()` - `fit_text_size()` itself would
+    under-measure a tracked line's real rendered width and could still let
+    it overflow after "fitting".
+    """
+    font_path, size, _role_weight = role_spec
+    resolved_path = _role_weight_path(weight)
+    while size > min_size:
+        font = _font((resolved_path, size, None))
+        if _tracked_text_width(font, text, tracking) <= max_width:
+            return font
+        size -= _FIT_STEP_PX
+    return _font((resolved_path, min_size, None))
+
+
+def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx=None):
     """D-26 main flight text: two centred lines starting `MAIN_TEXT_GAP_PX`
     below the main illustration's OPAQUE bottom edge
     (`main_placement.content[3]`) - the aircraft's last actually-painted pixel
@@ -1252,35 +1413,179 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     a Bold theme (08-06 on-glass finding, widened same session; see
     `_role_weight_path()`). `bg_idx` itself is retained per D-05's
     original note here.
+
+    `band_idx` (Phase 9 PHASE9-4/PHASE9-5): `None` for every one of the 11
+    pre-Phase-9 themes (`_build_active_canvas()` only ever passes a real
+    value for a registered band theme) - in that case this function's body
+    is untouched, byte-identical to before this phase. For a band theme,
+    this instead draws the spike's validated three-tier hierarchy (big
+    identifier / dash rule / tracked route line / airline·type line)
+    centred INSIDE the band, in the band's own contrast ink on the black
+    band (round 13's fix) and the theme's plain `ink_idx` everywhere else.
     """
-    draw = ImageDraw.Draw(canvas)
-    center_x = WIDTH // 2
-    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+    if band_idx is None:
+        draw = ImageDraw.Draw(canvas)
+        center_x = WIDTH // 2
+        safe_width = SAFE_BOX[2] - SAFE_BOX[0]
 
-    line1_text = _flight_line1_text(flight, state, route)
-    line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
+        line1_text = _flight_line1_text(flight, state, route)
+        line2_text = _flight_line2_text(route, flight.get("aircraft_type"))
 
-    top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
+        top_y = main_placement.content[3] + MAIN_TEXT_GAP_PX
 
-    if line1_text:
-        line1_font = _role_fit_text_size(MAIN_LINE1_FONT, line1_text, safe_width, MAIN_LINE1_MIN_SIZE, weight)
-        line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
-        _assert_within_canvas(line1_bbox, "main flight text line 1")
-        draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
-        line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
+        if line1_text:
+            line1_font = _role_fit_text_size(MAIN_LINE1_FONT, line1_text, safe_width, MAIN_LINE1_MIN_SIZE, weight)
+            line1_bbox = draw.textbbox((center_x, top_y), line1_text, font=line1_font, anchor="ma")
+            _assert_within_canvas(line1_bbox, "main flight text line 1")
+            draw.text((center_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ma")
+            line2_top = line1_bbox[3] + MAIN_LINE_GAP_PX
+        else:
+            line1_bbox = None
+            line2_top = top_y
+
+        line2_font = _role_fit_text_size(MAIN_LINE2_FONT, line2_text, safe_width, MAIN_LINE2_MIN_SIZE, weight)
+        line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
+        _assert_within_canvas(line2_bbox, "main flight text line 2")
+        draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
+
+        return line1_bbox, line2_bbox
     else:
-        line1_bbox = None
-        line2_top = top_y
+        draw = ImageDraw.Draw(canvas)
+        # Round 13's black-band-only white-ink override, widened on real
+        # Spectra 6 glass (Phase 9 09-04 on-glass session): the spike's
+        # screen preview said black text stayed legible on Blue/Green/Red
+        # bands, but real ink disagreed for every one of them - Blue,
+        # Green, and Red were each confirmed on real glass to need the
+        # same white-ink override Black always had. With every registered
+        # band colour needing it, this is now unconditional for any band
+        # theme rather than an enumerated list of ink_idx exceptions.
+        effective_ink = IDX_WHITE
 
-    line2_font = _role_fit_text_size(MAIN_LINE2_FONT, line2_text, safe_width, MAIN_LINE2_MIN_SIZE, weight)
-    line2_bbox = draw.textbbox((center_x, line2_top), line2_text, font=line2_font, anchor="ma")
-    _assert_within_canvas(line2_bbox, "main flight text line 2")
-    draw.text((center_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ma")
+        line1_full = _flight_line1_text(flight, state, route)
+        line2_full = _flight_line2_text(route, flight.get("aircraft_type"))
 
-    return line1_bbox, line2_bbox
+        identifier_raw = route.get("callsign_iata") if isinstance(route, dict) else None
+        identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
+
+        # Same 3-way split as the spike's patched_draw_main_text_block()
+        # (round 11-15): classify from the real content ladder's own output,
+        # never a separate re-derivation.
+        if line1_full == "":
+            number_text, tracked_text, plain_text = None, None, line2_full
+        elif identifier and line1_full.startswith(identifier + " "):
+            number_text = identifier
+            tracked_text = line1_full[len(identifier) + 1:].upper()
+            plain_text = line2_full
+        else:
+            number_text, tracked_text, plain_text = None, line1_full.upper(), line2_full
+
+        # First-pass fonts, fit against SAFE_BOX's width purely to get an
+        # approximate block height for the midpoint calc below - not the
+        # final constraint (see the real fit below, which uses the band's
+        # own width at each line's actual y).
+        band_safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+        num_font = _role_fit_text_size(BAND_MAIN_NUMBER_FONT, number_text or "", band_safe_width, BAND_MAIN_NUMBER_MIN_SIZE, weight)
+        route_font = _role_fit_tracked_text_size(BAND_MAIN_ROUTE_FONT, tracked_text or "", LABEL_TRACKING_PX, band_safe_width, BAND_MAIN_ROUTE_MIN_SIZE, weight)
+        airline_font = _role_fit_text_size(BAND_MAIN_AIRLINE_FONT, plain_text, band_safe_width, BAND_MAIN_AIRLINE_MIN_SIZE, weight)
+
+        # Round 15's fix: center_x is computed ONCE and reused for every
+        # line below - never recomputed per line (round 12's confirmed
+        # bug; see _band_center_x()'s own docstring). Extended on real
+        # Spectra 6 glass (Phase 9 09-04 session): anchoring that one
+        # computation at the block's TOP left the lower line(s)
+        # increasingly offset from the band's true centreline, since the
+        # trapezoid drifts left as y increases - the number line (top)
+        # looked centred but the route/airline lines beneath it visibly
+        # didn't. Measuring the block's full vertical extent first (a
+        # dry-run pass, x-position irrelevant to the resulting heights)
+        # and anchoring center_x at the block's MIDPOINT instead spreads
+        # that drift evenly across all three lines rather than
+        # concentrating it at the bottom.
+        y = main_placement.content[3] + MAIN_TEXT_GAP_PX
+        measure_y = y
+        if number_text:
+            num_bbox_m = draw.textbbox((0, measure_y), number_text, font=num_font, anchor="ma")
+            dash_y_m = num_bbox_m[3] + BAND_MAIN_DASH_GAP
+            measure_y = dash_y_m + BAND_MAIN_DASH_GAP + 4
+        if tracked_text:
+            tracked_bbox_m = _tracked_text_bbox(route_font, (0, measure_y), tracked_text, LABEL_TRACKING_PX)
+            measure_y = tracked_bbox_m[3] + 12
+        plain_bbox_m = draw.textbbox((0, measure_y), plain_text, font=airline_font, anchor="ma")
+        block_bottom_y = plain_bbox_m[3]
+        center_x = _band_center_x((y + block_bottom_y) / 2, WIDTH)
+        first_bbox = None
+
+        # Real Spectra 6 glass (Phase 9 09-04 on-glass session, long-name
+        # stress test): white ink is only visible ON the band - a line
+        # fit merely to SAFE_BOX's width can still be wider than the band
+        # itself at its own y, so its overhang lands on the plain White
+        # field and silently vanishes (white-on-white), not a hard clip.
+        # Each line is re-fit here against the band's own width at ITS
+        # actual y (band_left/band_right, not the shared center_x's own
+        # local band width) before drawing - center_x itself still stays
+        # the one shared value from the midpoint calc above.
+        if number_text:
+            band_left, band_right = _band_edges(y, WIDTH)
+            num_max_w = 2 * min(center_x - band_left, band_right - center_x)
+            num_font = _role_fit_text_size(BAND_MAIN_NUMBER_FONT, number_text, num_max_w, BAND_MAIN_NUMBER_MIN_SIZE, weight)
+            num_bbox = draw.textbbox((center_x, y), number_text, font=num_font, anchor="ma")
+            _assert_within_canvas(num_bbox, "band main flight number")
+            draw.text((center_x, y), number_text, font=num_font, fill=effective_ink, anchor="ma")
+            first_bbox = num_bbox
+            dash_y = num_bbox[3] + BAND_MAIN_DASH_GAP
+            draw.line(
+                [(center_x - BAND_MAIN_DASH_W / 2, dash_y), (center_x + BAND_MAIN_DASH_W / 2, dash_y)],
+                fill=effective_ink, width=2,
+            )
+            y = dash_y + BAND_MAIN_DASH_GAP + 4
+
+        if tracked_text:
+            band_left, band_right = _band_edges(y, WIDTH)
+            tracked_max_w = 2 * min(center_x - band_left, band_right - center_x)
+            route_font = _role_fit_tracked_text_size(
+                BAND_MAIN_ROUTE_FONT, tracked_text, LABEL_TRACKING_PX, tracked_max_w, BAND_MAIN_ROUTE_MIN_SIZE, weight
+            )
+            tracked_w = _tracked_text_width(route_font, tracked_text, LABEL_TRACKING_PX)
+            tracked_x = center_x - tracked_w / 2
+            tracked_bbox = _tracked_text_bbox(route_font, (tracked_x, y), tracked_text, LABEL_TRACKING_PX)
+            _assert_within_canvas(tracked_bbox, "band main flight tracked route line")
+            draw_tracked_text(draw, (tracked_x, y), tracked_text, route_font, effective_ink, tracking=LABEL_TRACKING_PX)
+            if first_bbox is None:
+                first_bbox = tracked_bbox
+            y = tracked_bbox[3] + 12
+
+        band_left, band_right = _band_edges(y, WIDTH)
+        airline_max_w = 2 * min(center_x - band_left, band_right - center_x)
+        airline_font = _role_fit_text_size(BAND_MAIN_AIRLINE_FONT, plain_text, airline_max_w, BAND_MAIN_AIRLINE_MIN_SIZE, weight)
+        plain_bbox = draw.textbbox((center_x, y), plain_text, font=airline_font, anchor="ma")
+        _assert_within_canvas(plain_bbox, "band main flight airline·type line")
+        draw.text((center_x, y), plain_text, font=airline_font, fill=effective_ink, anchor="ma")
+        if first_bbox is None:
+            first_bbox = plain_bbox
+
+        return first_bbox, plain_bbox
 
 
-def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight):
+# --- Phase 9 PHASE9-6: band-only previous-card text roles, ported
+# verbatim from spike 003-diagonal-band-theme's PREV_NUMBER_FONT/
+# PREV_ROUTE_FONT/PREV_AIRLINE_FONT/PREV_DASH_W/PREV_DASH_GAP (round 15,
+# "oui !") - the same right-aligned three-tier hierarchy as the main card,
+# at the previous card's existing ~57% scale.
+BAND_PREV_NUMBER_FONT = (PT_SERIF_BOLD, 32, 700)
+BAND_PREV_ROUTE_FONT = (PT_SERIF_REGULAR, 16, 400)
+BAND_PREV_AIRLINE_FONT = (PT_SERIF_REGULAR, 14, 400)
+BAND_PREV_DASH_W = 16
+BAND_PREV_DASH_GAP = 6
+
+# Same real-glass long-name finding and the same explicit developer
+# instruction as BAND_MAIN_*_MIN_SIZE above - the previous card's band
+# roles were equally fixed-size with no shrink-to-fit.
+BAND_PREV_NUMBER_MIN_SIZE = 23
+BAND_PREV_ROUTE_MIN_SIZE = 12
+BAND_PREV_AIRLINE_MIN_SIZE = 10
+
+
+def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight, band_idx=None):
     """D-26 previous flight text: two right-aligned lines. Line 1 starts
     `PREVIOUS_TEXT_GAP_PX` below the previous illustration's OPAQUE bottom edge
     (`prev_placement.content[3]`), for the same reason
@@ -1322,32 +1627,95 @@ def draw_previous_text_block(canvas, flight, state, route, prev_placement, ink_i
     a Bold theme (08-06 on-glass finding, widened same session; see
     `_role_weight_path()`). `bg_idx` itself is retained per D-05's
     original note here.
+
+    `band_idx` (Phase 9 PHASE9-6): `None` for every one of the 11
+    pre-Phase-9 themes - in that case this function's body is untouched,
+    byte-identical to before this phase. For a band theme, this instead
+    draws the spike's validated three-tier hierarchy, right-aligned at
+    this card's existing scale, in its unchanged position - the band
+    never reaches this card's text at any candidate geometry (spike round
+    6), so unlike the main card there is no ink override here: this card
+    always draws in the caller's plain `ink_idx`, even for band_black.
     """
-    draw = ImageDraw.Draw(canvas)
-    right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
-    available_width = right_x - SAFE_BOX[0]
+    if band_idx is None:
+        draw = ImageDraw.Draw(canvas)
+        right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
+        available_width = right_x - SAFE_BOX[0]
 
-    line1_text = _flight_line1_text(flight, state, route)
-    line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
+        line1_text = _flight_line1_text(flight, state, route)
+        line2_text = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
-    top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
+        top_y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
 
-    if line1_text:
-        line1_font = _role_fit_text_size(PREVIOUS_LINE1_FONT, line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE, weight)
-        line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
-        _assert_within_canvas(line1_bbox, "previous flight text line 1")
-        draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
-        line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
+        if line1_text:
+            line1_font = _role_fit_text_size(PREVIOUS_LINE1_FONT, line1_text, available_width, PREVIOUS_LINE1_MIN_SIZE, weight)
+            line1_bbox = draw.textbbox((right_x, top_y), line1_text, font=line1_font, anchor="ra")
+            _assert_within_canvas(line1_bbox, "previous flight text line 1")
+            draw.text((right_x, top_y), line1_text, font=line1_font, fill=ink_idx, anchor="ra")
+            line2_top = line1_bbox[1] + PREVIOUS_LINE_GAP_PX
+        else:
+            line1_bbox = None
+            line2_top = top_y
+
+        line2_font = _role_fit_text_size(PREVIOUS_LINE2_FONT, line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE, weight)
+        line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
+        _assert_within_canvas(line2_bbox, "previous flight text line 2")
+        draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
+
+        return line1_bbox, line2_bbox
     else:
-        line1_bbox = None
-        line2_top = top_y
+        draw = ImageDraw.Draw(canvas)
+        right_x = prev_placement.content[2] - PREVIOUS_TEXT_LEFT_OFFSET_PX
 
-    line2_font = _role_fit_text_size(PREVIOUS_LINE2_FONT, line2_text, available_width, PREVIOUS_LINE2_MIN_SIZE, weight)
-    line2_bbox = draw.textbbox((right_x, line2_top), line2_text, font=line2_font, anchor="ra")
-    _assert_within_canvas(line2_bbox, "previous flight text line 2")
-    draw.text((right_x, line2_top), line2_text, font=line2_font, fill=ink_idx, anchor="ra")
+        line1_full = _flight_line1_text(flight, state, route)
+        line2_full = _flight_line2_text(route, (flight or {}).get("aircraft_type"))
 
-    return line1_bbox, line2_bbox
+        identifier_raw = route.get("callsign_iata") if isinstance(route, dict) else None
+        identifier = identifier_raw.strip() if isinstance(identifier_raw, str) and identifier_raw.strip() else None
+
+        if line1_full == "":
+            number_text, tracked_text, plain_text = None, None, line2_full
+        elif identifier and line1_full.startswith(identifier + " "):
+            number_text = identifier
+            tracked_text = line1_full[len(identifier) + 1:].upper()
+            plain_text = line2_full
+        else:
+            number_text, tracked_text, plain_text = None, line1_full.upper(), line2_full
+
+        band_available_width = right_x - SAFE_BOX[0]
+        num_font = _role_fit_text_size(BAND_PREV_NUMBER_FONT, number_text or "", band_available_width, BAND_PREV_NUMBER_MIN_SIZE, weight)
+        route_font = _role_fit_tracked_text_size(BAND_PREV_ROUTE_FONT, tracked_text or "", LABEL_TRACKING_PX, band_available_width, BAND_PREV_ROUTE_MIN_SIZE, weight)
+        airline_font = _role_fit_text_size(BAND_PREV_AIRLINE_FONT, plain_text, band_available_width, BAND_PREV_AIRLINE_MIN_SIZE, weight)
+
+        y = prev_placement.content[3] + PREVIOUS_TEXT_GAP_PX
+        first_bbox = None
+
+        if number_text:
+            num_bbox = draw.textbbox((right_x, y), number_text, font=num_font, anchor="ra")
+            _assert_within_canvas(num_bbox, "band previous flight number")
+            draw.text((right_x, y), number_text, font=num_font, fill=ink_idx, anchor="ra")
+            first_bbox = num_bbox
+            dash_y = num_bbox[3] + BAND_PREV_DASH_GAP
+            draw.line([(right_x - BAND_PREV_DASH_W, dash_y), (right_x, dash_y)], fill=ink_idx, width=2)
+            y = dash_y + BAND_PREV_DASH_GAP + 3
+
+        if tracked_text:
+            tracked_w = _tracked_text_width(route_font, tracked_text, LABEL_TRACKING_PX)
+            tracked_x = right_x - tracked_w
+            tracked_bbox = _tracked_text_bbox(route_font, (tracked_x, y), tracked_text, LABEL_TRACKING_PX)
+            _assert_within_canvas(tracked_bbox, "band previous flight tracked route line")
+            draw_tracked_text(draw, (tracked_x, y), tracked_text, route_font, ink_idx, tracking=LABEL_TRACKING_PX)
+            if first_bbox is None:
+                first_bbox = tracked_bbox
+            y = tracked_bbox[3] + 8
+
+        plain_bbox = draw.textbbox((right_x, y), plain_text, font=airline_font, anchor="ra")
+        _assert_within_canvas(plain_bbox, "band previous flight airline·type line")
+        draw.text((right_x, y), plain_text, font=airline_font, fill=ink_idx, anchor="ra")
+        if first_bbox is None:
+            first_bbox = plain_bbox
+
+        return first_bbox, plain_bbox
 
 
 def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=False, battery_low=False):
@@ -1475,6 +1843,18 @@ def _build_active_canvas(
     theme_dithered = device_config.theme_dithered(normalised_theme_id)
     weight = device_config.theme_weight(normalised_theme_id)
 
+    # Phase 9 PHASE9-1/PHASE9-3: whether this theme carries a diagonal band,
+    # and that band's own colour/dither flag, resolved once here (same
+    # pattern as theme_dithered/weight just above) and threaded through to
+    # the band-dispatch and draw_top_labels() calls below. `band_idx`/
+    # `band_dithered_flag` are only meaningful when `is_band_theme` is True -
+    # theme_band_index()/theme_band_dithered() are absent-key-safe and would
+    # otherwise return None/False for a non-band theme, but the ternaries
+    # below make that explicit rather than relying on the accessors' defaults.
+    is_band_theme = device_config.theme_is_band(normalised_theme_id)
+    band_idx = device_config.theme_band_index(normalised_theme_id) if is_band_theme else None
+    band_dithered_flag = device_config.theme_band_dithered(normalised_theme_id) if is_band_theme else False
+
     # D-21 gave a flat single-color background field, but Phase 7 07-01's
     # on-glass session found the raw Blue/Green ink too dark/saturated at
     # full-panel coverage - reopened per that plan's own scope note. A
@@ -1487,6 +1867,14 @@ def _build_active_canvas(
     # state and the White theme have always used.
     canvas = dither.dithered_state_background(bg_idx) if theme_dithered else pf.new_canvas(bg_idx)
 
+    # Phase 9 PHASE9-1: for a band theme, paint the diagonal band immediately
+    # after the background fill and before anything else, so it sits behind
+    # every subsequent draw (top labels, illustrations, text) - matching
+    # D-24's already-proven "illustrations occlude the band naturally"
+    # behaviour from the spike. No-op for every non-band theme.
+    if is_band_theme:
+        draw_diagonal_band(canvas, band_idx, dithered=band_dithered_flag)
+
     # D-26's thin outline is no longer drawn (removed 2026-08-28 by developer
     # request, quick task 260828-k5r). FRAME_INSET_FRAC deliberately survives
     # below as pure layout geometry feeding inner_width, and
@@ -1496,7 +1884,10 @@ def _build_active_canvas(
 
     # D-26 top row: state label top-left, CFG-12 runway tag top-right, both
     # at the existing MARGIN inset (inside the frame, not on it).
-    draw_top_labels(canvas, state, fg_idx, bg_idx, weight, runway_id=runway_id)
+    # `band_theme=is_band_theme` (PHASE9-3): band themes get the merged
+    # state-label/airport-code + short runway-tag split; every other theme
+    # keeps today's unsplit pair (draw_top_labels()'s default is False).
+    draw_top_labels(canvas, state, fg_idx, bg_idx, weight, runway_id=runway_id, band_theme=is_band_theme)
 
     # D-25/D-26 main flight: the current detection's real per-airline
     # illustration, always nose-left (D-24 - no mirroring).
@@ -1518,7 +1909,7 @@ def _build_active_canvas(
         # footprint is the right thing to bound - unchanged by the
         # illustration-crop-text-margin fix.
         _assert_within_canvas(main_placement.rect, "main aircraft illustration")
-        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx, weight)
+        draw_main_text_block(canvas, flight, state, route, main_placement, fg_idx, bg_idx, weight, band_idx=band_idx)
 
     # D-25/D-26 previous flight: a real second flight card - the detection
     # immediately preceding this one (poll_loop.py's two-deep history).
@@ -1551,7 +1942,7 @@ def _build_active_canvas(
             prev_top = _top_for_centered_content(prev_resized, HEIGHT * PREVIOUS_ILLUSTRATION_CENTER_Y_FRAC)
             prev_placement = draw_illustration(canvas, prev_resized, prev_left, prev_top)
             _assert_within_canvas(prev_placement.rect, "previous aircraft illustration")
-            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx, weight)
+            draw_previous_text_block(canvas, previous_flight, previous_state, previous_route, prev_placement, fg_idx, bg_idx, weight, band_idx=band_idx)
 
     # CFG-05: the source-fault badge, drawn last so it sits on top of
     # everything else, using the state's own resolved ink index.

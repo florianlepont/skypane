@@ -74,6 +74,7 @@ import hashlib
 import io
 import json
 import os
+import platform
 import shutil
 import sqlite3
 import sys
@@ -86,7 +87,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 43
+EXPECTED_CHECK_COUNT = 44
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -222,6 +223,27 @@ EXPECTED_CHECK_COUNT = 43
 # band of every render. Read verbatim from CI's own FAIL output (PR #24,
 # github.com/florianlepont/skypane/actions/runs/33408473975), per the
 # standing rule above - not recomputed locally on this Mac.
+#
+# 2026-09-02: THIS IS NOT A RE-PIN - the value on the line below is
+# byte-unchanged. What changed instead is HOW a mismatch against that
+# value is judged: the comparison is now platform-gated via
+# _digest_verdict(), and a mismatch is a hard FAIL only when
+# platform.system() reports "Linux". Everywhere else it degrades to an
+# informational NOTE line plus a plain PASS.
+#
+# WHY: this block already documents FOUR separate confirmations that the
+# digest legitimately differs between macOS and Linux Pillow/FreeType
+# builds for byte-identical code and byte-identical vendored fonts -
+# including the python:3.12-slim container attempt above that produced a
+# THIRD distinct digest, proving the difference isn't even a simple
+# macOS-vs-generic-Linux split. Every macOS developer's local run was
+# therefore showing a permanent, expected failure for something that was
+# never a regression.
+#
+# THE STANDING RULE IS UNTOUCHED AND STILL BINDING: only ever re-pin this
+# value from a real CI FAIL log, never from a local computation,
+# containerized or not. Check 30 is the both-branch proof that the
+# Linux-strict path is genuinely preserved by this change.
 _DEFAULT_CONFIG_DIGEST = "46c18ea48d711bf62520570367cd019e2144073019dabe1d4282766d3ae4be51"
 
 # A fixed, arbitrary epoch base so every timestamp in this harness is a plain
@@ -265,6 +287,32 @@ def _write_battery_state(state_dir, mv):
     """
     with open(os.path.join(state_dir, "battery_state.json"), "w") as fh:
         json.dump({"battery_mv": mv, "received_at": 1.0}, fh)
+
+
+def _digest_verdict(digest, expected):
+    """Judge a computed panel.bin digest against the pinned expected value,
+    platform-gated: Linux (CI + the production VPS) is authoritative, so a
+    mismatch there is a hard failure. Everywhere else (macOS dev machines)
+    a mismatch is expected and informational only - see
+    _DEFAULT_CONFIG_DIGEST's own comment history for the full reasoning
+    behind why this file's digest legitimately differs across platforms.
+
+    Returns the same (ok, reason) two-tuple every check() function in this
+    file returns.
+    """
+    if digest == expected:
+        return True, ""
+    detail = "panel.bin digest %s != pinned %s" % (digest, expected)
+    system = platform.system()
+    if system == "Linux":
+        return False, detail
+    print(
+        "NOTE %s (platform.system()=%r) - expected on non-Linux: a "
+        "Pillow/FreeType text-rasterization difference, not a regression; "
+        "the pin is Linux/CI-authoritative, see _DEFAULT_CONFIG_DIGEST's "
+        "own comment history" % (detail, system)
+    )
+    return True, ""
 
 
 def main():
@@ -1169,15 +1217,16 @@ def main():
             # 10. Byte-identity regression gate against the pinned pre-06-10
             # digest (default config, FLIGHT1 fixture).
             def _default_config_byte_identity():
+                # Linux (CI + the production VPS) is authoritative here, so a
+                # mismatch fails there; elsewhere it degrades to an
+                # informational note - see _digest_verdict().
                 digest_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-digest-")
                 try:
                     poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=digest_dir, geofence=GEOFENCE_PATH)
                     with open(os.path.join(digest_dir, "panel.bin"), "rb") as fh:
                         data = fh.read()
                     digest = hashlib.sha256(data).hexdigest()
-                    if digest != _DEFAULT_CONFIG_DIGEST:
-                        return False, "panel.bin digest %s != pinned %s" % (digest, _DEFAULT_CONFIG_DIGEST)
-                    return True, ""
+                    return _digest_verdict(digest, _DEFAULT_CONFIG_DIGEST)
                 finally:
                     shutil.rmtree(digest_dir, ignore_errors=True)
             check(
@@ -1687,6 +1736,78 @@ def main():
             check(
                 "omitting --caddy-log (the default) ingests nothing and raises nothing",
                 _caddy_log_omitted_is_noop,
+            )
+
+            # 30. Cross-references check 10's verdict logic - proves BOTH
+            # branches of the REAL _digest_verdict() (not a copy of it) by
+            # forcing platform.system() at call time. This is the both-
+            # branch proof the 2026-09-02 _DEFAULT_CONFIG_DIGEST comment
+            # entry promises: an inverted condition here would look
+            # identical on this macOS machine while silently disabling
+            # CI's only automated rendering-regression gate.
+            def _digest_verdict_is_linux_strict_and_non_linux_informational():
+                original_system = platform.system
+                # A pure/hermetic proof: _digest_verdict() is pure, so this
+                # needs no run_once(), no temp dir and no render - just two
+                # deliberately-different 64-char hex stand-ins. Never
+                # mutates _DEFAULT_CONFIG_DIGEST, never touches disk.
+                sample = "a" * 64
+                bogus = "b" * 64
+                try:
+                    # (b) the strict branch is genuinely preserved: forced
+                    # "Linux", the identical arguments must return
+                    # (False, reason) naming both digests, and print nothing.
+                    # Checked FIRST (ahead of (a)) because this is the exact
+                    # assertion T-quick-01 in the threat model names as the
+                    # one an inverted condition breaks - it must be the
+                    # sub-assertion whose FAIL is observed during Task 2
+                    # step (3)'s live inversion demonstration.
+                    platform.system = lambda: "Linux"
+                    buf_b = io.StringIO()
+                    with contextlib.redirect_stdout(buf_b):
+                        ok_b, reason_b = _digest_verdict(sample, bogus)
+                    out_b = buf_b.getvalue()
+                    if ok_b is not False:
+                        return False, "(b) forced Linux mismatch returned ok=%r, expected False" % (ok_b,)
+                    if sample not in reason_b or bogus not in reason_b:
+                        return False, "(b) forced Linux mismatch reason %r does not name both %r and %r" % (reason_b, sample, bogus)
+                    if out_b:
+                        return False, "(b) forced Linux mismatch printed %r, expected nothing" % (out_b,)
+
+                    # (a) the softened branch is real: forced "Darwin", a
+                    # mismatch must still return (True, "") AND must print a
+                    # line starting with "NOTE " - returning true silently
+                    # would hide the mismatch from the developer entirely.
+                    platform.system = lambda: "Darwin"
+                    buf_a = io.StringIO()
+                    with contextlib.redirect_stdout(buf_a):
+                        result_a = _digest_verdict(sample, bogus)
+                    out_a = buf_a.getvalue()
+                    if result_a != (True, ""):
+                        return False, "(a) forced Darwin mismatch returned %r, expected (True, '')" % (result_a,)
+                    if not any(ln.startswith("NOTE ") for ln in out_a.splitlines()):
+                        return False, "(a) forced Darwin mismatch printed %r, expected a line starting with 'NOTE '" % (out_a,)
+
+                    # (c) the helper is not degenerate: a matching digest
+                    # never emits a note and never fails, under EITHER
+                    # forced platform.
+                    for forced in ("Darwin", "Linux"):
+                        platform.system = lambda forced=forced: forced
+                        buf_c = io.StringIO()
+                        with contextlib.redirect_stdout(buf_c):
+                            result_c = _digest_verdict(sample, sample)
+                        out_c = buf_c.getvalue()
+                        if result_c != (True, ""):
+                            return False, "(c) matching digest under forced %s returned %r, expected (True, '')" % (forced, result_c)
+                        if out_c:
+                            return False, "(c) matching digest under forced %s printed %r, expected nothing" % (forced, out_c)
+
+                    return True, ""
+                finally:
+                    platform.system = original_system
+            check(
+                "the pinned-digest verdict is Linux-strict and non-Linux-informational - both branches proven by forcing platform.system()",
+                _digest_verdict_is_linux_strict_and_non_linux_informational,
             )
 
         finally:

@@ -135,6 +135,20 @@ def to_sentence_case_city(raw):
     return " ".join(out)
 
 
+def _primary_city_name(raw):
+    """Reduce an adsbdb/OurAirports-style compound municipality name
+    (e.g. "Toulon/Hyeres/Le Palyvestre" for Toulon-Hyeres Airport, which
+    serves several communes) to just its first, primary segment
+    ("Toulon"). OurAirports lists every served commune "/"-separated in
+    the same field - real, not a fabricated edge case (confirmed live
+    against api.adsbdb.com during the Phase 9 09-04 on-glass session) -
+    but no panel text role has room to show all of them; even the widest
+    band role still overflowed at its smallest legible size against the
+    unreduced string. Names without a "/" pass through unchanged.
+    """
+    return raw.split("/", 1)[0].strip()
+
+
 def default_transport(callsign, timeout=DEFAULT_TIMEOUT):
     """Thin `requests.get()` wrapper: GET the adsbdb endpoint for
     `callsign` (already normalised by the caller) and return
@@ -211,9 +225,9 @@ def _parse_route(body):
     return {
         "airline_name": airline_name,
         "origin_iata": origin_iata,
-        "origin_city": to_sentence_case_city(origin_city_raw),
+        "origin_city": to_sentence_case_city(_primary_city_name(origin_city_raw)),
         "destination_iata": destination_iata,
-        "destination_city": to_sentence_case_city(destination_city_raw),
+        "destination_city": to_sentence_case_city(_primary_city_name(destination_city_raw)),
         "callsign_iata": callsign_iata,
     }
 
@@ -567,21 +581,33 @@ _ICAO_AIRLINE_PREFIXES = {
     # Ltd / W4" labelling is very likely an airport-side error, since W4
     # belongs to the Malta AOC today, not Hungary.
     "WMT": "Wizz Air",
-    # KLJ: KlasJet. CARRIES MATERIALLY LOWER CONFIDENCE THAN EVERY ROW
-    # ABOVE - this row must not be presented with the same confidence as
-    # the rest of this table. The prefix is corroborated by lookup sources
-    # but was NEVER LIVE-CONFIRMED (QT-lgt-D-06): approximately 25 adsbdb
-    # queries across plausible flight-number ranges all returned "unknown
-    # callsign" - zero live confirmation, materially weaker than KMM's
-    # confirmed-negative above (a specific curl of a specific real callsign
-    # that definitively missed). KlasJet is a Lithuanian ACMI/wet-lease and
-    # VIP charter operator, and wet-lease flights typically broadcast the
-    # CONTRACTING airline's callsign rather than the operator's own, so a
-    # real KLJ-prefixed callsign may rarely or never appear at Orly. The
-    # developer chose to include it anyway, with this uncertainty in hand.
-    # Remediation pointer: if a real KLJ callsign is ever observed and
-    # resolves to a different carrier, this row is the first thing to
-    # re-verify.
+    # KLJ: KlasJet. CONFIRMED - a real KLJ-prefixed flight was observed
+    # and confirmed at Orly, developer-confirmed 2026-09-02. This resolves
+    # the open question below in the direction that CONFIRMS the KlasJet
+    # attribution, not one that contradicts it - the mapping value is
+    # unchanged; only this comment moved. No specific callsign or flight
+    # number was captured; the evidence of record is the developer's own
+    # in-session confirmation, not a fixture or curl transcript.
+    #
+    # SUPERSEDED 2026-09-02 - below is the pre-2026-09-02 investigation
+    # record, kept as history; its lower-confidence framing no longer
+    # applies.
+    #
+    # Original record (QT-lgt-D-06): materially lower confidence than every
+    # row above - corroborated by lookup sources but NEVER LIVE-CONFIRMED:
+    # ~25 adsbdb queries across plausible flight-number ranges all returned
+    # "unknown callsign", weaker than KMM's confirmed-negative above.
+    # KlasJet is a Lithuanian ACMI/wet-lease and VIP charter operator, and
+    # wet-lease flights typically broadcast the CONTRACTING airline's
+    # callsign rather than the operator's own, so a KLJ callsign was
+    # expected to rarely or never appear at Orly. The developer included
+    # the row anyway - the 2026-09-02 observation above vindicated that
+    # call.
+    #
+    # Remediation pointer (standing safeguard, valid precisely BECAUSE the
+    # 2026-09-02 observation confirmed KlasJet and not some other
+    # operator): if a KLJ callsign is ever observed resolving to a
+    # DIFFERENT carrier, this row is the first thing to re-verify.
     "KLJ": "KlasJet",
 }
 

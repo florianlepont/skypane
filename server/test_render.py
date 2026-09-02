@@ -40,7 +40,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 107
+EXPECTED_CHECK_COUNT = 118
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -3032,6 +3032,445 @@ def main():
         "card's line 1, and the source-fault caption are each still drawn as one whole-string call, and the "
         "total single-character draw count equals exactly len(label_text) + len(tag_text)",
         _tracking_confined_to_top_row_roles_only,
+    )
+
+    # 108. Phase 9 PHASE9-1: every registered band theme's build_canvas()
+    # call succeeds without exception, in both active states. Checks #58-60
+    # already loop THEME_IDS generically and therefore already cover this
+    # transitively - this loop exists to make band coverage explicit and
+    # independently readable, and to fail loudly with the offending theme id
+    # named if a band-specific regression ever slips past the generic loops.
+    def _band_themes_render_without_exception():
+        band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+        if not band_theme_ids:
+            return False, "no band theme ids found in THEME_IDS - expected plan 09-01's 5 band entries"
+        for theme_id in band_theme_ids:
+            for state in ("departing", "arriving"):
+                render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE, theme_id=theme_id)
+        return True, ""
+    check(
+        "every registered band theme (PHASE9-1) renders via build_canvas() in both departing and arriving "
+        "states without exception",
+        _band_themes_render_without_exception,
+    )
+
+    # 109. draw_diagonal_band() paints only {IDX_WHITE, band_idx} on a fresh
+    # White canvas, confined to the trapezoid region - one flat candidate
+    # (IDX_BLUE, dithered=False) and one dithered candidate (IDX_GREEN,
+    # dithered=True), using Image.getcolors() the same way
+    # _assert_legal_palette() does internally, not a reimplementation of its
+    # dominance/legality logic.
+    def _draw_diagonal_band_paints_only_legal_two_colour_set():
+        for band_idx, dithered in ((IDX_BLUE, False), (IDX_GREEN, True)):
+            canvas = panel_format.new_canvas(IDX_WHITE)
+            render.draw_diagonal_band(canvas, band_idx, dithered=dithered)
+            colors = {value for _count, value in canvas.getcolors()}
+            if not colors <= {IDX_WHITE, band_idx}:
+                return False, (
+                    "draw_diagonal_band(band_idx=%r, dithered=%r) painted colours %r, expected a subset of "
+                    "{IDX_WHITE, %r}" % (band_idx, dithered, sorted(colors), band_idx)
+                )
+            if band_idx not in colors:
+                return False, "draw_diagonal_band(band_idx=%r, dithered=%r) painted no %r pixels at all" % (
+                    band_idx, dithered, band_idx
+                )
+        return True, ""
+    check(
+        "draw_diagonal_band() paints only {IDX_WHITE, band_idx} on a fresh White canvas, flat and dithered",
+        _draw_diagonal_band_paints_only_legal_two_colour_set,
+    )
+
+    # 110. Band-theme top labels are genuinely split: build a band-theme
+    # canvas and reconstruct the top-row glyph run via _TextSpy, the same
+    # idiom check #65 uses for runway-tag coverage. The expected strings are
+    # derived from runway_tag_text()/STATE_LABEL_TEXT/_BAND_TOP_LABEL_DIRECTION
+    # in the check itself, partitioned on " · " - never a hardcoded literal
+    # duplicating the production split logic in two places.
+    def _band_theme_top_labels_are_split():
+        band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+        if not band_theme_ids:
+            return False, "no band theme ids found in THEME_IDS"
+        theme_id = band_theme_ids[0]
+        full_tag = render.runway_tag_text()
+        airport_code, _sep, runway_part = full_tag.partition(" · ")
+        expected_label = "%s %s %s" % (
+            render.STATE_LABEL_TEXT["departing"], render._BAND_TOP_LABEL_DIRECTION["departing"], airport_code
+        )
+        expected_tag = runway_part
+        with _TextSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
+        top_row = [(t, xy, a) for t, xy, a in spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        label_glyphs = top_row[: len(expected_label)]
+        tag_glyphs = top_row[len(expected_label): len(expected_label) + len(expected_tag)]
+        joined_label = "".join(t for t, _xy, _a in label_glyphs)
+        joined_tag = "".join(t for t, _xy, _a in tag_glyphs)
+        if joined_label != expected_label:
+            return False, "reconstructed band-theme %r label = %r, expected %r" % (theme_id, joined_label, expected_label)
+        if joined_tag != expected_tag:
+            return False, "reconstructed band-theme %r tag = %r, expected %r" % (theme_id, joined_tag, expected_tag)
+        return True, ""
+    check(
+        "a band theme's top labels are genuinely split into a merged state-label/airport-code run "
+        "(e.g. 'DEPARTING FROM ORY') and a standalone runway-tag run (e.g. 'RWY 3'), both derived from "
+        "runway_tag_text().partition(' · ') (PHASE9-3)",
+        _band_theme_top_labels_are_split,
+    )
+
+    # 111. Non-band-theme top labels are unaffected. Two layers: (a) calls
+    # `draw_top_labels()` DIRECTLY with no `band_theme` argument at all, so
+    # this check genuinely exercises the parameter's own default rather than
+    # `_build_active_canvas()`'s explicit `band_theme=is_band_theme` wiring
+    # (which always passes the argument and would mask a wrong default) -
+    # (b) the same _TextSpy reconstruction, run through build_canvas() with
+    # the default theme (white), proving the wiring itself resolves to
+    # unsplit for a real non-band theme too. Both must reconstruct exactly
+    # STATE_LABEL_TEXT["departing"] on the left and the FULL
+    # runway_tag_text() string on the right.
+    def _non_band_theme_top_labels_are_unsplit():
+        label_text = render.STATE_LABEL_TEXT["departing"]
+        full_tag = render.runway_tag_text()
+
+        default_weight = render.device_config.theme_weight(render.device_config.DEFAULT_THEME_ID)
+        canvas = panel_format.new_canvas(IDX_WHITE)
+        with _TextSpy(render) as direct_spy:
+            # No band_theme kwarg at all - this is what actually proves the
+            # parameter's default is False, not just that callers pass False.
+            render.draw_top_labels(canvas, "departing", IDX_BLACK, IDX_WHITE, default_weight)
+        direct_top_row = [(t, xy, a) for t, xy, a in direct_spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        direct_label = "".join(t for t, _xy, _a in direct_top_row[: len(label_text)])
+        direct_tag = "".join(t for t, _xy, _a in direct_top_row[len(label_text): len(label_text) + len(full_tag)])
+        if direct_label != label_text:
+            return False, "draw_top_labels() with no band_theme arg: label = %r, expected unsplit %r" % (direct_label, label_text)
+        if direct_tag != full_tag:
+            return False, "draw_top_labels() with no band_theme arg: tag = %r, expected the FULL unsplit tag %r" % (direct_tag, full_tag)
+
+        with _TextSpy(render) as wired_spy:
+            render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=render.device_config.DEFAULT_THEME_ID
+            )
+        wired_top_row = [(t, xy, a) for t, xy, a in wired_spy.calls if len(t) == 1 and xy[1] == render.MARGIN]
+        wired_label = "".join(t for t, _xy, _a in wired_top_row[: len(label_text)])
+        wired_tag = "".join(t for t, _xy, _a in wired_top_row[len(label_text): len(label_text) + len(full_tag)])
+        if wired_label != label_text:
+            return False, "build_canvas(theme_id='white') label = %r, expected unsplit %r" % (wired_label, label_text)
+        if wired_tag != full_tag:
+            return False, "build_canvas(theme_id='white') tag = %r, expected the FULL unsplit tag %r" % (wired_tag, full_tag)
+        return True, ""
+    check(
+        "a non-band theme's (white, the default) top labels remain exactly STATE_LABEL_TEXT and the FULL "
+        "runway tag, unsplit - both draw_top_labels()'s own default (called with no band_theme argument) and "
+        "_build_active_canvas()'s wiring genuinely preserve today's behaviour",
+        _non_band_theme_top_labels_are_unsplit,
+    )
+
+    # 112. Non-band themes are pixel-identical to before this phase: the
+    # default (White) canvas's getdata() length/content and getcolors() set,
+    # each computed fresh every run (never a hardcoded pixel dump), match
+    # between an explicit theme_id="white" call and the no-theme-id default
+    # call - strengthening check #55's identity check into an explicit,
+    # named "the band port did not touch the default path" regression guard,
+    # plus a structural confirmation that "white" itself is not a band theme.
+    def _default_theme_canvas_unchanged_by_band_port():
+        if render.device_config.theme_is_band("white"):
+            return False, "'white' unexpectedly reports as a band theme - the default render path would be touched"
+        default_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE)
+        white_canvas = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="white")
+        default_data = list(default_canvas.getdata())
+        white_data = list(white_canvas.getdata())
+        if len(default_data) != len(white_data):
+            return False, "default/white canvas getdata() lengths differ: %d vs %d" % (len(default_data), len(white_data))
+        if default_data != white_data:
+            return False, "default/white canvas pixel data differs - the band port must not touch the default path"
+        default_colors = {v for _n, v in default_canvas.getcolors()}
+        white_colors = {v for _n, v in white_canvas.getcolors()}
+        if default_colors != white_colors:
+            return False, "default/white canvas colour sets differ: %r vs %r" % (sorted(default_colors), sorted(white_colors))
+        return True, ""
+    check(
+        "the default (white) theme's canvas is byte-identical to before this phase (getdata()/getcolors() "
+        "computed fresh, and 'white' itself is confirmed not a band theme)",
+        _default_theme_canvas_unchanged_by_band_port,
+    )
+
+    # 113. Plan 09-03 non-band regression, both text blocks: a full
+    # two-flight render, for every one of the 11 pre-band theme ids, is
+    # pixel-identical whether `_build_active_canvas()`'s normal
+    # `band_idx=band_idx` wiring runs (always `None` for a non-band theme)
+    # or `draw_main_text_block()`/`draw_previous_text_block()` are called
+    # with NO `band_idx` argument at all (their own default). Proves the
+    # `band_idx=None` branch is genuinely a no-op wrapper around the
+    # pre-this-plan body, using the real production illustration-placement
+    # pipeline (via build_canvas() itself) rather than a hand-duplicated
+    # reimplementation that could silently drift from it.
+    def _non_band_text_blocks_unaffected_by_band_idx_kwarg():
+        non_band_ids = [t for t in render.device_config.THEME_IDS if not render.device_config.theme_is_band(t)]
+        if len(non_band_ids) != 11:
+            return False, "expected exactly 11 pre-band theme ids, found %d: %r" % (len(non_band_ids), non_band_ids)
+
+        orig_main = render.draw_main_text_block
+        orig_prev = render.draw_previous_text_block
+
+        def _main_no_band_kwarg(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx=None):
+            return orig_main(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight)
+
+        def _prev_no_band_kwarg(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight, band_idx=None):
+            return orig_prev(canvas, flight, state, route, prev_placement, ink_idx, bg_idx, weight)
+
+        for theme_id in non_band_ids:
+            canvas_wired = render.build_canvas(
+                TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+                theme_id=theme_id,
+            )
+            render.draw_main_text_block = _main_no_band_kwarg
+            render.draw_previous_text_block = _prev_no_band_kwarg
+            try:
+                canvas_unwired = render.build_canvas(
+                    TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                    previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+                    theme_id=theme_id,
+                )
+            finally:
+                render.draw_main_text_block = orig_main
+                render.draw_previous_text_block = orig_prev
+            if list(canvas_wired.getdata()) != list(canvas_unwired.getdata()):
+                return False, (
+                    "theme %r: build_canvas() output differs when draw_main_text_block()/draw_previous_text_block() "
+                    "are called with no band_idx argument at all vs. _build_active_canvas()'s normal band_idx=band_idx "
+                    "wiring - the band_idx=None branch is not a byte-identical no-op wrapper" % (theme_id,)
+                )
+        return True, ""
+    check(
+        "every one of the 11 pre-band themes' full two-flight render is pixel-identical whether "
+        "_build_active_canvas()'s band_idx=band_idx wiring runs (always None) or draw_main_text_block()/"
+        "draw_previous_text_block() are called with no band_idx argument at all (PHASE9-4/PHASE9-6 regression guard)",
+        _non_band_text_blocks_unaffected_by_band_idx_kwarg,
+    )
+
+    # 114. Tier-split content reuse, main card: for a tier-1 route
+    # (TEST_ROUTE, real identifier + city), the big-number draw's text
+    # equals route["callsign_iata"] exactly and the tracked route line -
+    # reconstructed from consecutive single-character glyph draws not on
+    # the top row (y != MARGIN), the same idiom check #65/#110 already use
+    # for the top row itself - equals _flight_line1_text()'s real output
+    # with the identifier prefix stripped and upper-cased, computed fresh
+    # in this check. For a tier-3 route (enrich.airline_only_route(), no
+    # identifier/city), no number and no tracked-route glyphs are drawn at
+    # all - only the promoted airline·type line, as a single whole-string
+    # draw.
+    def _band_main_card_tier_split_reuses_real_content():
+        import server.plane.enrich as enrich
+
+        theme_id = "band_blue"
+        identifier = TEST_ROUTE["callsign_iata"]
+        line1_full = render._flight_line1_text(TEST_FLIGHT, "departing", TEST_ROUTE)
+        expected_tracked = line1_full[len(identifier) + 1:].upper()
+
+        with _TextSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
+        number_draws = [c for c in spy.calls if c[0] == identifier and c[2] == "ma"]
+        if not number_draws:
+            return False, "band main card tier-1: no whole-string 'ma' draw of the identifier %r found" % (identifier,)
+        tracked_glyphs = [c for c in spy.calls if len(c[0]) == 1 and c[1][1] != render.MARGIN]
+        joined_tracked = "".join(t for t, _xy, _a in tracked_glyphs)
+        if joined_tracked != expected_tracked:
+            return False, (
+                "band main card tier-1 tracked route line reconstructed as %r, expected %r"
+                % (joined_tracked, expected_tracked)
+            )
+
+        tier3_route = enrich.airline_only_route("Band Tier Three Airline")
+        tier3_flight = {"hex": "abcdef", "callsign": "XYZ999", "aircraft_type": "A320"}
+        line1_full_tier3 = render._flight_line1_text(tier3_flight, "departing", tier3_route)
+        if line1_full_tier3 != "":
+            return False, "expected fixture to hit D-10 tier 3 (line 1 == ''), got %r" % (line1_full_tier3,)
+        line2_full_tier3 = render._flight_line2_text(tier3_route, tier3_flight["aircraft_type"])
+        with _TextSpy(render) as spy3:
+            render.build_canvas(tier3_flight, "departing", route=tier3_route, theme_id=theme_id)
+        tier3_tracked_glyphs = [c for c in spy3.calls if len(c[0]) == 1 and c[1][1] != render.MARGIN]
+        if tier3_tracked_glyphs:
+            return False, "band main card tier-3 render unexpectedly drew tracked-route glyphs: %r" % (tier3_tracked_glyphs,)
+        whole_strings_tier3 = [t for t, _xy, _a in spy3.calls if len(t) > 1]
+        if line2_full_tier3 not in whole_strings_tier3:
+            return False, (
+                "band main card tier-3 render did not draw the promoted airline·type line %r as a whole string"
+                % (line2_full_tier3,)
+            )
+        return True, ""
+    check(
+        "a band theme's main card draws the big-number line as route['callsign_iata'] verbatim and the tracked "
+        "route line as _flight_line1_text()'s real remainder, upper-cased (tier 1); and draws only the promoted "
+        "airline·type line, with no number/dash/tracked-route draw at all, for a tier-3 (airline-only) route "
+        "(PHASE9-4)",
+        _band_main_card_tier_split_reuses_real_content,
+    )
+
+    # 115. Centring-once regression guard (round-15 bug, PHASE9-4): for a
+    # tier-1 band render, every anchor="ma" draw call below the top row
+    # (the number line and the promoted/plain airline·type line both use
+    # this anchor) must land on the SAME x-coordinate - proving center_x
+    # was computed once, at the block's top, and reused for every line,
+    # never recomputed per line. Manually verified during this plan's own
+    # development (not re-run automatically here) that reintroducing the
+    # round-12 per-line recompute inside the plain_text branch alone makes
+    # this check fail, and reverting makes it pass again.
+    def _band_center_x_computed_once_not_recomputed_per_line():
+        with _TextSpy(render) as spy:
+            render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id="band_blue")
+        ma_draws = [c for c in spy.calls if c[2] == "ma" and c[1][1] != render.MARGIN]
+        if len(ma_draws) < 2:
+            return False, "expected at least 2 anchor='ma' draws (number line + airline·type line), found %d" % (len(ma_draws),)
+        xs = {xy[0] for _t, xy, _a in ma_draws}
+        if len(xs) != 1:
+            return False, (
+                "band main card anchor='ma' draws used %d distinct x-coordinates %r, expected exactly 1 - "
+                "center_x must be computed once and reused (round-15 fix, round-12 regression guard)"
+                % (len(xs), sorted(xs))
+            )
+        return True, ""
+    check(
+        "a band theme's main-card anchor='ma' draws (the number line and the airline·type line) all share "
+        "exactly one x-coordinate - center_x is computed once per block, never recomputed per line "
+        "(round-15 fix, PHASE9-4)",
+        _band_center_x_computed_once_not_recomputed_per_line,
+    )
+
+    # 116. Black-band ink swap (round-13 fix, PHASE9-5): the main card's
+    # drawn text pixels sample as IDX_WHITE inside band_black's render and
+    # as IDX_BLACK inside another band theme's (band_red) render - by
+    # actual sampled pixel colour, not by inference from an exception's
+    # absence. band_black's own band FILL is itself IDX_BLACK, so a bare
+    # "any IDX_BLACK pixel inside the bbox" probe would misfire on the
+    # background, not just missing ink - this diffs a real render against
+    # a text-suppressed render of the identical canvas (draw_main_text_block()
+    # monkeypatched to a no-op) so only genuinely newly-painted ink pixels
+    # are sampled, never the band's own background fill. Only
+    # draw.textbbox()-measured bboxes are usable (the tracked route line's
+    # own _tracked_text_bbox() bypasses ImageDraw.textbbox() entirely, so
+    # _TextBBoxSpy never sees it) - the number line and the airline·type
+    # line both go through draw.textbbox() and are sufficient to prove the
+    # swap.
+    def _band_black_main_card_ink_swaps_to_white():
+        orig_main = render.draw_main_text_block
+
+        def _main_no_op(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx=None):
+            return None, None
+
+        def _ink_pixels_drawn(theme_id):
+            with _TextBBoxSpy(render) as bbox_spy:
+                canvas_with_text = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
+            render.draw_main_text_block = _main_no_op
+            try:
+                canvas_without_text = render.build_canvas(TEST_FLIGHT, "departing", route=TEST_ROUTE, theme_id=theme_id)
+            finally:
+                render.draw_main_text_block = orig_main
+            with_pixels = canvas_with_text.load()
+            without_pixels = canvas_without_text.load()
+            ink_values = set()
+            for _text, _xy, _anchor, bbox in bbox_spy.calls:
+                left, top, right, bottom = (round(v) for v in bbox)
+                for x in range(max(left, 0), min(right, render.WIDTH)):
+                    for y in range(max(top, 0), min(bottom, render.HEIGHT)):
+                        if with_pixels[x, y] != without_pixels[x, y]:
+                            ink_values.add(with_pixels[x, y])
+            return ink_values
+
+        # Round 13's black-band-only override widened to every band theme
+        # on real Spectra 6 glass (Phase 9 09-04 on-glass session): black
+        # text read poorly against Blue/Green/Red too, not just Black -
+        # every registered band theme's main card now draws in white ink,
+        # unconditionally. Proven by actual pixel colour for the full
+        # registered set, not by absence of an exception.
+        band_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+        if len(band_ids) != 5:
+            return False, "expected exactly 5 registered band theme ids, found %d: %r" % (len(band_ids), band_ids)
+        for theme_id in band_ids:
+            ink_values = _ink_pixels_drawn(theme_id)
+            if IDX_WHITE not in ink_values:
+                return False, "%s main card: no newly-painted IDX_WHITE ink pixels found - ink swap missing" % theme_id
+            if IDX_BLACK in ink_values:
+                return False, "%s main card: newly-painted IDX_BLACK ink pixels found - ink swap incomplete" % theme_id
+        return True, ""
+    check(
+        "every registered band theme's main card text samples as IDX_WHITE (never IDX_BLACK) inside its own drawn "
+        "bboxes - the round-13 ink swap, widened on real glass to every band colour, is proven by actual pixel "
+        "colour, not by absence of an exception (PHASE9-5)",
+        _band_black_main_card_ink_swaps_to_white,
+    )
+
+    # 117. Previous-card band clearance: for a full two-flight
+    # band_blue_light render (the widest dithered candidate), the band's
+    # rightmost x at the previous card's own text y-range - computed via
+    # the same linear interpolation _band_center_x() uses internally,
+    # derived from BAND_TOP_RIGHT_FRAC/BAND_BOT_RIGHT_FRAC only, never a
+    # hardcoded pixel literal - must sit to the LEFT of every previous-card
+    # text bbox's left edge, for all 5 band themes (the band's shape is
+    # colour-independent; only its fill varies).
+    def _previous_card_never_collides_with_the_band():
+        band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+        if not band_theme_ids:
+            return False, "no band theme ids found in THEME_IDS"
+
+        def _band_right_edge_x(canvas_y, w):
+            f = canvas_y / render.HEIGHT
+            right_frac = render.BAND_TOP_RIGHT_FRAC - (render.BAND_TOP_RIGHT_FRAC - render.BAND_BOT_RIGHT_FRAC) * f
+            return right_frac * w
+
+        for theme_id in band_theme_ids:
+            with _TextBBoxSpy(render) as bbox_spy:
+                render.build_canvas(
+                    TEST_FLIGHT, "departing", route=TEST_ROUTE,
+                    previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE, previous_state="arriving",
+                    theme_id=theme_id,
+                )
+            # The previous card's band branch draws every line anchor="ra"
+            # (right-aligned); the main card's band branch draws every line
+            # anchor="ma" (centred) - this is the unambiguous discriminator
+            # between the two cards' bboxes, not a y-coordinate heuristic
+            # (the main card's own band-centred text can legitimately sit
+            # below the canvas's vertical midpoint too).
+            prev_bboxes = [b for _t, _xy, a, b in bbox_spy.calls if a == "ra"]
+            if not prev_bboxes:
+                return False, "theme %r: no previous-card (anchor='ra') text bbox found" % (theme_id,)
+            for bbox in prev_bboxes:
+                left, top = bbox[0], bbox[1]
+                band_right_at_top = _band_right_edge_x(top, render.WIDTH)
+                if left < band_right_at_top:
+                    return False, (
+                        "theme %r: previous-card text bbox %r's left edge (%r) sits inside the band's own "
+                        "rightmost extent (%r) at that y" % (theme_id, bbox, left, band_right_at_top)
+                    )
+        return True, ""
+    check(
+        "the previous card's drawn text bboxes never overlap the diagonal band's own rightmost extent, at any "
+        "of the 5 band themes, in a full two-flight render (PHASE9-6 clearance guard)",
+        _previous_card_never_collides_with_the_band,
+    )
+
+    # 118. Full legal-palette + dominance sweep: for all 5 band themes,
+    # both active states, with and without source_fault=True, build_canvas()
+    # raises no AssertionError - _assert_legal_palette() (run internally)
+    # holds with the full three-tier text and the source-fault badge both
+    # present.
+    def _band_themes_full_composition_stays_palette_legal():
+        band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
+        if not band_theme_ids:
+            return False, "no band theme ids found in THEME_IDS"
+        for theme_id in band_theme_ids:
+            for state in ("departing", "arriving"):
+                for source_fault in (False, True):
+                    render.build_canvas(
+                        TEST_FLIGHT, state, route=TEST_ROUTE,
+                        previous_flight=TEST_PREVIOUS_FLIGHT, previous_route=TEST_PREVIOUS_ROUTE,
+                        previous_state="arriving" if state == "departing" else "departing",
+                        theme_id=theme_id, source_fault=source_fault,
+                    )
+        return True, ""
+    check(
+        "every registered band theme's full two-flight composition (three-tier main + previous card text, "
+        "plus the source-fault badge when present) stays _assert_legal_palette()-legal across both active "
+        "states (PHASE9-4/PHASE9-5/PHASE9-6 full sweep)",
+        _band_themes_full_composition_stays_palette_legal,
     )
 
     total = len(results)

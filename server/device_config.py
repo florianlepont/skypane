@@ -190,6 +190,69 @@ THEMES = {
         "dithered": True,
         "weight": "bold",
     },
+    # Phase 9 (09-01): the diagonal-band theme family, validated end-to-end
+    # in spike 003 (`.planning/spikes/003-diagonal-band-theme/README.md`,
+    # round 15, developer-confirmed "oui !"). Every band candidate in the
+    # spike rendered against `build_canvas(theme_id="white")` - the band's
+    # own colour was always a separate function parameter, never a
+    # base-canvas property - so all 5 entries below carry the exact same
+    # departing_index/arriving_index/ink_index/dithered/weight as "white"
+    # itself. Only label, band_index (the band's own IDX_* colour), and
+    # band_dithered (whether that band is drawn flat or dithered ~40%
+    # toward White) vary between the 5. band_index/band_dithered are read
+    # by server/plane/render.py's draw_diagonal_band() (plans 09-02/09-03)
+    # via theme_is_band()/theme_band_index()/theme_band_dithered() below -
+    # never by indexing THEMES directly.
+    "band_blue": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Blue",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_BLUE,
+        "band_dithered": False,
+    },
+    "band_blue_light": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Blue Light",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_BLUE,
+        "band_dithered": True,
+    },
+    "band_green_light": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Green Light",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_GREEN,
+        "band_dithered": True,
+    },
+    "band_red": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Red",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_RED,
+        "band_dithered": False,
+    },
+    "band_black": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Black",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_BLACK,
+        "band_dithered": False,
+    },
 }
 
 # --- Runway registry -----------------------------------------------------
@@ -201,19 +264,38 @@ THEMES = {
 # current TOP_RIGHT_TAG_TEXT/EMPTY_HEADING_TEXT so the default render is
 # unchanged; the "06-24"/"02-20" entries use the same "ORY · RWY ..."/
 # "Watching Runway ..." shape with the U+00B7 middle-dot separator.
+#
+# Quick task 260902-j21 (2026-09-02): each `label` now carries only the
+# runway number Orly's own signage and runway-works documentation use
+# ("Piste N"), sourced from the official Aeroport de Paris runway-works
+# diagram the developer supplied - superseding the prior heading-pair
+# labels ("Runway 3 (07/25)", "Runway 06/24", "Runway 02/20") quoted here
+# for context only. The mapping is NOT inferable from the keys, so it is
+# recorded explicitly: key "3" (DEFAULT_RUNWAY_ID) -> Piste 3 (07-25), key
+# "06-24" -> Piste 4, key "02-20" -> Piste 2. The dict KEYS themselves are
+# deliberately unchanged - they are the persisted `tracked_runway` value in
+# device_config.json, the membership set RUNWAY_IDS validates against, the
+# CFG-12 consistency check against adsb-test/runway3.json noted above, and
+# the filename stem the companion/static/RUNWAY-IMAGES.md `runway-{id}.png`
+# drop-in contract keys off of - renaming any of them would silently orphan
+# the matching diagram asset. `tag_text`/`empty_heading` are deliberately
+# left in their existing English airport-board voice: they render onto the
+# physical Spectra 6 panel via server/plane/render.py's runway_tag_text()/
+# runway_empty_heading(), a separate design surface nobody asked to change.
+# The French "Piste" vocabulary is scoped to the companion web picker alone.
 RUNWAYS = {
     "3": {
-        "label": "Runway 3 (07/25)",
+        "label": "Piste 3",
         "tag_text": "ORY · RWY 3",
         "empty_heading": "Watching Runway 3",
     },
     "06-24": {
-        "label": "Runway 06/24",
+        "label": "Piste 4",
         "tag_text": "ORY · RWY 06/24",
         "empty_heading": "Watching Runway 06/24",
     },
     "02-20": {
-        "label": "Runway 02/20",
+        "label": "Piste 2",
         "tag_text": "ORY · RWY 02/20",
         "empty_heading": "Watching Runway 02/20",
     },
@@ -387,6 +469,30 @@ def theme_weight(theme_id):
     dithered entry that still uses Regular).
     """
     return THEMES[theme_id]["weight"]
+
+
+def theme_is_band(theme_id):
+    """Whether `theme_id` is one of the 5 Phase 9 diagonal-band themes -
+    true iff its THEMES entry carries the band-only `"band_index"` key.
+    False for every one of the 11 pre-Phase-9 themes, which never carry it.
+    """
+    return "band_index" in THEMES[theme_id]
+
+
+def theme_band_index(theme_id):
+    """`theme_id`'s diagonal band colour as a panel_format.IDX_* constant,
+    or `None` for a non-band theme. Absent-key-safe via `.get()` - never
+    raises for any registered id, band or not.
+    """
+    return THEMES[theme_id].get("band_index")
+
+
+def theme_band_dithered(theme_id):
+    """Whether `theme_id`'s diagonal band is dithered ~40% toward White
+    rather than a flat, undithered fill; `False` for a non-band theme.
+    Absent-key-safe via `.get()` - never raises for any registered id.
+    """
+    return THEMES[theme_id].get("band_dithered", False)
 
 
 def runway_tag_text(runway_id):
