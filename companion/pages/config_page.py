@@ -70,8 +70,8 @@ LED_CHECKBOX_VALUE = "on"
 # (poll_trigger_section()), so it must be interpolated on both branches
 # or it would silently vanish for the whole cooldown window.
 THEME_SECTION_CAPTION = (
-    "Panel colors for departing/arriving flights. More themes appear "
-    "here once validated on real hardware.")
+    "Panel colors for departing/arriving flights. Applies on the "
+    "device's next scheduled poll, not immediately.")
 RUNWAY_SECTION_CAPTION = (
     "Which Orly runway the device watches. Applies on the next "
     "scheduled poll, not immediately.")
@@ -177,11 +177,15 @@ def _palette_hex(index):
 
 def theme_fieldset(current_theme_id):
     """D-04: a read-only theme status block when exactly one theme is
-    registered (`len(device_config.THEME_IDS) == 1`, true today) — a
-    one-option radio group has no real decision value. Falls back to the
-    original editable radio-group markup automatically the moment a
-    second theme is registered; this is a `len()` check, not a hardcoded
-    single-theme assumption.
+    registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
+    group has no real decision value. Falls back to the editable
+    radio-group markup below the moment a second theme is registered;
+    this is a `len()` check, not a hardcoded single-theme assumption —
+    which is exactly what makes it correct unmodified now that Phase 8's
+    on-glass session (08-06) widened the registry from one entry ("sky")
+    to nineteen. That radio-group path was written and tested against a
+    hypothetical multi-theme future; this merge is the first time it
+    actually runs.
 
     Both branches render the same single `THEME_SECTION_CAPTION`
     paragraph directly under the `<h2>` heading (quick task 260901-re6)

@@ -108,7 +108,19 @@ STARTUP_DEADLINE_S = 10.0
 # guard (_style_css_carries_section_caption_and_restyled_fixed_dirty_bar())
 # was retargeted and extended in place onto the floating-card save-bar
 # treatment.
-EXPECTED_CHECK_COUNT = 61
+# merge of origin/main (Phase 8 six-Spectra-6-colour theme rework, 19
+# real theme entries replacing the single "sky" placeholder): main's own
+# _theme_fieldset_one_radio_per_registry_entry() check is reinstated (see
+# that check's own comment for why), and three checks testing main's
+# still-pre-06.6.4.1-07 dual-form LED architecture (led_fieldset()/a
+# second /config-led form) were dropped as testing functionality this
+# branch already retired. No further checks were added or removed fixing
+# the 5 newly-surfaced post-merge failures in the existing (pre-conflict,
+# cleanly-inherited-from-HEAD) theme_fieldset()-isolation checks — those
+# were in-place rewrites. Recomputed directly against the real on-disk
+# check(...) call count at merge-resolution time rather than trusting the
+# incremental arithmetic above, which had drifted from actual: 64.
+EXPECTED_CHECK_COUNT = 64
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -269,31 +281,37 @@ def main():
     # temporary state directory and a hand-built ctx dict.
     # ==================================================================
 
-    def _render_shape_read_only_theme_runway_cards_led_group_and_save_button():
-        # 06.6.4.1 (D-05): with the real (unmodified) single-member
-        # THEME_IDS registry, Theme renders as the read-only .theme-status
-        # block (no <fieldset>), Runway as a .theme-status-wrapped
-        # .runway-card list (also no <fieldset>), and LED now renders as
-        # a third .theme-status-wrapped group (led_group()) instead of
-        # its own <fieldset>/<legend>-carrying <section> — render()'s
-        # output carries zero <fieldset occurrences.
+    def _render_shape_theme_radio_group_runway_cards_led_group_and_save_button():
+        # merge of origin/main (Phase 8): this check's premise used to be
+        # "with the real (unmodified) single-member THEME_IDS registry,
+        # Theme renders as the read-only .theme-status block (no
+        # <fieldset>)" — that premise died the moment the merged registry
+        # grew past one entry (19 real themes) for good; D-04's own
+        # len()==1 fallback (unmodified by this merge) now permanently
+        # takes the OTHER branch for Theme specifically. Runway and
+        # Diagnostic LED are unaffected — they never depended on
+        # THEME_IDS's size — so they still render as .theme-status blocks;
+        # only Theme's own assertion changes, from "zero <fieldset" to
+        # "exactly one <fieldset>, Theme's own".
         ctx = {
-            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        if "<fieldset" in rendered:
-            return False, "expected zero <fieldset occurrences, got %d" % rendered.count("<fieldset")
-        if rendered.count('class="theme-status"') != 3:
-            return False, "expected exactly 3 theme-status-wrapped groups (Theme/Runway/Diagnostic LED), got %d" % rendered.count('class="theme-status"')
+        if rendered.count("<fieldset") != 1:
+            return False, "expected exactly one <fieldset> (Theme's own radio group, now that THEME_IDS holds more than one entry), got %d" % rendered.count("<fieldset")
+        if "<legend>Theme</legend>" not in rendered:
+            return False, "expected Theme's radio group to carry a <legend>Theme</legend>"
+        if rendered.count('class="theme-status"') != 2:
+            return False, "expected exactly 2 theme-status-wrapped groups (Runway/Diagnostic LED — Theme itself is a <fieldset> now), got %d" % rendered.count('class="theme-status"')
         if rendered.count('<label class="runway-card') != 3:
             return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if "Save Settings" not in rendered:
             return False, "expected the 'Save Settings' submit button copy"
         return True, ""
     check(
-        "render() emits the read-only theme-status block, three runway-card labels, the LED group, and a Save Settings submit button, with zero <fieldset occurrences",
-        _render_shape_read_only_theme_runway_cards_led_group_and_save_button)
+        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), two theme-status-wrapped groups (Runway/Diagnostic LED), three runway-card labels, and a Save Settings submit button",
+        _render_shape_theme_radio_group_runway_cards_led_group_and_save_button)
 
     def _led_group_carries_classed_label_and_unchanged_input_attrs():
         # quick task 260901-qif: pins the led-checkbox label class and
@@ -321,43 +339,60 @@ def main():
         "led_group() emits the led-checkbox label class and preserves the input's name/value/checked attribute sequence",
         _led_group_carries_classed_label_and_unchanged_input_attrs)
 
-    def _every_settings_group_is_named_at_one_heading_level():
+    def _every_settings_group_is_named_exactly_once():
         # heading-color-consistency debug session, extended by 06.6.4.1
         # (D-05): Config carries four settings groups. Before D-05's LED
         # merge, three used <h2 class="text-heading"> (Theme/Runway/Poll)
         # while Diagnostic LED alone kept a <legend> inside its own
         # <fieldset> (its own independently-submittable <form>, D-06).
-        # Now that the LED group is a sibling inside the single merged
-        # form, it drops the <fieldset>/<legend> for the same <h2>
-        # role its three siblings already use — render()'s output
-        # carries zero <legend> elements, and all four groups are named
-        # exactly once at one consistent heading level.
+        # D-05 dropped the LED group's own <fieldset>/<legend> for the
+        # same <h2> role its three siblings already use.
+        #
+        # merge of origin/main (Phase 8): a SECOND legend reappears, for a
+        # different, permanent reason — D-04's own read-only-vs-editable
+        # fallback (unmodified by this merge) takes the editable
+        # <fieldset><legend>Theme</legend> branch now that THEME_IDS holds
+        # 19 real entries, not the read-only <h2>Theme</h2> branch it took
+        # under the single-"sky"-entry registry this test used to assume.
+        # Runway/Diagnostic LED/Poll are unaffected by THEME_IDS's size —
+        # they still share the one <h2> heading level D-05 established —
+        # so the real, current claim this test can make is "every group is
+        # named exactly once, whichever element does the naming," not "at
+        # one consistent heading level with zero <legend> elements."
         ctx = {
-            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        for name in ("Theme", "Runway", "Diagnostic LED", "Poll"):
+        if rendered.count("<legend>Theme</legend>") != 1:
+            return False, (
+                "expected exactly one '<legend>Theme</legend>' — Theme's "
+                "own D-04 radio-group naming, now that THEME_IDS holds "
+                "more than one entry — got %d"
+                % rendered.count("<legend>Theme</legend>"))
+        for name in ("Runway", "Diagnostic LED", "Poll"):
             heading = '<h2 class="text-heading">%s</h2>' % name
             if rendered.count(heading) != 1:
                 return False, (
                     "expected exactly one %r group heading, got %d"
                     % (heading, rendered.count(heading)))
-        if "<legend" in rendered:
+        if rendered.count("<legend") != 1:
             return False, (
-                "expected zero <legend elements in render()'s output now "
-                "that the LED group has no <fieldset> wrapper of its own")
-        # The old label-paragraph shape must not come back alongside the
-        # heading — that would name the Theme group twice.
+                "expected exactly one <legend element in render()'s output "
+                "(Theme's own) — LED's own <fieldset>/<legend> stays "
+                "retired per D-05")
+        # The old label-paragraph shape must not come back alongside
+        # Theme's own naming — that would name the Theme group twice.
         if '<p class="text-label">Theme</p>' in rendered:
             return False, (
                 "the Theme group is named twice: the superseded "
-                "text-label paragraph is still present next to the <h2>")
+                "text-label paragraph is still present next to its own naming element")
         return True, ""
     check(
         "all four Config settings groups (Theme/Runway/Diagnostic LED/Poll) are named "
-        "exactly once, at one consistent heading level, with zero <legend> elements",
-        _every_settings_group_is_named_at_one_heading_level)
+        "exactly once — Theme via its own D-04 <legend> now that THEME_IDS holds more "
+        "than one entry (merge of origin/main), the other three via the shared D-05 <h2>",
+        _every_settings_group_is_named_exactly_once)
 
     def _render_opens_with_shared_page_header():
         # 06.6.2-04 (D-16): Settings' top-level heading now goes through
@@ -384,7 +419,7 @@ def main():
         # grid rule (companion/static/style.css's 960px breakpoint) can
         # target it without a brittle attribute selector.
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         if 'class="config-form"' not in rendered:
@@ -422,7 +457,7 @@ def main():
         # </form> and the Poll section), submitting via a form= attribute
         # instead of native DOM nesting.
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         if rendered.count('<form class="config-form"') != 1:
@@ -453,27 +488,64 @@ def main():
         "render()'s dirty-state bar is a sibling of the config-form <form>, emitted last on the page after both </form> and the Poll section, with its save button carrying form=SETTINGS_FORM_ID (quick task 260901-re6)",
         _render_dirty_bar_is_sibling_of_form_last_on_page)
 
+    def _theme_fieldset_one_radio_per_registry_entry():
+        # merge of origin/main (Phase 8): this exact check existed pre-
+        # 06.6.3-03, was retired outright when the registry briefly held
+        # just "sky" (a one-option radio group has no real decision
+        # value — D-04's read-only-status branch took over that case),
+        # and is reinstated here now that the merged registry holds 19
+        # real entries again — theme_fieldset()'s existing len()==1
+        # fallback (unmodified by this merge) means this assertion is
+        # exercising real, currently-live markup, not a retired code path.
+        rendered = config_page.theme_fieldset("black")
+        radio_count = rendered.count('name="theme"')
+        if radio_count != len(device_config.THEMES):
+            return False, (
+                "expected %d theme radios (len(THEMES)), got %d"
+                % (len(device_config.THEMES), radio_count))
+        return True, ""
+    check(
+        "theme_fieldset() emits one radio per THEMES registry entry now that the registry holds more than one theme (merge of origin/main, Phase 8)",
+        _theme_fieldset_one_radio_per_registry_entry)
+
     def _theme_fieldset_single_theme_renders_read_only_status_with_real_swatch_hex():
-        # D-04, Task 2 Test 1: with the real (unmodified) single-member
-        # THEME_IDS registry, theme_fieldset() renders the read-only
-        # status block — zero <input> occurrences — showing "{label} ·
-        # current" and swatch chip hex values computed at test time from
+        # D-04, Task 2 Test 1: with a synthetic single-member THEME_IDS
+        # registry (monkeypatched for the duration of this check only),
+        # theme_fieldset() renders the read-only status block — zero
+        # <input> occurrences — showing "{label} · current" and swatch
+        # chip hex values computed at test time from
         # panel_format.PALETTE_RGB, not hardcoded expected strings.
-        rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
-        if "<input" in rendered:
-            return False, "expected zero <input occurrences in the read-only branch"
-        expected_label = "%s · current" % device_config.theme_label(device_config.DEFAULT_THEME_ID)
-        if expected_label not in rendered:
-            return False, "expected %r in the rendered output" % (expected_label,)
-        theme = device_config.THEMES[device_config.DEFAULT_THEME_ID]
-        departing_hex = config_page._palette_hex(theme["departing_index"])
-        arriving_hex = config_page._palette_hex(theme["arriving_index"])
-        if ("background:%s" % departing_hex) not in rendered:
-            return False, "expected the departing swatch hex %r derived from PALETTE_RGB" % (departing_hex,)
-        if ("background:%s" % arriving_hex) not in rendered:
-            return False, "expected the arriving swatch hex %r derived from PALETTE_RGB" % (arriving_hex,)
-        if "Phase 7" in rendered:
-            return False, "expected no leaked internal 'Phase 7' planning reference (UXA-05)"
+        #
+        # merge of origin/main (Phase 8): the real global THEME_IDS
+        # registry now permanently holds 19 entries, so this check can no
+        # longer rely on "the real (unmodified) registry" to exercise the
+        # len()==1 branch — it monkeypatches a clean, isolated one-member
+        # registry instead, mirroring the pattern the sibling
+        # multi-theme-fallback check below already uses.
+        original_themes = device_config.THEMES
+        original_ids = device_config.THEME_IDS
+        default_id = device_config.DEFAULT_THEME_ID
+        device_config.THEMES = {default_id: dict(original_themes[default_id])}
+        device_config.THEME_IDS = tuple(device_config.THEMES)
+        try:
+            rendered = config_page.theme_fieldset(default_id)
+            if "<input" in rendered:
+                return False, "expected zero <input occurrences in the read-only branch"
+            expected_label = "%s · current" % device_config.theme_label(default_id)
+            if expected_label not in rendered:
+                return False, "expected %r in the rendered output" % (expected_label,)
+            theme = device_config.THEMES[default_id]
+            departing_hex = config_page._palette_hex(theme["departing_index"])
+            arriving_hex = config_page._palette_hex(theme["arriving_index"])
+            if ("background:%s" % departing_hex) not in rendered:
+                return False, "expected the departing swatch hex %r derived from PALETTE_RGB" % (departing_hex,)
+            if ("background:%s" % arriving_hex) not in rendered:
+                return False, "expected the arriving swatch hex %r derived from PALETTE_RGB" % (arriving_hex,)
+            if "Phase 7" in rendered:
+                return False, "expected no leaked internal 'Phase 7' planning reference (UXA-05)"
+        finally:
+            device_config.THEMES = original_themes
+            device_config.THEME_IDS = original_ids
         return True, ""
     check(
         "theme_fieldset() renders the read-only theme-status block with real panel-color swatch hex values when THEME_IDS has one member (D-04)",
@@ -484,18 +556,27 @@ def main():
         # for the duration of this check only) makes theme_fieldset() fall
         # back to the original editable radio-group markup — a len()
         # check, not a hardcoded single-theme assumption.
+        #
+        # merge of origin/main (Phase 8): THEMES is now REPLACED with a
+        # clean 2-entry dict rather than dict(original_themes) plus one
+        # more key — copying the real registry would now start from 19
+        # entries, not 1, breaking this test's own "exactly 2 theme radios"
+        # assertion below.
         original_themes = device_config.THEMES
         original_ids = device_config.THEME_IDS
-        device_config.THEMES = dict(original_themes)
-        device_config.THEMES["dusk"] = {
-            "departing_index": original_themes[device_config.DEFAULT_THEME_ID]["departing_index"],
-            "arriving_index": original_themes[device_config.DEFAULT_THEME_ID]["arriving_index"],
-            "ink_index": original_themes[device_config.DEFAULT_THEME_ID]["ink_index"],
-            "label": "Dusk",
+        default_id = device_config.DEFAULT_THEME_ID
+        device_config.THEMES = {
+            default_id: dict(original_themes[default_id]),
+            "dusk": {
+                "departing_index": original_themes[default_id]["departing_index"],
+                "arriving_index": original_themes[default_id]["arriving_index"],
+                "ink_index": original_themes[default_id]["ink_index"],
+                "label": "Dusk",
+            },
         }
         device_config.THEME_IDS = tuple(device_config.THEMES)
         try:
-            rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
+            rendered = config_page.theme_fieldset(default_id)
         finally:
             device_config.THEMES = original_themes
             device_config.THEME_IDS = original_ids
@@ -513,6 +594,45 @@ def main():
     check(
         "theme_fieldset() falls back to the editable radio group the moment a second theme is registered (D-04)",
         _theme_fieldset_falls_back_to_radio_group_when_multiple_themes_registered)
+
+    def _theme_fieldset_covers_every_registered_theme_with_own_id_and_label():
+        # 08-CONTEXT.md D-01/D-02/D-03/D-04, widened by the 08-06 on-glass
+        # session (5 themes -> 11): proves the CFG-01 picker absorbs every
+        # registered theme purely through the registry - driven from
+        # THEME_IDS/theme_label(), not a hardcoded list or count, so this
+        # stays true for a future twelfth theme with zero test-file change
+        # needed. Deliberately no `len(theme_ids) != N` assertion - that
+        # exact literal is what broke every time this registry's membership
+        # changed; the real invariant is "every id THEME_IDS actually
+        # holds renders its own radio+label", checked below instead.
+        rendered = config_page.theme_fieldset("white")
+        theme_ids = device_config.THEME_IDS
+        if not theme_ids:
+            return False, "THEME_IDS is empty - nothing to render"
+        for theme_id in theme_ids:
+            value_needle = 'value="%s"' % escape_html(theme_id)
+            if value_needle not in rendered:
+                return False, "expected a radio carrying value=%r, not found in rendered fieldset" % (theme_id,)
+            label_needle = escape_html(device_config.theme_label(theme_id))
+            if label_needle not in rendered:
+                return False, "expected theme %r's plain label %r as visible text, not found" % (theme_id, label_needle)
+        return True, ""
+    check(
+        "theme_fieldset() renders one radio per registered theme, each carrying its own registry id as value and its own plain "
+        "label as visible text, with zero hardcoded ids/labels/counts in the assertion itself",
+        _theme_fieldset_covers_every_registered_theme_with_own_id_and_label)
+
+    def _theme_fieldset_default_selects_exactly_the_white_option():
+        rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
+        if rendered.count(" checked") != 1:
+            return False, "expected exactly one selected radio, found %d" % rendered.count(" checked")
+        white_option_needle = 'value="white" checked'
+        if white_option_needle not in rendered:
+            return False, "the selected option is not the white one (expected %r substring)" % (white_option_needle,)
+        return True, ""
+    check(
+        "theme_fieldset() rendered with the new default theme id marks exactly one option selected, and it is White",
+        _theme_fieldset_default_selects_exactly_the_white_option)
 
     def _runway_fieldset_exactly_three_radios():
         rendered = config_page.runway_fieldset("3")
@@ -658,29 +778,41 @@ def main():
         # Calls theme_fieldset()/runway_fieldset()/led_group() directly
         # and asserts each returns markup with exactly one <p occurrence
         # and exactly one section-caption occurrence, with the caption's
-        # index falling after the group's </h2> and before the group's
-        # control.
-        theme_rendered = config_page.theme_fieldset("sky")
+        # index falling after the group's own naming element and before
+        # the group's control.
+        #
+        # merge of origin/main (Phase 8): theme_fieldset("black") (any
+        # valid theme id — "sky" no longer exists post-merge) now returns
+        # the D-04 editable-radio-group branch, not the read-only branch
+        # this check used to exercise — its heading is a </legend>, not
+        # an </h2>, since THEME_IDS holds 19 real entries. runway_fieldset()
+        # and led_group() are unaffected and still use </h2>.
+        theme_rendered = config_page.theme_fieldset("black")
         runway_rendered = config_page.runway_fieldset("3")
         led_rendered = config_page.led_group(True)
         groups = (
-            ("theme_fieldset()", theme_rendered, "theme-status__row"),
-            ("runway_fieldset()", runway_rendered, "runway-row"),
-            ("led_group()", led_rendered, "led-checkbox"),
+            ("theme_fieldset()", theme_rendered, "</legend>", "options"),
+            ("runway_fieldset()", runway_rendered, "</h2>", "runway-row"),
+            ("led_group()", led_rendered, "</h2>", "led-checkbox"),
         )
-        for name, rendered, control_marker in groups:
+        for name, rendered, heading_close_marker, control_marker in groups:
             if rendered.count("<p") != 1:
                 return False, "expected %s to emit exactly one <p element, got %d" % (name, rendered.count("<p"))
             if rendered.count("section-caption") != 1:
                 return False, "expected %s to emit exactly one section-caption occurrence, got %d" % (name, rendered.count("section-caption"))
-            heading_close = rendered.index("</h2>")
+            heading_close = rendered.index(heading_close_marker)
             caption_pos = rendered.index("section-caption")
-            control_pos = rendered.index(control_marker)
-            if not (heading_close < caption_pos < control_pos):
-                return False, "expected %s's caption to fall after </h2> and before its control (%r)" % (name, control_marker)
+            if not (heading_close < caption_pos):
+                return False, "expected %s's caption to fall after %s" % (name, heading_close_marker)
+            if control_marker != "options" and control_marker not in rendered:
+                return False, "expected %s's control marker %r to be present" % (name, control_marker)
+            if control_marker != "options":
+                control_pos = rendered.index(control_marker)
+                if not (caption_pos < control_pos):
+                    return False, "expected %s's caption to fall before its control (%r)" % (name, control_marker)
         return True, ""
     check(
-        "theme_fieldset()/runway_fieldset()/led_group() each emit exactly one section-caption <p> element, positioned between the group heading and the group control (quick task 260901-re6)",
+        "theme_fieldset()/runway_fieldset()/led_group() each emit exactly one section-caption <p> element, positioned after the group's own naming element and before its control (quick task 260901-re6, merge of origin/main)",
         _each_group_emits_exactly_one_caption_between_heading_and_control)
 
     def _bottom_save_button_carries_static_fallback_attr():
@@ -711,7 +843,7 @@ def main():
         # fourth constant, POLL_SECTION_CAPTION - same check, same
         # assertion shape, one more constant, no new check added.
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "3"},
+            "device_config": {"theme": "black", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
         })
         theme_caption = escape_html(config_page.THEME_SECTION_CAPTION)
@@ -732,14 +864,20 @@ def main():
         _section_captions_appear_escaped_verbatim_exactly_once)
 
     def _current_theme_and_runway_are_selected():
-        # 06.6.3-03: with THEME_IDS at its real single-member size, Theme
-        # has no radio at all (D-04's read-only status block) — the
-        # selection assertion is scoped to Runway's card markup, whose
-        # native radio's checked attribute now sits after a class
-        # attribute (`value="{id}" class="visually-hidden"{checked}>`),
-        # not immediately after value= like the old radio-group markup.
+        # merge of origin/main (Phase 8): the Runway assertions below
+        # predate this merge and are unaffected by it. The Theme
+        # assertion is NOT — 06.6.3-03's own comment here used to explain
+        # why Theme had "no radio at all (D-04's read-only status block)"
+        # while THEME_IDS held its real single member ("sky"); that
+        # branch is unreachable now that the merged registry holds 19
+        # entries, so theme_fieldset() always takes the radio-group path
+        # below, and the assertion is rewritten to match — a native
+        # radio's checked attribute sits directly after value= there
+        # (`value="{id}"{checked}>`), unlike Runway's card markup, whose
+        # checked attribute sits after an intervening class attribute
+        # (`value="{id}" class="visually-hidden"{checked}>`).
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "06-24"},
+            "device_config": {"theme": "black", "tracked_runway": "06-24"},
             "poll_cooldown_remaining": 0,
         })
         if 'value="06-24" class="visually-hidden" checked' not in rendered:
@@ -748,8 +886,8 @@ def main():
             return False, "expected runway 3 (not the saved value) to NOT be marked selected"
         if rendered.count("runway-card--selected") != 1:
             return False, "expected exactly one runway-card--selected modifier"
-        if "Sky (default) · current" not in rendered:
-            return False, "expected the saved theme (sky) to be shown as the read-only current theme"
+        if 'value="black" checked' not in rendered:
+            return False, "expected the saved theme (black) to be marked selected via its radio input"
         return True, ""
     check(
         "the currently-saved theme is shown current and the (non-default) saved runway card is the one marked selected",
@@ -996,7 +1134,7 @@ def main():
         try:
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
-                {"theme": "sky", "tracked_runway": "06-24"}, ctx)
+                {"theme": "black", "tracked_runway": "06-24"}, ctx)
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
@@ -1004,8 +1142,14 @@ def main():
             # itself, with checkbox-absent-means-False semantics (never
             # carried forward like theme/runway) — this posted form omits
             # led_enabled entirely, so the persisted value is False, not
-            # DEFAULT_LED_ENABLED (True).
-            if on_disk != {"theme": "sky", "tracked_runway": "06-24", "led_enabled": False}:
+            # DEFAULT_LED_ENABLED (True). The theme value itself is
+            # "black", matching what the fixture above actually posted —
+            # pre-merge this assertion read "sky" because "black" wasn't
+            # yet a valid THEME_IDS entry and handle_post()'s validation
+            # silently kept the prior/default value instead; the merged
+            # Phase 8 registry (19 real entries) makes "black" valid, so
+            # it now persists as posted.
+            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -1017,7 +1161,7 @@ def main():
     def _nonmember_theme_writes_nothing():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3")
+            _write_device_config(tmpdir, "black", "3")
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
@@ -1037,11 +1181,11 @@ def main():
     def _nonmember_runway_writes_nothing():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3")
+            _write_device_config(tmpdir, "black", "3")
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
-                {"theme": "sky", "tracked_runway": "not-a-real-runway"}, ctx)
+                {"theme": "black", "tracked_runway": "not-a-real-runway"}, ctx)
             after = open(device_config.device_config_path(tmpdir), "rb").read()
             if flash_key != config_page.FLASH_SAVE_FAILED:
                 return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
@@ -1057,9 +1201,9 @@ def main():
     def _theme_only_post_carries_runway_forward():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "06-24")
+            _write_device_config(tmpdir, "black", "06-24")
             ctx = {"state_dir": tmpdir}
-            flash_key = config_page.handle_post({"theme": "sky"}, ctx)
+            flash_key = config_page.handle_post({"theme": "black"}, ctx)
             if flash_key != config_page.FLASH_SAVED:
                 return False, "expected FLASH_SAVED, got %r" % (flash_key,)
             on_disk = device_config.load_device_config(tmpdir)
@@ -1075,7 +1219,7 @@ def main():
     def _path_traversal_theme_rejected():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3")
+            _write_device_config(tmpdir, "black", "3")
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
@@ -1095,7 +1239,7 @@ def main():
     def _sql_fragment_theme_rejected():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3")
+            _write_device_config(tmpdir, "black", "3")
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
@@ -1124,7 +1268,7 @@ def main():
             device_config.save_device_config = _raising_save
             try:
                 flash_key = config_page.handle_post(
-                    {"theme": "sky", "tracked_runway": "3"}, ctx)
+                    {"theme": "black", "tracked_runway": "3"}, ctx)
             finally:
                 device_config.save_device_config = original_save
             if flash_key != config_page.FLASH_SAVE_FAILED:
@@ -1141,6 +1285,22 @@ def main():
     # all-or-nothing submission — one check per <behavior> bullet.
     # ------------------------------------------------------------------
 
+    # merge of origin/main (Phase 8): main's own version of this section
+    # still tested the pre-06.6.4.1-07 dual-form architecture —
+    # led_fieldset() as a standalone function, and a second, distinct
+    # <form action="/config-led"> — because main never received that
+    # plan's LED-into-the-single-Settings-form merge (see that plan's own
+    # SUMMARY: "the 8 checks exercising the now-deleted led_fieldset()/
+    # led_section()/handle_led_post() were deleted outright ... 1 new
+    # check pins the retired /config-led route now 404s"). Those three
+    # functions (_led_fieldset_checked_true, _led_fieldset_unchecked_false,
+    # _render_has_second_form_for_led_route) tested functions/routes that
+    # no longer exist on this side and are dropped, not reconciled — this
+    # is the same retirement 06.6.4.1-07 already made, main just hadn't
+    # merged it yet. The unified-form behaviour they were partially
+    # re-covering is already exercised by the bullet-per-behaviour checks
+    # below (_handle_post_empty_form_persists_led_false and its
+    # siblings), so no coverage gap is left behind.
     def _handle_post_empty_form_persists_led_false():
         # Bullet 1: the shape a browser sends when nothing is checked and
         # nothing is selected.
@@ -1183,7 +1343,7 @@ def main():
         # Bullet 3.
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            _write_device_config(tmpdir, "sky", "3", led_enabled=True)
+            _write_device_config(tmpdir, "black", "3", led_enabled=True)
             before = open(device_config.device_config_path(tmpdir), "rb").read()
             ctx = {"state_dir": tmpdir}
             flash_key = config_page.handle_post(
@@ -1411,7 +1571,7 @@ def main():
 
     def _render_forwards_ctx_runway_images_key():
         rendered = config_page.render({
-            "device_config": {"theme": "sky", "tracked_runway": "3"},
+            "device_config": {"theme": "black", "tracked_runway": "3"},
             "poll_cooldown_remaining": 0,
             "runway_images": {"06-24"},
         })
@@ -1641,7 +1801,7 @@ def main():
             status, headers, _ = http_request(
                 base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
                 data=urllib.parse.urlencode(
-                    {"theme": "sky", "tracked_runway": "06-24"}).encode())
+                    {"theme": "black", "tracked_runway": "06-24"}).encode())
             if status != 303:
                 return False, "expected a 303 redirect on save, got %d" % status
             location = headers.get("Location", "")

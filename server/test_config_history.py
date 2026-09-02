@@ -23,7 +23,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 21
+EXPECTED_CHECK_COUNT = 29
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -62,6 +62,8 @@ def main():
         print("config-history: 0/%d checks pass" % EXPECTED_CHECK_COUNT)
         return 1
 
+    import server.panel_format as panel_format
+
     # --- device_config.py -------------------------------------------------
 
     def _missing_state_dir_yields_defaults():
@@ -69,7 +71,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -85,7 +87,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
+                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -100,7 +102,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -111,9 +113,9 @@ def main():
     def _save_then_load_round_trips():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
         try:
-            device_config.save_device_config(tmpdir, theme="sky", tracked_runway="02-20")
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "02-20", "led_enabled": True}:
+            if config != {"theme": "black", "tracked_runway": "02-20", "led_enabled": True}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -145,7 +147,7 @@ def main():
     def _no_tmp_survives_a_successful_save():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
         try:
-            device_config.save_device_config(tmpdir, theme="sky", tracked_runway="3")
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="3")
             if os.path.exists(device_config.device_config_path(tmpdir) + ".tmp"):
                 return False, "a .tmp file survived a successful save"
             return True, ""
@@ -157,12 +159,12 @@ def main():
     def _hostile_hand_edit_after_a_real_save_still_yields_defaults():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
         try:
-            device_config.save_device_config(tmpdir, theme="sky", tracked_runway="02-20")
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             path = device_config.device_config_path(tmpdir)
             with open(path, "w") as fh:
-                fh.write('{"theme": "sky/../x", "tracked_runway": "3; DROP TABLE"}')
+                fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -194,7 +196,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "sky", "tracked_runway": "3", "led_enabled": False}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -226,7 +228,7 @@ def main():
     def _save_led_enabled_off_rejected_without_touching_file():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
         try:
-            device_config.save_device_config(tmpdir, theme="sky", tracked_runway="3", led_enabled=True)
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="3", led_enabled=True)
             path = device_config.device_config_path(tmpdir)
             with open(path, "rb") as fh:
                 before = fh.read()
@@ -254,7 +256,7 @@ def main():
         tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
-            device_config.save_device_config(tmpdir, theme="sky")
+            device_config.save_device_config(tmpdir, theme="black")
             config = device_config.load_device_config(tmpdir)
             if config["led_enabled"] is not False:
                 return False, "a theme-only save did not carry a previously-saved led_enabled=False forward, got %r" % (config["led_enabled"],)
@@ -263,8 +265,242 @@ def main():
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     check(
-        "a subsequent theme-only save_device_config(theme='sky') carries a previously-saved led_enabled=False forward unchanged",
+        "a subsequent theme-only save_device_config(theme='black') carries a previously-saved led_enabled=False forward unchanged",
         _theme_only_save_carries_led_enabled_false_forward,
+    )
+
+    def _theme_registry_shape_is_correct():
+        valid_indices = {
+            panel_format.IDX_BLACK,
+            panel_format.IDX_WHITE,
+            panel_format.IDX_YELLOW,
+            panel_format.IDX_RED,
+            panel_format.IDX_BLUE,
+            panel_format.IDX_GREEN,
+        }
+        expected_keys = {"departing_index", "arriving_index", "ink_index", "label", "dithered", "weight"}
+        band_expected_keys = expected_keys | {"band_index", "band_dithered"}
+        for theme_id, entry in device_config.THEMES.items():
+            is_band = device_config.theme_is_band(theme_id)
+            want_keys = band_expected_keys if is_band else expected_keys
+            if set(entry) != want_keys:
+                return False, "theme %r has keys %r, expected exactly %r" % (theme_id, set(entry), want_keys)
+            for key in ("departing_index", "arriving_index", "ink_index"):
+                if entry[key] not in valid_indices:
+                    return False, "theme %r key %r has value %r, not a real panel_format.IDX_* index" % (theme_id, key, entry[key])
+            if not isinstance(entry["label"], str) or not entry["label"]:
+                return False, "theme %r label %r is not a non-empty string" % (theme_id, entry["label"])
+            if not isinstance(entry["dithered"], bool):
+                return False, "theme %r dithered %r is not a bool" % (theme_id, entry["dithered"])
+            if entry["weight"] not in ("regular", "bold"):
+                return False, "theme %r weight %r is not 'regular' or 'bold'" % (theme_id, entry["weight"])
+            if is_band:
+                if entry["band_index"] not in valid_indices:
+                    return False, "band theme %r band_index %r is not a real panel_format.IDX_* index" % (theme_id, entry["band_index"])
+                if not isinstance(entry["band_dithered"], bool):
+                    return False, "band theme %r band_dithered %r is not a bool" % (theme_id, entry["band_dithered"])
+        return True, ""
+
+    check(
+        "every THEMES entry carries exactly its contract keys (6 for non-band, 8 for band), real panel_format.IDX_* index values, a non-empty label, a bool dithered flag, a regular/bold weight, and (band entries only) a real band_index plus a bool band_dithered",
+        _theme_registry_shape_is_correct,
+    )
+
+    def _every_theme_is_single_colour():
+        # Phase 8 08-06 on-glass session: "sky" (the old two-tone
+        # Blue-departing/Green-arriving pairing) was retired outright -
+        # every registered theme is now single-colour, with no two-tone
+        # exception left to carve out.
+        for theme_id, entry in device_config.THEMES.items():
+            if entry["departing_index"] != entry["arriving_index"]:
+                return False, "theme %r is not single-colour: departing_index=%r arriving_index=%r" % (
+                    theme_id, entry["departing_index"], entry["arriving_index"],
+                )
+        if "sky" in device_config.THEMES:
+            return False, "the retired 'sky' two-tone theme is still present in THEMES"
+        return True, ""
+
+    check(
+        "every registered theme is single-colour (departing_index == arriving_index); the retired two-tone 'sky' theme is gone",
+        _every_theme_is_single_colour,
+    )
+
+    def _ink_contrast_pairing_is_correct():
+        # Every entry's ink is whichever of Black/White contrasts with its
+        # own background - black text on the lighter inks (White/Yellow/
+        # Yellow Light), white text everywhere else (08-06: the same
+        # contrast logic Phase 8 already established for White/Black/
+        # Yellow/Red, now applied uniformly to all 11 registered themes).
+        expected = {
+            "white": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
+            "black": (panel_format.IDX_BLACK, panel_format.IDX_WHITE),
+            "grey": (panel_format.IDX_BLACK, panel_format.IDX_WHITE),
+            "yellow": (panel_format.IDX_YELLOW, panel_format.IDX_BLACK),
+            "yellow_light": (panel_format.IDX_YELLOW, panel_format.IDX_BLACK),
+            "red": (panel_format.IDX_RED, panel_format.IDX_WHITE),
+            "red_light": (panel_format.IDX_RED, panel_format.IDX_WHITE),
+            "green": (panel_format.IDX_GREEN, panel_format.IDX_WHITE),
+            "green_light": (panel_format.IDX_GREEN, panel_format.IDX_WHITE),
+            "blue": (panel_format.IDX_BLUE, panel_format.IDX_WHITE),
+            "blue_light": (panel_format.IDX_BLUE, panel_format.IDX_WHITE),
+            # Phase 9 (09-01): every band theme keeps the White base
+            # canvas/Black ink pairing - the band's own colour is a
+            # separate band_index field, never a base-canvas property
+            # (spike 003 round 15).
+            "band_blue": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
+            "band_blue_light": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
+            "band_green_light": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
+            "band_red": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
+            "band_black": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
+        }
+        if set(expected) != set(device_config.THEMES):
+            return False, "expected mapping covers %r, THEMES actually has %r" % (set(expected), set(device_config.THEMES))
+        for theme_id, (bg, ink) in expected.items():
+            entry = device_config.THEMES[theme_id]
+            if entry["departing_index"] != bg or entry["ink_index"] != ink:
+                return False, "theme %r expected background %r / ink %r, got background %r / ink %r" % (
+                    theme_id, bg, ink, entry["departing_index"], entry["ink_index"],
+                )
+        return True, ""
+
+    check(
+        "every one of the 16 registered themes carries the exact background/ink pairing expected, pinned as an explicit id-to-(background,ink) mapping",
+        _ink_contrast_pairing_is_correct,
+    )
+
+    def _dithered_and_weight_contract_is_correct():
+        # Phase 8 08-06 on-glass session: every "pure" (undithered) colour
+        # confirmed Regular; every dithered colour confirmed Bold EXCEPT
+        # Yellow Light, the one exception (its dithered field is light/
+        # high-luminance enough that Regular stayed legible and was
+        # preferred) - see THEMES' own module comment for the full
+        # rationale. Pinned explicitly so a future reader cannot assume a
+        # blanket "dithered implies Bold" rule from the majority case.
+        expected = {
+            "white": (False, "regular"),
+            "black": (False, "regular"),
+            "grey": (True, "bold"),
+            "yellow": (False, "regular"),
+            "yellow_light": (True, "regular"),
+            "red": (False, "regular"),
+            "red_light": (True, "bold"),
+            "green": (False, "regular"),
+            "green_light": (True, "bold"),
+            "blue": (False, "regular"),
+            "blue_light": (True, "bold"),
+            # Phase 9 (09-01): every band theme's own base-canvas
+            # dithered/weight pair matches "white"'s exactly (undithered,
+            # Regular) - the band's own dithered treatment is a separate
+            # band_dithered field, checked by the new accessor checks below.
+            "band_blue": (False, "regular"),
+            "band_blue_light": (False, "regular"),
+            "band_green_light": (False, "regular"),
+            "band_red": (False, "regular"),
+            "band_black": (False, "regular"),
+        }
+        if set(expected) != set(device_config.THEMES):
+            return False, "expected mapping covers %r, THEMES actually has %r" % (set(expected), set(device_config.THEMES))
+        for theme_id, (dithered, weight) in expected.items():
+            entry = device_config.THEMES[theme_id]
+            if entry["dithered"] != dithered or entry["weight"] != weight:
+                return False, "theme %r expected dithered=%r weight=%r, got dithered=%r weight=%r" % (
+                    theme_id, dithered, weight, entry["dithered"], entry["weight"],
+                )
+        return True, ""
+
+    check(
+        "every registered theme's base-canvas dithered/weight pair matches the on-glass-confirmed values, including Yellow Light's Regular exception and the 5 band themes' White-base values",
+        _dithered_and_weight_contract_is_correct,
+    )
+
+    def _default_theme_and_labels_are_correct():
+        if device_config.DEFAULT_THEME_ID != "white":
+            return False, "DEFAULT_THEME_ID is %r, expected 'white'" % (device_config.DEFAULT_THEME_ID,)
+        if device_config.DEFAULT_THEME_ID not in device_config.THEMES:
+            return False, "DEFAULT_THEME_ID %r is not a member of THEMES" % (device_config.DEFAULT_THEME_ID,)
+        expected_labels = {
+            "white": "White", "black": "Black", "grey": "Grey",
+            "yellow": "Yellow", "yellow_light": "Yellow Light",
+            "red": "Red", "red_light": "Red Light",
+            "green": "Green", "green_light": "Green Light",
+            "blue": "Blue", "blue_light": "Blue Light",
+            "band_blue": "Band Blue", "band_blue_light": "Band Blue Light",
+            "band_green_light": "Band Green Light", "band_red": "Band Red",
+            "band_black": "Band Black",
+        }
+        if set(expected_labels) != set(device_config.THEMES):
+            return False, "expected label mapping covers %r, THEMES actually has %r" % (set(expected_labels), set(device_config.THEMES))
+        for theme_id, label in expected_labels.items():
+            got = device_config.theme_label(theme_id)
+            if got != label:
+                return False, "theme_label(%r) returned %r, expected %r" % (theme_id, got, label)
+        return True, ""
+
+    check(
+        "DEFAULT_THEME_ID is 'white' and a THEMES member; theme_label() returns the exact plain label for all 16 ids",
+        _default_theme_and_labels_are_correct,
+    )
+
+    def _theme_is_band_matches_registry_band_ids():
+        expected_band_ids = {tid for tid, entry in device_config.THEMES.items() if "band_index" in entry}
+        for theme_id in device_config.THEMES:
+            got = device_config.theme_is_band(theme_id)
+            want = theme_id in expected_band_ids
+            if got != want:
+                return False, "theme_is_band(%r) returned %r, expected %r" % (theme_id, got, want)
+        if expected_band_ids != {"band_blue", "band_blue_light", "band_green_light", "band_red", "band_black"}:
+            return False, "registry's own band ids are %r, expected the 5 Phase 9 band ids" % (expected_band_ids,)
+        return True, ""
+
+    check(
+        "theme_is_band() returns True for exactly the ids device_config.THEMES itself marks as band entries (band_index present) and False for every other registered id",
+        _theme_is_band_matches_registry_band_ids,
+    )
+
+    def _theme_band_index_matches_registry_or_none():
+        for theme_id, entry in device_config.THEMES.items():
+            got = device_config.theme_band_index(theme_id)
+            want = entry.get("band_index")
+            if got != want:
+                return False, "theme_band_index(%r) returned %r, expected %r" % (theme_id, got, want)
+        expected = {
+            "band_blue": panel_format.IDX_BLUE,
+            "band_blue_light": panel_format.IDX_BLUE,
+            "band_green_light": panel_format.IDX_GREEN,
+            "band_red": panel_format.IDX_RED,
+            "band_black": panel_format.IDX_BLACK,
+        }
+        for theme_id, idx in expected.items():
+            if device_config.theme_band_index(theme_id) != idx:
+                return False, "theme_band_index(%r) expected %r, got %r" % (theme_id, idx, device_config.theme_band_index(theme_id))
+        return True, ""
+
+    check(
+        "theme_band_index() returns THEMES's own band_index for every band id (the exact spike-confirmed IDX_* per colour) and None for every non-band id",
+        _theme_band_index_matches_registry_or_none,
+    )
+
+    def _theme_band_dithered_matches_registry_or_false():
+        for theme_id, entry in device_config.THEMES.items():
+            got = device_config.theme_band_dithered(theme_id)
+            want = entry.get("band_dithered", False)
+            if got != want:
+                return False, "theme_band_dithered(%r) returned %r, expected %r" % (theme_id, got, want)
+        expected = {
+            "band_blue": False,
+            "band_blue_light": True,
+            "band_green_light": True,
+            "band_red": False,
+            "band_black": False,
+        }
+        for theme_id, dithered in expected.items():
+            if device_config.theme_band_dithered(theme_id) != dithered:
+                return False, "theme_band_dithered(%r) expected %r, got %r" % (theme_id, dithered, device_config.theme_band_dithered(theme_id))
+        return True, ""
+
+    check(
+        "theme_band_dithered() returns THEMES's own band_dithered for every band id and False for every non-band id",
+        _theme_band_dithered_matches_registry_or_false,
     )
 
     # --- history_db.py ------------------------------------------------------
