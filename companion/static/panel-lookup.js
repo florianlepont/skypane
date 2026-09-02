@@ -21,10 +21,20 @@
  * here.
  *
  * This script is served to every page on the site (a single cached
- * static asset, not re-emitted per page). Only History carries the
- * #panel-lookup-dialog element, so the guard below is load-bearing, not
- * defensive noise, matching the project's established convention
+ * static asset, not re-emitted per page). Since quick task 260902-tli,
+ * both History and the Airlines gallery carry a #panel-lookup-dialog
+ * element (Airlines' own click-to-enlarge lightbox reuses this exact
+ * mechanism rather than inventing a second one), so the guard below is
+ * what lets this one cached script serve every page that does or does
+ * not render the dialog, matching the project's established convention
  * (nav-dropdown.js/dirty-state.js's own early returns).
+ *
+ * Standing constraint added by 260902-tli: this script must never
+ * decide, from the viewport's dimensions or from the device's reported
+ * orientation, whether to open the dialog — that gate belongs entirely
+ * in the stylesheet, on the trigger's own rule, never here. The harness
+ * pins this by grepping this file's whole source for the two browser
+ * APIs such a decision would require.
  */
 (function () {
   "use strict";
