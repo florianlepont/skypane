@@ -2395,15 +2395,59 @@ summary::-webkit-details-marker {
 
 /* Dashboard grid (D-02): same auto-fit/minmax idiom .gallery-grid already
  * establishes as this file's responsive-grid precedent, with a wider
- * 240px floor. 06.6.1 promotes the gap from lg (24px) to xl (32px) per
+ * 240px floor. 06.6.1 promotes the gap (the horizontal/vertical GAP
+ * between tiles inside one grid row) from lg (24px) to xl (32px) per
  * D-02/D-04's airier-layout direction. No breakpoint is needed for the
  * grid itself: it collapses to one column on narrow viewports on its
- * own. */
+ * own.
+ *
+ * quick task 260902-ep7 (BUG 2): `margin-bottom` is a DIFFERENT thing
+ * from the `gap` above — it is the space AFTER this whole grid, before
+ * whatever card follows it in the same section, not the space between
+ * this grid's own tiles. That margin used to be `var(--space-2xl)`
+ * (48px), the same token `.battery-trend-section` below uses for its
+ * own margin-bottom. Both of `.dashboard-grid`'s two real call sites
+ * (verified by grep: health_page.py::render()'s Screen section's
+ * single-tile grid, and its Server & data section's three-tile grid) are
+ * followed by ANOTHER card in the SAME section — the battery-trend card
+ * after Screen's grid, the two migrated .page-section cards after Server
+ * & data's grid — never by a new section heading. So both of this rule's
+ * two uses were same-section, card-to-card gaps, not section
+ * transitions, and both were using the section-transition value.
+ *
+ * This file's own real "two cards, same section, one after another"
+ * precedent is `.page-section`'s own `margin-bottom: var(--space-lg)`
+ * (24px, below) — the gap that already separates the Unresolved-prefixes
+ * card from the Resolution-statistics card, both inside the single
+ * Server & data section. Retargeting `.dashboard-grid` to that same
+ * value makes the two-role split explicit and, going forward, load-
+ * bearing:
+ *   - Same-section, card-to-card rhythm: `--space-lg` (`.dashboard-grid`
+ *     now, `.page-section` already).
+ *   - Section-to-section separation: `--space-2xl`
+ *     (`.battery-trend-section`'s own margin-bottom, below — closes the
+ *     Screen section before the Server & data heading — UNCHANGED by
+ *     this edit, it is a genuine section transition).
+ * Before this change both roles shared one token, which is exactly why
+ * the Screen section's single Device tile and the battery-trend card
+ * below it read with a section-sized gap between two cards that belong
+ * to the same section.
+ *
+ * This does NOT undo quick task 260901-tsa's finding E, immediately
+ * above at the Screen-section call site in health_page.py: that finding
+ * was that a bare `.stat-tile` outside any `.dashboard-grid` sat FLUSH
+ * (zero gap) against the card below it, because `.stat-tile` itself
+ * declares no margin — the fix was wrapping it in a grid so it inherited
+ * A gap at all. That wrapper stays and is still correct; only the SIZE
+ * of the gap it now contributes changes, from the section-transition
+ * value to the card-to-card value. A harness check in
+ * test_status_pages.py pins both roles as a pair, so a future "harmonise
+ * these two margins" edit cannot silently re-flatten the split. */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-xl);
-  margin-bottom: var(--space-2xl);
+  margin-bottom: var(--space-lg);
   /* 06.6.3 (UXA-06) deliberately set this row's cross-axis alignment so
    * unequal-height tiles would NOT stretch to the tallest sibling —
    * Health's shorter Device/Pipeline tiles kept their own intrinsic

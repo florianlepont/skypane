@@ -169,7 +169,16 @@ STARTUP_DEADLINE_S = 10.0
 # section heading (20/regular), stat-tile caption (14/semibold), tile
 # value (16/semibold), nested card title (16/semibold) — still forming
 # a coherent, strictly-size-ordered set against the real token values).
-EXPECTED_CHECK_COUNT = 92  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 92 + 0 (quick task 260902-ep7 Task 1: BUG 1's out-of-flow pill fix —
+# _quick_260902_chc_pill_stylesheet_contract() strengthened IN PLACE to
+# also pin .page-header's containing block and the .page-header-scoped
+# .refresh-pill absolute-position rule; no new check, no count change).
+# 92 + 1 (quick task 260902-ep7 Task 2 Commit A: BUG 2's card-to-card vs.
+# section-to-section spacing split, pinned as a pair — .dashboard-grid's
+# margin-bottom must equal .page-section's own card-to-card value while
+# staying smaller than .battery-trend-section's untouched section-
+# transition value).
+EXPECTED_CHECK_COUNT = 93  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -3087,6 +3096,61 @@ def main():
         ".page-header's block flow entirely via a .page-header-scoped absolute-position rule rather than "
         "kept in flow with a reserved line box (260902-ep7)",
         _quick_260902_chc_pill_stylesheet_contract)
+
+    def _quick_260902_ep7_dashboard_grid_card_gap_two_role_split():
+        # quick task 260902-ep7 (BUG 2): pins the two-role spacing split
+        # as a SET, not just one value in isolation — a future edit that
+        # "harmonises" .dashboard-grid's margin-bottom back onto
+        # .battery-trend-section's value (or vice versa) would flatten
+        # the same-section/section-transition distinction right back to
+        # the bug this task fixes, with no other check noticing.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        def _margin_bottom(selector_open):
+            if selector_open not in css_source:
+                return None, "expected style.css to declare %r" % (selector_open,)
+            start = css_source.index(selector_open)
+            body = css_source[start:css_source.index("}", start)]
+            match = re.search(r"margin-bottom:\s*([^;]+);", body)
+            if not match:
+                return None, "expected %r's rule body to declare a margin-bottom" % (selector_open,)
+            return match.group(1).strip(), ""
+
+        grid_mb, err = _margin_bottom(".dashboard-grid {")
+        if grid_mb is None:
+            return False, err
+        page_section_mb, err = _margin_bottom(".page-section {")
+        if page_section_mb is None:
+            return False, err
+        trend_mb, err = _margin_bottom(".battery-trend-section {")
+        if trend_mb is None:
+            return False, err
+
+        if grid_mb != page_section_mb:
+            return False, (
+                "expected .dashboard-grid's margin-bottom (%r) to equal .page-section's own "
+                "same-section card-to-card value (%r) — both are same-section, card-to-card gaps"
+                % (grid_mb, page_section_mb))
+        if trend_mb == grid_mb:
+            return False, (
+                "expected .battery-trend-section's section-transition margin-bottom (%r) to stay "
+                "LARGER than .dashboard-grid's card-to-card margin-bottom (%r) — collapsing them back "
+                "to one value re-flattens the two-role split this task introduced" % (trend_mb, grid_mb))
+        if grid_mb != "var(--space-lg)":
+            return False, "expected .dashboard-grid to use the --space-lg token by name, got %r" % (grid_mb,)
+        if trend_mb != "var(--space-2xl)":
+            return False, (
+                "expected .battery-trend-section's margin-bottom to stay var(--space-2xl) — the section "
+                "transition value, untouched by this task — got %r" % (trend_mb,))
+        return True, ""
+    check(
+        "the two-role spacing split holds as a pair: .dashboard-grid's margin-bottom equals "
+        ".page-section's own same-section card-to-card value (var(--space-lg)), while "
+        ".battery-trend-section's section-transition margin-bottom stays the larger, untouched "
+        "var(--space-2xl) (260902-ep7 BUG 2)",
+        _quick_260902_ep7_dashboard_grid_card_gap_two_role_split)
 
     def _quick_260902_chc_skip_guard_cross_file_contract():
         # Check 5: the cross-file contract the interaction-skip guard
