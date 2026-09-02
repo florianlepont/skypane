@@ -493,8 +493,12 @@ def main():
             return False, "illustrations.select_illustration(TEST_ROUTE) returned None - no vendored file resolved"
         inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
         main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
-        main_top = round(panel_format.HEIGHT * render.MAIN_ILLUSTRATION_TOP_FRAC)
         resized = render._resize_illustration(path, main_w)
+        # quick task 260902-req: main_top now follows the PAINTED content's
+        # centre, same as `_build_active_canvas()` itself computes it, so
+        # this locally-derived bbox keeps lining up with where the real
+        # render actually places the illustration.
+        main_top = render._top_for_centered_content(resized, panel_format.HEIGHT * render.MAIN_ILLUSTRATION_CENTER_Y_FRAC)
         left = (panel_format.WIDTH - resized.size[0]) // 2
         bbox = (left, main_top, left + resized.size[0], main_top + resized.size[1])
 
@@ -3508,7 +3512,7 @@ def main():
             )
         inner_width = panel_format.WIDTH * (1 - 2 * render.FRAME_INSET_FRAC)
         main_w = round(inner_width * render.MAIN_ILLUSTRATION_WIDTH_FRAC)
-        main_top = round(panel_format.HEIGHT * render.MAIN_ILLUSTRATION_TOP_FRAC)
+        center_y = panel_format.HEIGHT * render.MAIN_ILLUSTRATION_CENTER_Y_FRAC
         centres = {}
         for filename in filenames:
             path = os.path.join(illustrations_dir, filename)
@@ -3516,6 +3520,12 @@ def main():
             bbox = render._opaque_bbox(resized)
             if bbox is None:
                 continue  # documented fallback case (nothing painted) - not a failure
+            # quick task 260902-req: main_top now follows the painted
+            # content's centre (`_top_for_centered_content()`, the same
+            # helper `_build_active_canvas()` itself calls), not a fraction
+            # of the source rectangle's top - that is precisely the fix this
+            # check exists to pin.
+            main_top = render._top_for_centered_content(resized, center_y)
             centres[filename] = main_top + (bbox[1] + bbox[3]) / 2.0
         if len(centres) < 40:
             return False, (
