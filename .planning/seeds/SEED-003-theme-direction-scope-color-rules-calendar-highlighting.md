@@ -1,5 +1,5 @@
 ---
-id: SEED-002
+id: SEED-003
 status: dormant
 planted: 2026-09-02
 planted_during: "Phase 9: Diagonal band theme"
@@ -7,7 +7,7 @@ trigger_when: "When the companion web interface's config surface (Phase 6, CFG-0
 scope: large
 ---
 
-# SEED-002: Per-theme departure/arrival scope, callsign/tail-number color-override rules, and calendar-linked flight highlighting
+# SEED-003: Per-theme departure/arrival scope, callsign/tail-number color-override rules, and calendar-linked flight highlighting
 
 ## Why This Matters
 
