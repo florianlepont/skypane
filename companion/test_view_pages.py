@@ -59,6 +59,7 @@ if REPO_ROOT not in sys.path:
 from companion import auth  # noqa: E402
 import companion.layout as layout  # noqa: E402
 from companion.pages import health_page, history_page  # noqa: E402
+from server import device_config  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
 
@@ -958,6 +959,13 @@ def main():
         # against the full render() output (both the desktop cell and
         # the mobile card), and confirms the audit's own incorrect
         # literal state-value strings never appear.
+        #
+        # merge of origin/main (quick task 260902-j21): runway "3"'s
+        # device_config.runway_label() display text was relabelled from
+        # "Runway 3 (07/25)" to the official "Piste 3" — derived here at
+        # test time from the real registry rather than hardcoded, so this
+        # check tracks whatever label device_config actually returns
+        # instead of re-drifting the next time the copy changes.
         tmp = _mkstate("h-labels")
         try:
             _seed_runway_events(tmp, [
@@ -971,7 +979,7 @@ def main():
                 },
             ])
             rendered = history_page.render(_history_ctx(tmp))
-            for expected in ("Departing", "Runway 3 (07/25)", "Taxiing"):
+            for expected in ("Departing", device_config.runway_label("3"), "Taxiing"):
                 if expected not in rendered:
                     return False, "expected %r in the rendered History page" % expected
             for wrong in ("on_runway", "approaching", 'departed"'):

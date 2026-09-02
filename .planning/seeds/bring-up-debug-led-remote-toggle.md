@@ -1,5 +1,6 @@
 ---
 title: Bring-up/debug LED (GPIO21 built-in), optionally remote-toggleable via the poll protocol
+status: fulfilled
 trigger_condition: >
   Revisit if the developer keeps finding hardware bring-up/reflash sessions
   frustrating without visual feedback (the immediate pain point that raised
@@ -8,7 +9,47 @@ trigger_condition: >
   (device health status) — worth building the two together rather than
   bolting the toggle on afterward.
 planted_date: 2026-08-27
+resolved_date: 2026-09-02
 ---
+
+## Fulfilled 2026-09-02
+
+Both halves this seed proposed have shipped, so this seed is closed.
+
+**The LED half** shipped as quick task `260827-wo4` (completed 2026-08-27),
+directory `.planning/quick/260827-wo4-add-a-bring-up-debug-feedback-led-to-the/`.
+It delivered the `fp_led` module (`fp_led_on()`/`fp_led_off()`) driving the
+XIAO ESP32-S3's built-in GPIO21 User LED, two unconditional wake-cycle call
+sites (boot-time on, pre-sleep off), and the `led_enabled` field on the
+`/device/v1/display` wire end to end — stub server, firmware parse, and the
+conditional off-early consumer that reads it.
+
+**The remote-toggle half** shipped as Phase 06.2 "LED enable/disable
+toggle", plans `06.2-01-PLAN.md` and `06.2-02-PLAN.md`, completed
+2026-08-28. Concretely: `server/device_config.py`'s `DEFAULT_LED_ENABLED`
+and `normalise_led_enabled()`; the companion Config page's LED section
+behind its own dedicated `/config-led` route; and `byos_server.py`'s
+`read_led_enabled()` feeding the value into the `/display` response.
+`06.2-02-SUMMARY.md` records a blocking developer sign-off that includes
+confirmation of the real physical LED on deployed hardware — this is the
+evidence of record, not a code-only claim.
+
+Two of this seed's own open questions are now answered. GPIO21's identity
+as the built-in User LED, flagged below as web-sourced and unconfirmed, was
+confirmed on real hardware by 06.2-02's Part B physical check. The
+undecided trigger semantics resolved as: lit for the active wake window,
+with `led_enabled` governing early extinction — the resolution ROADMAP.md's
+Phase 06.2 completion note records after root-causing a real "LED still
+lit" hardware observation report as expected firmware behaviour, not a
+defect.
+
+One honest divergence from this seed's own speculation: it predicted the
+toggle would converge with `CFG-03` (device health). It did not — it
+shipped instead as its own dedicated Config-page section, per Phase 06.2's
+locked decision D-01.
+
+Everything below is the original 2026-08-27 record, retained unchanged as
+history.
 
 ## Context
 
