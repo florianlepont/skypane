@@ -221,7 +221,21 @@ STARTUP_DEADLINE_S = 10.0
 # reversal, and the caption/four-role check's nested-title assertions
 # corrected) and Task 2's full contract rewrite of the caption check
 # were all done in place — no count change from either).
-EXPECTED_CHECK_COUNT = 100  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 100 + 3 (quick task 260902-l0b Task 2: the multi-day daily-average
+# end-to-end check — including the negative half proving no raw reading
+# value is a plotted point — the same-day/day-1 fallback regression
+# guard, and the mode-honest caption check across empty/multi-day/
+# same-day renders). Two gates were retargeted in place, both zero count
+# change: _battery_trend_timestamps_show_concise_format()'s exact
+# single-argument pin, now the positional-arity property it actually
+# meant; and _read_health_inputs_gained_no_new_key(), renamed
+# _read_health_inputs_keeps_registry_stats_separate() now that
+# daily_rows makes "no new key" untrue, restating D-11's real intent.
+# _battery_trend_heading_shows_d10_window_label() was also retargeted in
+# place onto the 3-month default caption (an empty render has no chart
+# at all now, so the retired "Latest 20 readings" label it pinned no
+# longer applies) — zero count change.
+EXPECTED_CHECK_COUNT = 103  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -659,8 +673,21 @@ def main():
         # shape (which this check pinned before D-09) — and
         # _battery_section() must stay single-argument (06.5-02's own
         # pinned automated gate).
-        if len(inspect.signature(health_page._battery_section).parameters) != 1:
-            return False, "_battery_section must stay single-argument (06.5-02 pins its call site)"
+        # 260902-l0b: retargeted in place from 06.5-02's original exact
+        # single-argument pin, which stopped holding once daily_rows
+        # joined this signature as a second, defaulted keyword parameter.
+        # 06.5-02's own concurrent-execution window closed long ago, and a
+        # defaulted keyword parameter, unlike a required one, cannot
+        # break the pinned call site `battery_html, battery_state =
+        # _battery_section(trend_rows)` — the real property this gate
+        # protects is positional arity, not parameter count.
+        battery_section_params = list(inspect.signature(health_page._battery_section).parameters.values())
+        if not battery_section_params:
+            return False, "_battery_section must take at least one parameter"
+        if any(p.default is inspect.Parameter.empty for p in battery_section_params[1:]):
+            return False, (
+                "_battery_section must stay callable with exactly one positional argument — "
+                "every parameter after the first needs a default")
         tmp = _mkstate("h-battery-trend-timestamps")
         try:
             base = _now()
@@ -720,17 +747,146 @@ def main():
         _battery_readings_collapsed_behind_closed_disclosure_after_chart)
 
     def _battery_trend_heading_shows_d10_window_label():
+        # 260902-l0b: retargeted in place — an empty state dir renders no
+        # chart at all now that the chart's primary mode is the 90-day
+        # daily series, so the D-10 window label this check originally
+        # pinned ("Latest 20 readings") no longer describes what an empty
+        # render shows. The honest default framing on an empty render is
+        # the 3-month window instead (see _battery_trend_caption()) — it
+        # is what this page WILL show once data exists, and there is no
+        # chart of any kind on screen to be honest ABOUT otherwise.
         tmp = _mkstate("h-d10-label")
         try:
             rendered = health_page.render(_ctx(tmp))
-            if "Latest 20 readings" not in rendered:
-                return False, "expected the D-10 'Latest 20 readings' window label in the Battery trend heading"
+            if "Last 3 months" not in rendered:
+                return False, "expected the default 3-month window framing in the Battery trend heading on an empty render"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the Battery trend heading shows the D-10 'Latest 20 readings' window label",
+        "the Battery trend heading shows the default 3-month window framing on an empty render (260902-l0b, "
+        "retargeted from the retired D-10 'Latest 20 readings' label)",
         _battery_trend_heading_shows_d10_window_label)
+
+    def _battery_chart_plots_daily_averages_not_raw_readings():
+        # 260902-l0b: the chart's primary mode plots one point per UTC
+        # calendar day, sourced from history_db.daily_battery_averages()
+        # via battery_daily_rows() — not the raw per-reading series
+        # battery_trend_rows() still feeds to the readout/table/anomaly
+        # scan. The negative half below (no raw reading appears as a
+        # plotted point) is this check's substance — without it the check
+        # would pass on a chart still plotting raw readings.
+        tmp = _mkstate("h-daily-series")
+        try:
+            base = datetime(2026, 9, 2, 12, 0, 0, tzinfo=timezone.utc)
+            readings = []
+            day_values = [[4000, 4100, 4200], [4001, 4101, 4201], [4002, 4102, 4202]]
+            for day, values in enumerate(day_values):
+                for hour, mv in zip((2, 14, 23), values):
+                    ts = _iso((base - timedelta(days=day)).replace(hour=hour))
+                    readings.append((ts, mv))
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            for expected_mean in ("4100", "4101", "4102"):
+                if ('data-mv="%s"' % expected_mean) not in rendered:
+                    return False, "expected the daily average %s to appear as a plotted point's data-mv" % expected_mean
+            for raw in (4000, 4001, 4002, 4200, 4201, 4202):
+                if ('data-mv="%d"' % raw) in rendered:
+                    return False, "raw reading %d must not be a plotted point once the chart is aggregated" % raw
+            if rendered.count(health_page.SPARKLINE_LINE_CLASS) != 2:
+                return False, (
+                    "three daily points means two trend-line segments, got %d"
+                    % rendered.count(health_page.SPARKLINE_LINE_CLASS))
+            for _ts, mv in readings:
+                if str(mv) not in rendered:
+                    return False, "raw reading %d missing from the disclosure table" % mv
+            if "Last 3 months" not in rendered:
+                return False, "expected the 3-month caption when the daily series is on screen"
+            if health_page.BATTERY_READOUT_ID not in rendered:
+                return False, "the latest computed reading must still be on the page"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a multi-day seeded render plots the three DAILY AVERAGES (never any raw reading value) as points, "
+        "keeps every raw reading visible in the disclosure table, and names the 3-month window (260902-l0b)",
+        _battery_chart_plots_daily_averages_not_raw_readings)
+
+    def _battery_chart_falls_back_to_raw_series_on_day_one():
+        # 260902-l0b: a device with fewer than two UTC calendar days of
+        # history must keep exactly the chart and readout it had before
+        # this task — the day-1 regression guard for the fallback this
+        # plan's own must-haves call "not a reduced first version of the
+        # feature", named against the `if sparkline_html:` guard that
+        # gates the readout and script tag together.
+        tmp = _mkstate("h-day-one-fallback")
+        try:
+            base = _now()
+            readings = [
+                (_iso(base - timedelta(minutes=2)), 4200),
+                (_iso(base - timedelta(minutes=1)), 4190),
+                (_iso(base), 4180),
+            ]
+            _seed_device_health(tmp, readings)
+            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            if rendered.count(health_page.SPARKLINE_LINE_CLASS) != 2:
+                return False, (
+                    "a same-day device must still get its raw-readings chart, got %d segments"
+                    % rendered.count(health_page.SPARKLINE_LINE_CLASS))
+            if health_page.BATTERY_READOUT_ID not in rendered:
+                return False, "the readout must not disappear on a device younger than two calendar days"
+            if ("Latest %d readings" % health_page.BATTERY_TREND_LIMIT) not in rendered:
+                return False, "the fallback chart must be captioned as readings, not as the 3-month window"
+            if "Last 3 months" in rendered:
+                return False, "the caption must never describe a window the chart is not actually showing"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a same-day (fewer than two calendar days) seeded render still produces a chart and a readout, "
+        "captioned honestly as readings rather than the 3-month window — the day-1 regression guard (260902-l0b)",
+        _battery_chart_falls_back_to_raw_series_on_day_one)
+
+    def _battery_caption_is_mode_honest_across_renders():
+        # 260902-l0b: one check, three renders — the caption must never
+        # describe a window the chart is not actually showing.
+        tmp_empty = _mkstate("h-caption-empty")
+        tmp_multiday = _mkstate("h-caption-multiday")
+        tmp_sameday = _mkstate("h-caption-sameday")
+        try:
+            base = _now()
+            empty_rendered = health_page.render(_ctx(tmp_empty, now=_iso(base)))
+            if "Last 3 months" not in empty_rendered:
+                return False, "expected the default 3-month framing on an empty render"
+
+            multiday_readings = [
+                (_iso(base - timedelta(days=1)), 4100),
+                (_iso(base - timedelta(days=2)), 4200),
+            ]
+            _seed_device_health(tmp_multiday, multiday_readings)
+            multiday_rendered = health_page.render(_ctx(tmp_multiday, now=_iso(base)))
+            if "Last 3 months" not in multiday_rendered:
+                return False, "expected the 3-month framing when the daily series is on screen"
+
+            sameday_readings = [
+                (_iso(base - timedelta(minutes=1)), 4200),
+                (_iso(base), 4190),
+            ]
+            _seed_device_health(tmp_sameday, sameday_readings)
+            sameday_rendered = health_page.render(_ctx(tmp_sameday, now=_iso(base)))
+            if ("Latest %d readings" % health_page.BATTERY_TREND_LIMIT) not in sameday_rendered:
+                return False, "expected the readings-count framing on the same-day fallback"
+            if "Last 3 months" in sameday_rendered:
+                return False, "the same-day fallback must not claim the 3-month framing"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_empty, ignore_errors=True)
+            shutil.rmtree(tmp_multiday, ignore_errors=True)
+            shutil.rmtree(tmp_sameday, ignore_errors=True)
+    check(
+        "the Battery trend caption is mode-honest across three renders — empty (3-month default), multi-day "
+        "(3-month, daily average), and same-day (readings count) (260902-l0b)",
+        _battery_caption_is_mode_honest_across_renders)
 
     def _anomaly_banner_names_real_categories_not_generic_only():
         tmp = _mkstate("h-anomaly-specific")
@@ -2197,28 +2353,35 @@ def main():
         "vice versa (D-11)",
         _migrated_cards_have_independent_failure_isolation)
 
-    def _read_health_inputs_gained_no_new_key():
-        # D-11 source assertion: the migrated registry/stats reads must
-        # stay their own independent calls in render(), never folded
-        # into _read_health_inputs()'s single dict.
+    def _read_health_inputs_keeps_registry_stats_separate():
+        # 260902-l0b: renamed from _read_health_inputs_gained_no_new_key()
+        # — that name stopped being true the moment daily_rows joined
+        # trend_rows in this dict (a battery-health read, same table, same
+        # section builder, same request). D-11's real intent survives,
+        # restated explicitly: the migrated registry/stats reads must
+        # stay their own independent calls in render(), never folded into
+        # _read_health_inputs()'s single dict — that is what the negative
+        # assertion below checks directly, not just the key count.
         tmp = _mkstate("h-inputs-keys")
         try:
             inputs = health_page._read_health_inputs(tmp, _iso(_now()))
             expected_keys = {
                 "device_health", "pipeline_ts", "source_fault_raw",
-                "trend_rows", "corroboration_counts",
+                "trend_rows", "daily_rows", "corroboration_counts",
             }
             if set(inputs.keys()) != expected_keys:
                 return False, (
-                    "expected _read_health_inputs() to keep exactly its original five keys, got %r"
+                    "expected _read_health_inputs() to carry exactly these six keys, got %r"
                     % (set(inputs.keys()),))
+            if any("registr" in k or "stat" in k for k in inputs.keys()):
+                return False, "D-11: the registry/stats reads must stay separate calls in render(), not join this dict"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "_read_health_inputs() gained no new key — the migrated registry/stats reads are separate calls in "
-        "render() (D-11)",
-        _read_health_inputs_gained_no_new_key)
+        "_read_health_inputs() carries exactly six keys — daily_rows joins trend_rows in the one atomic "
+        "snapshot (260902-l0b) — while the migrated registry/stats reads stay separate calls in render() (D-11)",
+        _read_health_inputs_keeps_registry_stats_separate)
 
     def _battery_section_keeps_everything_after_the_move():
         tmp = _mkstate("h-battery-section-intact")

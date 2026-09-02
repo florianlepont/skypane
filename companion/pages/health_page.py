@@ -97,6 +97,22 @@ BATTERY_TREND_LIMIT = 20  # D-13 keeps history forever; this page shows only
 # the most recent readings for readability — a display choice, not a
 # retention policy (server/history_db.py's own module docstring makes the
 # same distinction for runway_events).
+#
+# 260902-l0b: this constant no longer bounds the chart at all — the chart's
+# primary mode plots BATTERY_TREND_WINDOW_DAYS's 90-day daily-average
+# series instead. BATTERY_TREND_LIMIT now bounds three other things: the
+# raw-readings disclosure table (battery_trend_rows()), the abnormal-drop
+# anomaly scan (battery_status(), fed the same raw rows), and the
+# fallback chart a device with fewer than two calendar days of history
+# still gets (see _battery_daily_series_usable()).
+
+BATTERY_TREND_WINDOW_DAYS = 90  # 260902-l0b: the chart's primary window,
+# locked at 3 months by the developer's own explicit request (7-day and
+# 30-day alternatives were raised and rejected in discussion — see this
+# quick task's CONTEXT.md). D-13's keep-forever retention makes this a
+# display window, exactly the distinction BATTERY_TREND_LIMIT's own
+# comment already draws for the raw-readings limit above — it bounds a
+# `ts >= ?` read (battery_daily_rows()), deleting nothing.
 
 # Provisional (T-06-08-05): hardware/BATTERY-RUN.md pre-registers a
 # --min-mv-drop default of 100mV, but that threshold is judged over the
@@ -430,6 +446,60 @@ def battery_trend_rows(conn):
     ever deleted here or anywhere else in this page.
     """
     return history_db.recent_device_health(conn, limit=BATTERY_TREND_LIMIT)
+
+
+def battery_daily_rows(conn, now):
+    """(260902-l0b) The chart's primary series: one point per UTC calendar
+    day over the last `BATTERY_TREND_WINDOW_DAYS` (3 months), via
+    `history_db.daily_battery_averages()`. Structurally interchangeable
+    with `battery_trend_rows()`'s own rows for plotting purposes — see
+    `daily_battery_averages()`'s own docstring for why its `ts` key names
+    a day rather than a moment.
+
+    `_cutoff_iso()` returns `None` when `now` fails to parse, and
+    `daily_battery_averages(conn, since=None)` degrades to an UNBOUNDED
+    read in that case rather than an empty one — a deliberate choice: on
+    the one input this function does not control, it shows MORE history
+    rather than none, and never an empty card.
+    """
+    return history_db.daily_battery_averages(
+        conn, since=_cutoff_iso(now, BATTERY_TREND_WINDOW_DAYS))
+
+
+def _battery_daily_series_usable(daily_rows):
+    """(260902-l0b) True when there are at least two UTC-day buckets to
+    plot as a trend — `battery_sparkline_svg()`'s own two-point minimum
+    for a line, kept in exactly one place (not duplicated in
+    `_battery_section()` and `_battery_trend_caption()` separately) so the
+    chart's series choice and the heading caption can never disagree
+    about which series is actually on screen. `daily_rows` may be the
+    `_DB_UNAVAILABLE` sentinel (a failed read is never "usable").
+    """
+    return isinstance(daily_rows, list) and len(daily_rows) >= 2
+
+
+def _battery_trend_caption(trend_rows, daily_rows):
+    """(260902-l0b) The heading caption text (without its leading em
+    dash), honest about which series is actually on screen — computed
+    from the same `_battery_daily_series_usable()` predicate
+    `_battery_section()` uses to choose what to plot, so the two can
+    never disagree.
+
+    Three cases, not two: the 90-day daily series is plotted (>= 2 day
+    buckets) — the 3-month/daily-average framing; no readings exist at
+    all (or the read failed) — the SAME 3-month framing, because that is
+    what this page will show once data exists and there is no chart of
+    any kind on screen to be honest ABOUT; otherwise a real fallback
+    chart is on screen, built from fewer than two calendar days of raw
+    readings — today's byte-identical "Latest %d readings" string, which
+    is what this page always showed before this task and remains exactly
+    true of what is actually plotted.
+    """
+    if _battery_daily_series_usable(daily_rows):
+        return "Last 3 months, daily average"
+    if not trend_rows or trend_rows is _DB_UNAVAILABLE:
+        return "Last 3 months, daily average"
+    return "Latest %d readings" % BATTERY_TREND_LIMIT
 
 
 # quick task 260902-ep7 (BUG 4): _AXIS_LEFT_GUTTER and _AXIS_BOTTOM_STRIP
@@ -876,7 +946,17 @@ def compute_health_state(state_dir, now=None):
     inputs = _read_health_inputs(state_dir, now)
     device_html, device_state = _device_section(inputs["device_health"], now)
     pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
-    battery_html, battery_state = _battery_section(inputs["trend_rows"])
+    battery_html, battery_state = _battery_section(inputs["trend_rows"], inputs["daily_rows"])
+    # 260902-l0b: computed from the same _battery_daily_series_usable()
+    # predicate _battery_section() itself used above, so the heading
+    # caption can never describe a window the chart is not actually
+    # showing. Threaded through the returned dict rather than as a third
+    # _battery_section() return value — source_fault_raw below is the
+    # existing precedent for an input passed straight through this dict —
+    # because _battery_section()'s own 2-tuple return is directly
+    # unpacked by a pinned harness check (test_status_pages.py's
+    # `markup, state = health_page._battery_section([])`).
+    battery_caption = _battery_trend_caption(inputs["trend_rows"], inputs["daily_rows"])
     corroboration_html, disagreement_warn = _corroboration_section(
         inputs["corroboration_counts"])
     severity = overall_severity(
@@ -895,6 +975,7 @@ def compute_health_state(state_dir, now=None):
         "pipeline_state": pipeline_state,
         "battery_html": battery_html,
         "battery_state": battery_state,
+        "battery_caption": battery_caption,
         "corroboration_html": corroboration_html,
         "disagreement_warn": disagreement_warn,
         "anomalies": anomalies,
@@ -1242,7 +1323,7 @@ def _battery_readout_block(latest_reading, now):
         escape_html(raw_ts), escape_html(when_text))
 
 
-def _battery_trend_section_html(battery_html, state):
+def _battery_trend_section_html(battery_html, state, caption=None):
     """Wrap `_battery_section()`'s already-built markup in the full-width
     `BATTERY_SECTION_CLASS` card section (D-02) that replaces its old
     240px-floor grid tile.
@@ -1310,26 +1391,62 @@ def _battery_trend_section_html(battery_html, state):
     status signal lives on the section's own edge (this modifier class),
     not on any icon — quick task 260902-j8w later removed the heading
     icon entirely, so this is no longer even a tint-class question.
+
+    260902-l0b: `caption` is a deliberate signature widening — a third,
+    defaulted parameter, so the sole call site (`render()`, below) can
+    pass the mode-honest text `_battery_trend_caption()` computed, while
+    any caller or check still passing only two positional arguments keeps
+    working unchanged. `None` (the default) reproduces today's exact
+    "Latest N readings" string byte-for-byte, in the same voice this
+    function's own D-02/quick-task-260902-gjj widening used above.
     """
     modifier = layout.card_status_class(BATTERY_SECTION_CLASS, state)
     section_class = BATTERY_SECTION_CLASS + ((" " + modifier) if modifier else "")
+    caption_text = caption if caption is not None else ("Latest %d readings" % BATTERY_TREND_LIMIT)
     return (
         '<section class="%s">'
         '<h2 class="text-heading">%s<span class="text-label section-caption">'
-        "— Latest %d readings</span></h2>"
+        "— %s</span></h2>"
         "%s"
         "</section>"
     ) % (
         section_class,
-        escape_html(BATTERY_SECTION_HEADING), BATTERY_TREND_LIMIT, battery_html)
+        escape_html(BATTERY_SECTION_HEADING), escape_html(caption_text), battery_html)
 
 
-def _battery_section(trend_rows):
+def _battery_section(trend_rows, daily_rows=None):
     """Return `(markup, state)` for the Battery trend tile.
 
     `state` drives two independent consumers from one value: the
     `status_dot()` badge rendered by this function, and
     `collect_anomalies()`'s abnormal-drop signal in `render()`.
+
+    260902-l0b: `daily_rows` (the 90-day daily-average series from
+    `battery_daily_rows()`) is a deliberate signature widening — a second,
+    defaulted keyword parameter, chosen specifically because it cannot
+    break the pinned single-argument call site
+    `test_status_pages.py`'s `_battery_trend_timestamps_show_concise_format()`
+    protects (06.5-02's own automated gate, retargeted onto the property
+    it actually meant — see that check's own comment). When
+    `_battery_daily_series_usable(daily_rows)` holds (at least two UTC-day
+    buckets), the chart plots the daily series; otherwise it falls back
+    to the same raw `trend_rows` series this function has always plotted.
+
+    This fallback is NOT a reduced first version of the feature — the
+    90-day daily chart is complete in this task and renders the moment
+    two calendar days of history exist. It exists because the
+    `if sparkline_html:` guard below gates BOTH the readout AND the
+    script tag together: with only one day bucket, plotting the daily
+    series would produce an empty sparkline, which without this fallback
+    would mean no readout either — a page strictly worse than today's for
+    a freshly-deployed device on day one. Everything else in this
+    function keeps the raw `trend_rows` series unchanged regardless of
+    which series the chart plots: the anomaly scan (`battery_status()`),
+    the raw-readings disclosure table, its "View N readings" summary, and
+    the readout (`_latest_numeric_battery_reading()`). Averaging a day's
+    readings is precisely the operation that would hide the abnormal drop
+    the anomaly scan exists to catch, so that one consumer must never see
+    the daily series.
 
     The empty-history branch (`not trend_rows`) deliberately returns
     `"ok"`, not `"warn"` — unlike Device/Pipeline's never-seen state,
@@ -1360,12 +1477,14 @@ def _battery_section(trend_rows):
             "device's next poll."), "ok"
     state = battery_status(trend_rows)
     # 06.6-01 (D-02): now is computed locally, rather than threaded in as
-    # a parameter, because _battery_section()'s single-argument call site
-    # (`battery_html, battery_state = _battery_section(trend_rows)`) is
-    # pinned by sibling phase 06.5's own automated gate — widening the
-    # signature would break that gate in whichever order the two phases
-    # execute. history_db.utc_now_iso() is the same call render() already
-    # makes for its own `now`.
+    # a parameter, because _battery_section()'s positional-arity gate
+    # (originally 06.5-02's exact single-argument pin, retargeted in
+    # place by 260902-l0b onto "stays callable with exactly one
+    # positional argument" once daily_rows joined this signature as a
+    # second, defaulted keyword parameter) protects the call site
+    # `battery_html, battery_state = _battery_section(trend_rows, ...)`.
+    # history_db.utc_now_iso() is the same call render() already makes
+    # for its own `now`.
     now = history_db.utc_now_iso()
     # D-09: the Timestamp column is now already-safe raw HTML (the
     # concise "HH:MM UTC (relative)" span, full ISO demoted to its
@@ -1385,7 +1504,11 @@ def _battery_section(trend_rows):
     disclosure_html = (
         '<details class="readings-disclosure"><summary>View %d readings</summary>%s</details>'
         % (len(trend_rows), table_html))
-    sparkline_html = battery_sparkline_svg(trend_rows, now=now) if len(trend_rows) >= 2 else ""
+    # 260902-l0b: the series the CHART plots — the daily series when it is
+    # usable, the raw series otherwise (the day-1 fallback). Everything
+    # above and below this line keeps working from trend_rows unchanged.
+    plot_rows = daily_rows if _battery_daily_series_usable(daily_rows) else trend_rows
+    sparkline_html = battery_sparkline_svg(plot_rows, now=now) if len(plot_rows) >= 2 else ""
     # The script tag and readout element are emitted only when a chart
     # actually exists (sparkline_html is non-empty) — a single-reading
     # device, or one whose only rows have non-numeric millivolts, gets no
@@ -1753,14 +1876,25 @@ def _resolution_rate_tile_html(stats):
 
 
 def _read_health_inputs(state_dir, now):
-    """The five `_safe_query()` reads `render()` and `anomaly_active()`
+    """The six `_safe_query()` reads `render()` and `anomaly_active()`
     both need, single-sourced into one dict.
 
-    `render()` and `anomaly_active()` must be looking at the same five
+    `render()` and `anomaly_active()` must be looking at the same six
     values, or the Health nav-tab dot and the page's own anomaly banner
     can disagree on screen — single-sourcing the *inputs* (not just the
     section-builder calls that consume them) is what removes that whole
     class of drift at the root, before it ever has a chance to appear.
+
+    260902-l0b: grew from five reads to six — `daily_rows` joins
+    `trend_rows` here, in the one atomic snapshot, because it is a
+    battery-health read consumed by the same section builder
+    (`_battery_section()`) from the same table (`device_health`) in the
+    same request. This does NOT reopen D-11: the migrated registry/stats
+    reads in `render()` stay their own independent calls, deliberately
+    NOT folded in here, because they are a genuinely DIFFERENT failure
+    mode (filesystem/JSON vs SQLite) feeding a DIFFERENT card that must
+    keep failing independently of this one — see `render()`'s own comment
+    at that call site for the unchanged reasoning.
     """
     cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
     return {
@@ -1772,6 +1906,7 @@ def _read_health_inputs(state_dir, now):
             state_dir,
             lambda conn: history_db.get_meta(conn, history_db.META_SOURCE_FAULT)),
         "trend_rows": _safe_query(state_dir, battery_trend_rows),
+        "daily_rows": _safe_query(state_dir, lambda conn: battery_daily_rows(conn, now)),
         "corroboration_counts": _safe_query(
             state_dir,
             lambda conn: history_db.corroboration_counts(conn, since=cutoff)),
@@ -1825,6 +1960,7 @@ def render(ctx):
     device_html, device_state = state["device_html"], state["device_state"]
     pipeline_html, pipeline_state = state["pipeline_html"], state["pipeline_state"]
     battery_html, battery_state = state["battery_html"], state["battery_state"]
+    battery_caption = state["battery_caption"]
     corroboration_html, disagreement_warn = (
         state["corroboration_html"], state["disagreement_warn"])
 
@@ -1915,7 +2051,7 @@ def render(ctx):
         _section_intro_html(
             SCREEN_SECTION_ID, SCREEN_SECTION_HEADING, SCREEN_SECTION_DESCRIPTION)
         + '<div class="dashboard-grid">' + device_tile_html + '</div>'
-        + _battery_trend_section_html(battery_html, battery_state)
+        + _battery_trend_section_html(battery_html, battery_state, battery_caption)
     )
     # quick task 260902-gjj (ISSUE 2): the registry card's own class
     # attribute composes the same three pieces in the same order every
