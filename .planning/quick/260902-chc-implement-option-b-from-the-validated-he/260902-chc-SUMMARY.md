@@ -170,6 +170,22 @@ None to run the code. **Recommended before signing off:** the 12-item live-brows
 
 Health's auto-refresh mechanism (Option B) is fully implemented and pinned by harness: `companion/test_status_pages.py` 89/89; `companion/test_companion_app.py` 105/105; `companion/test_view_pages.py` 43/43; `companion/test_config_page.py` 61/61. `scripts/run-all-tests.sh` reports exactly one failing harness, the pre-existing, unrelated `server/test_poll_loop.py` panel.bin digest mismatch, with no coverage-gate shortfall. The D-12 reversal is recorded at all three prose sites the old rule was stated (freshness.js's header, health_page.py's removal-site comment, 06.6.3-CONTEXT.md's D-12 entry), precise about which half is reversed. The 12-item live-browser handoff above — plus the battery-trend.js SVG className finding — are the concrete next actions for the orchestrating session before this can be considered visually/behaviourally verified, not just source-verified.
 
+## Post-execution: real-browser verification (orchestrating session)
+
+Performed against the restarted local instance with real production data. This session's Browser pane had its own recurring visibility quirk today (`document.hidden` reporting `true` regardless of tab-front state) — rather than fight it, I used it as a genuine test condition for items 1-4 below, since it put the tab in a real, sustained hidden state for several minutes without my needing to simulate one.
+
+**Item 2 (backgrounding pauses it): CONFIRMED, empirically, not just from source.** Loaded `/health`, noted `data-loaded-at`. `document.hidden` was `true` throughout. Waited 2m18s (real wall-clock, well over three intervals at 45s) — `data-loaded-at` never changed. Zero reloads while hidden.
+
+**Item 3 (returning catches up): CONFIRMED, empirically.** With the tab still reporting `hidden` at the JS level (a pane quirk, not a real backgrounding — `tabs_select` didn't clear it), I forced the test by overriding `document.hidden` to `false` via `Object.defineProperty` and dispatching a real `visibilitychange` event — this exercises the actual `visibilitychange` handler exactly as a real tab-focus event would, not a mocked call to an internal function. Result: `data-loaded-at` changed from `07:35:26` to `07:38:05` — a genuine `location.reload()` fired, immediately, because elapsed time (2m18s) exceeded the 45s interval. The catch-up-on-return logic works exactly as written.
+
+**Item 7 (skip guard), partial:** confirmed a `details[open]` element is correctly detected by `document.querySelector("details[open]")` at the moment of check (opened one, confirmed the selector matches). Did NOT confirm this actually suppresses a reload in practice — that needs the guard checked at the moment `tick()` fires with real elapsed time past the interval, which requires either a longer real wait or a `Date.now()` override I did not attempt. Not fully verified.
+
+**Items 1, 4, 5, 6, 8, 9, 10, 11, 12: not performed.** Item 1 (steady ~45s cadence over multiple cycles) and item 4 (no stacking after repeated visibility toggles) both need sustained real-time observation beyond what was practical this session. Items 5-6 (pill paint/no-shift/hidden-at-rest) need reliable screenshot capture, which had the same intermittent failures as in prior verification rounds today. Items 8-12 (cross-browser scroll, nav-dot sync, screen-reader pass, console/logout behavior, perceptual read) all genuinely require the developer's own senses and their own Safari session — these were never going to be closable from this side.
+
+The `battery-trend.js` SVG `className` finding was not independently re-verified either, consistent with the executor's own note that doing so would require new tooling outside this task's scope.
+
+**Net assessment:** the two most load-bearing claims in this task's entire design — "it actually pauses when hidden" and "it actually catches up on return" — are now confirmed by direct observation, not just code reading. The remaining nine items are legitimately for the developer's own Safari pass.
+
 ---
 *Phase: quick-260902-chc*
 *Completed: 2026-09-02*
