@@ -1,5 +1,6 @@
 ---
 title: On-screen fault icon for comm/data outages, pointing to the web interface
+status: partially-fulfilled
 trigger_condition: >
   Revisit once the companion web interface (CFG-01..04) work starts, since
   CFG-05 depends on it existing as the destination the icon points users
@@ -7,7 +8,51 @@ trigger_condition: >
   independent and could be picked up earlier if device-communication
   outages become a real pain point before the web interface exists.
 planted_date: 2026-08-27
+resolved_date: 2026-09-02
 ---
+
+## Partially fulfilled 2026-09-02
+
+This seed always covered two distinct halves, and exactly one of them has
+shipped — this dated section is not a full close-out.
+
+**Shipped: the server-side half (CFG-05).** Phase 6, plans `06-02`
+(`server/plane/detect.py`'s runway-parameterisation and the diagnostics
+signal) and `06-06` (`server/plane/render.py`'s `draw_source_fault_badge()`,
+which draws a triangular alert glyph beside the `SOURCE_FAULT_TEXT` caption
+reading "ADS-B source unavailable — check the companion page"). The narrow
+scoping this seed insisted on genuinely held: plan `06-10`'s
+`_classify_source_fault()` in `server/poll_loop.py` derives the alert only
+from an all-providers-failed diagnostics report, never from an empty
+selection, so the normal Empty state cannot trigger it — the false-alarm
+trap this seed was written to avoid. The destination the caption points
+users at exists: plan `06-08` shipped `companion/pages/health_page.py`'s
+source-fault landing block.
+
+**Two real bugs found later, both fixed.** Phase 8's code review
+(`08-REVIEW.md`) found WR-01 — the badge bypassed that phase's per-theme
+font-weight resolution contract that every other active-state text role had
+been moved onto — and WR-02 — the exclamation mark's dot was drawn as a
+degenerate zero-length line, which Pillow paints as a single pixel rather
+than expanding it by `width`, leaving the dot all but invisible on the
+panel. Both were fixed in commit `9aa217a`. Worth recording because neither
+was caught by the render suite at the time.
+
+**Still open: the device-local half (DEVICE-06).** It has not shipped. Its
+scope now lives formally as `DEVICE-06` in `.planning/REQUIREMENTS.md`'s
+"On-Device Fault Fallback" v2 section — that entry, not this seed, is the
+authoritative home for the remaining work, and this seed should not be the
+place anyone reads to find out what is left to build. The `backoff_n >= 2`
+trigger decided in this seed carried into DEVICE-06 verbatim, and
+DEVICE-06's own entry already cites this file for full design rationale, so
+the two documents now point at each other.
+
+One of this seed's listed open questions stays genuinely open precisely
+because DEVICE-06 is unbuilt: whether CFG-05's badge glyph and DEVICE-06's
+local fallback icon should be the same glyph.
+
+Everything below is the original 2026-08-27 record, retained unchanged as
+history.
 
 ## Context
 
