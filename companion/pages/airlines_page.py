@@ -93,6 +93,27 @@ ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 # only a value change here, not a markup change.
 LIGHTBOX_NOTE = ""
 
+# quick task 260902-v26: the three flash keys `Handler._handle_illustration_
+# replace()` (companion/app.py) can redirect with, defined here — not in
+# app.py — for the identical reason companion/pages/config_page.py owns
+# its own FLASH_SAVED/FLASH_SAVE_FAILED/etc. literals (see that module's
+# own comment): app.py already imports this page module, so the reverse
+# import would be a cycle. app.py rebinds these under FLASH_KEY_* names,
+# adds their copy to FLASH_MESSAGES, and their ARIA role to FLASH_ROLES,
+# mirroring config_page.py's own FLASH_* rebinding pattern exactly.
+FLASH_ILLUSTRATION_REPLACED = "illustration_replaced"
+# "Rejected" means the upload was read and parsed but is not an
+# acceptable illustration (not an image, too small, not landscape, no
+# transparency, or the request was over the size cap) — a normal,
+# expected outcome of validation, not a server malfunction.
+FLASH_ILLUSTRATION_REJECTED = "illustration_rejected"
+# Distinct from FLASH_ILLUSTRATION_REJECTED: this key means something
+# unexpected happened server-side while storing an otherwise-acceptable
+# upload (a filesystem error, an unexpected Pillow failure after
+# validation already passed) — mirrors FLASH_SAVE_FAILED's own
+# genuine-server-failure framing in config_page.py.
+FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
+
 # variant_chip_label()'s two shape-domain patterns. An alphanumeric type
 # code is a letter prefix immediately followed by digits, optionally with
 # a hyphenated numeric suffix ("a320", "atr72", "a330", "b737",
