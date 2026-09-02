@@ -2625,50 +2625,58 @@ summary::-webkit-details-marker {
   border-top: 3px solid var(--color-status-error);
 }
 
-/* quick task 260901-uzi (finding 4): demotes the nested heading tier to
- * the Emphasis role. Reasoning, in order:
+/* quick task 260902-iag reverses quick task 260901-uzi's finding 4 —
+ * SUPERSEDED, recorded below, not deleted. Today this rule carries
+ * exactly one declaration, the bottom margin, and states no typography
+ * at all: a nested card heading is deliberately the plain `.text-heading`
+ * treatment every other section heading in the app gets — the
+ * h1/h2/h3/legend/.text-heading serif rule and the heading-rhythm rule
+ * above supply everything else. What signals "this heading and its
+ * content are one grouped unit" is the card boundary each of these
+ * headings already sits inside — the `--color-border` hairline, the
+ * `--color-dominant` surface and the 16px padding `.page-section` and
+ * `.battery-trend-section` declare — the exact same signal every Settings
+ * group (`config_page.py`'s Theme/Runway/Diagnostic LED/Poll groups, each
+ * a `<section class="page-section">` around a plain
+ * `<h2 class="text-heading">`) has ever relied on, because Settings has
+ * no section heading above its own cards to distinguish itself from.
  *
- * First, the measured complaint: the tile's headline value (16px
- * semibold, the Emphasis role) read as LESS prominent than an ordinary
- * section heading below it (20px serif, the Heading role) — an inverted
- * hierarchy.
+ * SUPERSEDED (quick task 260901-uzi finding 4): this rule used to demote
+ * the nested tier from 20px serif regular to 16px semibold (the Emphasis
+ * role, `.stat-tile__value`'s own tier). Reasoning: Health renders two
+ * structural levels — the D-10 section headings ("Screen", "Server &
+ * data") and the cards nested inside them ("Battery trend", "Unresolved
+ * prefixes", "Resolution statistics") — at one identical 20px tier, and a
+ * card title subordinate to its own section heading was rendering as that
+ * heading's equal. That was a real problem and a considered fix, and it
+ * is reversed here, not erased.
  *
- * Second, why the answer is not a bigger tile value: 06.6.4 (D-09)
- * retired the Display role outright and moved .stat-tile__value and
- * .runway-card__number to the Emphasis role, restoring this file's
- * claimed four-size scale; the design skill records those four sizes as
- * the current contract. Introducing a fifth size to win this one
- * comparison would re-break exactly the claim that retirement was made
- * to restore.
+ * What replaced it: the developer put Settings' 20px `Runway` heading
+ * beside Health's 16px `Unresolved prefixes` heading in a screenshot,
+ * judged the Settings version correct, was offered the explicit choice
+ * between reverting to 20px (letting the card boundary carry the
+ * grouping signal) and keeping 16px (after hearing the objection first),
+ * and chose to revert. This rule is that reversal.
  *
- * Third, what was actually wrong: Health renders two different
- * structural levels at one identical visual tier — the D-10 section
- * headings ("Screen", "Server & data") and the cards nested inside them
- * ("Battery trend", "Unresolved prefixes", "Resolution statistics"), all
- * 20px serif regular. A card title inside a section is subordinate to
- * that section's heading and was rendering as its equal. Demoting the
- * nested tier to the Emphasis role makes a card title and a tile value
- * read as peers and leaves the section headings unambiguously on top, so
- * the hierarchy now decreases with nesting depth instead of flattening.
+ * Two alternatives were considered and NOT taken, named here so a later
+ * edit has to argue with a written decision rather than discover an
+ * apparent omission. First, the validated Merged Health Sketch's own
+ * answer to this same hierarchy question is a third option — its
+ * `.wide-card__caption` card-title role is a 14px muted uppercase eyebrow
+ * label, not a size/weight match to the section heading at all — declined
+ * because the developer asked specifically for the Settings match, not
+ * the sketch's own treatment. Second, the 260901-uzi demotion itself is
+ * declined going forward: reintroducing any size or weight difference
+ * between these two tiers is the exact thing this reversal exists to
+ * undo, so a future contributor who believes the tiers still collide
+ * should reach for spacing, surface or containment (see quick task
+ * 260902-iag Task 3's own hierarchy verdict) — never type scale.
  *
- * Fourth, what this rule deliberately does not do: it sets no font
- * family, because the Heading role's own rule already supplies the
- * serif treatment and the serif boundary is headings-only (the design
- * skill's own wording) — restating it here would create a second place
- * that value lives. And it is scoped to an explicit modifier class
- * rather than written as a bare heading selector under the shared card
- * class, because that broader selector would have silently resized
- * Settings' groups, History's card, and Health's own top-level
- * source-fault block, none of which is nested under a section heading.
- *
- * Note: the battery-trend section's own heading carries a 20px icon and
- * a trailing label span, so at this demoted size the icon is now larger
- * than the text beside it — the same proportion .stat-tile__caption
- * (14px text, 20px icon) has already shipped and been validated with,
- * which is why it needs no icon rule of its own.
- *
- * Fifth (quick task 260902-bl2, bug 2): margin-bottom, added below.
- * The two cards migrated by 06.6.4.1-04 measured wildly different
+ * The one declaration this rule still carries, UNCHANGED by this
+ * reversal (quick task 260902-bl2, bug 2): margin-bottom, 16px
+ * (`--space-md`), independently justified — a deterministic
+ * heading-to-content gap, unrelated to the font-size question above. The
+ * two cards migrated by 06.6.4.1-04 measured wildly different
  * heading-to-content gaps in a real browser, and the cause was that
  * nothing in this file had ever governed that gap — it was whatever the
  * composition of the heading-rhythm rule's own `margin: 0 0
@@ -2683,11 +2691,15 @@ summary::-webkit-details-marker {
  * immediately below, the heading now owns the whole gap and no following
  * element contributes any of its own, so the gap is the same 16px
  * regardless of whether a paragraph, a table wrapper, a filter bar or an
- * empty state comes next. */
+ * empty state comes next.
+ *
+ * Removed by this reversal: the note that used to live here about the
+ * battery heading's icon rendering larger than its text at the demoted
+ * 16px size — a consequence of a demotion this rule no longer performs.
+ * At 20px the icon and the text are the same size again, so the note has
+ * nothing left to explain. */
 .page-section--nested > h2,
 .battery-trend-section > h2 {
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
   margin-bottom: var(--space-md);
 }
 

@@ -2664,14 +2664,27 @@ def main():
         "(quick task 260902-dng bug 2, closes 260901-uzi Finding 5 candidate (a))",
         _data_table_th_has_symmetric_nonzero_padding)
 
-    def _nested_heading_tier_demoted_to_emphasis_role():
+    def _nested_heading_tier_reverted_to_standard_heading_role():
         # quick task 260901-uzi Task 4 (Check 2): finding 4's markup half
         # (exactly the two migrated cards carry page-section--nested,
         # located from each card's own heading constant rather than a
         # first-occurrence index; the source-fault block never carries it,
         # even when it renders; both .section-intro headings are
-        # untouched) plus the stylesheet half (the demotion rule sets the
-        # Body size and the semibold weight, and sets no font family).
+        # untouched) — UNCHANGED, this half is still true.
+        #
+        # quick task 260902-iag retargets the stylesheet half IN PLACE:
+        # the rule this check inspects no longer demotes the nested tier
+        # (the developer's explicit, same-day reversal of the demotion
+        # this check used to pin — see the rule's own comment in
+        # style.css). It now asserts the opposite: the rule declares no
+        # font-size, no font-weight and (still) no font-family of its
+        # own, and it still declares the retained 260902-bl2 bottom
+        # margin. A positive half is added so the check stays meaningful
+        # after the reversal: `.text-heading` itself must still declare
+        # the 20px heading size and the regular weight this tier now
+        # inherits, and `--font-heading-size` must still be 20px in
+        # :root — so this check fails loudly if the treatment the nested
+        # tier now relies on ever moves out from under it.
         tmp = _mkstate("h-nested-heading-tier")
         try:
             now = _now()
@@ -2714,26 +2727,55 @@ def main():
             body_open = css_source.index("{", selector_at)
             body_close = css_source.index("}", body_open)
             selector_list = css_source[selector_at:body_open]
-            demotion_body = css_source[body_open:body_close]
+            nested_body = css_source[body_open:body_close]
             if ".battery-trend-section > h2" not in selector_list:
-                return False, "expected the demotion rule's selector list to also cover .battery-trend-section > h2"
-            if "font-size: var(--font-body-size)" not in demotion_body:
-                return False, "expected the demotion rule to set the Body size"
-            if "font-weight: var(--weight-semibold)" not in demotion_body:
-                return False, "expected the demotion rule to set the semibold weight"
-            if "font-family" in demotion_body:
+                return False, "expected the reverted rule's selector list to still cover .battery-trend-section > h2"
+            if "margin-bottom: var(--space-md)" not in nested_body:
                 return False, (
-                    "the demotion rule must set no font family — .text-heading already "
+                    "expected the reverted rule to still declare its retained 260902-bl2 bottom "
+                    "margin — a missing bottom margin means the revert over-reached and took the "
+                    "independently-justified spacing fix with it")
+            if "font-size" in nested_body:
+                return False, (
+                    "the reverted rule must declare no font-size of its own — a font-size "
+                    "reappearing here is the 260901-uzi demotion returning")
+            if "font-weight" in nested_body:
+                return False, (
+                    "the reverted rule must declare no font-weight of its own — a font-weight "
+                    "reappearing here is the 260901-uzi demotion returning")
+            if "font-family" in nested_body:
+                return False, (
+                    "the reverted rule must set no font family — .text-heading already "
                     "supplies the serif treatment")
+
+            heading_body = css_source[css_source.index(".text-heading {"):]
+            heading_body = heading_body[heading_body.index("{"):heading_body.index("}")]
+            if "font-size: var(--font-heading-size)" not in heading_body:
+                return False, (
+                    "expected .text-heading to still declare --font-heading-size — the reverted "
+                    "nested tier now inherits this treatment and has no fallback of its own")
+            if "font-weight: var(--weight-regular)" not in heading_body:
+                return False, (
+                    "expected .text-heading to still declare --weight-regular — the reverted "
+                    "nested tier now inherits this treatment and has no fallback of its own")
+            root_body = css_source[css_source.index(":root"):css_source.index(":root") + 900]
+            token_match = re.search(r"--font-heading-size:\s*(\S+);", root_body)
+            if token_match is None or token_match.group(1) != "20px":
+                return False, (
+                    "expected --font-heading-size to still be 20px in :root — the value the "
+                    "developer's Settings comparison and this reversal both depend on")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "exactly the two migrated cards carry page-section--nested (located by their own heading constants), "
         "the source-fault block never carries it even when it renders, both .section-intro headings are "
-        "untouched, and style.css's demotion rule sets the Body size and semibold weight with no font family "
-        "(quick task 260901-uzi finding 4, Check 2)",
-        _nested_heading_tier_demoted_to_emphasis_role)
+        "untouched, and style.css's nested-heading rule — reverted by quick task 260902-iag — declares no "
+        "font-size, no font-weight and no font-family of its own (only its retained 260902-bl2 bottom margin), "
+        "inheriting .text-heading's 20px regular treatment, which the check confirms is still 20px/regular at "
+        "the token level too (quick task 260901-uzi finding 4, Check 2; reverted in place by quick task "
+        "260902-iag)",
+        _nested_heading_tier_reverted_to_standard_heading_role)
 
     def _stat_tile_caption_weight_and_four_role_type_scale_hold():
         # quick task 260902-dng (Task 3): pins both halves of the
@@ -2772,11 +2814,20 @@ def main():
         if "font-weight: var(--weight-semibold)" not in value_body:
             return False, "expected .stat-tile__value to stay semibold — Finding 4's own contract"
 
+        # quick task 260902-iag Task 1 (minimal in-place correction — Task
+        # 2 owns this check's full contract rewrite): the nested card
+        # title's demotion was reverted, so it now inherits 20px regular
+        # from .text-heading and declares neither a font-size nor a
+        # font-weight of its own.
         nested_body = _rule_body(".page-section--nested > h2,")
-        if "font-size: var(--font-body-size)" not in nested_body:
-            return False, "expected the nested card title to stay on the Body size (16px) — Finding 4's own contract"
-        if "font-weight: var(--weight-semibold)" not in nested_body:
-            return False, "expected the nested card title to stay semibold — Finding 4's own contract"
+        if "font-size" in nested_body:
+            return False, (
+                "expected the nested card title to declare no font-size of its own — it now "
+                "inherits .text-heading's 20px (quick task 260902-iag reverted the demotion)")
+        if "font-weight" in nested_body:
+            return False, (
+                "expected the nested card title to declare no font-weight of its own — it now "
+                "inherits .text-heading's regular weight (quick task 260902-iag reverted the demotion)")
 
         heading_body = _rule_body("h1,\nh2,\nh3,\nlegend,\n.text-heading {")
         if "font-weight: var(--weight-regular)" not in heading_body:

@@ -1431,8 +1431,11 @@ def _source_fault_block(source_fault_raw):
     # `page-section--nested` modifier the two migrated cards in render()
     # carry. This block renders above both id-anchored sections, at the
     # same structural level as their own section headings, not nested
-    # inside one — demoting its heading would understate the single most
-    # severe state this page can show.
+    # inside one — grouping it inside either section's nesting would
+    # misrepresent the single most severe state this page can show as one
+    # more subordinate card (quick task 260902-iag: the modifier itself no
+    # longer changes type, only heading-to-content rhythm, but the
+    # structural argument for keeping this block un-nested is unchanged).
     if source_fault_raw is _DB_UNAVAILABLE:
         return ""
     if not _meta_flag_true(source_fault_raw):
@@ -1641,15 +1644,16 @@ def _registry_section(rows, now):
     # This function used to keep the dot as its own line below the
     # heading instead, on the finding that the developer's complaint here
     # was about spacing, not placement — the spacing is now the sketch's
-    # (see the `.page-section--nested > h2` demotion rule's
-    # margin-bottom, style.css). That earlier rejection is now partly
-    # obsolete: quick task 260902-gjj removes the dot entirely (see the
-    # D-01 reversal record above BATTERY_STATUS_LABEL's old home for the
-    # accessibility finding that licensed the removal for both this card
-    # and Battery trend), so there is no dot left to place in the
-    # card-title row either. The card's own top edge now carries this
-    # coverage_status() verdict instead, composed at this function's
-    # call site in render().
+    # (see the `.page-section--nested > h2` rule's retained
+    # margin-bottom, style.css — quick task 260902-iag renamed what that
+    # rule does; the margin itself is unchanged). That earlier rejection
+    # is now partly obsolete: quick task 260902-gjj removes the dot
+    # entirely (see the D-01 reversal record above BATTERY_STATUS_LABEL's
+    # old home for the accessibility finding that licensed the removal
+    # for both this card and Battery trend), so there is no dot left to
+    # place in the card-title row either. The card's own top edge now
+    # carries this coverage_status() verdict instead, composed at this
+    # function's call site in render().
     #
     # quick task 260902-gjj (ISSUE 1): composes `section-caption` onto this
     # note's existing `text-body` sizing class, the same fix
@@ -1899,13 +1903,22 @@ def render(ctx):
         # quick task 260901-uzi (finding 4): both migrated cards carry an
         # additive `page-section--nested` modifier — they sit nested
         # inside this section's own .section-intro heading, so their own
-        # <h2> is a subordinate tier, not a peer of it (style.css's
-        # `.page-section--nested > h2` rule demotes exactly that tier to
-        # the Emphasis role). `_source_fault_block()` below is
-        # deliberately NOT given this modifier: it renders above both
-        # sections, at the same structural level as the section headings
-        # themselves, so demoting its heading would understate a real
-        # fault — see that function's own class list.
+        # <h2> is a subordinate tier, not a peer of it. SUPERSEDED by
+        # quick task 260902-iag: the modifier used to also demote that
+        # tier's type (style.css's `.page-section--nested > h2` rule set
+        # a smaller size and a heavier weight); the developer compared
+        # that demoted heading against Settings' own 20px heading and
+        # asked for the Settings match, so the rule now sets no
+        # typography at all — what the modifier buys today is the card's
+        # own heading-to-content rhythm (its retained margin-bottom), and
+        # the nesting relationship itself is expressed by the card's
+        # border/surface/padding, not by type. `_source_fault_block()`
+        # below is deliberately NOT given this modifier: it renders above
+        # both sections, at the same structural level as the section
+        # headings themselves, so grouping it inside either section's
+        # nesting would misrepresent the single most severe state this
+        # page can show as one more subordinate card — see that
+        # function's own class list.
         + '<section class="%s"><h2 class="text-heading">%s</h2>%s</section>' % (
             registry_class, escape_html(UNRESOLVED_SECTION_HEADING),
             _registry_section(registry_rows, now))
