@@ -29,6 +29,7 @@ look there, not here. This move is complete as of plan 06 Task 3: this
 module no longer imports the history-database module or the poll-state
 module, and opens no database connection of any kind.
 """
+import os
 import re
 
 from companion.illustration_normalize import (
@@ -114,6 +115,15 @@ FLASH_ILLUSTRATION_REJECTED = "illustration_rejected"
 # genuine-server-failure framing in config_page.py.
 FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
 
+# quick task 260902-v26 (D-04 is explicitly a negative requirement: no
+# revert-to-original control is in scope, anywhere, for this feature).
+# The replace-image disclosure's own copy, each its own module-level
+# constant so the harness can assert against the constant rather than a
+# duplicated literal.
+REPLACE_SUMMARY_TEMPLATE = "Replace %s illustration"
+REPLACE_LABEL_TEMPLATE = "New image for %s"
+REPLACE_BUTTON_TEXT = "Upload"
+
 # variant_chip_label()'s two shape-domain patterns. An alphanumeric type
 # code is a letter prefix immediately followed by digits, optionally with
 # a hyphenated numeric suffix ("a320", "atr72", "a330", "b737",
@@ -157,7 +167,100 @@ def variant_chip_label(shape):
     return shape.title()
 
 
-def _airline_card_html(index, airline_name, shapes):
+def _illustration_cache_buster(key, state_dir):
+    """Return a `"?v={mtime}"` query suffix for `key`'s override file, or
+    the empty string when there is no `state_dir` or no override exists
+    yet (quick task 260902-v26).
+
+    Why this is needed at all: the illustration route
+    (`companion/app.py`'s `Handler._serve_illustration_image()`, via
+    `Handler.send_bytes(..., cache_seconds=300)`) serves `Cache-Control:
+    private, max-age=300`. Without a URL change, a freshly-replaced image
+    would keep showing the stale, pre-upload image in the developer's
+    browser for up to five minutes after a successful upload — reading as
+    "the upload didn't work" rather than as a cache artifact. Keying the
+    suffix on the override file's own mtime means the URL changes exactly
+    when the bytes change, and never otherwise: rendering this page again
+    before the next upload reproduces the identical suffix, so the
+    browser's cache is otherwise left alone.
+
+    Resolved through `illustrations.override_path_for_key(key, state_dir)`
+    — the one place the state_dir/override-dirname join lives
+    (T-v26-01-01) — never rebuilt here, and `ILLUSTRATION_OVERRIDE_DIRNAME`
+    is never reached for directly. Wrapped in `try`/`except` so a vanished
+    or unreadable file (a race with a concurrent upload, a permissions
+    error) degrades to no cache buster rather than raising — the same
+    never-raises posture `companion/app.py`'s `runway_images_available()`
+    documents for its own per-request `os.path.isfile()` probe.
+    """
+    if not state_dir:
+        return ""
+    override_path = illustrations.override_path_for_key(key, state_dir)
+    if not override_path:
+        return ""
+    try:
+        mtime = int(os.stat(override_path).st_mtime)
+    except OSError:
+        return ""
+    return "?v=%d" % mtime
+
+
+def _replace_control_html(key, airline_name, action_url):
+    """The per-card "replace this image" control (quick task 260902-v26):
+    a plain, JavaScript-free `<details>` disclosure whose `<summary>` is
+    the replace affordance and whose content is a single-file upload form
+    wired to plan 02's `POST /illustration/{key}.png` route
+    (`companion/app.py`'s `Handler._handle_illustration_replace()`).
+
+    A `<details>` disclosure, not an always-visible form: this page
+    renders 27 cards, and 27 permanently-open file pickers would dominate
+    a gallery whose whole purpose is looking at pictures. `<details>` is
+    already this codebase's established 06.6.3 disclosure pattern and
+    needs no JavaScript to work.
+
+    `action_url` is the UN-busted image URL — deliberately the same
+    string the card's `<img src>` would carry without its cache-busting
+    suffix (see `_illustration_cache_buster()`). A query string on a POST
+    target is pointless and would make the action and the src look
+    gratuitously different for no reason.
+
+    `accept="image/png"` below is a browser-side file-picker hint only,
+    never trusted server-side: plan 02's route decides what an image is
+    by parsing the real PNG header, and this attribute exists purely to
+    save the developer scrolling past their photo library.
+
+    Renders no revert/reset/restore-original control (D-04) — a
+    deliberate scope decision, not an omission. The vendored original is
+    never modified by this feature and stays recoverable (by deleting the
+    override file), but no user-facing revert is in scope for this task.
+
+    Every interpolated value here — the airline name inside the summary
+    and label text, and the input id derived from `key` — goes through
+    `escape_html()` exactly once, at the point of interpolation
+    (T-06.6.4.1-05, extended by T-v26-03-01).
+    """
+    input_id = escape_html("airline-replace-%s" % key)
+    return (
+        '<details class="airline-card__replace">'
+        "<summary>%s</summary>"
+        '<form class="airline-card__replace-form" method="post" '
+        'enctype="multipart/form-data" action="%s">'
+        '<label for="%s">%s</label>'
+        '<input type="file" id="%s" name="image" accept="image/png" required>'
+        '<button type="submit">%s</button>'
+        "</form>"
+        "</details>"
+    ) % (
+        escape_html(REPLACE_SUMMARY_TEMPLATE % airline_name),
+        action_url,
+        input_id,
+        escape_html(REPLACE_LABEL_TEMPLATE % airline_name),
+        input_id,
+        REPLACE_BUTTON_TEXT,
+    )
+
+
+def _airline_card_html(index, airline_name, shapes, state_dir=None):
     """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
     at the session-gated `/illustration/{key}.png` route, wrapped in a
     `.airline-card__zoom` click-to-enlarge trigger (quick task
@@ -178,20 +281,34 @@ def _airline_card_html(index, airline_name, shapes):
     still needs its own group. `data-filter-text` carries the lower-cased
     airline name, escaped before interpolation into the attribute — the
     same discipline the old registry rows applied to their prefix value.
+
+    `state_dir` (quick task 260902-v26, default `None`): threaded down
+    from `render(ctx)` only to resolve `_illustration_cache_buster()` and
+    to build this card's replace-upload form. It changes nothing else —
+    the vendored-fallback image URL, with no override present, is
+    byte-identical to what this function produced before this parameter
+    existed.
     """
     key = illustrations.normalise_airline_key(airline_name)
     if not key:
         return ""
     # Built once, interpolated into both the <img src> and the zoom
-    # trigger's data-view-panel-src below, so the two can never drift
-    # apart into pointing at different images.
+    # trigger's data-view-panel-src below (plus, since quick task
+    # 260902-v26, the cache-busting suffix appended to both — see
+    # _illustration_cache_buster()), so the two can never drift apart into
+    # pointing at different images.
     image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
+    # The form's action (below, in _replace_control_html()) deliberately
+    # uses this UN-busted image_url, not busted_image_url — a query string
+    # on a POST target is pointless and would make the action and the src
+    # look gratuitously different for no reason.
+    busted_image_url = image_url + _illustration_cache_buster(key, state_dir)
     image_html = (
         '<img class="airline-card__image" src="%s" '
         'width="%d" height="%d" '
         'loading="lazy" decoding="async" alt="%s">'
     ) % (
-        image_url,
+        busted_image_url,
         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
         escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
     )
@@ -208,7 +325,7 @@ def _airline_card_html(index, airline_name, shapes):
         '<button type="button" class="airline-card__zoom" %s="%s" %s="%s" '
         'aria-label="%s">%s</button>'
     ) % (
-        _VIEW_PANEL_SRC_ATTR, image_url,
+        _VIEW_PANEL_SRC_ATTR, busted_image_url,
         _VIEW_PANEL_CAPTION_ATTR, escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
         escape_html(ZOOM_LABEL_TEMPLATE % airline_name),
         image_html,
@@ -220,6 +337,7 @@ def _airline_card_html(index, airline_name, shapes):
             for shape in shapes
         )
         chips_html = '<div class="airline-card__chips">%s</div>' % chips
+    replace_html = _replace_control_html(key, airline_name, image_url)
     filter_text = escape_html(
         airline_name.lower() if isinstance(airline_name, str) else str(airline_name).lower())
     return (
@@ -227,18 +345,21 @@ def _airline_card_html(index, airline_name, shapes):
         "%s"
         '<p class="airline-card__name">%s</p>'
         "%s"
+        "%s"
         "</div>"
-    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
+    ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html, replace_html)
 
 
-def _gallery_grid_html(pairs):
+def _gallery_grid_html(pairs, state_dir=None):
     """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
     pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
     §7.1, companion/static/style.css from plan 01). Skips (renders
-    nothing for) any pair whose card comes back empty.
+    nothing for) any pair whose card comes back empty. `state_dir`
+    (quick task 260902-v26, default `None`) is threaded straight through
+    to every card — see `_airline_card_html()`'s own docstring.
     """
     cards = "".join(
-        _airline_card_html(index, airline_name, shapes)
+        _airline_card_html(index, airline_name, shapes, state_dir)
         for index, (airline_name, shapes) in enumerate(pairs))
     return '<div class="illustration-grid">%s</div>' % cards
 
@@ -326,8 +447,10 @@ def render(ctx):
     `illustrations.target_variants_by_airline()` order, then the shared
     click-to-enlarge lightbox dialog (quick task 260902-tli). `ctx` is
     accepted for call-site parity with every other page module's
-    `render(ctx)` signature but is otherwise unused — this page reads
-    one static in-memory list, no database and no poll state.
+    `render(ctx)` signature; since quick task 260902-v26 it reads exactly
+    one optional key, `state_dir`, used only to resolve each card's
+    illustration-replace cache buster (see `_illustration_cache_buster()`)
+    — this page still opens no database and reads no poll state.
 
     The filter bar and the lightbox dialog both render only when there
     is at least one card — this codebase's consistent "no chrome with no
@@ -335,12 +458,17 @@ def render(ctx):
     unreachable today; it stays a genuine guard, not a claim that the
     list can ever be empty.
     """
+    # ctx.get(), never ctx["state_dir"]: companion/test_view_pages.py:1365
+    # calls render({}) with a literal empty dict, and every other caller
+    # of this page (companion/app.py's page_context()) does supply
+    # state_dir, so this must stay tolerant of both.
+    state_dir = ctx.get("state_dir")
     pairs = illustrations.target_variants_by_airline()
     filter_html = _filter_bar_html(len(pairs)) if pairs else ""
     lightbox_html = _lightbox_html() if pairs else ""
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
         + filter_html
-        + _gallery_grid_html(pairs)
+        + _gallery_grid_html(pairs, state_dir)
         + lightbox_html
     )
