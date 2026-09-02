@@ -190,6 +190,69 @@ THEMES = {
         "dithered": True,
         "weight": "bold",
     },
+    # Phase 9 (09-01): the diagonal-band theme family, validated end-to-end
+    # in spike 003 (`.planning/spikes/003-diagonal-band-theme/README.md`,
+    # round 15, developer-confirmed "oui !"). Every band candidate in the
+    # spike rendered against `build_canvas(theme_id="white")` - the band's
+    # own colour was always a separate function parameter, never a
+    # base-canvas property - so all 5 entries below carry the exact same
+    # departing_index/arriving_index/ink_index/dithered/weight as "white"
+    # itself. Only label, band_index (the band's own IDX_* colour), and
+    # band_dithered (whether that band is drawn flat or dithered ~40%
+    # toward White) vary between the 5. band_index/band_dithered are read
+    # by server/plane/render.py's draw_diagonal_band() (plans 09-02/09-03)
+    # via theme_is_band()/theme_band_index()/theme_band_dithered() below -
+    # never by indexing THEMES directly.
+    "band_blue": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Blue",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_BLUE,
+        "band_dithered": False,
+    },
+    "band_blue_light": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Blue Light",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_BLUE,
+        "band_dithered": True,
+    },
+    "band_green_light": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Green Light",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_GREEN,
+        "band_dithered": True,
+    },
+    "band_red": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Red",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_RED,
+        "band_dithered": False,
+    },
+    "band_black": {
+        "departing_index": IDX_WHITE,
+        "arriving_index": IDX_WHITE,
+        "ink_index": IDX_BLACK,
+        "label": "Band Black",
+        "dithered": False,
+        "weight": "regular",
+        "band_index": IDX_BLACK,
+        "band_dithered": False,
+    },
 }
 
 # --- Runway registry -----------------------------------------------------
@@ -387,6 +450,30 @@ def theme_weight(theme_id):
     dithered entry that still uses Regular).
     """
     return THEMES[theme_id]["weight"]
+
+
+def theme_is_band(theme_id):
+    """Whether `theme_id` is one of the 5 Phase 9 diagonal-band themes -
+    true iff its THEMES entry carries the band-only `"band_index"` key.
+    False for every one of the 11 pre-Phase-9 themes, which never carry it.
+    """
+    return "band_index" in THEMES[theme_id]
+
+
+def theme_band_index(theme_id):
+    """`theme_id`'s diagonal band colour as a panel_format.IDX_* constant,
+    or `None` for a non-band theme. Absent-key-safe via `.get()` - never
+    raises for any registered id, band or not.
+    """
+    return THEMES[theme_id].get("band_index")
+
+
+def theme_band_dithered(theme_id):
+    """Whether `theme_id`'s diagonal band is dithered ~40% toward White
+    rather than a flat, undithered fill; `False` for a non-band theme.
+    Absent-key-safe via `.get()` - never raises for any registered id.
+    """
+    return THEMES[theme_id].get("band_dithered", False)
 
 
 def runway_tag_text(runway_id):

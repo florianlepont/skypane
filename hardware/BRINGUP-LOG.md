@@ -476,6 +476,148 @@ reinstatement of any plate, outline or shadow was requested or applied.
   individually-validated single-colour themes spanning the whole Spectra 6
   palette.
 
+### Phase 9 On-Glass Verification (2026-09-02, plan 09-04)
+
+**This session put every visual and textual decision spike
+`003-diagonal-band-theme` made — the diagonal band's 5 colour/treatment
+candidates, the split top label, the three-tier flight-identifier hierarchy
+on both cards, and the band-aware ink rule — in front of the real deployed
+Spectra 6 panel for the first time.** The spike's own README says
+explicitly that none of it had been near real ink before this session.
+Driven interactively over SSH against the live production VPS
+(`ubuntu@92.222.92.167`), with `skypane-poll.timer` stopped for each forced
+render and restarted at the end, per the same method Phase 7/8 established.
+Method note, same standard as the Phase 7/8 entries above: these are
+uninstrumented visual judgments made by one person, on one panel, under
+whatever lighting the room had — not measurement-grade, and not claimed to
+be.
+
+**Step A — all 5 band colours, both states.** Blue, Blue Light (dithered),
+Green Light (dithered), Red, Black all confirmed — final verdicts: Blue
+"parfait", Blue Light "looks right", Green Light "c'est parfait comme ça",
+Red "c'est super beau", Black "parfait". **Two real findings, both fixed
+and re-confirmed in session, neither predicted by the spike's screen
+preview:**
+- **Black text was illegible on Blue specifically** ("le texte sous
+  l'avion principal n'est pas lisible sous le bleu"), not just on Black as
+  the spike's round 13 fix anticipated. Extended to Green during Step A too
+  ("je pense que l'écriture devrait être blanche également"). White ink is
+  now unconditional for every band theme — every one of the 5 registered
+  colours needs it, not an enumerated exception list.
+- **The dash rule between the flight number and the route line read as too
+  short** ("tout short") at its original 24px — doubled to 48px, confirmed
+  "c'est parfait" together with the ink fix.
+
+Also tested and rejected in session, real ink verdict overriding a
+plausible-sounding hypothesis: black ink was tried specifically on Blue
+Light (the dithered, lighter variant) on the theory that its lighter
+average luminance would keep black-on-band contrast — direct comparison
+render showed white still read better ("non ba c'est mieux en blanc"), so
+Blue Light keeps the same unconditional white-ink rule as every other band
+colour.
+
+**Step B — all 4 content-ladder tiers, on Blue Light.** Tier 1
+(identifier + city), tier 2 (city only, no identifier), tier 3 (airline
+only, first line genuinely absent) and tier 4 (nothing resolved) all
+confirmed "approved". No raw ADS-B callsign appeared on any of the four
+tiers.
+
+**Step C — previous-card band clearance.** Confirmed explicitly across all
+5 band colours' two-flight renders: "no [overlap]" — the previous card's
+text never visibly collided with the band.
+
+**Step D — the whole composition, at distance.** "C'est parfait" — the
+panel still reads as ambient art at typical viewing distance. **The
+frame's mounting state (desk vs. wall) was not asked about this session**
+— unlike Phase 8's Step G, this is an open gap in this entry, not a
+confirmed fact; do not assume wall-mounted from this line alone.
+
+**A third, unplanned finding, caught by the developer stress-testing long
+real-world names, not part of the original Step A–E script:** the three
+band text roles (flight number, tracked route line, airline·type line)
+had no shrink-to-fit at all, unlike every other active-state text role —
+confirmed missing by reading the code, not assumed. A long-name render
+(reusing Phase 7's own "Compagnie Nationale Royale Air Maroc Express" /
+"Santiago de Compostela–Rosalía de Castro" stress fixture) overflowed
+visibly. Root-caused to two distinct bugs, both fixed and re-confirmed on
+glass:
+1. No fit mechanism existed at all — added `_role_fit_tracked_text_size()`
+   (tracking-aware, since `font.getlength()` alone under-measures a
+   tracked line's real rendered width) alongside the existing
+   `_role_fit_text_size()`, wired into both cards. Explicit developer
+   instruction was required and given before this was applied, per this
+   plan's own in-session-correction-scope (a new fit mechanism is not
+   bounded by default).
+2. Even after adding the fit mechanism, text still visibly vanished at its
+   edges — not a canvas clip (verified: `_assert_within_canvas()` never
+   fired). The real bug: text was fit against `SAFE_BOX`'s width, not the
+   diagonal band's own (narrower, height-varying) width. White text
+   extending past the band's edge onto the plain White field simply
+   disappears (white-on-white), which reads as a hard clip. Fixed by
+   fitting each line against the band's own width at its actual y
+   (`_band_edges()`, factored out of `_band_center_x()`), re-confirmed
+   clean on glass with the exact same fixture.
+
+**A fourth finding, from the same stress test, resolved as a data fix
+rather than a rendering fix — developer's own diagnosis, confirmed live
+against the real API rather than assumed:** even at the smallest legible
+route-line size, one real destination (Toulon-Hyères Airport, a genuine
+Orly route) still overflowed the band, because `api.adsbdb.com`'s
+`municipality` field lists every commune an airport serves
+`/`-separated — confirmed live: `"Toulon/Hyeres/Le Palyvestre"`, not a
+fabricated string. The developer's instruction was to shorten the name at
+its source rather than keep shrinking the font: `enrich._primary_city_name()`
+now reduces any `/`-separated municipality to its first segment
+("Toulon") before the existing sentence-case pass, applied to both
+`origin_city` and `destination_city` in `_parse_route()` — a project-wide
+fix (every city shown anywhere benefits), not scoped to this one theme.
+Re-confirmed on glass with the real reduced value. With the data-side fix
+in place, `BAND_MAIN_ROUTE_MIN_SIZE` was left at its original, more
+legible 16px rather than kept at the temporary 12px floor tried mid-session
+— real destinations are short enough after the reduction that the lower
+floor is no longer needed as a matter of course.
+
+**Teardown — confirmed, not just enabled.** `sudo systemctl start
+skypane-poll.timer` was run, `is-active` returned `active`, and a real
+poll cycle appeared afterward in the journal (`Finished
+skypane-poll.service`, held state on the last known aircraft — no fresh
+ADS-B contact during the exact restart window, which is itself normal
+between contacts). Live detection is confirmed resumed, not just the unit
+enabled.
+
+**Every correction applied in session, before → after → reason:**
+
+| Change | Before | After | Reason |
+|---|---|---|---|
+| Band text ink colour | White only when `band_idx == IDX_BLACK` | White unconditionally for any band theme | Black text was illegible on Blue and Green too on real ink, not just Black as the spike anticipated |
+| Main card dash width | 24px | 48px | Read as "tout short" on real ink |
+| Band text centre-x anchor | Computed once at the block's top y | Computed once at the block's vertical midpoint | Lower lines visibly drifted from the band's true centreline as the trapezoid narrows going down |
+| Band text roles' fit mechanism | None — fixed size regardless of content length | `_role_fit_text_size()`/new `_role_fit_tracked_text_size()`, same as every other active-state role | A long real name overflowed; every other text role already shrinks to fit |
+| Band text fit constraint | `SAFE_BOX`'s width (~1072px) | The band's own width at each line's actual y (`_band_edges()`) | Text fit within the canvas but still overflowed the band itself; white ink past the band's edge is invisible on White, not clipped |
+| `BAND_MAIN_ROUTE_MIN_SIZE` | 16px (original) → 12px (mid-session) → | 16px (reverted) | 12px was a stopgap for an extreme name; the real fix (data-side shortening) made the lower floor unnecessary |
+| City name formatting | Full `municipality` field value shown as-is | `_primary_city_name()` reduces to the first `/`-separated segment before sentence-casing | Real compound municipality names ("Toulon/Hyeres/Le Palyvestre") don't fit any panel text role, and are noise beyond the primary city anyway |
+
+**Open items carried forward, not closed by this session:**
+- The frame's mounting state (desk vs. wall) was not asked about this
+  session — Step D's "reads as ambient art" verdict carries no wall-mounted
+  claim, unlike Phase 8's Step G.
+- The CLI's manual `--callsign` test path has no way to force an
+  `aircraft_type` value (no `--aircraft-type` flag exists), so the
+  airline·type line's " · {type}" suffix could not be exercised on real
+  glass this session — confirmed as a pre-existing test-tooling gap, not a
+  regression, by reading `plane/render.py`'s CLI argument construction
+  directly. Real production renders (fed by `detect.py`'s real ADS-B type
+  data) are unaffected.
+- The band-edge-aware fit correction was verified on `band_blue_light` at
+  one canvas position (below the aircraft); it was not individually
+  re-exercised on all 5 band colours with long names, only with the
+  original short fixtures.
+- `_primary_city_name()`'s "first segment before the first /" rule was
+  checked against 2 real airports found live this session
+  (Toulon-Hyères, Toulouse-Blagnac) plus Bordeaux-Mérignac by inference —
+  not exhaustively checked against every French/European airport
+  `api.adsbdb.com` might return a compound municipality for.
+
 ## Flashing Tooling
 
 `esptool` was installed via Homebrew (not pip), keeping Phase 1's
