@@ -177,11 +177,33 @@ _SEVERITY_BANNER_NOUNS = {"warn": "warning", "error": "error"}
 
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
 PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
-# Deliberately not "Battery trend" (render()'s section/tile caption for
-# this same content) — reusing that string would make every substring
-# assertion in the test harness ambiguous about which of the two it
-# matched (D-01).
-BATTERY_STATUS_LABEL = "Battery readings"
+
+# --- quick task 260902-gjj (ISSUE 2): D-01 reversal, recorded at the
+# removal site --------------------------------------------------------------
+#
+# RETIRED — BATTERY_STATUS_LABEL ("Battery readings", deliberately not
+# "Battery trend" so harness substring assertions stayed unambiguous
+# between the two, per D-01's own comment) and _battery_badge_block(),
+# both gone outright, not just hidden.
+#
+# 06.5-CONTEXT.md's D-01 asked for "a persistent status badge next to the
+# Battery Trend section heading, reusing the exact status_dot() pattern
+# the Device and Pipeline sections already render." Reading status_dot()
+# itself found its accessibility contract thinner than that ask implied:
+# it emits an EMPTY first span (no text node, no role, no aria-label, no
+# title — the state lives only in a CSS class mapped to a background
+# colour) plus a label naming only the SUBJECT being measured ("Battery
+# readings"), never the state itself. A screen-reader user got the word
+# "Battery readings" and nothing else; removing the badge loses no
+# programmatically-available state.
+#
+# The battery-trend section's own top edge carries the same
+# battery_status() verdict instead — D-01's own reference note already
+# expected "06.3's 3px top-border-by-status treatment" to apply to this
+# content, before 06.6.1-03 moved it out of .stat-tile and the
+# border-by-status treatment never followed. See
+# _battery_trend_section_html()'s docstring and companion/static/
+# style.css's .battery-trend-section comment for the fuller record.
 
 # 260902-chc: the hidden-by-default auto-refresh pill's visible copy
 # (Option B of the validated Health Auto-Refresh Sketch). The sketch's
@@ -1125,14 +1147,6 @@ def _pipeline_section(pipeline_ts, now):
     return row, state
 
 
-def _battery_badge_block(state):
-    # quick task 260902-bl2 (bug 2): same considered rejection as
-    # _registry_section()'s own comment — the sketch's status-dot-in-the-
-    # caption-row move was not made here either; see that function's
-    # comment for the full reasoning.
-    return '<p class="text-body">%s</p>' % layout.status_dot(state, BATTERY_STATUS_LABEL)
-
-
 def _latest_numeric_battery_reading(trend_rows):
     """The chronologically-latest reading's own `(millivolts, timestamp)`
     pair, scanning `trend_rows` (newest-first, `battery_trend_rows()`'s
@@ -1305,7 +1319,10 @@ def _battery_section(trend_rows):
     if trend_rows is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     if not trend_rows:
-        return _battery_badge_block("ok") + layout.empty_state(
+        # quick task 260902-gjj (ISSUE 2): no badge here any more — the
+        # card's own top edge carries this "ok" verdict instead, via
+        # _battery_trend_section_html()'s `state` argument.
+        return layout.empty_state(
             "No battery readings yet.",
             "No battery telemetry recorded yet — check back after the "
             "device's next poll."), "ok"
@@ -1357,9 +1374,14 @@ def _battery_section(trend_rows):
             + sparkline_html
             + '<script src="%s" defer></script>' % BATTERY_TREND_SCRIPT_SRC)
     # D-08: the chart (when present) comes before the collapsed table in
-    # both DOM and visual order — a reorder from the pre-06.6.3 shape
-    # (badge, table, chart).
-    return _battery_badge_block(state) + chart_block + disclosure_html, state
+    # both DOM and visual order.
+    #
+    # quick task 260902-gjj (ISSUE 2): the badge that used to lead this
+    # return value is retired (see the D-01 reversal record above
+    # BATTERY_STATUS_LABEL's old home) — this card's status is now
+    # carried entirely by _battery_trend_section_html()'s own status
+    # modifier, driven by `state` below.
+    return chart_block + disclosure_html, state
 
 
 def _corroboration_details_html():
@@ -1616,17 +1638,19 @@ def _registry_section(rows, now):
     # quick task 260902-bl2 (bug 2): the validated Merged Health Sketch
     # places this card's status dot inside its card-title row, as a
     # space-between flex pair (the sketch's `.wide-card__caption` role).
-    # This function deliberately keeps the dot as its own line below the
-    # heading instead: the developer's finding here was about spacing,
-    # the spacing is now the sketch's (see the `.page-section--nested >
-    # h2` demotion rule's margin-bottom, style.css), and moving the dot
-    # would restructure three cards (this one, Battery trend, and by
-    # symmetry any future migration), introduce a new flex heading
-    # treatment, and retarget several harness checks — for a change
-    # nobody asked for. Recorded here as a considered rejection, not an
-    # omission a later "finish matching the sketch" edit should silently
-    # fill in.
-    status_html = layout.status_dot(coverage_status(rows), "Coverage")
+    # This function used to keep the dot as its own line below the
+    # heading instead, on the finding that the developer's complaint here
+    # was about spacing, not placement — the spacing is now the sketch's
+    # (see the `.page-section--nested > h2` demotion rule's
+    # margin-bottom, style.css). That earlier rejection is now partly
+    # obsolete: quick task 260902-gjj removes the dot entirely (see the
+    # D-01 reversal record above BATTERY_STATUS_LABEL's old home for the
+    # accessibility finding that licensed the removal for both this card
+    # and Battery trend), so there is no dot left to place in the
+    # card-title row either. The card's own top edge now carries this
+    # coverage_status() verdict instead, composed at this function's
+    # call site in render().
+    #
     # quick task 260902-gjj (ISSUE 1): composes `section-caption` onto this
     # note's existing `text-body` sizing class, the same fix
     # `_battery_trend_section_html()` applies to its own trailing span —
@@ -1635,8 +1659,7 @@ def _registry_section(rows, now):
     # Body size, and dropping it to Label size would be an unrequested
     # size change that would also disagree with the sibling prose in this
     # same card region.
-    note_html = '<p class="text-body section-caption">%s</p>' % escape_html(_READ_ONLY_NOTE)
-    header_html = '<p class="text-body">%s</p>' % status_html + note_html
+    header_html = '<p class="text-body section-caption">%s</p>' % escape_html(_READ_ONLY_NOTE)
 
     if not rows:
         return header_html + layout.empty_state(_NO_GAPS_HEADING, _NO_GAPS_BODY)

@@ -199,7 +199,12 @@ STARTUP_DEADLINE_S = 10.0
 # modifier off battery_status()/coverage_status()'s own real value, the
 # Resolution-statistics card carries none, and every doubled-form status
 # selector sits after its own component's hover rule in source order).
-EXPECTED_CHECK_COUNT = 98  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+# 98 + 1 (quick task 260902-gjj Task 2 Commit B: the two dot removals are
+# scoped to the battery-trend/Unresolved-prefixes cards — the surviving
+# Corroboration dots are asserted present, not just the two removals
+# asserted absent — and BATTERY_STATUS_LABEL/_battery_badge_block are
+# both confirmed retired via hasattr).
+EXPECTED_CHECK_COUNT = 99  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -497,19 +502,20 @@ def main():
                     "expected the Pipeline tile's wrapper to carry the ok modifier "
                     "(just-seeded META_LAST_PIPELINE_RUN is fresh), got %r" % pipeline_tile_tag)
 
-            # The dots that legitimately remain, in this fixture: the
-            # Battery badge (D-01) — a single seeded reading has no
-            # consecutive pair to compare, so battery_status() correctly
-            # returns "ok" — and the migrated registry card's own
-            # Coverage dot (06.6.4.1-04, D-11), "ok" since this fixture
-            # seeds no registry entries. Device/Pipeline contribute no
-            # dot class of their own any more (finding C).
-            if rendered.count("dot--ok") != 2:
+            # quick task 260902-gjj (ISSUE 2): retargeted — the Battery
+            # badge and the registry card's own Coverage dot, the two
+            # dots this fixture used to carry, are both retired outright
+            # (their state now lives on each card's own top edge
+            # instead). This fixture seeds no Corroboration rows either
+            # (the only surviving dot consumer), so NO dot classes of any
+            # colour should remain anywhere on the page — re-derived from
+            # this fixture's own seeded data, not adjusted by a fixed
+            # offset.
+            if rendered.count("dot--ok") != 0 or "dot--warn" in rendered or "dot--error" in rendered:
                 return False, (
-                    "expected exactly two healthy status classes "
-                    "(battery badge + registry coverage), got %d" % rendered.count("dot--ok"))
-            if "dot--warn" in rendered or "dot--error" in rendered:
-                return False, "did not expect any dot--warn/dot--error class in this fixture"
+                    "expected zero dot classes of any colour in this fixture (no Corroboration "
+                    "rows seeded, and both the battery/registry dots are retired), got dot--ok=%d"
+                    % rendered.count("dot--ok"))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -946,7 +952,7 @@ def main():
         "both the rendered page and the module itself (260902-chc)",
         _health_pill_reversal_guard)
 
-    def _battery_badge_present_and_healthy_on_normal_trend():
+    def _battery_section_healthy_card_border_on_normal_trend():
         tmp = _mkstate("h-battery-badge-ok")
         try:
             now = _now()
@@ -957,21 +963,24 @@ def main():
             _seed_device_health(tmp, readings)
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if health_page.BATTERY_STATUS_LABEL not in rendered:
-                return False, "expected the battery status badge label to appear"
-            # quick task 260901-tsa (finding C): only two dots remain in
-            # this fixture — the Device/Pipeline tiles no longer carry an
-            # in-body status_dot() of their own, so this fixture's four
-            # healthy signals (device, pipeline, battery, registry
-            # coverage) are now carried by two dots (battery badge +
-            # registry coverage) plus two stat-tile modifiers (Device/
-            # Pipeline, asserted directly below) rather than four dots.
-            if rendered.count("dot--ok") != 2:
+            # quick task 260902-gjj (ISSUE 2): retargeted — the badge
+            # this check used to look for is retired. The card's own top
+            # edge now carries the healthy verdict instead.
+            battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+            battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
+            if "battery-trend-section--ok" not in battery_tag:
                 return False, (
-                    "expected exactly two healthy status classes "
-                    "(battery badge + registry coverage), got %d" % rendered.count("dot--ok"))
-            if "dot--warn" in rendered or "dot--error" in rendered:
-                return False, "did not expect any non-healthy status class in this fixture"
+                    "expected the battery-trend section's own tag to carry the ok status "
+                    "modifier, got %r" % battery_tag)
+            # quick task 260901-tsa (finding C) / 260902-gjj: no dot of any
+            # colour should remain in this fixture — Device/Pipeline lost
+            # theirs under finding C, and the battery/registry badges are
+            # now retired outright (260902-gjj); no Corroboration rows are
+            # seeded either.
+            if rendered.count("dot--ok") != 0 or "dot--warn" in rendered or "dot--error" in rendered:
+                return False, (
+                    "expected zero dot classes of any colour in this fixture, got dot--ok=%d"
+                    % rendered.count("dot--ok"))
             for label, expect_class in (
                     (health_page.DEVICE_FRESHNESS_LABEL, "stat-tile--ok"),
                     (health_page.PIPELINE_FRESHNESS_LABEL, "stat-tile--ok")):
@@ -986,8 +995,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Battery trend renders a healthy status_dot() badge on a normal trend (D-01)",
-        _battery_badge_present_and_healthy_on_normal_trend)
+        "Battery trend renders a healthy status-coloured card border on a normal trend, in place of the "
+        "retired status_dot() badge (D-01 reversal, quick task 260902-gjj)",
+        _battery_section_healthy_card_border_on_normal_trend)
 
     def _battery_empty_history_ok_badge_no_anomaly_banner():
         # 06.5-RESEARCH.md Pitfall 2: the empty-history branch must stay
@@ -1001,10 +1011,17 @@ def main():
         markup, state = health_page._battery_section([])
         if state != "ok":
             return False, "expected _battery_section([]) to return state 'ok', got %r" % (state,)
-        if health_page.BATTERY_STATUS_LABEL not in markup:
-            return False, "expected the battery status badge label in the empty-history markup"
-        if "dot--error" in markup or "dot--warn" in markup:
-            return False, "did not expect a non-healthy status class in the empty-history markup"
+        # quick task 260902-gjj (ISSUE 2): retargeted — the badge label
+        # this check used to require is retired outright (hasattr, not a
+        # source grep, per this file's own precedent — see the dedicated
+        # retirement check below); a real positive replaces it: the
+        # empty-state heading this branch renders instead.
+        if "No battery readings yet." not in markup:
+            return False, "expected the empty-history empty-state heading in the markup"
+        if "dot--error" in markup or "dot--warn" in markup or "dot--ok" in markup:
+            return False, (
+                "did not expect any status-dot class in the empty-history markup — the badge "
+                "is retired; this card's status now lives on its wrapping section's own edge")
         # Page-level proof that a fresh device with no meaningful battery
         # readings (device/pipeline both healthy, no drop possible) never
         # surfaces the abnormal-drop anomaly or the banner it drives —
@@ -1020,6 +1037,12 @@ def main():
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
             if "dot--error" in rendered:
                 return False, "did not expect an error status class with a single battery reading"
+            battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+            battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
+            if "battery-trend-section--ok" not in battery_tag:
+                return False, (
+                    "expected the battery-trend section's own tag to carry the ok status "
+                    "modifier with a single, healthy battery reading, got %r" % battery_tag)
             if health_page.ANOMALY_BANNER_TEXT in rendered:
                 return False, "did not expect the anomaly banner with a single, healthy battery reading"
             if "A battery reading shows an abnormal drop." in rendered:
@@ -1048,8 +1071,17 @@ def main():
             _seed_device_health(tmp, readings)
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if "dot--error" not in rendered:
-                return False, "expected an error status class for a drop >= BATTERY_DROP_WARN_MV"
+            # quick task 260902-gjj (ISSUE 2): retargeted onto the battery
+            # card's own error modifier — the "dot--error" badge this
+            # check used to look for is retired outright; this is the
+            # BREAKS-LOUDLY retarget the plan calls for, not a silent
+            # pass-through.
+            battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+            battery_tag = rendered[battery_open:rendered.index(">", battery_open) + 1]
+            if "battery-trend-section--error" not in battery_tag:
+                return False, (
+                    "expected the battery-trend section's own tag to carry the error status "
+                    "modifier for a drop >= BATTERY_DROP_WARN_MV, got %r" % battery_tag)
             count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
             if count != 1:
                 return False, "expected the anomaly banner copy exactly once, found %d" % count
@@ -1062,7 +1094,8 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "a real battery drop drives both the badge (error) and the banner; the detail copy is no longer rendered",
+        "a real battery drop drives both the card's own error border (retargeted from the retired badge, "
+        "quick task 260902-gjj) and the banner; the detail copy is no longer rendered",
         _battery_drop_drives_badge_and_banner_detail_copy_not_rendered)
 
     def _anomaly_detail_list_markup_is_gone():
@@ -2182,8 +2215,12 @@ def main():
             rendered = health_page.render(_ctx(tmp, now=_iso(base)))
             if ">%s<" % health_page.BATTERY_SECTION_HEADING not in rendered:
                 return False, "expected BATTERY_SECTION_HEADING inside an <h2>"
-            if health_page.BATTERY_STATUS_LABEL not in rendered:
-                return False, "expected the battery status badge label to survive the move"
+            # quick task 260902-gjj (ISSUE 2): retargeted — the badge
+            # label this check used to require survived the D-02 move; it
+            # is now retired outright, and the card's own status-modifier
+            # class is what survives the move instead.
+            if "battery-trend-section--ok" not in rendered:
+                return False, "expected the battery-trend section's own healthy status modifier to survive the move"
             if health_page.BATTERY_READOUT_ID not in rendered:
                 return False, "expected the readout element id to survive the move"
             if rendered.count("<script") != 1:
@@ -2209,7 +2246,8 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the battery-trend section keeps its badge, readout, and single script tag after moving out of the grid",
+        "the battery-trend section keeps its own status modifier (retargeted from the retired badge, quick "
+        "task 260902-gjj), readout, and single script tag after moving out of the grid",
         _battery_section_keeps_everything_after_the_move)
 
     def _battery_readout_precedes_chart_class_list_and_live_region():
@@ -2415,6 +2453,66 @@ def main():
         "survives hover and keyboard focus rather than losing to the hover shorthand (quick task "
         "260902-gjj, ISSUE 2)",
         _card_status_modifiers_survive_hover_source_order)
+
+    def _quick_260902_gjj_dot_removal_scoped_not_global():
+        # quick task 260902-gjj (ISSUE 2): proves the two dot removals are
+        # SCOPED to the battery-trend and Unresolved-prefixes cards, not a
+        # global regression that happens to also strip the three
+        # surviving Corroboration dots. Without the third (positive)
+        # assertion below, the first two (negative) assertions would pass
+        # even if status_dot() itself had been broken everywhere — the
+        # exact vacuous-pass failure mode this task's own plan warns
+        # about.
+        tmp = _mkstate("h-dot-removal-scoped")
+        try:
+            now = _now()
+            readings = [
+                (_iso(now - timedelta(minutes=1)), 4200),
+                (_iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
+            ]
+            _seed_device_health(tmp, readings)
+            _seed_unresolved_prefixes(tmp, {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            _seed_runway_events(tmp, [{"ts": _iso(now), "hex": "abc123", "corroborated": True}])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+
+            battery_open = rendered.index('<section class="%s' % health_page.BATTERY_SECTION_CLASS)
+            battery_close = rendered.index("</section>", battery_open) + len("</section>")
+            battery_slice = rendered[battery_open:battery_close]
+            if "dot-label" in battery_slice:
+                return False, "the battery-trend card must render no dot-label — its own badge is retired"
+
+            registry_heading_at = rendered.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
+            registry_open = rendered.rindex('<section class="', 0, registry_heading_at)
+            registry_close = rendered.index("</section>", registry_open) + len("</section>")
+            registry_slice = rendered[registry_open:registry_close]
+            if "dot-label" in registry_slice:
+                return False, "the Unresolved-prefixes card must render no dot-label — its own dot is retired"
+
+            corrob_at = rendered.index(">Corroboration<")
+            corrob_open = rendered.rindex('<div class="stat-tile ', 0, corrob_at)
+            corrob_close = rendered.index("</div>", corrob_open) + len("</div>")
+            corrob_slice = rendered[corrob_open:corrob_close]
+            if "dot-label" not in corrob_slice:
+                return False, (
+                    "expected the Corroboration tile's own dots to survive untouched — this check "
+                    "must fail if status_dot() itself breaks, not only if the two removals are wrong")
+
+            if hasattr(health_page, "BATTERY_STATUS_LABEL"):
+                return False, "expected health_page to no longer define the retired BATTERY_STATUS_LABEL"
+            if hasattr(health_page, "_battery_badge_block"):
+                return False, "expected health_page to no longer define the retired _battery_badge_block"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the battery-trend and Unresolved-prefixes cards render no dot-label anywhere inside their own "
+        "boundaries, the Corroboration tile's three dots survive untouched (proving the removal is scoped, "
+        "not global), and BATTERY_STATUS_LABEL/_battery_badge_block are both gone via hasattr, never a "
+        "source grep (quick task 260902-gjj, ISSUE 2)",
+        _quick_260902_gjj_dot_removal_scoped_not_global)
 
     def _quick_260901_tsa_css_dom_contract_guard():
         # quick task 260901-tsa (Check 5): the cross-file guard for
@@ -2707,7 +2805,17 @@ def main():
         # stylesheet half (the demotion rule's longhand margin-bottom, the
         # prose rhythm rule's selector list/declaration, and its position
         # after the heading rule in source order).
-        allowed = ('<p class="text-body">', "<div ", "<details", "<svg ")
+        # quick task 260902-gjj (ISSUE 1/2): two members added in place —
+        # the registry's read-only note now composes section-caption
+        # onto text-body, so its own opening tag no longer matches the
+        # bare '<p class="text-body">' prefix; and with the battery
+        # badge retired, the battery-trend section's own next element (on
+        # the seeded/chart-present branch) is the readout paragraph
+        # (`<p id="battery-readout" ...>`), not a `<p class="text-body">`
+        # badge any more.
+        allowed = (
+            '<p class="text-body">', '<p class="text-body section-caption">',
+            '<p id="%s"' % health_page.BATTERY_READOUT_ID, "<div ", "<details", "<svg ")
         for seeded in (False, True):
             tmp = _mkstate("h-card-rhythm-%s" % seeded)
             try:
