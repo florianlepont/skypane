@@ -264,19 +264,38 @@ THEMES = {
 # current TOP_RIGHT_TAG_TEXT/EMPTY_HEADING_TEXT so the default render is
 # unchanged; the "06-24"/"02-20" entries use the same "ORY · RWY ..."/
 # "Watching Runway ..." shape with the U+00B7 middle-dot separator.
+#
+# Quick task 260902-j21 (2026-09-02): each `label` now carries only the
+# runway number Orly's own signage and runway-works documentation use
+# ("Piste N"), sourced from the official Aeroport de Paris runway-works
+# diagram the developer supplied - superseding the prior heading-pair
+# labels ("Runway 3 (07/25)", "Runway 06/24", "Runway 02/20") quoted here
+# for context only. The mapping is NOT inferable from the keys, so it is
+# recorded explicitly: key "3" (DEFAULT_RUNWAY_ID) -> Piste 3 (07-25), key
+# "06-24" -> Piste 4, key "02-20" -> Piste 2. The dict KEYS themselves are
+# deliberately unchanged - they are the persisted `tracked_runway` value in
+# device_config.json, the membership set RUNWAY_IDS validates against, the
+# CFG-12 consistency check against adsb-test/runway3.json noted above, and
+# the filename stem the companion/static/RUNWAY-IMAGES.md `runway-{id}.png`
+# drop-in contract keys off of - renaming any of them would silently orphan
+# the matching diagram asset. `tag_text`/`empty_heading` are deliberately
+# left in their existing English airport-board voice: they render onto the
+# physical Spectra 6 panel via server/plane/render.py's runway_tag_text()/
+# runway_empty_heading(), a separate design surface nobody asked to change.
+# The French "Piste" vocabulary is scoped to the companion web picker alone.
 RUNWAYS = {
     "3": {
-        "label": "Runway 3 (07/25)",
+        "label": "Piste 3",
         "tag_text": "ORY · RWY 3",
         "empty_heading": "Watching Runway 3",
     },
     "06-24": {
-        "label": "Runway 06/24",
+        "label": "Piste 4",
         "tag_text": "ORY · RWY 06/24",
         "empty_heading": "Watching Runway 06/24",
     },
     "02-20": {
-        "label": "Runway 02/20",
+        "label": "Piste 2",
         "tag_text": "ORY · RWY 02/20",
         "empty_heading": "Watching Runway 02/20",
     },
