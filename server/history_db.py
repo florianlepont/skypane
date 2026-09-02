@@ -272,6 +272,72 @@ def latest_device_health(conn):
     return dict(row) if row is not None else None
 
 
+def daily_battery_averages(conn, since=None):
+    """(260902-l0b) One row per UTC calendar day that has at least one
+    numeric battery reading, newest day first: `{"ts": "YYYY-MM-DD",
+    "battery_mv": <int>, "reading_count": <int>}`.
+
+    The key is deliberately named `ts`, not `day` - it makes these rows
+    structurally interchangeable with `recent_device_health()`'s rows for
+    `battery_sparkline_svg()`, which reads exactly `battery_mv` and `ts`
+    off whatever it is given. One plotting function, one row contract, no
+    adapter layer.
+
+    `battery_mv` is `AVG(battery_mv)` rounded to the nearest integer in
+    Python (`int(round(...))`, never in SQL) - `reading_count` is how many
+    rows contributed to that average.
+
+    Four facts, verified against a real SQLite connection during planning
+    (re-verify before trusting, a stored `ts` is attacker-influenceable -
+    see `tail_caddy_battery_log()` below):
+    - `date(ts)` converts an offset timestamp to UTC *before* taking the
+      calendar day (`2026-09-02T01:30:00+02:00` -> `"2026-09-01"`), so
+      buckets are UTC days - consistent with every other timestamp on the
+      Health page, which is labelled UTC. Every other timestamp shape the
+      writer produces (naive, `Z`-suffixed, space-separated, fractional
+      seconds) parses the same way.
+    - `date()` returns NULL for an unparseable string. `ts` in this table
+      is `TEXT NOT NULL` but not otherwise validated - `tail_caddy_battery_log()`
+      stores whatever string sits in a Caddy access-log entry's own `ts`
+      field, so a hostile or malformed value can reach this column. The
+      query filters `date(ts) IS NOT NULL` so such a row forms no bucket
+      at all, rather than a phantom NULL-keyed day.
+    - `AVG()` already ignores NULL inputs on its own, but the explicit
+      `battery_mv IS NOT NULL` filter is kept anyway: without it, a day
+      with only NULL-battery rows would still form a bucket (an `AVG` of
+      nothing is NULL, which the `int(round(...))` cast would then choke
+      on), and `reading_count` needs to mean "readings that contributed to
+      this average", not "rows recorded on this day".
+    - This is a read. D-13's keep-forever retention is untouched here or
+      anywhere - `since`, like `BATTERY_TREND_LIMIT` elsewhere in this
+      codebase, is a display window, never a retention bound. Nothing is
+      deleted.
+
+    Two literal-string branches, `?`-parameterised, mirroring
+    `route_source_counts()`/`corroboration_counts()` above. The `since`
+    cutoff compares `ts` directly against the placeholder - never a
+    `date()` call wrapped around the left-hand side, which would discard
+    `idx_device_health_ts`.
+    """
+    if since is not None:
+        rows = conn.execute(
+            "SELECT date(ts) AS day, AVG(battery_mv) AS avg_mv, COUNT(*) AS n "
+            "FROM device_health WHERE ts >= ? AND battery_mv IS NOT NULL "
+            "AND date(ts) IS NOT NULL GROUP BY date(ts) ORDER BY day DESC",
+            (since,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT date(ts) AS day, AVG(battery_mv) AS avg_mv, COUNT(*) AS n "
+            "FROM device_health WHERE battery_mv IS NOT NULL "
+            "AND date(ts) IS NOT NULL GROUP BY date(ts) ORDER BY day DESC"
+        ).fetchall()
+    return [
+        {"ts": row["day"], "battery_mv": int(round(row["avg_mv"])), "reading_count": row["n"]}
+        for row in rows
+    ]
+
+
 def get_meta(conn, key):
     row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
     return row["value"] if row is not None else None
