@@ -66,7 +66,12 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 45  # 44 + 1 (quick task 260902-w4t Task 1, UIR-05:
+EXPECTED_CHECK_COUNT = 46  # 45 + 1 (quick task 260902-w4t Task 2, UIR-06:
+# _hex_only_row_promotes_hex_to_primary - a callsign-less row with a hex
+# promotes the hex into the primary slot on both the desktop cell and
+# the mobile card, with a no-copy-button "no callsign" note, and a row
+# with neither callsign nor hex renders without raising).
+# 45 = 44 + 1 (quick task 260902-w4t Task 1, UIR-05:
 # _airline_fallback_distinct_from_route_fallback - a no-airline row's
 # AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT are distinct strings in
 # distinct columns, and the unresolved-link's UNRESOLVED_LINK_CLASS is
@@ -1556,6 +1561,76 @@ def main():
         "strings in two distinct columns, and the unresolved-link's spacing class is styled in "
         "style.css and present in the rendered anchor (quick task 260902-w4t, UIR-05)",
         _airline_fallback_distinct_from_route_fallback)
+
+    def _hex_only_row_promotes_hex_to_primary():
+        # quick task 260902-w4t (UIR-06): a callsign-less row must never
+        # render a dead copy button on a blank primary value. When a hex
+        # is present it is promoted to the primary slot (desktop cell
+        # AND mobile card primary line), with a "no callsign" secondary
+        # note carrying NO copy button of its own. When both callsign
+        # and hex are absent, render() must not raise and the cell must
+        # carry zero copy buttons.
+        tmp = _mkstate("h-hex-only")
+        try:
+            _seed_runway_events(tmp, [
+                # Row 0 (newest, ts sorts DESC): hex only, no callsign.
+                {"ts": "2026-08-27T10:02:00+00:00", "hex": "34560d"},
+                # Row 1: neither callsign nor hex.
+                {"ts": "2026-08-27T10:01:00+00:00"},
+                # Row 2: callsign present, no hex - unaffected control.
+                {"ts": "2026-08-27T10:00:00+00:00", "callsign": "CTRL01"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+
+            # Row 0: hex-only, desktop.
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for the hex-only row"
+            if '<span class="cell-primary">34560d</span>' not in tr_block:
+                return False, "expected the desktop cell's primary slot to carry the hex"
+            if ('<span class="cell-secondary">%s</span>'
+                    % history_page.NO_CALLSIGN_NOTE_TEXT) not in tr_block:
+                return False, "expected the desktop cell's secondary slot to carry the no-callsign note"
+            if tr_block.count("data-copy-value") != 1:
+                return False, (
+                    "expected exactly 1 copy button in the hex-only desktop cell, got %d"
+                    % tr_block.count("data-copy-value"))
+            if 'data-copy-value="34560d"' not in tr_block:
+                return False, "expected the lone copy button to copy the hex value"
+
+            # Row 0: hex-only, mobile primary line (never blank).
+            if '<span class="cell-primary mono">34560d</span>' not in li_block:
+                return False, "expected the mobile card's primary line to carry the hex"
+            if ('<span class="cell-secondary">%s</span>'
+                    % history_page.NO_CALLSIGN_NOTE_TEXT) not in li_block:
+                return False, "expected the mobile card's primary line to carry the no-callsign note"
+
+            # Row 1: both falsy - no crash, zero copy buttons in that cell.
+            tr_block_1 = _row_block(rendered, "tr", 1)
+            if tr_block_1 is None:
+                return False, "could not locate row block for the both-falsy row"
+            callsign_hex_td = re.search(r"<td>(.*?)</td>", tr_block_1, re.S)
+            if callsign_hex_td is None:
+                return False, "expected a <td> for the both-falsy row's Callsign+Hex cell"
+            if callsign_hex_td.group(1).count("data-copy-value") != 0:
+                return False, "expected zero copy buttons in the both-falsy Callsign+Hex cell"
+
+            # Row 2 (control): callsign-present branch is unaffected.
+            tr_block_2 = _row_block(rendered, "tr", 2)
+            if tr_block_2 is None or "CTRL01" not in tr_block_2:
+                return False, "expected the control row's callsign to render unchanged"
+            if history_page.NO_CALLSIGN_NOTE_TEXT in tr_block_2:
+                return False, "did not expect the no-callsign note on a row with a callsign"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a callsign-less row with a hex promotes the hex to the primary slot (desktop cell and "
+        "mobile card) with a no-copy-button 'no callsign' note, a callsign+hex row is unaffected, "
+        "and a row with neither renders without raising and with zero copy buttons "
+        "(quick task 260902-w4t, UIR-06)",
+        _hex_only_row_promotes_hex_to_primary)
 
     def _unresolved_link_href_matches_health_anchor():
         expected_suffix = "#" + health_page.SERVER_DATA_SECTION_ID

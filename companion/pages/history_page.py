@@ -287,6 +287,12 @@ _COPY_CALLSIGN_LABEL = "Copy callsign"
 _COPY_HEX_LABEL = "Copy hex ID"
 _COPY_TIMESTAMP_LABEL = "Copy timestamp"
 
+# quick task 260902-w4t (UIR-06): the presentational note shown beside a
+# promoted hex when a row has no callsign - a module-level constant so
+# the desktop cell (_callsign_hex_cell()) and the mobile card
+# (_history_cards_html()) cannot drift onto two different wordings.
+NO_CALLSIGN_NOTE_TEXT = "no callsign"
+
 # D-20: the per-row "View panel near this time" lookup and its shared
 # lightbox. VIEW_PANEL_LABEL is verbatim from D-20. LIGHTBOX_DIALOG_ID,
 # and the three data-view-panel-* attribute names below, must equal
@@ -613,15 +619,40 @@ def _callsign_hex_cell(callsign, hex_value):
     rather than a `_merged_cell()` parameter specifically so the
     Type+Airline column (which also calls `_merged_cell()`) never gains
     copy buttons — the two columns must not share this behaviour.
+
+    Three branches (quick task 260902-w4t, UIR-06):
+    - `callsign` truthy: unchanged from before this task — the primary
+      slot carries the callsign, and when `hex_value` is also present it
+      follows as a secondary value with its own copy button.
+    - `callsign` falsy, `hex_value` truthy: the hex is promoted into the
+      primary slot (reusing the exact same `_copy_button_html(hex_value,
+      _COPY_HEX_LABEL)` call the secondary path above already makes —
+      not a second, re-typed call) so the cell is never left with a
+      blank primary value and a dead copy button. A `NO_CALLSIGN_NOTE_TEXT`
+      secondary note follows, with NO copy button of its own: it is
+      presentational text, not data there is anything to copy.
+    - both falsy: an empty primary span, no copy button, no separator,
+      no secondary — a button that would copy `""` is exactly the dead
+      affordance UIR-06 reported, so this branch emits none of it.
     """
-    html = '<span class="%s">%s</span>%s' % (
-        CELL_PRIMARY_CLASS, escape_html(callsign),
-        _copy_button_html(callsign, _COPY_CALLSIGN_LABEL))
-    if hex_value:
-        html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
-            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
-            CELL_SECONDARY_CLASS, escape_html(hex_value),
+    if callsign:
+        html = '<span class="%s">%s</span>%s' % (
+            CELL_PRIMARY_CLASS, escape_html(callsign),
+            _copy_button_html(callsign, _COPY_CALLSIGN_LABEL))
+        if hex_value:
+            html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
+                CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+                CELL_SECONDARY_CLASS, escape_html(hex_value),
+                _copy_button_html(hex_value, _COPY_HEX_LABEL))
+    elif hex_value:
+        html = '<span class="%s">%s</span>%s' % (
+            CELL_PRIMARY_CLASS, escape_html(hex_value),
             _copy_button_html(hex_value, _COPY_HEX_LABEL))
+        html += '<span class="%s">%s</span><span class="%s">%s</span>' % (
+            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+            CELL_SECONDARY_CLASS, escape_html(NO_CALLSIGN_NOTE_TEXT))
+    else:
+        html = '<span class="%s"></span>' % CELL_PRIMARY_CLASS
     return "<td>%s</td>" % html
 
 
@@ -777,13 +808,31 @@ def _history_cards_html(formatted_rows, now=None):
         # safe markup, or "" for a row with no nearest render) follows
         # the time span - the exact same value the desktop cell above
         # carries for this same row (render() computes it once per row).
+        #
+        # quick task 260902-w4t (UIR-06): mirrors _callsign_hex_cell()'s
+        # desktop hex-only branch exactly — when this row has no
+        # callsign but does have a hex, the primary slot carries the hex
+        # (never left blank) and a NO_CALLSIGN_NOTE_TEXT secondary note
+        # follows it, before the time span. A future edit to one branch
+        # is visibly obliged to touch the other.
+        if row["callsign"]:
+            primary_value_html = (
+                '<span class="cell-primary mono">%s</span>'
+                % escape_html(row["callsign"]))
+        elif row["hex"]:
+            primary_value_html = (
+                '<span class="cell-primary mono">%s</span>'
+                '<span class="cell-secondary">%s</span>'
+            ) % (escape_html(row["hex"]), escape_html(NO_CALLSIGN_NOTE_TEXT))
+        else:
+            primary_value_html = '<span class="cell-primary mono"></span>'
         primary = (
             '<div class="history-card__primary">'
-            '<span class="cell-primary mono">%s</span>'
+            "%s"
             '<span class="history-card__time">%s</span>%s'
             "</div>"
         ) % (
-            escape_html(row["callsign"]),
+            primary_value_html,
             layout.concise_timestamp_html(row["raw_ts"], now),
             row.get("view_panel_html", ""),
         )
