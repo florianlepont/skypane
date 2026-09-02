@@ -22,12 +22,16 @@ server/poll_loop.py's save_poll_state() — never a committed fixture file,
 so this harness cannot drift from the schema those modules define.
 
 Stdlib-only (datetime, os, shutil, socket, sqlite3, subprocess, sys,
-tempfile, time, urllib). No pytest.
+tempfile, time, urllib), plus Pillow (already a server dependency,
+transitively imported via server.plane.render) — added by quick task
+260902-req-02 for companion/illustration_normalize.py's own PNG-decoding
+checks below. No pytest.
 
 Usage:
     server/.venv/bin/python3 companion/test_status_pages.py
 """
 import inspect
+import io
 import os
 import re
 import shutil
@@ -41,16 +45,19 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+from PIL import Image
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import companion.app as app  # noqa: E402
-from companion import auth, layout  # noqa: E402
+from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import airlines_page, health_page  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import illustrations  # noqa: E402
+from server.plane import render as panel_render  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 TEST_PASSWORD = "status-pages-test-password-please-ignore"
@@ -243,7 +250,7 @@ STARTUP_DEADLINE_S = 10.0
 # gated property from different angles). battery_sparkline_svg()'s
 # widened signature (a third, defaulted `daily` parameter) needed no gate
 # retarget — no pre-existing check pinned its arity.
-EXPECTED_CHECK_COUNT = 106  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining)
+EXPECTED_CHECK_COUNT = 110  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks)
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -4252,6 +4259,103 @@ def main():
         "own literal value — this guard's failure mode is silence, so this check is the only thing "
         "that would notice a drift",
         _quick_260902_chc_skip_guard_cross_file_contract)
+
+    # ======================================================================
+    # Section 1.5: companion/illustration_normalize.py — the shared
+    # opaque-bbox normalization helper (quick task 260902-req-02 Task 1,
+    # sibling to plan 01's panel-side server/plane/render.py fix). All
+    # checks below iterate the real vendored files under
+    # illustrations.ILLUSTRATION_DIR — the same "real project assets, not
+    # synthetic fixtures" discipline server/test_render.py already uses —
+    # except the None-bbox fallback check, which needs a synthetic
+    # fully-transparent source (no vendored file has a None opaque bbox).
+    # ======================================================================
+
+    _VENDORED_ILLUSTRATION_PATHS = [
+        os.path.join(illustrations.ILLUSTRATION_DIR, filename)
+        for filename in illustrations.target_filenames()
+    ]
+
+    def _all_43_normalized_outputs_share_identical_pixel_dimensions():
+        if len(_VENDORED_ILLUSTRATION_PATHS) != 43:
+            return False, "expected 43 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_PATHS)
+        for path in _VENDORED_ILLUSTRATION_PATHS:
+            png_bytes = illustration_normalize.normalized_png_bytes(path)
+            with Image.open(io.BytesIO(png_bytes)) as out:
+                if out.size != illustration_normalize.ILLUSTRATION_TARGET_SIZE:
+                    return False, "%s normalized to %r, expected %r" % (
+                        os.path.basename(path), out.size, illustration_normalize.ILLUSTRATION_TARGET_SIZE)
+        return True, ""
+    check(
+        "all 43 vendored illustrations normalize to the exact same pixel dimensions "
+        "(illustration_normalize.ILLUSTRATION_TARGET_SIZE)",
+        _all_43_normalized_outputs_share_identical_pixel_dimensions)
+
+    def _all_43_normalized_outputs_are_centred_and_unclipped():
+        target_w, target_h = illustration_normalize.ILLUSTRATION_TARGET_SIZE
+        for path in _VENDORED_ILLUSTRATION_PATHS:
+            png_bytes = illustration_normalize.normalized_png_bytes(path)
+            with Image.open(io.BytesIO(png_bytes)) as out:
+                out_rgba = out.convert("RGBA")
+            bbox = panel_render._opaque_bbox(out_rgba)
+            if bbox is None:
+                return False, "%s: normalized output has no opaque bbox at all" % os.path.basename(path)
+            left, top, right, bottom = bbox
+            if left < 0 or top < 0 or right > target_w or bottom > target_h:
+                return False, "%s: painted bbox %r is not fully inside the %dx%d output" % (
+                    os.path.basename(path), bbox, target_w, target_h)
+            centre_x, centre_y = (left + right) / 2.0, (top + bottom) / 2.0
+            if abs(centre_x - target_w / 2.0) > 1.0:
+                return False, "%s: painted centre-x %.2f is more than 1px from the output centre %.2f" % (
+                    os.path.basename(path), centre_x, target_w / 2.0)
+            if abs(centre_y - target_h / 2.0) > 1.0:
+                return False, "%s: painted centre-y %.2f is more than 1px from the output centre %.2f" % (
+                    os.path.basename(path), centre_y, target_h / 2.0)
+        return True, ""
+    check(
+        "all 43 vendored illustrations normalize with their painted content centred within 1px on both "
+        "axes and never clipped",
+        _all_43_normalized_outputs_are_centred_and_unclipped)
+
+    def _none_opaque_bbox_falls_back_to_source_image_without_raising():
+        tmp_dir = tempfile.mkdtemp(prefix="illustration-normalize-none-bbox-")
+        try:
+            fully_transparent_path = os.path.join(tmp_dir, "fully-transparent.png")
+            Image.new("RGBA", (400, 200), (0, 0, 0, 0)).save(fully_transparent_path)
+            png_bytes = illustration_normalize.normalized_png_bytes(fully_transparent_path)
+            with Image.open(io.BytesIO(png_bytes)) as out:
+                if out.size != illustration_normalize.ILLUSTRATION_TARGET_SIZE:
+                    return False, "expected the None-bbox fallback to still normalize to the target size, got %r" % (
+                        out.size,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+    check(
+        "a source image whose opaque bbox is None (nothing painted) falls back to the source image "
+        "instead of raising, and still normalizes to the target output size",
+        _none_opaque_bbox_falls_back_to_source_image_without_raising)
+
+    def _no_module_in_companion_redefines_the_alpha_threshold():
+        threshold_definition_re = re.compile(r"^[A-Z_]*ALPHA_THRESHOLD\s*=", re.MULTILINE)
+        companion_dir = os.path.dirname(os.path.abspath(illustration_normalize.__file__))
+        offenders = []
+        for root, _dirs, files in os.walk(companion_dir):
+            for name in files:
+                if not name.endswith(".py"):
+                    continue
+                path = os.path.join(root, name)
+                with open(path, "r", encoding="utf-8") as fh:
+                    source = fh.read()
+                if threshold_definition_re.search(source):
+                    offenders.append(os.path.relpath(path, REPO_ROOT))
+        if offenders:
+            return False, "expected zero alpha-threshold constant definitions under companion/, found: %r" % (
+                offenders,)
+        return True, ""
+    check(
+        "no module anywhere under companion/ defines its own alpha-threshold constant — the threshold "
+        "is only ever imported from server.plane.render",
+        _no_module_in_companion_redefines_the_alpha_threshold)
 
     # ======================================================================
     # Section 2: companion/pages/airlines_page.py — the illustration
