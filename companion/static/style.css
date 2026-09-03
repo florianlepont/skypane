@@ -2205,12 +2205,6 @@ summary::-webkit-details-marker {
   margin-top: var(--space-md);
 }
 
-/* Image preview (CFG-10) */
-.preview-image {
-  max-width: 100%;
-  height: auto;
-}
-
 /* Stat tile: a card with a status-coloured top border. `min-width: 0` is
  * the first declaration and is load-bearing — a grid item's default
  * minimum size is its content's intrinsic width, and the Battery-trend
@@ -2942,19 +2936,6 @@ summary::-webkit-details-marker {
 
 .page-section.banner--anomaly::before {
   display: none;
-}
-
-/* Preview's live-panel frame (06.6.3, CFG-10) — a bounded, centered
- * container around .preview-image, distinct from the not-colour-accurate
- * screen rendering it holds. */
-.preview-frame {
-  display: flex;
-  justify-content: center;
-  background: var(--color-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  padding: var(--space-lg);
-  margin-bottom: var(--space-md);
 }
 
 /* Gallery grid (CFG-11) — collapses to fewer columns automatically on

@@ -62,10 +62,18 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
+EXPECTED_CHECK_COUNT = 107  # quick task 260903-c4o: 108 - 3 (the
+# unauthenticated-redirect loop's own "/preview.png" registration,
+# _preview_missing, and _preview_real_panel — all three assumed the route
+# still existed) + 2 (_preview_png_unauth_404_not_login_redirect, pinning
+# the new pre-auth 404-not-redirect contract; and
+# _preview_png_404_even_with_real_panel, replacing the old missing/
+# real-panel pair with one check proving the route 404s even when a
+# genuine panel exists).
 # 108 + 0 (quick task 260902-tli Task 2: the panel-lookup.js banned-token
 # check retargeted in place — matchMedia/innerWidth added to the tuple,
 # pinning the CSS-only gate — no new check, no count change).
-EXPECTED_CHECK_COUNT = 108  # quick task 260902-qkm (2026-09-02): 1 new
+# 108 = quick task 260902-qkm (2026-09-02): 1 new
 # check pinning both nav-link geometries apart after restoring
 # .mobile-nav__link's 44px/Body-size tap target (D-05 reached it by
 # mistake) while .sidebar-link keeps its D-05 32px/Label-size compaction.
@@ -1393,10 +1401,29 @@ def main():
             "— it lands on /login, not /history, proving the redirect branch keeps its own session gate)",
             _unauth_redirects_to_login("GET", "/preview"))
 
+        def _preview_png_unauth_404_not_login_redirect():
+            # Quick task 260903-c4o retired the /preview.png route
+            # entirely (its session-gated branch in do_GET is gone), so
+            # an unauthenticated request no longer reaches a
+            # require_session() check at all — it falls through to
+            # do_GET's unknown-path handler, which is deliberately
+            # ungated (every other unknown path already 404s pre-auth).
+            # That is a real, observable contract change from this
+            # route's prior 303-to-/login behaviour, and it is
+            # acceptable: the ungated 404 leaks nothing beyond "this
+            # route does not exist", exactly like every other unknown
+            # path.
+            status, _headers, body = http_request(base + "/preview.png")
+            if status != 404:
+                return False, "expected 404 for unauthenticated GET /preview.png, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
         check(
-            "unauthenticated GET /preview.png redirects to /login without page content "
-            "(not a NAV_TABS route, so no ?next= is carried)",
-            _unauth_redirects_to_login("GET", "/preview.png"))
+            "unauthenticated GET /preview.png now returns 404 (not a 303 to /login) — the "
+            "route's session-gated branch is gone, so the request falls through to do_GET's "
+            "deliberately ungated unknown-path handler",
+            _preview_png_unauth_404_not_login_redirect)
 
         check(
             "unauthenticated GET of a gallery image route redirects to /login without page content "
@@ -1787,17 +1814,22 @@ def main():
             "identical /history location — no request value influences the target",
             _preview_redirect_ignores_query_string)
 
-        # Session gate on the retired route: covered by the "unauthenticated
-        # GET /preview ... redirects to /login without page content" check
-        # above (06.6.4.1-08 Task 2 removed /preview from NAV_TABS, so it no
-        # longer carries a ?next=) — an unauthenticated caller lands on
-        # /login, not /history, proving the redirect branch keeps its
-        # require_session() gate. Both byte-serving image routes
-        # (/preview.png, a real /gallery/{name}.png) already have their own
+        # Session gate on the retired /preview redirect route: covered by
+        # the "unauthenticated GET /preview ... redirects to /login without
+        # page content" check above (06.6.4.1-08 Task 2 removed /preview
+        # from NAV_TABS, so it no longer carries a ?next=) — an
+        # unauthenticated caller lands on /login, not /history, proving the
+        # redirect branch keeps its require_session() gate. /preview.png
+        # itself is a different story as of quick task 260903-c4o: the
+        # route is retired outright, so it now 404s in BOTH auth states
+        # (_preview_png_unauth_404_not_login_redirect above,
+        # _preview_png_404_even_with_real_panel below) rather than carrying
+        # a session gate at all. The gallery image route
+        # (/gallery/{name}.png) is untouched and still has its own
         # authenticated-200/unauthenticated-redirect checks elsewhere in
-        # this file (_preview_real_panel/_preview_missing and the gallery
-        # checks below, plus the unauthenticated-redirect loop above) — confirmed still
-        # passing untouched by this task.
+        # this file (the gallery checks below, plus the
+        # unauthenticated-redirect loop above) — confirmed still passing
+        # untouched by this task.
 
         # --- 06.6.4.1-07 (D-26): settings route rename — old path 404s
         # by design (no redirect), the merged form's POST target is
@@ -1968,29 +2000,27 @@ def main():
             return True, ""
         check("an unknown path returns 404 with the exact 'Page not found.' copy", _unknown_path_404)
 
-        # --- preview.png: missing file, then a real panel ---
+        # --- preview.png: retired route, 404s even with a real panel present ---
 
-        def _preview_missing():
-            status, _headers, _body = http_request(base + "/preview.png", cookie=session_cookie)
-            if status != 404:
-                return False, "expected 404 with no panel.bin present, got %d" % status
-            return True, ""
-        check("GET /preview.png with no panel file present returns 404", _preview_missing)
-
-        def _preview_real_panel():
+        def _preview_png_404_even_with_real_panel():
+            # Quick task 260903-c4o: the route is gone, not merely empty —
+            # a genuinely present 960,000-byte panel.bin does not resurrect
+            # it. Writing the real panel first (rather than testing against
+            # no panel.bin at all) is the whole point: it proves the 404 is
+            # the route's absence, not a "no panel yet" empty-state 404 that
+            # happened to share the same status code.
             with open(harness.state_path("panel.bin"), "wb") as fh:
                 fh.write(b"\x11" * IMAGE_BYTES)  # an all-white, legal-nibble panel
-            status, headers, body = http_request(base + "/preview.png", cookie=session_cookie)
-            if status != 200:
-                return False, "expected 200 after writing a valid panel, got %d" % status
-            if not body.startswith(PNG_SIGNATURE):
-                return False, "expected the response body to start with the PNG signature"
-            if headers.get("Content-Type") != "image/png":
-                return False, "expected an image/png content type, got %r" % headers.get("Content-Type")
+            status, _headers, body = http_request(base + "/preview.png", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for the retired route even with a real panel present, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
             return True, ""
         check(
-            "GET /preview.png after writing a valid 960,000-byte panel returns a body starting with the PNG signature",
-            _preview_real_panel)
+            "authenticated GET /preview.png returns 404 with the exact 'Page not found.' copy "
+            "even with a real 960,000-byte panel.bin present — the route is gone, not empty",
+            _preview_png_404_even_with_real_panel)
 
         # --- gallery path-traversal rejection, with a canary file one level up ---
 

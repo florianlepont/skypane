@@ -42,10 +42,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlsplit
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py, so
-# `server.device_config`/`server.history_db`/`server.panel_preview`/
-# `server.poll_loop` all resolve whether this file is imported as a
-# package or executed directly (`server/.venv/bin/python3
-# companion/app.py`, the exact invocation the systemd unit uses).
+# `server.device_config`/`server.history_db`/`server.poll_loop` all
+# resolve whether this file is imported as a package or executed
+# directly (`server/.venv/bin/python3 companion/app.py`, the exact
+# invocation the systemd unit uses). Quick task 260903-c4o retired this
+# file's only two `server.panel_preview` call sites along with the
+# /preview.png route they served — that module is no longer imported
+# here.
 _HERE = os.path.dirname(os.path.abspath(__file__))  # companion/
 _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
@@ -58,7 +61,7 @@ from companion.pages import (  # noqa: E402
     health_page,
     history_page,
 )
-from server import device_config, history_db, panel_preview  # noqa: E402
+from server import device_config, history_db  # noqa: E402
 from server.plane import illustrations  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
@@ -66,7 +69,6 @@ DEFAULT_PORT = 8643
 GALLERY_DIRNAME = "gallery"
 GALLERY_DEFAULT_LIMIT = 30
 POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abuse rate-limit.
-PREVIEW_THUMB_WIDTH = 600  # nearest-neighbour cap for a faster mobile load (D-22).
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
 # WR-03: bounds how long a single connection's socket reads (including the
@@ -115,7 +117,6 @@ LOGOUT_ROUTE = "/logout"
 # solely as a fixed-redirect source, not a page route. Named
 # PREVIEW_PAGE_ROUTE (not PREVIEW_ROUTE) to say what it now is.
 PREVIEW_PAGE_ROUTE = "/preview"
-PREVIEW_IMAGE_ROUTE = "/preview.png"
 GALLERY_ROUTE_PREFIX = "/gallery/"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
@@ -709,27 +710,6 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_PANEL_LOOKUP_JS_PATH)
 
-    def _serve_preview_image(self):
-        state_dir = self.args.state_dir
-        raw = panel_preview.read_panel_file(state_dir)
-        if raw is None:
-            body = layout.empty_state(
-                "No preview yet.", "The panel hasn't rendered anything yet.")
-            return self.send_html(404, layout.page_shell(
-                title="Preview unavailable", active="", body=body,
-                ui_theme=self._resolved_ui_theme()))
-        try:
-            payload = panel_preview.panel_png_bytes(raw, max_width=PREVIEW_THUMB_WIDTH)
-        except panel_preview.PanelDecodeError:
-            body = layout.empty_state(
-                "Preview unavailable.",
-                "Preview is temporarily unavailable — check the "
-                "companion service logs.")
-            return self.send_html(503, layout.page_shell(
-                title="Preview unavailable", active="", body=body,
-                ui_theme=self._resolved_ui_theme()))
-        return self.send_bytes(200, "image/png", payload)
-
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
@@ -931,11 +911,6 @@ class Handler(BaseHTTPRequestHandler):
             # this site's one 302-class status for every redirect (303),
             # matching D-22's requirement.
             return self.redirect("/history")
-
-        if path == PREVIEW_IMAGE_ROUTE:
-            if not self.require_session():
-                return None
-            return self._serve_preview_image()
 
         if path.startswith(GALLERY_ROUTE_PREFIX):
             if not self.require_session():

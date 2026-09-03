@@ -23,9 +23,10 @@ helper degrades safely and a malformed filename still renders a
 non-empty caption, the per-row View-panel lookup and shared lightbox,
 the unresolved-airline link to Health; and one end-to-end HTTP round
 trip proving companion/app.py's router and this page module agree,
-including a real PNG fetched over /preview.png (still served — only the
-standalone Preview HTML page route was retired) and the retired
-/preview page route's redirect to /history.
+including a real PNG fetched over /gallery/{name}.png (quick task
+260903-c4o: the route every gallery tile now links to, /preview.png
+having been retired outright and now 404ing) and the retired /preview
+page route's redirect to /history.
 
 Every fixture is seeded programmatically into a temporary state
 directory - flight events via server/history_db.py's own writer
@@ -1859,7 +1860,10 @@ def main():
 
     # ======================================================================
     # Section 3: one end-to-end check - a real companion/app.py subprocess,
-    # logged in, fetching both tab routes and the preview image route.
+    # logged in, fetching /history, the retired /preview redirect, the
+    # retired /preview.png route (now 404), and a real /gallery/{name}.png
+    # (quick task 260903-c4o: every gallery tile, including the newest
+    # render, now points at this route as its only image source).
     # ======================================================================
 
     harness = Harness()
@@ -1871,13 +1875,19 @@ def main():
         _seed_runway_events(harness.tmpdir, [
             {"ts": "2026-08-27T10:00:00+00:00", "hex": "e2e001", "callsign": "E2E001"},
         ])
+        # A present panel.bin that changes nothing about the markup any
+        # more is part of what this check proves (quick task 260903-c4o).
         _write_panel_file(harness.tmpdir)
+        _seed_gallery(harness.tmpdir, ["20260827T100002Z.png"])
 
-        def _history_preview_redirect_and_preview_image_end_to_end():
+        def _history_preview_gallery_end_to_end():
             # 06.6.4.1-08 (D-22): /preview is retired as a page — this
-            # subprocess-level check proves the redirect, and that
-            # deleting preview_page.py did not remove anything
-            # /preview.png's byte-serving route still calls into.
+            # subprocess-level check proves the redirect. Quick task
+            # 260903-c4o further retires /preview.png outright (404 now,
+            # not a real PNG) and upgrades this check to also prove the
+            # route every gallery tile links to (/gallery/{name}.png)
+            # genuinely serves full-resolution bytes, against a real
+            # running service.
             status, _headers, body = http_request(base + "/history", cookie=session_cookie)
             if status != 200:
                 return False, "expected 200 for /history, got %d" % status
@@ -1890,21 +1900,27 @@ def main():
             if headers.get("Location") != "/history":
                 return False, "expected /preview to redirect to /history, got %r" % headers.get("Location")
 
-            status, headers, body = http_request(base + "/preview.png", cookie=session_cookie)
+            status, _headers, body = http_request(base + "/preview.png", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for the retired /preview.png route, got %d" % status
+
+            status, headers, body = http_request(
+                base + "/gallery/20260827T100002Z.png", cookie=session_cookie)
             if status != 200:
-                return False, "expected 200 for /preview.png, got %d" % status
+                return False, "expected 200 for a real /gallery/{name}.png, got %d" % status
             if not body.startswith(_PNG_SIGNATURE):
-                return False, "expected a real PNG signature at the start of /preview.png's body"
+                return False, "expected a real PNG signature at the start of the gallery image body"
             content_type = headers.get("Content-Type", "")
             if content_type != "image/png":
                 return False, "expected Content-Type: image/png, got %r" % content_type
             return True, ""
         check(
             "GET /history returns 200 with its own heading, GET /preview redirects (303) to "
-            "/history, and GET /preview.png still returns a real PNG — proving the deleted "
-            "preview_page.py module removed nothing the byte-serving routes still call into, "
+            "/history, GET /preview.png now returns 404 (the route is retired), and GET "
+            "/gallery/{name}.png returns 200 image/png with a real PNG signature — proving the "
+            "route every gallery tile now links to genuinely serves full-resolution bytes, "
             "against a real running service",
-            _history_preview_redirect_and_preview_image_end_to_end)
+            _history_preview_gallery_end_to_end)
 
     finally:
         harness.stop()
