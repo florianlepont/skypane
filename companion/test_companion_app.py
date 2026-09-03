@@ -34,6 +34,7 @@ Usage:
 import hashlib
 import hmac
 import html
+import io
 import os
 import re
 import shutil
@@ -48,14 +49,16 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
+from PIL import Image
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth, layout  # noqa: E402
+from companion import auth, layout, theme_preview  # noqa: E402
 from companion.pages import health_page  # noqa: E402
-from server import history_db  # noqa: E402
+from server import device_config, history_db  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -65,7 +68,14 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 130  # 127 + 3 (quick task 260903-peo Task 4: UIR-19's
+EXPECTED_CHECK_COUNT = 137  # 130 + 7 (phase 06.6.4.1.1-01 Task 1: theme_preview.py's
+# in-process checks — 320x120 PNG for every theme, pairwise-distinct means
+# across all 16 themes, byte-identical repeat renders, cache_path()'s
+# traversal/unknown/falsy-state_dir guard, cold-cache creates the file and
+# matches a direct render, a second call is served from disk without
+# re-rendering, and preview_signature() changing with
+# THEME_PREVIEW_CACHE_VERSION)
+# 130 = 127 + 3 (quick task 260903-peo Task 4: UIR-19's
 # flash-cleanup.js pre-auth-serving check, ES5-dialect check, and
 # route/src cross-file agreement check; the pre-existing six-script-tag
 # count guard was retargeted in place to seven, no count change from it)
@@ -1538,6 +1548,116 @@ def main():
             os.environ[auth.PASSWORD_ENV_VAR] = previous_password
         else:
             os.environ.pop(auth.PASSWORD_ENV_VAR, None)
+
+    # ==================================================================
+    # Section 2.5: companion/theme_preview.py (06.6.4.1.1-01 Task 1) — pure
+    # in-process module checks, no companion/app.py subprocess or password
+    # env needed (theme_preview.py imports neither auth nor app.py).
+    # ==================================================================
+
+    def _theme_preview_bytes_open_as_320x120_rgb_png_for_every_theme():
+        for theme_id in device_config.THEME_IDS:
+            payload = theme_preview.preview_png_bytes(theme_id)
+            img = Image.open(io.BytesIO(payload))
+            if img.format != "PNG":
+                return False, "theme %r: expected PNG, got %r" % (theme_id, img.format)
+            if img.size != theme_preview.THEME_PREVIEW_SIZE:
+                return False, "theme %r: expected size %r, got %r" % (
+                    theme_id, theme_preview.THEME_PREVIEW_SIZE, img.size)
+            if img.convert("RGB").mode != "RGB":
+                return False, "theme %r: expected an RGB-convertible image" % (theme_id,)
+        return True, ""
+    check(
+        "preview_png_bytes() returns a 320x120 PNG for every id in device_config.THEME_IDS",
+        _theme_preview_bytes_open_as_320x120_rgb_png_for_every_theme)
+
+    def _theme_preview_means_pairwise_distinct():
+        means = []
+        for theme_id in device_config.THEME_IDS:
+            payload = theme_preview.preview_png_bytes(theme_id)
+            img = Image.open(io.BytesIO(payload)).convert("RGB").resize((1, 1))
+            means.append(next(iter(img.getdata())))
+        if len(set(means)) != len(means):
+            return False, "expected 16 pairwise-distinct mean RGB values, got %r" % (means,)
+        return True, ""
+    check(
+        "the 16 themes' previews have pairwise-distinct mean RGB at the crop/size used "
+        "(proves the crop box discriminates themes, D-07)",
+        _theme_preview_means_pairwise_distinct)
+
+    def _theme_preview_bytes_stable_across_calls():
+        first = theme_preview.preview_png_bytes("white")
+        second = theme_preview.preview_png_bytes("white")
+        if first != second:
+            return False, "expected byte-identical output for the same fixed-scene theme"
+        return True, ""
+    check(
+        "preview_png_bytes() returns byte-identical output across two calls for the same "
+        "theme (the scene is fixed, D-06 — nothing time- or data-dependent leaks in)",
+        _theme_preview_bytes_stable_across_calls)
+
+    def _theme_preview_cache_path_rejects_unsafe_and_falsy_inputs():
+        with tempfile.TemporaryDirectory() as state_dir:
+            if theme_preview.cache_path(state_dir, "../../etc/passwd") is not None:
+                return False, "expected None for a traversal-shaped theme id"
+            if theme_preview.cache_path(state_dir, "nope") is not None:
+                return False, "expected None for an id not in device_config.THEMES"
+            if theme_preview.cache_path(None, "white") is not None:
+                return False, "expected None for a falsy state_dir"
+        return True, ""
+    check(
+        "cache_path() returns None for a traversal-shaped id, an unknown id, and a falsy "
+        "state_dir (boundary guard, T-v26-01-01 discipline)",
+        _theme_preview_cache_path_rejects_unsafe_and_falsy_inputs)
+
+    def _theme_preview_cached_bytes_cold_cache_creates_file():
+        with tempfile.TemporaryDirectory() as state_dir:
+            direct = theme_preview.preview_png_bytes("blue")
+            cached = theme_preview.cached_preview_bytes(state_dir, "blue")
+            path = theme_preview.cache_path(state_dir, "blue")
+            if not os.path.isfile(path):
+                return False, "expected cached_preview_bytes() to create %r" % (path,)
+            if cached != direct:
+                return False, "expected the cold-cache render to match preview_png_bytes()"
+        return True, ""
+    check(
+        "cached_preview_bytes() on a cold state dir creates the cache file and returns the "
+        "same bytes preview_png_bytes() would",
+        _theme_preview_cached_bytes_cold_cache_creates_file)
+
+    def _theme_preview_cached_bytes_second_call_serves_from_disk():
+        with tempfile.TemporaryDirectory() as state_dir:
+            theme_preview.cached_preview_bytes(state_dir, "green")
+            path = theme_preview.cache_path(state_dir, "green")
+            marker = b"mutated-cache-fixture-not-a-real-render"
+            with open(path, "wb") as fh:
+                fh.write(marker)
+            second = theme_preview.cached_preview_bytes(state_dir, "green")
+            if second != marker:
+                return False, (
+                    "expected the second call to serve the mutated on-disk bytes "
+                    "unchanged, proving it did not re-render")
+        return True, ""
+    check(
+        "a second cached_preview_bytes() call for the same theme is served from the file "
+        "on disk, not re-rendered",
+        _theme_preview_cached_bytes_second_call_serves_from_disk)
+
+    def _theme_preview_signature_changes_with_cache_version():
+        before = theme_preview.preview_signature("white")
+        original_version = theme_preview.THEME_PREVIEW_CACHE_VERSION
+        try:
+            theme_preview.THEME_PREVIEW_CACHE_VERSION = original_version + 1
+            after = theme_preview.preview_signature("white")
+        finally:
+            theme_preview.THEME_PREVIEW_CACHE_VERSION = original_version
+        if before == after:
+            return False, "expected preview_signature() to change when the cache version does"
+        return True, ""
+    check(
+        "preview_signature() changes when THEME_PREVIEW_CACHE_VERSION changes (the manual "
+        "escape hatch for a render-geometry change the signature can't otherwise see)",
+        _theme_preview_signature_changes_with_cache_version)
 
     # ==================================================================
     # Section 3: companion/app.py (plan 06-05) — a real companion/app.py
