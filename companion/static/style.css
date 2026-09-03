@@ -79,11 +79,17 @@
   --space-2xl: 48px;
   --space-3xl: 64px;
 
-  /* Typography scale: exactly 4 sizes, 2 weights */
+  /* Typography scale: exactly 4 sizes, 2 weights.
+   * 06.6.4.1.1 (D-10): --font-page-title-size 30px -> 32px and
+   * --font-heading-size 20px -> 22px, widening the gap between the page
+   * title and section-heading tiers so they read as two distinct rungs
+   * of a three-tier ladder rather than the same weight at nearly the
+   * same size — see .page-title and .text-heading below for the paired
+   * weight/tracking changes. */
   --font-label-size: 14px;
   --font-body-size: 16px;
-  --font-heading-size: 20px;
-  --font-page-title-size: 30px;
+  --font-heading-size: 22px;
+  --font-page-title-size: 32px;
   --weight-regular: 400;
   --weight-semibold: 600;
 
@@ -91,8 +97,19 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* 06.6.1 (D-03): headings-only warm serif. A system stack on purpose —
    * the file's zero-external-reference constraint forbids loading a web
-   * font, and that stays literally true with this token. */
-  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+   * font, and that stays literally true with this token.
+   *
+   * 06.6.4.1.1 (D-12, UIR-20): reordered to lead with "Iowan Old Style"
+   * and Charter. Georgia-first meant every Mac and iPhone rendered
+   * Georgia even though both Iowan Old Style and Charter are bundled on
+   * those platforms and were the sketch's own intended reading — Georgia
+   * was only ever meant to be the fallback for platforms that lack them.
+   * Windows (which bundles neither Apple font) now falls through to
+   * Palatino Linotype, then Georgia, exactly as it did before this
+   * reorder. This is still a system stack — no @font-face, no remote
+   * font reference of any kind — the file's zero-external-reference
+   * rule is untouched by this change. */
+  --font-serif: "Iowan Old Style", Charter, "Palatino Linotype", Georgia, "Book Antiqua", serif;
 
   /* 06.6.1 (D-02): mode-independent structural tokens. --radius-card
    * deliberately revises 06.3's "0-4px sharp/minimal" rule — softer
@@ -257,10 +274,20 @@ body {
   line-height: 1.5;
 }
 
+/* 06.6.4.1.1 (D-10): stays weight-regular on purpose — the section-heading
+ * tier must NOT gain a weight of its own, because that is what keeps it
+ * reading as a distinct middle rung between the semibold .page-title
+ * above it and the semibold nested-card-title tier below it (see the
+ * .page-section--nested > h2 rule further down this file). A regular-
+ * weight middle tier between two semibold tiers is the whole ladder;
+ * making all three semibold would collapse it back into "one heading
+ * weight at different sizes". `legend` also consumes
+ * --font-heading-size via the shared serif rule above — that is fine
+ * and intentional, not an oversight. */
 .text-heading {
   font-size: var(--font-heading-size);
   font-weight: var(--weight-regular);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 /* quick task 260901-re6: the single muted sentence that now sits
@@ -360,15 +387,23 @@ h3,
   margin: 0 0 var(--space-sm);
 }
 
-/* 06.6.2 (D-15): the page-title role — distinct from the 20px
+/* 06.6.2 (D-15): the page-title role — distinct from the 22px
  * .text-heading section-heading role, used only by layout.page_header()'s
- * <h1 class="page-title">. */
+ * <h1 class="page-title">.
+ *
+ * 06.6.4.1.1 (D-10): grows from 30px to 32px, gains its own semibold
+ * weight and tighter -0.015em tracking (overriding the shared serif
+ * rule's regular weight and -0.01em), and line-height loosens slightly
+ * to 1.15 for the bigger size. This is the top rung of the three-tier
+ * ladder — semibold here, regular on .text-heading, semibold again on
+ * the nested-card-title tier — is what makes all three read as distinct
+ * levels instead of one heading weight repeated at different sizes. */
 .page-title {
   font-family: var(--font-serif);
   font-size: var(--font-page-title-size);
-  font-weight: var(--weight-regular);
-  line-height: 1.2;
-  letter-spacing: -0.01em;
+  font-weight: var(--weight-semibold);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
   margin: 0 0 var(--space-xs);
 }
 
@@ -440,13 +475,26 @@ h3,
  * the Emphasis role instead — Body size plus semibold, the same
  * existing-size-made-bold pattern .data-table th already uses for its own
  * emphasis. --font-display-size was retired along with them, restoring the
- * scale block above to its own claimed four sizes. */
+ * scale block above to its own claimed four sizes.
+ *
+ * 06.6.4.1.1 (D-11): grows to 24px serif semibold, -0.01em tracking
+ * (replacing the prior 0.02em). The 24px is a deliberate LITERAL, not a
+ * token, and stays that way on purpose: this file's stated scale is
+ * exactly four content sizes, the retired --font-display-size was also
+ * 24px and was deliberately retired by 06.6.4 (D-09) to keep the scale
+ * honest, and the wordmark is a brand role rather than a content role —
+ * it does not belong in the four-size content scale any more than the
+ * documented sub-scale exception tier (11/12/13px on .data-table th,
+ * .filter-bar__count, etc.) does. Resurrecting a fifth content token
+ * just to name this one literal would misrepresent the wordmark as a
+ * content-scale citizen it isn't. .sidebar-title needs no rule of its
+ * own; it is always co-classed with .site-title. */
 .site-title {
-  font-size: var(--font-heading-size);
-  font-weight: var(--weight-regular);
+  font-size: 24px;
+  font-weight: var(--weight-semibold);
   font-family: var(--font-serif);
   line-height: 1.2;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
 }
 
 /* Visible focus outline on every focusable element — never removed without
