@@ -1773,6 +1773,22 @@ def main():
         # (health_page._battery_reading_parts()) rather than re-typing a
         # format string into the harness — the harness must not become a
         # second place this format lives.
+        #
+        # health_page._battery_section() deliberately computes its own
+        # `now` via history_db.utc_now_iso() (06.6-01, D-02 — see that
+        # function's own comment) rather than accepting the render() ctx's
+        # injected `now`, so the real wall clock — not the seeded `base`
+        # below — is what actually humanises the readout's "ago" text.
+        # Left unpatched, this check races the real clock: any elapsed
+        # time between capturing `base` and _battery_section()'s own
+        # history_db.utc_now_iso() call that crosses a whole-second
+        # boundary flips the rendered "(0s ago)" to "(1s ago)", a genuine
+        # CI flake (observed 2026-09-03) unrelated to any production
+        # defect. Pinning history_db.utc_now_iso() to `base` for the
+        # duration of this render() call — monkeypatch-and-restore,
+        # mirroring illustrations.target_variants_by_airline()'s own
+        # precedent above — makes the two `now` values identical by
+        # construction instead of by luck.
         tmp = _mkstate("h-readout-seeded")
         try:
             base = _now()
@@ -1781,7 +1797,12 @@ def main():
                 (_iso(base), 4190),
             ]
             _seed_device_health(tmp, readings)
-            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            original_utc_now_iso = history_db.utc_now_iso
+            history_db.utc_now_iso = lambda: _iso(base)
+            try:
+                rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            finally:
+                history_db.utc_now_iso = original_utc_now_iso
             value_text, when_text = health_page._battery_reading_parts(
                 4190, _iso(base), _iso(base))
             expected_inner = (
