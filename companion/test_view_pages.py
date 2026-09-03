@@ -66,7 +66,24 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 44  # 43 + 1 (quick task 260902-tli Task 2: the
+EXPECTED_CHECK_COUNT = 49  # 46 + 3 (quick task 260902-w4t Task 3, UIR-04:
+# _status_dot_title_backward_compatible_and_escaped,
+# _corroboration_none_row_shows_short_label_with_tooltip, and
+# _data_table_wrap_scroll_edge_affordance_css - status_dot()'s new
+# backward-compatible title parameter, the shortened corroboration
+# label's tooltip in both renderings, and the CSS-only scroll-edge
+# affordance's background-attachment/pointer-events contract).
+# 46 = 45 + 1 (quick task 260902-w4t Task 2, UIR-06:
+# _hex_only_row_promotes_hex_to_primary - a callsign-less row with a hex
+# promotes the hex into the primary slot on both the desktop cell and
+# the mobile card, with a no-copy-button "no callsign" note, and a row
+# with neither callsign nor hex renders without raising).
+# 45 = 44 + 1 (quick task 260902-w4t Task 1, UIR-05:
+# _airline_fallback_distinct_from_route_fallback - a no-airline row's
+# AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT are distinct strings in
+# distinct columns, and the unresolved-link's UNRESOLVED_LINK_CLASS is
+# styled in style.css and present on the rendered anchor).
+# 44 = 43 + 1 (quick task 260902-tli Task 2: the
 # airlines_page/history_page cross-module LIGHTBOX_DIALOG_ID/
 # _VIEW_PANEL_*_ATTR equality guard. _lightbox_dom_contract_three_file_
 # guard() was widened in place to also assert the six shared tokens
@@ -749,27 +766,59 @@ def main():
         _timestamp_column_absolute_and_relative)
 
     def _corroboration_copy_agrees_with_health_page():
-        # D-03: health_page._CORROBORATION_ROWS is the canonical
-        # (stored, label, status, explanation) table; history_page's own
-        # hand-maintained _CORROBORATION_LABELS must stay equal to it,
-        # key by key, so the two pages read consistently and so a future
-        # edit to either table cannot silently drift from the other.
+        # D-03, restated by quick task 260902-w4t (UIR-04): History's
+        # "None" (single-source) label was shortened to "Single-source"
+        # to fix an overlong Corroboration column, so the two pages'
+        # visible labels are now DELIBERATELY allowed to diverge for
+        # that one key - health_page._CORROBORATION_ROWS still carries
+        # the long form as ITS OWN visible label by design. This guard
+        # is restated, not weakened, to keep asserting everything that
+        # must still agree: statuses agree key-by-key for all three
+        # states; visible labels are still identical for True/False (the
+        # two keys this task did not touch); and for None, History's
+        # visible label must be the short form AND
+        # history_page._CORROBORATION_TITLES["None"] (the tooltip) must
+        # equal Health's full label exactly, so a future edit to
+        # Health's copy still fails this check loudly instead of
+        # silently going stale in History's tooltip.
         health_rows = {
             stored: (status, label)
             for stored, label, status, _explanation in health_page._CORROBORATION_ROWS
         }
         history_labels = history_page._CORROBORATION_LABELS
+        history_titles = history_page._CORROBORATION_TITLES
 
         if set(health_rows) != {"True", "None", "False"}:
             return False, "expected health_page._CORROBORATION_ROWS to cover exactly True/None/False"
         if set(history_labels) != {"True", "None", "False"}:
             return False, "expected history_page._CORROBORATION_LABELS to cover exactly True/None/False"
 
+        # Statuses must agree key-by-key for all three states.
         for key in ("True", "None", "False"):
-            if history_labels[key] != health_rows[key]:
+            if history_labels[key][0] != health_rows[key][0]:
                 return False, (
-                    "corroboration copy drifted for %r: history_page has %r, "
-                    "health_page has %r" % (key, history_labels[key], health_rows[key]))
+                    "corroboration status drifted for %r: history_page has %r, "
+                    "health_page has %r" % (key, history_labels[key][0], health_rows[key][0]))
+
+        # Visible labels must still be identical for True/False.
+        for key in ("True", "False"):
+            if history_labels[key][1] != health_rows[key][1]:
+                return False, (
+                    "corroboration label drifted for %r: history_page has %r, "
+                    "health_page has %r" % (key, history_labels[key][1], health_rows[key][1]))
+
+        # None: History's visible label is the documented short form...
+        if history_labels["None"][1] != "Single-source":
+            return False, (
+                "expected history_page's 'None' visible label to be the short form "
+                "'Single-source', got %r" % (history_labels["None"][1],))
+        # ...and its tooltip carries Health's full label exactly, so a
+        # future edit to Health's copy fails this check, not silently.
+        if history_titles.get("None") != health_rows["None"][1]:
+            return False, (
+                "expected history_page._CORROBORATION_TITLES['None'] to equal "
+                "health_page's 'None' visible label %r, got %r"
+                % (health_rows["None"][1], history_titles.get("None")))
 
         # D-03/D-15: the single-source, uncorroborated "None" state is a
         # genuinely unknown state, not a failure — it must stay "ok" in
@@ -781,8 +830,123 @@ def main():
 
         return True, ""
     check(
-        "history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS key-by-key, and the single-source 'None' state is never labelled a failure in either table",
+        "history_page._CORROBORATION_LABELS agrees with health_page._CORROBORATION_ROWS on "
+        "status key-by-key and on visible label for True/False; History's shortened 'None' label "
+        "is the documented short form and its _CORROBORATION_TITLES tooltip equals Health's own "
+        "full label exactly; the single-source 'None' state is never labelled a failure in "
+        "either table (quick task 260902-w4t, UIR-04)",
         _corroboration_copy_agrees_with_health_page)
+
+    def _status_dot_title_backward_compatible_and_escaped():
+        # quick task 260902-w4t (UIR-04, 3a): status_dot()'s new third
+        # `title` parameter must be fully backward-compatible - every
+        # pre-existing 2-arg call site's output stays character-for-
+        # character identical - and, when supplied, must escape a
+        # hostile value the same way `label` already is.
+        two_arg = layout.status_dot("ok", "All good")
+        if "title=" in two_arg:
+            return False, "expected the 2-arg call to emit no title attribute at all"
+        three_arg_equivalent = layout.status_dot("ok", "All good", None)
+        if three_arg_equivalent != two_arg:
+            return False, "expected an explicit title=None to produce byte-identical markup to the 2-arg call"
+        titled = layout.status_dot("ok", "All good", "Long form")
+        if 'title="Long form"' not in titled:
+            return False, "expected a truthy title to appear as an escaped title attribute"
+        hostile = layout.status_dot("ok", "All good", "<script>evil()</script>")
+        if "<script>" in hostile:
+            return False, "expected a hostile title value to be escaped, not rendered raw"
+        if "&lt;script&gt;" not in hostile:
+            return False, "expected the escaped form of the hostile title value"
+        return True, ""
+    check(
+        "layout.status_dot()'s 2-arg output is unchanged, an explicit title=None is byte-identical "
+        "to omitting it, and a truthy title renders as an escaped title attribute "
+        "(quick task 260902-w4t, UIR-04)",
+        _status_dot_title_backward_compatible_and_escaped)
+
+    # Relocated ahead of its original first use (was defined further down,
+    # in Section 1c) so this section's own new UIR-04 check below — the
+    # first check in file order that needs it — can call it: Python
+    # resolves a nested function's free variables against the enclosing
+    # scope at CALL time, not definition time, so a check registered (and
+    # immediately invoked by check()) before this def executes would hit
+    # "cannot access free variable '_row_block'" even though the name
+    # exists later in the same function body. Every later call site is
+    # unaffected — this is the same function, only earlier.
+    def _row_block(rendered, tag, group_index):
+        pattern = r"<%s[^>]*data-filter-group=\"%d\"[^>]*>(.*?)</%s>" % (
+            tag, group_index, tag)
+        match = re.search(pattern, rendered, re.S)
+        return match.group(1) if match else None
+
+    def _corroboration_none_row_shows_short_label_with_tooltip():
+        # quick task 260902-w4t (UIR-04): a "None" (single-source) row's
+        # Corroboration cell must render the short visible label in BOTH
+        # the desktop <td> and the mobile <dd>, with the long form
+        # reachable only via a title attribute, in both renderings.
+        tmp = _mkstate("h-corrob-none")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "cn01", "callsign": "CORNONE",
+                 "corroborated": None},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for a None-corroboration row"
+            long_form = history_page._CORROBORATION_TITLES["None"]
+            for label, block in (("desktop", tr_block), ("mobile", li_block)):
+                if ">Single-source<" not in block:
+                    return False, "expected the short 'Single-source' label visible in the %s row" % label
+                if 'title="%s"' % long_form not in block:
+                    return False, "expected the long form in a title attribute in the %s row" % label
+                # The long form's parenthetical must not appear as separate
+                # VISIBLE text - only inside the title attribute value.
+                visible_text = re.sub(r'\stitle="[^"]*"', "", block)
+                if "(uncorroborated)" in visible_text:
+                    return False, "did not expect the parenthetical to appear as visible text in the %s row" % label
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a 'None' (single-source) row's Corroboration cell shows the short visible label with the "
+        "long form only in a title attribute, in both the desktop and mobile renderings "
+        "(quick task 260902-w4t, UIR-04)",
+        _corroboration_none_row_shows_short_label_with_tooltip)
+
+    def _data_table_wrap_scroll_edge_affordance_css():
+        # quick task 260902-w4t (UIR-04, 3d): the CSS-only, pointer-inert
+        # scroll-edge affordance must declare both background-attachment
+        # values (local for the covers, scroll for the shadows) and must
+        # introduce no pointer-events-blocking overlay anywhere in the
+        # stylesheet's .data-table-wrap rule.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        rule_match = re.search(r"\.data-table-wrap\s*\{([^}]*)\}", css, re.S)
+        if rule_match is None:
+            return False, "expected a base .data-table-wrap rule in style.css"
+        rule_body = rule_match.group(1)
+        if "background-attachment" not in rule_body:
+            return False, "expected .data-table-wrap to declare background-attachment"
+        if "local" not in rule_body or "scroll" not in rule_body:
+            return False, "expected .data-table-wrap's background-attachment to declare both local and scroll"
+        if "pointer-events" in rule_body:
+            return False, "did not expect a pointer-events declaration on .data-table-wrap"
+        override_match = re.search(
+            r"\.page-section \.data-table-wrap,\s*\n\.battery-trend-section \.data-table-wrap\s*\{([^}]*)\}",
+            css, re.S)
+        if override_match is None:
+            return False, "expected the .page-section/.battery-trend-section .data-table-wrap surface override"
+        if "pointer-events" in override_match.group(1):
+            return False, "did not expect a pointer-events declaration on the surface override rule"
+        return True, ""
+    check(
+        ".data-table-wrap declares both background-attachment values (local covers, scroll "
+        "shadows) and style.css introduces no pointer-events-blocking overlay "
+        "(quick task 260902-w4t, UIR-04)",
+        _data_table_wrap_scroll_edge_affordance_css)
 
     def _filter_bar_markers_present_once():
         # D-20: exactly one of each list-filter.js attribute marker,
@@ -1203,12 +1367,6 @@ def main():
     # per-row View-panel buttons, and the shared lightbox (D-20).
     # ======================================================================
 
-    def _row_block(rendered, tag, group_index):
-        pattern = r"<%s[^>]*data-filter-group=\"%d\"[^>]*>(.*?)</%s>" % (
-            tag, group_index, tag)
-        match = re.search(pattern, rendered, re.S)
-        return match.group(1) if match else None
-
     def _nearest_gallery_entry_behaviour():
         entries = [
             "2026-08-27T10-05-00+00-00.png",
@@ -1503,6 +1661,124 @@ def main():
         "a row whose route is unresolved but whose airline IS resolved produces no unresolved-"
         "airline link - the link is keyed on the airline label, not on the route label",
         _unresolved_link_keyed_on_airline_not_route)
+
+    def _airline_fallback_distinct_from_route_fallback():
+        # quick task 260902-w4t (UIR-05): a no-airline row must render
+        # AIRLINE_FALLBACK_TEXT ("Airline unknown") in the Type+Airline
+        # cell/Aircraft detail row and panel_render.ROUTE_FALLBACK_TEXT
+        # ("Route unavailable") in the Route cell/detail row - two
+        # distinct strings in two distinct columns, never the same
+        # phrase borrowed twice. Also pins the new anchor class
+        # (UNRESOLVED_LINK_CLASS) into both the rendered page and
+        # style.css, matching _merged_cell_classes_agree_with_stylesheet's
+        # own cross-file drift discipline.
+        if history_page.AIRLINE_FALLBACK_TEXT == panel_render.ROUTE_FALLBACK_TEXT:
+            return False, "AIRLINE_FALLBACK_TEXT must not equal ROUTE_FALLBACK_TEXT"
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css = fh.read()
+        if history_page.UNRESOLVED_LINK_CLASS.split()[-1] not in css:
+            return False, (
+                "expected UNRESOLVED_LINK_CLASS's spacing class to be styled in style.css")
+        tmp = _mkstate("h-airline-fallback")
+        try:
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:00:00+00:00", "hex": "af01", "callsign": "AIRFB1"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for a no-airline row"
+            for label, block in (("desktop", tr_block), ("mobile", li_block)):
+                if history_page.AIRLINE_FALLBACK_TEXT not in block:
+                    return False, "expected AIRLINE_FALLBACK_TEXT in the %s row" % label
+                if panel_render.ROUTE_FALLBACK_TEXT not in block:
+                    return False, "expected ROUTE_FALLBACK_TEXT in the %s row" % label
+                if block.count(panel_render.ROUTE_FALLBACK_TEXT) != 1:
+                    return False, (
+                        "expected ROUTE_FALLBACK_TEXT exactly once (Route column only) in "
+                        "the %s row, found %d" % (label, block.count(panel_render.ROUTE_FALLBACK_TEXT)))
+                if 'class="%s"' % history_page.UNRESOLVED_LINK_CLASS not in block:
+                    return False, "expected the unresolved-link's class attribute in the %s row" % label
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a no-airline row renders AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT as two distinct "
+        "strings in two distinct columns, and the unresolved-link's spacing class is styled in "
+        "style.css and present in the rendered anchor (quick task 260902-w4t, UIR-05)",
+        _airline_fallback_distinct_from_route_fallback)
+
+    def _hex_only_row_promotes_hex_to_primary():
+        # quick task 260902-w4t (UIR-06): a callsign-less row must never
+        # render a dead copy button on a blank primary value. When a hex
+        # is present it is promoted to the primary slot (desktop cell
+        # AND mobile card primary line), with a "no callsign" secondary
+        # note carrying NO copy button of its own. When both callsign
+        # and hex are absent, render() must not raise and the cell must
+        # carry zero copy buttons.
+        tmp = _mkstate("h-hex-only")
+        try:
+            _seed_runway_events(tmp, [
+                # Row 0 (newest, ts sorts DESC): hex only, no callsign.
+                {"ts": "2026-08-27T10:02:00+00:00", "hex": "34560d"},
+                # Row 1: neither callsign nor hex.
+                {"ts": "2026-08-27T10:01:00+00:00"},
+                # Row 2: callsign present, no hex - unaffected control.
+                {"ts": "2026-08-27T10:00:00+00:00", "callsign": "CTRL01"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp))
+
+            # Row 0: hex-only, desktop.
+            tr_block = _row_block(rendered, "tr", 0)
+            li_block = _row_block(rendered, "li", 0)
+            if tr_block is None or li_block is None:
+                return False, "could not locate row block for the hex-only row"
+            if '<span class="cell-primary">34560d</span>' not in tr_block:
+                return False, "expected the desktop cell's primary slot to carry the hex"
+            if ('<span class="cell-secondary">%s</span>'
+                    % history_page.NO_CALLSIGN_NOTE_TEXT) not in tr_block:
+                return False, "expected the desktop cell's secondary slot to carry the no-callsign note"
+            if tr_block.count("data-copy-value") != 1:
+                return False, (
+                    "expected exactly 1 copy button in the hex-only desktop cell, got %d"
+                    % tr_block.count("data-copy-value"))
+            if 'data-copy-value="34560d"' not in tr_block:
+                return False, "expected the lone copy button to copy the hex value"
+
+            # Row 0: hex-only, mobile primary line (never blank).
+            if '<span class="cell-primary mono">34560d</span>' not in li_block:
+                return False, "expected the mobile card's primary line to carry the hex"
+            if ('<span class="cell-secondary">%s</span>'
+                    % history_page.NO_CALLSIGN_NOTE_TEXT) not in li_block:
+                return False, "expected the mobile card's primary line to carry the no-callsign note"
+
+            # Row 1: both falsy - no crash, zero copy buttons in that cell.
+            tr_block_1 = _row_block(rendered, "tr", 1)
+            if tr_block_1 is None:
+                return False, "could not locate row block for the both-falsy row"
+            callsign_hex_td = re.search(r"<td>(.*?)</td>", tr_block_1, re.S)
+            if callsign_hex_td is None:
+                return False, "expected a <td> for the both-falsy row's Callsign+Hex cell"
+            if callsign_hex_td.group(1).count("data-copy-value") != 0:
+                return False, "expected zero copy buttons in the both-falsy Callsign+Hex cell"
+
+            # Row 2 (control): callsign-present branch is unaffected.
+            tr_block_2 = _row_block(rendered, "tr", 2)
+            if tr_block_2 is None or "CTRL01" not in tr_block_2:
+                return False, "expected the control row's callsign to render unchanged"
+            if history_page.NO_CALLSIGN_NOTE_TEXT in tr_block_2:
+                return False, "did not expect the no-callsign note on a row with a callsign"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a callsign-less row with a hex promotes the hex to the primary slot (desktop cell and "
+        "mobile card) with a no-copy-button 'no callsign' note, a callsign+hex row is unaffected, "
+        "and a row with neither renders without raising and with zero copy buttons "
+        "(quick task 260902-w4t, UIR-06)",
+        _hex_only_row_promotes_hex_to_primary)
 
     def _unresolved_link_href_matches_health_anchor():
         expected_suffix = "#" + health_page.SERVER_DATA_SECTION_ID
