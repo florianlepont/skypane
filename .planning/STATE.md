@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 10
 current_phase_name: Scheduled quiet hours
 status: executing
-stopped_at: Completed 10-01-PLAN.md
-last_updated: "2026-09-03T19:15:28.503Z"
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-09-03T19:32:40.813Z"
 last_activity: 2026-09-03
-last_activity_desc: "Executed 10-01: quiet-hours registry fields + DST-safe window arithmetic in device_config.py"
+last_activity_desc: "Executed 10-02: quiet-hours panel render state (_build_quiet_hours_canvas()) + preview CLI in server/plane/render.py"
 progress:
   total_phases: 23
   completed_phases: 18
@@ -29,6 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 10 (Scheduled quiet hours) — EXECUTING
+
+**10-02 executed (2026-09-03), wave 1 (no dependencies, ran after 10-01) — added the dedicated `quiet_hours` panel render state (D-05/D-06) to `server/plane/render.py`, plus the CLI flag that makes the deferred real-preview review possible.** Task 1 added `QUIET_HOURS_HEADING_TEXT`/`QUIET_HOURS_BODY_TEMPLATE` locked English copy constants and `_build_quiet_hours_canvas()` — a near-verbatim structural copy of `_build_empty_canvas()` (flat White background, `EMPTY_INK` text, `fit_text_size()`-shrunk heading, `_wrap_text()`-wrapped body, identical vertical-centring formula, same battery-icon/source-fault-badge precedent) — and inserted `build_canvas()`'s new `state == "quiet_hours"` dispatch branch as the FIRST statement of the function body, before the pre-existing `flight is None or state == "empty"` check, so a quiet-hours call (always `flight=None`) can't silently fall through to the empty state; a missing/empty/non-string `quiet_hours_until` omits the body line entirely (T-10-02-01) rather than ever drawing "Back at None". Task 2 added `"quiet_hours"` to `build_parser()`'s `--state` choices and a `--quiet-hours-until` flag (default `device_config.DEFAULT_QUIET_HOURS_END`), and reworked `main()`'s synthetic-flight guard from a negative `!= "empty"` test to positive membership against `(runway_config.STATE_DEPARTING, runway_config.STATE_ARRIVING)` so a quiet-hours preview doesn't drag in the fake-flight/route machinery. `server/test_render.py` grew 8 new checks (dispatch-order source assertion via `inspect.getsource()`, legal-palette membership, theme-ignored, missing-until degradation, battery-low/source-fault differencing, and a CLI-driven `render.main()` check); `EXPECTED_CHECK_COUNT` 119 → 127, harness passes 127/127. No deviations — both tasks' acceptance criteria commands ran verbatim and passed; `git diff --name-only` after each commit matched the plan's declared `files_modified` exactly (`server/plane/render.py`, `server/test_render.py`). Deferred visual-review checkpoint (10-UI-SPEC.md's explicitly-open item): rendered both the quiet-hours and empty-state previews side by side and judged option (1) — no visual change beyond copy — sufficient, since "QUIET HOURS" (2 words, all-caps, short) / "Back at 07:00" reads as clearly distinct at a glance from "Watching Runway 3" (3 words, title-case) / the longer empty-state body copy; recorded in `10-02-SUMMARY.md`'s coverage block as `human_judgment: true` per the project's established discipline for this class of visual call. `scripts/run-all-tests.sh` run at plan close: same single pre-existing, unrelated `server/test_poll_loop.py` macOS Pillow/FreeType digest-mismatch NOTE (confirmed present before this plan started); overall `Result: PASS`. `server/requirements.txt` unchanged. `state.record-session` re-corrupted `progress.percent` to 78 (`completed_phases/total_phases` ratio instead of `completed_plans/total_plans`) — corrected by hand back to 95, the same recurring bug documented throughout this file's history.
 
 **10-01 executed (2026-09-03), wave 1 (no dependencies), the Wave 1 foundation every other Phase 10 plan reads — added the three quiet-hours config-registry fields (D-03 one daily recurring window, D-04 separate enabled flag) and DST-safe Europe/Paris window arithmetic to `server/device_config.py`.** Task 1 added `DEFAULT_QUIET_HOURS_ENABLED`/`_START`/`_END`, the `_HHMM_RE` shape gate (anchored `\Z` not `$` per T-06-01-01, so a trailing-newline value can't smuggle a dirty string past the gate), `normalise_quiet_hours_enabled()`/`normalise_quiet_hours_time()` (one shared function for both start/end fields so validation strictness can't drift apart between them), extended `load_device_config()` to return six keys and `save_device_config()` with three new validated keyword args (reject-before-write, carry-forward-when-None, matching the existing theme/tracked_runway/led_enabled contract exactly); repaired 6 full-document equality assertions in `server/test_config_history.py` and 1 in `companion/test_config_page.py` broken by the new keys, and added 5 new checks. Task 2 added `QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")` (stdlib since 3.9, no new dependency) and `seconds_until_quiet_hours_end(now_utc, start_hm, end_hm)`, adapted from 10-PATTERNS.md's reference body with one mandatory correctness fix (subtract in UTC after converting both operands, not in local wall-clock time — the reference body's naive same-tzinfo subtraction is off by exactly one hour across a DST transition) and one accepted, documented caveat (the 02:00-03:00 transition-hour boundary case, PEP 495 `fold=0`, per D-01's "never shorter than base sleep" bound); also added `quiet_hours_status(config, now_epoch)`, the never-raising epoch-seconds convenience wrapper plan 10-04's `poll_loop.py` will call. All numerically-verified DST anchors (28000s mid-window at a wrap-midnight window, 23400s across spring-forward, 30600s across fall-back) matched exactly on first implementation; 4 new checks added. `EXPECTED_CHECK_COUNT` for `server/test_config_history.py`: 30 → 35 (Task 1) → 39 (Task 2); `companion/test_config_page.py` unchanged at 64. No deviations — both tasks' acceptance-criteria commands ran verbatim and passed; `git diff --name-only` after each commit matched the plan's declared `files_modified` exactly. `scripts/run-all-tests.sh` run at plan close: 22/22 harnesses pass (sole note: the pre-existing, already-accepted macOS Pillow/FreeType `panel.bin` digest mismatch, confirmed present before this plan started and unrelated to these changes). `server/requirements.txt` unchanged.
 
@@ -270,6 +272,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase quick-260902-j8w P260902-j8w | 35min | 3 tasks | 5 files |
 | Phase quick-260903-c4o P260903-c4o | ~70min | 3 tasks | 6 files |
 | Phase 10 P01 | 25min | 2 tasks | 3 files |
+| Phase 10-scheduled-quiet-hours P02 | 15min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -459,6 +462,8 @@ Recent decisions affecting current work:
 - [Phase ?]: RUNWAYS dict keys (3/06-24/02-20) stay byte-identical; only the label field text changes to official Piste 3/4/2 numbers, keeping tag_text/empty_heading and the panel render path untouched
 - [Phase 10]: seconds_until_quiet_hours_end() subtracts in UTC (not local wall-clock time) to stay correct across a Europe/Paris DST transition — a documented deviation from the 10-PATTERNS.md reference body
 - [Phase 10]: The 02:00-03:00 DST transition-hour boundary case is accepted as a documented caveat (PEP 495 fold=0), not engineered around, per D-01's bound on the worst case
+- [Phase 10]: Missing/empty/non-string quiet_hours_until omits the body line entirely rather than raising or drawing 'Back at None' (T-10-02-01)
+- [Phase 10]: Deferred visual-review checkpoint resolved as option (1): no visual change beyond copy - QUIET HOURS reads as distinct from Watching Runway 3 at a glance
 
 ### Pending Todos
 
@@ -539,10 +544,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-03T19:15:11.224Z
-Stopped at: Completed 10-01-PLAN.md
+Last session: 2026-09-03T19:32:40.796Z
+Stopped at: Completed 10-02-PLAN.md
 
-Resume file: .planning/phases/10-scheduled-quiet-hours/10-02-PLAN.md
+Resume file: 
 
 **State at end of this session (2026-08-27, ~08:50):**
 
