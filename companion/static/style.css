@@ -141,6 +141,14 @@
    * as a fill. Enforced by companion/test_contrast_check.py's
    * separation section — do not shift this back toward pure red. */
   --color-status-error: #BE123C;
+
+  /* 10-05-PLAN.md Task 2: the default (data-ui-theme="auto" / no
+   * override) case — follow the OS, matching today's
+   * prefers-color-scheme-driven default block above. Without this, a
+   * browser paints native form-control chrome (e.g. this page's first
+   * <input type="time">) using its own light/dark heuristic instead of
+   * the OS scheme the rest of this default case already follows. */
+  color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -186,6 +194,13 @@ html[data-ui-theme="light"] {
   --color-status-ok: #16A34A;
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
+  /* 10-05-PLAN.md Task 2: this explicit CFG-09 override can disagree with
+   * the OS's own prefers-color-scheme, and without color-scheme a
+   * browser paints native form-control chrome (e.g. the first
+   * <input type="time"> on this page, Settings' new Quiet hours group)
+   * using the OS scheme instead — producing a dark, hard-to-see picker
+   * icon on this light fill whenever the two disagree. */
+  color-scheme: light;
 }
 
 html[data-ui-theme="dark"] {
@@ -202,6 +217,10 @@ html[data-ui-theme="dark"] {
   --color-status-ok: #4ADE80;
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
+  /* Same reason as the light override above, inverted: without this, a
+   * browser whose OS scheme is light paints the time-picker icon dark on
+   * this dark-mode --color-secondary fill. */
+  color-scheme: dark;
 }
 
 /* D-19: a single global reduced-motion override every transition in this
@@ -678,7 +697,7 @@ a:hover {
 /* quick task 260902-l9w: this utility's own 1px sizing above is inert on
  * an `<input>` or `<select>`, because a `min-height`/`min-width` from
  * another rule is a floor applied at layout time, not a cascade
- * competitor — the same mechanism `.led-checkbox input[type="checkbox"]`
+ * competitor — the same mechanism `.settings-checkbox input[type="checkbox"]`
  * and `.filter-bar__field input` (below) already clear for their own
  * elements, and their comments already spell out. This is the third
  * site needing the same clearing, and the reason it was missed twice
@@ -1604,19 +1623,23 @@ button:disabled {
   display: inline-flex;
 }
 
-/* Diagnostic LED checkbox (quick task 260901-qif). `summary`'s own idiom
- * reused verbatim: a centred flex row with a 44px `min-height`. The 44px
- * is deliberate — a native checkbox's label is already a click target, so
- * putting the floor here means the control's real activation target
- * stays 44px tall while its painted box (below) shrinks to 16px. This is
- * a relocation of the floor, exactly like `.copy-btn`'s synthesized
- * `::before` hit area — NOT a fourth entry for the 44px floor register's
- * opt-out list above the base `button` rule; see that comment, which
- * cross-references this rule. `gap`, not the literal space in the
- * markup, is what separates the box from its text once the label is a
- * flex container — this flex row is only possible because this rule
- * overrides the global block-level `label` rule. */
-.led-checkbox {
+/* Shared Settings-page checkbox normalization (quick task 260901-qif,
+ * generalised 10-05-PLAN.md Task 2): now used by both the Diagnostic LED
+ * group and the Quiet hours group, so this is a single rule serving two
+ * consumers rather than a duplicated one, per 10-UI-SPEC.md's CSS reuse
+ * note. `summary`'s own idiom reused verbatim: a centred flex row with a
+ * 44px `min-height`. The 44px is deliberate — a native checkbox's label
+ * is already a click target, so putting the floor here means the
+ * control's real activation target stays 44px tall while its painted box
+ * (below) shrinks to 16px. This is a relocation of the floor, exactly
+ * like `.copy-btn`'s synthesized `::before` hit area — NOT a fourth
+ * entry for the 44px floor register's opt-out list above the base
+ * `button` rule; see that comment, which cross-references this rule.
+ * `gap`, not the literal space in the markup, is what separates the box
+ * from its text once the label is a flex container — this flex row is
+ * only possible because this rule overrides the global block-level
+ * `label` rule. */
+.settings-checkbox {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -1642,7 +1665,7 @@ button:disabled {
  * declares once site-wide (D-06) — restating it here would create a
  * second place one value lives, the exact failure mode this file's
  * --color-destructive comment already documents. */
-.led-checkbox input[type="checkbox"] {
+.settings-checkbox input[type="checkbox"] {
   width: 16px;
   height: 16px;
   min-height: 0;

@@ -391,21 +391,24 @@ def led_group(current_led_enabled):
     was never true of the shipped markup and is the reason this position
     drift went unnoticed.
 
-    The `<label>` carries `class="led-checkbox"` (quick task 260901-qif):
-    unclassed, it fell through to the global `input, select` rule written
-    for text inputs and selects, painting an oversized 44x44 filled,
-    bordered, rounded box instead of a normal small checkbox. The class
-    scopes a normalization rule that shrinks the checkbox to its native
-    16px size while relocating the 44px touch-target floor onto this
-    label — the input's own `type`/`name`/`value`/`checked` attribute
-    sequence is untouched.
+    The `<label>` carries `class="settings-checkbox"` (quick task
+    260901-qif; a rename of this group's own original checkbox-
+    normalization class, by 10-05-PLAN.md Task 2, once the Quiet hours
+    group became a second consumer of the identical pattern): unclassed,
+    it fell through to the global `input, select`
+    rule written for text inputs and selects, painting an oversized 44x44
+    filled, bordered, rounded box instead of a normal small checkbox. The
+    class scopes a normalization rule that shrinks the checkbox to its
+    native 16px size while relocating the 44px touch-target floor onto
+    this label — the input's own `type`/`name`/`value`/`checked`
+    attribute sequence is untouched.
     """
     checked = " checked" if current_led_enabled else ""
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption">%s</p>'
-        '<label class="led-checkbox">'
+        '<label class="settings-checkbox">'
         '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
         "</label>"
         "</div>"
@@ -438,9 +441,9 @@ def quiet_hours_group(current_enabled, current_start, current_end):
     page's two-column grid.
 
     The checkbox's wrapping `<label>` carries `class="settings-checkbox"`
-    — the generalised name Task 2 of 10-05-PLAN.md introduces (a rename of
-    `led_group()`'s own `led-checkbox` class, now that there are two
-    identical consumers of the same normalization rule).
+    — the generalised name Task 2 of 10-05-PLAN.md introduces, once
+    `led_group()`'s own single-consumer checkbox-normalization class is
+    renamed to serve both groups identically.
 
     Unlike an "unchecked disables the fields" pattern, this group's Start/
     End inputs are NEVER given a `disabled` attribute or a dimmed/
