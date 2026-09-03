@@ -3157,34 +3157,31 @@ def main():
         "quick task 260902-iag; re-promoted by 06.6.4.1.1 plan 02 Task 2)",
         _nested_heading_tier_promoted_to_sans_semibold_emphasis_role)
 
-    def _stat_tile_caption_weight_reverted_and_four_role_scale_hold():
-        # SUPERSEDED (quick task 260902-dng, Task 3): this check used to
-        # pin .stat-tile__caption declaring --weight-semibold, and the
-        # region's four text roles sharing a caption/value/nested-title
-        # semibold trio below one regular-weight section heading. quick
-        # task 260902-iag rewrote this check's whole contract in place —
-        # not just the assertions — because 260901-uzi's finding 4 (the
-        # nested card title's 16px semibold demotion) was itself reverted
-        # by quick task 260902-iag Task 1, and 260902-dng's promotion's
-        # only stated reason was matching that now-reverted title. Task 2
-        # re-adjudicated the promotion against both a premise test and an
-        # inversion test (see .stat-tile__caption's own comment in
-        # style.css for the full reasoning) and reverted it: the caption
-        # is back to the plain Label role it held before 260902-dng.
+    def _stat_tile_caption_joins_the_unified_label_voice():
+        # SUPERSEDED (quick task 260902-dng, Task 3, and quick task
+        # 260902-iag, Task 2): this check used to weigh
+        # .stat-tile__caption's font-weight against the nested card
+        # title's own weight — first pinning a semibold promotion
+        # (260902-dng), then pinning its reversal back to .text-label's
+        # inherited regular (260902-iag). Both adjudications shared one
+        # premise: that the caption was, and would remain, a serif
+        # Label-role exception whose only open question was weight.
         #
-        # This check's post-reversal contract: the four roles' sizes
-        # still form a coherent, source-grounded set against the real
-        # :root token values (caption 14px, strictly below the tile value
-        # and the nested card title at 16px and 20px respectively, both
-        # at or below the 20px section heading — no fifth size anywhere);
-        # the caption declares no size of its own and keeps its named
-        # serif exception; the tile value keeps its own D-09 Emphasis-role
-        # size and weight, untouched by this adjudication; the nested
-        # card title and the section heading both declare regular weight
-        # or inherit it with no override; and the caption declares no
-        # font-weight of its own either, inheriting .text-label's
-        # regular weight — the verdict Task 2 shipped, asserted
-        # explicitly in that direction.
+        # 06.6.4.1.1 (D-13, plan 02 Task 3) retires that premise entirely.
+        # The caption is no longer serif and no longer weighed against the
+        # nested card title's weight at all — it converges, together with
+        # .data-table th, .data-card__label, .filter-bar__count,
+        # .banner__pill and .airline-card__chip, on the one unified label
+        # voice: sans, 12px, semibold, uppercase, 0.06em tracking. This
+        # check's post-D-13 contract: the caption declares all four of
+        # those properties plus the 12px size, and its rule body no
+        # longer names the serif token at all; .stat-tile__value keeps
+        # its own untouched D-09 Emphasis-role size and weight (16px
+        # semibold) — that role was never in question here and stays
+        # exactly as it was; the shared serif rule keeps its regular
+        # weight (still the section-heading tier's own contract,
+        # independent of the caption question this check used to
+        # adjudicate); and the token table reads 14/16/22px.
         css_path = os.path.join(HERE, "static", "style.css")
         with open(css_path) as fh:
             css_source = fh.read()
@@ -3196,19 +3193,31 @@ def main():
             return css_source[body_open:body_close]
 
         caption_body = _rule_body(".stat-tile__caption {")
-        if "font-weight" in caption_body:
+        if "font-family: var(--font-ui)" not in caption_body:
             return False, (
-                "expected .stat-tile__caption to declare no font-weight of its own — quick "
-                "task 260902-iag Task 2 reverted the semibold promotion back to .text-label's "
-                "inherited regular weight; a font-weight reappearing here is that promotion "
-                "returning without the fresh, non-circular justification the revert requires")
-        if "font-size" in caption_body:
+                "expected .stat-tile__caption to declare font-family: var(--font-ui) — D-13 "
+                "retires the serif Label-role exception this caption used to be")
+        if "var(--font-serif)" in caption_body:
             return False, (
-                "expected .stat-tile__caption to declare no font-size of its own "
-                "(it must keep inheriting .text-label's 14px) — a fifth size "
-                "would violate D-09's four-size scale")
-        if "var(--font-serif)" not in caption_body:
-            return False, "expected .stat-tile__caption to keep its named serif exception"
+                "expected .stat-tile__caption's rule body to no longer name the serif token at "
+                "all — a serif reference reappearing here is the retired Label-role exception "
+                "returning")
+        if "font-size: 12px" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare font-size: 12px — the unified label "
+                "voice's own size")
+        if "font-weight: var(--weight-semibold)" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare font-weight: var(--weight-semibold) "
+                "— one of the unified label voice's four properties")
+        if "text-transform: uppercase" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare text-transform: uppercase — one of "
+                "the unified label voice's four properties")
+        if "letter-spacing: 0.06em" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare letter-spacing: 0.06em — one of the "
+                "unified label voice's four properties")
 
         value_body = _rule_body(".stat-tile__value {")
         if "font-size: var(--font-body-size)" not in value_body:
@@ -3251,16 +3260,14 @@ def main():
 
         return True, ""
     check(
-        "style.css's four Server & data text roles form a coherent, source-grounded set after both the nested "
-        "card title's reversal and the stat-tile caption's re-adjudication (quick task 260902-iag): the caption "
-        "(14px, no font-size or font-weight of its own, keeping its named serif exception) declares no weight "
-        "promotion — reverted back to .text-label's inherited regular, since its only stated reason (matching "
-        "the now-reverted 16px-semibold nested title) evaporated and would otherwise recreate the same weight-"
-        "vs-size inversion this session has repeatedly fixed — while .stat-tile__value keeps its own untouched "
-        "D-09 Emphasis-role size/weight, and both the nested card title and the section heading inherit "
-        ".text-heading's 20px regular treatment with no override (quick task 260902-dng Task 3, whose promotion "
-        "and reasoning are superseded, not deleted, by quick task 260902-iag Task 2)",
-        _stat_tile_caption_weight_reverted_and_four_role_scale_hold)
+        "style.css's .stat-tile__caption converges on the one unified 12px uppercase label voice (D-13) — sans "
+        "family, 12px size, semibold weight, uppercase transform and 0.06em tracking all declared explicitly, "
+        "with no serif token named anywhere in its rule body — while .stat-tile__value keeps its own untouched "
+        "D-09 Emphasis-role size/weight, the nested card title stays on its own D-09-second-reversal sans-"
+        "semibold Body-size declarations, the shared h1/h2/h3/legend/.text-heading serif rule keeps its regular "
+        "weight, and the token table reads 14/16/22px (supersedes quick task 260902-dng Task 3's semibold "
+        "promotion and quick task 260902-iag Task 2's reversal of it — 06.6.4.1.1 plan 02 Task 3)",
+        _stat_tile_caption_joins_the_unified_label_voice)
 
     def _two_tier_hierarchy_carried_by_layout_not_type():
         # quick task 260902-iag Task 3: with font-size no longer

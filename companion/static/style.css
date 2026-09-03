@@ -347,9 +347,19 @@ body {
  *
  * The exhaustive serif set is: h1, h2, h3, .text-heading, `legend`,
  * .page-title, .site-title (which .sidebar-title is always co-classed
- * with, and is why .sidebar-title needs no rule of its own), and
- * .stat-tile__caption (the one named Label-role exception, see the
- * stat-tile section below). Do not extend it further.
+ * with, and is why .sidebar-title needs no rule of its own) — minus the
+ * nested-card-title override further down this file (the rule pairing
+ * .page-section--nested's own h2 with .battery-trend-section's), which
+ * overrides this rule's family to sans for that one tier (06.6.4.1.1
+ * D-09). 06.6.4.1.1 (D-13) also retires the one Label-role exception
+ * this list used to carry —
+ * .stat-tile__caption is no longer serif, no longer a Label-role
+ * exception of any kind, and moved onto the unified 12px uppercase label
+ * voice instead (see its own rule in the stat-tile section below). This
+ * serif set is genuinely exhaustive again: do not extend it further, and
+ * do not let this comment's own allow-list drift out of date the way the
+ * stale one it replaces did — a stale allow-list in a comment is exactly
+ * the defect the heading-color-consistency debug session was caused by.
  *
  * `legend` is in the selector below, and this is the fix, not a
  * cosmetic addition: `legend` is a section-heading role — it is the
@@ -1123,14 +1133,22 @@ select.visually-hidden {
  * without overflowing, while the chip's own row does not need to wrap.
  * A future consolidation now needs to carry that one divergence, not a
  * mechanical copy. */
+/* 06.6.4.1.1 (D-13): converges onto the one unified 12px uppercase
+ * label voice — see .stat-tile__caption's own comment below for the
+ * full contract this and every other label-shaped rule in the file now
+ * shares. Edited in place, declarations only; this rule's own position
+ * in source order is load-bearing for the .refresh-pill precedence
+ * check below and must not move. */
 .banner__pill {
   display: inline-flex;
   align-items: center;
   height: 20px;
   padding: 0 8px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: var(--weight-regular);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -1899,8 +1917,11 @@ button:disabled {
  * comment, and is a separate one-declaration decision with its own risk
  * to History's table (the only one long enough for the sticky state to
  * actually engage). */
+/* 06.6.4.1.1 (D-13): 11px -> 12px, converging onto the one unified label
+ * voice this file now states once, on .stat-tile__caption's own comment
+ * below. Every other declaration here already matched that voice. */
 .data-table th {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2168,9 +2189,11 @@ button:disabled {
  * same font-size, weight, letter-spacing, transform and 70% muted
  * color-mix literal, copied by VALUE (not by selector), so a card's
  * field label reads at the same quiet tier as the table header it
- * replaces. */
+ * replaces. 06.6.4.1.1 (D-13): 11px -> 12px, moved in the same edit as
+ * .data-table th above — a harness check pins these two font-size
+ * declarations string-equal, so they must always move together. */
 .data-card__label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: var(--weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2258,9 +2281,16 @@ button:disabled {
 
 /* 06.6.4 (D-08): shrunk and muted to the same 70% text color-mix
  * strength the table header and theme segments use — one muted
- * strength across the app, not a fourth value invented here. */
+ * strength across the app, not a fourth value invented here.
+ * 06.6.4.1.1 (D-13): already the right size and muted strength; adds
+ * the weight/transform/tracking that complete the one unified label
+ * voice (see .stat-tile__caption's own comment below for the full
+ * contract). */
 .filter-bar__count {
   font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   white-space: nowrap;
 }
@@ -2426,11 +2456,24 @@ summary::-webkit-details-marker {
   border-top-color: var(--color-accent);
 }
 
-/* 06.6.1: the caption is the one Label-role text this contract deliberately
- * renders in serif (a narrow, named exception — not a licence to extend
- * serif to other Label text elsewhere). The two explicit resets below
- * state that the small-caps uppercase treatment is intentionally
- * abandoned here, not accidentally lost.
+/* CURRENT CONTRACT (06.6.4.1.1, D-13): this rule is no longer a serif
+ * exception at all. It now states the one unified 12px uppercase label
+ * voice every label-shaped element in the app shares — sans, 12px,
+ * semibold, uppercase, 0.06em tracking, the file's existing 70%
+ * color-mix muted strength — the same declarations `.data-table th`,
+ * `.data-card__label`, `.filter-bar__count`, `.banner__pill` and
+ * `.airline-card__chip` all now carry too (each edited in the same
+ * plan). No serif text remains at Label size anywhere in the companion.
+ *
+ * SUPERSEDED (06.6.1 through quick task 260902-iag): this rule used to be
+ * the one named Label-role serif exception in the file — the entire
+ * premise of the two adjudications below was a four-role scale in which
+ * this caption was serif and 14px, disagreeing or agreeing in WEIGHT with
+ * a 16px/20px nested card title. D-13 retires that whole premise: there
+ * is no longer a separate serif Label voice to weigh against a card-title
+ * tier, so the weight-adjudication question the two blocks below argued
+ * over no longer arises. Kept below, not deleted, because it is the
+ * evidence trail for how this rule got here.
  *
  * SUPERSEDED (quick task 260902-dng, Task 3): this rule used to promote
  * the caption to --weight-semibold, keeping the 14px size and the serif
@@ -2447,45 +2490,32 @@ summary::-webkit-details-marker {
  * while the unchanged 14/16 size gap kept signalling a tile's name as
  * subordinate to a section-level card's own name.
  *
- * quick task 260902-iag re-adjudicated this promotion when 260901-uzi's
- * finding 4 was itself reverted (see `.page-section--nested > h2`'s own
- * comment). The promotion's ONLY stated reason was matching the nested
- * card title's weight; reverting that title to regular does not merely
- * remove the reason, it INVERTS it:
+ * SUPERSEDED (quick task 260902-iag): re-adjudicated the promotion above
+ * when 260901-uzi's finding 4 was itself reverted (see
+ * `.page-section--nested > h2`'s own comment). The promotion's ONLY
+ * stated reason was matching the nested card title's weight; reverting
+ * that title to regular did not merely remove the reason, it inverted
+ * it — a semibold 14px caption next to a regular 20px card title would
+ * have recreated the same weight-vs-size inversion in the opposite
+ * direction. Verdict at the time: REVERTED, back to the plain Label role
+ * it held before 260902-dng.
  *
- * Premise test — does hypothesis (ii)'s premise survive? No. It asserted
- * the two "card name" roles disagreed on weight and should agree. After
- * the revert the nested card title is 20px regular. A semibold caption
- * does not restore agreement — it recreates the disagreement in the
- * opposite direction, with the smaller role (14px) now the bolder one
- * next to the larger role (20px) that is regular.
- *
- * Inversion test — which roles in the Server & data region carry
- * semibold after the revert? Only the two smallest: this 14px caption
- * (if kept) and `.stat-tile__value`'s 16px (D-09's Emphasis role,
- * untouched by this adjudication — see that rule below). Both 20px
- * roles — the section heading and the reverted nested card title — stay
- * regular. Weight would increase as size decreases across the region:
- * the same class of inverted hierarchy this session has repeatedly been
- * asked to fix (finding 4 itself was a version of exactly this
- * complaint, one structural level up).
- *
- * Both tests point the same way, and no fresh justification independent
- * of the reverted 16px tier survives the inversion test — the validated
- * Merged Health Sketch's own `.stat-tile__caption` rule (14px muted
- * uppercase, no weight promotion) is a data point in the same direction.
- * Verdict: REVERTED. The caption declares no font-weight of its own
- * again, inheriting `.text-label`'s regular weight — the plain Label
- * role it held before 260902-dng. No fifth size introduced either way;
- * no new token introduced. */
+ * D-13 supersedes both adjudications above with a different move
+ * entirely: rather than choosing whether this caption should match the
+ * nested card title's weight, it retires the caption's own serif Label
+ * identity and puts it on the same uppercase label voice every other
+ * label-shaped element in the app already needed to converge on. */
 .stat-tile__caption {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
   margin: 0 0 var(--space-sm);
-  font-family: var(--font-serif);
-  text-transform: none;
-  letter-spacing: normal;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* Icon section (06.6.1 Component Patterns — icon <defs> block). A
@@ -3232,18 +3262,22 @@ summary::-webkit-details-marker {
   gap: var(--space-xs);
 }
 
-/* 11px matches .data-table th's already-shipped quiet-label tier above
- * (not a fifth content type role). Neutral-tinted, not accent-tinted, so
- * this file's own header-comment accent-reservation list stays exhaustive
- * and unchanged. */
+/* Matches .data-table th's quiet-label tier above (not a fifth content
+ * type role). Neutral-tinted, not accent-tinted, so this file's own
+ * header-comment accent-reservation list stays exhaustive and unchanged.
+ * 06.6.4.1.1 (D-13): 11px -> 12px, gains the uppercase/semibold/tracking
+ * declarations that complete the one unified label voice — see
+ * .stat-tile__caption's own comment for the full contract. */
 .airline-card__chip {
   display: inline-flex;
   align-items: center;
   height: 20px;
   padding: 0 8px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: var(--weight-regular);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -3366,9 +3400,10 @@ summary::-webkit-details-marker {
  * ink now, not `fill` (was `fill` before this task; the same property
  * rename health_page.py's own axis-label markup already made). 10px
  * reuses this file's already-documented sub-scale exception tier
- * (.data-table th at 11px, .cell-secondary at 12px), one step further
- * down because chart-axis micro-labels sit below secondary table text
- * in the hierarchy — explicitly not a fifth content type role.
+ * (.data-table th and .cell-secondary both at 12px, after 06.6.4.1.1
+ * D-13 moved .data-table th up from 11px), one step further down
+ * because chart-axis micro-labels sit below secondary table text in the
+ * hierarchy — explicitly not a fifth content type role.
  * `line-height: 1.2` is added because health_page.py's
  * _SPARKLINE_VERTICAL_INSET_PERCENT arithmetic depends on this being a
  * known number (half the label's line box), not an inherited value. */
