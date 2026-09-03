@@ -2177,14 +2177,12 @@ button:disabled {
  * `font-size: var(--font-label-size)` on its two summaries
  * (`summary.readings-summary` / `details.more-details summary`). Not
  * applied here — a size change was not the reported defect, is not what
- * makes the element read as interactive, and would land on all four
+ * makes the element read as interactive, and would land on all three
  * real disclosure call sites at once as an unrequested rider (health_page
  * .py's readings table and Corroboration "More details", history_page
- * .py's mobile per-card "More details" and its migrated-from-Preview
- * "Recent renders (N)" gallery disclosure — verified by grep; a prior
- * draft of this task's own plan double-counted the migrated gallery
- * disclosure as two sites and is corrected here). Recorded here so the
- * delta from the sketch stays visible rather than forgotten. */
+ * .py's mobile per-card "More details" — verified by grep). Recorded
+ * here so the delta from the sketch stays visible rather than
+ * forgotten. */
 summary {
   cursor: pointer;
   min-height: 44px;
@@ -2596,9 +2594,9 @@ summary::-webkit-details-marker {
  *    their specificity, is what makes hover behave identically across
  *    both theme-selection mechanisms. */
 
-/* Dashboard grid (D-02): same auto-fit/minmax idiom .gallery-grid already
- * establishes as this file's responsive-grid precedent, with a wider
- * 240px floor. 06.6.1 promotes the gap (the horizontal/vertical GAP
+/* Dashboard grid (D-02): shares the same auto-fit/minmax idiom as
+ * .illustration-grid below (this file's responsive-grid idiom), with a
+ * wider 240px floor. 06.6.1 promotes the gap (the horizontal/vertical GAP
  * between tiles inside one grid row) from lg (24px) to xl (32px) per
  * D-02/D-04's airier-layout direction. No breakpoint is needed for the
  * grid itself: it collapses to one column on narrow viewports on its
@@ -2938,33 +2936,12 @@ summary::-webkit-details-marker {
   display: none;
 }
 
-/* Gallery grid (CFG-11) — collapses to fewer columns automatically on
- * mobile widths, no extra breakpoints needed. */
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-md);
-}
-
-/* The existing .gallery-grid img rule below still applies through this
- * new <a> wrapper (a descendant selector), but the anchor's own default
- * inline display can introduce a small baseline gap under the image
- * without this explicit block rule. */
-.gallery-tile a {
-  display: block;
-}
-
-.gallery-grid img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* Airlines illustration gallery (D-14, 06.6.4.1-UI-SPEC.md §7.1). A new
- * class rather than a reuse of .gallery-grid above: those tiles carry
- * only an image and a caption, these carry a name and a chip row too, so
- * they need a wider 200px column floor and the roomier lg gap. Same
- * auto-fill idiom as .gallery-grid, not a new pattern. */
+/* Airlines illustration gallery (D-14, 06.6.4.1-UI-SPEC.md §7.1). This
+ * file's own responsive-grid idiom: an auto-fill grid with a 200px
+ * column floor and the roomier lg gap, collapsing to fewer columns
+ * automatically on mobile widths with no extra breakpoints needed. Each
+ * tile carries a name and a chip row in addition to its image and
+ * caption. */
 .illustration-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
