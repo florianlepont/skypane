@@ -113,6 +113,10 @@ FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
 # D-20 (06.6.4.1-02): companion/layout.py's PANEL_LOOKUP_SCRIPT_SRC must
 # equal this exactly, mirroring the SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
 PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
+# Quick task 260903-peo (UIR-19): companion/layout.py's
+# FLASH_CLEANUP_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
+FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -217,6 +221,7 @@ _LIST_FILTER_JS_PATH = os.path.join(_HERE, "static", "list-filter.js")
 _COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
 _FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
 _PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
+_FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -249,6 +254,14 @@ _PAGE_TITLES = {
 # instead of the generic "Companion Access" copy the old page_shell()-based
 # login reused.
 LOGIN_EXPLANATION_TEXT = "Sign in to manage this device's settings."
+
+# Quick task 260903-peo (UIR-16): the 404 page's title and one-sentence
+# purpose, promoted to module constants matching LOGIN_EXPLANATION_TEXT's
+# own precedent for user-facing copy. `layout.page_header()` escapes both
+# when it renders them — these are always plain strings, never
+# pre-escaped markup.
+NOT_FOUND_TITLE = "Page not found."
+NOT_FOUND_PURPOSE_TEXT = "The page you requested doesn't exist or may have moved."
 
 
 def _validated_next_route(candidate):
@@ -710,13 +723,39 @@ class Handler(BaseHTTPRequestHandler):
     # --- shared page fragments -------------------------------------------
 
     def _not_found_page(self):
+        """The shared 404 body, reached from ELEVEN call sites across this
+        module — including the two PRE-AUTH static-asset delegates,
+        `_serve_stylesheet()` and `_serve_script_file()`, both reached
+        before any `require_session()` gate because D-02 exempts static
+        assets from the session gate entirely. Quick task 260903-peo
+        (UIR-16): the heading now uses the shared `layout.page_header()`
+        component (the 30px serif `.page-title` role every other
+        authenticated page opens with) instead of the old bare
+        `<h1 class="text-heading">` (the 20px section-heading role,
+        wrong here).
+
+        The Health nav dot is threaded through `health_alert` on the
+        `self._is_authenticated()` branch ONLY — that predicate (L549) is
+        a pure bool check with no side effect, unlike `require_session()`
+        (which redirects). Computing severity unconditionally would leak
+        Health's warn/error state to an unauthenticated caller landing on
+        either of the two pre-auth paths named above. `self.page_context()`
+        is deliberately NOT called here: it performs six-plus SQLite
+        reads, a device-config load and a filesystem scan for a single
+        value on what is, structurally, an error path.
+        """
+        health_alert = None
+        if self._is_authenticated():
+            health_state = health_page.safe_health_state(
+                self.args.state_dir, history_db.utc_now_iso())
+            health_alert = health_state["severity"] if health_state else "ok"
         body = (
-            '<h1 class="text-heading">Page not found.</h1>'
-            '<p class="text-body"><a href="%s">Back to Settings</a></p>'
-        ) % SETTINGS_ROUTE
+            layout.page_header(NOT_FOUND_TITLE, purpose=NOT_FOUND_PURPOSE_TEXT)
+            + '<p class="text-body"><a href="%s">Back to Settings</a></p>' % SETTINGS_ROUTE
+        )
         return layout.page_shell(
             title="Not Found", active="", body=body,
-            ui_theme=self._resolved_ui_theme())
+            ui_theme=self._resolved_ui_theme(), health_alert=health_alert)
 
     def _login_body(self, error=None, lockout_seconds=None, next_route=None):
         """The login card's inner markup — 06.6.2-07 (UXA-03).
@@ -858,6 +897,14 @@ class Handler(BaseHTTPRequestHandler):
         shape exactly.
         """
         return self._serve_script_file(_PANEL_LOOKUP_JS_PATH)
+
+    def _serve_flash_cleanup_script(self):
+        """Serve companion/static/flash-cleanup.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_panel_lookup_script()'s shape exactly (quick task
+        260903-peo, UIR-19).
+        """
+        return self._serve_script_file(_FLASH_CLEANUP_JS_PATH)
 
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
@@ -1126,6 +1173,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == PANEL_LOOKUP_SCRIPT_ROUTE:
             return self._serve_panel_lookup_script()
+
+        if path == FLASH_CLEANUP_SCRIPT_ROUTE:
+            return self._serve_flash_cleanup_script()
 
         if path == SETTINGS_ROUTE:
             if not self.require_session():

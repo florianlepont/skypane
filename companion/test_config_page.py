@@ -120,7 +120,10 @@ STARTUP_DEADLINE_S = 10.0
 # were in-place rewrites. Recomputed directly against the real on-disk
 # check(...) call count at merge-resolution time rather than trusting the
 # incremental arithmetic above, which had drifted from actual: 64.
-EXPECTED_CHECK_COUNT = 64
+EXPECTED_CHECK_COUNT = 65  # + 1 (quick task 260903-peo Task 4: UIR-19's
+# save-round-trip check pinning the server-side PRG redirect unchanged
+# (SETTINGS_ROUTE?flash=saved) and the rendered redirect target carrying
+# both the flash banner and flash-cleanup.js's deferred script tag)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1825,6 +1828,48 @@ def main():
         check(
             "a real HTTP save round trip shows D-07's confirmation copy and the newly-saved runway selected",
             _save_round_trip_shows_confirmation_and_new_selection)
+
+        def _settings_save_redirect_carries_flash_banner_and_cleanup_script():
+            # Quick task 260903-peo (UIR-19): the server-side PRG redirect
+            # itself is unchanged by this task — this pins the pairing
+            # that makes the client-side cleanup reachable: the rendered
+            # redirect target carries BOTH the flash banner
+            # flash-cleanup.js looks for (.banner--flash) AND
+            # flash-cleanup.js's own deferred <script> tag.
+            status, headers, _ = http_request(
+                base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode(
+                    {"theme": "black", "tracked_runway": "06-24"}).encode())
+            if status != 303:
+                return False, "expected a 303 redirect on save, got %d" % status
+            location = headers.get("Location", "")
+            expected_location = "%s?flash=saved" % config_page.SETTINGS_ROUTE
+            if location != expected_location:
+                return False, (
+                    "expected the PRG redirect target to stay exactly %r, got %r — "
+                    "the server-side redirect must be unchanged by this task"
+                    % (expected_location, location))
+            redirect_status, _redirect_headers, body = http_request(
+                base + location, cookie=session_cookie)
+            if redirect_status != 200:
+                return False, "expected 200 following the save redirect, got %d" % redirect_status
+            body_text = body.decode("utf-8", errors="replace")
+            if "banner--flash" not in body_text:
+                return False, "expected the rendered redirect target to carry the flash banner"
+            expected_script_tag = (
+                '<script src="%s" defer></script>' % companion_app.FLASH_CLEANUP_SCRIPT_ROUTE)
+            if expected_script_tag not in body_text:
+                return False, (
+                    "expected the rendered redirect target to carry flash-cleanup.js's own "
+                    "deferred <script> tag — the pairing that makes the client-side cleanup "
+                    "reachable")
+            return True, ""
+        check(
+            "a real HTTP save round trip keeps the server-side PRG redirect exactly "
+            "SETTINGS_ROUTE?flash=saved, and the rendered redirect target carries BOTH the "
+            "flash banner and flash-cleanup.js's deferred script tag (quick task 260903-peo, "
+            "UIR-19)",
+            _settings_save_redirect_carries_flash_banner_and_cleanup_script)
 
         def _settings_post_empty_body_persists_led_false_and_renders_unchecked():
             # 06.6.4.1-07 (D-05): the separate LED route is retired — this

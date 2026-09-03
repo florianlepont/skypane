@@ -46,6 +46,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -53,6 +54,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth, layout  # noqa: E402
+from companion.pages import health_page  # noqa: E402
+from server import history_db  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -62,7 +65,16 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 125  # merge origin/main into
+EXPECTED_CHECK_COUNT = 130  # 127 + 3 (quick task 260903-peo Task 4: UIR-19's
+# flash-cleanup.js pre-auth-serving check, ES5-dialect check, and
+# route/src cross-file agreement check; the pre-existing six-script-tag
+# count guard was retargeted in place to seven, no count change from it)
+# 127 = quick task 260903-peo Task 1: 2 new checks
+# (UIR-16 — an authenticated 404 opens with the shared page_header()
+# component and shows the Health nav dot under seeded error state; the
+# same seeded error state produces NO health-dot markup for an
+# UNAUTHENTICATED 404, the leak guard for the two pre-auth static-asset
+# call sites, _serve_stylesheet() and _serve_script_file()). 125 = merge origin/main into
 # claude/history-preview-gallery-32b974 (2026-09-03): combines this
 # branch's quick task 260903-c4o (-1: 108 -> 107, retiring the
 # /preview.png route) with main's independent, non-overlapping work
@@ -161,6 +173,17 @@ EXPECTED_CHECK_COUNT = 125  # merge origin/main into
 # pre-existing NAV_TABS-redirect checks and the one POST /config redirect
 # check were updated in place for the new ?next= carrying behavior, not
 # counted as new).
+
+
+def _ago_iso(seconds):
+    """An ISO-8601 UTC timestamp `seconds` in the past — quick task
+    260903-peo's own seeding helper, mirroring test_status_pages.py's
+    `_ago()` for the one use this file needs (a stale
+    `META_LAST_PIPELINE_RUN` past `health_page.STALE_PIPELINE_ERROR_S`,
+    which drives `overall_severity()` to `"error"`).
+    """
+    return (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat(
+        timespec="seconds")
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1814,20 +1837,73 @@ def main():
             "layout.PANEL_LOOKUP_SCRIPT_SRC equals companion.app.PANEL_LOOKUP_SCRIPT_ROUTE",
             _panel_lookup_script_route_src_agree)
 
-        def _six_deferred_scripts_before_closing_body():
+        # --- quick task 260903-peo Task 4: flash-cleanup.js (UIR-19) ---
+
+        check(
+            "GET /static/flash-cleanup.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/flash-cleanup.js"))
+
+        def _flash_cleanup_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "flash-cleanup.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "fetch(", "XMLHttpRequest",
+                "setTimeout", "setInterval", "innerHTML", "document.write",
+                "eval(")
+            for token in banned:
+                if token in src:
+                    return False, "flash-cleanup.js must not contain %r" % token
+            # Confirmed from source, not assumed: history.replaceState and
+            # location.search/location.pathname are NOT among the banned
+            # ES5-unsafe/forbidden-sink tokens above (freshness.js already
+            # ships window.location.reload() and passes, so navigation
+            # APIs are not blanket-banned) — this is the mechanism the
+            # cleanup itself depends on.
+            for required in ("history.replaceState", "location.search", "location.pathname"):
+                if required not in src:
+                    return False, "expected %r in flash-cleanup.js" % required
+            return True, ""
+        check(
+            "flash-cleanup.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "fetch/XHR/timers/innerHTML/document.write/eval), and uses history.replaceState with "
+            "location.search/location.pathname to strip a consumed ?flash= param (quick task "
+            "260903-peo, UIR-19)",
+            _flash_cleanup_script_es5_safe_and_no_html_write)
+
+        def _flash_cleanup_script_route_src_agree():
+            import companion.app as app_module
+            if layout.FLASH_CLEANUP_SCRIPT_SRC != app_module.FLASH_CLEANUP_SCRIPT_ROUTE:
+                return False, "flash-cleanup script route drift: %r vs %r" % (
+                    layout.FLASH_CLEANUP_SCRIPT_SRC, app_module.FLASH_CLEANUP_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.FLASH_CLEANUP_SCRIPT_SRC equals companion.app.FLASH_CLEANUP_SCRIPT_ROUTE",
+            _flash_cleanup_script_route_src_agree)
+
+        def _seven_deferred_scripts_before_closing_body():
+            # Retargeted in place from _six_deferred_scripts_before_
+            # closing_body() (quick task 260903-peo, UIR-19 Task 4):
+            # flash-cleanup.js is the seventh unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 6:
-                return False, "expected exactly 6 deferred <script src= tags before </body>, got %d" % count
-            if ('<script src="%s" defer></script>' % layout.PANEL_LOOKUP_SCRIPT_SRC) not in doc:
-                return False, "expected a deferred <script> tag for PANEL_LOOKUP_SCRIPT_SRC"
+            if count != 7:
+                return False, "expected exactly 7 deferred <script src= tags before </body>, got %d" % count
+            for src_const in (layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC):
+                if ('<script src="%s" defer></script>' % src_const) not in doc:
+                    return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly six deferred <script src= tags before "
-            "the closing body tag, including panel-lookup.js",
-            _six_deferred_scripts_before_closing_body)
+            "a rendered authenticated page contains exactly seven deferred <script src= tags "
+            "before the closing body tag, including panel-lookup.js and flash-cleanup.js",
+            _seven_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -2208,6 +2284,65 @@ def main():
                 return False, "expected the exact 404 copy in the response body"
             return True, ""
         check("an unknown path returns 404 with the exact 'Page not found.' copy", _unknown_path_404)
+
+        # --- UIR-16: 404 uses the shared page_header() and gates the Health nav dot on auth ---
+
+        # Seed a stale pipeline run once, shared by both checks below —
+        # health_page.overall_severity() resolves this to "error", giving
+        # both checks the same non-"ok" state to test the authenticated/
+        # unauthenticated split against.
+        with history_db.open_db(harness.tmpdir) as conn:
+            history_db.set_meta(
+                conn, history_db.META_LAST_PIPELINE_RUN,
+                _ago_iso(health_page.STALE_PIPELINE_ERROR_S + 60))
+
+        def _authenticated_404_uses_page_header_and_shows_health_dot():
+            status, _headers, body = http_request(
+                base + "/this-route-does-not-exist-uir16", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404, got %d" % status
+            if b'<h1 class="page-title">' not in body:
+                return False, (
+                    "expected the shared page_header() heading "
+                    "(<h1 class=\"page-title\">), the 30px serif role every "
+                    "other authenticated page opens with")
+            if b'<h1 class="text-heading">' in body:
+                return False, "expected the old text-heading 404 heading to be gone"
+            if b"dot--error" not in body:
+                return False, (
+                    "expected the Health nav dot (dot--error) to render for an "
+                    "authenticated caller under seeded error state")
+            return True, ""
+        check(
+            "an authenticated 404 opens with the shared page_header() (page-title, not "
+            "text-heading) and shows the Health nav dot when state is seeded error",
+            _authenticated_404_uses_page_header_and_shows_health_dot)
+
+        def _unauthenticated_404_never_leaks_health_state():
+            # T-peo-01, the leak guard: the exact same seeded error state
+            # above must NOT surface a dot for an unauthenticated caller
+            # landing on a 404. do_GET's own final, ungated fallback for
+            # any unmatched path is reached before any require_session()
+            # check runs (there is no route to gate) — the same
+            # structural class of pre-auth reach as the two named
+            # pre-auth static-asset delegates, _serve_stylesheet() and
+            # _serve_script_file(), which this harness cannot easily
+            # break on disk without deleting shipped files.
+            status, _headers, body = http_request(
+                base + "/this-route-does-not-exist-uir16-unauth")
+            if status != 404:
+                return False, "expected 404, got %d" % status
+            if b"dot--error" in body or b"dot--warn" in body:
+                return False, (
+                    "expected NO health-dot markup for an unauthenticated 404, "
+                    "even under the same seeded error state — this is the leak "
+                    "guard")
+            return True, ""
+        check(
+            "an UNAUTHENTICATED 404 renders no health-dot markup under the same seeded "
+            "error state — the leak guard for the two pre-auth call sites "
+            "(_serve_stylesheet, _serve_script_file)",
+            _unauthenticated_404_never_leaks_health_state)
 
         # --- preview.png: retired route, 404s even with a real panel present ---
 
