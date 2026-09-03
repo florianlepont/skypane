@@ -46,6 +46,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -53,6 +54,8 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth, layout  # noqa: E402
+from companion.pages import health_page  # noqa: E402
+from server import history_db  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -62,7 +65,12 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 125  # merge origin/main into
+EXPECTED_CHECK_COUNT = 127  # quick task 260903-peo Task 1: 2 new checks
+# (UIR-16 — an authenticated 404 opens with the shared page_header()
+# component and shows the Health nav dot under seeded error state; the
+# same seeded error state produces NO health-dot markup for an
+# UNAUTHENTICATED 404, the leak guard for the two pre-auth static-asset
+# call sites, _serve_stylesheet() and _serve_script_file()). 125 = merge origin/main into
 # claude/history-preview-gallery-32b974 (2026-09-03): combines this
 # branch's quick task 260903-c4o (-1: 108 -> 107, retiring the
 # /preview.png route) with main's independent, non-overlapping work
@@ -161,6 +169,17 @@ EXPECTED_CHECK_COUNT = 125  # merge origin/main into
 # pre-existing NAV_TABS-redirect checks and the one POST /config redirect
 # check were updated in place for the new ?next= carrying behavior, not
 # counted as new).
+
+
+def _ago_iso(seconds):
+    """An ISO-8601 UTC timestamp `seconds` in the past — quick task
+    260903-peo's own seeding helper, mirroring test_status_pages.py's
+    `_ago()` for the one use this file needs (a stale
+    `META_LAST_PIPELINE_RUN` past `health_page.STALE_PIPELINE_ERROR_S`,
+    which drives `overall_severity()` to `"error"`).
+    """
+    return (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat(
+        timespec="seconds")
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -2208,6 +2227,65 @@ def main():
                 return False, "expected the exact 404 copy in the response body"
             return True, ""
         check("an unknown path returns 404 with the exact 'Page not found.' copy", _unknown_path_404)
+
+        # --- UIR-16: 404 uses the shared page_header() and gates the Health nav dot on auth ---
+
+        # Seed a stale pipeline run once, shared by both checks below —
+        # health_page.overall_severity() resolves this to "error", giving
+        # both checks the same non-"ok" state to test the authenticated/
+        # unauthenticated split against.
+        with history_db.open_db(harness.tmpdir) as conn:
+            history_db.set_meta(
+                conn, history_db.META_LAST_PIPELINE_RUN,
+                _ago_iso(health_page.STALE_PIPELINE_ERROR_S + 60))
+
+        def _authenticated_404_uses_page_header_and_shows_health_dot():
+            status, _headers, body = http_request(
+                base + "/this-route-does-not-exist-uir16", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404, got %d" % status
+            if b'<h1 class="page-title">' not in body:
+                return False, (
+                    "expected the shared page_header() heading "
+                    "(<h1 class=\"page-title\">), the 30px serif role every "
+                    "other authenticated page opens with")
+            if b'<h1 class="text-heading">' in body:
+                return False, "expected the old text-heading 404 heading to be gone"
+            if b"dot--error" not in body:
+                return False, (
+                    "expected the Health nav dot (dot--error) to render for an "
+                    "authenticated caller under seeded error state")
+            return True, ""
+        check(
+            "an authenticated 404 opens with the shared page_header() (page-title, not "
+            "text-heading) and shows the Health nav dot when state is seeded error",
+            _authenticated_404_uses_page_header_and_shows_health_dot)
+
+        def _unauthenticated_404_never_leaks_health_state():
+            # T-peo-01, the leak guard: the exact same seeded error state
+            # above must NOT surface a dot for an unauthenticated caller
+            # landing on a 404. do_GET's own final, ungated fallback for
+            # any unmatched path is reached before any require_session()
+            # check runs (there is no route to gate) — the same
+            # structural class of pre-auth reach as the two named
+            # pre-auth static-asset delegates, _serve_stylesheet() and
+            # _serve_script_file(), which this harness cannot easily
+            # break on disk without deleting shipped files.
+            status, _headers, body = http_request(
+                base + "/this-route-does-not-exist-uir16-unauth")
+            if status != 404:
+                return False, "expected 404, got %d" % status
+            if b"dot--error" in body or b"dot--warn" in body:
+                return False, (
+                    "expected NO health-dot markup for an unauthenticated 404, "
+                    "even under the same seeded error state — this is the leak "
+                    "guard")
+            return True, ""
+        check(
+            "an UNAUTHENTICATED 404 renders no health-dot markup under the same seeded "
+            "error state — the leak guard for the two pre-auth call sites "
+            "(_serve_stylesheet, _serve_script_file)",
+            _unauthenticated_404_never_leaks_health_state)
 
         # --- preview.png: retired route, 404s even with a real panel present ---
 
