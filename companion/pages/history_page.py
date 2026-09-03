@@ -261,10 +261,25 @@ CELL_SEPARATOR_TEXT = "·"
 # back to the warning class rather than a fabricated label.
 _CORROBORATION_LABELS = {
     "True": ("ok", "Agreement"),
-    "None": ("ok", "Single-source (uncorroborated)"),
+    # quick task 260902-w4t (UIR-04): shortened from "Single-source
+    # (uncorroborated)" - the parenthetical made History's Corroboration
+    # column an overlong 253px. The long form survives below as a
+    # tooltip via _CORROBORATION_TITLES; health_page._CORROBORATION_ROWS
+    # still carries the long form as ITS OWN visible label by design -
+    # the two pages are allowed to diverge in copy now, and
+    # test_view_pages.py's restated drift guard is what keeps this
+    # constant's tooltip text honest against Health's copy.
+    "None": ("ok", "Single-source"),
     "False": ("warn", "Disagreement"),
 }
 _DEFAULT_CORROBORATION = ("warn", "Unknown")
+
+# quick task 260902-w4t (UIR-04): the long form moved out of the visible
+# "None" label above. Keys absent from this dict resolve via .get(key,
+# "") to no tooltip at all (True/False need none).
+_CORROBORATION_TITLES = {
+    "None": "Single-source (uncorroborated)",
+}
 
 _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # distinguishes "query raised" from "query succeeded, legitimately empty".
@@ -286,6 +301,12 @@ _FILTER_EMPTY_BODY_TEMPLATE = (
 _COPY_CALLSIGN_LABEL = "Copy callsign"
 _COPY_HEX_LABEL = "Copy hex ID"
 _COPY_TIMESTAMP_LABEL = "Copy timestamp"
+
+# quick task 260902-w4t (UIR-06): the presentational note shown beside a
+# promoted hex when a row has no callsign - a module-level constant so
+# the desktop cell (_callsign_hex_cell()) and the mobile card
+# (_history_cards_html()) cannot drift onto two different wordings.
+NO_CALLSIGN_NOTE_TEXT = "no callsign"
 
 # D-20: the per-row "View panel near this time" lookup and its shared
 # lightbox. VIEW_PANEL_LABEL is verbatim from D-20. LIGHTBOX_DIALOG_ID,
@@ -317,6 +338,20 @@ _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 # health_page.SERVER_DATA_SECTION_ID value, never a re-typed literal).
 UNRESOLVED_LINK_HREF = "/health#server-data"
 UNRESOLVED_LINK_TEXT = "View unresolved prefixes"
+# quick task 260902-w4t (UIR-05): the anchor's own class, so it renders
+# visibly separated from the airline text it follows instead of reading
+# as one glued run - `text-label` for the existing quiet-link treatment,
+# plus a dedicated spacing hook styled in style.css.
+UNRESOLVED_LINK_CLASS = "text-label cell-unresolved-link"
+
+# quick task 260902-w4t (UIR-05): a missing AIRLINE used to fall back to
+# `panel_render.ROUTE_FALLBACK_TEXT` ("Route unavailable") - a string
+# that describes a different noun (the route, not the airline) and made
+# the exact same phrase appear twice in one unresolved row (once in the
+# Type+Airline cell, once in the Route cell). This constant gives the
+# airline its own fallback text so the two columns stop sharing one
+# string.
+AIRLINE_FALLBACK_TEXT = "Airline unknown"
 
 # UXA-05/06.6.3-RESEARCH.md Pitfall 1: the audit's own evidence names
 # "on_runway"/"approaching"/"departed" as the raw confirmed_state values
@@ -498,7 +533,7 @@ def format_event_row(row, now=None):
     airline = row.get("airline")
     airline_label = (
         panel_render.display_airline_name(airline) if airline
-        else panel_render.ROUTE_FALLBACK_TEXT)
+        else AIRLINE_FALLBACK_TEXT)
 
     origin = row.get("origin")
     destination = row.get("destination")
@@ -530,6 +565,10 @@ def format_event_row(row, now=None):
         "confirmed_state": _confirmed_state_label(row.get("confirmed_state")),
         "corroboration_status": corroboration_status,
         "corroboration_label": corroboration_label,
+        # quick task 260902-w4t (UIR-04): the long form for the "None"
+        # (single-source) state, rendered as status_dot()'s optional
+        # tooltip - "" (no tooltip) for True/False, which need none.
+        "corroboration_title": _CORROBORATION_TITLES.get(row.get("corroborated"), ""),
         "tracked_runway": _runway_label(row.get("tracked_runway")),
     }
 
@@ -599,24 +638,53 @@ def _callsign_hex_cell(callsign, hex_value):
     rather than a `_merged_cell()` parameter specifically so the
     Type+Airline column (which also calls `_merged_cell()`) never gains
     copy buttons — the two columns must not share this behaviour.
+
+    Three branches (quick task 260902-w4t, UIR-06):
+    - `callsign` truthy: unchanged from before this task — the primary
+      slot carries the callsign, and when `hex_value` is also present it
+      follows as a secondary value with its own copy button.
+    - `callsign` falsy, `hex_value` truthy: the hex is promoted into the
+      primary slot (reusing the exact same `_copy_button_html(hex_value,
+      _COPY_HEX_LABEL)` call the secondary path above already makes —
+      not a second, re-typed call) so the cell is never left with a
+      blank primary value and a dead copy button. A `NO_CALLSIGN_NOTE_TEXT`
+      secondary note follows, with NO copy button of its own: it is
+      presentational text, not data there is anything to copy.
+    - both falsy: an empty primary span, no copy button, no separator,
+      no secondary — a button that would copy `""` is exactly the dead
+      affordance UIR-06 reported, so this branch emits none of it.
     """
-    html = '<span class="%s">%s</span>%s' % (
-        CELL_PRIMARY_CLASS, escape_html(callsign),
-        _copy_button_html(callsign, _COPY_CALLSIGN_LABEL))
-    if hex_value:
-        html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
-            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
-            CELL_SECONDARY_CLASS, escape_html(hex_value),
+    if callsign:
+        html = '<span class="%s">%s</span>%s' % (
+            CELL_PRIMARY_CLASS, escape_html(callsign),
+            _copy_button_html(callsign, _COPY_CALLSIGN_LABEL))
+        if hex_value:
+            html += '<span class="%s">%s</span><span class="%s">%s</span>%s' % (
+                CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+                CELL_SECONDARY_CLASS, escape_html(hex_value),
+                _copy_button_html(hex_value, _COPY_HEX_LABEL))
+    elif hex_value:
+        html = '<span class="%s">%s</span>%s' % (
+            CELL_PRIMARY_CLASS, escape_html(hex_value),
             _copy_button_html(hex_value, _COPY_HEX_LABEL))
+        html += '<span class="%s">%s</span><span class="%s">%s</span>' % (
+            CELL_SEPARATOR_CLASS, escape_html(CELL_SEPARATOR_TEXT),
+            CELL_SECONDARY_CLASS, escape_html(NO_CALLSIGN_NOTE_TEXT))
+    else:
+        html = '<span class="%s"></span>' % CELL_PRIMARY_CLASS
     return "<td>%s</td>" % html
 
 
 def _unresolved_link_html():
     """The D-21 inline link to Health's Server & data section, used by
     both the desktop Type+Airline cell and the mobile Aircraft detail
-    row when a row's airline could not be resolved.
+    row when a row's airline could not be resolved. Carries
+    UNRESOLVED_LINK_CLASS (quick task 260902-w4t, UIR-05) so it renders
+    visibly separated from the airline text it follows instead of
+    reading as one glued run.
     """
-    return '<a class="text-label" href="%s">%s</a>' % (
+    return '<a class="%s" href="%s">%s</a>' % (
+        escape_html(UNRESOLVED_LINK_CLASS),
         escape_html(UNRESOLVED_LINK_HREF), escape_html(UNRESOLVED_LINK_TEXT))
 
 
@@ -625,14 +693,16 @@ def _type_airline_cell(row):
     reproduces `_merged_cell()`'s primary/separator/secondary markup
     exactly, then appends `_unresolved_link_html()` immediately after it
     only when this row's airline could not be resolved, compared against
-    the imported `panel_render.ROUTE_FALLBACK_TEXT` constant, never a
-    re-typed literal. A dedicated function rather than a `_merged_cell()`
-    parameter, matching `_callsign_hex_cell()`'s own precedent: the
-    Route column also calls the shared `_merged_cell()` and must never
-    gain this link.
+    the module's own `AIRLINE_FALLBACK_TEXT` constant (quick task
+    260902-w4t, UIR-05 — was `panel_render.ROUTE_FALLBACK_TEXT`, a
+    different noun's fallback, before AIRLINE_FALLBACK_TEXT existed),
+    never a re-typed literal. A dedicated function rather than a
+    `_merged_cell()` parameter, matching `_callsign_hex_cell()`'s own
+    precedent: the Route column also calls the shared `_merged_cell()`
+    and must never gain this link.
     """
     html = _merged_cell(row["aircraft_type_label"], row["airline_label"])
-    if row["airline_label"] == panel_render.ROUTE_FALLBACK_TEXT:
+    if row["airline_label"] == AIRLINE_FALLBACK_TEXT:
         html = html[:-len("</td>")] + _unresolved_link_html() + "</td>"
     return html
 
@@ -700,7 +770,8 @@ def _history_table_html(formatted_rows, now=None):
             "<td>%s</td>" % escape_html(row["route_label"]),
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
             "<td>%s</td>" % layout.status_dot(
-                row["corroboration_status"], row["corroboration_label"]),
+                row["corroboration_status"], row["corroboration_label"],
+                row["corroboration_title"]),
             "<td>%s</td>" % escape_html(row["tracked_runway"]),
         )
         # D-20: data-filter-text drives companion/static/list-filter.js's
@@ -757,13 +828,31 @@ def _history_cards_html(formatted_rows, now=None):
         # safe markup, or "" for a row with no nearest render) follows
         # the time span - the exact same value the desktop cell above
         # carries for this same row (render() computes it once per row).
+        #
+        # quick task 260902-w4t (UIR-06): mirrors _callsign_hex_cell()'s
+        # desktop hex-only branch exactly — when this row has no
+        # callsign but does have a hex, the primary slot carries the hex
+        # (never left blank) and a NO_CALLSIGN_NOTE_TEXT secondary note
+        # follows it, before the time span. A future edit to one branch
+        # is visibly obliged to touch the other.
+        if row["callsign"]:
+            primary_value_html = (
+                '<span class="cell-primary mono">%s</span>'
+                % escape_html(row["callsign"]))
+        elif row["hex"]:
+            primary_value_html = (
+                '<span class="cell-primary mono">%s</span>'
+                '<span class="cell-secondary">%s</span>'
+            ) % (escape_html(row["hex"]), escape_html(NO_CALLSIGN_NOTE_TEXT))
+        else:
+            primary_value_html = '<span class="cell-primary mono"></span>'
         primary = (
             '<div class="history-card__primary">'
-            '<span class="cell-primary mono">%s</span>'
+            "%s"
             '<span class="history-card__time">%s</span>%s'
             "</div>"
         ) % (
-            escape_html(row["callsign"]),
+            primary_value_html,
             layout.concise_timestamp_html(row["raw_ts"], now),
             row.get("view_panel_html", ""),
         )
@@ -782,11 +871,12 @@ def _history_cards_html(formatted_rows, now=None):
         # "same button+feedback-sibling shape" contract everywhere.
         # D-21: the same unresolved-airline link the desktop Type+Airline
         # cell carries, appended after the airline value here too - keyed
-        # on the same airline_label/ROUTE_FALLBACK_TEXT comparison, so
+        # on the same airline_label/AIRLINE_FALLBACK_TEXT comparison
+        # (quick task 260902-w4t, UIR-05 — was ROUTE_FALLBACK_TEXT), so
         # the mobile representation never silently loses the affordance.
         unresolved_link = (
             _unresolved_link_html()
-            if row["airline_label"] == panel_render.ROUTE_FALLBACK_TEXT else "")
+            if row["airline_label"] == AIRLINE_FALLBACK_TEXT else "")
         details = (
             '<details class="history-card__details">'
             "<summary>More details</summary>"
@@ -806,7 +896,9 @@ def _history_cards_html(formatted_rows, now=None):
             escape_html(CELL_SEPARATOR_TEXT),
             escape_html(row["airline_label"]),
             unresolved_link,
-            layout.status_dot(row["corroboration_status"], row["corroboration_label"]),
+            layout.status_dot(
+                row["corroboration_status"], row["corroboration_label"],
+                row["corroboration_title"]),
             escape_html(row["tracked_runway"]),
             escape_html(row["hex"]),
             _copy_button_html(row["hex"], _COPY_HEX_LABEL),
