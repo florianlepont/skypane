@@ -133,6 +133,10 @@ None - no external service configuration required.
 - `scripts/run-all-tests.sh` run at the end of this plan: 22/22 harnesses pass (the sole non-zero note is the pre-existing, already-accepted macOS Pillow/FreeType `panel.bin` digest mismatch, unrelated to this plan's changes and confirmed present before this plan started).
 - `server/requirements.txt` unchanged — `zoneinfo` is stdlib since Python 3.9, no new dependency introduced.
 
+## Self-Check: PASSED
+
+All created/modified files exist on disk; both task commits (`05ca4b5`, `715d8fb`) verified present in `git log`.
+
 ---
 *Phase: 10-scheduled-quiet-hours*
 *Completed: 2026-09-03*
