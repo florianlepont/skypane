@@ -34,20 +34,29 @@ hardcoding http; added DEVICE-04 X-Battery-Mv validation/persistence
 /device/v1/display poll carrying a plausible reading writes
 battery_state.json ({"battery_mv": int, "received_at": float}) in
 --state-dir, the single writer of that file anywhere in this repo (see
-stub-server/VENDOR.md); and added a read-only led_enabled lookup
+stub-server/VENDOR.md); added a read-only led_enabled lookup
 (device_config_path() / read_led_enabled()) so /device/v1/display serves
 the companion app's saved bring-up-LED setting instead of a hardcoded
-constant (Phase 06.2). See stub-server/VENDOR.md for the full list of
-local changes.
+constant (Phase 06.2); and added a quiet-hours-aware sleep_s extension
+(read_quiet_hours() / quiet_hours_sleep_s()) so /device/v1/display
+extends the base --sleep value to span the companion app's saved
+scheduled-quiet-hours window instead of always returning the raw
+per-poll value (Phase 10). See stub-server/VENDOR.md for the full list
+of local changes.
 """
 import argparse
 import hashlib
 import json
 import os
+import re
 import secrets
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+# zoneinfo is stdlib since Python 3.9 - this module's "Stdlib only" claim
+# above stays true.
+from zoneinfo import ZoneInfo
 
 IMAGE_BYTES = 960000
 # DEVICE-04 X-Battery-Mv sanity bounds. BATTERY_MV_MIN = 1: PROTOCOL.md §2
@@ -57,6 +66,17 @@ IMAGE_BYTES = 960000
 # Input Validation row.
 BATTERY_MV_MIN = 1
 BATTERY_MV_MAX = 10000
+
+# Shape gate for a submitted/stored quiet-hours HH:MM string. Copied
+# character-for-character from server/device_config.py's own _HHMM_RE -
+# see the cross-reference comment above seconds_until_quiet_hours_end()
+# below for why this file carries its own copy instead of importing it.
+_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
+
+# The device has exactly one fixed physical location, so the quiet-hours
+# window's timezone is deliberately hardcoded here, matching
+# server/device_config.py's own QUIET_HOURS_TZ.
+QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")
 
 
 def state_path(state_dir):
@@ -105,6 +125,140 @@ def read_led_enabled(state_dir):
     if isinstance(value, bool):
         return value
     return True
+
+
+# --- Quiet-hours sleep_s extension (Phase 10, D-01) --------------------
+#
+# seconds_until_quiet_hours_end() below is a deliberate, byte-for-byte
+# DUPLICATE of server/device_config.py's function of the same name, as
+# committed by plan 10-01. This file must never import a server.* module
+# - there is no sys.path bootstrap here to make such an import even
+# resolve, it would break the module docstring's "Stdlib only" claim
+# above, and it would blur the vendor-provenance boundary
+# stub-server/VENDOR.md exists to track. The two copies are pinned equal
+# by an automated drift guard in stub-server/test_poll_cycle.py; if you
+# change one, you must change the other identically, in the same commit.
+def seconds_until_quiet_hours_end(now_utc, start_hm, end_hm):
+    """Return the whole seconds remaining until the daily [start_hm, end_hm)
+    Europe/Paris wall-clock window's end time, or `None` when `now_utc`
+    falls outside the window. The window wraps midnight whenever
+    `end_hm <= start_hm` (e.g. "23:00"/"07:00"); when `start_hm == end_hm`
+    the window is zero-width and this always returns `None` for every
+    instant - a zero-width window is never active, and that is intentional
+    rather than a bug to "fix" into an always-active window.
+
+    Parameter contract - this function is the arithmetic core only and
+    performs no validation of its own, because stub-server/byos_server.py
+    (plan 10-03) duplicates it byte-for-byte across the vendor boundary and
+    every byte it carries has to be reproducible there:
+      - `now_utc` MUST be a timezone-aware datetime.
+      - `start_hm`/`end_hm` MUST already have passed `_HHMM_RE`.
+
+    Two mandatory deviations from 10-PATTERNS.md's reference body, both
+    load-bearing - do not "restore" the reference version:
+
+    (a) The final return subtracts in UTC, not in local time:
+    `end_dt.astimezone(timezone.utc) - now_utc`, NOT `end_dt - local_now`.
+    This is a correctness fix, verified numerically during planning:
+    `end_dt` and `local_now` share the same `tzinfo` object, and Python's
+    documented rule for subtracting two aware datetimes with the same
+    `tzinfo` is to ignore the zone and subtract the wall-clock numerals -
+    so the reference body's naive numeral difference is wrong by exactly
+    one hour across a Europe/Paris DST transition. Converting `end_dt` to
+    UTC first restores the true-elapsed-duration property.
+
+    (b) Accepted caveat (10-RESEARCH.md Pitfall 2), not engineered around: a
+    window boundary configured inside the 02:00-03:00 transition hour on
+    the last Sunday of March or October resolves via PEP 495's default
+    `fold=0` semantics and can be up to an hour off for that one instant.
+    No `fold=1` override is added - D-01's "never shorter than the base
+    sleep" rule bounds the worst case to one extra or one missing wake,
+    twice a year, only for a boundary configured inside that specific hour.
+    """
+    local_now = now_utc.astimezone(QUIET_HOURS_TZ)
+    start_h, start_m = (int(x) for x in start_hm.split(":"))
+    end_h, end_m = (int(x) for x in end_hm.split(":"))
+    start_today = local_now.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+    end_today = local_now.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
+    if (start_h, start_m) <= (end_h, end_m):
+        if not (start_today <= local_now < end_today):
+            return None
+        end_dt = end_today
+    else:
+        if local_now >= start_today:
+            end_dt = end_today + timedelta(days=1)
+        elif local_now < end_today:
+            end_dt = end_today
+        else:
+            return None
+    return max(0, int((end_dt.astimezone(timezone.utc) - now_utc).total_seconds()))
+
+
+def read_quiet_hours(state_dir):
+    """Best-effort read of the shared device_config.json's quiet-hours
+    fields. Never raises.
+
+    The file is written by companion/app.py's config page via
+    server/device_config.py's save_device_config(); every failure mode
+    here - a missing file, an unreadable file, malformed JSON, a
+    non-dict document, `quiet_hours_enabled` not literally `True`, or
+    either `quiet_hours_start`/`quiet_hours_end` failing
+    `isinstance(value, str) and _HHMM_RE.match(value)` - degrades to
+    `None` (meaning "quiet hours are not in effect", i.e. the
+    pre-existing unmodified sleep_s behaviour), matching
+    read_led_enabled()'s fail-open shape immediately above. A corrupted
+    config file must never be able to take down the single always-on
+    /device/v1/display service for every future poll.
+
+    Returns the `(start_hm, end_hm)` tuple when every check passes,
+    otherwise `None`.
+    """
+    try:
+        with open(device_config_path(state_dir)) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    if data.get("quiet_hours_enabled") is not True:
+        return None
+    start_hm = data.get("quiet_hours_start")
+    end_hm = data.get("quiet_hours_end")
+    if not (isinstance(start_hm, str) and _HHMM_RE.match(start_hm)):
+        return None
+    if not (isinstance(end_hm, str) and _HHMM_RE.match(end_hm)):
+        return None
+    return start_hm, end_hm
+
+
+def quiet_hours_sleep_s(base_sleep_s, state_dir, now=None):
+    """Return the sleep_s value to hand back on GET /device/v1/display:
+    `base_sleep_s` unchanged unless a poll lands inside an enabled
+    quiet-hours window, in which case it is extended to span the
+    window's remaining local end time (D-01 - this is the sole
+    mechanism that pauses the device, no firmware change exists or is
+    needed).
+
+    `now` defaults to `datetime.now(timezone.utc)`; it is an injectable
+    seam so a test harness can drive DST and boundary scenarios
+    deterministically instead of depending on real wall-clock timing.
+
+    The `max(base_sleep_s, remaining)` below is load-bearing and is the
+    resolution of 10-CONTEXT.md's own "Claude's Discretion" edge case: a
+    quiet-hours computation must never make the device sleep for LESS
+    time than it otherwise would, so a long configured --sleep that
+    already carries the device past a short window simply wins.
+    """
+    window = read_quiet_hours(state_dir)
+    if window is None:
+        return base_sleep_s
+    start_hm, end_hm = window
+    if now is None:
+        now = datetime.now(timezone.utc)
+    remaining = seconds_until_quiet_hours_end(now, start_hm, end_hm)
+    if remaining is None:
+        return base_sleep_s
+    return max(base_sleep_s, remaining)
 
 
 def battery_state_path(state_dir):
@@ -251,7 +405,14 @@ class Handler(BaseHTTPRequestHandler):
                 "image_url": "%s://%s/img/%s.bin" % (
                     self.args.image_url_scheme, host, digest),
                 "image_hash": "sha256:" + digest,
-                "sleep_s": self.args.sleep,
+                # Phase 10 (D-01): used to be the fixed --sleep CLI value
+                # (fed by SKYPANE_SLEEP_S in the deployed unit). It is now
+                # that same base value, extended when this poll lands
+                # inside the window the companion Settings page saved into
+                # device_config.json - no deployment or env change is
+                # required, SKYPANE_SLEEP_S remains the base, and deploy/
+                # is untouched by this phase.
+                "sleep_s": quiet_hours_sleep_s(self.args.sleep, self.args.state_dir),
                 "firmware": None,
                 "reset": False,
                 # DEVICE-05 bring-up LED toggle: originally a hardcoded
