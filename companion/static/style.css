@@ -3632,7 +3632,27 @@ summary::-webkit-details-marker {
  * literal 6px — deliberate, so the picker button's corners agree with
  * the zone frame it sits inside, not an oversight. This paints the
  * browser's own control; it does not hide or replace the native picker
- * behaviour or the browser's own localized status text. */
+ * behaviour or the browser's own localized status text.
+ *
+ * quick task 260903-df3 round trip: the resting background was
+ * originally a flat `var(--color-secondary)` fill, found during Task
+ * 3's real-browser dark-mode check to read as barely-visible text with
+ * no perceptible button shape — in dark mode, this zone's own tint
+ * (`color-mix(in srgb, var(--color-secondary) 55%, var(--color-dominant))`,
+ * above) lands almost on top of plain `--color-secondary`, since
+ * `--color-dominant` (#151922) is darker than `--color-secondary`
+ * (#1C222D) in the dark palette — the opposite of light mode, where
+ * `--color-dominant` (#FFFFFF) is lighter than `--color-secondary` and
+ * the mix reads as visibly brighter than the button sitting on it. Fixed
+ * by mixing the resting fill toward `--color-text` instead of using it
+ * flat — the same idiom the base quiet `button` rule already uses for
+ * its own resting wash (see `button` above) — at a lighter 4% than the
+ * hover rule's existing 7% below, so hover still reads as a visible step
+ * up. Mixing toward `--color-text` (near-white in dark mode, near-black
+ * in light mode) pushes the button's fill away from the zone's own
+ * dominant-diluted tint in both themes, unlike mixing toward
+ * `--color-dominant`, which would only have made the dark-mode collapse
+ * worse. */
 .lightbox__replace-zone input[type="file"]::file-selector-button {
   height: 30px;
   padding: 0 12px;
@@ -3642,7 +3662,8 @@ summary::-webkit-details-marker {
   font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   border-radius: var(--radius-control);
-  background: var(--color-secondary);
+  background: var(--color-secondary); /* fallback for browsers without color-mix() (WR-02) */
+  background: color-mix(in srgb, var(--color-text) 4%, var(--color-secondary));
   border: 1px solid var(--color-border);
   color: var(--color-text);
   cursor: pointer;
