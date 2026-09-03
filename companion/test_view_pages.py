@@ -11,17 +11,23 @@ type labels with a raw-designator fallback, the display-airline alias),
 route-unavailable wording agreement with server/plane/render.py's own
 ROUTE_FALLBACK_TEXT, monospace column styling, per-cell escaping
 (including a markup-shaped callsign), degrade-not-raise behaviour
-against an unreadable database; History's own Now-showing live-preview
-image element and its honest "no panel yet" fallback, the mandatory
-colour caveat, the Recent-renders disclosure's empty state, its
-display-limit cap and newest-first ordering, that the gallery filename-
-timestamp helper degrades safely and a malformed filename still renders
-a non-empty caption, the per-row View-panel lookup and shared lightbox,
-the unresolved-airline link to Health; and one end-to-end HTTP round
-trip proving companion/app.py's router and this page module agree,
-including a real PNG fetched over /preview.png (still served — only the
-standalone Preview HTML page route was retired) and the retired
-/preview page route's redirect to /history.
+against an unreadable database; quick task 260903-etm's retirement of
+History's top-of-page render-gallery <section> outright (developer
+redirection superseding quick task 260903-c4o's own always-visible
+render-gallery section on this same unmerged branch) — that the section
+is fully absent (zero <h2, zero page-section, zero gallery-grid/
+gallery-tile) both with seeded gallery content and with an empty
+gallery, that the per-row View-panel mechanism and History's own card
+disclosures survive in the same render, that the gallery filename-
+timestamp helper degrades safely, the per-row View-panel lookup and
+shared lightbox including a native title tooltip byte-equal to the
+trigger's aria-label, that the orphaned colour caveat is rehomed into
+the lightbox note exactly once, the unresolved-airline link to Health;
+and one end-to-end HTTP round trip proving companion/app.py's router and
+this page module agree, including a real PNG fetched over
+/gallery/{name}.png (the route the per-row lightbox links to,
+/preview.png having been retired outright by quick task 260903-c4o and
+now 404ing) and the retired /preview page route's redirect to /history.
 
 Every fixture is seeded programmatically into a temporary state
 directory - flight events via server/history_db.py's own writer
@@ -66,11 +72,41 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 52  # merge of two independent, non-overlapping
-# additions on top of a shared baseline of 47 vs 49 (both grown from the
-# same 44 - see below): this branch's own 47 (+1 quick task 260902-v26,
-# +2 quick task 260903-btu) plus 5 more merged in from main via quick
-# task 260902-w4t (+1 Task 1 UIR-05, +1 Task 2 UIR-06, +3 Task 3 UIR-04).
+EXPECTED_CHECK_COUNT = 52  # merge origin/main into
+# claude/history-preview-gallery-32b974 (2026-09-03): this branch forked
+# from main at 49 (46 + 3, quick task 260902-w4t, see below) and made a
+# net +0 change of its own on top (quick task 260903-c4o +1 -> 50, quick
+# task 260903-etm -5+4 -> 49 - see below for both). Independently, main
+# went from that same 49 to 52 (+1 quick task 260902-v26, +2 quick task
+# 260903-btu - both entirely absent from this branch until now). Net:
+# 49 + 0 (this branch) + 3 (main) = 52.
+#
+# --- this branch's own history since the 49 fork point ---
+# 49 = 50 - 5 (quick task 260903-etm: History's
+# top-of-page render-gallery <section> retired outright, superseding
+# quick task 260903-c4o's own always-visible section on this same
+# unmerged branch - _render_gallery_nonempty_structure,
+# _render_gallery_empty_state, _render_gallery_not_a_disclosure and
+# _render_gallery_display_limit_newest_first all asserted structure that
+# no longer exists, and _recent_renders_malformed_filename_caption_
+# fallback's tile-class subject was deleted with the section - its
+# residual "a malformed filename degrades safely" coverage already lives
+# in _gallery_name_to_iso_fixtures and in nearest_gallery_entry()'s own
+# unparseable-entry-is-skipped fixture) + 4 (quick task 260903-etm's
+# replacement checks: _history_render_gallery_section_absent_with_content,
+# _history_render_gallery_section_absent_when_empty,
+# _view_panel_trigger_title_matches_aria_label,
+# _colour_caveat_rehomed_into_lightbox_note).
+# Deliberately KEPT rather than replaced, despite living among the
+# retired group: _render_gallery_no_preview_apparatus_even_with_panel_file
+# - every one of its assertions still passes unmodified, and its real
+# subject is quick task 260903-c4o's /preview.png route retirement, not
+# the render-gallery section this task removes; only its check()
+# description prose was refreshed.
+# 50 = quick task 260903-c4o's own tip on this same branch, +1 from the
+# same 49 fork point below.
+#
+# --- main's own history since the same 49 fork point ---
 # 52 = 47 + 5 (quick task 260902-w4t Task 3, UIR-04:
 # _status_dot_title_backward_compatible_and_escaped,
 # _corroboration_none_row_shows_short_label_with_tooltip, and
@@ -211,14 +247,6 @@ def _history_ctx(state_dir, now=None, gallery_entries=None):
         "now": now or history_db.utc_now_iso(),
         "gallery_entries": gallery_entries or [],
     }
-
-
-def _img_alt_values(rendered):
-    return re.findall(r'<img\b[^>]*\balt="([^"]*)"', rendered)
-
-
-def _img_tag_count(rendered):
-    return len(re.findall(r"<img\b", rendered))
 
 
 # --- HTTP harness (Section 3 only) ----------------------------------------
@@ -1189,110 +1217,177 @@ def main():
         _presentation_labels_in_full_render)
 
     # ======================================================================
-    # Section 1b: 06.6.4.1-05 Task 1 - History's own Now-showing section
-    # and collapsed Recent-renders disclosure (D-18/D-19), moved from
-    # companion/pages/preview_page.py.
+    # Section 1b: quick task 260903-etm - History's top-of-page render-
+    # gallery <section> retired outright (developer redirection superseding
+    # quick task 260903-c4o's own always-visible render-gallery section on
+    # this same unmerged branch). The per-row "View panel near this time"
+    # lightbox (D-20) is the sole surviving way to see a rendered panel on
+    # this page; the orphaned colour caveat is rehomed into its note.
     # ======================================================================
 
-    def _now_showing_panel_present_one_image_one_caveat():
-        tmp = _mkstate("h-now-showing-present")
+    def _history_render_gallery_section_absent_with_content():
+        tmp = _mkstate("h-gallery-section-absent")
         try:
-            _write_panel_file(tmp)
-            rendered = history_page.render(_history_ctx(tmp))
-            if rendered.count('class="preview-frame"') != 1:
-                return False, "expected exactly one .preview-frame element"
-            if rendered.count('src="/preview.png"') != 1:
-                return False, "expected exactly one image element pointing at /preview.png"
-            if "Captured " not in rendered:
-                return False, "expected the captured-at caption wording"
-            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
-                return False, "expected the colour caveat sentence exactly once"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "History's Now-showing section renders one .preview-frame, one preview image, a "
-        "captured-at caption, and the colour caveat exactly once when a panel file exists",
-        _now_showing_panel_present_one_image_one_caveat)
-
-    def _now_showing_no_panel_no_image_element():
-        tmp = _mkstate("h-now-showing-absent")
-        try:
-            rendered = history_page.render(_history_ctx(tmp))
-            if 'src="/preview.png"' in rendered:
-                return False, "did not expect a preview image element with no panel file"
-            if 'class="preview-frame"' in rendered:
-                return False, "did not expect a .preview-frame element with no panel file"
-            if history_page._NO_PANEL_CAPTION not in rendered:
-                return False, "expected the honest no-panel-yet caption"
-            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
-                return False, "expected the colour caveat sentence exactly once"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "History's Now-showing section renders no .preview-frame and no preview image element "
-        "with no panel file, still with the honest caption and the colour caveat exactly once",
-        _now_showing_no_panel_no_image_element)
-
-    def _recent_renders_disclosure_closed_by_default_correct_count():
-        tmp = _mkstate("h-recent-renders")
-        try:
-            names = ["20260827T100002Z.png", "20260827T100001Z.png", "20260827T100000Z.png"]
+            names = [
+                "2026-08-27T10-02-00+00-00.png",
+                "2026-08-27T10-01-00+00-00.png",
+                "2026-08-27T10-00-00+00-00.png",
+            ]
             _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:03:00+00:00", "hex": "notdisc1", "callsign": "NOTDISC"},
+            ])
             rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
-            if '<details class="readings-disclosure"><summary>Recent renders' not in rendered:
-                return False, (
-                    "expected a readings-disclosure details element (no open attribute) "
-                    "with a Recent renders summary")
-            match = re.search(
-                r'<details class="readings-disclosure"><summary>(Recent renders \(\d+\))'
-                r'</summary>(.*?)</details>', rendered, re.S)
-            if not match:
-                return False, "expected a readings-disclosure details element with a Recent renders summary"
-            summary_text = match.group(1)
-            tile_count_in_disclosure = match.group(2).count('class="gallery-tile"')
-            if summary_text != ("Recent renders (%d)" % tile_count_in_disclosure):
-                return False, (
-                    "expected the summary count %r to equal the number of "
-                    "gallery-tile elements actually rendered (%d)"
-                    % (summary_text, tile_count_in_disclosure))
-            if tile_count_in_disclosure != 3:
-                return False, "expected exactly 3 gallery tiles for 3 seeded entries"
+            if "<h2" in rendered:
+                return False, "did not expect any <h2 element - the render-gallery section is gone"
+            if "page-section" in rendered:
+                return False, "did not expect any page-section element - the render-gallery section is gone"
+            if 'class="gallery-grid"' in rendered:
+                return False, "did not expect a gallery-grid container element"
+            if 'class="gallery-tile"' in rendered:
+                return False, "did not expect a gallery-tile element"
+            if "Recent renders" in rendered:
+                return False, "did not expect the retired render-gallery heading text"
+            if "No renders yet." in rendered:
+                return False, "did not expect the retired no-renders empty-state heading text"
+            # The per-row mechanism must survive in the SAME render that
+            # proves the section is gone (T-etm-03) - a careless "remove
+            # the gallery" reading could sever gallery_entries_list along
+            # with the markup it used to feed.
+            if "data-view-panel-src" not in rendered:
+                return False, "expected at least one View-panel trigger to survive"
+            if rendered.count('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) != 1:
+                return False, "expected exactly one lightbox dialog to survive"
+            if '<details class="history-card__details"' not in rendered:
+                return False, "expected History's own card disclosures to survive"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History's Recent-renders disclosure is collapsed by default (no open attribute) and its "
-        "summary count equals the number of gallery-tile elements actually rendered inside it",
-        _recent_renders_disclosure_closed_by_default_correct_count)
+        "with 3 gallery entries and one seeded flight row, the rendered page carries zero <h2, "
+        "zero page-section, zero gallery-grid/gallery-tile elements and zero occurrences of the "
+        "retired heading/empty-state text, WHILE the per-row View-panel mechanism (a trigger, "
+        "exactly one lightbox dialog) and History's own card disclosures survive in the same render",
+        _history_render_gallery_section_absent_with_content)
 
-    def _recent_renders_disclosure_empty_gallery():
-        tmp = _mkstate("h-recent-renders-empty")
+    def _history_render_gallery_section_absent_when_empty():
+        tmp = _mkstate("h-gallery-section-absent-empty")
         try:
             rendered = history_page.render(_history_ctx(tmp, gallery_entries=[]))
-            if history_page._NO_RENDERS_HEADING not in rendered:
-                return False, "expected the render-gallery empty-state heading"
+            if "<h2" in rendered:
+                return False, "did not expect any <h2 element with an empty gallery"
+            if "page-section" in rendered:
+                return False, "did not expect any page-section element with an empty gallery"
             if 'class="gallery-grid"' in rendered:
-                return False, "did not expect a gallery-grid element with zero entries"
-            if "Recent renders (0)" not in rendered:
-                return False, "expected the disclosure summary to read 'Recent renders (0)'"
+                return False, "did not expect a gallery-grid container element"
+            if 'class="gallery-tile"' in rendered:
+                return False, "did not expect a gallery-tile element"
+            if "Recent renders" in rendered:
+                return False, "did not expect the retired render-gallery heading text"
+            if "No renders yet." in rendered:
+                return False, "did not expect the retired no-renders empty-state heading text"
+            if "data-view-panel-src" in rendered:
+                return False, "did not expect any View-panel trigger with an empty gallery"
+            if ('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) in rendered:
+                return False, "did not expect a lightbox dialog with an empty gallery"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History's Recent-renders disclosure shows the existing no-renders empty state and a "
-        "'Recent renders (0)' summary with an empty gallery entry list",
-        _recent_renders_disclosure_empty_gallery)
+        "with gallery_entries=[], the same absences hold (the section is gone, not merely "
+        "emptied) and, as before, zero View-panel triggers and zero lightbox dialogs render",
+        _history_render_gallery_section_absent_when_empty)
+
+    def _view_panel_trigger_title_matches_aria_label():
+        tmp = _mkstate("h-view-panel-title")
+        try:
+            names = ["2026-08-27T10-00-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "vptt01", "callsign": "VPTITLE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        escaped_label = layout.escape_html(history_page.VIEW_PANEL_LABEL)
+        expected_title = 'title="%s"' % escaped_label
+        expected_aria = 'aria-label="%s"' % escaped_label
+        tr_block = _row_block(rendered, "tr", 0)
+        li_block = _row_block(rendered, "li", 0)
+        if tr_block is None or li_block is None:
+            return False, "could not locate row block for data-filter-group=0"
+        for label, block in (("desktop <tr>", tr_block), ("mobile <li>", li_block)):
+            if expected_title not in block:
+                return False, "expected %s to carry title=%r" % (label, escaped_label)
+            if expected_aria not in block:
+                return False, "expected %s to carry aria-label=%r" % (label, escaped_label)
+        return True, ""
+    check(
+        "a rendered View-panel trigger carries title=\"View panel near this time\" byte-equal to "
+        "its own aria-label value, on both the desktop <tr> and the mobile <li> representation "
+        "of the same row",
+        _view_panel_trigger_title_matches_aria_label)
+
+    def _colour_caveat_rehomed_into_lightbox_note():
+        tmp = _mkstate("h-caveat-rehomed")
+        try:
+            names = ["2026-08-27T10-00-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "cvt001", "callsign": "CAVEAT"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if rendered.count(history_page.COLOUR_CAVEAT) != 1:
+            return False, "expected the colour caveat sentence exactly once in the rendered page"
+        note_match = re.search(
+            r'<p class="lightbox__note text-body">(.*?)</p>', rendered, re.S)
+        if note_match is None:
+            return False, "could not locate the lightbox__note element"
+        if history_page.COLOUR_CAVEAT not in note_match.group(1):
+            return False, "expected the colour caveat to fall inside the lightbox__note element"
+        return True, ""
+    check(
+        "the colour caveat sentence appears exactly once in the rendered page, and that single "
+        "occurrence lies inside the lightbox__note element (the caveat's new, and only, home "
+        "after the render-gallery section's removal)",
+        _colour_caveat_rehomed_into_lightbox_note)
+
+    def _render_gallery_no_preview_apparatus_even_with_panel_file():
+        tmp = _mkstate("h-gallery-no-preview-apparatus")
+        try:
+            names = ["20260827T100000Z.png"]
+            _seed_gallery(tmp, names)
+            _write_panel_file(tmp)
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            for marker in ("/preview.png", "preview-frame", "preview-image"):
+                if marker in rendered:
+                    return False, "did not expect %r anywhere in the rendered page" % marker
+            if "No panel has been rendered yet." in rendered:
+                return False, "did not expect the retired no-panel caption sentence"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with a real panel.bin on disk and gallery entries seeded, the rendered output contains "
+        "zero occurrences of /preview.png, preview-frame, preview-image, and the old no-panel "
+        "caption sentence - a present panel file changes nothing about the markup any more "
+        "(this check's real subject is quick task 260903-c4o's /preview.png route retirement, "
+        "not the render-gallery section retired by this task; kept in place rather than dropped)",
+        _render_gallery_no_preview_apparatus_even_with_panel_file)
 
     def _now_showing_no_preview_freshness_apparatus():
         # D-18: Preview's page-level freshness apparatus (its own
         # data-loaded-at Refresh link and paired data-stale-banner) was
-        # deliberately not ported - only preview_section()'s content
-        # moved.
+        # deliberately not ported when Preview's content first moved onto
+        # History (06.6.4.1-05), and quick task 260903-c4o's further
+        # restructure (folding the newest render into the gallery grid,
+        # retiring the separate frame) does not change that guarantee -
+        # retained here unmodified except for this comment and the seeding
+        # below.
         tmp = _mkstate("h-no-freshness")
         try:
-            _write_panel_file(tmp)
             rendered = history_page.render(_history_ctx(tmp))
             if "data-loaded-at" in rendered:
                 return False, "did not expect a data-loaded-at attribute on the History page"
@@ -1331,29 +1426,6 @@ def main():
         "returns None (never raising) on a missing 'T' separator or a "
         "malformed time+offset portion",
         _gallery_name_to_iso_fixtures)
-
-    def _recent_renders_malformed_filename_caption_fallback():
-        # Carried over here (06.6.4.1-08 Task 3) from
-        # companion/pages/preview_page.py's own now-deleted coverage: a
-        # manually-dropped or renamed gallery file must still render a
-        # tile with a non-empty raw-filename-derived caption, never
-        # raising and never a blank caption.
-        tmp = _mkstate("h-gallery-malformed")
-        try:
-            names = ["not-a-real-gallery-name.png"]
-            _seed_gallery(tmp, names)
-            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
-            if 'class="gallery-tile"' not in rendered:
-                return False, "expected a gallery tile to still render for a malformed filename"
-            if '<p class="text-label mono"></p>' in rendered:
-                return False, "did not expect a blank caption for a malformed filename"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "History's Recent-renders disclosure still renders a tile with a non-empty "
-        "raw-filename-derived caption for a malformed gallery filename, never raising",
-        _recent_renders_malformed_filename_caption_fallback)
 
     def _view_panel_trigger_carries_nonempty_icon():
         # 06.6.4.1-08 (D-22) Task 2 acceptance criterion, placed here
@@ -1955,7 +2027,11 @@ def main():
 
     # ======================================================================
     # Section 3: one end-to-end check - a real companion/app.py subprocess,
-    # logged in, fetching both tab routes and the preview image route.
+    # logged in, fetching /history, the retired /preview redirect, the
+    # retired /preview.png route (now 404), and a real /gallery/{name}.png
+    # (quick task 260903-etm: the per-row View-panel lightbox is now the
+    # sole consumer of this route, the top-of-page render gallery having
+    # been retired outright).
     # ======================================================================
 
     harness = Harness()
@@ -1967,13 +2043,21 @@ def main():
         _seed_runway_events(harness.tmpdir, [
             {"ts": "2026-08-27T10:00:00+00:00", "hex": "e2e001", "callsign": "E2E001"},
         ])
+        # A present panel.bin that changes nothing about the markup any
+        # more is part of what this check proves (quick task 260903-c4o).
         _write_panel_file(harness.tmpdir)
+        _seed_gallery(harness.tmpdir, ["20260827T100002Z.png"])
 
-        def _history_preview_redirect_and_preview_image_end_to_end():
+        def _history_preview_gallery_end_to_end():
             # 06.6.4.1-08 (D-22): /preview is retired as a page — this
-            # subprocess-level check proves the redirect, and that
-            # deleting preview_page.py did not remove anything
-            # /preview.png's byte-serving route still calls into.
+            # subprocess-level check proves the redirect. Quick task
+            # 260903-c4o further retires /preview.png outright (404 now,
+            # not a real PNG) and upgrades this check to also prove the
+            # route the per-row View-panel lightbox links to
+            # (/gallery/{name}.png) genuinely serves full-resolution
+            # bytes, against a real running service - the only consumer
+            # of that route since quick task 260903-etm retired the
+            # top-of-page render gallery.
             status, _headers, body = http_request(base + "/history", cookie=session_cookie)
             if status != 200:
                 return False, "expected 200 for /history, got %d" % status
@@ -1986,21 +2070,27 @@ def main():
             if headers.get("Location") != "/history":
                 return False, "expected /preview to redirect to /history, got %r" % headers.get("Location")
 
-            status, headers, body = http_request(base + "/preview.png", cookie=session_cookie)
+            status, _headers, body = http_request(base + "/preview.png", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for the retired /preview.png route, got %d" % status
+
+            status, headers, body = http_request(
+                base + "/gallery/20260827T100002Z.png", cookie=session_cookie)
             if status != 200:
-                return False, "expected 200 for /preview.png, got %d" % status
+                return False, "expected 200 for a real /gallery/{name}.png, got %d" % status
             if not body.startswith(_PNG_SIGNATURE):
-                return False, "expected a real PNG signature at the start of /preview.png's body"
+                return False, "expected a real PNG signature at the start of the gallery image body"
             content_type = headers.get("Content-Type", "")
             if content_type != "image/png":
                 return False, "expected Content-Type: image/png, got %r" % content_type
             return True, ""
         check(
             "GET /history returns 200 with its own heading, GET /preview redirects (303) to "
-            "/history, and GET /preview.png still returns a real PNG — proving the deleted "
-            "preview_page.py module removed nothing the byte-serving routes still call into, "
-            "against a real running service",
-            _history_preview_redirect_and_preview_image_end_to_end)
+            "/history, GET /preview.png now returns 404 (the route is retired), and GET "
+            "/gallery/{name}.png returns 200 image/png with a real PNG signature — proving the "
+            "route the per-row View-panel lightbox now links to genuinely serves full-resolution "
+            "bytes, against a real running service",
+            _history_preview_gallery_end_to_end)
 
     finally:
         harness.stop()

@@ -38,11 +38,10 @@ import re
 import sqlite3
 from datetime import datetime
 
-from companion.layout import empty_state, escape_html
+from companion.layout import escape_html
 import companion.layout as layout
 from server import device_config
 from server import history_db
-from server import panel_preview
 from server.plane import render as panel_render
 
 # D-13 keeps runway_events forever; this is a *display* limit for
@@ -55,42 +54,23 @@ HISTORY_ROW_LIMIT = 50
 # until plan 08 absorbs and retires it — both modules briefly hold these
 # symbols. Behaviour is unchanged; only the module has changed.
 
-# D-P2-03 / server/panel_preview.py's own module docstring: the preview
-# PNG's colours are nominal render-internal swatches, not colour-accurate
-# against real Spectra 6 glass — two of the six are still explicitly
-# interim pending Phase 7's on-glass calibration. This caveat is not
-# optional politeness: without it a user comparing this image to the
-# frame on the wall could mistake an expected preview/glass colour
-# mismatch for a hardware fault.
+# D-P2-03 / server/panel_preview.py's own module docstring: the render
+# gallery's colours are nominal render-internal swatches, not colour-
+# accurate against real Spectra 6 glass — two of the six are still
+# explicitly interim pending Phase 7's on-glass calibration. This caveat
+# is not optional politeness: without it a user comparing any of these
+# renders to the frame on the wall could mistake an expected render/glass
+# colour mismatch for a hardware fault. Quick task 260903-etm retired
+# History's top-of-page render gallery outright; this caveat is now
+# rehomed into LIGHTBOX_NOTE below (composed, not reworded) since the
+# per-row View-panel lightbox is the only place on this page a rendered
+# panel image is shown any more — its wording and its value are
+# unchanged.
 COLOUR_CAVEAT = (
     "Colours are nominal render-internal swatches, not colour-accurate "
     "against real Spectra 6 glass.")
 
-_NO_PANEL_CAPTION = "No panel has been rendered yet."
-
-_NO_RENDERS_HEADING = "No renders yet."
-_NO_RENDERS_BODY = (
-    "Trigger a poll above, or wait for the next scheduled cycle, to "
-    "populate the gallery.")
-
-# D-20 (preview_page.py origin): "the last several renders" for quick
-# visual QA — a display cap, independent of however many files
-# companion.app.gallery_entries() itself already limited its own listing
-# to.
-GALLERY_DISPLAY_LIMIT = 12
-
-_PREVIEW_IMAGE_ROUTE = "/preview.png"  # Literal, not imported from
-# companion.app (that import would be the forbidden cycle) — matches the
-# route companion/app.py's PREVIEW_IMAGE_ROUTE constant defines.
 _GALLERY_ROUTE_PREFIX = "/gallery/"
-
-# The source panel's real pixel dimensions (server/panel_format.py's
-# documented 1200x1600 output size) — reused for both the live-preview
-# <img> (UXA-16, eager/above-the-fold) and every gallery thumbnail
-# (UXA-16, lazy/off-screen). Naming these once means the two call sites
-# cannot drift from each other or from the real panel size.
-_PANEL_WIDTH = 1200
-_PANEL_HEIGHT = 1600
 
 # D-22/06.6.3-RESEARCH.md Pitfall 2: server/poll_loop.py::_save_to_gallery()
 # names each gallery file `now_iso.replace(":", "-") + ".png"` — sanitising
@@ -101,13 +81,6 @@ _PANEL_HEIGHT = 1600
 # this exact regex against the substring after the first "T".
 _GALLERY_TIME_PATTERN = re.compile(
     r"^(\d{2})-(\d{2})-(\d{2})([+-]\d{2})-(\d{2})$")
-
-# D-18/D-19: the Now-showing section heading, and the Recent-renders
-# disclosure summary template — the "count of what is shown, not the
-# ceiling constant" convention health_page.py's own "View {N} readings"
-# idiom already established.
-NOW_SHOWING_HEADING = "Now showing"
-RECENT_RENDERS_SUMMARY_TEMPLATE = "Recent renders (%d)"
 
 
 def _gallery_name_to_iso(name):
@@ -120,8 +93,8 @@ def _gallery_name_to_iso(name):
     must still degrade safely on an unexpected shape: a missing "T"
     separator, or a time+offset portion that doesn't match
     `_GALLERY_TIME_PATTERN`, both return None rather than raising —
-    `gallery_tiles()` below falls back to the raw-filename caption in
-    either case.
+    `nearest_gallery_entry()` below skips any entry it cannot recover a
+    timestamp from, in either case.
     """
     stem = name[:-4] if name.endswith(".png") else name
     if "T" not in stem:
@@ -132,92 +105,6 @@ def _gallery_name_to_iso(name):
         return None
     hh, mm, ss, tz_sign_hh, tz_mm = match.groups()
     return "%sT%s:%s:%s%s:%s" % (date_part, hh, mm, ss, tz_sign_hh, tz_mm)
-
-
-def preview_section(ctx):
-    """The live-preview `<section>` body: an `<img>` (inside a bounded,
-    centered matte frame, D-18) pointing at the preview route plus a
-    captured-at caption when a panel exists, or a short honest sentence
-    with no `<img>`/frame at all when it does not — a broken image
-    element is worse than an honest sentence. The colour caveat is
-    always present, since this section is always shown one way or the
-    other.
-    """
-    mtime_iso = panel_preview.panel_file_mtime_iso(ctx["state_dir"])
-
-    if mtime_iso:
-        image_html = (
-            '<div class="preview-frame">'
-            '<img class="preview-image" src="%s" '
-            'width="%d" height="%d" loading="eager" decoding="async" '
-            'alt="Current panel preview"></div>'
-        ) % (_PREVIEW_IMAGE_ROUTE, _PANEL_WIDTH, _PANEL_HEIGHT)
-        # panel_file_mtime_iso() returns a Z-suffixed ISO string while
-        # ctx["now"] is +00:00-suffixed; datetime.fromisoformat() parses
-        # both into timezone-aware values on this project's interpreter
-        # (verified during planning against server/.venv/bin/python3,
-        # CPython 3.11.15 — the Z suffix has been accepted since 3.11),
-        # so subtracting them raises nothing and no normalising shim is
-        # needed. concise_timestamp_html() already returns safe, raw
-        # markup (D-09) — interpolated verbatim here, never re-escaped,
-        # which is why this branch builds caption_html directly instead
-        # of going through a shared escape_html(caption_text) step.
-        caption_html = (
-            '<p class="text-label mono">Captured %s</p>'
-            % layout.concise_timestamp_html(mtime_iso, ctx.get("now")))
-    else:
-        image_html = ""
-        # The no-panel caption carries no markup of its own, so it still
-        # goes through escape_html() exactly as before this plan.
-        caption_html = (
-            '<p class="text-label mono">%s</p>' % escape_html(_NO_PANEL_CAPTION))
-
-    caveat_html = '<p class="text-body">%s</p>' % escape_html(COLOUR_CAVEAT)
-    return image_html + caption_html + caveat_html
-
-
-def gallery_tiles(ctx):
-    """The gallery `<section>` body: a capped, newest-first grid of
-    thumbnail tiles built only from names in `ctx["gallery_entries"]`
-    (the router's own listing helper's return value — T-06-09-02), or
-    the render-gallery empty state when that list is empty.
-
-    Each tile's `<img>` carries UXA-16's lazy-loading/sizing hints and is
-    wrapped in a same-src `<a>` for native open/zoom (no new route — the
-    existing `/gallery/{name}.png` route already serves the full-size
-    file). Each caption reads "Captured {concise timestamp}" (D-22) when
-    `_gallery_name_to_iso()` can recover a real timestamp from the
-    filename, or degrades to the existing raw-filename-derived caption
-    (still escaped) when it cannot — never a crash, never a blank
-    caption.
-    """
-    entries = ctx.get("gallery_entries") or []
-    limited = entries[:GALLERY_DISPLAY_LIMIT]
-
-    if not limited:
-        return empty_state(_NO_RENDERS_HEADING, _NO_RENDERS_BODY)
-
-    tiles = []
-    for name in limited:
-        escaped_name = escape_html(name)
-        href = "%s%s" % (_GALLERY_ROUTE_PREFIX, escaped_name)
-        iso = _gallery_name_to_iso(name)
-        if iso is not None:
-            caption_html = (
-                "Captured %s" % layout.concise_timestamp_html(iso, ctx.get("now")))
-        else:
-            raw_caption = name[:-4] if name.endswith(".png") else name
-            caption_html = escape_html(raw_caption)
-        tiles.append(
-            '<div class="gallery-tile">'
-            '<a href="%s">'
-            '<img src="%s" width="%d" height="%d" loading="lazy" '
-            'decoding="async" alt="Rendered panel %s"></a>'
-            '<p class="text-label mono">%s</p>'
-            "</div>"
-            % (href, href, _PANEL_WIDTH, _PANEL_HEIGHT, escaped_name, caption_html)
-        )
-    return '<div class="gallery-grid">%s</div>' % "".join(tiles)
 
 
 _NO_FLIGHTS_HEADING = "No flights yet."
@@ -321,9 +208,19 @@ NO_CALLSIGN_NOTE_TEXT = "no callsign"
 VIEW_PANEL_LABEL = "View panel near this time"
 LIGHTBOX_DIALOG_ID = "panel-lookup-dialog"
 LIGHTBOX_CAPTION_TEMPLATE = "Panel near %s"
+# Quick task 260903-etm: composed from the pre-existing nearest-render
+# sentence plus COLOUR_CAVEAT (verbatim, unreworded) rather than two
+# independent strings — the lightbox is now the only surface on this
+# page that shows a rendered panel image at a size where a user would
+# actually compare its colours to the frame on the wall, so the caveat's
+# safety rationale (see COLOUR_CAVEAT's own comment above) belongs here.
+# One source of the sentence, no second wording anywhere. Awaiting
+# developer sign-off — see 260903-etm-SUMMARY.md for the two-line
+# reversal path if this composition is rejected.
 LIGHTBOX_NOTE = (
     "This is the nearest recorded render, not necessarily from this "
-    "exact flight — the panel updates on its own wake/poll cycle.")
+    "exact flight — the panel updates on its own wake/poll cycle. "
+    + COLOUR_CAVEAT)
 _VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
 _VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
 _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
@@ -466,17 +363,22 @@ def _view_panel_button_html(name, iso):
     captionText`, no client-side templating of any kind), so the final
     attribute value must already be UI-SPEC §8.3's exact "Panel near
     {timestamp}" copy. Both attributes are escaped exactly once, at this
-    point of interpolation.
+    point of interpolation. Quick task 260903-etm: the trigger's `title`
+    mirrors its `aria-label` verbatim, so a sighted pointer user gets the
+    same native tooltip a screen-reader user already gets as the
+    accessible name.
     """
     src = "%s%s" % (_GALLERY_ROUTE_PREFIX, escape_html(name))
     caption = LIGHTBOX_CAPTION_TEMPLATE % iso
+    escaped_label = escape_html(VIEW_PANEL_LABEL)
     return (
         '<button type="button" class="copy-btn" %s="%s" %s="%s" '
-        'aria-label="%s">%s</button>'
+        'title="%s" aria-label="%s">%s</button>'
     ) % (
         _VIEW_PANEL_SRC_ATTR, src,
         _VIEW_PANEL_CAPTION_ATTR, escape_html(caption),
-        escape_html(VIEW_PANEL_LABEL),
+        escaped_label,
+        escaped_label,
         layout.icon_html("icon-nav-preview"),
     )
 
@@ -923,29 +825,21 @@ def render(ctx):
     header = layout.page_header(
         "History", purpose="Latest %d detected flights." % HISTORY_ROW_LIMIT)
 
-    # D-18/D-19: Preview's entire page content, now living directly above
-    # the flight log it explains — a Now-showing section (byte-identical
-    # preview_section() markup) plus a collapsed-by-default Recent-renders
-    # disclosure (gallery_tiles() markup, unchanged). Deliberately NOT
-    # ported: Preview's separate page-level freshness apparatus (its
-    # Refresh link's data-loaded-at attribute and paired hidden
-    # data-stale-banner) — preview_section()'s own "Captured {relative}"
-    # caption is already a sufficient staleness signal for one section,
-    # and duplicating Health's whole-page freshness mechanism here would
-    # be scope no decision asks for. Do not "restore" it later as an
-    # oversight.
+    # Quick task 260903-etm: developer redirection, superseding quick task
+    # 260903-c4o's own always-visible render-gallery section on this same
+    # unmerged branch — the section (heading, count caption, colour
+    # caveat, tile grid) does not exist in any form any more. Every
+    # rendered panel stays reachable through the per-row "View panel near
+    # this time" lightbox (D-20) below, which this task keeps intact.
+    # gallery_entries_list is NOT gallery-section state — it is the input
+    # to nearest_gallery_entry() below, which every per-row trigger
+    # depends on. Deliberately NOT (re)introduced: a page-level freshness
+    # apparatus (a Refresh link's data-loaded-at attribute and paired
+    # hidden data-stale-banner) — each per-row trigger's own lookup is
+    # already a sufficient staleness signal, and duplicating Health's
+    # whole-page freshness mechanism here would be scope no decision asks
+    # for. Do not "restore" it later as an oversight.
     gallery_entries_list = ctx.get("gallery_entries") or []
-    shown_count = min(len(gallery_entries_list), GALLERY_DISPLAY_LIMIT)
-    now_showing_html = (
-        '<section class="page-section">'
-        '<h2 class="text-heading">%s</h2>'
-        "%s"
-        '<details class="readings-disclosure"><summary>%s</summary>%s</details>'
-        "</section>"
-    ) % (
-        NOW_SHOWING_HEADING, preview_section(ctx),
-        RECENT_RENDERS_SUMMARY_TEMPLATE % shown_count, gallery_tiles(ctx),
-    )
 
     if rows is _DB_UNAVAILABLE:
         body = '<p class="text-body">%s</p>' % escape_html(_HISTORY_UNAVAILABLE_TEXT)
@@ -984,4 +878,4 @@ def render(ctx):
                 + _history_cards_html(formatted_rows, now)
                 + _history_table_html(formatted_rows, now))
 
-    return header + now_showing_html + body + lightbox_html
+    return header + body + lightbox_html

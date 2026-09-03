@@ -3,6 +3,13 @@
 encoder that turns the live `state_dir/panel.bin` into bytes an HTTP
 handler can write directly (CFG-10).
 
+This module currently has no production caller — companion/app.py's
+`/preview.png` route, its only caller outside this file's own tests, was
+removed by quick task 260903-c4o in favour of the render gallery's
+existing full-resolution `/gallery/{name}.png` route — and it is kept on
+disk as tested infrastructure (`test_panel_preview.py`'s 11-check
+harness), not deleted.
+
 This module exists because `server/plane/render.py`'s `--preview` CLI flag
 renders a hardcoded sample flight - it cannot answer "what is on the panel
 right now" (06-RESEARCH.md Pattern 4 and its Anti-Patterns list explicitly
