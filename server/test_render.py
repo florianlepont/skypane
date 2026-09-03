@@ -41,7 +41,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 126
+EXPECTED_CHECK_COUNT = 127
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -3665,6 +3665,29 @@ def main():
     check(
         "build_canvas()'s source lists the 'quiet_hours' dispatch branch before the 'empty' dispatch branch",
         _quiet_hours_branch_precedes_empty_branch_in_source,
+    )
+
+    # 127. Plan 10-02, Task 2: the preview CLI renders the quiet-hours state
+    # to a real IMAGE_BYTES-sized .bin via render.main()/build_parser() -
+    # the path the deferred visual review actually depends on.
+    def _cli_renders_quiet_hours_state():
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "quiet-hours-cli.bin")
+            argv = ["--state", "quiet_hours", "--quiet-hours-until", "07:00", "--out", out_path]
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = render.main(argv)
+            if rc != 0:
+                return False, "render.main(%r) returned %r, expected 0" % (argv, rc)
+            if not os.path.isfile(out_path):
+                return False, "render.main(%r) did not write %r" % (argv, out_path)
+            size = os.path.getsize(out_path)
+            if size != panel_format.IMAGE_BYTES:
+                return False, "%r is %d bytes, expected %d" % (out_path, size, panel_format.IMAGE_BYTES)
+        return True, ""
+    check(
+        "render.main() via build_parser() with ['--state', 'quiet_hours', '--quiet-hours-until', '07:00', "
+        "'--out', <path>] returns 0 and writes exactly IMAGE_BYTES bytes",
+        _cli_renders_quiet_hours_state,
     )
 
     total = len(results)

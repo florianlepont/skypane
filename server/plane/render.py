@@ -2203,7 +2203,7 @@ _PREVIEW_PREVIOUS_ROUTE = {
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state", choices=["departing", "arriving", "empty"], default="empty")
+    parser.add_argument("--state", choices=["departing", "arriving", "empty", "quiet_hours"], default="empty")
     parser.add_argument("--callsign", default=None, help="Manual QA only: fake callsign for a departing/arriving preview.")
     parser.add_argument("--hex", default="000000", help="Manual QA only: fake ICAO hex (used if --callsign is omitted).")
     parser.add_argument(
@@ -2287,6 +2287,12 @@ def build_parser():
         action="store_true",
         help="Manual QA only (D-04/D-06): preview the low-battery icon in the panel's bottom-left corner.",
     )
+    parser.add_argument(
+        "--quiet-hours-until",
+        default=device_config.DEFAULT_QUIET_HOURS_END,
+        help="Manual QA only (D-05/D-06): the local Europe/Paris wall-clock end time the "
+             "--state quiet_hours preview's 'Back at' line shows. Ignored for every other --state.",
+    )
     return parser
 
 
@@ -2305,7 +2311,11 @@ def main(argv=None):
     previous_flight = None
     previous_route = None
     previous_state = None
-    if args.state != "empty":
+    # D-05/D-06: the quiet-hours state has no flight to enrich, exactly
+    # like empty - test membership against the two real aircraft states
+    # rather than a second negative list (`!= "empty"`) that a future third
+    # non-flight state would have to be remembered into.
+    if args.state in (runway_config.STATE_DEPARTING, runway_config.STATE_ARRIVING):
         flight = {"hex": args.hex, "callsign": args.callsign}
         # D-06 preview takes precedence over --no-route when both are given
         # (documented in --preview-airline-only's own help text above).
@@ -2363,6 +2373,7 @@ def main(argv=None):
         runway_id=args.runway,
         source_fault=args.source_fault,
         battery_low=args.battery_low,
+        quiet_hours_until=args.quiet_hours_until,
     )
     data = pf.pack_panel(canvas)
     if len(data) != pf.IMAGE_BYTES:
