@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
-stopped_at: "Quick task 260903-ghy (UIR-10/UIR-11, Health's two mobile data tables) shipped as PR #37 and merged into main. The developer then reviewed and approved the tunnelled result on their own phone, and separately gave explicit sign-off on quick task 260903-etm's COLOUR_CAVEAT -> LIGHTBOX_NOTE composition (kept as-is, no wording change) — that item's own comment in history_page.py updated in place to record the sign-off, and STATE.md's own trailing mentions of it as an open item removed. Still open from the 06.6.4.1-UI-REVIEW.md audit: the Settings theme picker (UIR-01/02) and the UIR-20..26 typography/spacing direction items — both flagged as needing a real design pass via /gsd-discuss-phase, not a quick task."
-last_updated: "2026-09-03T16:20:00.000Z"
+stopped_at: "Phase 10 (scheduled quiet hours) context gathered via /gsd-discuss-phase 10 — see .planning/phases/10-scheduled-quiet-hours/10-CONTEXT.md. Next: /gsd-plan-phase 10."
+last_updated: "2026-09-03T18:03:29.736Z"
 last_activity: 2026-09-03
-last_activity_desc: "Developer approved quick task 260903-ghy's Health mobile-table result on a real phone via the tunnel, then merged PR #37 (squash) into main. Separately, developer gave explicit sign-off on quick task 260903-etm's COLOUR_CAVEAT -> LIGHTBOX_NOTE composition, previously flagged AWAITING DEVELOPER SIGN-OFF in that task's own SUMMARY.md and in this file: the composed note stays exactly as shipped, no wording change. Resolved via /gsd-fast on a fresh branch off origin/main (claude/colour-caveat-signoff, the prior UIR-10/11 branch having already merged): removed the 'Awaiting developer sign-off' sentence from companion/pages/history_page.py's LIGHTBOX_NOTE comment, replacing it with a dated confirmation, and updated this file's own frontmatter and the 260903-etm Quick Tasks table row to stop listing the item as open. Comment-only change (LIGHTBOX_NOTE's actual string value is byte-identical, zero test impact). Still open from the 06.6.4.1-UI-REVIEW.md audit: the Settings theme picker (UIR-01/02) and the UIR-20..26 typography/spacing direction items — both need a real design pass via /gsd-discuss-phase, not a quick task."
+last_activity_desc: "Added Phase 10 (scheduled quiet hours, from SEED-001) and Phase 11 (web-configurable wake interval, from SEED-002) to the roadmap at the developer's request, then ran /gsd-discuss-phase 10. Discussion surfaced a correction to the seed's own premise: sleep_s is already fully server-controlled per poll response (stub-server/byos_server.py), so extending it during quiet hours needs zero firmware changes, contrary to what the seed assumed — locked as the pause mechanism (10-CONTEXT.md D-01). Also locked: one daily recurring window with a separate enabled/disabled flag (D-03/D-04), config-applies-on-next-poll accepted as-is even though that wait is now potentially hours long (D-02), a dedicated 'QUIET HOURS / Back at HH:MM' English-language screen at window entry as a deliberate exception to the no-status-text convention (D-05/D-06), and a silent (no dedicated screen) transition back to normal display at window exit (D-07). `gsd_run query state.record-session` reverted this field and the progress counters to a stale 2026-09-01 snapshot when called at the end of this session — hand-corrected (see project-gsd-state-percent-bug memory). Prior real history (2026-09-03, before this correction): quick task 260903-ghy (Health mobile tables, PR #37) was approved on a real phone and merged; quick task 260903-etm's COLOUR_CAVEAT -> LIGHTBOX_NOTE composition got explicit developer sign-off, recorded in history_page.py's own comment. Still open from the 06.6.4.1-UI-REVIEW.md audit: the Settings theme picker (UIR-01/02) and the UIR-20..26 typography/spacing direction items — both need a real design pass via /gsd-discuss-phase, not a quick task."
 progress:
   total_phases: 23
   completed_phases: 20
@@ -534,10 +534,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-02T12:35:27.125Z
-Stopped at: Completed quick task 260902-j8w (removed the battery-heading glyph from Health), then merged origin/main a second time (quick tasks 260902-h40/i1p/i4f/ipj/j21, most notably the RUNWAYS Piste-number relabelling, the 3 real runway diagram PNGs, and the platform-gated test_poll_loop.py digest fix)
+Last session: 2026-09-03T18:03:29.721Z
+Stopped at: Phase 10 context gathered
 
-Resume file: None
+Resume file: .planning/phases/10-scheduled-quiet-hours/10-CONTEXT.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
