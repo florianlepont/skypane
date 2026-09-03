@@ -5297,7 +5297,13 @@ def main():
             {"ts": _iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
 
         def _both_tabs_ok_end_to_end():
-            for path, heading in (("/health", "Health"), ("/airlines", "Airlines")):
+            for path, heading in (
+                    ("/health", "Health"), ("/airlines", "Airlines"),
+                    # quick task 260903-btu Task 5: /history added so the
+                    # served-HTML twin of Task 4's render-level History
+                    # guard runs against a real running service, not only
+                    # an in-process render() call.
+                    ("/history", "History")):
                 status, _headers, body = http_request(base + path, cookie=session_cookie)
                 if status != 200:
                     return False, "expected 200 for %s, got %d" % (path, status)
@@ -5391,6 +5397,55 @@ def main():
                             "expected the desc-class cells to fall after the Resolution-statistics "
                             "heading in the real /health HTTP response body")
 
+                elif path == "/airlines":
+                    # quick task 260903-btu Task 5a: the served-HTML twin
+                    # of Task 1/3's render()-level replace-form checks —
+                    # a real subprocess, a real login, a real HTTP
+                    # response, not only an in-process render() call.
+                    body_text = body.decode("utf-8", errors="replace")
+                    retired_token = "airline-card__" + "replace"
+                    if retired_token in body_text:
+                        return False, "expected zero occurrences of the retired per-card class token in the real /airlines HTTP response body"
+                    replace_form_count = body_text.count(airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
+                    if replace_form_count != 1:
+                        return False, (
+                            "expected airlines_page.LIGHTBOX_REPLACE_FORM_CLASS exactly once in the real "
+                            "/airlines HTTP response body, got %d" % replace_form_count)
+                    replace_actions = re.findall(
+                        r'%s="([^"]+)"' % re.escape(airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR), body_text)
+                    if not replace_actions:
+                        return False, (
+                            "expected at least one %r attribute in the real /airlines HTTP response body"
+                            % (airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR,))
+                    for action in replace_actions:
+                        if "?v=" in action:
+                            return False, (
+                                "expected no data-view-panel-replace-action value to carry a cache buster "
+                                "in the real /airlines HTTP response body, found one on %r" % (action,))
+                    if body_text.count('action=""') != 1:
+                        return False, (
+                            "expected action=\"\" exactly once in the real /airlines HTTP response body, "
+                            "got %d" % body_text.count('action=""'))
+                    if body_text.count('<input type="file"') != 1:
+                        return False, (
+                            "expected <input type=\"file\" exactly once in the real /airlines HTTP response "
+                            "body, got %d" % body_text.count('<input type="file"'))
+
+                elif path == "/history":
+                    # quick task 260903-btu Task 5a: the served-HTML twin
+                    # of Task 4's render()-level History guard.
+                    body_text = body.decode("utf-8", errors="replace")
+                    for token, label in (
+                            (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, "airlines_page.LIGHTBOX_REPLACE_FORM_CLASS"),
+                            (airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR, "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR"),
+                            ("enctype", "enctype"),
+                            ('<input type="file"', '<input type="file"')):
+                        count = body_text.count(token)
+                        if count != 0:
+                            return False, (
+                                "expected zero occurrences of %s in the real /history HTTP response body, "
+                                "got %d" % (label, count))
+
             # quick task 260902-bl2 Task 3: the automated half of "the new
             # CSS is actually served" — companion/app.py's pre-auth
             # STYLE_ROUTE, fetched from this same running service, proving
@@ -5429,16 +5484,21 @@ def main():
                         % (label, needle, app.FRESHNESS_SCRIPT_ROUTE))
             return True, ""
         check(
-            "GET /health and GET /airlines both return 200 with their own page heading against a real running "
-            "service, /health's real HTTP response body carries the page purpose, both section descriptions, "
-            "no duplicated freshness label, the auto-refresh pill (hidden) and zero stale-banner markers, the "
-            "nested modifier twice, the prose modifier once, both readout spans, no raw ISO in the readout's "
-            "own slice, and the desc-class cells at their expected count after the Resolution-statistics "
-            "heading, and the real served stylesheet (STYLE_ROUTE) carries the description-column rule, the "
-            "demotion rule's new bottom margin and the prose rhythm rule's selector, and the real served "
-            "freshness script (FRESHNESS_SCRIPT_ROUTE) carries the interval constant and the "
-            "visibility-change listener (quick task 260901-tsa; extended in place by quick task 260901-uzi "
-            "finding 1/2/3/4, quick task 260902-bl2 Task 3, and quick task 260902-chc)",
+            "GET /health, GET /airlines and GET /history all return 200 with their own page heading against a "
+            "real running service, /health's real HTTP response body carries the page purpose, both section "
+            "descriptions, no duplicated freshness label, the auto-refresh pill (hidden) and zero stale-banner "
+            "markers, the nested modifier twice, the prose modifier once, both readout spans, no raw ISO in "
+            "the readout's own slice, and the desc-class cells at their expected count after the "
+            "Resolution-statistics heading, /airlines' real HTTP response body carries zero occurrences of "
+            "the retired per-card replace class, exactly one lightbox replace form and one action=\"\" and "
+            "one file input, and at least one un-busted replace-action trigger attribute, /history's real "
+            "HTTP response body carries zero occurrences of the replace-form class, replace-action attribute, "
+            "enctype or file input (quick task 260903-btu Task 5a), and the real served stylesheet "
+            "(STYLE_ROUTE) carries the description-column rule, the demotion rule's new bottom margin and the "
+            "prose rhythm rule's selector, and the real served freshness script (FRESHNESS_SCRIPT_ROUTE) "
+            "carries the interval constant and the visibility-change listener (quick task 260901-tsa; "
+            "extended in place by quick task 260901-uzi finding 1/2/3/4, quick task 260902-bl2 Task 3, quick "
+            "task 260902-chc, and quick task 260903-btu Task 5a)",
             _both_tabs_ok_end_to_end)
 
         def _illustration_route_serves_normalized_bytes_end_to_end():
