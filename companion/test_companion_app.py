@@ -848,17 +848,19 @@ def main():
             # 06.6.3: the whitelist grew from ten to fourteen members
             # (icon-check/icon-copy/icon-refresh/icon-search, D-05/
             # D-23/D-12/D-20) — see layout.py's own header comment on
-            # ICON_IDS for the supersession note.
-            if len(layout.ICON_IDS) != 14:
-                return False, "expected exactly fourteen ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 14:
+            # ICON_IDS for the supersession note. quick task 260903-df3
+            # grew it again, fourteen to fifteen (icon-upload, the
+            # Airlines lightbox replace zone's glyph).
+            if len(layout.ICON_IDS) != 15:
+                return False, "expected exactly fifteen ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 15:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 14:
-                return False, "expected exactly fourteen <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 15:
+                return False, "expected exactly fifteen <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -866,7 +868,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly fourteen unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly fifteen unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -913,15 +915,15 @@ def main():
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if doc.count("<defs") != 1:
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
-            if doc.count("<symbol") != 14:
-                return False, "expected exactly fourteen <symbol, got %d" % doc.count("<symbol")
+            if doc.count("<symbol") != 15:
+                return False, "expected exactly fifteen <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, fourteen <symbol) before dashboard-shell, "
+            "page_shell() emits exactly one sprite (one <defs, fifteen <symbol) before dashboard-shell, "
             "no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
