@@ -3,8 +3,8 @@ id: SEED-002
 status: dormant
 planted: 2026-09-02
 planted_during: Phase 5 (05-low-battery-indicator) — DEVICE-05 battery discharge run
-trigger_when: when relevant
-scope: unknown
+trigger_when: "User requested direct promotion to active work, 2026-09-03 — planned alongside sibling SEED-001 (scheduled quiet hours)."
+scope: medium
 ---
 
 # SEED-002: SKYPANE_SLEEP_S should be configurable through the companion web configuration interface
@@ -28,13 +28,30 @@ and a service restart every time.
 
 ## When to Surface
 
-**Trigger:** when relevant
-
-This seed will surface during `/gsd-new-milestone` when the milestone scope matches.
+**Trigger:** Fired directly by developer request (2026-09-03), rather than waiting on a
+milestone scan — planned as a companion phase alongside SEED-001 (scheduled quiet
+hours), since both extend the same `device_config.py` registry and
+`companion/pages/config_page.py` form.
 
 ## Scope Estimate
 
-**Unknown** — run `/gsd-capture --seed --enrich SEED-002` to estimate effort.
+**Medium** — a phase, not a quick task. It touches three layers, not just the web form:
+
+1. **Config data model** — a `wake_interval_s` (or similarly named) field in
+   `device_config.py`'s registry, following the existing `normalise_*()` +
+   `load_device_config()`/`save_device_config()` pattern used for theme/runway/LED.
+2. **Companion UI** — a new field in `companion/pages/config_page.py`'s form, with
+   validation (a sane min/max — too short burns battery, too long risks staleness at
+   the moment someone glances at the frame).
+3. **Delivery to the device** — the real design question: `SKYPANE_SLEEP_S` today is a
+   process-start argument to `skypane-byos.service` (`deploy/skypane-byos.service`),
+   read once at service start. Making it live-configurable from the web UI means either
+   (a) the server passes the current interval back in the poll/`/display` response and
+   the device honors it as its *next* sleep duration (no service restart needed, small
+   protocol addition), or (b) the config write triggers a service restart server-side
+   (simpler code, but a jarring "restart the whole service for one setting" mechanism).
+   Option (a) is the more natural fit for how CFG-01/CFG-12 already work (device reads
+   its config live on each poll) and avoids service-restart plumbing entirely.
 
 ## Breadcrumbs
 
@@ -47,5 +64,6 @@ This seed will surface during `/gsd-new-milestone` when the milestone scope matc
 ## Notes
 
 Captured via one-shot seed capture during a live conversational session
-walking through DEVICE-05's discharge run. Enrich with trigger, why, and
-scope at your convenience.
+walking through DEVICE-05's discharge run. Enriched 2026-09-03 — trigger and
+scope filled in — after the developer asked to work on this seed directly,
+without waiting for a milestone scan.
