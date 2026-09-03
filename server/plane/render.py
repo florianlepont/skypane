@@ -300,6 +300,14 @@ EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment o
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
 
+# D-05/D-06 (10-UI-SPEC.md Panel Screen Copywriting Contract): the
+# scheduled-quiet-hours screen's locked English copy - all-caps heading,
+# "Back at HH:MM" body, matching every other panel string
+# (DEPARTING/ARRIVING, ORY · RWY 3). Do not localise to French despite the
+# developer's own French working example during the discussion.
+QUIET_HOURS_HEADING_TEXT = "QUIET HOURS"
+QUIET_HOURS_BODY_TEMPLATE = "Back at %s"
+
 # CFG-05 (D-06 seed .planning/seeds/on-device-fault-icon.md): the source-
 # fault alert badge's caption - short, English (D-23), and pointing at the
 # companion page, which is where an all-sources-down outage is actually
@@ -1798,6 +1806,75 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
     return canvas
 
 
+def _build_quiet_hours_canvas(quiet_hours_until=None, source_fault=False, battery_low=False):
+    """Build the scheduled-quiet-hours canvas (D-05/D-06): a dedicated,
+    deliberate exception to the project's "no on-screen status text" rule,
+    drawn once by poll_loop.py (plan 10-04) at the poll that first detects
+    window entry.
+
+    Structurally a near-verbatim copy of `_build_empty_canvas()`
+    (10-UI-SPEC.md's locked "mirror the empty state exactly" default): flat
+    White background, EMPTY_INK text, identical vertical-centring formula.
+    `theme_id` and `runway_id` are both ignored - this screen is always
+    White/Black regardless of the currently configured theme, exactly like
+    the empty state.
+
+    `quiet_hours_until` is expected to be the "HH:MM" local (Europe/Paris)
+    wall-clock end time string produced by
+    `device_config.seconds_until_quiet_hours_end()`. When it is missing,
+    empty, or not a string (T-10-02-01), the body line is omitted entirely
+    rather than ever drawing the literal text "Back at None" - the heading
+    then centres alone, the same "an element exists visually only when it
+    has real information to show" discipline 03-CONTEXT.md D-25 established
+    and 05-CONTEXT.md D-06 reused for the battery icon.
+
+    `battery_low`/`source_fault` (D-04/D-06, CFG-05) match
+    `_build_empty_canvas()`'s own precedent: both indicators are
+    device/server-health facts independent of this screen's content, drawn
+    in EMPTY_INK.
+    """
+    canvas = pf.new_canvas(IDX_WHITE)
+    draw = ImageDraw.Draw(canvas)
+    heading_text = QUIET_HOURS_HEADING_TEXT
+    body_font = _font(EMPTY_BODY_FONT)
+    center_x = WIDTH // 2
+    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+
+    heading_font = fit_text_size(PT_SERIF_BOLD, EMPTY_HEADING_FONT[1], heading_text, safe_width, EMPTY_HEADING_MIN_SIZE)
+
+    heading_ascent, heading_descent = heading_font.getmetrics()
+    heading_height = heading_ascent + heading_descent
+
+    if isinstance(quiet_hours_until, str) and quiet_hours_until:
+        body_lines = _wrap_text(body_font, QUIET_HOURS_BODY_TEMPLATE % quiet_hours_until, safe_width)
+    else:
+        body_lines = []
+    body_ascent, body_descent = body_font.getmetrics()
+    body_line_height = body_ascent + body_descent
+
+    total_height = heading_height + (SPACE_SM + len(body_lines) * body_line_height if body_lines else 0)
+    start_y = (HEIGHT - total_height) // 2
+
+    heading_bbox = draw.textbbox((center_x, start_y), heading_text, font=heading_font, anchor="ma")
+    _assert_in_safe_box(heading_bbox, "quiet-hours heading")
+    draw.text((center_x, start_y), heading_text, font=heading_font, fill=EMPTY_INK, anchor="ma")
+
+    y = start_y + heading_height + SPACE_SM
+    for line in body_lines:
+        line_bbox = draw.textbbox((center_x, y), line, font=body_font, anchor="ma")
+        _assert_in_safe_box(line_bbox, "quiet-hours body line")
+        draw.text((center_x, y), line, font=body_font, fill=EMPTY_INK, anchor="ma")
+        y += body_line_height
+
+    if source_fault:
+        draw_source_fault_badge(canvas, EMPTY_INK, weight="bold")
+
+    if battery_low:
+        draw_battery_icon(canvas, draw, EMPTY_INK)
+
+    return canvas
+
+
 _LEGAL_PANEL_INDICES = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN}
 
 
@@ -1987,7 +2064,7 @@ def _build_active_canvas(
 def build_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
     theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
-    source_fault=False, battery_low=False,
+    source_fault=False, battery_low=False, quiet_hours_until=None,
 ):
     """Return the pre-pack "P"-mode canvas for `flight` in `state`
     ("departing" / "arriving" / "empty"). Public (not `_build_canvas`) so
@@ -2030,7 +2107,18 @@ def build_canvas(
     `battery_low` (D-04/D-06): when True, draws the bottom-left
     battery-low icon - in every one of the three states, including empty.
     Independent of `source_fault`; both may be true at once.
+
+    `quiet_hours_until` (D-05/D-06): when `state == "quiet_hours"`, the
+    "HH:MM" local (Europe/Paris) wall-clock end-of-window string shown as
+    "Back at HH:MM"; a missing/empty/non-string value omits the body line
+    instead of raising (T-10-02-01). `theme_id`, `runway_id`, `route`, and
+    the three `previous_*` arguments are all ignored for this state - it is
+    always a flat White/Black screen with no flight to enrich, exactly like
+    the empty state ignores `theme_id`.
     """
+    if state == "quiet_hours":
+        return _build_quiet_hours_canvas(
+            quiet_hours_until=quiet_hours_until, source_fault=source_fault, battery_low=battery_low)
     if flight is None or state == "empty":
         return _build_empty_canvas(
             runway_id=runway_id, source_fault=source_fault, battery_low=battery_low)
@@ -2051,11 +2139,11 @@ def build_canvas(
 def render_panel(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
     theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
-    source_fault=False, battery_low=False,
+    source_fault=False, battery_low=False, quiet_hours_until=None,
 ):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
-    ("departing" / "arriving" / "empty").
+    ("departing" / "arriving" / "empty" / "quiet_hours").
 
     `state` is the return value of a server.plane.runway_config call
     (poll_loop.py never hardcodes it) - server.plane.runway_config.py's
@@ -2064,11 +2152,13 @@ def render_panel(
     per-state dicts on.
 
     `route`/`previous_flight`/`previous_route`/`previous_state`/`theme_id`/
-    `runway_id`/`source_fault`/`battery_low` are passed straight through to
-    build_canvas() (D-25/D-26, CFG-01, CFG-12, CFG-05, D-04/D-06) - see
-    build_canvas()'s own docstring for the full contract of each, including
-    what `route` may now be (a full route or, since quick task 260827-hyy,
-    an airline-only route) and `battery_low`'s per-state behaviour.
+    `runway_id`/`source_fault`/`battery_low`/`quiet_hours_until` are passed
+    straight through to build_canvas() (D-25/D-26, CFG-01, CFG-12, CFG-05,
+    D-04/D-06, D-05/D-06) - see build_canvas()'s own docstring for the full
+    contract of each, including what `route` may now be (a full route or,
+    since quick task 260827-hyy, an airline-only route), `battery_low`'s
+    per-state behaviour, and `quiet_hours_until`'s "quiet_hours"-only
+    contract.
     """
     canvas = build_canvas(
         flight,
@@ -2081,6 +2171,7 @@ def render_panel(
         runway_id=runway_id,
         source_fault=source_fault,
         battery_low=battery_low,
+        quiet_hours_until=quiet_hours_until,
     )
     return pf.pack_panel(canvas)
 
