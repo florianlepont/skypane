@@ -270,7 +270,7 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 126  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
+EXPECTED_CHECK_COUNT = 128  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) + 2 (quick 260903-ghy Task 1: the Resolution-statistics table's mobile .data-cards completeness check, and the .data-cards toggle-contract/untouched-rules check; the pre-existing nested-card heading-rhythm check's own allowlist was extended in place for the new `<ul class="data-cards">` element, no count change from it) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -3374,9 +3374,15 @@ def main():
         # the seeded/chart-present branch) is the readout paragraph
         # (`<p id="battery-readout" ...>`), not a `<p class="text-body">`
         # badge any more.
+        # quick task 260903-ghy: a third member added in place — the
+        # Resolution-statistics card's next element, when seeded, is now
+        # its own `.data-cards` mobile list (UIR-10), which style.css
+        # gives its own `margin: 0` list-reset rule, so it needs no
+        # separate top-margin exception of its own.
         allowed = (
             '<p class="text-body">', '<p class="text-body section-caption">',
-            '<p id="%s"' % health_page.BATTERY_READOUT_ID, "<div ", "<details", "<svg ")
+            '<p id="%s"' % health_page.BATTERY_READOUT_ID, "<div ", "<details", "<svg ",
+            '<ul class="data-cards">')
         for seeded in (False, True):
             tmp = _mkstate("h-card-rhythm-%s" % seeded)
             try:
@@ -3586,6 +3592,135 @@ def main():
         "first) and stylesheet (.data-table td.desc's 70% muted colour, no min-width, no opacity, no muted "
         "token anywhere in the file) (quick task 260902-bl2 Task 3, Check 1)",
         _desc_column_muted_end_to_end)
+
+    def _stats_cards_list_complete_and_precedes_table():
+        # quick task 260903-ghy Task 1, Check A (UIR-10): the
+        # Resolution-statistics table's mobile .data-cards representation
+        # is complete (one item per _SOURCE_ROWS entry, every label/full-
+        # gloss/count reachable) and sits before its unchanged desktop
+        # table, which is what style.css's `.data-cards ~ .data-table-wrap`
+        # sibling-combinator toggle depends on.
+        tmp = _mkstate("h-stats-cards-complete")
+        try:
+            now = _now()
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc001", "route_source": "fresh_hit"},
+                {"ts": _iso(now), "hex": "abc002", "route_source": "cache_hit"},
+                {"ts": _iso(now), "hex": "abc003", "route_source": "cache_hit"},
+                {"ts": _iso(now), "hex": "abc004", "route_source": "airline_only"},
+                {"ts": _iso(now), "hex": "abc005", "route_source": "miss"},
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+
+            cards_list_count = rendered.count('<ul class="data-cards">')
+            if cards_list_count != 1:
+                return False, (
+                    'expected exactly one <ul class="data-cards"> list, got %d' % cards_list_count)
+            expected_items = len(health_page._SOURCE_ROWS)
+            item_count = rendered.count('<li class="data-card">')
+            if item_count != expected_items:
+                return False, (
+                    'expected exactly %d <li class="data-card"> items (one per _SOURCE_ROWS entry), '
+                    'got %d' % (expected_items, item_count))
+
+            stats_at = rendered.index(health_page.STATS_SECTION_HEADING)
+            cards_at = rendered.index('<ul class="data-cards">')
+            prose_at = rendered.index("data-table--prose")
+            if not (stats_at < cards_at < prose_at):
+                return False, (
+                    "expected the card list to sit after the Resolution-statistics heading and "
+                    "before its data-table--prose table")
+
+            card_slice = rendered[cards_at:rendered.index("</ul>", cards_at) + len("</ul>")]
+            with history_db.open_db(tmp) as conn:
+                stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
+            for label, gloss, count in stats["rows"]:
+                if layout.escape_html(label) not in card_slice:
+                    return False, "expected label %r inside the card-list slice" % (label,)
+                if layout.escape_html(gloss) not in card_slice:
+                    return False, (
+                        "expected the FULL gloss %r inside the card-list slice, untruncated" % (gloss,))
+                if str(count) not in card_slice:
+                    return False, "expected count %r inside the card-list slice" % (count,)
+
+            if rendered.count("data-table--prose") != 1:
+                return False, "expected the desktop table to still carry data-table--prose exactly once"
+            desc_count = rendered.count('<td class="desc">')
+            if desc_count != len(health_page._SOURCE_ROWS):
+                return False, "expected the desktop table's desc cells to stay intact"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Resolution-statistics table has a complete mobile .data-cards representation — one item per "
+        "_SOURCE_ROWS entry, every label/full-gloss/count present, positioned before its unchanged desktop "
+        "table (quick task 260903-ghy Task 1, Check A / UIR-10)",
+        _stats_cards_list_complete_and_precedes_table)
+
+    def _data_cards_toggle_contract_and_untouched_rules():
+        # quick task 260903-ghy Task 1, Check B: the mobile toggle contract
+        # (base hide rule + both >=960px inverse rules), plus every rule
+        # this task must NOT disturb — .data-card__label mirrors
+        # .data-table th's label tier by value, .data-table-wrap's
+        # scroll-edge shadow stays intact, and the three literal selectors
+        # this harness itself indexes by elsewhere in this file are all
+        # still present. CSS comments are stripped before any presence/
+        # absence assertion so this check cannot be satisfied or defeated
+        # by comment prose.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        stripped = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+
+        def _rule_body(selector, source):
+            at = source.index(selector)
+            return source[at:source.index("}", at)]
+
+        base_body = _rule_body(".data-cards ~ .data-table-wrap {", stripped)
+        if "display: none" not in base_body:
+            return False, "expected the base .data-cards ~ .data-table-wrap rule to hide the desktop table"
+
+        media_at = stripped.index("@media (min-width: 960px)")
+        media_body = stripped[media_at:]
+        hide_cards_at = media_body.index(".data-cards {")
+        hide_cards_body = media_body[hide_cards_at:media_body.index("}", hide_cards_at)]
+        if "display: none" not in hide_cards_body:
+            return False, "expected the >=960px .data-cards rule to hide the mobile card list"
+        show_table_at = media_body.index(".data-cards ~ .data-table-wrap {")
+        show_table_body = media_body[show_table_at:media_body.index("}", show_table_at)]
+        if "display: block" not in show_table_body:
+            return False, "expected the >=960px .data-cards ~ .data-table-wrap rule to reveal the desktop table"
+
+        label_body = _rule_body(".data-card__label {", stripped)
+        th_body = _rule_body(".data-table th {", stripped)
+        for prop in ("font-size", "color"):
+            label_decl = next(
+                (line.strip() for line in label_body.splitlines()
+                 if line.strip().startswith(prop + ":")), None)
+            th_decl = next(
+                (line.strip() for line in th_body.splitlines()
+                 if line.strip().startswith(prop + ":")), None)
+            if label_decl is None or th_decl is None or label_decl != th_decl:
+                return False, (
+                    "expected .data-card__label's %r declaration to be string-equal to .data-table "
+                    "th's, got %r vs %r" % (prop, label_decl, th_decl))
+
+        wrap_body = _rule_body(".data-table-wrap {", stripped)
+        if "background-attachment" not in wrap_body:
+            return False, (
+                "expected .data-table-wrap's scroll-edge shadow (background-attachment layers) to "
+                "remain intact")
+
+        for literal in (".data-table {", ".data-table--prose {", ".data-table td.desc {"):
+            if literal not in css_source:
+                return False, "expected the harness's own pinned literal %r to still exist" % (literal,)
+        return True, ""
+    check(
+        "the .data-cards mobile toggle contract exists at both breakpoints, .data-card__label mirrors "
+        ".data-table th's label tier by value, .data-table-wrap's scroll-edge shadow is untouched, and "
+        "the three literal selectors this harness indexes by elsewhere are all still present (quick task "
+        "260903-ghy Task 1, Check B)",
+        _data_cards_toggle_contract_and_untouched_rules)
 
     def _humanised_readout_end_to_end():
         # quick task 260901-uzi Task 4 (Check 4): finding 3's markup half

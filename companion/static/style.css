@@ -2040,6 +2040,94 @@ button:disabled {
   margin-top: var(--space-sm);
 }
 
+/* Health's own generic mobile card-list mechanism (quick task 260903-ghy,
+ * UIR-10/UIR-11) — the SIBLING of History's page-scoped `.history-card*`
+ * vocabulary above, not a merge with it: consolidating the two into one
+ * shared vocabulary is deliberately DEFERRED here, not forgotten — the
+ * two Health tables this mechanism serves have genuinely different
+ * per-table content shapes (one stacked-prose card, one two-line-plus-
+ * disclosure card), so a shared base class buys little today.
+ *
+ * These cards render INSIDE a `.page-section page-section--nested` card
+ * (health_page.py's `_registry_section()`/`_stats_table_html()` callers),
+ * never directly on the page background the way History's `.history-card`
+ * does — putting a second bordered/shadowed surface on top of that
+ * existing card surface would be the elevation-on-elevation defect
+ * 06.6.4 (D-03) already walked back once (and quick task 260902-iag's own
+ * reversal on this very page). `.data-card` therefore carries no fill, no
+ * radius and no shadow at rest or on hover — only the same row-hairline
+ * rhythm `.data-table td`'s own `border-bottom` (and
+ * `.data-table tbody tr:last-child td`'s clean last-row edge) already
+ * give the table rows these cards replace.
+ *
+ * `.data-card__desc` repeats this file's one 70% muted-text color-mix
+ * literal (the same one `.data-table td.desc` above carries) rather than
+ * joining that rule's own selector list — test_status_pages.py pins
+ * `.data-table td.desc {` as an exact literal string it indexes by, so
+ * appending a second selector there would break that lookup.
+ *
+ * quick task 260902-w4t's four-layer `background-attachment` scroll-edge
+ * shadow on `.data-table-wrap` is untouched by any of this — it remains
+ * the desktop/tablet safety net for every table on this page, including
+ * the one (battery readings) this task does not touch at all. */
+.data-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.data-cards ~ .data-table-wrap {
+  display: none;
+}
+
+.data-card {
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-card:last-child {
+  border-bottom: none;
+}
+
+.data-card__primary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  justify-content: space-between;
+}
+
+.data-card__value {
+  margin-left: auto;
+}
+
+/* Mirrors `.data-table th`'s own quiet uppercase label tier above — the
+ * same font-size, weight, letter-spacing, transform and 70% muted
+ * color-mix literal, copied by VALUE (not by selector), so a card's
+ * field label reads at the same quiet tier as the table header it
+ * replaces. */
+.data-card__label {
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.data-card__secondary {
+  margin-top: var(--space-xs);
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.data-card__desc {
+  margin: var(--space-xs) 0 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.data-card__details {
+  margin-top: var(--space-sm);
+}
+
 /* Filter bar (06.6.3 D-20) — shared by History and Airlines, driven by
  * list-filter.js; inert without JS (the full unfiltered table/card list
  * stays completely usable if the script fails to load). */
@@ -3407,6 +3495,17 @@ summary::-webkit-details-marker {
   }
 
   .history-cards ~ .data-table-wrap {
+    display: block;
+  }
+
+  /* Health's mobile/desktop toggle (quick task 260903-ghy), the inverse
+   * pair for `.data-cards` above — the same sibling-combinator mechanism
+   * History's own pair uses, inverted at this breakpoint. */
+  .data-cards {
+    display: none;
+  }
+
+  .data-cards ~ .data-table-wrap {
     display: block;
   }
 }

@@ -366,6 +366,16 @@ _SOURCE_ROWS = (
      "tracks."),
 )
 
+# quick task 260903-ghy (UIR-10): promoted from a literal inline the
+# Resolution-statistics table's own `layout.data_table()` call used to
+# carry — single-sourced so `_stats_table_html()`'s table and
+# `_stats_cards_html()`'s mobile card list can never disagree on a header
+# word. Index 2 ("Count") is read directly by the card builder for its
+# field label; the middle header ("Description") has no card-side
+# equivalent, since the mobile card renders the full description as
+# stacked prose rather than a labelled field.
+_STATS_HEADERS = ("Source", "Description", "Count")
+
 # D-20: the filter bar's copy (06.6.3-UI-SPEC.md's Copywriting Contract),
 # driven client-side by companion/static/list-filter.js's shared
 # [data-filter-input]/[data-filter-count]/[data-filter-clear]/
@@ -2003,11 +2013,54 @@ def _registry_section(rows, now):
     return header_html + filter_html + table_html
 
 
+def _stats_cards_html(rows):
+    """(quick task 260903-ghy, UIR-10) Mobile stacked-prose representation
+    of the Resolution-statistics table — one `<li class="data-card">` per
+    `(label, gloss, count)` triple in `rows`, the SAME `stats["rows"]`
+    list `_stats_table_html()` already has: no second data pass. Returns
+    `""` for an empty list, matching `_stats_table_html()`'s own
+    no-chrome-with-no-data rule for this card.
+
+    Per-table decision: a horizontal scroll affordance is the wrong
+    answer for THIS table specifically, not a stylistic preference —
+    `.data-table--prose`'s own comment in style.css already measured
+    1172px of content inside an 831px container for this exact table and
+    ruled that a column of full sentences must WRAP, not scroll.
+    Re-answering this table's mobile shape with a scroller would reinstate
+    the exact defect that rule was written to remove. The mobile shape is
+    therefore stacked: Source label and Count on the primary line, the
+    FULL, untruncated Description sentence as a full-width paragraph
+    beneath it — never a disclosure, never a truncation, because the
+    description IS the content of this table.
+
+    Every value goes through `escape_html()` — this module's single
+    escaping choke-point discipline, no exceptions.
+    """
+    if not rows:
+        return ""
+    items = []
+    for label, gloss, count in rows:
+        primary = (
+            '<div class="data-card__primary">'
+            '<span class="cell-primary">%s</span>'
+            '<span class="data-card__value">'
+            '<span class="data-card__label">%s</span> %s'
+            "</span>"
+            "</div>"
+        ) % (escape_html(label), escape_html(_STATS_HEADERS[2]), escape_html(count))
+        desc = '<p class="data-card__desc">%s</p>' % escape_html(gloss)
+        items.append('<li class="data-card">%s%s</li>' % (primary, desc))
+    return '<ul class="data-cards">%s</ul>' % "".join(items)
+
+
 def _stats_table_html(stats):
-    """The resolution-statistics breakdown table. Returns the empty
-    string when there is nothing to show (no data yet, or the database
-    is unavailable) — `_resolution_rate_tile_html()` already carries
-    that message once, and this card must not repeat it.
+    """The resolution-statistics breakdown table, plus (quick task
+    260903-ghy, UIR-10) its `.data-cards` mobile sibling emitted BEFORE
+    it — style.css's `.data-cards ~ .data-table-wrap` sibling-combinator
+    toggle depends on that exact document order; do not reorder these two
+    calls. Returns the empty string when there is nothing to show (no
+    data yet, or the database is unavailable) — `_resolution_rate_tile_html()`
+    already carries that message once, and this card must not repeat it.
 
     quick task 260901-uzi (finding 2): this is the only table in the app
     whose Description column carries real prose (the `_SOURCE_ROWS`
@@ -2028,8 +2081,8 @@ def _stats_table_html(stats):
     """
     if stats is _DB_UNAVAILABLE or stats["total"] == 0:
         return ""
-    return layout.data_table(
-        ["Source", "Description", "Count"], stats["rows"],
+    return _stats_cards_html(stats["rows"]) + layout.data_table(
+        list(_STATS_HEADERS), stats["rows"],
         desc_columns=(1,), prose=True)
 
 
