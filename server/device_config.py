@@ -34,6 +34,7 @@ future change could leak state into a log.
 """
 import json
 import os
+import re
 import sys
 
 # Allow both `import server.device_config` (package import) and direct
@@ -51,6 +52,18 @@ from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHI
 DEFAULT_THEME_ID = "white"
 DEFAULT_RUNWAY_ID = "3"
 DEFAULT_LED_ENABLED = True  # D-02: matches the LED's current hardcoded always-on behaviour, so nothing changes until a user opts out
+DEFAULT_QUIET_HOURS_ENABLED = False  # D-04: an explicit boolean independent of the stored times, the same shape led_enabled uses - never "empty fields mean off". False so nothing changes for any existing installation until a user opts in.
+DEFAULT_QUIET_HOURS_START = "23:00"  # D-03: one daily recurring window, never per-weekday
+DEFAULT_QUIET_HOURS_END = "07:00"  # D-03: one daily recurring window, never per-weekday
+
+# Shape gate for a submitted/stored quiet-hours HH:MM string. Deliberately
+# anchored with `\Z`, NOT `$`: Python's `$` also matches immediately before a
+# trailing newline, so a submitted "07:00\n" would pass a `$`-anchored
+# pattern, persist a dirty value into device_config.json, and later reach
+# the panel's own "Back at ..." body text (T-06-01-01 / ASVS V5 - untrusted
+# input must never reach a parser call it could make raise, or a document
+# it could pollute, before its shape is checked).
+_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
 
 # --- Theme registry ----------------------------------------------------
 #
@@ -345,15 +358,40 @@ def normalise_led_enabled(value):
     return DEFAULT_LED_ENABLED
 
 
+def normalise_quiet_hours_enabled(value):
+    """Same contract as normalise_led_enabled(): return `value` unchanged
+    only when `isinstance(value, bool)` is true, otherwise return
+    `DEFAULT_QUIET_HOURS_ENABLED`. Never raises. Deliberately no registry/
+    membership test, for the same reason normalise_led_enabled() documents.
+    """
+    if isinstance(value, bool):
+        return value
+    return DEFAULT_QUIET_HOURS_ENABLED
+
+
+def normalise_quiet_hours_time(value, default):
+    """Return `value` unchanged only when it is a string matching the
+    `_HHMM_RE` shape gate (24-hour, zero-padded "HH:MM"), otherwise return
+    `default`. One shared function for both the start and the end field -
+    deliberately not two near-identical functions - so the two can never
+    drift apart on validation strictness. Never raises.
+    """
+    if isinstance(value, str) and _HHMM_RE.match(value):
+        return value
+    return default
+
+
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns all three keys with
-    valid values - `theme`, `tracked_runway`, and `led_enabled` - via
-    normalise_theme_id()/normalise_runway_id()/normalise_led_enabled(), so a
+    empty dict rather than raising. Always returns all six keys with valid
+    values - `theme`, `tracked_runway`, `led_enabled`, `quiet_hours_enabled`,
+    `quiet_hours_start`, and `quiet_hours_end` - via
+    normalise_theme_id()/normalise_runway_id()/normalise_led_enabled()/
+    normalise_quiet_hours_enabled()/normalise_quiet_hours_time(), so a
     hostile or stale value on disk (e.g. a path-traversal string, a numeric
-    runway id, or a non-bool led_enabled) never reaches a caller. Never
-    raises.
+    runway id, a non-bool led_enabled, or a malformed quiet-hours time)
+    never reaches a caller. Never raises.
     """
     try:
         with open(device_config_path(state_dir)) as fh:
@@ -366,23 +404,31 @@ def load_device_config(state_dir):
         "theme": normalise_theme_id(data.get("theme")),
         "tracked_runway": normalise_runway_id(data.get("tracked_runway")),
         "led_enabled": normalise_led_enabled(data.get("led_enabled")),
+        "quiet_hours_enabled": normalise_quiet_hours_enabled(data.get("quiet_hours_enabled")),
+        "quiet_hours_start": normalise_quiet_hours_time(data.get("quiet_hours_start"), DEFAULT_QUIET_HOURS_START),
+        "quiet_hours_end": normalise_quiet_hours_time(data.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END),
     }
 
 
-def save_device_config(state_dir, theme=None, tracked_runway=None, led_enabled=None):
+def save_device_config(
+    state_dir, theme=None, tracked_runway=None, led_enabled=None,
+    quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
+):
     """Validate and persist a new theme and/or tracked-runway id and/or
-    led_enabled flag.
+    led_enabled flag and/or the three quiet-hours fields.
 
     Each supplied (non-None) value is checked before anything is written:
     `theme`/`tracked_runway` against their registries with an explicit
-    membership test, `led_enabled` with an explicit `isinstance(..., bool)`
-    type check (there is no registry for a boolean). An unknown/wrong-typed
-    value raises `ValueError` naming the rejected value - and leaves any
-    pre-existing file byte-identical (T-06-01-01/T-06-01-06). A value left
-    `None` is carried over unchanged from the current on-disk config
-    (falling back to the documented defaults if none exists yet), so a
-    caller updating only the theme never has to also resupply the runway
-    or the LED flag.
+    membership test, `led_enabled`/`quiet_hours_enabled` with an explicit
+    `isinstance(..., bool)` type check (there is no registry for a
+    boolean), and `quiet_hours_start`/`quiet_hours_end` against the
+    `_HHMM_RE` shape gate. An unknown/wrong-typed value raises `ValueError`
+    naming the rejected value - and leaves any pre-existing file
+    byte-identical (T-06-01-01/T-06-01-06). A value left `None` is carried
+    over unchanged from the current on-disk config (falling back to the
+    documented defaults if none exists yet), so a caller updating only the
+    theme never has to also resupply the runway, the LED flag, or the
+    quiet-hours fields.
 
     Writes with the same tmp-write-then-os.replace() idiom
     server/poll_loop.py's save_poll_state() uses, including the except
@@ -397,12 +443,21 @@ def save_device_config(state_dir, theme=None, tracked_runway=None, led_enabled=N
         raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
     if led_enabled is not None and not isinstance(led_enabled, bool):
         raise ValueError("led_enabled must be a bool, got %r" % (led_enabled,))
+    if quiet_hours_enabled is not None and not isinstance(quiet_hours_enabled, bool):
+        raise ValueError("quiet_hours_enabled must be a bool, got %r" % (quiet_hours_enabled,))
+    if quiet_hours_start is not None and not (isinstance(quiet_hours_start, str) and _HHMM_RE.match(quiet_hours_start)):
+        raise ValueError("quiet_hours_start must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_start,))
+    if quiet_hours_end is not None and not (isinstance(quiet_hours_end, str) and _HHMM_RE.match(quiet_hours_end)):
+        raise ValueError("quiet_hours_end must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_end,))
 
     current = load_device_config(state_dir)
     new_config = {
         "theme": theme if theme is not None else current["theme"],
         "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
         "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
+        "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],
+        "quiet_hours_start": quiet_hours_start if quiet_hours_start is not None else current["quiet_hours_start"],
+        "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
     }
 
     os.makedirs(state_dir, exist_ok=True)

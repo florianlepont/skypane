@@ -24,7 +24,10 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # 260902-l0b: +1 (_daily_battery_averages_groups_excludes_and_bounds_correctly)
-EXPECTED_CHECK_COUNT = 30
+# 10-01: +5 (quiet-hours registry fields: hostile-defaults, save round-trip,
+# save-rejects-invalid-start, save-rejects-non-bool-enabled,
+# normalise_quiet_hours_time hostile-shape rejection)
+EXPECTED_CHECK_COUNT = 35
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -72,7 +75,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -88,7 +91,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
+                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -103,7 +106,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -116,7 +119,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "black", "tracked_runway": "02-20", "led_enabled": True}:
+            if config != {"theme": "black", "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -165,7 +168,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -197,7 +200,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -502,6 +505,109 @@ def main():
     check(
         "theme_band_dithered() returns THEMES's own band_dithered for every band id and False for every non-band id",
         _theme_band_dithered_matches_registry_or_false,
+    )
+
+    def _hostile_quiet_hours_values_yield_defaults():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "w") as fh:
+                fh.write('{"quiet_hours_enabled": "yes", "quiet_hours_start": "25:99", "quiet_hours_end": 7}')
+            config = device_config.load_device_config(tmpdir)
+            expected = {
+                "quiet_hours_enabled": device_config.DEFAULT_QUIET_HOURS_ENABLED,
+                "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+                "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+            }
+            for key, want in expected.items():
+                if config[key] != want:
+                    return False, "hostile quiet-hours input produced %r=%r, expected %r" % (key, config[key], want)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "load_device_config() replaces hostile quiet_hours_enabled/quiet_hours_start/quiet_hours_end values with their documented defaults",
+        _hostile_quiet_hours_values_yield_defaults,
+    )
+
+    def _save_quiet_hours_round_trips():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(
+                tmpdir, quiet_hours_enabled=True, quiet_hours_start="22:30", quiet_hours_end="06:15")
+            config = device_config.load_device_config(tmpdir)
+            if config != {
+                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
+            }:
+                return False, "round-trip produced %r" % (config,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(quiet_hours_enabled=True, quiet_hours_start='22:30', quiet_hours_end='06:15') round-trips through load_device_config() with theme/tracked_runway/led_enabled still at their prior (default) values",
+        _save_quiet_hours_round_trips,
+    )
+
+    def _save_quiet_hours_start_invalid_rejected_without_touching_file():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="3")
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            raised = False
+            try:
+                device_config.save_device_config(tmpdir, quiet_hours_start="24:00")
+            except ValueError:
+                raised = True
+            if not raised:
+                return False, "save_device_config(quiet_hours_start='24:00') did not raise ValueError"
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "a rejected quiet_hours_start write changed a pre-existing file's bytes"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(quiet_hours_start='24:00') raises ValueError and leaves a pre-existing, legitimately-saved file byte-identical",
+        _save_quiet_hours_start_invalid_rejected_without_touching_file,
+    )
+
+    def _save_quiet_hours_enabled_non_bool_rejected():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            raised = False
+            try:
+                device_config.save_device_config(tmpdir, quiet_hours_enabled="on")
+            except ValueError:
+                raised = True
+            if not raised:
+                return False, "save_device_config(quiet_hours_enabled='on') did not raise ValueError"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(quiet_hours_enabled='on') raises ValueError",
+        _save_quiet_hours_enabled_non_bool_rejected,
+    )
+
+    def _normalise_quiet_hours_time_rejects_every_hostile_shape():
+        default = "23:00"
+        for hostile in ("7:00", "07:60", "24:00", "", None, 7, "07:00\n"):
+            got = device_config.normalise_quiet_hours_time(hostile, default)
+            if got != default:
+                return False, "normalise_quiet_hours_time(%r, %r) returned %r, expected the supplied default" % (hostile, default, got)
+        return True, ""
+
+    check(
+        "normalise_quiet_hours_time() rejects an unpadded hour, an out-of-range minute, midnight-as-24:00, an empty string, None, an int, and a trailing newline - returning the supplied default for each",
+        _normalise_quiet_hours_time_rejects_every_hostile_shape,
     )
 
     # --- history_db.py ------------------------------------------------------

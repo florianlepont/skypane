@@ -1149,7 +1149,7 @@ def main():
             # silently kept the prior/default value instead; the merged
             # Phase 8 registry (19 real entries) makes "black" valid, so
             # it now persists as posted.
-            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False}:
+            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
