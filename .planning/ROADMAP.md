@@ -34,6 +34,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog) (completed 2026-08-28)
 - [x] **Phase 8: Panel theme rework** - White default theme + Black/Yellow/Red/Blue/Green as optional CFG-01 themes, PT Serif Bold replaces the text backing-plate, `adsbdb` `callsign_iata` threaded through so the raw ADS-B callsign never displays, previous-card text sizing/alignment fix, and a required on-glass verification pass — implements spike `.planning/spikes/001-panel-theme-colours/`. Planned 2026-08-31: 6 plans across 5 waves (0/6 executed). (completed 2026-08-31)
 - [x] **Phase 9: Diagonal band theme** - A new dedicated theme (additive to Phase 8's 11) adding a diagonal decorative trapezoid band behind the aircraft illustration in 5 colours (blue/blue-light-dithered/green-light-dithered/red/black), a split top-label tag, a three-tier flight-identifier hierarchy centred inside the band for both the main and previous cards, band-aware ink colour, and a required on-glass verification pass — implements spike `.planning/spikes/003-diagonal-band-theme/`. Planned 2026-09-02: 4 plans across 4 waves (0/4 executed). (completed 2026-09-02)
+- [ ] **Phase 10: Scheduled quiet hours** - Pause the frame's wake/poll/display cycle during a configurable window (curfew), via a server-side skip of the display refresh — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md` at the developer's request (2026-09-02). Not yet planned.
+- [ ] **Phase 11: Web-configurable wake interval** - Make `SKYPANE_SLEEP_S` configurable through the companion web interface instead of SSH-only env-file edits — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md` at the developer's request (2026-09-02). Not yet planned.
 
 ## Phase Details
 
@@ -635,3 +637,25 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 09-04-PLAN.md — Blocking on-glass verification battery (5 band colours × both states, all 4 content-ladder tiers, previous-card clearance) and hardware/BRINGUP-LOG.md recording (PHASE9-8)
+
+### Phase 10: Scheduled quiet hours
+
+**Goal:** [To be planned] — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md`. Pause the frame's wake/poll/display cycle during a configurable window (e.g. a curfew), configurable via the companion web interface. Developer chose seed option (b) — a server-side skip of the display refresh on the existing wake cadence — over option (a)'s full sleep-cycle extension, since (b) doesn't require Phase 5's still-pending real battery-discharge verdict (05-01 Tasks 2-3, DEVICE-05) to be worth building.
+**Requirements**: TBD
+**Depends on:** Phase 9
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 10 to break down)
+
+### Phase 11: Web-configurable wake interval
+
+**Goal:** [To be planned] — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md`. Make `SKYPANE_SLEEP_S` configurable through the companion web interface (extending the `device_config.py` registry and `config_page.py` form, per the CFG-01/CFG-12 precedent) instead of requiring an SSH edit to `/opt/skypane/skypane.env` and a `skypane-byos.service` restart. Delivered back to the device via the poll/`/display` response rather than a service restart.
+**Requirements**: TBD
+**Depends on:** Phase 10
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 11 to break down)
