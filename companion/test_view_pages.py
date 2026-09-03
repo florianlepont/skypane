@@ -11,12 +11,16 @@ type labels with a raw-designator fallback, the display-airline alias),
 route-unavailable wording agreement with server/plane/render.py's own
 ROUTE_FALLBACK_TEXT, monospace column styling, per-cell escaping
 (including a markup-shaped callsign), degrade-not-raise behaviour
-against an unreadable database; History's own Now-showing live-preview
-image element and its honest "no panel yet" fallback, the mandatory
-colour caveat, the Recent-renders disclosure's empty state, its
-display-limit cap and newest-first ordering, that the gallery filename-
-timestamp helper degrades safely and a malformed filename still renders
-a non-empty caption, the per-row View-panel lookup and shared lightbox,
+against an unreadable database; History's single always-visible render
+gallery section (quick task 260903-c4o folded the formerly-separate
+Now-showing frame into this same gallery, superseding 06.6.4.1-05's
+collapsed Recent-renders disclosure) — its non-empty structure (one
+heading, one count caption, the colour caveat exactly once), its empty
+state, that a present panel.bin file changes nothing about the markup,
+that it is never wrapped in a <details> disclosure, its display-limit
+cap and newest-first ordering, that the gallery filename-timestamp
+helper degrades safely and a malformed filename still renders a
+non-empty caption, the per-row View-panel lookup and shared lightbox,
 the unresolved-airline link to Health; and one end-to-end HTTP round
 trip proving companion/app.py's router and this page module agree,
 including a real PNG fetched over /preview.png (still served — only the
@@ -66,7 +70,16 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 49  # 46 + 3 (quick task 260902-w4t Task 3, UIR-04:
+EXPECTED_CHECK_COUNT = 50  # 49 - 4 (quick task 260903-c4o: the two
+# Now-showing checks and the two Recent-renders disclosure checks, whose
+# structure no longer exists - the newest render is folded into the same
+# always-visible render gallery every other render uses) + 5
+# (quick task 260903-c4o's replacement checks:
+# _render_gallery_nonempty_structure, _render_gallery_no_preview_
+# apparatus_even_with_panel_file, _render_gallery_empty_state,
+# _render_gallery_not_a_disclosure, _render_gallery_display_limit_
+# newest_first).
+# 49 = 46 + 3 (quick task 260902-w4t Task 3, UIR-04:
 # _status_dot_title_backward_compatible_and_escaped,
 # _corroboration_none_row_shows_short_label_with_tooltip, and
 # _data_table_wrap_scroll_edge_affordance_css - status_dot()'s new
@@ -1165,110 +1178,144 @@ def main():
         _presentation_labels_in_full_render)
 
     # ======================================================================
-    # Section 1b: 06.6.4.1-05 Task 1 - History's own Now-showing section
-    # and collapsed Recent-renders disclosure (D-18/D-19), moved from
-    # companion/pages/preview_page.py.
+    # Section 1b: quick task 260903-c4o - the newest render folded into
+    # the same always-visible render gallery as every other historical
+    # render (superseding 06.6.4.1-05's separate Now-showing frame and
+    # collapsed Recent-renders disclosure).
     # ======================================================================
 
-    def _now_showing_panel_present_one_image_one_caveat():
-        tmp = _mkstate("h-now-showing-present")
-        try:
-            _write_panel_file(tmp)
-            rendered = history_page.render(_history_ctx(tmp))
-            if rendered.count('class="preview-frame"') != 1:
-                return False, "expected exactly one .preview-frame element"
-            if rendered.count('src="/preview.png"') != 1:
-                return False, "expected exactly one image element pointing at /preview.png"
-            if "Captured " not in rendered:
-                return False, "expected the captured-at caption wording"
-            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
-                return False, "expected the colour caveat sentence exactly once"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "History's Now-showing section renders one .preview-frame, one preview image, a "
-        "captured-at caption, and the colour caveat exactly once when a panel file exists",
-        _now_showing_panel_present_one_image_one_caveat)
-
-    def _now_showing_no_panel_no_image_element():
-        tmp = _mkstate("h-now-showing-absent")
-        try:
-            rendered = history_page.render(_history_ctx(tmp))
-            if 'src="/preview.png"' in rendered:
-                return False, "did not expect a preview image element with no panel file"
-            if 'class="preview-frame"' in rendered:
-                return False, "did not expect a .preview-frame element with no panel file"
-            if history_page._NO_PANEL_CAPTION not in rendered:
-                return False, "expected the honest no-panel-yet caption"
-            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
-                return False, "expected the colour caveat sentence exactly once"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "History's Now-showing section renders no .preview-frame and no preview image element "
-        "with no panel file, still with the honest caption and the colour caveat exactly once",
-        _now_showing_no_panel_no_image_element)
-
-    def _recent_renders_disclosure_closed_by_default_correct_count():
-        tmp = _mkstate("h-recent-renders")
+    def _render_gallery_nonempty_structure():
+        tmp = _mkstate("h-gallery-nonempty")
         try:
             names = ["20260827T100002Z.png", "20260827T100001Z.png", "20260827T100000Z.png"]
             _seed_gallery(tmp, names)
             rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
-            if '<details class="readings-disclosure"><summary>Recent renders' not in rendered:
-                return False, (
-                    "expected a readings-disclosure details element (no open attribute) "
-                    "with a Recent renders summary")
-            match = re.search(
-                r'<details class="readings-disclosure"><summary>(Recent renders \(\d+\))'
-                r'</summary>(.*?)</details>', rendered, re.S)
-            if not match:
-                return False, "expected a readings-disclosure details element with a Recent renders summary"
-            summary_text = match.group(1)
-            tile_count_in_disclosure = match.group(2).count('class="gallery-tile"')
-            if summary_text != ("Recent renders (%d)" % tile_count_in_disclosure):
-                return False, (
-                    "expected the summary count %r to equal the number of "
-                    "gallery-tile elements actually rendered (%d)"
-                    % (summary_text, tile_count_in_disclosure))
-            if tile_count_in_disclosure != 3:
-                return False, "expected exactly 3 gallery tiles for 3 seeded entries"
+            if rendered.count("<h2") != 1:
+                return False, "expected exactly one <h2 in the rendered page"
+            if history_page.RENDER_GALLERY_HEADING not in rendered:
+                return False, "expected the render-gallery heading text"
+            if rendered.count(history_page.COLOUR_CAVEAT) != 1:
+                return False, "expected the colour caveat sentence exactly once"
+            expected_caption = layout.escape_html(history_page.RENDER_GALLERY_CAPTION_TEMPLATE % 3)
+            if expected_caption not in rendered:
+                return False, "expected the count caption for 3 shown renders"
+            if _img_tag_count(rendered) != 3:
+                return False, "expected exactly 3 <img elements for 3 seeded gallery entries and no flight rows"
+            alt_values = _img_alt_values(rendered)
+            if not alt_values or any(not v.startswith("Rendered panel ") for v in alt_values):
+                return False, "expected every <img alt value to start with 'Rendered panel '"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History's Recent-renders disclosure is collapsed by default (no open attribute) and its "
-        "summary count equals the number of gallery-tile elements actually rendered inside it",
-        _recent_renders_disclosure_closed_by_default_correct_count)
+        "with 3 gallery entries and no flight rows, the render gallery section carries exactly "
+        "one <h2, the heading text, the colour caveat exactly once, the count caption for 3, "
+        "exactly 3 <img elements, and every alt value starts with 'Rendered panel '",
+        _render_gallery_nonempty_structure)
 
-    def _recent_renders_disclosure_empty_gallery():
-        tmp = _mkstate("h-recent-renders-empty")
+    def _render_gallery_no_preview_apparatus_even_with_panel_file():
+        tmp = _mkstate("h-gallery-no-preview-apparatus")
+        try:
+            names = ["20260827T100000Z.png"]
+            _seed_gallery(tmp, names)
+            _write_panel_file(tmp)
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            for marker in ("/preview.png", "preview-frame", "preview-image"):
+                if marker in rendered:
+                    return False, "did not expect %r anywhere in the rendered page" % marker
+            if "No panel has been rendered yet." in rendered:
+                return False, "did not expect the retired no-panel caption sentence"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with a real panel.bin on disk and gallery entries seeded, the rendered output contains "
+        "zero occurrences of /preview.png, preview-frame, preview-image, and the old no-panel "
+        "caption sentence - a present panel file changes nothing about the markup any more",
+        _render_gallery_no_preview_apparatus_even_with_panel_file)
+
+    def _render_gallery_empty_state():
+        tmp = _mkstate("h-gallery-empty")
         try:
             rendered = history_page.render(_history_ctx(tmp, gallery_entries=[]))
             if history_page._NO_RENDERS_HEADING not in rendered:
                 return False, "expected the render-gallery empty-state heading"
             if 'class="gallery-grid"' in rendered:
                 return False, "did not expect a gallery-grid element with zero entries"
-            if "Recent renders (0)" not in rendered:
-                return False, "expected the disclosure summary to read 'Recent renders (0)'"
+            if rendered.count(history_page.COLOUR_CAVEAT) != 0:
+                return False, "did not expect the colour caveat with zero gallery entries"
+            expected_caption = layout.escape_html(history_page.RENDER_GALLERY_CAPTION_TEMPLATE % 0)
+            if expected_caption in rendered:
+                return False, "did not expect a count caption with zero gallery entries"
+            if rendered.count("<h2") != 1:
+                return False, "expected exactly one <h2 even in the empty-gallery state"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "History's Recent-renders disclosure shows the existing no-renders empty state and a "
-        "'Recent renders (0)' summary with an empty gallery entry list",
-        _recent_renders_disclosure_empty_gallery)
+        "with gallery_entries=[], the empty-state heading is present, no gallery-grid renders, "
+        "the colour caveat count is 0, no count caption renders, and the single <h2 still appears",
+        _render_gallery_empty_state)
+
+    def _render_gallery_not_a_disclosure():
+        tmp = _mkstate("h-gallery-not-disclosure")
+        try:
+            names = ["20260827T100000Z.png", "20260827T100001Z.png", "20260827T100002Z.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:03:00+00:00", "hex": "notdisc1", "callsign": "NOTDISC"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            if '<details class="readings-disclosure"' in rendered:
+                return False, "did not expect a readings-disclosure wrapper around the render gallery"
+            if '<details class="history-card__details"' not in rendered:
+                return False, "expected History's own unrelated card-details disclosure to survive"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with 3 gallery entries and one seeded flight row, '<details class=\"readings-disclosure\"' "
+        "appears zero times while '<details class=\"history-card__details\"' still appears",
+        _render_gallery_not_a_disclosure)
+
+    def _render_gallery_display_limit_newest_first():
+        tmp = _mkstate("h-gallery-limit")
+        try:
+            limit = history_page.GALLERY_DISPLAY_LIMIT
+            names = [
+                "20260827T10%04dZ.png" % i for i in range(limit + 3)
+            ]
+            _seed_gallery(tmp, names)
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            tile_count = rendered.count('class="gallery-tile"')
+            if tile_count != limit:
+                return False, (
+                    "expected exactly GALLERY_DISPLAY_LIMIT (%d) tiles, got %d" % (limit, tile_count))
+            expected_caption = layout.escape_html(history_page.RENDER_GALLERY_CAPTION_TEMPLATE % limit)
+            if expected_caption not in rendered:
+                return False, "expected the caption's count to equal GALLERY_DISPLAY_LIMIT"
+            first_href = re.search(r'<a href="([^"]+)"', rendered)
+            if first_href is None or names[0] not in first_href.group(1):
+                return False, "expected the first tile's href to name entries[0] (newest-first)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with GALLERY_DISPLAY_LIMIT + 3 entries, exactly GALLERY_DISPLAY_LIMIT tiles render, the "
+        "caption's count equals that limit, and the first tile's href names entries[0]",
+        _render_gallery_display_limit_newest_first)
 
     def _now_showing_no_preview_freshness_apparatus():
         # D-18: Preview's page-level freshness apparatus (its own
         # data-loaded-at Refresh link and paired data-stale-banner) was
-        # deliberately not ported - only preview_section()'s content
-        # moved.
+        # deliberately not ported when Preview's content first moved onto
+        # History (06.6.4.1-05), and quick task 260903-c4o's further
+        # restructure (folding the newest render into the gallery grid,
+        # retiring the separate frame) does not change that guarantee -
+        # retained here unmodified except for this comment and the seeding
+        # below.
         tmp = _mkstate("h-no-freshness")
         try:
-            _write_panel_file(tmp)
             rendered = history_page.render(_history_ctx(tmp))
             if "data-loaded-at" in rendered:
                 return False, "did not expect a data-loaded-at attribute on the History page"

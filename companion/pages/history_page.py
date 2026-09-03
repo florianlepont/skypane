@@ -42,7 +42,6 @@ from companion.layout import empty_state, escape_html
 import companion.layout as layout
 from server import device_config
 from server import history_db
-from server import panel_preview
 from server.plane import render as panel_render
 
 # D-13 keeps runway_events forever; this is a *display* limit for
@@ -55,18 +54,19 @@ HISTORY_ROW_LIMIT = 50
 # until plan 08 absorbs and retires it — both modules briefly hold these
 # symbols. Behaviour is unchanged; only the module has changed.
 
-# D-P2-03 / server/panel_preview.py's own module docstring: the preview
-# PNG's colours are nominal render-internal swatches, not colour-accurate
-# against real Spectra 6 glass — two of the six are still explicitly
-# interim pending Phase 7's on-glass calibration. This caveat is not
-# optional politeness: without it a user comparing this image to the
-# frame on the wall could mistake an expected preview/glass colour
-# mismatch for a hardware fault.
+# D-P2-03 / server/panel_preview.py's own module docstring: the render
+# gallery's colours are nominal render-internal swatches, not colour-
+# accurate against real Spectra 6 glass — two of the six are still
+# explicitly interim pending Phase 7's on-glass calibration. This caveat
+# is not optional politeness: without it a user comparing any of these
+# renders to the frame on the wall could mistake an expected render/glass
+# colour mismatch for a hardware fault. Quick task 260903-c4o folded the
+# formerly-separate live-preview frame into this same gallery, so the
+# caveat now applies to the gallery images rather than to a standalone
+# preview PNG — its wording and its value are unchanged.
 COLOUR_CAVEAT = (
     "Colours are nominal render-internal swatches, not colour-accurate "
     "against real Spectra 6 glass.")
-
-_NO_PANEL_CAPTION = "No panel has been rendered yet."
 
 _NO_RENDERS_HEADING = "No renders yet."
 _NO_RENDERS_BODY = (
@@ -79,16 +79,14 @@ _NO_RENDERS_BODY = (
 # to.
 GALLERY_DISPLAY_LIMIT = 12
 
-_PREVIEW_IMAGE_ROUTE = "/preview.png"  # Literal, not imported from
-# companion.app (that import would be the forbidden cycle) — matches the
-# route companion/app.py's PREVIEW_IMAGE_ROUTE constant defines.
 _GALLERY_ROUTE_PREFIX = "/gallery/"
 
 # The source panel's real pixel dimensions (server/panel_format.py's
-# documented 1200x1600 output size) — reused for both the live-preview
-# <img> (UXA-16, eager/above-the-fold) and every gallery thumbnail
-# (UXA-16, lazy/off-screen). Naming these once means the two call sites
-# cannot drift from each other or from the real panel size.
+# documented 1200x1600 output size) — sizing hints for every gallery
+# thumbnail (UXA-16, lazy/off-screen). gallery_tiles() is this constant
+# pair's only consumer now that quick task 260903-c4o retired the
+# separate live-preview <img> — naming it once still means a future
+# second call site cannot drift from the real panel size.
 _PANEL_WIDTH = 1200
 _PANEL_HEIGHT = 1600
 
@@ -102,12 +100,19 @@ _PANEL_HEIGHT = 1600
 _GALLERY_TIME_PATTERN = re.compile(
     r"^(\d{2})-(\d{2})-(\d{2})([+-]\d{2})-(\d{2})$")
 
-# D-18/D-19: the Now-showing section heading, and the Recent-renders
-# disclosure summary template — the "count of what is shown, not the
-# ceiling constant" convention health_page.py's own "View {N} readings"
-# idiom already established.
-NOW_SHOWING_HEADING = "Now showing"
-RECENT_RENDERS_SUMMARY_TEMPLATE = "Recent renders (%d)"
+# Quick task 260903-c4o supersedes D-18/D-19's NOW_SHOWING_HEADING /
+# RECENT_RENDERS_SUMMARY_TEMPLATE: the newest render is now just the
+# gallery grid's first tile, so a separate "Now showing" heading would
+# name a section that no longer exists, and a "Recent renders (%d)"
+# disclosure summary makes no sense once the grid is no longer behind a
+# <details> toggle. One always-visible heading, one always-visible count
+# caption. Keeps the "count of what is shown, not the ceiling constant"
+# convention health_page.py's own "View {N} readings" idiom already
+# established.
+RENDER_GALLERY_HEADING = "Recent renders"
+RENDER_GALLERY_CAPTION_TEMPLATE = (
+    "Newest first — the newest render is what the panel is showing now. "
+    "Showing %d.")
 
 
 def _gallery_name_to_iso(name):
@@ -132,48 +137,6 @@ def _gallery_name_to_iso(name):
         return None
     hh, mm, ss, tz_sign_hh, tz_mm = match.groups()
     return "%sT%s:%s:%s%s:%s" % (date_part, hh, mm, ss, tz_sign_hh, tz_mm)
-
-
-def preview_section(ctx):
-    """The live-preview `<section>` body: an `<img>` (inside a bounded,
-    centered matte frame, D-18) pointing at the preview route plus a
-    captured-at caption when a panel exists, or a short honest sentence
-    with no `<img>`/frame at all when it does not — a broken image
-    element is worse than an honest sentence. The colour caveat is
-    always present, since this section is always shown one way or the
-    other.
-    """
-    mtime_iso = panel_preview.panel_file_mtime_iso(ctx["state_dir"])
-
-    if mtime_iso:
-        image_html = (
-            '<div class="preview-frame">'
-            '<img class="preview-image" src="%s" '
-            'width="%d" height="%d" loading="eager" decoding="async" '
-            'alt="Current panel preview"></div>'
-        ) % (_PREVIEW_IMAGE_ROUTE, _PANEL_WIDTH, _PANEL_HEIGHT)
-        # panel_file_mtime_iso() returns a Z-suffixed ISO string while
-        # ctx["now"] is +00:00-suffixed; datetime.fromisoformat() parses
-        # both into timezone-aware values on this project's interpreter
-        # (verified during planning against server/.venv/bin/python3,
-        # CPython 3.11.15 — the Z suffix has been accepted since 3.11),
-        # so subtracting them raises nothing and no normalising shim is
-        # needed. concise_timestamp_html() already returns safe, raw
-        # markup (D-09) — interpolated verbatim here, never re-escaped,
-        # which is why this branch builds caption_html directly instead
-        # of going through a shared escape_html(caption_text) step.
-        caption_html = (
-            '<p class="text-label mono">Captured %s</p>'
-            % layout.concise_timestamp_html(mtime_iso, ctx.get("now")))
-    else:
-        image_html = ""
-        # The no-panel caption carries no markup of its own, so it still
-        # goes through escape_html() exactly as before this plan.
-        caption_html = (
-            '<p class="text-label mono">%s</p>' % escape_html(_NO_PANEL_CAPTION))
-
-    caveat_html = '<p class="text-body">%s</p>' % escape_html(COLOUR_CAVEAT)
-    return image_html + caption_html + caveat_html
 
 
 def gallery_tiles(ctx):
@@ -923,28 +886,42 @@ def render(ctx):
     header = layout.page_header(
         "History", purpose="Latest %d detected flights." % HISTORY_ROW_LIMIT)
 
-    # D-18/D-19: Preview's entire page content, now living directly above
-    # the flight log it explains — a Now-showing section (byte-identical
-    # preview_section() markup) plus a collapsed-by-default Recent-renders
-    # disclosure (gallery_tiles() markup, unchanged). Deliberately NOT
-    # ported: Preview's separate page-level freshness apparatus (its
-    # Refresh link's data-loaded-at attribute and paired hidden
-    # data-stale-banner) — preview_section()'s own "Captured {relative}"
-    # caption is already a sufficient staleness signal for one section,
-    # and duplicating Health's whole-page freshness mechanism here would
-    # be scope no decision asks for. Do not "restore" it later as an
-    # oversight.
+    # Quick task 260903-c4o: the newest render is no longer given its own
+    # enlarged "Now showing" frame — it is simply the first tile in this
+    # same always-visible gallery grid, at the same size as every other
+    # tile. One heading, one count caption, one colour caveat, then
+    # gallery_tiles() directly in page flow — no <details> wrapper, since
+    # there is no longer a second, less-important thing to collapse
+    # behind a disclosure. The caption and the caveat are both gated on
+    # the SAME non-empty condition the grid itself is: with zero renders
+    # there is nothing to count and nothing to caveat, so
+    # gallery_tiles()'s own empty state is the only thing shown.
+    # Deliberately NOT (re)introduced: a page-level freshness apparatus
+    # (a Refresh link's data-loaded-at attribute and paired hidden
+    # data-stale-banner) — each tile's own "Captured {relative}" caption
+    # is already a sufficient staleness signal, and duplicating Health's
+    # whole-page freshness mechanism here would be scope no decision asks
+    # for. Do not "restore" it later as an oversight.
     gallery_entries_list = ctx.get("gallery_entries") or []
     shown_count = min(len(gallery_entries_list), GALLERY_DISPLAY_LIMIT)
+    if shown_count:
+        caption_and_caveat_html = (
+            '<p class="text-label section-caption">%s</p>'
+            '<p class="text-body">%s</p>'
+        ) % (
+            escape_html(RENDER_GALLERY_CAPTION_TEMPLATE % shown_count),
+            escape_html(COLOUR_CAVEAT),
+        )
+    else:
+        caption_and_caveat_html = ""
     now_showing_html = (
         '<section class="page-section">'
         '<h2 class="text-heading">%s</h2>'
-        "%s"
-        '<details class="readings-disclosure"><summary>%s</summary>%s</details>'
+        "%s%s"
         "</section>"
     ) % (
-        NOW_SHOWING_HEADING, preview_section(ctx),
-        RECENT_RENDERS_SUMMARY_TEMPLATE % shown_count, gallery_tiles(ctx),
+        escape_html(RENDER_GALLERY_HEADING), caption_and_caveat_html,
+        gallery_tiles(ctx),
     )
 
     if rows is _DB_UNAVAILABLE:
