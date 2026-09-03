@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 10
 current_phase_name: Scheduled quiet hours
 status: executing
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-09-03T21:41:00.000Z"
+stopped_at: Completed 10-04-PLAN.md
+last_updated: "2026-09-03T20:26:31.309Z"
 last_activity: 2026-09-03
-last_activity_desc: Phase 10 execution in progress (10-03 complete)
+last_activity_desc: Phase 10 execution in progress (10-04 complete)
 progress:
   total_phases: 23
   completed_phases: 18
   total_plans: 109
-  completed_plans: 105
-  percent: 96
+  completed_plans: 106
+  percent: 97
 ---
 
 # Project State
@@ -29,6 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 10 (Scheduled quiet hours) — EXECUTING
+
+**10-04 executed (2026-09-03), wave 2 (depends on 10-01, 10-02) — gated `server/poll_loop.py`'s `run_once()` render pipeline on the quiet-hours window, the plan that determines what the device actually finds on the panel at both ends of the window.** Task 1 added the once-per-cycle `device_config.quiet_hours_status(device_cfg, now_s())` binding immediately after the existing `device_cfg` read, followed by an EARLY RETURN branch inserted BEFORE `detect.load_geofence()`/`detect.poll_current_aircraft()` (10-RESEARCH.md Pitfall 4) — an active window never queries the ADS-B aggregators. The branch renders `render.build_canvas(None, "quiet_hours", quiet_hours_until=..., ...)` exactly once on entry (`poll_state["quiet_hours_active"]` False→True), holds silently on every later in-window cycle (even across a battery-hysteresis transition — nothing rendered mid-window can reach the glass), carries the previously-persisted source-fault flag forward via `_last_source_fault()` rather than reclassifying it (nothing was queried this cycle), and still calls `_record_history()` every cycle so `history_db.META_LAST_PIPELINE_RUN` keeps advancing (prevents a false companion-Health "pipeline stale" anomaly overnight). Task 2 added window-exit detection to the normal path: reaching `poll_state = load_poll_state(state_dir)` with `quiet_hours_active` still `True` means the window just ended; the flag is cleared immediately and `quiet_hours_exited` is threaded into the held branch's re-render gate (`... or quiet_hours_exited`), both branches' save-state conditions, and the shared log line, forcing exactly one repaint of the real live board with no new "waking up" transition screen (D-07). `server/test_poll_loop.py` grew 7 new checks (entry-renders-once, hold-is-noop, canvas byte-identity, detection-skip on the live path, the exit-repaint regression guard, no-transition-screen, disabled-is-inert); `EXPECTED_CHECK_COUNT` 44 → 51, harness passes 51/51. The required negative control was run: temporarily dropping `or quiet_hours_exited` from the held branch's re-render gate drops the harness to 50/51, failing the regression-guard check with the expected `"panel_changed=False, expected True"` message (recorded in `10-04-SUMMARY.md`). One in-flight self-correction during Task 1 (not a plan deviation): the docstring paragraph initially named `device_config.quiet_hours_status()` literally, which made `grep -n 'quiet_hours_status'` match twice against the acceptance criterion's exactly-once requirement — reworded before committing. `git diff --quiet deploy/` confirmed no deployment/env change after both commits. `scripts/run-all-tests.sh` run at plan close: `Result: PASS` (16/16 harnesses); sole non-zero note is the same pre-existing, already-accepted macOS Pillow/FreeType `panel.bin` digest mismatch documented throughout this file's history, confirmed unrelated. This plan has `requirements: []` (unmapped backlog phase promoted from SEED-001, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. `state.advance-plan` errored again ("Cannot parse Current Plan or Total Plans in Phase from STATE.md", the same known prose-parsing limitation documented throughout this file's history); `state.update-progress` correctly recomputed `completed_plans: 106` but corrupted `percent` to 78 (`completed_phases/total_phases` ratio instead of `completed_plans/total_plans`) and reverted `last_updated`/`last_activity_desc` to stale values — corrected all three by hand to `percent: 97` (106/109) per this file's own established precedent. `roadmap.update-plan-progress "10"` — see below.
 
 **10-03 executed (2026-09-03), wave 2 (depends on 10-01) — made `GET /device/v1/display`'s `sleep_s` quiet-hours-aware in the vendored `stub-server/byos_server.py` (D-01, the whole battery win).** Task 1 added `read_quiet_hours()`/`quiet_hours_sleep_s()` plus a byte-for-byte vendored copy of `server/device_config.py`'s `seconds_until_quiet_hours_end()`/`_HHMM_RE`/`QUIET_HOURS_TZ` (copied from the real, already-landed plan 10-01 body, not the earlier research-document variant with the UTC-subtraction defect — verified via the DST-anchor acceptance check, 23400/30600); `read_quiet_hours()` mirrors `read_led_enabled()`'s exact fail-open shape (never raises, degrades to `None` on any config failure mode), and `quiet_hours_sleep_s()`'s `max(base, remaining)` never returns less than the caller's own base sleep. The `/display` handler's `"sleep_s": self.args.sleep` literal was replaced with the new call; `git diff --quiet deploy/` confirmed no deployment/env change. Task 2 added VENDOR.md's fifth local-modification entry and extended `stub-server/test_poll_cycle.py` with a text-based drift guard (reads both files as plain text, never imports `server.device_config`, so the guard cannot itself breach the vendor boundary it protects), three unit checks against the module loaded via `importlib.util` (7-case fail-open, sleep extension at the verified DST anchors, never-shorter-than-base), and two integration checks over real HTTP (an active window extending `sleep_s` into `(300, 7200]`, and a hostile config degrading to exactly the base 300); `EXPECTED_CHECK_COUNT` 23 → 29, harness passes 29/29. The drift guard's negative control was run as required: mutating one copy's `max(0, ...)` to `max(1, ...)` dropped the harness to 28/29 with the guard's own diff-style failure message naming both files and exiting 1; reverted via `git checkout --`, confirmed clean, re-ran green at 29/29 (recorded in `10-03-SUMMARY.md`). No deviations — both tasks' acceptance criteria commands ran verbatim and passed; `git diff --name-only` after each commit matched the plan's declared `files_modified` exactly. `scripts/run-all-tests.sh` run at plan close: all harnesses pass (`poll-cycle: 29/29`); the sole non-zero note is the same pre-existing, already-accepted macOS Pillow/FreeType `panel.bin` digest mismatch documented in plan 10-01's SUMMARY, confirmed unrelated. `server/requirements.txt` and `deploy/` unchanged — `re`/`datetime`/`zoneinfo` are all stdlib. `state.update-progress` computed `percent: 96` (105/109) correctly on this call; corrected `stopped_at`/`last_activity_desc`/`last_updated` by hand per this file's own established precedent, since neither `state.advance-plan` (errored again — "Cannot parse Current Plan or Total Plans in Phase from STATE.md", the same known prose-parsing limitation documented throughout this file's history) nor `state.update-progress` writes those fields from plan-completion context. This plan has `requirements: []` (unmapped backlog phase promoted from SEED-001, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. `roadmap.update-plan-progress "10"` — see below.
 
@@ -275,6 +277,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase quick-260903-c4o P260903-c4o | ~70min | 3 tasks | 6 files |
 | Phase 10 P01 | 25min | 2 tasks | 3 files |
 | Phase 10-scheduled-quiet-hours P02 | 15min | 2 tasks | 2 files |
+| Phase 10 P04 | 40min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -468,6 +471,7 @@ Recent decisions affecting current work:
 - [Phase 10]: Deferred visual-review checkpoint resolved as option (1): no visual change beyond copy - QUIET HOURS reads as distinct from Watching Runway 3 at a glance
 - [Phase 10]: 10-03: seconds_until_quiet_hours_end() vendored byte-for-byte from the real plan 10-01 body (not the research-document reference variant), pinned equal to server/device_config.py by an automated text-diff drift guard in stub-server/test_poll_cycle.py
 - [Phase 10]: 10-03: quiet_hours_sleep_s() never returns less than the caller's base sleep (max(base, remaining)), resolving D-01's Claude's-Discretion edge case
+- [Phase 10, plan 04]: poll_loop.py's quiet-hours early return sits before detect.load_geofence()/poll_current_aircraft() so an active window never queries the ADS-B aggregators; window exit is detected implicitly (poll_state's flag still True on the normal path) and forces exactly one repaint via a quiet_hours_exited OR-term on the held branch's existing re-render gate, never a separate transition state
 
 ### Pending Todos
 
@@ -548,12 +552,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-03T19:32:40.796Z
-Stopped at: Completed 10-02-PLAN.md
+Last session: 2026-09-03T20:26:31.294Z
+Stopped at: Completed 10-04-PLAN.md
 
 Resume file: 
 
-**State at end of this session (2026-08-27, ~08:50):**
+None
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
