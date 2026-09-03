@@ -2,7 +2,7 @@
 sketch: 004
 name: theme-picker-chips
 question: "Do runway-card-style chips with a real rendered theme preview actually read well at 16-theme scale?"
-winner: null
+winner: "B"
 tags: [theme-picker, settings, visual-direction]
 ---
 

@@ -2,7 +2,7 @@
 sketch: 005
 name: type-ladder-health-page
 question: "Does the new type ladder (32/22/16px + unified sans-uppercase labels + 24px gaps) hold together on a real page?"
-winner: null
+winner: "B"
 tags: [typography, hierarchy, labels, spacing, visual-direction]
 ---
 

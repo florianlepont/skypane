@@ -17,8 +17,8 @@ Goodreads — warm editorial feel, card-based browsing with visible relief, seri
 | 001 | health-page-direction | Does the new visual direction (serif headings, cards with relief, orange/amber accent, airier spacing) work on a real page? | B (Full editorial) | visual-direction, typography, color |
 | 002 | mobile-hamburger-nav | How should the mobile nav menu open, and where does the theme picker live inside it? | C (Header dropdown) | navigation, mobile, interaction |
 | 003 | history-table-density | Does merging Callsign+Hex and Type+Airline make the table fit a 13" laptop without horizontal scroll? | B (Inline compact) | data-density, table |
-| 004 | theme-picker-chips | Do runway-card-style chips with a real rendered theme preview actually read well at 16-theme scale? | pending | theme-picker, settings, visual-direction |
-| 005 | type-ladder-health-page | Does the new type ladder (32/22/16px + unified sans-uppercase labels + 24px gaps) hold together on a real page? | pending | typography, hierarchy, labels, spacing, visual-direction |
+| 004 | theme-picker-chips | Do runway-card-style chips with a real rendered theme preview actually read well at 16-theme scale? | B (Chip grid, 160px) | theme-picker, settings, visual-direction |
+| 005 | type-ladder-health-page | Does the new type ladder (32/22/16px + unified sans-uppercase labels + 24px gaps) hold together on a real page? | B (New ladder) | typography, hierarchy, labels, spacing, visual-direction |
 
 ## 06.6.4.1.1 note
 
