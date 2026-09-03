@@ -14,11 +14,20 @@
  * Standing constraints, not just a description of this version: this
  * file must never introduce a network call, a timer, or any persistent
  * state — it only reads attributes off already-rendered DOM elements and
- * writes them into the dialog's image src/alt and caption textContent.
- * This file writes to element content only via textContent/src/alt —
- * never via a raw-markup DOM sink of any kind: the note text is
- * server-rendered by companion/pages/history_page.py and never written
- * here.
+ * writes them into the dialog's image src/alt, caption textContent, and
+ * (quick task 260903-btu) the replace form's action attribute. This
+ * file writes to element content only via textContent/src/alt/an
+ * attribute value — never via a raw-markup DOM sink of any kind: the
+ * note text is server-rendered by companion/pages/history_page.py and
+ * never written here.
+ *
+ * Quick task 260903-btu: the replace-form lookup below is deliberately
+ * optional and deliberately placed after the mandatory three-element
+ * guard, never inside its condition. History's own dialog legitimately
+ * renders no such form, and folding this lookup into that guard's
+ * condition would make the whole script a no-op on History — killing
+ * History's lightbox entirely. This file still makes no network call,
+ * starts no timer, and holds no persistent state.
  *
  * This script is served to every page on the site (a single cached
  * static asset, not re-emitted per page). Since quick task 260902-tli,
@@ -59,6 +68,12 @@
     return;
   }
 
+  // Quick task 260903-btu: optional, looked up once like the three
+  // above, but excluded from their guard on purpose — History's page
+  // never renders this form, and that is a legitimate, expected state,
+  // not a missing-element error.
+  var replaceForm = dialog.querySelector(".lightbox__replace");
+
   // ES5-safe manual ancestor walk (no Element.closest, matching this
   // codebase's transpiler-free constraint) — finds the nearest ancestor
   // of "target" (inclusive) carrying the data-view-panel-src attribute,
@@ -86,6 +101,16 @@
     // is never an unlabelled image.
     image.alt = captionText;
     caption.textContent = captionText;
+    // Quick task 260903-btu: when a replace form is present (Airlines
+    // only), point it at this trigger's own upload target. setAttribute
+    // is used rather than the form.action property: that property
+    // resolves to an absolute URL rather than the literal it was given,
+    // and is shadowable by a same-named form control — setAttribute
+    // writes the literal attribute and sidesteps both.
+    if (replaceForm) {
+      var replaceAction = trigger.getAttribute("data-view-panel-replace-action") || "";
+      replaceForm.setAttribute("action", replaceAction);
+    }
     dialog.showModal();
   });
 
