@@ -214,9 +214,8 @@ LIGHTBOX_CAPTION_TEMPLATE = "Panel near %s"
 # page that shows a rendered panel image at a size where a user would
 # actually compare its colours to the frame on the wall, so the caveat's
 # safety rationale (see COLOUR_CAVEAT's own comment above) belongs here.
-# One source of the sentence, no second wording anywhere. Awaiting
-# developer sign-off — see 260903-etm-SUMMARY.md for the two-line
-# reversal path if this composition is rejected.
+# One source of the sentence, no second wording anywhere. Developer
+# sign-off received 2026-09-03: composition kept as-is.
 LIGHTBOX_NOTE = (
     "This is the nearest recorded render, not necessarily from this "
     "exact flight — the panel updates on its own wake/poll cycle. "
