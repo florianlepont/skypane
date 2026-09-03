@@ -57,7 +57,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from companion import auth, illustration_normalize, layout  # noqa: E402
+from companion import auth, illustration_normalize, layout, theme_preview  # noqa: E402
 from companion.pages import (  # noqa: E402
     airlines_page,
     config_page,
@@ -139,6 +139,14 @@ RUNWAY_IMAGE_ROUTE_PREFIX = config_page.RUNWAY_IMAGE_ROUTE_PREFIX
 # D-15 (06.6.4.1-02): the Airlines gallery's per-variant illustration image
 # route. Naming convention matches RUNWAY_IMAGE_ROUTE_PREFIX above.
 ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
+# Single definition site is companion/theme_preview.py (06.6.4.1.1-01),
+# NOT a page module — deliberately the opposite of
+# RUNWAY_IMAGE_ROUTE_PREFIX/ILLUSTRATION_IMAGE_ROUTE_PREFIX's precedent of
+# living with the emitter. Here the render/cache mechanism owns the prefix
+# since a later plan rebinds it a second time, from
+# companion/pages/config_page.py, for the Settings theme picker's own
+# markup — see theme_preview.py's module docstring for the full reasoning.
+THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -983,6 +991,39 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)
 
+    def _serve_theme_preview_image(self, theme_id):
+        # T-06.6.4.1.1-01/T-06.6.4.1.1-05: this route's key set is closed
+        # and server-controlled (device_config.THEMES) — the bytes it
+        # serves are always produced by this server itself from vendored
+        # font/illustration assets, never from client input, and the
+        # rendered scene is theme_preview.py's own module-level fixture
+        # (D-06), so no live flight/device data can ever reach an image
+        # served here. Membership test FIRST, before any path is ever
+        # constructed (validate-then-join, never sanitise-then-join —
+        # same shape as _serve_runway_image() above, T-06.6.4.1.1-01);
+        # theme_preview.cache_path() repeats this exact guard at the
+        # boundary itself, so the helper stays safe even if some future
+        # caller forgets to check membership first.
+        if theme_id not in device_config.THEMES:
+            return self.send_html(404, self._not_found_page())
+        # T-06.6.4.1.1-02: an unknown id (above), a render failure, and an
+        # OSError writing/reading the cache file all degrade to this same
+        # 404 — a caller can never distinguish "not a real theme" from "no
+        # image for a real theme" from "render failed for this one theme".
+        try:
+            payload = theme_preview.cached_preview_bytes(self.args.state_dir, theme_id)
+        except OSError:
+            return self.send_html(404, self._not_found_page())
+        except Exception:
+            return self.send_html(404, self._not_found_page())
+        if payload is None:
+            return self.send_html(404, self._not_found_page())
+        # Same cache window _serve_runway_image()/_serve_illustration_image()
+        # use, relying on send_bytes()'s non-shared/private default since
+        # this route sits behind do_GET()'s session gate (see the dispatch
+        # block in do_GET() below).
+        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+
     def _handle_illustration_replace(self, key):
         """POST /illustration/{key}.png — upload a replacement illustration
         (quick task 260902-v26, T-v26-02-*). This is the feature's entire
@@ -1263,6 +1304,12 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
             return self._serve_illustration_image(key)
+
+        if path.startswith(THEME_PREVIEW_ROUTE_PREFIX) and path.endswith(".png"):
+            if not self.require_session():
+                return None
+            theme_id = path[len(THEME_PREVIEW_ROUTE_PREFIX):-len(".png")]
+            return self._serve_theme_preview_image(theme_id)
 
         return self.send_html(404, self._not_found_page())
 

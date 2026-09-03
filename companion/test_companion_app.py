@@ -68,7 +68,14 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 137  # 130 + 7 (phase 06.6.4.1.1-01 Task 1: theme_preview.py's
+EXPECTED_CHECK_COUNT = 141  # 137 + 4 (phase 06.6.4.1.1-01 Task 2: the
+# /theme-preview/{id}.png route — real key returns 200/image/png/a real
+# PNG body for every one of the 16 registered themes, an unknown id 404s
+# with the same not-found copy, three traversal-shaped paths all 404 with
+# no file content, and an unauthenticated request redirects to /login
+# without ever returning image bytes — same four shapes as the
+# illustration-image-route checks below)
+# 137 = 130 + 7 (phase 06.6.4.1.1-01 Task 1: theme_preview.py's
 # in-process checks — 320x120 PNG for every theme, pairwise-distinct means
 # across all 16 themes, byte-identical repeat renders, cache_path()'s
 # traversal/unknown/falsy-state_dir guard, cold-cache creates the file and
@@ -2615,6 +2622,72 @@ def main():
         check(
             "an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes",
             _illustration_unauthenticated_redirects_to_login)
+
+        # --- theme preview image route (06.6.4.1.1-01 Task 2) ---
+
+        def _theme_preview_real_key_returns_png_for_every_theme():
+            for theme_id in device_config.THEME_IDS:
+                status, headers, body = http_request(
+                    base + "/theme-preview/%s.png" % theme_id, cookie=session_cookie)
+                if status != 200:
+                    return False, "theme %r: expected 200, got %d" % (theme_id, status)
+                if headers.get("Content-Type") != "image/png":
+                    return False, "theme %r: expected Content-Type image/png, got %r" % (
+                        theme_id, headers.get("Content-Type"))
+                if not body.startswith(PNG_SIGNATURE):
+                    return False, "theme %r: expected a real PNG body" % (theme_id,)
+            return True, ""
+        check(
+            "an authenticated GET /theme-preview/{id}.png returns 200, image/png, and a real "
+            "PNG body for every id in device_config.THEME_IDS — no theme is unreachable",
+            _theme_preview_real_key_returns_png_for_every_theme)
+
+        def _theme_preview_unknown_key_404():
+            status, _headers, body = http_request(
+                base + "/theme-preview/not-a-theme.png", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for a theme id not in the membership set, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
+        check(
+            "an authenticated GET for a theme id not in the membership set returns the same "
+            "404 page an unknown runway/illustration id produces",
+            _theme_preview_unknown_key_404)
+
+        def _theme_preview_traversal_key_404():
+            adversarial_paths = [
+                "/theme-preview/..%2F..%2Fetc%2Fpasswd.png",
+                "/theme-preview/../../../etc/passwd.png",
+                "/theme-preview/style.png",
+            ]
+            for adversarial_path in adversarial_paths:
+                status, _headers, body = http_request(
+                    base + adversarial_path, cookie=session_cookie)
+                if status != 404:
+                    return False, "expected 404 for adversarial path %r, got %d" % (adversarial_path, status)
+                if body and b"root:" in body:
+                    return False, "adversarial path %r returned file content" % (adversarial_path,)
+            return True, ""
+        check(
+            "authenticated GET requests for adversarial theme-preview paths (path traversal) "
+            "all return 404 with no file content",
+            _theme_preview_traversal_key_404)
+
+        def _theme_preview_unauthenticated_redirects_to_login():
+            status, headers, body = http_request(base + "/theme-preview/white.png")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if "/login" not in location:
+                return False, "expected a redirect to /login, got %r" % location
+            if body.startswith(PNG_SIGNATURE):
+                return False, "unauthenticated request must never return image bytes"
+            return True, ""
+        check(
+            "an unauthenticated GET /theme-preview/white.png redirects to /login, never "
+            "returns image bytes",
+            _theme_preview_unauthenticated_redirects_to_login)
 
         # --- 260902-v26 Task 3: the live upload round trip, against this ---
         # --- real running companion/app.py subprocess (D-01/D-02/D-03).  ---
