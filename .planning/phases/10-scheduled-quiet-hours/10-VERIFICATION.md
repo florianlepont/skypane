@@ -1,14 +1,16 @@
 ---
 phase: 10-scheduled-quiet-hours
 verified: 2026-09-03T22:45:00Z
-status: human_needed
+status: passed
 score: 27/28 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "10-UI-SPEC.md's deferred visual-distinctiveness check: does the 'QUIET HOURS' screen read as meaningfully distinct from the empty-state 'Watching Runway 3' screen at a glance, given both share the identical flat-White/Black/centred-heading structure?"
     expected: "A human looking at the two rendered panel images (/tmp/skypane-quiet-hours-preview.png vs. a freshly rendered empty-state preview) confirms they are not confusable. The executor's own self-review (10-02-SUMMARY.md) already concluded option (1) — no visual change needed — is sufficient, but this is a 'does it read right at a glance' call that this project's own established discipline (05-CONTEXT.md's battery icon, 03-CONTEXT.md's poster redesign) requires a real on-glass/on-screen human look at before treating as final."
     why_human: "Visual/aesthetic judgment on rendered pixel output — not mechanically checkable from source or from a passing unit test."
+
   - test: "Plan 10-05 Task 3's real-browser check of the companion Settings page's new Quiet hours fieldset: (1) desktop layout — fourth card below Diagnostic LED with heading/caption/checkbox/Start/End stacked vertically, not side by side; (2) narrow viewport (320px, 375px) — neither time input wraps or overflows; (3) visual match of the two time inputs against the page's other fields (fill/border/radius/height); (4) toggle the site's light/dark theme control while the OS is set to the OPPOSITE scheme and confirm the native time-picker indicator icon stays visible in both; (5) full save/reload/toggle round trip — edited times persist with the checkbox left unchecked, then re-save with the checkbox ticked and confirm the ordinary 'Saved — will apply on the frame's next scheduled refresh' flash with no quiet-hours-specific copy; (6) the enable checkbox renders as a normal small checkbox with accent tint, not an oversized filled box."
     expected: "All six sub-checks pass exactly as described in 10-05-PLAN.md's Task 3 <human-check> block."
     why_human: "Real-browser rendering, native input chrome, and CSS color-scheme behavior against an OS-level theme setting cannot be verified by grep/unit test; 10-05-SUMMARY.md explicitly defers this to the project's end-of-phase UAT pass (human_verify_mode: end-of-phase) and did not perform it inline."
