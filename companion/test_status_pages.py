@@ -270,7 +270,15 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 130  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) + 2 (quick 260903-ghy Task 1: the Resolution-statistics table's mobile .data-cards completeness check, and the .data-cards toggle-contract/untouched-rules check; the pre-existing nested-card heading-rhythm check's own allowlist was extended in place for the new `<ul class="data-cards">` element, no count change from it) + 2 (quick 260903-ghy Task 2: the registry's mobile-card/table filter-pairing check, and the no-chrome-with-no-data/no-cross-page-leak check; the pre-existing anomaly-detail-list-markup check was retargeted in place from a page-wide <ul>/<li> ban onto the anomaly banner's own element slice, no count change from it) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
+EXPECTED_CHECK_COUNT = 133  # 130 + 3 (quick 260903-peo Task 2: UIR-14's
+# pipeline tile second-line checks — the seeded META_LAST_DETECTION render
+# and the absent-detection honest-fallback render — plus UIR-18's
+# persistent freshness-note structural-contract check; the pre-existing
+# _read_health_inputs() six-key guard was retargeted in place to seven
+# keys, and the pre-existing .dashboard-grid align-items:stretch guard
+# already fully covered UIR-14's "unedited" requirement with no change
+# needed — neither counted as new)
+# 130 = 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) + 2 (quick 260903-ghy Task 1: the Resolution-statistics table's mobile .data-cards completeness check, and the .data-cards toggle-contract/untouched-rules check; the pre-existing nested-card heading-rhythm check's own allowlist was extended in place for the new `<ul class="data-cards">` element, no count change from it) + 2 (quick 260903-ghy Task 2: the registry's mobile-card/table filter-pairing check, and the no-chrome-with-no-data/no-cross-page-leak check; the pre-existing anomaly-detail-list-markup check was retargeted in place from a page-wide <ul>/<li> ban onto the anomaly banner's own element slice, no count change from it) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -2514,21 +2522,25 @@ def main():
         # 260902-l0b: renamed from _read_health_inputs_gained_no_new_key()
         # — that name stopped being true the moment daily_rows joined
         # trend_rows in this dict (a battery-health read, same table, same
-        # section builder, same request). D-11's real intent survives,
-        # restated explicitly: the migrated registry/stats reads must
-        # stay their own independent calls in render(), never folded into
-        # _read_health_inputs()'s single dict — that is what the negative
-        # assertion below checks directly, not just the key count.
+        # section builder, same request). Quick task 260903-peo (UIR-14)
+        # retargets this check in place again, six keys to seven:
+        # last_detection joins pipeline_ts for the identical reason (same
+        # section builder, same table, same request). D-11's real intent
+        # survives, restated explicitly: the migrated registry/stats
+        # reads must stay their own independent calls in render(), never
+        # folded into _read_health_inputs()'s single dict — that is what
+        # the negative assertion below checks directly, not just the key
+        # count.
         tmp = _mkstate("h-inputs-keys")
         try:
             inputs = health_page._read_health_inputs(tmp, _iso(_now()))
             expected_keys = {
-                "device_health", "pipeline_ts", "source_fault_raw",
+                "device_health", "pipeline_ts", "last_detection", "source_fault_raw",
                 "trend_rows", "daily_rows", "corroboration_counts",
             }
             if set(inputs.keys()) != expected_keys:
                 return False, (
-                    "expected _read_health_inputs() to carry exactly these six keys, got %r"
+                    "expected _read_health_inputs() to carry exactly these seven keys, got %r"
                     % (set(inputs.keys()),))
             if any("registr" in k or "stat" in k for k in inputs.keys()):
                 return False, "D-11: the registry/stats reads must stay separate calls in render(), not join this dict"
@@ -2536,8 +2548,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "_read_health_inputs() carries exactly six keys — daily_rows joins trend_rows in the one atomic "
-        "snapshot (260902-l0b) — while the migrated registry/stats reads stay separate calls in render() (D-11)",
+        "_read_health_inputs() carries exactly seven keys — last_detection joins pipeline_ts in the one "
+        "atomic snapshot (quick task 260903-peo, UIR-14) — while the migrated registry/stats reads stay "
+        "separate calls in render() (D-11)",
         _read_health_inputs_keeps_registry_stats_separate)
 
     def _battery_section_keeps_everything_after_the_move():
@@ -4447,6 +4460,159 @@ def main():
         ".page-header's block flow entirely via a .page-header-scoped absolute-position rule rather than "
         "kept in flow with a reserved line box (260902-ep7)",
         _quick_260902_chc_pill_stylesheet_contract)
+
+    def _quick_260903_peo_pipeline_second_line():
+        # UIR-14: the pipeline tile gains a real second content line
+        # sourced from history_db.META_LAST_DETECTION, read inside the
+        # same atomic _read_health_inputs() snapshot pipeline_ts already
+        # comes from. The rendered timestamp markup must be byte-
+        # identical to what concise_timestamp_html() itself returns for
+        # the same (ts, now) pair, so the two can never drift into two
+        # formats.
+        tmp = _mkstate("h-pipeline-detection")
+        try:
+            now = _now()
+            now_iso = _iso(now)
+            detection_iso = _iso(now - timedelta(minutes=5))
+            _seed_meta(
+                tmp,
+                **{
+                    history_db.META_LAST_PIPELINE_RUN: now_iso,
+                    history_db.META_LAST_DETECTION: detection_iso,
+                })
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+            expected_detail = layout.concise_timestamp_html(detection_iso, now_iso)
+            if rendered.count(expected_detail) != 1:
+                return False, (
+                    "expected the pipeline tile's second line to render "
+                    "concise_timestamp_html() byte-identically for the seeded "
+                    "META_LAST_DETECTION value exactly once, got %d"
+                    % rendered.count(expected_detail))
+            if health_page.LAST_DETECTION_LABEL not in rendered:
+                return False, "expected the second line's label text in the rendered page"
+            if 'class="stat-tile__meta text-label section-caption"' not in rendered:
+                return False, (
+                    "expected the second line to reuse the existing muted "
+                    "text-label/section-caption tier via a layout-only "
+                    "stat-tile__meta class, not a new type tier — never "
+                    "battery-readout__detail, whose class name would collide "
+                    "with the BATTERY_READOUT_ID absence guards below")
+            if "battery-readout" in rendered.split(
+                    '<p class="stat-tile__meta')[1].split("</p>")[0]:
+                return False, (
+                    "expected the second line's own markup to carry no "
+                    "'battery-readout' substring — that would false-positive "
+                    "the BATTERY_READOUT_ID absence guards on a fresh install")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the pipeline tile's new second line renders META_LAST_DETECTION's timestamp "
+        "byte-identically to concise_timestamp_html(), reusing the existing muted "
+        "text-label/section-caption tier — never battery-readout__detail, whose class "
+        "name would collide with the BATTERY_READOUT_ID absence guards (quick task "
+        "260903-peo, UIR-14)",
+        _quick_260903_peo_pipeline_second_line)
+
+    def _quick_260903_peo_pipeline_second_line_absent_detection_fallback():
+        # The absent case: never an empty element or a dangling label —
+        # concise_timestamp_html()'s own escaped bare-string fallback
+        # renders honestly, matching _device_section()'s own
+        # unconditional-render precedent. Scoped to the pipeline tile's
+        # own second-line <p> (never a page-wide count): this fixture
+        # also leaves device_health unseeded, so the Device tile's own
+        # concise_timestamp_html() call renders the identical fallback
+        # text independently — a page-wide count would conflate the two.
+        tmp = _mkstate("h-pipeline-no-detection")
+        try:
+            now_iso = _iso(_now())
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: now_iso})
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+            fallback_html = layout.escape_html("no reading yet")
+            second_line_start = rendered.index('<p class="stat-tile__meta text-label section-caption">')
+            second_line_end = rendered.index("</p>", second_line_start) + len("</p>")
+            second_line = rendered[second_line_start:second_line_end]
+            if fallback_html not in second_line:
+                return False, (
+                    "expected the pipeline tile's second line to render the honest "
+                    "fallback when META_LAST_DETECTION is absent, got %r" % second_line)
+            if health_page.LAST_DETECTION_LABEL not in second_line:
+                return False, "expected the second line's label to still render alongside the fallback"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the pipeline tile's second line renders its honest no-reading-yet fallback when "
+        "META_LAST_DETECTION is absent, never an empty element or a dangling label "
+        "(quick task 260903-peo, UIR-14)",
+        _quick_260903_peo_pipeline_second_line_absent_detection_fallback)
+
+    def _quick_260903_peo_persistent_freshness_note():
+        # UIR-18: a persistent, server-rendered liveness note joins the
+        # existing hidden refresh pill inside ONE block-level wrapper —
+        # the anonymous-block-box guard from 260902-ep7 (BUG 1). Pins the
+        # structural contract (the wrapper is the .page-header's next
+        # child right after the <h1>, and the pill's own markup is
+        # untouched inside it), not just the note's text.
+        tmp = _mkstate("h-persistent-freshness")
+        try:
+            now_iso = _iso(_now())
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+
+            expected_note = layout.concise_timestamp_html(now_iso, now_iso)
+            if expected_note not in rendered:
+                return False, (
+                    "expected the persistent note to render "
+                    "concise_timestamp_html(now, now) byte-identically")
+            prefix = layout.escape_html(health_page.PERSISTENT_FRESHNESS_PREFIX_TEXT)
+            if prefix not in rendered:
+                return False, "expected the persistent note's prefix text in the rendered page"
+
+            if '<p class="page-header__freshness' not in rendered:
+                return False, "expected a block-level .page-header__freshness wrapper"
+            wrapper_start = rendered.index('<p class="page-header__freshness')
+            wrapper_end = rendered.index("</p>", wrapper_start) + len("</p>")
+            wrapper_slice = rendered[wrapper_start:wrapper_end]
+            if "data-refresh-pill" not in wrapper_slice:
+                return False, "expected the hidden refresh pill inside the freshness wrapper"
+            if expected_note not in wrapper_slice:
+                return False, "expected the persistent note inside the same freshness wrapper as the pill"
+
+            header_start = rendered.index('<div class="page-header">')
+            header_end = rendered.index("</div>", header_start) + len("</div>")
+            if wrapper_start < header_start or wrapper_end > header_end:
+                return False, "expected the freshness wrapper inside the .page-header div"
+            header_slice = rendered[header_start:header_end]
+            title_end = header_slice.index("</h1>") + len("</h1>")
+            between = header_slice[title_end:]
+            if not between.startswith('<p class="page-header__freshness'):
+                return False, (
+                    "expected the freshness wrapper to be .page-header's next "
+                    "block-level child right after the <h1> — a stranded bare "
+                    "inline node here would reopen 260902-ep7's anonymous-"
+                    "block-box gap")
+
+            # The pill's own markup is byte-for-byte unchanged: still an
+            # inline <span>, still carrying the bare hidden attribute and a
+            # live data-loaded-at — freshness.js itself carries zero diff
+            # and needs none of this to change.
+            pill_at = rendered.index("data-refresh-pill")
+            pill_tag = rendered[rendered.rindex("<", 0, pill_at):rendered.index(">", pill_at) + 1]
+            if not pill_tag.startswith("<span"):
+                return False, "expected the pill to still be an inline <span>"
+            if " hidden" not in pill_tag:
+                return False, "expected the pill to still carry the bare hidden attribute"
+            if ('data-loaded-at="%s"' % now_iso) not in rendered:
+                return False, "expected data-loaded-at to still carry the real now value"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's header renders a persistent server-rendered liveness note beside the "
+        "unchanged hidden refresh pill, both inside one block-level .page-header__freshness "
+        "wrapper that is the .page-header's next child right after the <h1> (quick task "
+        "260903-peo, UIR-18)",
+        _quick_260903_peo_persistent_freshness_note)
 
     def _quick_260902_v2v_uir_03_07_12_13_fixes():
         # quick task 260902-v2v: pins all four one-line fixes together in

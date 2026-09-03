@@ -376,6 +376,22 @@ h3,
   margin: 0 0 var(--space-lg);
 }
 
+/* Quick task 260903-peo (UIR-18): the persistent-liveness-note wrapper.
+ * Spacing only — no border, no fill, no shadow; this is a header line,
+ * not a card. Block-level by element choice (a <p>), which is the whole
+ * point: it keeps `.page-header`'s in-flow children block-level end to
+ * end (<h1>, this wrapper, <p class="page-header__purpose">), so the
+ * renderer never has to synthesize an anonymous block box for a
+ * stranded inline child the way the bare pill span once did (see
+ * 260902-ep7's comment below). `.page-header .refresh-pill`'s
+ * descendant selector still matches the pill nested inside this
+ * wrapper — position: absolute takes it out of this element's flow
+ * entirely, so the wrapper's own height is dictated by the note text
+ * alone. */
+.page-header__freshness {
+  margin: 0 0 var(--space-xs);
+}
+
 /* 260902-ep7: `.page-header` establishes a containing block for the
  * pill's own out-of-flow rule further down this file. Everything below
  * the divider is about WHY that pill is taken out of flow at all.
@@ -2469,6 +2485,22 @@ summary::-webkit-details-marker {
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
+}
+
+/* Quick task 260903-peo (UIR-14): the pipeline tile's new second content
+ * line. Declares layout only (a small top margin, tightening the
+ * default <p> spacing so the two lines read as one tile, not two
+ * paragraphs) — the muted-text tier itself is `.text-label
+ * .section-caption` (co-classed alongside this on the same element,
+ * the file's existing 70% color-mix muted strength), reused rather than
+ * a new type tier invented here. `.battery-readout__detail` was
+ * considered and rejected: it declares the same muted strength, but its
+ * class name's `battery-readout` substring collides with
+ * BATTERY_READOUT_ID and would false-positive two pre-existing "no
+ * battery readout" regression guards on every fresh install, since this
+ * tile renders unconditionally. */
+.stat-tile__meta {
+  margin: var(--space-xs) 0 0;
 }
 
 /* quick task 260901-tsa (finding C): the Device/Pipeline tiles now hold
