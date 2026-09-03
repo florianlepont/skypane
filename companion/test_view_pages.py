@@ -66,29 +66,53 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 49  # 46 + 3 (quick task 260902-w4t Task 3, UIR-04:
+EXPECTED_CHECK_COUNT = 52  # merge of two independent, non-overlapping
+# additions on top of a shared baseline of 47 vs 49 (both grown from the
+# same 44 - see below): this branch's own 47 (+1 quick task 260902-v26,
+# +2 quick task 260903-btu) plus 5 more merged in from main via quick
+# task 260902-w4t (+1 Task 1 UIR-05, +1 Task 2 UIR-06, +3 Task 3 UIR-04).
+# 52 = 47 + 5 (quick task 260902-w4t Task 3, UIR-04:
 # _status_dot_title_backward_compatible_and_escaped,
 # _corroboration_none_row_shows_short_label_with_tooltip, and
 # _data_table_wrap_scroll_edge_affordance_css - status_dot()'s new
 # backward-compatible title parameter, the shortened corroboration
 # label's tooltip in both renderings, and the CSS-only scroll-edge
-# affordance's background-attachment/pointer-events contract).
-# 46 = 45 + 1 (quick task 260902-w4t Task 2, UIR-06:
-# _hex_only_row_promotes_hex_to_primary - a callsign-less row with a hex
-# promotes the hex into the primary slot on both the desktop cell and
-# the mobile card, with a no-copy-button "no callsign" note, and a row
-# with neither callsign nor hex renders without raising).
-# 45 = 44 + 1 (quick task 260902-w4t Task 1, UIR-05:
-# _airline_fallback_distinct_from_route_fallback - a no-airline row's
-# AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT are distinct strings in
-# distinct columns, and the unresolved-link's UNRESOLVED_LINK_CLASS is
-# styled in style.css and present on the rendered anchor).
+# affordance's background-attachment/pointer-events contract; Task 2,
+# UIR-06: _hex_only_row_promotes_hex_to_primary - a callsign-less row
+# with a hex promotes the hex into the primary slot on both the desktop
+# cell and the mobile card, with a no-copy-button "no callsign" note,
+# and a row with neither callsign nor hex renders without raising;
+# Task 1, UIR-05: _airline_fallback_distinct_from_route_fallback - a
+# no-airline row's AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT are
+# distinct strings in distinct columns, and the unresolved-link's
+# UNRESOLVED_LINK_CLASS is styled in style.css and present on the
+# rendered anchor - all three merged in from main, additive to this
+# branch's own chain below, zero overlap in the checks each side added).
+# 47 = 44 + 1 (quick task 260902-v26 Task 3: render({}) with a
+# literal empty dict still contains the .illustration-grid gallery
+# container, pinning the ctx.get("state_dir") tolerance render(ctx) grew
+# in this task) + 2 (quick task 260903-btu Task 4: a real, seeded
+# history_page.render() call carries zero replace-related markup, and
+# the two new Airlines-only lightbox constants each appear in
+# panel-lookup.js/airlines_page.render()/style.css and never in a real
+# history_page.render() call — _lightbox_dom_contract_three_file_guard()
+# and _airlines_lightbox_constants_match_history() themselves were left
+# unmodified, since their existing tokens/pairs are all still true).
 # 44 = 43 + 1 (quick task 260902-tli Task 2: the
 # airlines_page/history_page cross-module LIGHTBOX_DIALOG_ID/
 # _VIEW_PANEL_*_ATTR equality guard. _lightbox_dom_contract_three_file_
 # guard() was widened in place to also assert the six shared tokens
 # against a real airlines_page.render() output - no count change from
-# that retarget).
+# that retarget) + 1 (quick task 260902-v26 Task 3: render({}) with a
+# literal empty dict still contains the .illustration-grid gallery
+# container, pinning the ctx.get("state_dir") tolerance render(ctx) grew
+# in this task) + 2 (quick task 260903-btu Task 4: a real, seeded
+# history_page.render() call carries zero replace-related markup, and
+# the two new Airlines-only lightbox constants each appear in
+# panel-lookup.js/airlines_page.render()/style.css and never in a real
+# history_page.render() call — _lightbox_dom_contract_three_file_guard()
+# and _airlines_lightbox_constants_match_history() themselves were left
+# unmodified, since their existing tokens/pairs are all still true).
 # 43 = 06.6.4.1-08 Task 3: 56 - 16 (Section 2's whole
 # companion/pages/preview_page.py-specific test section deleted outright —
 # the module itself is deleted, and every one of its 16 checks either has
@@ -1568,6 +1592,125 @@ def main():
         "airlines_page's LIGHTBOX_DIALOG_ID and its three _VIEW_PANEL_*_ATTR constants each equal "
         "history_page's own values (the duplicated-not-imported shared-lightbox contract)",
         _airlines_lightbox_constants_match_history)
+
+    def _history_lightbox_carries_zero_replace_markup():
+        # new (quick task 260903-btu): actually exercises history_page.
+        # render() against a seeded fixture — a real gallery entry and a
+        # real runway event, mirroring _lightbox_dom_contract_three_file_
+        # guard()'s own fixture shape — since History only emits its
+        # dialog when at least one row carries a trigger; a fixture with
+        # no entries would prove absence for the wrong reason.
+        tmp = _mkstate("h-no-replace-markup")
+        try:
+            names = ["2026-08-27T10-05-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:06:00+00:00", "hex": "dc02", "callsign": "NOREPLACE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        dialog_count = rendered.count('id="%s"' % history_page.LIGHTBOX_DIALOG_ID)
+        if dialog_count != 1:
+            return False, "expected the History dialog exactly once (proves the absence checks below mean something), got %d" % dialog_count
+        for token, label in (
+                (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, "airlines_page.LIGHTBOX_REPLACE_FORM_CLASS"),
+                (airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR, "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR"),
+                ("<form", "<form"),
+                ('<input type="file"', '<input type="file"'),
+                ("enctype", "enctype"),
+                # quick task 260903-df3: the framed zone's three new
+                # class constants extend this non-regression guard too —
+                # History must carry none of this task's new markup any
+                # more than it carried the old inline-row markup.
+                (airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS, "airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS"),
+                (airlines_page.REPLACE_HINT_CLASS, "airlines_page.REPLACE_HINT_CLASS"),
+                (airlines_page.REPLACE_ICON_CLASS, "airlines_page.REPLACE_ICON_CLASS")):
+            count = rendered.count(token)
+            if count != 0:
+                return False, "expected zero occurrences of %s in a real, seeded history_page.render() output, got %d" % (label, count)
+        return True, ""
+    check(
+        "a real, seeded history_page.render() call (real gallery entry, real runway event) renders its "
+        "lightbox dialog exactly once, and carries zero occurrences of airlines_page's replace-form class, "
+        "replace-action attribute, <form>, file input, enctype, or the framed zone's three class constants "
+        "(quick task 260903-df3) anywhere (quick task 260903-btu)",
+        _history_lightbox_carries_zero_replace_markup)
+
+    def _replace_lightbox_names_appear_in_three_files_never_in_history():
+        # new (quick task 260903-btu): the three-file contract for the
+        # two new names, mirroring _lightbox_dom_contract_three_file_
+        # guard()'s style — each token must appear in panel-lookup.js's
+        # source and in a real airlines_page.render({}) call, and must
+        # never appear in a real, seeded history_page.render() call.
+        # These two constants deliberately have no history_page
+        # counterpart and must never be added to
+        # _airlines_lightbox_constants_match_history()'s pairs tuple.
+        js_path = os.path.join(HERE, "static", "panel-lookup.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+        style_css_path = os.path.join(HERE, "static", "style.css")
+        with open(style_css_path) as fh:
+            style_css_source = fh.read()
+
+        airlines_rendered = airlines_page.render({})
+        tmp = _mkstate("h-replace-tokens-absent")
+        try:
+            names = ["2026-08-27T10-07-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:08:00+00:00", "hex": "dc03", "callsign": "TOKENGONE"},
+            ])
+            history_rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        for token in (airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR, airlines_page.LIGHTBOX_REPLACE_FORM_CLASS):
+            if token not in js_source:
+                return False, "expected %r in companion/static/panel-lookup.js" % (token,)
+            if token not in airlines_rendered:
+                return False, "expected %r in a real airlines_page.render({}) call" % (token,)
+            if token in history_rendered:
+                return False, "expected %r to never appear in a real, seeded history_page.render() call" % (token,)
+        # quick task 260903-df3: a bare substring test here is no longer
+        # sufficient — LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
+        # is now also a prefix of LIGHTBOX_REPLACE_ZONE_CLASS's own
+        # selector ("lightbox__replace-zone"), so the bare substring
+        # would keep passing even if the `.lightbox__replace { ... }`
+        # rule itself were deleted from the stylesheet (the zone
+        # selector alone would satisfy it). Require the exact selector,
+        # built from the constant rather than hard-coding the literal.
+        exact_selector = "." + airlines_page.LIGHTBOX_REPLACE_FORM_CLASS + " {"
+        if exact_selector not in style_css_source:
+            return False, (
+                "expected %r in companion/static/style.css — the fourth file in the chain, and the one "
+                "whose drift would leave the form functional but unstyled" % (exact_selector,))
+        return True, ""
+    check(
+        "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR and airlines_page.LIGHTBOX_REPLACE_FORM_CLASS each "
+        "appear in companion/static/panel-lookup.js's source and in a real airlines_page.render({}) call, "
+        "the exact '.lightbox__replace {' selector (not merely a substring, which the newer "
+        "'.lightbox__replace-zone' selector could otherwise satisfy) appears in companion/static/style.css, "
+        "and neither token appears in a real, seeded history_page.render() call (quick task 260903-btu; these "
+        "two constants have no history_page counterpart by design and must never join "
+        "_airlines_lightbox_constants_match_history()'s pairs tuple)",
+        _replace_lightbox_names_appear_in_three_files_never_in_history)
+
+    def _airlines_render_empty_ctx_still_contains_gallery_grid():
+        # quick task 260902-v26 threaded an optional state_dir read
+        # through render(ctx) via ctx.get("state_dir") - this pins that
+        # render({}) with a literal empty dict (exactly what
+        # _lightbox_dom_contract_three_file_guard() above already calls)
+        # still succeeds and its output still contains the gallery grid,
+        # not just that it doesn't raise.
+        rendered = airlines_page.render({})
+        if "illustration-grid" not in rendered:
+            return False, "expected render({}) to still contain the .illustration-grid gallery container"
+        return True, ""
+    check(
+        "airlines_page.render({}) with a literal empty dict still succeeds and its output still contains the "
+        "gallery grid (quick task 260902-v26's ctx.get(\"state_dir\") tolerance)",
+        _airlines_render_empty_ctx_still_contains_gallery_grid)
 
     # ======================================================================
     # Section 1d: 06.6.4.1-05 Task 3 - unresolved-airline link to Health's

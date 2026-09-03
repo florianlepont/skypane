@@ -62,10 +62,28 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
+# 125 = 116 + 9 (quick task 260902-v26 Plan 02 Task 3: the live
+# end-to-end illustration-upload proof against a real running
+# companion/app.py subprocess — round trip, D-03 same-pipeline
+# equivalence, override written to the expected single path, the
+# vendored original provably byte-identical after, the panel-side
+# select_illustration() effect, non-image rejection, oversized-upload
+# rejection + post-drain health, unknown/traversal-key 404s, and
+# unauthenticated POST).
+# 116 = 108 + 8 (quick task 260902-v26 Plan 02 Task 1: parse_single_
+# uploaded_file()'s 8 in-process checks — happy path with a traversal-
+# shaped declared filename, two-part rejection, non-multipart media type,
+# missing boundary, empty body, missing header/body separator, None
+# content_type, empty file-part payload).
 # 108 + 0 (quick task 260902-tli Task 2: the panel-lookup.js banned-token
 # check retargeted in place — matchMedia/innerWidth added to the tuple,
 # pinning the CSS-only gate — no new check, no count change).
-EXPECTED_CHECK_COUNT = 108  # quick task 260902-qkm (2026-09-02): 1 new
+# 125 + 1 (quick task 260903-btu Task 4: the optional replace-form lookup
+# stays outside the mandatory three-element guard check — pins the
+# single line that keeps History's lightbox alive. The pre-existing
+# banned-token check was left unmodified — the new code introduces no
+# banned token, and widening that tuple is out of scope).
+EXPECTED_CHECK_COUNT = 126  # quick task 260902-qkm (2026-09-02): 1 new
 # check pinning both nav-link geometries apart after restoring
 # .mobile-nav__link's 44px/Body-size tap target (D-05 reached it by
 # mistake) while .sidebar-link keeps its D-05 32px/Label-size compaction.
@@ -148,16 +166,24 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 _OPENER = urllib.request.build_opener(_NoRedirectHandler)
 
 
-def http_request(url, method="GET", data=None, cookie=None, timeout=10):
+def http_request(url, method="GET", data=None, cookie=None, timeout=10, content_type=None):
     """Minimal stdlib HTTP client (mirrors
     stub-server/test_poll_cycle.py's http_request()): returns
     (status, headers_dict, raw_bytes) for both success and HTTP-error
     responses; connection-level failures propagate.
+
+    `content_type` (quick task 260902-v26): an explicit override for the
+    Content-Type request header — used by the illustration-upload checks
+    to send `multipart/form-data; boundary=...` instead of the default
+    urlencoded type a POST otherwise gets. `None` (the default) preserves
+    every existing caller's behaviour exactly.
     """
     headers = {}
     if cookie:
         headers["Cookie"] = cookie
-    if data is not None and method == "POST":
+    if content_type is not None:
+        headers["Content-Type"] = content_type
+    elif data is not None and method == "POST":
         headers.setdefault("Content-Type", "application/x-www-form-urlencoded")
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
@@ -283,6 +309,31 @@ def _sign_with_secret(payload, secret):
     signature = hmac.new(
         secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return "%s.%s" % (payload, signature)
+
+
+def _encode_multipart(
+        payload, boundary=b"SkyPaneTestBoundary7Q2vpH",
+        filename="upload.png", field_name="file", content_type="image/png"):
+    """Hand-build a single-file `multipart/form-data` body — quick task
+    260902-v26. This harness deliberately does not import a multipart-
+    encoding library, matching `companion.app.parse_single_uploaded_
+    file()`'s own zero-third-party-dependency discipline. Returns
+    `(body_bytes, content_type_header)`, shared by both the in-process
+    parser checks (Section 2/Task 1) and the real-HTTP round-trip checks
+    (Section 3/Task 3) so every caller builds a request the same way.
+    """
+    boundary_str = boundary.decode("ascii")
+    header = (
+        'Content-Disposition: form-data; name="%s"; filename="%s"\r\n'
+        'Content-Type: %s\r\n\r\n'
+    ) % (field_name, filename, content_type)
+    body = (
+        b"--" + boundary + b"\r\n"
+        + header.encode("utf-8")
+        + payload
+        + b"\r\n--" + boundary + b"--\r\n"
+    )
+    return body, "multipart/form-data; boundary=%s" % boundary_str
 
 
 def main():
@@ -797,17 +848,19 @@ def main():
             # 06.6.3: the whitelist grew from ten to fourteen members
             # (icon-check/icon-copy/icon-refresh/icon-search, D-05/
             # D-23/D-12/D-20) — see layout.py's own header comment on
-            # ICON_IDS for the supersession note.
-            if len(layout.ICON_IDS) != 14:
-                return False, "expected exactly fourteen ICON_IDS, got %d" % len(layout.ICON_IDS)
-            if len(set(layout.ICON_IDS)) != 14:
+            # ICON_IDS for the supersession note. quick task 260903-df3
+            # grew it again, fourteen to fifteen (icon-upload, the
+            # Airlines lightbox replace zone's glyph).
+            if len(layout.ICON_IDS) != 15:
+                return False, "expected exactly fifteen ICON_IDS, got %d" % len(layout.ICON_IDS)
+            if len(set(layout.ICON_IDS)) != 15:
                 return False, "expected ICON_IDS to have no duplicates"
             symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
             if sorted(symbol_ids) != sorted(layout.ICON_IDS):
                 return False, "sprite symbol ids %r do not match ICON_IDS %r" % (
                     symbol_ids, layout.ICON_IDS)
-            if layout.ICON_DEFS_HTML.count("<symbol") != 14:
-                return False, "expected exactly fourteen <symbol occurrences, got %d" % (
+            if layout.ICON_DEFS_HTML.count("<symbol") != 15:
+                return False, "expected exactly fifteen <symbol occurrences, got %d" % (
                     layout.ICON_DEFS_HTML.count("<symbol"))
             if 'stroke="currentColor"' not in layout.ICON_DEFS_HTML:
                 return False, "expected stroke=\"currentColor\" in the sprite"
@@ -815,7 +868,7 @@ def main():
                 return False, "a hard-coded hex fill would defeat the per-status tint"
             return True, ""
         check(
-            "layout.ICON_IDS has exactly fourteen unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
+            "layout.ICON_IDS has exactly fifteen unique members, each a symbol id in ICON_DEFS_HTML and vice versa",
             _icon_sprite_integrity)
 
         def _icon_html_whitelist_enforcement():
@@ -862,15 +915,15 @@ def main():
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             if doc.count("<defs") != 1:
                 return False, "expected exactly one <defs, got %d" % doc.count("<defs")
-            if doc.count("<symbol") != 14:
-                return False, "expected exactly fourteen <symbol, got %d" % doc.count("<symbol")
+            if doc.count("<symbol") != 15:
+                return False, "expected exactly fifteen <symbol, got %d" % doc.count("<symbol")
             if doc.index("icon-defs") >= doc.index("dashboard-shell"):
                 return False, "expected the sprite to precede the dashboard-shell div"
             if ' style="' in doc:
                 return False, "page_shell() must emit no inline styles"
             return True, ""
         check(
-            "page_shell() emits exactly one sprite (one <defs, fourteen <symbol) before dashboard-shell, "
+            "page_shell() emits exactly one sprite (one <defs, fifteen <symbol) before dashboard-shell, "
             "no inline styles",
             _page_shell_emits_sprite_once_no_inline_styles)
 
@@ -1328,6 +1381,114 @@ def main():
             "by style.css's .js-scoped clipping rules",
             _nav_dropdown_js_progressive_enhancement_state_machine)
 
+        # --- 260902-v26 Task 1: parse_single_uploaded_file(), stdlib-only ---
+        # --- single-part multipart parser. Pure in-process checks — no   ---
+        # --- Harness needed, unlike Section 3 below.                    ---
+
+        import companion.app as app_module
+
+        _VALID_UPLOAD_PAYLOAD = b"\x89PNG-fixture-bytes-not-a-real-decodable-png"
+
+        def _parser_happy_path_ignores_traversal_filename():
+            body, content_type = _encode_multipart(
+                _VALID_UPLOAD_PAYLOAD, filename="../../../etc/passwd")
+            result = app_module.parse_single_uploaded_file(content_type, body)
+            if result != _VALID_UPLOAD_PAYLOAD:
+                return False, (
+                    "expected the payload back even with a traversal-shaped "
+                    "declared filename, got %r" % (result,))
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns the payload for a well-formed single-part body, "
+            "even when the part header declares a traversal-shaped filename (never read)",
+            _parser_happy_path_ignores_traversal_filename)
+
+        def _parser_two_parts_returns_none():
+            boundary = b"SkyPaneTwoPartBoundary9k2"
+            body = (
+                b"--" + boundary + b"\r\n"
+                b'Content-Disposition: form-data; name="a"; filename="a.png"\r\n\r\n'
+                b"AAAA\r\n"
+                b"--" + boundary + b"\r\n"
+                b'Content-Disposition: form-data; name="b"; filename="b.png"\r\n\r\n'
+                b"BBBB\r\n"
+                b"--" + boundary + b"--\r\n"
+            )
+            content_type = "multipart/form-data; boundary=%s" % boundary.decode("ascii")
+            result = app_module.parse_single_uploaded_file(content_type, body)
+            if result is not None:
+                return False, "expected None for a two-part body, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for a two-part body — this route accepts "
+            "exactly one file part and nothing else",
+            _parser_two_parts_returns_none)
+
+        def _parser_urlencoded_media_type_returns_none():
+            result = app_module.parse_single_uploaded_file(
+                "application/x-www-form-urlencoded", b"field=value")
+            if result is not None:
+                return False, "expected None for a non-multipart media type, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for a non-multipart media type",
+            _parser_urlencoded_media_type_returns_none)
+
+        def _parser_missing_boundary_returns_none():
+            body, _content_type = _encode_multipart(_VALID_UPLOAD_PAYLOAD)
+            result = app_module.parse_single_uploaded_file("multipart/form-data", body)
+            if result is not None:
+                return False, "expected None with no boundary parameter, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None when the boundary parameter is missing",
+            _parser_missing_boundary_returns_none)
+
+        def _parser_empty_body_returns_none():
+            result = app_module.parse_single_uploaded_file(
+                "multipart/form-data; boundary=anything", b"")
+            if result is not None:
+                return False, "expected None for an empty body, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for an empty body",
+            _parser_empty_body_returns_none)
+
+        def _parser_missing_header_body_separator_returns_none():
+            boundary = b"SkyPaneNoSepBoundaryF4x"
+            body = (
+                b"--" + boundary + b"\r\n"
+                b"No blank line separates this from anything\r\n"
+                b"--" + boundary + b"--\r\n"
+            )
+            content_type = "multipart/form-data; boundary=%s" % boundary.decode("ascii")
+            result = app_module.parse_single_uploaded_file(content_type, body)
+            if result is not None:
+                return False, "expected None with no header/body CRLFCRLF separator, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None when the part has no header/body separator",
+            _parser_missing_header_body_separator_returns_none)
+
+        def _parser_none_content_type_returns_none():
+            result = app_module.parse_single_uploaded_file(None, b"anything at all")
+            if result is not None:
+                return False, "expected None for a None content_type, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for a None content_type",
+            _parser_none_content_type_returns_none)
+
+        def _parser_empty_payload_returns_none():
+            body, content_type = _encode_multipart(b"")
+            result = app_module.parse_single_uploaded_file(content_type, body)
+            if result is not None:
+                return False, "expected None for an empty file part payload, got %r" % (result,)
+            return True, ""
+        check(
+            "parse_single_uploaded_file() returns None for an empty file part payload",
+            _parser_empty_payload_returns_none)
+
     finally:
         if previous_password is not None:
             os.environ[auth.PASSWORD_ENV_VAR] = previous_password
@@ -1567,6 +1728,41 @@ def main():
             "dialog from viewport dimensions or device orientation (no matchMedia/innerWidth) — that "
             "gate is CSS-only, on the Airlines trigger's own rule (quick task 260902-tli)",
             _panel_lookup_script_es5_safe_and_no_html_write)
+
+        def _panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard():
+            # new (quick task 260903-btu): pins the single line that
+            # keeps History's lightbox alive. Moving the optional
+            # replace-form lookup into the mandatory guard's condition,
+            # or above it, would make the whole script a no-op on any
+            # page that renders no replace form — which is every page
+            # except Airlines.
+            js_path = os.path.join(HERE, "static", "panel-lookup.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            guard_needle = "if (!image || !caption || !note)"
+            guard_count = src.count(guard_needle)
+            if guard_count != 1:
+                return False, "expected the mandatory guard line exactly once, got %d" % guard_count
+            guard_line = [line for line in src.splitlines() if guard_needle in line][0]
+            if "replaceForm" in guard_line:
+                return False, "expected the optional replace-form variable name absent from the mandatory guard's own line"
+            lookup_needle = "var replaceForm"
+            lookup_count = src.count(lookup_needle)
+            if lookup_count != 1:
+                return False, "expected the optional replace-form lookup exactly once, got %d" % lookup_count
+            if src.index(lookup_needle) <= src.index(guard_needle):
+                return False, "expected the optional replace-form lookup's first occurrence after the mandatory guard's"
+            write_count = src.count('setAttribute("action"')
+            if write_count != 1:
+                return False, "expected the action-attribute setAttribute write exactly once, got %d" % write_count
+            return True, ""
+        check(
+            "the mandatory three-element guard appears exactly once and never mentions the optional "
+            "replace-form lookup on its own line, that lookup's first occurrence in the source comes after "
+            "the guard's, it appears exactly once, and the action-attribute setAttribute write appears "
+            "exactly once — pinning the single line that keeps History's lightbox alive (quick task "
+            "260903-btu)",
+            _panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard)
 
         def _panel_lookup_script_route_src_agree():
             import companion.app as app_module
@@ -2121,6 +2317,249 @@ def main():
         check(
             "an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes",
             _illustration_unauthenticated_redirects_to_login)
+
+        # --- 260902-v26 Task 3: the live upload round trip, against this ---
+        # --- real running companion/app.py subprocess (D-01/D-02/D-03).  ---
+
+        import companion.app as app_module
+
+        _VENDORED_ILLUSTRATIONS_DIR = os.path.join(
+            REPO_ROOT, "server", "assets", "icons", "illustrations")
+        _vendored_air_france_path = os.path.join(_VENDORED_ILLUSTRATIONS_DIR, "air-france.png")
+        with open(_vendored_air_france_path, "rb") as fh:
+            _pre_upload_vendored_hash = hashlib.sha256(fh.read()).hexdigest()
+        _pre_upload_vendored_stat = os.stat(_vendored_air_france_path)
+
+        _illustration_pre_upload_render = []  # populated by the round-trip check below
+
+        def _illustration_upload_round_trip_replaces_served_bytes():
+            # vueling-airlines.png is guaranteed to pass validate_illustration_
+            # file() — server/test_illustrations.py already asserts every
+            # vendored file does — and is visibly a different aircraft, so a
+            # successful override is unambiguous.
+            with open(os.path.join(_VENDORED_ILLUSTRATIONS_DIR, "vueling-airlines.png"), "rb") as fh:
+                vueling_bytes = fh.read()
+
+            pre_status, _pre_headers, pre_body = http_request(
+                base + "/illustration/air-france.png", cookie=session_cookie)
+            if pre_status != 200:
+                return False, "expected 200 for the pre-upload GET, got %d" % pre_status
+            _illustration_pre_upload_render.append(pre_body)
+
+            # A traversal-shaped declared filename in the part header: the
+            # same request that proves the happy path also proves the
+            # filename is never read (T-v26-02-01).
+            body, content_type = _encode_multipart(
+                vueling_bytes, filename="../../../etc/passwd", field_name="illustration")
+            status, headers, _resp_body = http_request(
+                base + "/illustration/air-france.png", method="POST", data=body,
+                cookie=session_cookie, content_type=content_type)
+            if status != 303:
+                return False, "expected a 303 redirect after a valid upload, got %d" % status
+            location = headers.get("Location", "")
+            if "/airlines" not in location:
+                return False, "expected the redirect Location to point at /airlines, got %r" % location
+            if ("flash=%s" % app_module.FLASH_KEY_ILLUSTRATION_REPLACED) not in location:
+                return False, "expected the success flash key in the redirect, got %r" % location
+
+            post_status, _post_headers, post_body = http_request(
+                base + "/illustration/air-france.png", cookie=session_cookie)
+            if post_status != 200:
+                return False, "expected 200 for the post-upload GET, got %d" % post_status
+            if not post_body.startswith(PNG_SIGNATURE):
+                return False, "expected the post-upload body to start with the PNG signature"
+            if post_body == pre_body:
+                return False, "expected the served bytes to change after a successful upload"
+            return True, ""
+        check(
+            "uploading a real PNG over real HTTP to a real companion/app.py subprocess changes "
+            "what GET /illustration/air-france.png serves, even with a traversal-shaped declared "
+            "filename in the part header",
+            _illustration_upload_round_trip_replaces_served_bytes)
+
+        def _illustration_override_uses_same_normalization_pipeline():
+            if not _illustration_pre_upload_render:
+                return False, "no pre-upload render was captured by the round-trip check above"
+            pre_body = _illustration_pre_upload_render[0]
+            override_status, _h1, override_body = http_request(
+                base + "/illustration/air-france.png", cookie=session_cookie)
+            vueling_status, _h2, vueling_body = http_request(
+                base + "/illustration/vueling-airlines.png", cookie=session_cookie)
+            if override_status != 200 or vueling_status != 200:
+                return False, "expected 200 for both routes, got %d/%d" % (override_status, vueling_status)
+            if override_body == vueling_body:
+                return True, ""
+            # Fallback (D-03, documented in the plan 02 SUMMARY): if the
+            # store-time Pillow RGBA re-encode turns out not to be
+            # byte-for-byte lossless against illustration_normalize's own
+            # re-encode of the untouched vendored file, fall back to a
+            # weaker-but-still-meaningful equivalence check rather than
+            # silently accepting inequality.
+            if not override_body.startswith(PNG_SIGNATURE):
+                return False, "expected the override render to start with the PNG signature even on the fallback path"
+            if override_body == pre_body:
+                return False, "expected the override render to differ from the pre-upload render"
+            if len(override_body) != len(vueling_body):
+                return False, (
+                    "fallback check failed too: override render length %d != vueling render "
+                    "length %d (byte-for-byte equality did not hold)"
+                    % (len(override_body), len(vueling_body)))
+            return True, ""
+        check(
+            "the overridden air-france render and the vueling-airlines render (the same source "
+            "image) come out of the identical illustration_normalize pipeline (D-03)",
+            _illustration_override_uses_same_normalization_pipeline)
+
+        def _illustration_override_written_to_expected_path_only():
+            override_path = harness.state_path("illustration_overrides", "air-france.png")
+            if not os.path.isfile(override_path):
+                return False, "expected an override file at %r" % override_path
+            override_dir = harness.state_path("illustration_overrides")
+            entries = sorted(os.listdir(override_dir))
+            if entries != ["air-france.png"]:
+                return False, (
+                    "expected exactly one file (air-france.png) in the override directory, got %r"
+                    % entries)
+            return True, ""
+        check(
+            "the upload was written to {state_dir}/illustration_overrides/air-france.png, and "
+            "nothing else was created in that directory",
+            _illustration_override_written_to_expected_path_only)
+
+        def _illustration_vendored_original_untouched_after_upload():
+            with open(_vendored_air_france_path, "rb") as fh:
+                post_hash = hashlib.sha256(fh.read()).hexdigest()
+            if post_hash != _pre_upload_vendored_hash:
+                return False, "the vendored air-france.png file's bytes changed after an upload"
+            post_stat = os.stat(_vendored_air_france_path)
+            if post_stat.st_size != _pre_upload_vendored_stat.st_size:
+                return False, "the vendored air-france.png file's size changed after an upload"
+            if post_stat.st_mtime_ns != _pre_upload_vendored_stat.st_mtime_ns:
+                return False, "the vendored air-france.png file's mtime changed after an upload"
+            return True, ""
+        check(
+            "the vendored server/assets/icons/illustrations/air-france.png file is provably "
+            "byte-identical (hash, size, and mtime) after a successful upload",
+            _illustration_vendored_original_untouched_after_upload)
+
+        def _illustration_override_reaches_select_illustration():
+            # The panel-side effect (plan 01's whole point), asserted
+            # against the exact override file the real HTTP route above
+            # just wrote — never a hand-placed fixture.
+            from server.plane import illustrations as server_illustrations
+            override_result = server_illustrations.select_illustration(
+                {"airline_name": "Air France"}, state_dir=harness.tmpdir)
+            vendored_result = server_illustrations.select_illustration(
+                {"airline_name": "Air France"})
+            expected_override_path = harness.state_path("illustration_overrides", "air-france.png")
+            if override_result != expected_override_path:
+                return False, (
+                    "expected select_illustration(..., state_dir=harness.tmpdir) to return %r, got %r"
+                    % (expected_override_path, override_result))
+            if vendored_result != _vendored_air_france_path:
+                return False, (
+                    "expected select_illustration() with no state_dir to still return the "
+                    "vendored path, got %r" % (vendored_result,))
+            return True, ""
+        check(
+            "select_illustration() given the harness's own state_dir resolves Air France to the "
+            "override the real route just wrote; with no state_dir it still resolves to the "
+            "vendored file",
+            _illustration_override_reaches_select_illustration)
+
+        def _illustration_non_image_upload_is_rejected():
+            body, content_type = _encode_multipart(
+                b"not a real image, just some text bytes", filename="fake.png")
+            status, headers, _resp_body = http_request(
+                base + "/illustration/easyjet.png", method="POST", data=body,
+                cookie=session_cookie, content_type=content_type)
+            if status != 303:
+                return False, "expected a 303 redirect for a non-image upload, got %d" % status
+            location = headers.get("Location", "")
+            if ("flash=%s" % app_module.FLASH_KEY_ILLUSTRATION_REJECTED) not in location:
+                return False, "expected the rejection flash key in the redirect, got %r" % location
+            override_path = harness.state_path("illustration_overrides", "easyjet.png")
+            if os.path.exists(override_path):
+                return False, "expected no override file to be written for a rejected non-image upload"
+            return True, ""
+        check(
+            "POSTing a non-image payload is rejected with the rejection flash key and writes "
+            "no override file",
+            _illustration_non_image_upload_is_rejected)
+
+        def _illustration_oversized_upload_is_rejected_and_connection_stays_healthy():
+            oversized_payload = b"\x00" * (app_module.MAX_ILLUSTRATION_UPLOAD_BYTES + 4096)
+            body, content_type = _encode_multipart(oversized_payload, filename="huge.png")
+            status, headers, _resp_body = http_request(
+                base + "/illustration/corsair.png", method="POST", data=body,
+                cookie=session_cookie, content_type=content_type)
+            if status != 303:
+                return False, "expected a 303 redirect for an oversized upload, got %d" % status
+            location = headers.get("Location", "")
+            if ("flash=%s" % app_module.FLASH_KEY_ILLUSTRATION_REJECTED) not in location:
+                return False, "expected the rejection flash key in the redirect, got %r" % location
+            override_path = harness.state_path("illustration_overrides", "corsair.png")
+            if os.path.exists(override_path):
+                return False, "expected no override file to be written for a rejected oversized upload"
+            # A fresh, ordinary authenticated GET on a new connection proves
+            # the over-cap drain (T-v26-02-03) left the service healthy.
+            health_status, _headers2, _body2 = http_request(base + "/health", cookie=session_cookie)
+            if health_status != 200:
+                return False, (
+                    "expected a fresh authenticated GET after the oversized-upload drain to "
+                    "still return 200, got %d" % health_status)
+            return True, ""
+        check(
+            "POSTing a body over MAX_ILLUSTRATION_UPLOAD_BYTES is rejected, writes no override "
+            "file, and the drain leaves the service healthy for the next request",
+            _illustration_oversized_upload_is_rejected_and_connection_stays_healthy)
+
+        def _illustration_post_unknown_and_traversal_keys_returns_404():
+            small_body, small_content_type = _encode_multipart(
+                b"irrelevant - membership test runs before the body is read", filename="x.png")
+            override_dir = harness.state_path("illustration_overrides")
+            before_entries = sorted(os.listdir(override_dir))
+            adversarial_paths = [
+                "/illustration/not-a-real-airline.png",
+                "/illustration/..%2F..%2Fetc%2Fpasswd.png",
+                "/illustration/../../../etc/passwd.png",
+                "/illustration/style.png",
+            ]
+            for adversarial_path in adversarial_paths:
+                status, _headers, _body = http_request(
+                    base + adversarial_path, method="POST", data=small_body,
+                    cookie=session_cookie, content_type=small_content_type)
+                if status != 404:
+                    return False, "expected 404 for POST %r, got %d" % (adversarial_path, status)
+            after_entries = sorted(os.listdir(override_dir))
+            if after_entries != before_entries:
+                return False, (
+                    "expected the override directory to gain nothing from rejected POSTs, "
+                    "before=%r after=%r" % (before_entries, after_entries))
+            return True, ""
+        check(
+            "POSTing a valid payload to a key outside the membership set, and to three "
+            "traversal-shaped paths, all 404 and write nothing to the override directory",
+            _illustration_post_unknown_and_traversal_keys_returns_404)
+
+        def _illustration_unauthenticated_post_redirects_to_login_and_writes_nothing():
+            body, content_type = _encode_multipart(
+                b"irrelevant - require_session() runs before anything else", filename="x.png")
+            status, headers, _resp_body = http_request(
+                base + "/illustration/tunisair.png", method="POST", data=body, content_type=content_type)
+            if status != 303:
+                return False, "expected a 303 redirect for an unauthenticated POST, got %d" % status
+            location = headers.get("Location", "")
+            if "/login" not in location:
+                return False, "expected a redirect to /login, got %r" % location
+            override_path = harness.state_path("illustration_overrides", "tunisair.png")
+            if os.path.exists(override_path):
+                return False, "expected no override file to be written for an unauthenticated POST"
+            return True, ""
+        check(
+            "an unauthenticated POST /illustration/tunisair.png redirects to /login and writes "
+            "no override file",
+            _illustration_unauthenticated_post_redirects_to_login_and_writes_nothing)
 
         # --- poll-trigger cooldown: server-global, not per-session ---
 

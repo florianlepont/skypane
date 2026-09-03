@@ -591,7 +591,96 @@ def generic_fallback_path():
     return os.path.join(ILLUSTRATION_DIR, GENERIC_FALLBACK_FILENAME)
 
 
-def select_illustration(route, aircraft_type=None):
+# --- Override resolution (D-01/D-02, quick task 260902-v26) -----------------
+#
+# An uploaded replacement illustration must survive a redeploy, so it cannot
+# live inside the git-tracked ILLUSTRATION_DIR above: `deploy/deploy.sh`
+# rsyncs `server/` with `--delete` and excludes only `state`
+# (`server/state/.gitignore` is `*` + `!.gitignore` - fully gitignored).
+# `ILLUSTRATION_OVERRIDE_DIRNAME` is therefore a per-state-dir convention -
+# an override lives at `{state_dir}/illustration_overrides/{key}.png`, never
+# inside ILLUSTRATION_DIR - so it survives the exact deploy path that would
+# silently delete anything dropped straight into the vendored tree.
+ILLUSTRATION_OVERRIDE_DIRNAME = "illustration_overrides"
+
+# Process-scoped default state dir. `None` means "no override location
+# configured" - every resolver below then behaves exactly as it did before
+# this section existed. Set once per process via set_override_state_dir().
+_override_state_dir = None
+
+
+def set_override_state_dir(state_dir):
+    """Set the process-wide default state dir the resolver functions below
+    fall back to when called without an explicit `state_dir=` argument.
+
+    Exists because `select_illustration()` is called from deep inside
+    `render._build_active_canvas()`, a call chain that deliberately carries
+    no filesystem-location awareness (`state_dir` appears nowhere in
+    render.py). The alternative - threading a state_dir through
+    `render.build_canvas()`, `render.render_panel()`,
+    `render._build_active_canvas()`, and poll_loop's five `build_canvas()`
+    call sites - would push a deployment concern through three public
+    render signatures, and would silently invalidate
+    `server/test_render.py`'s existing two-argument `select_illustration`
+    monkeypatch lambdas (`lambda route, aircraft_type=None: ...`).
+
+    The process default is set once per process by the entrypoint that
+    already parses `--state-dir` (`poll_loop.run_once()`); the explicit
+    `state_dir=` parameter every resolver function below accepts stays the
+    primary, directly testable contract - this setter only exists for
+    callers, like the render call chain, that have no way to pass one
+    directly. Passing `None` restores the vendored-only behaviour.
+    """
+    global _override_state_dir
+    _override_state_dir = state_dir
+
+
+def override_dir_for_state_dir(state_dir=None):
+    """Return `{effective state dir}/ILLUSTRATION_OVERRIDE_DIRNAME`, or
+    `None` when there is no effective state dir - neither `state_dir` nor
+    the process default set via `set_override_state_dir()` is set. The
+    effective state dir is `state_dir` when given, else the process
+    default. Never creates the directory - this module is read-only with
+    respect to overrides.
+    """
+    effective = state_dir if state_dir is not None else _override_state_dir
+    if not effective:
+        return None
+    return os.path.join(effective, ILLUSTRATION_OVERRIDE_DIRNAME)
+
+
+def override_path_for_key(key, state_dir=None):
+    """Join the override dir (see `override_dir_for_state_dir()`) and
+    `key + ".png"`. Returns `None` for a falsy key, for a key matching
+    `_UNSAFE_KEY_RE`, or when there is no effective override dir - this is
+    the boundary itself, exactly like `illustration_path_for_key()`'s is,
+    and must not rely on the caller having already validated the key
+    (T-v26-01-01).
+    """
+    if not key or _UNSAFE_KEY_RE.search(key):
+        return None
+    override_dir = override_dir_for_state_dir(state_dir)
+    if not override_dir:
+        return None
+    return os.path.join(override_dir, key + ".png")
+
+
+def resolved_illustration_path(key, state_dir=None):
+    """The single seam every tier of `select_illustration()` goes through:
+    return the override path for `key` when it exists as a real file, else
+    the vendored `illustration_path_for_key(key)` path when THAT exists as
+    a real file, else `None`. Never raises.
+    """
+    override_path = override_path_for_key(key, state_dir)
+    if override_path is not None and os.path.isfile(override_path):
+        return override_path
+    vendored_path = illustration_path_for_key(key)
+    if vendored_path is not None and os.path.isfile(vendored_path):
+        return vendored_path
+    return None
+
+
+def select_illustration(route, aircraft_type=None, state_dir=None):
     """Return the illustration path for `route` (a route dict, or `None`)
     and `aircraft_type` (a raw ICAO type designator string, or `None`),
     resolved through four fallback tiers, or `None` if not even the
@@ -616,6 +705,15 @@ def select_illustration(route, aircraft_type=None):
     Tier 4 (D-08): `generic-fallback.png` - the existing universal
         fallback, unchanged from Phase 3, used when neither the airline
         nor the shape resolves to anything on disk.
+
+    `state_dir` (D-01/D-02, quick task 260902-v26): optional. When given
+    (or when `set_override_state_dir()` has set a process default), each
+    tier above consults `{state_dir}/illustration_overrides/{key}.png`
+    first and the vendored file second, via `resolved_illustration_path()`.
+    Tier PRECEDENCE is unchanged - an override only ever replaces the
+    source of the tier whose own key it matches; it can never let a lower
+    tier win over a higher one. With no `state_dir` and no process default,
+    every tier resolves exactly as it did before this parameter existed.
     """
     try:
         airline_name = route.get("airline_name") if isinstance(route, dict) else None
@@ -627,29 +725,35 @@ def select_illustration(route, aircraft_type=None):
 
     # Tier 1: exact airline + shape match.
     if airline_key and shape_key:
-        exact = illustration_path_for_key("%s-%s" % (airline_key, shape_key))
-        if exact is not None and os.path.isfile(exact):
+        exact = resolved_illustration_path("%s-%s" % (airline_key, shape_key), state_dir)
+        if exact is not None:
             return exact
 
     # Tier 2 (D-06): known airline, no exact-shape file - brand wins over
     # type precision; still show that airline's own default illustration.
     if airline_key:
-        primary = illustration_path_for_key(airline_key)
-        if primary is not None and os.path.isfile(primary):
+        primary = resolved_illustration_path(airline_key, state_dir)
+        if primary is not None:
             return primary
 
     # Tier 3 (D-07): unrecognized airline, but a recognized+covered shape
     # - show the neutral correct-shape illustration instead of jumping
     # straight to the single universal generic.
     if shape_key:
-        neutral = illustration_path_for_key("generic-%s" % shape_key)
-        if neutral is not None and os.path.isfile(neutral):
+        neutral = resolved_illustration_path("generic-%s" % shape_key, state_dir)
+        if neutral is not None:
             return neutral
 
     # Tier 4 (D-08): neither airline nor shape resolves to anything on
-    # disk - the existing single universal fallback, unchanged.
-    fallback = generic_fallback_path()
-    if os.path.isfile(fallback):
+    # disk - the existing single universal fallback, unchanged. The key is
+    # derived from GENERIC_FALLBACK_FILENAME rather than a second hardcoded
+    # literal, so resolved_illustration_path() reduces to
+    # generic_fallback_path()'s exact vendored path when no override exists.
+    fallback_key = GENERIC_FALLBACK_FILENAME
+    if fallback_key.endswith(".png"):
+        fallback_key = fallback_key[: -len(".png")]
+    fallback = resolved_illustration_path(fallback_key, state_dir)
+    if fallback is not None:
         return fallback
     return None
 
