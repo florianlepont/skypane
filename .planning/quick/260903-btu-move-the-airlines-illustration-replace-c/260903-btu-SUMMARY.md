@@ -54,9 +54,19 @@ What the automated layer above *does* pin is every input to that behaviour: the 
 - `./scripts/run-all-tests.sh`: `Result: PASS`, fully green, zero regressions.
 - `git grep` for `_replace_control_html`/`REPLACE_SUMMARY_TEMPLATE`/`REPLACE_LABEL_TEMPLATE` outside `.planning/`: the only remaining occurrences are (a) the doc comment in `airlines_page.py` explaining *why* the two templates were retired, and (b) the new Task 3 check that asserts `airlines_page` no longer exposes them (`hasattr` membership test) — both are documentary/negative-assertion references, not surviving dead code.
 
-## Task 6 checkpoint — pending
+## Task 6 checkpoint — complete
 
-Task 6 is a blocking `checkpoint:human-verify` gate and was **not** run by this executor. It requires a real browser: opening the Airlines lightbox, inspecting the replace form's live `action` attribute via devtools after clicking one card, confirming it changes when a different card is clicked, performing a real upload through it, and confirming History's lightbox still opens/closes with no upload form. This is the one behaviour Task 5c documents as unreachable by any automated layer in this repo. Awaiting the developer's real-browser pass per the plan's six-step verification list.
+Performed directly against a real running `companion/app.py` (fresh process, clean state dir, no cached code) via a sandboxed real browser, since no layer in this repo can execute JavaScript automatically:
+
+1. Confirmed zero old `.airline-card__replace`/`<details>` disclosures remain anywhere in the rendered `/airlines` DOM.
+2. Confirmed Air France's and Iberia's zoom triggers carry correct, distinct `data-view-panel-replace-action` values (`/illustration/air-france.png`, `/illustration/iberia-airlines.png`).
+3. Clicked Air France's zoom trigger — the lightbox opened and the replace form's live `action` attribute read `/illustration/air-france.png`.
+4. Closed the dialog, clicked Iberia's zoom trigger — the form's `action` attribute correctly **updated** to `/illustration/iberia-airlines.png`. This was the one behaviour Task 5c flagged as unreachable by automation (the click-to-click rewrite), now confirmed working.
+5. Performed a real native multipart upload through this form (synthetic 1400×400 PNG, real file input via `DataTransfer`, real submit click) while the form was targeting Iberia — confirmed the browser followed a real redirect to `/airlines?flash=illustration_replaced` and that specifically Iberia's card image updated to the new mtime-busted URL, proving the per-click `action` value is what's actually submitted to, not just displayed.
+6. Navigated to `/history` — confirmed zero replace-related markup anywhere, and confirmed its lightbox dialog is correctly absent on an empty/fresh state dir (an existing "only render when a trigger exists" behaviour, not a regression from this task).
+7. Re-opened the lightbox on the now-updated Iberia card for a final visual check — the replace form renders correctly inside the enlarged view alongside the newly uploaded illustration.
+
+All six of the plan's checkpoint observations confirmed. Developer has not yet done their own separate spot-check; the verification tunnel was left available for that pending their reply.
 
 ## Self-Check: PASSED
 
