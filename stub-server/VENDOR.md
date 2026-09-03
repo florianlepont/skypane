@@ -125,6 +125,56 @@ names, response shapes, telemetry printing) is untouched:
    No other endpoint, response field, status code, or telemetry print
    statement was touched by this change.
 
+5. **Added a quiet-hours-aware `sleep_s` extension** (Phase 10, D-01).
+   Upstream's `GET /device/v1/display` response always returns the raw
+   `--sleep` CLI value as `sleep_s`. This repository now computes that
+   field via `quiet_hours_sleep_s(self.args.sleep, self.args.state_dir)`:
+   a poll landing inside an enabled quiet-hours window gets an extended
+   `sleep_s` that spans past the window's local end time, so the device
+   deep-sleeps through the whole window instead of waking, connecting,
+   and polling during it - this is the entire battery win, and requires
+   zero firmware change because `sleep_s` is already a fully
+   server-controlled, per-response value the firmware consumes as-is.
+   Outside a window, or on any config failure, `sleep_s` is exactly the
+   unchanged base `--sleep` value.
+
+   Concretely: this repository adds `read_quiet_hours(state_dir)`
+   (mirrors `read_led_enabled()`'s shape and never-raises contract - a
+   read-only, fail-open lookup of the same shared `device_config.json`
+   `read_led_enabled()` already reads; every failure mode - missing or
+   unreadable file, malformed JSON, a non-dict document,
+   `quiet_hours_enabled` not literally `True`, or either time string
+   failing the `_HHMM_RE` shape gate - degrades to `None`, i.e. the
+   pre-existing unmodified `sleep_s` behaviour) and
+   `quiet_hours_sleep_s(base_sleep_s, state_dir, now=None)` (returns
+   `base_sleep_s` unchanged when no window is active, otherwise
+   `max(base_sleep_s, remaining)` - never shorter than the base value,
+   per D-01's Claude's-Discretion resolution).
+
+   `seconds_until_quiet_hours_end()` - the window-end arithmetic
+   `quiet_hours_sleep_s()` calls - is a deliberate byte-for-byte
+   DUPLICATE of `server/device_config.py`'s function of the same name
+   (landed by plan 10-01), kept duplicated rather than imported because
+   this file must never import a `server.*` project module: there is no
+   `sys.path` bootstrap here to make such an import even resolve, it
+   would break this file's own "Stdlib only" docstring claim, and it
+   would blur the vendor-provenance boundary this document exists to
+   track - the same reasoning that already kept local modifications 1-4
+   free of any project-package import. The two copies (the function body
+   and the `_HHMM_RE` pattern) are pinned byte-for-byte equal by an
+   automated drift guard in `stub-server/test_poll_cycle.py`, which reads
+   both `server/device_config.py` and this file as plain text (never by
+   importing `server.device_config`) and fails with a diff-style message
+   naming both files if they diverge. `re`, `datetime`, and `zoneinfo`
+   (added to this file's import block for this change) are all Python
+   standard library - `zoneinfo` since 3.9 - so the "Stdlib only"
+   contract stays intact.
+
+   `quiet_hours_sleep_s()` runs inside the `do_GET` `/device/v1/display`
+   branch, after the pre-existing `bearer_ok()` gate, so no new
+   unauthenticated surface is added. No other endpoint, response field,
+   status code, or telemetry print statement was touched by this change.
+
 **Everything else is verbatim**, including: the three endpoint
 implementations (`POST /device/v1/setup`, `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`), the `--image`/`--port`/`--secret`/
@@ -162,8 +212,9 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply all **four** local modifications (`--state-dir`,
+recorded here, re-apply all **five** local modifications (`--state-dir`,
 `--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
-and this LED read), update the pinned commit hash above, and re-run
-`stub-server/test_poll_cycle.py` to confirm the contract — including both
-scheme checks — still holds.
+the LED read, and the quiet-hours `sleep_s` extension), update the pinned
+commit hash above, and re-run `stub-server/test_poll_cycle.py` to confirm
+the contract — including both scheme checks and the quiet-hours drift
+guard — still holds.

@@ -2,16 +2,25 @@
 """End-to-end poll-cycle contract harness for stub-server/byos_server.py.
 
 Stdlib-only (urllib.request, hashlib, json, subprocess, socket, time, os,
-sys, tempfile, shutil - nothing else). Generates a deterministic panel
-image with make_test_panel.py, launches byos_server.py as a subprocess
-on a free local port, and drives it through the full device-protocol
-contract documented in flightportrait/frame's docs/PROTOCOL.md at the
-pinned commit ce3335fc5e566bcc6ccd29966ec39bf5c5318f12 (sections 1, 2,
-3 and 5): setup, the bearer-token auth gate, the display-response
-shape, download + SHA-256 + exact-size verification, the hash-skip
+sys, tempfile, shutil, importlib.util, datetime, zoneinfo - nothing
+else). Generates a deterministic panel image with make_test_panel.py,
+launches byos_server.py as a subprocess on a free local port, and
+drives it through the full device-protocol contract documented in
+flightportrait/frame's docs/PROTOCOL.md at the pinned commit
+ce3335fc5e566bcc6ccd29966ec39bf5c5318f12 (sections 1, 2, 3 and 5):
+setup, the bearer-token auth gate, the display-response shape,
+download + SHA-256 + exact-size verification, the hash-skip
 optimisation, a served-image change, telemetry header echoing, the log
-endpoint, two hand-built malformed-response rejections, and connection
-failure classification when the server is down.
+endpoint, two hand-built malformed-response rejections, connection
+failure classification when the server is down, and (Phase 10, D-01)
+the quiet-hours-aware sleep_s extension: a drift guard pinning
+byos_server.py's vendored seconds_until_quiet_hours_end()/_HHMM_RE
+byte-for-byte equal to server/device_config.py's, unit coverage of
+read_quiet_hours()/quiet_hours_sleep_s() loaded directly via
+importlib.util (byos_server.py's module level is import-safe - constants
+and defs only, with main() behind an `if __name__ == "__main__"` guard),
+and integration coverage of the sleep_s extension and its fail-open
+contract over real HTTP.
 
 Exits 0 only when every check below passes; any failure (or exception -
 none is ever swallowed into a pass) exits 1.
@@ -20,6 +29,7 @@ Usage:
     python3 stub-server/test_poll_cycle.py
 """
 import hashlib
+import importlib.util
 import json
 import os
 import shutil
@@ -31,13 +41,17 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(HERE)
 SERVER_PATH = os.path.join(HERE, "byos_server.py")
 MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
+DEVICE_CONFIG_MODULE_PATH = os.path.join(REPO_ROOT, "server", "device_config.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 23
+EXPECTED_CHECK_COUNT = 29
 
 
 def verify_panel_bytes(buf, expected_hash):
@@ -112,6 +126,55 @@ def http_request(url, method="GET", headers=None, json_body=None, timeout=10):
             return resp.status, dict(resp.headers), resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, dict(exc.headers or {}), exc.read()
+
+
+def load_byos_module():
+    """Load byos_server.py directly via importlib.util so its pure
+    functions (read_quiet_hours(), quiet_hours_sleep_s(),
+    seconds_until_quiet_hours_end()) can be unit-checked without going
+    through HTTP. Safe because the module's top level is constants and
+    defs only - main() sits behind an `if __name__ == "__main__"` guard.
+    """
+    spec = importlib.util.spec_from_file_location("byos_server_under_test", SERVER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _extract_def_block(source_text, def_line_prefix):
+    """Return the line starting with `def_line_prefix` plus every
+    following line, up to (but not including) the first subsequent
+    non-blank line that starts at column 0 - i.e. the whole body of the
+    named top-level def, including its docstring. Returns None if
+    `def_line_prefix` is never found.
+    """
+    lines = source_text.splitlines(keepends=True)
+    start = None
+    for i, line in enumerate(lines):
+        if line.startswith(def_line_prefix):
+            start = i
+            break
+    if start is None:
+        return None
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        line = lines[i]
+        if line.strip() == "":
+            continue
+        if not line[0].isspace():
+            end = i
+            break
+    return "".join(lines[start:end])
+
+
+def _extract_line(source_text, line_prefix):
+    """Return the first line in `source_text` starting with
+    `line_prefix`, or None if not found.
+    """
+    for line in source_text.splitlines():
+        if line.startswith(line_prefix):
+            return line
+    return None
 
 
 class Harness:
@@ -233,6 +296,141 @@ def main():
                 return 1
 
         ctx = {}
+        ctx["byos_module"] = load_byos_module()
+
+        # --- Task 2 (Phase 10, D-01): quiet-hours-aware sleep_s extension ---
+
+        # A. Drift guard (10-RESEARCH.md Pitfall 1): byos_server.py's
+        # vendored seconds_until_quiet_hours_end() and _HHMM_RE must stay
+        # byte-for-byte identical to server/device_config.py's. Both
+        # files are read as plain text - never imported - so this guard
+        # cannot itself breach the boundary it protects.
+        def _quiet_hours_drift_guard():
+            try:
+                with open(DEVICE_CONFIG_MODULE_PATH) as fh:
+                    origin_text = fh.read()
+            except OSError as exc:
+                return False, "could not read %s: %r" % (DEVICE_CONFIG_MODULE_PATH, exc)
+            with open(SERVER_PATH) as fh:
+                vendored_text = fh.read()
+
+            origin_fn = _extract_def_block(origin_text, "def seconds_until_quiet_hours_end(")
+            vendored_fn = _extract_def_block(vendored_text, "def seconds_until_quiet_hours_end(")
+            if origin_fn is None:
+                return False, "could not locate seconds_until_quiet_hours_end() in server/device_config.py"
+            if vendored_fn is None:
+                return False, "could not locate seconds_until_quiet_hours_end() in stub-server/byos_server.py"
+            if origin_fn != vendored_fn:
+                return False, (
+                    "seconds_until_quiet_hours_end() has drifted between "
+                    "server/device_config.py and stub-server/byos_server.py - "
+                    "the two copies must stay byte-for-byte identical:\n"
+                    "--- server/device_config.py ---\n%s\n"
+                    "--- stub-server/byos_server.py ---\n%s" % (origin_fn, vendored_fn)
+                )
+
+            origin_re = _extract_line(origin_text, "_HHMM_RE = re.compile(")
+            vendored_re = _extract_line(vendored_text, "_HHMM_RE = re.compile(")
+            if origin_re is None or vendored_re is None:
+                return False, "could not locate '_HHMM_RE = re.compile(' in one of the two files"
+            if origin_re != vendored_re:
+                return False, (
+                    "_HHMM_RE has drifted between server/device_config.py and "
+                    "stub-server/byos_server.py:\n%r\nvs\n%r" % (origin_re, vendored_re)
+                )
+            return True, ""
+        check(
+            "seconds_until_quiet_hours_end() and _HHMM_RE are byte-for-byte identical between "
+            "server/device_config.py and stub-server/byos_server.py",
+            _quiet_hours_drift_guard,
+        )
+
+        # B. Unit, fail-open: read_quiet_hours() returns None for every
+        # failure mode, never raises.
+        def _quiet_hours_fail_open_never_raises():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-qh-failopen-")
+            try:
+                if module.read_quiet_hours(tmpdir) is not None:
+                    return False, "expected None for a missing device_config.json"
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                cases = [
+                    ("{truncated", "truncated JSON"),
+                    ('["not", "a", "dict"]', "a non-dict (list) document"),
+                    (json.dumps({"quiet_hours_enabled": False, "quiet_hours_start": "23:00",
+                                 "quiet_hours_end": "07:00"}), "quiet_hours_enabled: false"),
+                    (json.dumps({"quiet_hours_enabled": "yes", "quiet_hours_start": "23:00",
+                                 "quiet_hours_end": "07:00"}), 'quiet_hours_enabled: "yes"'),
+                    (json.dumps({"quiet_hours_enabled": True, "quiet_hours_start": "25:99",
+                                 "quiet_hours_end": "07:00"}), 'quiet_hours_start: "25:99"'),
+                    (json.dumps({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                                 "quiet_hours_end": 7}), "quiet_hours_end: 7 (non-string)"),
+                ]
+                for raw, label in cases:
+                    with open(cfg_path, "w") as fh:
+                        fh.write(raw)
+                    result = module.read_quiet_hours(tmpdir)
+                    if result is not None:
+                        return False, "expected None for %s, got %r" % (label, result)
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "read_quiet_hours() returns None and never raises for a missing, truncated, non-dict, "
+            "disabled, or badly-shaped device_config.json",
+            _quiet_hours_fail_open_never_raises,
+        )
+
+        # C. Unit, sleep extension: quiet_hours_sleep_s() extends the base
+        # sleep inside the window and returns it unchanged past the end.
+        def _quiet_hours_sleep_extension():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-qh-extend-")
+            try:
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                with open(cfg_path, "w") as fh:
+                    json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                               "quiet_hours_end": "07:00"}, fh)
+                inside = module.quiet_hours_sleep_s(
+                    300, tmpdir, now=datetime.fromtimestamp(1700000000.0, timezone.utc))
+                if inside != 28000:
+                    return False, "expected 28000 inside the window, got %r" % (inside,)
+                past_end = module.quiet_hours_sleep_s(
+                    300, tmpdir, now=datetime.fromtimestamp(1700028800.0, timezone.utc))
+                if past_end != 300:
+                    return False, "expected 300 past the window's end, got %r" % (past_end,)
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "quiet_hours_sleep_s() returns 28000 inside an enabled 23:00-07:00 window and the "
+            "unchanged base 300 once the window has ended",
+            _quiet_hours_sleep_extension,
+        )
+
+        # D. Unit, never shorter than the base (D-01's Claude's-Discretion
+        # edge case): a base sleep already past the window's end wins.
+        def _quiet_hours_never_shorter_than_base():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-qh-neverbelow-")
+            try:
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                with open(cfg_path, "w") as fh:
+                    json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                               "quiet_hours_end": "07:00"}, fh)
+                result = module.quiet_hours_sleep_s(
+                    86400, tmpdir, now=datetime.fromtimestamp(1700000000.0, timezone.utc))
+                if result != 86400:
+                    return False, "expected max(86400, 28000) == 86400, got %r" % (result,)
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "quiet_hours_sleep_s() never returns less than the base sleep, even when the base "
+            "already carries the device past the window's end",
+            _quiet_hours_never_shorter_than_base,
+        )
+
         harness.generate_panel("palette")
         harness.start_server(sleep_s=300)
 
@@ -694,7 +892,68 @@ def main():
             _led_enabled_malformed_json_falls_back_to_true,
         )
 
-        # 23. Failure classification: with the server stopped, a display poll
+        # E. Integration, over real HTTP: a device_config.json whose window
+        # is guaranteed active right now must extend sleep_s past the
+        # harness's own base --sleep value.
+        def _quiet_hours_integration_active_window_extends_sleep():
+            fixture_path = _device_config_fixture_path()
+            now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+            start_hm = (now_paris - timedelta(hours=1)).strftime("%H:%M")
+            end_hm = (now_paris + timedelta(hours=1)).strftime("%H:%M")
+            with open(fixture_path, "w") as fh:
+                json.dump({"quiet_hours_enabled": True, "quiet_hours_start": start_hm,
+                           "quiet_hours_end": end_hm}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"]})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if not validate_display_response(obj):
+                    return False, "response failed validate_display_response: %r" % (obj,)
+                sleep_s = obj.get("sleep_s")
+                if not (300 < sleep_s <= 7200):
+                    return False, "expected sleep_s in (300, 7200], got %r" % (sleep_s,)
+                return True, ""
+            finally:
+                if os.path.exists(fixture_path):
+                    os.remove(fixture_path)
+        check(
+            "a device_config.json with a currently-active quiet-hours window yields a 200 display "
+            "response whose sleep_s is strictly greater than the base --sleep (300) and no greater "
+            "than 7200",
+            _quiet_hours_integration_active_window_extends_sleep,
+        )
+
+        # F. Integration, hostile config: a corrupted quiet-hours document
+        # must never take down the always-on /display handler - sleep_s
+        # degrades to exactly the unchanged base value.
+        def _quiet_hours_hostile_config_fails_open():
+            fixture_path = _device_config_fixture_path()
+            with open(fixture_path, "w") as fh:
+                json.dump({"quiet_hours_enabled": True, "quiet_hours_start": "'; DROP",
+                           "quiet_hours_end": None}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"]})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if obj.get("sleep_s") != 300:
+                    return False, "expected sleep_s exactly 300 (fail-open), got %r" % (obj.get("sleep_s"),)
+                return True, ""
+            finally:
+                if os.path.exists(fixture_path):
+                    os.remove(fixture_path)
+        check(
+            "a hostile device_config.json (non-HH:MM quiet_hours_start, null quiet_hours_end) still "
+            "yields a 200 display response with sleep_s exactly equal to the base --sleep (300)",
+            _quiet_hours_hostile_config_fails_open,
+        )
+
+        # 25. Failure classification: with the server stopped, a display poll
         #     raises a connection error that the harness classifies as a
         #     failed wake rather than crashing.
         def _failure_classification():
