@@ -36,6 +36,8 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 # Allow both `import server.device_config` (package import) and direct
 # script execution, matching server/poll_loop.py's own bootstrap (lines
@@ -64,6 +66,12 @@ DEFAULT_QUIET_HOURS_END = "07:00"  # D-03: one daily recurring window, never per
 # input must never reach a parser call it could make raise, or a document
 # it could pollute, before its shape is checked).
 _HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
+
+# The device has exactly one fixed physical location (10-RESEARCH.md
+# Assumption A3), so the quiet-hours window's timezone is deliberately
+# hardcoded here, not a per-installation setting. `zoneinfo` is stdlib
+# since Python 3.9 and adds nothing to server/requirements.txt.
+QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")
 
 # --- Theme registry ----------------------------------------------------
 #
@@ -474,6 +482,105 @@ def save_device_config(
             except OSError:
                 pass
         raise
+
+
+# --- Quiet-hours window arithmetic --------------------------------------
+#
+# Genuinely new domain logic - no existing timezone-aware or window/
+# schedule arithmetic exists anywhere else in the codebase
+# (server/history_db.py is UTC-only). See 10-RESEARCH.md Pattern 2 and
+# 10-PATTERNS.md's "New DST-safe window-arithmetic helper" section for the
+# reference implementation this is adapted from, with exactly two
+# mandatory deviations documented in seconds_until_quiet_hours_end()'s own
+# docstring below.
+
+
+def seconds_until_quiet_hours_end(now_utc, start_hm, end_hm):
+    """Return the whole seconds remaining until the daily [start_hm, end_hm)
+    Europe/Paris wall-clock window's end time, or `None` when `now_utc`
+    falls outside the window. The window wraps midnight whenever
+    `end_hm <= start_hm` (e.g. "23:00"/"07:00"); when `start_hm == end_hm`
+    the window is zero-width and this always returns `None` for every
+    instant - a zero-width window is never active, and that is intentional
+    rather than a bug to "fix" into an always-active window.
+
+    Parameter contract - this function is the arithmetic core only and
+    performs no validation of its own, because stub-server/byos_server.py
+    (plan 10-03) duplicates it byte-for-byte across the vendor boundary and
+    every byte it carries has to be reproducible there:
+      - `now_utc` MUST be a timezone-aware datetime.
+      - `start_hm`/`end_hm` MUST already have passed `_HHMM_RE`.
+
+    Two mandatory deviations from 10-PATTERNS.md's reference body, both
+    load-bearing - do not "restore" the reference version:
+
+    (a) The final return subtracts in UTC, not in local time:
+    `end_dt.astimezone(timezone.utc) - now_utc`, NOT `end_dt - local_now`.
+    This is a correctness fix, verified numerically during planning:
+    `end_dt` and `local_now` share the same `tzinfo` object, and Python's
+    documented rule for subtracting two aware datetimes with the same
+    `tzinfo` is to ignore the zone and subtract the wall-clock numerals -
+    so the reference body's naive numeral difference is wrong by exactly
+    one hour across a Europe/Paris DST transition. Converting `end_dt` to
+    UTC first restores the true-elapsed-duration property.
+
+    (b) Accepted caveat (10-RESEARCH.md Pitfall 2), not engineered around: a
+    window boundary configured inside the 02:00-03:00 transition hour on
+    the last Sunday of March or October resolves via PEP 495's default
+    `fold=0` semantics and can be up to an hour off for that one instant.
+    No `fold=1` override is added - D-01's "never shorter than the base
+    sleep" rule bounds the worst case to one extra or one missing wake,
+    twice a year, only for a boundary configured inside that specific hour.
+    """
+    local_now = now_utc.astimezone(QUIET_HOURS_TZ)
+    start_h, start_m = (int(x) for x in start_hm.split(":"))
+    end_h, end_m = (int(x) for x in end_hm.split(":"))
+    start_today = local_now.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+    end_today = local_now.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
+    if (start_h, start_m) <= (end_h, end_m):
+        if not (start_today <= local_now < end_today):
+            return None
+        end_dt = end_today
+    else:
+        if local_now >= start_today:
+            end_dt = end_today + timedelta(days=1)
+        elif local_now < end_today:
+            end_dt = end_today
+        else:
+            return None
+    return max(0, int((end_dt.astimezone(timezone.utc) - now_utc).total_seconds()))
+
+
+def quiet_hours_status(config, now_epoch):
+    """Convenience wrapper server/poll_loop.py calls (plan 10-04) -
+    deliberately NOT part of what stub-server/byos_server.py duplicates.
+
+    `config` is a load_device_config() return dict; `now_epoch` is epoch
+    seconds as a float (so poll_loop.py can pass its existing now_s() seam
+    straight through). Returns `(seconds_remaining, end_hm)`, or
+    `(None, None)` when `config` is not a dict, `config.get(
+    "quiet_hours_enabled")` is not literally `True`, or
+    seconds_until_quiet_hours_end() returns `None`.
+
+    Both time strings are re-normalised through normalise_quiet_hours_time()
+    before use, so a caller passing a hand-built dict cannot slip an
+    unvalidated string into the arithmetic. Never raises, including for a
+    hostile `now_epoch` (non-numeric, None, NaN, or absurdly large) -
+    poll_loop.py calls this before it has rendered anything, and this
+    module's never-raise contract has to hold here too.
+    """
+    try:
+        if not isinstance(config, dict) or config.get("quiet_hours_enabled") is not True:
+            return None, None
+        start_hm = normalise_quiet_hours_time(config.get("quiet_hours_start"), DEFAULT_QUIET_HOURS_START)
+        end_hm = normalise_quiet_hours_time(config.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END)
+        now_utc = datetime.fromtimestamp(float(now_epoch), timezone.utc)
+        remaining = seconds_until_quiet_hours_end(now_utc, start_hm, end_hm)
+        if remaining is None:
+            return None, None
+        return remaining, end_hm
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None, None
 
 
 # --- Presentation accessors -------------------------------------------

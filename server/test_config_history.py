@@ -27,7 +27,10 @@ if REPO_ROOT not in sys.path:
 # 10-01: +5 (quiet-hours registry fields: hostile-defaults, save round-trip,
 # save-rejects-invalid-start, save-rejects-non-bool-enabled,
 # normalise_quiet_hours_time hostile-shape rejection)
-EXPECTED_CHECK_COUNT = 35
+# 10-01: +4 (DST-safe window arithmetic: wrap-midnight/DST anchors,
+# same-day/zero-width window, quiet_hours_status() enabled-gate + verified
+# value, quiet_hours_status() hostile now_epoch never-raise)
+EXPECTED_CHECK_COUNT = 39
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -608,6 +611,80 @@ def main():
     check(
         "normalise_quiet_hours_time() rejects an unpadded hour, an out-of-range minute, midnight-as-24:00, an empty string, None, an int, and a trailing newline - returning the supplied default for each",
         _normalise_quiet_hours_time_rejects_every_hostile_shape,
+    )
+
+    def _wrap_midnight_window_returns_verified_dst_values():
+        from datetime import datetime, timezone
+
+        cases = [
+            (1700000000.0, "23:00", "07:00", 28000),  # 2023-11-14T23:13:20+01:00 Paris
+            (1700028800.0, "23:00", "07:00", None),  # 07:13:20 Paris, just past end
+            (1774737000.0, "23:00", "07:00", 23400),  # spring-forward night
+            (1792877400.0, "23:00", "07:00", 30600),  # autumn fall-back night
+        ]
+        for epoch, start_hm, end_hm, expected in cases:
+            now_utc = datetime.fromtimestamp(epoch, timezone.utc)
+            got = device_config.seconds_until_quiet_hours_end(now_utc, start_hm, end_hm)
+            if got != expected:
+                return False, "seconds_until_quiet_hours_end(epoch=%r, %r, %r) returned %r, expected %r" % (
+                    epoch, start_hm, end_hm, got, expected,
+                )
+        return True, ""
+
+    check(
+        "seconds_until_quiet_hours_end() returns the verified wrap-midnight/DST anchors: 28000 mid-window, None just past end, 23400 across spring-forward (1h less than naive), 30600 across autumn fall-back (1h more than naive)",
+        _wrap_midnight_window_returns_verified_dst_values,
+    )
+
+    def _same_day_window_and_zero_width_window():
+        from datetime import datetime, timezone
+
+        # 2023-11-14 13:30/12:30 Paris (CET, UTC+1) for a same-day 13:00-14:00 window.
+        at_1330 = datetime(2023, 11, 14, 12, 30, 0, tzinfo=timezone.utc)
+        at_1230 = datetime(2023, 11, 14, 11, 30, 0, tzinfo=timezone.utc)
+        got_active = device_config.seconds_until_quiet_hours_end(at_1330, "13:00", "14:00")
+        if got_active != 1800:
+            return False, "same-day window at 13:30 Paris returned %r, expected 1800" % (got_active,)
+        got_inactive = device_config.seconds_until_quiet_hours_end(at_1230, "13:00", "14:00")
+        if got_inactive is not None:
+            return False, "same-day window at 12:30 Paris returned %r, expected None" % (got_inactive,)
+        got_zero_width = device_config.seconds_until_quiet_hours_end(at_1330, "13:00", "13:00")
+        if got_zero_width is not None:
+            return False, "start_hm == end_hm returned %r, expected None (a zero-width window is never active)" % (got_zero_width,)
+        return True, ""
+
+    check(
+        "seconds_until_quiet_hours_end() handles a same-day (non-wrapping) window correctly and returns None for a zero-width start_hm == end_hm window",
+        _same_day_window_and_zero_width_window,
+    )
+
+    def _quiet_hours_status_enabled_gate_and_verified_value():
+        base_config = {"quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}
+        got_disabled = device_config.quiet_hours_status(base_config, 1700000000.0)
+        if got_disabled != (None, None):
+            return False, "quiet_hours_status() with quiet_hours_enabled=False returned %r, expected (None, None)" % (got_disabled,)
+        enabled_config = dict(base_config, quiet_hours_enabled=True)
+        got_enabled = device_config.quiet_hours_status(enabled_config, 1700000000.0)
+        if got_enabled != (28000, "07:00"):
+            return False, "quiet_hours_status() for an enabled 23:00-07:00 config at epoch 1700000000.0 returned %r, expected (28000, '07:00')" % (got_enabled,)
+        return True, ""
+
+    check(
+        "quiet_hours_status() returns (None, None) when quiet_hours_enabled is False, and (28000, '07:00') for an enabled 23:00-07:00 config at the verified anchor epoch",
+        _quiet_hours_status_enabled_gate_and_verified_value,
+    )
+
+    def _quiet_hours_status_never_raises_for_hostile_now_epoch():
+        config = {"quiet_hours_enabled": True, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}
+        for hostile in ("nope", None, float("nan"), 1e30):
+            got = device_config.quiet_hours_status(config, hostile)
+            if got != (None, None):
+                return False, "quiet_hours_status(config, %r) returned %r, expected (None, None)" % (hostile, got)
+        return True, ""
+
+    check(
+        "quiet_hours_status() returns (None, None) and never raises for a non-numeric string, None, NaN, or an absurdly large now_epoch",
+        _quiet_hours_status_never_raises_for_hostile_now_epoch,
     )
 
     # --- history_db.py ------------------------------------------------------
