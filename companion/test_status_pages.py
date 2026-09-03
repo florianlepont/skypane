@@ -270,7 +270,10 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 133  # 130 + 3 (quick 260903-peo Task 2: UIR-14's
+EXPECTED_CHECK_COUNT = 134  # 133 + 1 (06.6.4.1.1-03 Task 1: the desktop-
+# padding/mobile-density pair guard for D-15's .page-section/.theme-status/
+# .battery-trend-section >= 960px padding override)
+# 133 = 130 + 3 (quick 260903-peo Task 2: UIR-14's
 # pipeline tile second-line checks — the seeded META_LAST_DETECTION render
 # and the absent-detection honest-fallback render — plus UIR-18's
 # persistent freshness-note structural-contract check; the pre-existing
@@ -4814,6 +4817,55 @@ def main():
         ".battery-trend-section's section-transition margin-bottom stays the larger, untouched "
         "var(--space-2xl) (260902-ep7 BUG 2)",
         _quick_260902_ep7_dashboard_grid_card_gap_two_role_split)
+
+    def _06_6_4_1_1_03_desktop_card_padding_mobile_density_pair():
+        # 06.6.4.1.1-03 Task 1 (D-15): pins BOTH halves of the desktop-
+        # padding/mobile-density pair as a set — a future "just harmonise
+        # the padding" edit that raises the base rules to --space-lg
+        # directly (deleting the mobile-density half) or that forgets to
+        # bump one of the three selectors inside the >= 960px override
+        # would each silently break one half with no other check
+        # noticing.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        selectors = (".page-section", ".theme-status", ".battery-trend-section")
+
+        # Base rules (below the breakpoint) must still declare the
+        # mobile-density value.
+        for selector in selectors:
+            needle = selector + " {"
+            if needle not in css_source:
+                return False, "expected style.css to declare %r" % (needle,)
+            start = css_source.index(needle)
+            body = css_source[start:css_source.index("}", start)]
+            if "padding: var(--space-md)" not in body:
+                return False, (
+                    "expected %r's base rule to still declare padding: var(--space-md) "
+                    "(the mobile-keeps-its-density half of D-15)" % (selector,))
+
+        # The >= 960px override must exist, cover all three selectors in
+        # one rule, and declare the desktop padding value.
+        media_at = css_source.index("@media (min-width: 960px) {")
+        media_close = css_source.index("\n}\n", media_at)
+        media_body = css_source[media_at:media_close]
+        override_pattern = (
+            r"\.page-section,\s*\.theme-status,\s*\.battery-trend-section\s*\{"
+            r"\s*padding:\s*var\(--space-lg\);"
+        )
+        if not re.search(override_pattern, media_body):
+            return False, (
+                "expected the @media (min-width: 960px) block to declare a single rule "
+                "covering .page-section, .theme-status and .battery-trend-section with "
+                "padding: var(--space-lg) (D-15's desktop half)")
+        return True, ""
+    check(
+        "the desktop-padding/mobile-density pair holds together: .page-section, .theme-status "
+        "and .battery-trend-section all still declare padding: var(--space-md) in their own base "
+        "rules, and one shared rule inside the @media (min-width: 960px) block raises all three "
+        "to padding: var(--space-lg) (06.6.4.1.1-03 D-15)",
+        _06_6_4_1_1_03_desktop_card_padding_mobile_density_pair)
 
     def _quick_260902_ep7_summary_accent_and_reservation_list():
         # quick task 260902-ep7 (BUG 3): pins both halves of the fix as

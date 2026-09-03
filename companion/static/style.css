@@ -2726,7 +2726,18 @@ summary::-webkit-details-marker {
  * discontinuity — the container DROPS as the sidebar appears);
  * 1280px -> 846px (matches the live measurement exactly); >= 1568px ->
  * 1278px (the 1440px max-width caps it). Real range: 293px to 1278px, a
- * 4.36x spread, non-monotonic in viewport width.
+ * 4.36x spread, non-monotonic in viewport width. (All figures above are
+ * as measured at quick task 260902-dng's own time, when this section's
+ * padding was `--space-md` (16px) at every width. 06.6.4.1.1-03 (D-15)
+ * later raised this section's own padding to `--space-lg` (24px) at
+ * >= 960px only, so the "34" subtracted above becomes 50 (24px x2 +
+ * the 1px border x2) for every >= 960px figure in this walkthrough —
+ * ~16px narrower than shown. The below-960px figures are unaffected:
+ * this section's padding there is still `--space-md`, still 34. Nothing
+ * about this recomputation changes the paragraph's own conclusion —
+ * width is still non-monotonic and still ranges over a multi-x spread —
+ * which is why the historical numbers above are left as originally
+ * measured rather than silently rewritten.)
  *
  * quick task 260902-dng's own fix bounded the scale at 1.0 (a fixed CSS
  * height equal to the SVG's own height attribute, capping
@@ -2794,11 +2805,16 @@ summary::-webkit-details-marker {
 
 /* Dashboard grid (D-02): shares the same auto-fit/minmax idiom as
  * .illustration-grid below (this file's responsive-grid idiom), with a
- * wider 240px floor. 06.6.1 promotes the gap (the horizontal/vertical GAP
+ * wider 240px floor. 06.6.1 promoted the gap (the horizontal/vertical GAP
  * between tiles inside one grid row) from lg (24px) to xl (32px) per
- * D-02/D-04's airier-layout direction. No breakpoint is needed for the
- * grid itself: it collapses to one column on narrow viewports on its
- * own.
+ * D-02/D-04's airier-layout direction — SUPERSEDED by 06.6.4.1.1-03
+ * (D-14, UIR-25): the 32px-in-grid gap and .page-section's own 24px
+ * stacked card-to-card gap (below) were two different values for the
+ * same "sibling card" relationship, an inconsistency, not a deliberate
+ * reading — collapsed back onto the one stacked value (`--space-lg`,
+ * 24px) so every sibling-card gap in the file agrees. No breakpoint is
+ * needed for the grid itself: it collapses to one column on narrow
+ * viewports on its own.
  *
  * quick task 260902-ep7 (BUG 2): `margin-bottom` is a DIFFERENT thing
  * from the `gap` above — it is the space AFTER this whole grid, before
@@ -2845,7 +2861,7 @@ summary::-webkit-details-marker {
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-xl);
+  gap: var(--space-lg);
   margin-bottom: var(--space-lg);
   /* 06.6.3 (UXA-06) deliberately set this row's cross-axis alignment so
    * unequal-height tiles would NOT stretch to the tallest sibling —
@@ -3674,6 +3690,61 @@ summary::-webkit-details-marker {
   .data-table tbody tr:focus-within [data-copy-value] {
     opacity: 1;
     pointer-events: auto;
+  }
+
+  /* 06.6.4.1.1-03 (D-15, UIR-25): desktop cards get more breathing room —
+   * 16px under a large serif title on a 64px page gutter read as tight
+   * boxes inside a roomy page. Raises padding to `--space-lg` (24px) at
+   * this >= 960px breakpoint only; each selector's own base rule above
+   * keeps `--space-md` (16px), which is D-15's "mobile keeps its current
+   * density" half — a harness check in test_status_pages.py pins both
+   * halves of this pair together.
+   *
+   * `.theme-status` is included because its own rule comment (above,
+   * where it is declared) states it is "matched declaration-for-
+   * declaration against `.page-section`" and the two must be edited
+   * together — splitting them here would break that stated contract.
+   *
+   * `.battery-trend-section` is included even though D-15's own text
+   * names only `.page-section`/`.theme-status`. It is a sibling card on
+   * this same Health page, and leaving it at 16px beside two 24px
+   * neighbours would introduce exactly the kind of visible inconsistency
+   * this direction pass exists to remove. This is an EXTENSION of D-15,
+   * not a reinterpretation of it — flagged here, and flagged again for
+   * the plan-06 developer checkpoint, as a deliberate scope addition
+   * rather than a silent one.
+   *
+   * `--space-lg` (24px) rather than a bare `20px`: D-15's own range is
+   * "20-24px", and 24px is the value already on the token scale, so this
+   * rule introduces no new spacing literal.
+   *
+   * Widening `.battery-trend-section`'s padding here is safe by
+   * construction with respect to the chart hazard documented above this
+   * block, at the sparkline canvas's own selector (the section's `svg`,
+   * excluding the heading icon): that rule's `height` is declared
+   * exactly once, outside every `@media` block, and this rule touches
+   * only `padding` — the chart's declared height never varies. Only the
+   * chart's container WIDTH narrows slightly, which is explicitly safe:
+   * the no-viewBox design (see that rule's own comment) makes 1 SVG unit
+   * equal 1 CSS pixel, so "the chart fills its card" is a property of
+   * the layout, not a tuned number that this padding change could
+   * invalidate. */
+  .page-section,
+  .theme-status,
+  .battery-trend-section {
+    padding: var(--space-lg);
+  }
+
+  /* 06.6.4.1.1-03 (D-16, UIR-25/UIR-14): Health's Screen section wraps
+   * its single "Device last checked in" tile in a `.dashboard-grid`, so
+   * that one tile stretches the grid's full ~1040px column and reads as
+   * ~80% empty. Fixes the TEXT, deliberately not the page grid: the tile
+   * keeps its full card width (no restructure into a two-up row, the
+   * higher-risk option UIR-25 also raised), and only the caption/value
+   * line length is bounded to a readable measure. */
+  .stat-tile__caption,
+  .stat-tile__value {
+    max-width: 60ch;
   }
 }
 
