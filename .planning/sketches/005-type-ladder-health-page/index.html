@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 005 — Type ladder on Health</title>
+<link rel="stylesheet" href="../themes/default.css">
+<style>
+  /* ---- variant tab bar (sketch tooling, not part of the design) ---- */
+  #variant-nav{position:fixed;top:0;left:0;right:0;z-index:9998;background:#fff;border-bottom:1px solid #e2e6ee;padding:8px 16px;display:flex;gap:8px;font-family:system-ui,sans-serif;align-items:center;flex-wrap:wrap}
+  .variant-tab{border:1px solid #d8dce4;background:#f7f8fb;color:#333;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+  .variant-tab.active{background:#12151B;color:#fff;border-color:#12151B}
+  body{padding-top:52px}
+  .variant{display:none}
+  .variant.active{display:block}
+  #sketch-tools{position:fixed;bottom:12px;right:12px;z-index:9999;font-family:system-ui;font-size:12px;background:rgba(0,0,0,0.7);color:white;padding:8px 12px;border-radius:8px;opacity:0.4;transition:opacity 0.2s}
+  #sketch-tools:hover{opacity:1}
+  #sketch-tools select{margin-left:6px}
+
+  /* ---- shared page-shell scaffolding (mirrors companion/layout.py's real markup shape) ---- */
+  .site-header{display:flex;align-items:center;gap:var(--space-lg);padding:var(--space-md) var(--space-lg);background:var(--color-secondary)}
+  .page-content{padding:var(--space-xl) var(--space-lg) var(--space-2xl);max-width:1100px;margin:0 auto}
+  .flash-banner{background:color-mix(in srgb, var(--color-status-ok) 15%, var(--color-dominant));border:1px solid var(--color-status-ok);border-radius:var(--radius-control);padding:var(--space-sm) var(--space-md);font-size:14px;margin-bottom:var(--space-lg)}
+  .page-purpose{color:var(--color-text-muted);font-size:16px;margin:0 0 var(--space-xl)}
+
+  .dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:var(--space-xl)}
+  .stat-tile{background:var(--color-dominant);border:1px solid var(--color-border);padding:var(--space-md)}
+  .stat-tile__body{font-size:16px;font-weight:var(--weight-semibold)}
+
+  .page-section{background:var(--color-dominant);border:1px solid var(--color-border);border-radius:var(--radius-card)}
+  .section-intro{display:flex;align-items:baseline;gap:var(--space-sm);margin-bottom:var(--space-md)}
+  .data-table{width:100%;border-collapse:collapse;font-size:14px}
+  .data-table th{text-align:left;padding:var(--space-sm);border-bottom:1px solid var(--color-border);font-weight:var(--weight-regular)}
+  .data-table td{padding:var(--space-sm);border-bottom:1px solid var(--color-border)}
+  .data-table td.mono{font-family:var(--font-mono)}
+
+  /* ============================================================
+     VARIANT A: Today — flat hierarchy, serif everywhere at 20px,
+     two label voices, inconsistent gaps, 16px padding, flash above title
+     ============================================================ */
+  #variant-a .page-title{font-family:var(--font-serif);font-size:30px;font-weight:400;margin:0 0 var(--space-sm)}
+  #variant-a .site-title{font-family:var(--font-serif);font-size:20px;font-weight:400}
+  #variant-a .dashboard-grid{gap:32px}
+  #variant-a .stat-tile__caption{font-family:var(--font-serif);font-size:14px;color:var(--color-text-muted);margin:0 0 4px}
+  #variant-a .page-section{padding:16px;margin-bottom:24px}
+  #variant-a .page-section h2{font-family:var(--font-serif);font-size:20px;font-weight:400;margin:0 0 var(--space-md)}
+  #variant-a .page-section--nested{margin-top:24px;padding:16px;border:1px solid var(--color-border);border-radius:var(--radius-card)}
+  #variant-a .page-section--nested h3{font-family:var(--font-serif);font-size:20px;font-weight:400;margin:0 0 var(--space-md)}
+  #variant-a .data-table th{font-family:var(--font-ui);text-transform:uppercase;font-size:11px;letter-spacing:0.06em;color:var(--color-text-muted)}
+  #variant-a .section-caption{font-family:var(--font-serif);font-size:14px;color:var(--color-text-muted)}
+  #variant-a .flash-banner{order:-1}
+
+  /* ============================================================
+     VARIANT B: New ladder (06.6.4.1.1-CONTEXT.md D-09..D-19) — locked
+     ============================================================ */
+  #variant-b .site-title{font-family:var(--font-serif);font-size:24px;font-weight:var(--weight-semibold);letter-spacing:-0.01em}
+  #variant-b .page-title{font-family:var(--font-serif);font-size:32px;font-weight:var(--weight-semibold);letter-spacing:-0.015em;line-height:1.15;margin:0 0 var(--space-sm)}
+  #variant-b .flash-banner{order:0}
+  #variant-b .dashboard-grid{gap:24px}
+  #variant-b .stat-tile__caption{font-family:var(--font-ui);font-size:12px;font-weight:var(--weight-semibold);text-transform:uppercase;letter-spacing:0.06em;color:color-mix(in srgb, var(--color-text) 70%, transparent);margin:0 0 4px}
+  #variant-b .page-section{padding:24px;margin-bottom:24px}
+  #variant-b .page-section h2{font-family:var(--font-serif);font-size:22px;font-weight:400;line-height:1.25;margin:0 0 var(--space-md)}
+  #variant-b .page-section--nested{margin-top:24px;padding:20px;border:1px solid var(--color-border);border-radius:var(--radius-card)}
+  #variant-b .page-section--nested h3{font-family:var(--font-ui);font-size:16px;font-weight:var(--weight-semibold);margin:0 0 var(--space-md)}
+  #variant-b .data-table th{font-family:var(--font-ui);text-transform:uppercase;font-size:12px;font-weight:var(--weight-semibold);letter-spacing:0.06em;color:color-mix(in srgb, var(--color-text) 70%, transparent)}
+  #variant-b .section-caption{font-family:var(--font-ui);font-size:12px;font-weight:var(--weight-semibold);text-transform:uppercase;letter-spacing:0.06em;color:color-mix(in srgb, var(--color-text) 70%, transparent)}
+  #variant-b .section-intro{flex-direction:row}
+
+  /* ============================================================
+     VARIANT C: Sizes-only alternative (the option NOT chosen during
+     discussion) — same weight everywhere, only page-title/section
+     sizes bump. Kept for direct comparison against B.
+     ============================================================ */
+  #variant-c .site-title{font-family:var(--font-serif);font-size:20px;font-weight:400}
+  #variant-c .page-title{font-family:var(--font-serif);font-size:30px;font-weight:400;margin:0 0 var(--space-sm)}
+  #variant-c .flash-banner{order:0}
+  #variant-c .dashboard-grid{gap:24px}
+  #variant-c .stat-tile__caption{font-family:var(--font-serif);font-size:14px;color:var(--color-text-muted);margin:0 0 4px}
+  #variant-c .page-section{padding:20px;margin-bottom:24px}
+  #variant-c .page-section h2{font-family:var(--font-serif);font-size:20px;font-weight:400;margin:0 0 var(--space-md)}
+  #variant-c .page-section--nested{margin-top:24px;padding:16px;border:1px solid var(--color-border);border-radius:var(--radius-card)}
+  #variant-c .page-section--nested h3{font-family:var(--font-serif);font-size:20px;font-weight:400;margin:0 0 var(--space-md)}
+  #variant-c .data-table th{font-family:var(--font-ui);text-transform:uppercase;font-size:11px;letter-spacing:0.06em;color:var(--color-text-muted)}
+  #variant-c .section-caption{font-family:var(--font-serif);font-size:14px;color:var(--color-text-muted)}
+</style>
+</head>
+<body>
+
+<div id="variant-nav">
+  <button class="variant-tab active" onclick="showVariant('a')">A: Today (flat, 20px everywhere)</button>
+  <button class="variant-tab" onclick="showVariant('b')">B: New ladder ★</button>
+  <button class="variant-tab" onclick="showVariant('c')">C: Sizes only (declined option)</button>
+</div>
+
+<!-- Each variant is a full self-contained Health-page composition -->
+<div id="variant-a" class="variant active"></div>
+<div id="variant-b" class="variant"></div>
+<div id="variant-c" class="variant"></div>
+
+<div id="sketch-tools">
+  Theme:
+  <select onchange="document.querySelector('link[href*=themes]').href='../themes/'+this.value+'.css'">
+    <option value="default">Default</option>
+  </select>
+  &nbsp;|&nbsp;
+  <button onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme==='dark'?'light':'dark'" style="background:none;border:1px solid #666;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer">Toggle dark</button>
+</div>
+
+<script>
+function showVariant(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// One shared Health-page composition, injected into all three variants —
+// only the CSS above differs between them. Real copy from
+// companion/pages/health_page.py's actual constants/labels.
+function healthPageHTML() {
+  return `
+    <div class="site-header">
+      <span class="site-title">SkyPane</span>
+    </div>
+    <div class="page-content">
+      <div class="flash-banner">Saved — will apply on the frame's next scheduled refresh.</div>
+      <h1 class="page-title">Health</h1>
+      <p class="page-purpose">Live status of this device's own signal quality and the companion server's data pipeline.</p>
+
+      <h2 style="font-family:var(--font-serif);font-weight:400;margin-bottom:16px" class="screen-heading">Screen</h2>
+      <div class="dashboard-grid">
+        <div class="stat-tile">
+          <p class="stat-tile__caption">Device last checked in</p>
+          <p class="stat-tile__body">18:07 UTC (2m ago)</p>
+        </div>
+        <div class="stat-tile">
+          <p class="stat-tile__caption">ADS-B pipeline last ran</p>
+          <p class="stat-tile__body">18:07 UTC (2m ago)</p>
+          <p style="font-size:12px;color:color-mix(in srgb, var(--color-text) 70%, transparent);margin-top:4px">Last aircraft detected: 17:56 UTC (13m ago)</p>
+        </div>
+        <div class="stat-tile">
+          <p class="stat-tile__caption">Corroboration</p>
+          <p class="stat-tile__body">92% agreement</p>
+        </div>
+      </div>
+
+      <section class="page-section" style="padding:24px">
+        <h2>Battery trend <span class="section-caption">— Last 3 months, daily average</span></h2>
+        <svg viewBox="0 0 640 80" style="width:100%;height:80px;display:block;margin-bottom:16px">
+          <polyline fill="none" stroke="var(--color-accent)" stroke-width="2" points="10,40 65,44 120,38 175,50 230,54 285,60 340,58 395,66 450,64 505,72 560,70 615,76"/>
+        </svg>
+
+        <div class="page-section--nested">
+          <h3>Unresolved prefixes</h3>
+          <table class="data-table">
+            <thead><tr><th>Prefix</th><th>Count</th><th>Last seen</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">AFR</td><td>42</td><td>18:02 UTC (7m ago)</td></tr>
+              <tr><td class="mono">EZY</td><td>18</td><td>17:41 UTC (28m ago)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="page-section--nested">
+          <h3>Resolution statistics</h3>
+          <table class="data-table">
+            <thead><tr><th>Source</th><th>Description</th><th>Count</th></tr></thead>
+            <tbody>
+              <tr><td>Fresh lookup</td><td style="opacity:.7">Resolved via a live adsbdb API call, cached after.</td><td>310</td></tr>
+              <tr><td>Cache hit</td><td style="opacity:.7">Resolved from a previously-cached lookup.</td><td>1204</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+document.getElementById('variant-a').innerHTML = healthPageHTML();
+document.getElementById('variant-b').innerHTML = healthPageHTML();
+document.getElementById('variant-c').innerHTML = healthPageHTML();
+// Variant B's wordmark/title CSS handles the h1/h2/h3 weight promotions;
+// the inline "Screen" h2 above needs the same class treatment as .page-section h2:
+document.querySelectorAll('.screen-heading').forEach(el => el.classList.add('screen-h2'));
+</script>
+<style>
+  #variant-a .screen-heading{font-size:20px}
+  #variant-b .screen-heading{font-family:var(--font-serif);font-size:22px;font-weight:400;line-height:1.25}
+  #variant-c .screen-heading{font-size:20px}
+</style>
+
+</body>
+</html>
