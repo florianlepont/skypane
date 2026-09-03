@@ -1661,9 +1661,72 @@ button:disabled {
  * the viewport on phone widths — this wrap now stands on its own (the
  * horizontal .nav-bar it used to be paired with is gone, see the header
  * comment above). */
+/* quick task 260902-w4t (UIR-04): a CSS-only, pointer-inert, theme-aware
+ * hint that a table has more columns off to the side, for the widths
+ * where History's own table (Type+Airline, Corroboration, etc.) still
+ * overflows the wrap above even after this task's copy fixes.
+ *
+ * `background-attachment` was chosen over a `mask-image` fade because
+ * `.data-table` above declares `width: 100%`, so an unconditional
+ * right-edge mask would fade the last column of a table that already
+ * fits at a given width — exactly the regression this fix must avoid.
+ * The four-layer stack below sidesteps that: two OPAQUE cover gradients
+ * (listed first, so they paint on top) use `background-attachment:
+ * local` — meaning they scroll WITH the table's own content — while two
+ * SHADOW gradients underneath use `background-attachment: scroll` —
+ * meaning they stay fixed to the wrap's viewport. When the table's
+ * content is exactly as wide as the wrap (nothing to scroll), the local
+ * covers and the scroll shadows land in the same place and the covers
+ * fully occlude the shadows, by geometry, not by a media query or a
+ * JS measurement. Only once the content is wider than the wrap does
+ * scrolling move the covers out from over the shadows, revealing them
+ * at whichever edge still has more content. This needs no pseudo-
+ * element, so it can never intercept a pointer event or interfere with
+ * the wrap's own native scrolling.
+ *
+ * The shadow colour is `color-mix(in srgb, var(--color-text) 15%,
+ * transparent)` — the same muted-mix idiom `.section-caption` above and
+ * the `.copy-btn` washes already use — never a hardcoded grey, so both
+ * themes render a correctly-toned shadow with no per-theme value to
+ * keep in sync. The cover colour is the surface this wrap actually
+ * paints onto: `--color-canvas` here (History's table sits directly on
+ * the page background), with a `--color-dominant` override immediately
+ * below for the one case (Health's registry/readings/stats tables) where
+ * a wrap genuinely sits inside a `.page-section`/`.battery-trend-section`
+ * card instead — verified by reading health_page.py, not assumed. */
 .data-table-wrap {
   overflow-x: auto;
   max-width: 100%;
+  background-image:
+    linear-gradient(to right, var(--color-canvas), transparent 24px),
+    linear-gradient(to left, var(--color-canvas), transparent 24px),
+    radial-gradient(farthest-side at 0 50%,
+      color-mix(in srgb, var(--color-text) 15%, transparent), transparent),
+    radial-gradient(farthest-side at 100% 50%,
+      color-mix(in srgb, var(--color-text) 15%, transparent), transparent);
+  background-repeat: no-repeat;
+  background-size: 24px 100%, 24px 100%, 12px 100%, 12px 100%;
+  background-position: left, right, left, right;
+  background-attachment: local, local, scroll, scroll;
+}
+
+/* The one place a .data-table-wrap genuinely sits inside a card surface
+ * instead of directly on the page background (health_page.py's
+ * _registry_table_html(), the battery readings disclosure table, and
+ * _stats_table_html() all render inside a .page-section or
+ * .battery-trend-section card) — the cover gradients above must match
+ * that surface or they would read as a visible coloured band instead of
+ * an invisible cover. History's own table is unaffected: it is returned
+ * directly by render(), never inside a .page-section. */
+.page-section .data-table-wrap,
+.battery-trend-section .data-table-wrap {
+  background-image:
+    linear-gradient(to right, var(--color-dominant), transparent 24px),
+    linear-gradient(to left, var(--color-dominant), transparent 24px),
+    radial-gradient(farthest-side at 0 50%,
+      color-mix(in srgb, var(--color-text) 15%, transparent), transparent),
+    radial-gradient(farthest-side at 100% 50%,
+      color-mix(in srgb, var(--color-text) 15%, transparent), transparent);
 }
 
 .data-table {

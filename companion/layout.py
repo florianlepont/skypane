@@ -999,17 +999,29 @@ def anomaly_banner(message, severity="error"):
         % (css_class, role, escape_html(message)))
 
 
-def status_dot(state, label):
+def status_dot(state, label, title=None):
     """A small coloured status indicator plus an escaped text label.
 
     `state` maps to exactly one of three fixed CSS class suffixes; an
     unrecognised state falls back to the warning class rather than
     emitting an arbitrary, attacker-influenceable class name.
+
+    `title` (quick task 260902-w4t, UIR-04) is optional and defaults to
+    None for backward compatibility: every pre-existing call site passes
+    exactly two positional arguments, and when `title` is falsy the
+    returned markup is character-for-character what it was before this
+    parameter existed — no `title` attribute is emitted at all. When
+    `title` is truthy it is escaped through the same `escape_html()`
+    call `label` already goes through (the identical single-escaping
+    discipline `concise_timestamp_html()` uses for its own `title`) and
+    added as a `title="..."` attribute on the `dot-label` span, giving a
+    shortened visible label room to carry a longer form as a tooltip.
     """
     css_class = _STATUS_DOT_CLASSES.get(state, _DEFAULT_STATUS_DOT_CLASS)
+    title_attr = ' title="%s"' % escape_html(title) if title else ""
     return (
-        '<span class="dot %s"></span><span class="dot-label">%s</span>'
-        % (css_class, escape_html(label)))
+        '<span class="dot %s"></span><span class="dot-label"%s>%s</span>'
+        % (css_class, title_attr, escape_html(label)))
 
 
 def stat_tile(caption, content_html, status=None, icon=None):

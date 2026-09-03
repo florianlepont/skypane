@@ -261,10 +261,25 @@ CELL_SEPARATOR_TEXT = "·"
 # back to the warning class rather than a fabricated label.
 _CORROBORATION_LABELS = {
     "True": ("ok", "Agreement"),
-    "None": ("ok", "Single-source (uncorroborated)"),
+    # quick task 260902-w4t (UIR-04): shortened from "Single-source
+    # (uncorroborated)" - the parenthetical made History's Corroboration
+    # column an overlong 253px. The long form survives below as a
+    # tooltip via _CORROBORATION_TITLES; health_page._CORROBORATION_ROWS
+    # still carries the long form as ITS OWN visible label by design -
+    # the two pages are allowed to diverge in copy now, and
+    # test_view_pages.py's restated drift guard is what keeps this
+    # constant's tooltip text honest against Health's copy.
+    "None": ("ok", "Single-source"),
     "False": ("warn", "Disagreement"),
 }
 _DEFAULT_CORROBORATION = ("warn", "Unknown")
+
+# quick task 260902-w4t (UIR-04): the long form moved out of the visible
+# "None" label above. Keys absent from this dict resolve via .get(key,
+# "") to no tooltip at all (True/False need none).
+_CORROBORATION_TITLES = {
+    "None": "Single-source (uncorroborated)",
+}
 
 _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 # distinguishes "query raised" from "query succeeded, legitimately empty".
@@ -550,6 +565,10 @@ def format_event_row(row, now=None):
         "confirmed_state": _confirmed_state_label(row.get("confirmed_state")),
         "corroboration_status": corroboration_status,
         "corroboration_label": corroboration_label,
+        # quick task 260902-w4t (UIR-04): the long form for the "None"
+        # (single-source) state, rendered as status_dot()'s optional
+        # tooltip - "" (no tooltip) for True/False, which need none.
+        "corroboration_title": _CORROBORATION_TITLES.get(row.get("corroborated"), ""),
         "tracked_runway": _runway_label(row.get("tracked_runway")),
     }
 
@@ -751,7 +770,8 @@ def _history_table_html(formatted_rows, now=None):
             "<td>%s</td>" % escape_html(row["route_label"]),
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
             "<td>%s</td>" % layout.status_dot(
-                row["corroboration_status"], row["corroboration_label"]),
+                row["corroboration_status"], row["corroboration_label"],
+                row["corroboration_title"]),
             "<td>%s</td>" % escape_html(row["tracked_runway"]),
         )
         # D-20: data-filter-text drives companion/static/list-filter.js's
@@ -876,7 +896,9 @@ def _history_cards_html(formatted_rows, now=None):
             escape_html(CELL_SEPARATOR_TEXT),
             escape_html(row["airline_label"]),
             unresolved_link,
-            layout.status_dot(row["corroboration_status"], row["corroboration_label"]),
+            layout.status_dot(
+                row["corroboration_status"], row["corroboration_label"],
+                row["corroboration_title"]),
             escape_html(row["tracked_runway"]),
             escape_html(row["hex"]),
             _copy_button_html(row["hex"], _COPY_HEX_LABEL),
