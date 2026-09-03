@@ -373,6 +373,17 @@ Plans:
 
 - [ ] 06.6.4.1-09-PLAN.md — Closing: full-suite and live-route gates, completed validation record, and the blocking 28-item developer verification pass translating 06.6.3-08's checklist, including the twice-deferred assistive-technology pass and production walkthrough (D-23, D-24, D-25)
 
+### Phase 06.6.4.1.1: Settings theme picker and typography/spacing direction pass (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 06.6.4.1
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.6.4.1.1 to break down)
+
 ### Phase 06.6.3: Companion per-page redesign — Config, Health, History, Airlines, Preview (INSERTED)
 
 **Goal:** Carry Phase 06.6.2's foundation (tokens, page-header pattern, sidebar, severity function, contrast checker) into a real recomposition of every companion page: Config's dirty-state save bar, read-only Theme status and runway cards; Health's roving-tabindex battery chart, specific anomaly summary, and disclosure-collapsed readings; History's mobile compact cards, filtering, and copy-to-clipboard; Airlines' filtering and simplified hierarchy; Preview's centered matte treatment, freshness signal, and task-oriented gallery captions. Split out 2026-08-31 from Phase 06.6.2 for context-budget reasons (see 06.6.2's Goal) — carries the nine per-page CONTEXT.md decisions and audit findings that need 06.6.2's shared primitives to land cleanly, avoiding double-touching the same page files.
