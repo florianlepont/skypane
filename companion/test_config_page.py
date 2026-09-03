@@ -120,7 +120,16 @@ STARTUP_DEADLINE_S = 10.0
 # were in-place rewrites. Recomputed directly against the real on-disk
 # check(...) call count at merge-resolution time rather than trusting the
 # incremental arithmetic above, which had drifted from actual: 64.
-EXPECTED_CHECK_COUNT = 64
+# 10-05-PLAN.md: 64 (pre-plan baseline) -> 68 (Task 3, +4: markup/field-
+# order/escaping checks for quiet_hours_group() plus the render()-wiring
+# check) -> 73 (Task 3, +5: handle_post()'s quiet-hours save-checkbox-on,
+# save-checkbox-absent-still-persists-times, reject-malformed-time,
+# reject-crafted-checkbox-value, and all-or-nothing-across-groups checks).
+# Five pre-existing checks were retargeted in place (the theme-status
+# count 2->3, the dirty-section count 3->4, and three class-literal
+# renames from led-checkbox to settings-checkbox) with no count change,
+# per this file's own established retarget-without-recounting discipline.
+EXPECTED_CHECK_COUNT = 73
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -293,6 +302,11 @@ def main():
         # THEME_IDS's size — so they still render as .theme-status blocks;
         # only Theme's own assertion changes, from "zero <fieldset" to
         # "exactly one <fieldset>, Theme's own".
+        #
+        # 10-05-PLAN.md Task 3: Quiet hours joins Runway/Diagnostic LED as
+        # a third .theme-status-wrapped group once wired into render() by
+        # Task 1 — the count below moves from 2 to 3 for that reason, not
+        # a rename.
         ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -302,29 +316,30 @@ def main():
             return False, "expected exactly one <fieldset> (Theme's own radio group, now that THEME_IDS holds more than one entry), got %d" % rendered.count("<fieldset")
         if "<legend>Theme</legend>" not in rendered:
             return False, "expected Theme's radio group to carry a <legend>Theme</legend>"
-        if rendered.count('class="theme-status"') != 2:
-            return False, "expected exactly 2 theme-status-wrapped groups (Runway/Diagnostic LED — Theme itself is a <fieldset> now), got %d" % rendered.count('class="theme-status"')
+        if rendered.count('class="theme-status"') != 3:
+            return False, "expected exactly 3 theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours — Theme itself is a <fieldset> now), got %d" % rendered.count('class="theme-status"')
         if rendered.count('<label class="runway-card') != 3:
             return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if "Save settings" not in rendered:
             return False, "expected the 'Save settings' submit button copy"
         return True, ""
     check(
-        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), two theme-status-wrapped groups (Runway/Diagnostic LED), three runway-card labels, and a Save settings submit button",
+        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), three theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours), three runway-card labels, and a Save settings submit button",
         _render_shape_theme_radio_group_runway_cards_led_group_and_save_button)
 
     def _led_group_carries_classed_label_and_unchanged_input_attrs():
-        # quick task 260901-qif: pins the led-checkbox label class and
-        # guards the input's name/value/checked attribute sequence against
-        # a future markup edit silently reordering it - the two live-HTTP
+        # quick task 260901-qif: pins the settings-checkbox label class
+        # (renamed from led-checkbox by 10-05-PLAN.md Task 2) and guards
+        # the input's name/value/checked attribute sequence against a
+        # future markup edit silently reordering it - the two live-HTTP
         # LED checks further down this file match on that exact sequence.
         checked_html = config_page.led_group(True)
         unchecked_html = config_page.led_group(False)
-        label_open = '<label class="led-checkbox">'
+        label_open = '<label class="settings-checkbox">'
         if checked_html.count(label_open) != 1:
-            return False, "expected led_group(True) to carry exactly one <label class=\"led-checkbox\"> occurrence"
+            return False, "expected led_group(True) to carry exactly one <label class=\"settings-checkbox\"> occurrence"
         if unchecked_html.count(label_open) != 1:
-            return False, "expected led_group(False) to carry exactly one <label class=\"led-checkbox\"> occurrence"
+            return False, "expected led_group(False) to carry exactly one <label class=\"settings-checkbox\"> occurrence"
         led_value = escape_html(config_page.LED_CHECKBOX_VALUE)
         expected_checked = 'name="led_enabled" value="%s" checked' % led_value
         if expected_checked not in checked_html:
@@ -336,8 +351,88 @@ def main():
             return False, "expected led_group(False) to carry no checked flag at all"
         return True, ""
     check(
-        "led_group() emits the led-checkbox label class and preserves the input's name/value/checked attribute sequence",
+        "led_group() emits the settings-checkbox label class and preserves the input's name/value/checked attribute sequence",
         _led_group_carries_classed_label_and_unchanged_input_attrs)
+
+    # ------------------------------------------------------------------
+    # 10-05-PLAN.md Task 3: quiet_hours_group() markup/field-order/
+    # escaping and render() wiring checks (D-03/D-04, 10-UI-SPEC.md).
+    # ------------------------------------------------------------------
+
+    def _quiet_hours_group_markup_checkbox_and_time_inputs():
+        checked_html = config_page.quiet_hours_group(True, "23:00", "07:00")
+        unchecked_html = config_page.quiet_hours_group(False, "23:00", "07:00")
+        label_open = '<label class="settings-checkbox">'
+        if checked_html.count(label_open) != 1:
+            return False, "expected quiet_hours_group(True, ...) to carry exactly one <label class=\"settings-checkbox\"> occurrence"
+        if 'name="quiet_hours_start"' not in checked_html or 'type="time"' not in checked_html:
+            return False, "expected a type=\"time\" input named quiet_hours_start"
+        if 'value="23:00"' not in checked_html:
+            return False, "expected quiet_hours_start's value to be 23:00"
+        if 'name="quiet_hours_end"' not in checked_html:
+            return False, "expected an input named quiet_hours_end"
+        if 'value="07:00"' not in checked_html:
+            return False, "expected quiet_hours_end's value to be 07:00"
+        if checked_html.count("checked") != 1:
+            return False, "expected quiet_hours_group(True, ...) to carry exactly one checked flag, got %d" % checked_html.count("checked")
+        if "checked" in unchecked_html:
+            return False, "expected quiet_hours_group(False, ...) to carry no checked flag at all"
+        if "theme-status__row" in checked_html:
+            return False, "expected no theme-status__row wrapper — Start/End must stack vertically (10-UI-SPEC.md)"
+        if "disabled" in checked_html or "disabled" in unchecked_html:
+            return False, "expected no disabled attribute on either branch — the time inputs are never disabled (10-UI-SPEC.md)"
+        return True, ""
+    check(
+        "quiet_hours_group() emits the settings-checkbox label, one type=\"time\" input each for Start/End with their current values, exactly one checked flag when enabled and none when disabled, no theme-status__row, and no disabled attribute",
+        _quiet_hours_group_markup_checkbox_and_time_inputs)
+
+    def _quiet_hours_group_field_order_heading_caption_checkbox_start_end():
+        rendered = config_page.quiet_hours_group(True, "23:00", "07:00")
+        heading_close = rendered.index("</h2>")
+        caption_pos = rendered.index("section-caption")
+        checkbox_pos = rendered.index('name="quiet_hours_enabled"')
+        start_pos = rendered.index('name="quiet_hours_start"')
+        end_pos = rendered.index('name="quiet_hours_end"')
+        if not (heading_close < caption_pos < checkbox_pos < start_pos < end_pos):
+            return False, (
+                "expected heading < caption < checkbox < start < end in document order, got positions %r"
+                % ((heading_close, caption_pos, checkbox_pos, start_pos, end_pos),))
+        return True, ""
+    check(
+        "quiet_hours_group()'s field order is heading, then caption, then the enable checkbox, then Start, then End, in document order (10-UI-SPEC.md's locked field order)",
+        _quiet_hours_group_field_order_heading_caption_checkbox_start_end)
+
+    def _quiet_hours_group_escapes_crafted_current_values():
+        rendered = config_page.quiet_hours_group(True, '"><script>', "07:00")
+        if "<script>" in rendered:
+            return False, "expected the crafted current_start value to be escaped, found a raw <script> substring"
+        return True, ""
+    check(
+        "quiet_hours_group() escapes a crafted current_start value — no raw <script> substring reaches the markup",
+        _quiet_hours_group_escapes_crafted_current_values)
+
+    def _render_wires_quiet_hours_group_after_led_before_save_button():
+        rendered = config_page.render({
+            "device_config": {
+                "theme": "black", "tracked_runway": "3", "led_enabled": True,
+                "quiet_hours_enabled": True, "quiet_hours_start": "22:30",
+                "quiet_hours_end": "06:15",
+            },
+            "poll_cooldown_remaining": 0,
+        })
+        if 'value="22:30"' not in rendered or 'value="06:15"' not in rendered:
+            return False, "expected the current quiet-hours times to appear in the rendered page"
+        if 'name="quiet_hours_enabled"' not in rendered:
+            return False, "expected the quiet-hours enable checkbox to appear in the rendered page"
+        led_heading_pos = rendered.index(config_page.LED_SECTION_HEADING)
+        quiet_heading_pos = rendered.index(config_page.QUIET_HOURS_SECTION_HEADING)
+        save_button_pos = rendered.index("Save settings")
+        if not (led_heading_pos < quiet_heading_pos < save_button_pos):
+            return False, "expected the Quiet hours group to render after Diagnostic LED and before the Save settings button"
+        return True, ""
+    check(
+        "render() wires quiet_hours_group() with the saved current values, positioned after Diagnostic LED and before the Save settings button",
+        _render_wires_quiet_hours_group_after_led_before_save_button)
 
     def _every_settings_group_is_named_exactly_once():
         # heading-color-consistency debug session, extended by 06.6.4.1
@@ -684,23 +779,25 @@ def main():
     # single-column, three-wrapped-section, one-merged-form shape.
     # ------------------------------------------------------------------
 
-    def _render_exactly_three_dirty_sections_in_order():
+    def _render_exactly_four_dirty_sections_in_order():
         # Acceptance criterion: the rendered output contains exactly
-        # three elements carrying data-dirty-section, whose attribute
-        # values in document order are "Theme", "Runway", "Diagnostic LED".
+        # four elements carrying data-dirty-section, whose attribute
+        # values in document order are "Theme", "Runway", "Diagnostic
+        # LED", "Quiet hours" — 10-05-PLAN.md Task 1 wires Quiet hours in
+        # as the fourth group, after Diagnostic LED.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         found = re.findall(
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
-        expected = ["Theme", "Runway", "Diagnostic LED"]
+        expected = ["Theme", "Runway", "Diagnostic LED", "Quiet hours"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
     check(
-        "render() carries exactly three data-dirty-section elements, in document order Theme/Runway/Diagnostic LED",
-        _render_exactly_three_dirty_sections_in_order)
+        "render() carries exactly four data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours",
+        _render_exactly_four_dirty_sections_in_order)
 
     def _runway_fieldset_returns_single_top_level_div():
         # Acceptance criterion: runway_fieldset(...) returns a string
@@ -793,7 +890,7 @@ def main():
         groups = (
             ("theme_fieldset()", theme_rendered, "</legend>", "options"),
             ("runway_fieldset()", runway_rendered, "</h2>", "runway-row"),
-            ("led_group()", led_rendered, "</h2>", "led-checkbox"),
+            ("led_group()", led_rendered, "</h2>", "settings-checkbox"),
         )
         for name, rendered, heading_close_marker, control_marker in groups:
             if rendered.count("<p") != 1:
@@ -1406,6 +1503,116 @@ def main():
         _handle_post_valid_runway_and_led_persist_together_one_call)
 
     # ------------------------------------------------------------------
+    # 10-05-PLAN.md Task 3: handle_post()'s quiet-hours save/reject paths
+    # (D-03/D-04, 10-UI-SPEC.md's unchecked-checkbox-still-saves-times
+    # semantics — the resolution of 10-RESEARCH.md Assumption A1).
+    # ------------------------------------------------------------------
+
+    def _handle_post_quiet_hours_checkbox_on_persists_all_three():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {
+                    "quiet_hours_enabled": config_page.QUIET_HOURS_CHECKBOX_VALUE,
+                    "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["quiet_hours_enabled"] is not True:
+                return False, "expected quiet_hours_enabled True on disk, got %r" % (on_disk["quiet_hours_enabled"],)
+            if on_disk["quiet_hours_start"] != "22:30" or on_disk["quiet_hours_end"] != "06:15":
+                return False, "expected the submitted times to persist, got %r/%r" % (on_disk["quiet_hours_start"], on_disk["quiet_hours_end"])
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with quiet_hours_enabled=QUIET_HOURS_CHECKBOX_VALUE and both times persists all three quiet-hours fields and returns the saved flash key",
+        _handle_post_quiet_hours_checkbox_on_persists_all_three)
+
+    def _handle_post_quiet_hours_checkbox_absent_still_persists_times():
+        # The direct pin of 10-UI-SPEC.md's resolution of 10-RESEARCH.md
+        # Assumption A1 / Open Question 2: a user can pre-configure a
+        # window before ever turning it on. Must not be dropped or
+        # inverted.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"quiet_hours_start": "22:30", "quiet_hours_end": "06:15"}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["quiet_hours_enabled"] is not False:
+                return False, "expected quiet_hours_enabled False on disk (checkbox absent), got %r" % (on_disk["quiet_hours_enabled"],)
+            if on_disk["quiet_hours_start"] != "22:30" or on_disk["quiet_hours_end"] != "06:15":
+                return False, "expected the edited times to persist even though the checkbox was left unchecked, got %r/%r" % (on_disk["quiet_hours_start"], on_disk["quiet_hours_end"])
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with quiet_hours_enabled absent but both times submitted persists quiet_hours_enabled False and the edited times (a user can pre-configure a window before enabling it)",
+        _handle_post_quiet_hours_checkbox_absent_still_persists_times)
+
+    def _handle_post_malformed_quiet_hours_time_rejected_byte_identical():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({"quiet_hours_start": "24:00"}, ctx)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a malformed HH:MM, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to be byte-identical, it changed"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"quiet_hours_start\": \"24:00\"}, ctx) against a legitimately-saved config returns the save-failed flash key and leaves device_config.json byte-identical",
+        _handle_post_malformed_quiet_hours_time_rejected_byte_identical)
+
+    def _handle_post_crafted_quiet_hours_checkbox_value_rejected():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({"quiet_hours_enabled": "yes"}, ctx)
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a crafted quiet_hours_enabled value, got %r" % (flash_key,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"quiet_hours_enabled\": \"yes\"}, ctx) returns the save-failed flash key, matching the LED field's own third shape",
+        _handle_post_crafted_quiet_hours_checkbox_value_rejected)
+
+    def _handle_post_valid_theme_and_malformed_quiet_hours_end_all_or_nothing():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"theme": "white", "quiet_hours_end": "24:00"}, ctx)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to be byte-identical (the theme must not persist either), it changed"
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["theme"] != "black":
+                return False, "expected the pre-existing theme to be unchanged, got %r" % (on_disk["theme"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "a post with a valid theme AND a malformed quiet_hours_end returns save-failed and persists neither — the theme on disk is unchanged (all-or-nothing across groups)",
+        _handle_post_valid_theme_and_malformed_quiet_hours_end_all_or_nothing)
+
+    # ------------------------------------------------------------------
     # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()
     # and the separate POST /config-led route were retired outright —
     # the eight checks that used to exercise them directly were deleted
@@ -1623,15 +1830,17 @@ def main():
         "style.css contains the .js-gated fallback-hide rule referencing config_page.STATIC_SAVE_FALLBACK_ATTR's literal value",
         _style_css_references_static_save_fallback_attr)
 
-    def _style_css_carries_theme_status_runway_row_and_led_checkbox_selectors():
+    def _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors():
         # quick task 260901-qif: the third new cross-file guard - unlike
         # DIRTY_SECTION_ATTR/STATIC_SAVE_FALLBACK_ATTR above, no Python
         # constant carries these three class-name literals, so they are
         # asserted directly here. Same index-plus-window technique the
         # neighbouring guards use, never a regex CSS parser. Keeps
-        # style.css's .theme-status/.runway-row/.led-checkbox rules from
-        # silently drifting out of sync with the markup config_page.py's
-        # runway_fieldset()/led_group() now emit.
+        # style.css's .theme-status/.runway-row/.settings-checkbox rules
+        # from silently drifting out of sync with the markup
+        # config_page.py's runway_fieldset()/led_group()/
+        # quiet_hours_group() now emit. 10-05-PLAN.md Task 2 renamed the
+        # third selector from .led-checkbox to .settings-checkbox.
         source = _read_static("style.css")
 
         if ".theme-status {" not in source:
@@ -1650,17 +1859,17 @@ def main():
         if "display: flex" not in window:
             return False, "expected .runway-row's rule body to set display: flex"
 
-        checkbox_selector = '.led-checkbox input[type="checkbox"] {'
+        checkbox_selector = '.settings-checkbox input[type="checkbox"] {'
         if checkbox_selector not in source:
             return False, "expected style.css to declare a %r rule" % (checkbox_selector,)
         idx = source.index(checkbox_selector)
         window = source[idx:idx + 400]
         if "min-height: 0" not in window:
-            return False, "expected .led-checkbox input[type=\"checkbox\"]'s rule body to clear the global rule's min-height"
+            return False, "expected .settings-checkbox input[type=\"checkbox\"]'s rule body to clear the global rule's min-height"
         return True, ""
     check(
-        "style.css declares .theme-status (card-surface token + hover selector), .runway-row (flex display), and .led-checkbox input[type=\"checkbox\"] (cleared min-height) - the selectors config_page.py's new markup depends on",
-        _style_css_carries_theme_status_runway_row_and_led_checkbox_selectors)
+        "style.css declares .theme-status (card-surface token + hover selector), .runway-row (flex display), and .settings-checkbox input[type=\"checkbox\"] (cleared min-height) - the selectors config_page.py's new markup depends on",
+        _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors)
 
     def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
         # quick task 260901-re6 Task 3: the third new cross-file guard,
