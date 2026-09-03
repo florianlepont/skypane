@@ -640,14 +640,18 @@ Plans:
 
 ### Phase 10: Scheduled quiet hours
 
-**Goal:** [To be planned] — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md`. Pause the frame's wake/poll/display cycle during a configurable window (e.g. a curfew), configurable via the companion web interface. Developer chose seed option (b) — a server-side skip of the display refresh on the existing wake cadence — over option (a)'s full sleep-cycle extension, since (b) doesn't require Phase 5's still-pending real battery-discharge verdict (05-01 Tasks 2-3, DEVICE-05) to be worth building.
-**Requirements**: TBD
+**Goal:** The frame sleeps through a configurable daily quiet-hours window instead of waking to poll. One recurring Europe/Paris start/end window plus an independent enabled flag (D-03/D-04) is set on the companion Settings page; the server extends the device's `sleep_s` past the window's end so it never wakes, connects or polls during it (D-01); and the panel shows a one-time "QUIET HOURS / Back at HH:MM" screen at window entry (D-05/D-06), with no symmetric screen at exit (D-07). Promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md`. **Supersedes this entry's earlier "developer chose seed option (b)" text:** `/gsd-discuss-phase 10` corrected the seed's own premise — extending `sleep_s` needs zero firmware change, since it is already a per-response, fully server-controlled value — so D-01 chose the full sleep-cycle extension after all, and it no longer depends on Phase 5's pending battery-discharge verdict.
+**Requirements**: None — unmapped backlog phase promoted from SEED-001, matching every prior `06.6.x` decimal phase's precedent; `.planning/REQUIREMENTS.md` has no curfew/quiet-hours requirement ID.
 **Depends on:** Phase 9
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 10 to break down)
+- [ ] 10-01-PLAN.md — Quiet-hours config registry fields plus DST-safe Europe/Paris window arithmetic in `server/device_config.py` (wave 1)
+- [ ] 10-02-PLAN.md — The "QUIET HOURS / Back at HH:MM" panel render state and its preview CLI in `server/plane/render.py` (wave 1)
+- [ ] 10-03-PLAN.md — Extended `sleep_s` on `GET /device/v1/display` in the vendored `stub-server/byos_server.py`, with a duplication drift guard (wave 2)
+- [ ] 10-04-PLAN.md — `server/poll_loop.py` quiet-hours gate: render once at entry, hold, repaint the live board at exit (wave 2)
+- [ ] 10-05-PLAN.md — Companion Settings quiet-hours fieldset, `color-scheme` support and the shared checkbox class (wave 2)
 
 ### Phase 11: Web-configurable wake interval
 
