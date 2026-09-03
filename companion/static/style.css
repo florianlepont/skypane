@@ -3540,6 +3540,49 @@ summary::-webkit-details-marker {
   .data-cards ~ .data-table-wrap {
     display: block;
   }
+
+  /* Quick task 260903-peo (UIR-17): History's desktop copy buttons hide
+   * at rest and reveal on row hover/focus-within — desktop-only by
+   * construction (inside this 960px block), so the three copy buttons
+   * inside each `.history-card`'s mobile `<details>` disclosure keep
+   * today's always-visible behaviour below the breakpoint, untouched.
+   *
+   * `[data-copy-value]` is the discriminator, not the bare `.copy-btn`
+   * class: `history_page.py::_view_panel_button_html()` also renders
+   * `class="copy-btn"` (it deliberately reuses the same 22px-visual/
+   * 44px-hit-area shape) but carries `data-view-panel-src`/
+   * `data-view-panel-caption`, never `data-copy-value` — a bare
+   * `.copy-btn` selector here would incorrectly hide the always-visible
+   * View-panel/eye trigger too.
+   *
+   * `opacity: 0` + `pointer-events: none` at rest, NEVER `visibility:
+   * hidden` or `display: none`: both of those remove the element from
+   * the tab order and the accessibility tree, so a copy button hidden
+   * that way could never receive focus, `:focus-within` could never
+   * fire, and a keyboard-only user would lose the copy affordance
+   * entirely — strictly worse than the always-visible state this
+   * replaces. `opacity: 0` keeps the element focusable, in the tab
+   * order and in the accessibility tree; `pointer-events: none` is what
+   * stops an invisible control from being clickable, and both are
+   * restored together on `tr:hover` and `tr:focus-within` below. No
+   * `prefers-reduced-motion` override is added here: the global one at
+   * this file's own token block (D-19) already covers this plain
+   * `opacity` transition for free.
+   *
+   * Verified from source: neither Health's nor Airlines' own reuse of
+   * `.data-table-wrap` renders any `[data-copy-value]` element, so this
+   * rule cannot affect either page. */
+  .data-table tbody tr [data-copy-value] {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+  }
+
+  .data-table tbody tr:hover [data-copy-value],
+  .data-table tbody tr:focus-within [data-copy-value] {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* 06.6.2-07 (UXA-03): the dedicated login shell's own component pair —
