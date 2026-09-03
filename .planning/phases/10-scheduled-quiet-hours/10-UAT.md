@@ -1,20 +1,14 @@
 ---
-status: testing
+status: complete
 phase: 10-scheduled-quiet-hours
 source: [10-VERIFICATION.md]
 started: 2026-09-03T22:45:00Z
-updated: 2026-09-03T22:45:00Z
+updated: 2026-09-03T23:30:00Z
 ---
 
 ## Current Test
 
-number: 1
-name: Quiet-hours screen visual distinctiveness
-expected: |
-  A human looking at the two rendered panel images (/tmp/skypane-quiet-hours-preview.png
-  vs. a freshly rendered empty-state preview) confirms they are not confusable at a
-  glance, despite sharing the identical flat-White/Black/centred-heading structure.
-awaiting: user response
+[testing complete]
 
 ## Tests
 
@@ -26,7 +20,7 @@ expected: |
   — no visual change beyond copy — is sufficient, but this project's own established
   discipline (05-CONTEXT.md's battery icon, 03-CONTEXT.md's poster redesign) requires a
   real on-glass/on-screen human look before treating it as final.
-result: [pending]
+result: pass
 
 ### 2. Companion Settings page real-browser check
 expected: |
@@ -44,14 +38,14 @@ expected: |
   copy;
   (6) the enable checkbox renders as a normal small checkbox with accent tint, not an
   oversized filled box.
-result: [pending]
+result: pass
 
 ## Summary
 
 total: 2
-passed: 0
+passed: 2
 issues: 0
-pending: 2
+pending: 0
 skipped: 0
 blocked: 0
 
