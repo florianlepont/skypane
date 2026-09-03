@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Final On-Glass Verification** - The project's true last step: one real-hardware sign-off pass (PT Serif legibility, bezel clipping, forced departing/arriving renders, long-name stress test, two-flight composition, final Yellow/Red panel calibration) done once everything else is finished (renumbered from Phase 6 when the companion interface was promoted from the v2 backlog) (completed 2026-08-28)
 - [x] **Phase 8: Panel theme rework** - White default theme + Black/Yellow/Red/Blue/Green as optional CFG-01 themes, PT Serif Bold replaces the text backing-plate, `adsbdb` `callsign_iata` threaded through so the raw ADS-B callsign never displays, previous-card text sizing/alignment fix, and a required on-glass verification pass — implements spike `.planning/spikes/001-panel-theme-colours/`. Planned 2026-08-31: 6 plans across 5 waves (0/6 executed). (completed 2026-08-31)
 - [x] **Phase 9: Diagonal band theme** - A new dedicated theme (additive to Phase 8's 11) adding a diagonal decorative trapezoid band behind the aircraft illustration in 5 colours (blue/blue-light-dithered/green-light-dithered/red/black), a split top-label tag, a three-tier flight-identifier hierarchy centred inside the band for both the main and previous cards, band-aware ink colour, and a required on-glass verification pass — implements spike `.planning/spikes/003-diagonal-band-theme/`. Planned 2026-09-02: 4 plans across 4 waves (0/4 executed). (completed 2026-09-02)
-- [ ] **Phase 10: Scheduled quiet hours** - Pause the frame's wake/poll/display cycle during a configurable window (curfew), via a server-side skip of the display refresh — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md` at the developer's request (2026-09-02). Not yet planned.
+- [x] **Phase 10: Scheduled quiet hours** - Pause the frame's wake/poll/display cycle during a configurable window (curfew), via a server-side skip of the display refresh — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md` at the developer's request (2026-09-02). Not yet planned. (completed 2026-09-03)
 - [ ] **Phase 11: Web-configurable wake interval** - Make `SKYPANE_SLEEP_S` configurable through the companion web interface instead of SSH-only env-file edits — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md` at the developer's request (2026-09-02). Not yet planned.
 
 ## Phase Details
@@ -643,7 +643,7 @@ Plans:
 **Goal:** The frame sleeps through a configurable daily quiet-hours window instead of waking to poll. One recurring Europe/Paris start/end window plus an independent enabled flag (D-03/D-04) is set on the companion Settings page; the server extends the device's `sleep_s` past the window's end so it never wakes, connects or polls during it (D-01); and the panel shows a one-time "QUIET HOURS / Back at HH:MM" screen at window entry (D-05/D-06), with no symmetric screen at exit (D-07). Promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md`. **Supersedes this entry's earlier "developer chose seed option (b)" text:** `/gsd-discuss-phase 10` corrected the seed's own premise — extending `sleep_s` needs zero firmware change, since it is already a per-response, fully server-controlled value — so D-01 chose the full sleep-cycle extension after all, and it no longer depends on Phase 5's pending battery-discharge verdict.
 **Requirements**: None — unmapped backlog phase promoted from SEED-001, matching every prior `06.6.x` decimal phase's precedent; `.planning/REQUIREMENTS.md` has no curfew/quiet-hours requirement ID.
 **Depends on:** Phase 9
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 
 Plans:
 **Wave 1**
@@ -655,7 +655,7 @@ Plans:
 
 - [x] 10-03-PLAN.md — Extended `sleep_s` on `GET /device/v1/display` in the vendored `stub-server/byos_server.py`, with a duplication drift guard (wave 2)
 - [x] 10-04-PLAN.md — `server/poll_loop.py` quiet-hours gate: render once at entry, hold, repaint the live board at exit (wave 2)
-- [ ] 10-05-PLAN.md — Companion Settings quiet-hours fieldset, `color-scheme` support and the shared checkbox class (wave 2)
+- [x] 10-05-PLAN.md — Companion Settings quiet-hours fieldset, `color-scheme` support and the shared checkbox class (wave 2)
 
 ### Phase 11: Web-configurable wake interval
 
