@@ -29,6 +29,7 @@ look there, not here. This move is complete as of plan 06 Task 3: this
 module no longer imports the history-database module or the poll-state
 module, and opens no database connection of any kind.
 """
+import os
 import re
 
 from companion.illustration_normalize import (
@@ -73,6 +74,42 @@ _VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
 _VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
 _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 
+# quick task 260903-btu: unlike the four names above, these two have no
+# history_page counterpart — History's own dialog deliberately renders
+# neither a replace form nor this attribute, so they must never be added
+# to test_view_pages.py's _airlines_lightbox_constants_match_history()
+# pairs tuple (doing so would fail with an AttributeError, and worse,
+# would push this project toward giving History an upload form). Both
+# literals are, like the four above, duplicated into
+# companion/static/panel-lookup.js rather than imported — one
+# getAttribute() literal, one querySelector() literal — and
+# LIGHTBOX_REPLACE_FORM_CLASS is additionally duplicated into
+# companion/static/style.css's selector. A page module has no import
+# path to a static asset, the same duplicated-not-imported discipline
+# the four constants above already document; a cross-file guard in
+# companion/test_view_pages.py pins all of this (quick task 260903-btu
+# Task 4). quick task 260903-df3: the same "no history_page counterpart,
+# never add to that pairs tuple" rule extends to
+# LIGHTBOX_REPLACE_ZONE_CLASS, REPLACE_HINT_CLASS and REPLACE_ICON_CLASS
+# below — three more names with no history_page twin.
+_VIEW_PANEL_REPLACE_ACTION_ATTR = "data-view-panel-replace-action"
+LIGHTBOX_REPLACE_FORM_CLASS = "lightbox__replace"
+
+# quick task 260903-df3: three more class constants, in this file's own
+# `.lightbox__replace*` BEM-ish convention, for the framed action zone
+# that wraps the form's contents. Each is, like STAT_TILE_ICON_CLASS in
+# companion/layout.py, duplicated (not imported) into
+# companion/static/style.css's selectors — a page module has no import
+# path to a static asset — and a cross-file guard in
+# companion/test_status_pages.py pins the pair. Unlike
+# LIGHTBOX_REPLACE_FORM_CLASS above, none of these three appears in
+# companion/static/panel-lookup.js — the script does not know about them
+# and must not be taught to; it only ever looks up the form itself by
+# LIGHTBOX_REPLACE_FORM_CLASS.
+LIGHTBOX_REPLACE_ZONE_CLASS = "lightbox__replace-zone"
+REPLACE_HINT_CLASS = "lightbox__replace-hint"
+REPLACE_ICON_CLASS = "lightbox__replace-icon"
+
 ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 
 # quick task 260902-tli: went through two rounds of live developer
@@ -92,6 +129,62 @@ ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 # constant despite carrying no text, so a future non-empty note needs
 # only a value change here, not a markup change.
 LIGHTBOX_NOTE = ""
+
+# quick task 260902-v26: the three flash keys `Handler._handle_illustration_
+# replace()` (companion/app.py) can redirect with, defined here — not in
+# app.py — for the identical reason companion/pages/config_page.py owns
+# its own FLASH_SAVED/FLASH_SAVE_FAILED/etc. literals (see that module's
+# own comment): app.py already imports this page module, so the reverse
+# import would be a cycle. app.py rebinds these under FLASH_KEY_* names,
+# adds their copy to FLASH_MESSAGES, and their ARIA role to FLASH_ROLES,
+# mirroring config_page.py's own FLASH_* rebinding pattern exactly.
+FLASH_ILLUSTRATION_REPLACED = "illustration_replaced"
+# "Rejected" means the upload was read and parsed but is not an
+# acceptable illustration (not an image, too small, not landscape, no
+# transparency, or the request was over the size cap) — a normal,
+# expected outcome of validation, not a server malfunction.
+FLASH_ILLUSTRATION_REJECTED = "illustration_rejected"
+# Distinct from FLASH_ILLUSTRATION_REJECTED: this key means something
+# unexpected happened server-side while storing an otherwise-acceptable
+# upload (a filesystem error, an unexpected Pillow failure after
+# validation already passed) — mirrors FLASH_SAVE_FAILED's own
+# genuine-server-failure framing in config_page.py.
+FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
+
+# quick task 260902-v26 (D-04 is explicitly a negative requirement: no
+# revert-to-original control is in scope, anywhere, for this feature).
+# The replace-image control's own copy, each its own module-level
+# constant so the harness can assert against the constant rather than a
+# duplicated literal.
+#
+# quick task 260903-btu: REPLACE_SUMMARY_TEMPLATE and
+# REPLACE_LABEL_TEMPLATE (both %s-airline-name templates) are gone. The
+# shared lightbox that now hosts this form is emitted once per page, so
+# at render time there is no single airline name to interpolate into
+# either template's %s slot — and the dialog already names the airline
+# through its own caption (written from data-view-panel-caption at click
+# time), so a generic label sitting directly under that caption reads
+# unambiguously. REPLACE_LABEL_TEXT replaces both: it absorbs the job
+# the old <summary> used to do (naming the action), since there is no
+# <summary> disclosure any more. REPLACE_BUTTON_TEXT carries over
+# byte-identical — already-approved copy whose meaning still fits
+# exactly. REPLACE_INPUT_ID is now a single static id, correct and
+# sufficient since exactly one file input exists on the whole page — the
+# old per-key id derivation has nothing left to disambiguate.
+REPLACE_LABEL_TEXT = "Replace this illustration"
+REPLACE_BUTTON_TEXT = "Upload"
+REPLACE_INPUT_ID = "airline-replace-input"
+
+# quick task 260903-df3: forward-looking guidance, stating the app's own
+# real validation rule before the upload rather than only after it — the
+# positive twin of companion/app.py's FLASH_KEY_ILLUSTRATION_REJECTED
+# ("Couldn't use that image — upload a transparent PNG that's at least
+# 1200 pixels wide and landscape (wider than tall)."). Keep the two
+# describing the same rule if either ever changes. This copy must contain
+# none of the words revert/reset/restore/undo/original — D-04's
+# no-revert-control membership scan in test_status_pages.py treats any of
+# them inside this form as a failure.
+REPLACE_HINT_TEXT = "Transparent PNG, at least 1200px wide, landscape."
 
 # variant_chip_label()'s two shape-domain patterns. An alphanumeric type
 # code is a letter prefix immediately followed by digits, optionally with
@@ -136,7 +229,119 @@ def variant_chip_label(shape):
     return shape.title()
 
 
-def _airline_card_html(index, airline_name, shapes):
+def _illustration_cache_buster(key, state_dir):
+    """Return a `"?v={mtime}"` query suffix for `key`'s override file, or
+    the empty string when there is no `state_dir` or no override exists
+    yet (quick task 260902-v26).
+
+    Why this is needed at all: the illustration route
+    (`companion/app.py`'s `Handler._serve_illustration_image()`, via
+    `Handler.send_bytes(..., cache_seconds=300)`) serves `Cache-Control:
+    private, max-age=300`. Without a URL change, a freshly-replaced image
+    would keep showing the stale, pre-upload image in the developer's
+    browser for up to five minutes after a successful upload — reading as
+    "the upload didn't work" rather than as a cache artifact. Keying the
+    suffix on the override file's own mtime means the URL changes exactly
+    when the bytes change, and never otherwise: rendering this page again
+    before the next upload reproduces the identical suffix, so the
+    browser's cache is otherwise left alone.
+
+    Resolved through `illustrations.override_path_for_key(key, state_dir)`
+    — the one place the state_dir/override-dirname join lives
+    (T-v26-01-01) — never rebuilt here, and `ILLUSTRATION_OVERRIDE_DIRNAME`
+    is never reached for directly. Wrapped in `try`/`except` so a vanished
+    or unreadable file (a race with a concurrent upload, a permissions
+    error) degrades to no cache buster rather than raising — the same
+    never-raises posture `companion/app.py`'s `runway_images_available()`
+    documents for its own per-request `os.path.isfile()` probe.
+    """
+    if not state_dir:
+        return ""
+    override_path = illustrations.override_path_for_key(key, state_dir)
+    if not override_path:
+        return ""
+    try:
+        mtime = int(os.stat(override_path).st_mtime)
+    except OSError:
+        return ""
+    return "?v=%d" % mtime
+
+
+def _lightbox_replace_form_html():
+    """The replace-image control (originally quick task 260902-v26,
+    relocated here by quick task 260903-btu): a plain, JavaScript-free
+    upload form, wired to plan 02's `POST /illustration/{key}.png` route
+    (`companion/app.py`'s `Handler._handle_illustration_replace()`),
+    living inside the shared click-to-enlarge lightbox rather than under
+    each grid card. Takes no arguments and is emitted exactly once per
+    page by `_lightbox_html()` — there is no longer a per-card copy to
+    parametrise.
+
+    `action=""` is a real, present placeholder attribute, never omitted:
+    `companion/static/panel-lookup.js` overwrites it on every trigger
+    click with that card's own `_VIEW_PANEL_REPLACE_ACTION_ATTR` value,
+    writing an existing attribute rather than creating one. With
+    JavaScript unavailable, this placeholder means "submit to the
+    current page's own URL", i.e. `POST /airlines` — a route this app's
+    POST dispatch does not handle and answers with a 404. That is a
+    clean, harmless degradation (no write to a wrong key, no
+    unauthenticated path) and is deliberately accepted rather than
+    engineered around, matching this codebase's existing JS-free-
+    degradation posture (`list-filter.js`'s early return,
+    `panel-lookup.js`'s own guards). No JavaScript submit logic exists
+    anywhere here: this stays a real native multipart POST that
+    navigates the browser away and closes the dialog by page reload.
+
+    `accept="image/png"` below is a browser-side file-picker hint only,
+    never trusted server-side: plan 02's route decides what an image is
+    by parsing the real PNG header, and this attribute exists purely to
+    save the developer scrolling past their photo library.
+
+    Renders no revert/reset/restore-original control (D-04) — a
+    deliberate scope decision, not an omission. The vendored original is
+    never modified by this feature and stays recoverable (by deleting the
+    override file), but no user-facing revert is in scope for this task.
+
+    None of `REPLACE_LABEL_TEXT`, `REPLACE_BUTTON_TEXT`,
+    `REPLACE_HINT_TEXT` or `REPLACE_INPUT_ID` interpolates any external
+    value, so no `escape_html()` call is needed here — unlike the retired
+    per-card version, nothing hostile can reach this function's output.
+
+    quick task 260903-df3: this changed presentation only — a
+    `LIGHTBOX_REPLACE_ZONE_CLASS` wrapper `<div>` around the label/hint/
+    input/button (Option 2, "Framed action area") replaces the old
+    cramped inline divider row. The form's own opening tag (class,
+    `method`, `enctype`, `action=""`) and every existing child element's
+    own attributes are byte-identical to before — the zone is a styling
+    wrapper, not a markup or route change. The upload glyph is produced
+    only via `layout.icon_html("icon-upload", ...)`; this module hand-rolls
+    no glyph markup of its own.
+    """
+    icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
+    return (
+        '<form class="%s" method="post" enctype="multipart/form-data" action="">'
+        '<div class="%s">'
+        "%s"
+        '<label for="%s">%s</label>'
+        '<p class="%s">%s</p>'
+        '<input type="file" id="%s" name="image" accept="image/png" required>'
+        '<button type="submit">%s</button>'
+        "</div>"
+        "</form>"
+    ) % (
+        LIGHTBOX_REPLACE_FORM_CLASS,
+        LIGHTBOX_REPLACE_ZONE_CLASS,
+        icon_html,
+        REPLACE_INPUT_ID,
+        REPLACE_LABEL_TEXT,
+        REPLACE_HINT_CLASS,
+        REPLACE_HINT_TEXT,
+        REPLACE_INPUT_ID,
+        REPLACE_BUTTON_TEXT,
+    )
+
+
+def _airline_card_html(index, airline_name, shapes, state_dir=None):
     """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
     at the session-gated `/illustration/{key}.png` route, wrapped in a
     `.airline-card__zoom` click-to-enlarge trigger (quick task
@@ -157,20 +362,38 @@ def _airline_card_html(index, airline_name, shapes):
     still needs its own group. `data-filter-text` carries the lower-cased
     airline name, escaped before interpolation into the attribute — the
     same discipline the old registry rows applied to their prefix value.
+
+    `state_dir` (quick task 260902-v26, default `None`): threaded down
+    from `render(ctx)` only to resolve `_illustration_cache_buster()`. It
+    changes nothing else — the vendored-fallback image URL, with no
+    override present, is byte-identical to what this function produced
+    before this parameter existed. (Quick task 260903-btu: this
+    parameter no longer also feeds a per-card replace form — the shared
+    lightbox's single form is not built here at all.)
     """
     key = illustrations.normalise_airline_key(airline_name)
     if not key:
         return ""
     # Built once, interpolated into both the <img src> and the zoom
-    # trigger's data-view-panel-src below, so the two can never drift
-    # apart into pointing at different images.
+    # trigger's data-view-panel-src below (plus, since quick task
+    # 260902-v26, the cache-busting suffix appended to both — see
+    # _illustration_cache_buster()), so the two can never drift apart into
+    # pointing at different images.
     image_url = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
+    # This zoom trigger's own _VIEW_PANEL_REPLACE_ACTION_ATTR below
+    # (quick task 260903-btu) deliberately uses this UN-busted image_url,
+    # not busted_image_url — a query string on a POST target is
+    # pointless and would make that attribute and data-view-panel-src
+    # look gratuitously different for no reason. image_url is already
+    # escaped once above; do not escape it again when interpolating it
+    # below, which would double-encode.
+    busted_image_url = image_url + _illustration_cache_buster(key, state_dir)
     image_html = (
         '<img class="airline-card__image" src="%s" '
         'width="%d" height="%d" '
         'loading="lazy" decoding="async" alt="%s">'
     ) % (
-        image_url,
+        busted_image_url,
         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
         escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
     )
@@ -184,11 +407,12 @@ def _airline_card_html(index, airline_name, shapes):
     # accessible name, so a screen reader announces the action ("Enlarge
     # ... illustration"), not just the picture.
     zoom_html = (
-        '<button type="button" class="airline-card__zoom" %s="%s" %s="%s" '
+        '<button type="button" class="airline-card__zoom" %s="%s" %s="%s" %s="%s" '
         'aria-label="%s">%s</button>'
     ) % (
-        _VIEW_PANEL_SRC_ATTR, image_url,
+        _VIEW_PANEL_SRC_ATTR, busted_image_url,
         _VIEW_PANEL_CAPTION_ATTR, escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
+        _VIEW_PANEL_REPLACE_ACTION_ATTR, image_url,
         escape_html(ZOOM_LABEL_TEMPLATE % airline_name),
         image_html,
     )
@@ -210,14 +434,16 @@ def _airline_card_html(index, airline_name, shapes):
     ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
 
 
-def _gallery_grid_html(pairs):
+def _gallery_grid_html(pairs, state_dir=None):
     """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
     pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
     §7.1, companion/static/style.css from plan 01). Skips (renders
-    nothing for) any pair whose card comes back empty.
+    nothing for) any pair whose card comes back empty. `state_dir`
+    (quick task 260902-v26, default `None`) is threaded straight through
+    to every card — see `_airline_card_html()`'s own docstring.
     """
     cards = "".join(
-        _airline_card_html(index, airline_name, shapes)
+        _airline_card_html(index, airline_name, shapes, state_dir)
         for index, (airline_name, shapes) in enumerate(pairs))
     return '<div class="illustration-grid">%s</div>' % cards
 
@@ -228,23 +454,39 @@ def _lightbox_html():
     `render()`, only when at least one card actually carries a zoom
     trigger. Mirrors `history_page._lightbox_html()` element-for-element
     and class-for-class (same order, same three `lightbox__*` elements,
-    same close-attribute button), with exactly two differences: this
+    same close-attribute button), with exactly three differences: this
     dialog also carries the `lightbox--wide` class (the enlarged
-    illustration needs more room than History's 480px default), and the
-    note is this module's own `LIGHTBOX_NOTE`.
+    illustration needs more room than History's 480px default); the note
+    is this module's own `LIGHTBOX_NOTE`; and this dialog carries the
+    replace form `_lightbox_replace_form_html()` returns, which History
+    deliberately never renders (quick task 260903-btu).
 
-    `companion/static/panel-lookup.js` writes the image src/alt and the
-    caption text on click; this function only emits the static note,
-    which the script never touches.
+    Element order inside the dialog: image, then caption, then note,
+    then the replace form, then the Close button. Close stays last so
+    the dismissal affordance is the stable bottom-most control and the
+    tab order reads "look, act, dismiss" — `panel-lookup.js` finds the
+    close button by attribute, not by position, so this order matters
+    only to a human, never to the script.
+
+    `companion/static/panel-lookup.js` writes the image src/alt, the
+    caption text, and this form's `action` attribute on click; this
+    function only emits the static note and the form's `action=""`
+    placeholder, neither of which the script writes on page load — only
+    on the next click.
     """
     return (
         '<dialog class="lightbox lightbox--wide" id="%s">'
         '<img class="lightbox__image" src="" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
         '<p class="lightbox__note text-body">%s</p>'
+        "%s"
         '<button type="button" %s>Close</button>'
         "</dialog>"
-    ) % (LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_NOTE), _VIEW_PANEL_CLOSE_ATTR)
+    ) % (
+        LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_NOTE),
+        _lightbox_replace_form_html(),
+        _VIEW_PANEL_CLOSE_ATTR,
+    )
 
 
 # D-16 (06.6.4.1-UI-SPEC.md §7.2): the gallery's filter-bar copy, driven
@@ -305,8 +547,10 @@ def render(ctx):
     `illustrations.target_variants_by_airline()` order, then the shared
     click-to-enlarge lightbox dialog (quick task 260902-tli). `ctx` is
     accepted for call-site parity with every other page module's
-    `render(ctx)` signature but is otherwise unused — this page reads
-    one static in-memory list, no database and no poll state.
+    `render(ctx)` signature; since quick task 260902-v26 it reads exactly
+    one optional key, `state_dir`, used only to resolve each card's
+    illustration-replace cache buster (see `_illustration_cache_buster()`)
+    — this page still opens no database and reads no poll state.
 
     The filter bar and the lightbox dialog both render only when there
     is at least one card — this codebase's consistent "no chrome with no
@@ -314,12 +558,17 @@ def render(ctx):
     unreachable today; it stays a genuine guard, not a claim that the
     list can ever be empty.
     """
+    # ctx.get(), never ctx["state_dir"]: companion/test_view_pages.py:1365
+    # calls render({}) with a literal empty dict, and every other caller
+    # of this page (companion/app.py's page_context()) does supply
+    # state_dir, so this must stay tolerant of both.
+    state_dir = ctx.get("state_dir")
     pairs = illustrations.target_variants_by_airline()
     filter_html = _filter_bar_html(len(pairs)) if pairs else ""
     lightbox_html = _lightbox_html() if pairs else ""
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
         + filter_html
-        + _gallery_grid_html(pairs)
+        + _gallery_grid_html(pairs, state_dir)
         + lightbox_html
     )

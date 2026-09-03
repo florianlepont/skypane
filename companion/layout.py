@@ -175,6 +175,15 @@ ICON_IDS = ICON_IDS + (
     "icon-search",
 )
 
+# quick task 260903-df3: one more icon for the Airlines lightbox replace
+# zone (the framed action area's upload glyph). Appended, not merged into
+# either tuple above, for the same "appended, not reordered" reason those
+# tuples' own comments already state — grows the whitelist from fourteen
+# to fifteen.
+ICON_IDS = ICON_IDS + (
+    "icon-upload",
+)
+
 # One shared inline sprite, emitted once per document by page_shell().
 # `display: none` (companion/static/style.css's `.icon-defs` rule) still
 # lets every <use href="#icon-..."> reference below resolve correctly —
@@ -279,6 +288,16 @@ ICON_DEFS_HTML = (
     'stroke-linejoin="round">'
     '<circle cx="8.5" cy="8.5" r="5.5"/>'
     '<path d="M13.5 13.5L17.5 17.5"/>'
+    "</symbol>"
+    # quick task 260903-df3: one more glyph, same viewBox/stroke language
+    # as the fourteen above — the Airlines lightbox replace zone's upload
+    # arrow-over-tray.
+    '<symbol id="icon-upload" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    '<path d="M10 13V3"/>'
+    '<path d="M6 7l4-4 4 4"/>'
+    '<path d="M3.5 13v3a1.5 1.5 0 0 0 1.5 1.5h10a1.5 1.5 0 0 0 1.5-1.5v-3"/>'
     "</symbol>"
     "</defs>"
     "</svg>"

@@ -33,6 +33,7 @@ Startup refusal: `main()` calls `companion.auth.configured_password()`
 before binding the socket. A missing password fails closed — this
 service must never come up with authentication silently disabled.
 """
+import email.message
 import os
 import socket
 import sys
@@ -40,6 +41,8 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, quote, urlsplit
+
+from PIL import Image
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py, so
 # `server.device_config`/`server.history_db`/`server.poll_loop` all
@@ -71,6 +74,13 @@ GALLERY_DEFAULT_LIMIT = 30
 POLL_COOLDOWN_S = 45  # D-17: tens of seconds, a double-click guard, not an abuse rate-limit.
 THEME_COOKIE_MAX_AGE_S = 365 * 24 * 3600
 MAX_FORM_BYTES = 8192  # far more than any form on this site needs (Pitfall/T-06-05-07).
+# quick task 260902-v26: comfortably above any real high-resolution
+# transparent aircraft PNG — every vendored asset in
+# server/assets/icons/illustrations/ is well under this — while bounding
+# a single request's peak memory to a few MB on a CX22-class VPS.
+# Enforcing this size is the caller's job (Handler._read_upload_body(),
+# plan 02's Task 2), not parse_single_uploaded_file()'s own.
+MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
 # WR-03: bounds how long a single connection's socket reads (including the
 # unauthenticated POST /login body read in read_form()) may block on a
 # slow/stalled client. Without this, a client that opens a connection with
@@ -137,6 +147,13 @@ FLASH_KEY_POLL_TRIGGERED = config_page.FLASH_POLL_TRIGGERED
 FLASH_KEY_POLL_COOLDOWN = config_page.FLASH_POLL_COOLDOWN
 FLASH_KEY_POLL_FAILED = config_page.FLASH_POLL_FAILED
 FLASH_KEY_POLL_ALREADY_RUNNING = config_page.FLASH_POLL_ALREADY_RUNNING
+# quick task 260902-v26: the three illustration-replace flash keys are
+# defined once in companion/pages/airlines_page.py (that module's own
+# comment explains why, mirroring config_page.py's FLASH_* rebinding
+# pattern above exactly).
+FLASH_KEY_ILLUSTRATION_REPLACED = airlines_page.FLASH_ILLUSTRATION_REPLACED
+FLASH_KEY_ILLUSTRATION_REJECTED = airlines_page.FLASH_ILLUSTRATION_REJECTED
+FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = airlines_page.FLASH_ILLUSTRATION_REPLACE_FAILED
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -154,6 +171,18 @@ FLASH_MESSAGES = {
         "Poll trigger failed — please try again. If this keeps happening, "
         "check the companion service logs."),
     FLASH_KEY_POLL_ALREADY_RUNNING: "A poll is already in progress — try again in a moment.",
+    FLASH_KEY_ILLUSTRATION_REPLACED: (
+        "Illustration replaced — will apply on the frame's next scheduled refresh."),
+    # Actionable, states the real requirements in user terms, and never
+    # echoes a server path or any part of the uploaded file back to the
+    # client (T-v26-02-08) — validate_illustration_file()'s own problem
+    # strings go to the service log only, never into this copy.
+    FLASH_KEY_ILLUSTRATION_REJECTED: (
+        "Couldn't use that image — upload a transparent PNG that's at "
+        "least 1200 pixels wide and landscape (wider than tall)."),
+    FLASH_KEY_ILLUSTRATION_REPLACE_FAILED: (
+        "Couldn't replace the illustration — please try again. If this "
+        "keeps happening, check the companion service logs."),
 }
 
 # 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
@@ -171,6 +200,13 @@ FLASH_ROLES = {
     # Informational, not itself a failure — a different session/tab is
     # already legitimately running a poll.
     FLASH_KEY_POLL_ALREADY_RUNNING: "status",
+    # Success and rejection are both user-facing outcomes of a normal
+    # upload flow (polite "status"); an unexpected server-side failure
+    # takes the assertive "alert" role, matching FLASH_KEY_SAVE_FAILED's
+    # own treatment above.
+    FLASH_KEY_ILLUSTRATION_REPLACED: "status",
+    FLASH_KEY_ILLUSTRATION_REJECTED: "status",
+    FLASH_KEY_ILLUSTRATION_REPLACE_FAILED: "alert",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -360,6 +396,87 @@ def _illustration_filenames():
 _ILLUSTRATION_FILENAMES = _illustration_filenames()
 
 
+def parse_single_uploaded_file(content_type, body):
+    """Parse a `multipart/form-data` body known to hold exactly one file
+    part, returning that part's raw payload `bytes`, or `None` for
+    anything that doesn't match that exact shape. Never raises, for any
+    input including `None`/empty/truncated/binary-garbage `body` and a
+    `None` `content_type` — every failure mode degrades to `None`
+    (quick task 260902-v26, matching `read_form()`'s own never-raises
+    discipline above).
+
+    This is deliberately NOT a general multipart parser. The one form
+    this route ever serves carries a single file input and nothing else,
+    so refusing anything but exactly one part is the smallest
+    provably-correct behaviour, not an arbitrary restriction — a second
+    part, a missing part, or a malformed delimiter structure all return
+    `None` rather than being tolerated or best-effort-parsed.
+
+    The part's header block (its declared filename, field name, and
+    declared media type) is discarded entirely and never parsed — by
+    construction, not merely by convention, this function has no code
+    path that reads a client-declared filename. The destination path an
+    upload is eventually written to is derived solely from the URL key
+    the caller has already membership-validated (`_ILLUSTRATION_FILENAMES`),
+    never from anything in this body. Likewise, a client-declared media
+    type is not evidence of anything: `illustrations.validate_illustration_
+    file()`'s own Pillow-based header read is the sole authority on
+    "is this really an image", not this parser and not this header block.
+
+    Enforcing `MAX_ILLUSTRATION_UPLOAD_BYTES` is the caller's
+    responsibility (`Handler._read_upload_body()`, plan 02's Task 2), not
+    this function's — this parser only ever sees bytes the caller already
+    decided to hand it and never independently bounds anything by size.
+
+    Boundary/media-type parsing uses `email.message.Message` (assign the
+    raw header value, then `get_content_type()`/`get_param("boundary")`)
+    — the non-deprecated stdlib replacement for `cgi.parse_header` on
+    this project's pinned Python 3.11 venv. Do not "modernise" this back
+    to the `cgi` module: it is deprecated there and removed outright in
+    Python 3.13.
+    """
+    try:
+        message = email.message.Message()
+        message["content-type"] = content_type
+        if message.get_content_type() != "multipart/form-data":
+            return None
+        boundary = message.get_param("boundary")
+        if not isinstance(boundary, str) or not boundary:
+            return None
+        boundary_bytes = boundary.encode("ascii")
+        if len(boundary_bytes) > 70:  # RFC 2046 boundary length ceiling.
+            return None
+
+        delimiter = b"--" + boundary_bytes
+        segments = body.split(delimiter)
+        # Exactly one part: a preamble, the part itself, and an epilogue.
+        # Zero parts, two-or-more parts, and a missing closing delimiter
+        # all produce a different segment count and are rejected here.
+        if len(segments) != 3:
+            return None
+        preamble, part, epilogue = segments
+        if preamble.strip(b"\r\n \t") != b"":
+            return None
+        if not epilogue.startswith(b"--"):
+            return None
+
+        if not part.startswith(b"\r\n"):
+            return None
+        part = part[2:]
+        header_block, separator, payload = part.partition(b"\r\n\r\n")
+        if not separator:
+            return None
+        del header_block  # deliberately discarded — see docstring above.
+
+        if payload.endswith(b"\r\n"):
+            payload = payload[:-2]
+        if not payload:
+            return None
+        return payload
+    except Exception:
+        return None
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None
@@ -501,6 +618,38 @@ class Handler(BaseHTTPRequestHandler):
             return {}
         parsed = parse_qs(text, keep_blank_values=True)
         return {key: values[0] for key, values in parsed.items() if values}
+
+    def _read_upload_body(self):
+        """Read the POST body for an illustration-replace request, bounded
+        by `MAX_ILLUSTRATION_UPLOAD_BYTES` (quick task 260902-v26,
+        T-v26-02-03) — deliberately mirrors `read_form()`'s own draining
+        discipline above rather than reusing it (`read_form()` is
+        urlencoded-only and capped much lower). Returns `None` when
+        `Content-Length` is absent, unparseable, non-positive, or exceeds
+        the cap; an over-cap body still has its remainder drained from
+        the socket in bounded chunks first, so a persistent connection is
+        never left mid-body. `socket.timeout` (bounded by `Handler.timeout`,
+        WR-03) is treated exactly like any other malformed/over-cap body.
+        """
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except (TypeError, ValueError):
+            return None
+        if length <= 0:
+            return None
+        try:
+            raw = self.rfile.read(min(length, MAX_ILLUSTRATION_UPLOAD_BYTES + 1))
+            if length > MAX_ILLUSTRATION_UPLOAD_BYTES:
+                remaining = length - len(raw)
+                while remaining > 0:
+                    chunk = self.rfile.read(min(remaining, 65536))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                return None
+        except socket.timeout:
+            return None
+        return raw
 
     def page_context(self):
         """Build the `ctx` dict every page module's render()/handle_post()
@@ -745,29 +894,165 @@ class Handler(BaseHTTPRequestHandler):
         # (quick task 260902-req-02, T-260902req-05) — a caller can never
         # distinguish "not a real illustration" from "no file for a real
         # one" from "normalization failed on this one file";
-        # illustrations.illustration_path_for_key()'s own _UNSAFE_KEY_RE
+        # illustrations.resolved_illustration_path()'s own _UNSAFE_KEY_RE
         # check below is defence in depth, never a substitute for this
         # membership test.
         filename = key + ".png"
         if filename not in _ILLUSTRATION_FILENAMES:
             return self.send_html(404, self._not_found_page())
-        path = illustrations.illustration_path_for_key(key)
+        # quick task 260902-v26: resolved_illustration_path() checks
+        # {state_dir}/illustration_overrides/{key}.png first, falling back
+        # to the vendored file — the same seam server.plane.illustrations.
+        # select_illustration() goes through for the panel compositor
+        # (plan 01). The *key set* this route accepts is still closed and
+        # server-controlled (the membership test above); what changed
+        # since 260902-req-02 is that the *bytes on disk* for an
+        # overridden key may now have originated as a user upload
+        # (POST /illustration/{key}.png, this route's sibling below, no
+        # longer "never user-supplied image bytes" as this comment used to
+        # claim). That is still safe to decode here because this route
+        # only ever sees bytes this server itself re-encoded through
+        # Pillow in _handle_illustration_replace() after
+        # validate_illustration_file() passed — never a client's raw
+        # uploaded bytes — and because a decode failure on either an
+        # override or a vendored file still degrades to this same uniform
+        # 404 (T-260902req-05), never a 500.
+        path = illustrations.resolved_illustration_path(key, self.args.state_dir)
         if path is None:
             return self.send_html(404, self._not_found_page())
         # T-260902req-06: cached_normalized_png_bytes() is lru_cache'd per
-        # path+mtime, so the 43 known-safe repo-controlled assets are
-        # decoded/re-encoded once per process, not once per request — this
-        # route's input set is closed (the membership test above), never
-        # user-supplied image bytes.
+        # path+mtime, so a replaced/overridden asset (a changed mtime, or a
+        # changed path entirely once an override first appears) is picked
+        # up on the very next request, not decoded/re-encoded once and
+        # left stale.
         try:
             payload = illustration_normalize.cached_normalized_png_bytes(path)
         except Exception:
             # Any decode/normalize failure on this one asset degrades to
             # the same 404 as a missing file (T-260902req-05), never a
             # 500 — the membership test above already proved this is a
-            # known-safe repo-controlled path.
+            # known-safe key, whether it currently resolves to the
+            # vendored file or a validated user override.
             return self.send_html(404, self._not_found_page())
         return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+
+    def _handle_illustration_replace(self, key):
+        """POST /illustration/{key}.png — upload a replacement illustration
+        (quick task 260902-v26, T-v26-02-*). This is the feature's entire
+        security surface: the first untrusted file upload this codebase
+        has ever handled. Steps run in this exact order; the ordering is
+        the security property, not an implementation detail:
+
+        1. Membership test on `key` FIRST, before any path is constructed
+           or any byte of the body is read — validate-then-join, never
+           sanitise-then-join, over the SAME closed 43-member set
+           `_serve_illustration_image()` above already validates against
+           (D-15). A traversal-shaped key is structurally unable to reach
+           a path here, for exactly the reason that method's own comment
+           documents.
+        2. `_read_upload_body()` — bounded by `MAX_ILLUSTRATION_UPLOAD_
+           BYTES`, draining an over-cap body so the connection is not
+           left corrupted (T-v26-02-03).
+        3. `parse_single_uploaded_file()` — a strict, stdlib-only,
+           single-part multipart parse. The client's declared filename is
+           never read by construction; the destination filename is always
+           the already-membership-validated URL key, never anything from
+           the request (T-v26-02-01).
+        4. Write the raw payload to a temp file inside this key's override
+           directory, named from the validated key plus this process's
+           pid (never from the request), then run `illustrations.
+           validate_illustration_file()` against it — the SAME validation
+           every vendored illustration is held to (D-03/D-04). A non-empty
+           problem list rejects the upload; the problem strings (which
+           carry the server-side temp path) go to the service log only,
+           never into the response (T-v26-02-08).
+        5. Only once validated: decode with Pillow, convert to RGBA, and
+           re-encode to a second temp file in the same directory. The
+           client's original bytes are NEVER stored — this route only
+           ever writes bytes this server's own Pillow encoder produced,
+           so `_serve_illustration_image()` above (and, after the next
+           poll cycle, the panel compositor via `select_illustration()`)
+           only ever decode server-produced bytes, never a remote
+           client's. This also strips any ancillary chunk, trailing
+           appended data, or polyglot payload the original upload may
+           have carried (T-v26-02-05).
+        6. `os.replace()` the re-encoded temp onto the override path —
+           atomic on one filesystem, since both temps live in the same
+           override directory as the destination (T-v26-02-09) — then
+           redirect with the success flash. Every failure branch unlinks
+           both temp files before redirecting with the appropriate flash.
+
+        No CSRF token: the session cookie's `SameSite=Strict` flag is this
+        site's documented CSRF control for every state-changing POST
+        (companion/auth.py:132) — this route follows that same,
+        already-established posture (matching `POST /settings` and
+        `POST /poll-now`) rather than inventing a second mechanism for
+        itself alone (T-v26-02-07, accepted risk).
+        """
+        filename = key + ".png"
+        if filename not in _ILLUSTRATION_FILENAMES:
+            return self.send_html(404, self._not_found_page())
+
+        raw = self._read_upload_body()
+        if raw is None:
+            return self.redirect(
+                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+
+        payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
+        if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
+            return self.redirect(
+                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+
+        state_dir = self.args.state_dir
+        override_dir = illustrations.override_dir_for_state_dir(state_dir)
+        try:
+            os.makedirs(override_dir, exist_ok=True)
+        except OSError:
+            return self.redirect(
+                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+
+        # Both temp files live alongside the destination (inside
+        # override_dir) so the final os.replace() below stays a same-
+        # filesystem, atomic rename — never a cross-filesystem copy.
+        # Named from the validated key plus this process's pid plus a
+        # fixed suffix, never from anything in the request.
+        raw_tmp_path = os.path.join(
+            override_dir, ".%s.%d.upload.tmp" % (key, os.getpid()))
+        encoded_tmp_path = os.path.join(
+            override_dir, ".%s.%d.encoded.tmp" % (key, os.getpid()))
+        try:
+            with open(raw_tmp_path, "wb") as fh:
+                fh.write(payload)
+
+            # This is what proves the bytes are really an image: it opens
+            # the file with Pillow and reads format/dimensions from the
+            # header, returning early on an over-cap pixel count before
+            # any pixel data is decoded, so a decompression-bomb upload is
+            # rejected without ever being expanded (T-v26-02-04).
+            problems = illustrations.validate_illustration_file(raw_tmp_path)
+            if problems:
+                for problem in problems:
+                    print("illustration replace rejected for %r: %s" % (key, problem))
+                return self.redirect(
+                    "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+
+            with Image.open(raw_tmp_path) as img:
+                rgba = img.convert("RGBA")
+                rgba.save(encoded_tmp_path, format="PNG")
+
+            override_path = illustrations.override_path_for_key(key, state_dir)
+            os.replace(encoded_tmp_path, override_path)
+            return self.redirect(
+                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
+        except Exception:
+            return self.redirect(
+                "/airlines?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+        finally:
+            for tmp_path in (raw_tmp_path, encoded_tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
@@ -1025,6 +1310,16 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == LOGOUT_ROUTE:
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
+
+        # quick task 260902-v26: mirrors the GET dispatch's own
+        # ILLUSTRATION_IMAGE_ROUTE_PREFIX branch above byte for byte — same
+        # prefix constant, same ".png" suffix test, same require_session()
+        # gate first, same slice arithmetic.
+        if path.startswith(ILLUSTRATION_IMAGE_ROUTE_PREFIX) and path.endswith(".png"):
+            if not self.require_session():
+                return None
+            key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
+            return self._handle_illustration_replace(key)
 
         return self.send_html(404, self._not_found_page())
 

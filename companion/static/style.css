@@ -3536,3 +3536,174 @@ summary::-webkit-details-marker {
   margin-left: auto;
   margin-right: auto;
 }
+
+/* quick task 260903-btu: the replace form relocated from the per-card
+ * disclosure into this shared dialog. `border-top: 1px solid
+ * var(--color-border)` is this file's structural-divider role for that
+ * token (never an interactive-state signal) — it separates the form
+ * from the viewing content above it, the same job a rule boundary plays
+ * elsewhere in this file. The `label` rule below carries forward the
+ * retired disclosure's own sub-scale label tier verbatim (13px,
+ * color-mix at 70% muted) — the same tier `.airline-card__chip`/
+ * `.data-table th` already use — so this introduces no new size and no
+ * new colour token. `min-width: 0` on the form and `max-width: 100%` on
+ * the file input are the same fix `.stat-tile` documents above: without
+ * them, a long uploaded filename's intrinsic content width can push the
+ * dialog wider than intended. Neither the native file input (kept at
+ * its own global 44px floor) nor the submit button (kept at the global
+ * 30px accent-fill primary treatment, already an enumerated member of
+ * this file's header accent-reservation list) is restyled here — no new
+ * accent use.
+ *
+ * quick task 260903-df3, SUPERSEDED: `display: flex; align-items:
+ * center; gap: var(--space-sm);` and the `border-top` hairline divider
+ * above are dropped. `.lightbox__replace` is demoted to a thin layout
+ * wrapper — the new `.lightbox__replace-zone` below is a dashed-edge
+ * framed box that now carries the visual separation the hairline used
+ * to carry, and a hairline rule 16px above a dashed box read as
+ * double-fencing. Restoring the hairline (and the old flex row) is a
+ * one-line revert if the developer prefers it after Task 3's
+ * real-browser check. */
+.lightbox__replace {
+  display: block;
+  padding-top: var(--space-md);
+  min-width: 0;
+}
+
+/* quick task 260903-df3: "Option 2 — Framed action area". A bordered
+ * zone whose stacked, centred contents read top-to-bottom as upload
+ * glyph -> bold label -> requirements hint -> file picker -> Upload
+ * button. `--radius-control` (8px) is correct here, not `--radius-card`
+ * (10px): the card set uses `--radius-control`, and `--radius-card` is
+ * reserved for floating overlays — the enclosing `.lightbox` already
+ * owns that role (see references/control-density.md). The background is
+ * a light tint of the secondary surface, written with this file's own
+ * WR-02 fallback idiom (a plain declaration immediately followed by the
+ * color-mix() one, see `button` above). */
+.lightbox__replace-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  text-align: center;
+  min-width: 0;
+  background: var(--color-secondary); /* fallback for browsers without color-mix() (WR-02) */
+  background: color-mix(in srgb, var(--color-secondary) 55%, var(--color-dominant));
+}
+
+/* A muted text tint, not the accent, is deliberate: this file's header
+ * accent-reservation list is exhaustive and this glyph is not on it, so
+ * tinting it accent would require extending that list first. Size comes
+ * from the existing `.icon` rule (20x20) plus icon_html()'s own
+ * width/height attributes — no size restated here. */
+.lightbox__replace-zone .lightbox__replace-icon {
+  color: rgba(23, 25, 31, 0.55); /* fallback for browsers without color-mix() (WR-02) */
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* quick task 260903-df3, SUPERSEDED: replaces the old `.lightbox__replace
+ * label` rule (13px, color-mix at 70% muted — removed, its selector's job
+ * is now done by this rule instead). 14px-semibold is this design
+ * system's existing Emphasis pattern ("existing size made bold", 06.6.4
+ * D-09 / `.data-table th`) — no new size, no new weight. `margin-bottom:
+ * 0` is load-bearing: the global `label` rule's `margin-bottom:
+ * var(--space-sm)` would otherwise stack on top of this zone's own flex
+ * `gap`. */
+.lightbox__replace-zone label {
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  margin-bottom: 0;
+}
+
+/* The retired label rule's own sub-scale muted tier, carried forward
+ * verbatim rather than invented — the tier `.airline-card__chip` /
+ * `.data-table th` already occupy. */
+.lightbox__replace-hint {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(23, 25, 31, 0.7); /* fallback for browsers without color-mix() (WR-02) */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Neutralises the box the global `input, select` rule gives this one
+ * instance, so the picker button below stays legible: without this, a
+ * bordered secondary-filled input inside a secondary-tinted frame
+ * containing a secondary-filled button would be three nested boxes of
+ * the same colour. `min-height: 44px` stays inherited — do not zero it;
+ * the touch-target floor register in references/control-density.md
+ * records native input/select as having KEPT the 44px floor, and nothing
+ * here justifies spending it. `max-width: 100%` is retained from the
+ * pre-existing rule for the reason its own comment above already gives
+ * (a long filename's intrinsic width pushing the dialog wider). This
+ * also recolours the browser's own "no file chosen" status text via the
+ * same 70%-muted value the hint above uses. */
+.lightbox__replace-zone input[type="file"] {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  max-width: 100%;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: rgba(23, 25, 31, 0.7); /* fallback for browsers without color-mix() (WR-02) */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The first ::file-selector-button rule in this file, scoped to this
+ * zone only — a bare `input[type="file"]::file-selector-button` rule
+ * would reach any future file input anywhere in the app. Paints the
+ * browser's own picker button as this app's quiet control, restating
+ * the base `button` geometry since the pseudo-element does not inherit
+ * it. Two things worth recording: (i) the 30px height lands in the
+ * existing 06.6.4 D-01 button-density register — WCAG 2.5.8 (AA, 24px)
+ * is still met, no new touch-target trade; (ii) this rule uses
+ * `var(--radius-control)` (8px) where the global `button` rule uses a
+ * literal 6px — deliberate, so the picker button's corners agree with
+ * the zone frame it sits inside, not an oversight. This paints the
+ * browser's own control; it does not hide or replace the native picker
+ * behaviour or the browser's own localized status text.
+ *
+ * quick task 260903-df3 round trip: the resting background was
+ * originally a flat `var(--color-secondary)` fill, found during Task
+ * 3's real-browser dark-mode check to read as barely-visible text with
+ * no perceptible button shape — in dark mode, this zone's own tint
+ * (`color-mix(in srgb, var(--color-secondary) 55%, var(--color-dominant))`,
+ * above) lands almost on top of plain `--color-secondary`, since
+ * `--color-dominant` (#151922) is darker than `--color-secondary`
+ * (#1C222D) in the dark palette — the opposite of light mode, where
+ * `--color-dominant` (#FFFFFF) is lighter than `--color-secondary` and
+ * the mix reads as visibly brighter than the button sitting on it. Fixed
+ * by mixing the resting fill toward `--color-text` instead of using it
+ * flat — the same idiom the base quiet `button` rule already uses for
+ * its own resting wash (see `button` above) — at a lighter 4% than the
+ * hover rule's existing 7% below, so hover still reads as a visible step
+ * up. Mixing toward `--color-text` (near-white in dark mode, near-black
+ * in light mode) pushes the button's fill away from the zone's own
+ * dominant-diluted tint in both themes, unlike mixing toward
+ * `--color-dominant`, which would only have made the dark-mode collapse
+ * worse. */
+.lightbox__replace-zone input[type="file"]::file-selector-button {
+  height: 30px;
+  padding: 0 12px;
+  margin-right: var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  border-radius: var(--radius-control);
+  background: var(--color-secondary); /* fallback for browsers without color-mix() (WR-02) */
+  background: color-mix(in srgb, var(--color-text) 4%, var(--color-secondary));
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.lightbox__replace-zone input[type="file"]::file-selector-button:hover {
+  background: var(--color-secondary); /* fallback for browsers without color-mix() (WR-02) */
+  background: color-mix(in srgb, var(--color-text) 7%, var(--color-secondary));
+}
