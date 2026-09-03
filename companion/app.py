@@ -113,6 +113,10 @@ FRESHNESS_SCRIPT_ROUTE = "/static/freshness.js"
 # D-20 (06.6.4.1-02): companion/layout.py's PANEL_LOOKUP_SCRIPT_SRC must
 # equal this exactly, mirroring the SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
 PANEL_LOOKUP_SCRIPT_ROUTE = "/static/panel-lookup.js"
+# Quick task 260903-peo (UIR-19): companion/layout.py's
+# FLASH_CLEANUP_SCRIPT_SRC must equal this exactly, mirroring the
+# SCRIPT_ROUTE/NAV_SCRIPT_ROUTE pairs above.
+FLASH_CLEANUP_SCRIPT_ROUTE = "/static/flash-cleanup.js"
 # Single definition site is companion/pages/config_page.py (app.py imports
 # that module, so the reverse import would be a cycle) — rebound here
 # rather than re-typed, exactly like RUNWAY_IMAGE_ROUTE_PREFIX and the
@@ -217,6 +221,7 @@ _LIST_FILTER_JS_PATH = os.path.join(_HERE, "static", "list-filter.js")
 _COPY_BUTTON_JS_PATH = os.path.join(_HERE, "static", "copy-button.js")
 _FRESHNESS_JS_PATH = os.path.join(_HERE, "static", "freshness.js")
 _PANEL_LOOKUP_JS_PATH = os.path.join(_HERE, "static", "panel-lookup.js")
+_FLASH_CLEANUP_JS_PATH = os.path.join(_HERE, "static", "flash-cleanup.js")
 _RUNWAY_IMAGE_DIR = os.path.join(_HERE, "static")
 
 # Process-global, not per-session (06-RESEARCH.md Pitfall 8's own login
@@ -893,6 +898,14 @@ class Handler(BaseHTTPRequestHandler):
         """
         return self._serve_script_file(_PANEL_LOOKUP_JS_PATH)
 
+    def _serve_flash_cleanup_script(self):
+        """Serve companion/static/flash-cleanup.js, pre-auth. Thin
+        delegate onto _serve_script_file(), matching
+        _serve_panel_lookup_script()'s shape exactly (quick task
+        260903-peo, UIR-19).
+        """
+        return self._serve_script_file(_FLASH_CLEANUP_JS_PATH)
+
     def _serve_gallery_image(self, requested):
         payload = gallery_bytes(self.args.state_dir, requested)
         if payload is None:
@@ -1160,6 +1173,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == PANEL_LOOKUP_SCRIPT_ROUTE:
             return self._serve_panel_lookup_script()
+
+        if path == FLASH_CLEANUP_SCRIPT_ROUTE:
+            return self._serve_flash_cleanup_script()
 
         if path == SETTINGS_ROUTE:
             if not self.require_session():

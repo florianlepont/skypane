@@ -87,6 +87,11 @@ FRESHNESS_SCRIPT_SRC = "/static/freshness.js"
 # exactly, same duplicated-not-imported contract as the four constants above.
 PANEL_LOOKUP_SCRIPT_SRC = "/static/panel-lookup.js"
 
+# Quick task 260903-peo (UIR-19): must equal companion/app.py's
+# FLASH_CLEANUP_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above.
+FLASH_CLEANUP_SCRIPT_SRC = "/static/flash-cleanup.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 _STATUS_DOT_CLASSES = {
@@ -947,6 +952,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -976,6 +982,11 @@ def page_shell(
         # 260902-tli both History and the Airlines gallery render
         # #panel-lookup-dialog.
         PANEL_LOOKUP_SCRIPT_SRC,
+        # Quick task 260903-peo (UIR-19): seventh script, same
+        # unconditional/no-op-via-guard-clause convention — served every
+        # page, since the flash banner it cleans up after is emitted by
+        # this function for every authenticated page, not just one.
+        FLASH_CLEANUP_SCRIPT_SRC,
     )
 
 
