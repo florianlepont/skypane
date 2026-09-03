@@ -88,9 +88,27 @@ _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
 # path to a static asset, the same duplicated-not-imported discipline
 # the four constants above already document; a cross-file guard in
 # companion/test_view_pages.py pins all of this (quick task 260903-btu
-# Task 4).
+# Task 4). quick task 260903-df3: the same "no history_page counterpart,
+# never add to that pairs tuple" rule extends to
+# LIGHTBOX_REPLACE_ZONE_CLASS, REPLACE_HINT_CLASS and REPLACE_ICON_CLASS
+# below — three more names with no history_page twin.
 _VIEW_PANEL_REPLACE_ACTION_ATTR = "data-view-panel-replace-action"
 LIGHTBOX_REPLACE_FORM_CLASS = "lightbox__replace"
+
+# quick task 260903-df3: three more class constants, in this file's own
+# `.lightbox__replace*` BEM-ish convention, for the framed action zone
+# that wraps the form's contents. Each is, like STAT_TILE_ICON_CLASS in
+# companion/layout.py, duplicated (not imported) into
+# companion/static/style.css's selectors — a page module has no import
+# path to a static asset — and a cross-file guard in
+# companion/test_status_pages.py pins the pair. Unlike
+# LIGHTBOX_REPLACE_FORM_CLASS above, none of these three appears in
+# companion/static/panel-lookup.js — the script does not know about them
+# and must not be taught to; it only ever looks up the form itself by
+# LIGHTBOX_REPLACE_FORM_CLASS.
+LIGHTBOX_REPLACE_ZONE_CLASS = "lightbox__replace-zone"
+REPLACE_HINT_CLASS = "lightbox__replace-hint"
+REPLACE_ICON_CLASS = "lightbox__replace-icon"
 
 ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 
@@ -156,6 +174,17 @@ FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
 REPLACE_LABEL_TEXT = "Replace this illustration"
 REPLACE_BUTTON_TEXT = "Upload"
 REPLACE_INPUT_ID = "airline-replace-input"
+
+# quick task 260903-df3: forward-looking guidance, stating the app's own
+# real validation rule before the upload rather than only after it — the
+# positive twin of companion/app.py's FLASH_KEY_ILLUSTRATION_REJECTED
+# ("Couldn't use that image — upload a transparent PNG that's at least
+# 1200 pixels wide and landscape (wider than tall)."). Keep the two
+# describing the same rule if either ever changes. This copy must contain
+# none of the words revert/reset/restore/undo/original — D-04's
+# no-revert-control membership scan in test_status_pages.py treats any of
+# them inside this form as a failure.
+REPLACE_HINT_TEXT = "Transparent PNG, at least 1200px wide, landscape."
 
 # variant_chip_label()'s two shape-domain patterns. An alphanumeric type
 # code is a letter prefix immediately followed by digits, optionally with
@@ -273,21 +302,40 @@ def _lightbox_replace_form_html():
     never modified by this feature and stays recoverable (by deleting the
     override file), but no user-facing revert is in scope for this task.
 
-    None of `REPLACE_LABEL_TEXT`, `REPLACE_BUTTON_TEXT` or
-    `REPLACE_INPUT_ID` interpolates any external value, so no
-    `escape_html()` call is needed here — unlike the retired per-card
-    version, nothing hostile can reach this function's output.
+    None of `REPLACE_LABEL_TEXT`, `REPLACE_BUTTON_TEXT`,
+    `REPLACE_HINT_TEXT` or `REPLACE_INPUT_ID` interpolates any external
+    value, so no `escape_html()` call is needed here — unlike the retired
+    per-card version, nothing hostile can reach this function's output.
+
+    quick task 260903-df3: this changed presentation only — a
+    `LIGHTBOX_REPLACE_ZONE_CLASS` wrapper `<div>` around the label/hint/
+    input/button (Option 2, "Framed action area") replaces the old
+    cramped inline divider row. The form's own opening tag (class,
+    `method`, `enctype`, `action=""`) and every existing child element's
+    own attributes are byte-identical to before — the zone is a styling
+    wrapper, not a markup or route change. The upload glyph is produced
+    only via `layout.icon_html("icon-upload", ...)`; this module hand-rolls
+    no glyph markup of its own.
     """
+    icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
     return (
         '<form class="%s" method="post" enctype="multipart/form-data" action="">'
+        '<div class="%s">'
+        "%s"
         '<label for="%s">%s</label>'
+        '<p class="%s">%s</p>'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
         '<button type="submit">%s</button>'
+        "</div>"
         "</form>"
     ) % (
         LIGHTBOX_REPLACE_FORM_CLASS,
+        LIGHTBOX_REPLACE_ZONE_CLASS,
+        icon_html,
         REPLACE_INPUT_ID,
         REPLACE_LABEL_TEXT,
+        REPLACE_HINT_CLASS,
+        REPLACE_HINT_TEXT,
         REPLACE_INPUT_ID,
         REPLACE_BUTTON_TEXT,
     )

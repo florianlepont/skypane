@@ -270,7 +270,7 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 124  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
+EXPECTED_CHECK_COUNT = 126  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -4995,6 +4995,12 @@ def main():
         tmp = _mkstate("a-replace-action-membership")
         try:
             rendered = airlines_page.render(_ctx(tmp))
+            # quick task 260903-df3: LIGHTBOX_REPLACE_ZONE_CLASS
+            # ("lightbox__replace-zone") shares a prefix with
+            # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace"), but the
+            # literal below carries a trailing quote after %s
+            # ('<form class="%s"') — the zone is a <div>, never a
+            # <form>, so this count stays unambiguous.
             form_count = rendered.count('<form class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
             if form_count != 1:
                 return False, "expected exactly one lightbox replace form, got %d" % form_count
@@ -5055,7 +5061,11 @@ def main():
     def _replace_form_file_input_id_is_unique_and_labelled():
         # retargeted from the per-card disclosure onto the lightbox
         # contract: now exactly one file input on the whole page, whose
-        # id is the static REPLACE_INPUT_ID.
+        # id is the static REPLACE_INPUT_ID. quick task 260903-df3
+        # extends this further: the label and the file input must both
+        # live *inside* the framed zone wrapper, so a future change that
+        # lifts either back out of the frame fails loudly here rather
+        # than silently.
         tmp = _mkstate("a-replace-input-ids")
         try:
             rendered = airlines_page.render(_ctx(tmp))
@@ -5067,12 +5077,23 @@ def main():
             label_fors = set(re.findall(r'<label for="([^"]+)">', rendered))
             if input_ids[0] not in label_fors:
                 return False, "expected a <label for=\"%s\"> matching the file input's id" % (input_ids[0],)
+            zone_match = re.search(
+                r'<div class="%s">.*?</div>' % re.escape(airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS),
+                rendered, re.DOTALL)
+            if not zone_match:
+                return False, "expected to find the framed zone's own markup"
+            zone_html = zone_match.group(0)
+            if ('<label for="%s"' % airlines_page.REPLACE_INPUT_ID) not in zone_html:
+                return False, "expected the <label> to live inside the framed zone wrapper"
+            if '<input type="file"' not in zone_html:
+                return False, "expected the file <input> to live inside the framed zone wrapper"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "the whole rendered page carries exactly one <input type=\"file\">, whose id equals "
-        "airlines_page.REPLACE_INPUT_ID and is the target of a label's for attribute — the accessibility "
+        "airlines_page.REPLACE_INPUT_ID and is the target of a label's for attribute, and both the label and "
+        "the file input live inside the framed zone wrapper (quick task 260903-df3) — the accessibility "
         "contract the move from per-card to shared must not lose",
         _replace_form_file_input_id_is_unique_and_labelled)
 
@@ -5162,10 +5183,16 @@ def main():
         # %s-airline-name templates are replaced by REPLACE_LABEL_TEXT,
         # which no longer interpolates a name at all — the form is
         # airline-agnostic now, so the hostile name must not appear
-        # inside its markup at all.
+        # inside its markup at all. quick task 260903-df3 adds a third
+        # non-interpolating constant (REPLACE_HINT_TEXT) to this same
+        # airline-agnostic form, so the "no trace of the hostile name"
+        # claim below now covers three constants, not two.
         escaped_label = layout.escape_html(airlines_page.REPLACE_LABEL_TEXT)
         if escaped_label not in rendered:
             return False, "expected %r in the rendered page" % (escaped_label,)
+        escaped_hint = layout.escape_html(airlines_page.REPLACE_HINT_TEXT)
+        if escaped_hint not in rendered:
+            return False, "expected %r in the rendered page" % (escaped_hint,)
         form_match = re.search(
             r'<form class="%s".*?</form>' % re.escape(airlines_page.LIGHTBOX_REPLACE_FORM_CLASS),
             rendered, re.DOTALL)
@@ -5187,7 +5214,8 @@ def main():
     check(
         "a hostile airline name reaching the rendered page is escaped, never interpolated raw, including in "
         "its own data-view-panel-replace-action attribute; the now-airline-agnostic replace form's own markup "
-        "carries no trace of the hostile name at all (extends T-06.6.4.1-05's existing discipline)",
+        "(REPLACE_LABEL_TEXT and REPLACE_HINT_TEXT, quick task 260903-df3) carries no trace of the hostile "
+        "name at all (extends T-06.6.4.1-05's existing discipline)",
         _replace_control_escapes_hostile_airline_name)
 
     def _replace_form_contains_no_revert_or_reset_control():
@@ -5200,7 +5228,10 @@ def main():
         # (REPLACE_LABEL_TEXT/REPLACE_BUTTON_TEXT), not the two deleted
         # templates. Deliberately scoped rather than a bare negative grep
         # over the whole document, which would be brittle against
-        # unrelated future copy elsewhere on the page (D-04).
+        # unrelated future copy elsewhere on the page (D-04). quick task
+        # 260903-df3 adds REPLACE_HINT_TEXT to the membership tuple below
+        # — otherwise this scan would silently skip that task's new copy
+        # constant.
         tmp = _mkstate("a-no-revert-control")
         try:
             rendered = airlines_page.render(_ctx(tmp))
@@ -5219,7 +5250,9 @@ def main():
                 return False, (
                     "expected no revert-shaped word %r inside the replace form (D-04), found in %r"
                     % (word, form_html))
-        for constant_text in (airlines_page.REPLACE_LABEL_TEXT, airlines_page.REPLACE_BUTTON_TEXT):
+        for constant_text in (
+                airlines_page.REPLACE_LABEL_TEXT, airlines_page.REPLACE_BUTTON_TEXT,
+                airlines_page.REPLACE_HINT_TEXT):
             lowered_constant = constant_text.lower()
             for word in revert_shaped_words:
                 if word in lowered_constant:
@@ -5228,7 +5261,7 @@ def main():
     check(
         "the lightbox replace form's own markup offers no restoring or resetting of the original image (D-04, "
         "explicitly out of scope) - checked both within the form's own markup and as a membership test over "
-        "this feature's surviving copy constants",
+        "this feature's surviving copy constants (REPLACE_LABEL_TEXT/REPLACE_BUTTON_TEXT/REPLACE_HINT_TEXT)",
         _replace_form_contains_no_revert_or_reset_control)
 
     def _replace_control_retired_from_every_surface():
@@ -5261,6 +5294,110 @@ def main():
         "stylesheet rule (companion/static/style.css read from disk), and no dead module surface "
         "(_replace_control_html/REPLACE_SUMMARY_TEMPLATE/REPLACE_LABEL_TEMPLATE) behind",
         _replace_control_retired_from_every_surface)
+
+    def _replace_zone_icon_comes_from_the_shared_sprite():
+        # new (quick task 260903-df3): proves the framed zone's upload
+        # glyph came from layout.ICON_DEFS_HTML via layout.icon_html(),
+        # not from hand-written markup in this page module. The
+        # "concatenated fragments, not one literal" technique below is
+        # the same one _replace_control_retired_from_every_surface()
+        # above already uses for its own retired token, so this check's
+        # own source cannot satisfy the scan it performs.
+        if "icon-upload" not in layout.ICON_IDS:
+            return False, "expected 'icon-upload' to be a member of layout.ICON_IDS"
+        tmp = _mkstate("a-replace-zone-icon-sprite")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        use_tag = "<use href=" + '"#icon-upload"'
+        if rendered.count(use_tag) != 1:
+            return False, "expected exactly one %r in the rendered page, got %d" % (
+                use_tag, rendered.count(use_tag))
+        source_path = os.path.join(HERE, "pages", "airlines_page.py")
+        with open(source_path) as fh:
+            page_source = fh.read()
+        hand_rolled_token = "<" + "use href=" + '"#icon-upload"'
+        if hand_rolled_token in page_source:
+            return False, (
+                "expected companion/pages/airlines_page.py to contain no hand-written glyph-element token "
+                "built as one literal — the glyph must come from layout.icon_html() only")
+        icon_svg_match = re.search(
+            r'<svg[^>]*class="[^"]*%s[^"]*"[^>]*>' % re.escape(airlines_page.REPLACE_ICON_CLASS), rendered)
+        if not icon_svg_match:
+            return False, "expected REPLACE_ICON_CLASS to appear in the rendered icon's class attribute"
+        return True, ""
+    check(
+        "the framed zone's upload glyph comes from layout.ICON_DEFS_HTML via layout.icon_html() — 'icon-upload' "
+        "is a member of ICON_IDS, the rendered page carries exactly one matching <use> reference, "
+        "companion/pages/airlines_page.py's own source contains no hand-written glyph-element token, and "
+        "REPLACE_ICON_CLASS appears in the rendered icon's class attribute",
+        _replace_zone_icon_comes_from_the_shared_sprite)
+
+    def _replace_zone_markup_and_styling_contract():
+        # new (quick task 260903-df3): the zone's own shape (exactly one
+        # instance, nested inside the single replace form, its five
+        # children in the specified order) and its four-file class
+        # agreement (the page module's class constants actually appear
+        # in the stylesheet, plus the first ::file-selector-button rule).
+        tmp = _mkstate("a-replace-zone-contract")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        zone_open_tag = '<div class="%s">' % airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS
+        if rendered.count(zone_open_tag) != 1:
+            return False, "expected exactly one %r, got %d" % (zone_open_tag, rendered.count(zone_open_tag))
+        form_match = re.search(
+            r'<form class="%s"[^>]*>' % re.escape(airlines_page.LIGHTBOX_REPLACE_FORM_CLASS), rendered)
+        if not form_match:
+            return False, "expected to find the single lightbox replace form's opening tag"
+        if rendered.index(zone_open_tag) <= form_match.start():
+            return False, "expected the zone <div> to be nested inside (after) the form's own opening tag"
+        zone_match = re.search(
+            r'<div class="%s">.*?</div>' % re.escape(airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS),
+            rendered, re.DOTALL)
+        if not zone_match:
+            return False, "expected to find the framed zone's own markup"
+        zone_html = zone_match.group(0)
+        try:
+            positions = [
+                zone_html.index("#icon-upload"),
+                zone_html.index('<label for='),
+                zone_html.index(airlines_page.REPLACE_HINT_CLASS),
+                zone_html.index('<input type="file"'),
+                zone_html.index('<button type="submit"'),
+            ]
+        except ValueError as exc:
+            return False, "expected all five zone children to be present: %s" % (exc,)
+        if positions != sorted(positions):
+            return False, (
+                "expected the zone's five children (icon, label, hint, input, button) in that order, "
+                "got positions %r" % (positions,))
+        hint_p_match = re.search(
+            r'<p class="%s">([^<]*)</p>' % re.escape(airlines_page.REPLACE_HINT_CLASS), zone_html)
+        if not hint_p_match:
+            return False, "expected a <p class=\"%s\"> inside the zone" % (airlines_page.REPLACE_HINT_CLASS,)
+        if hint_p_match.group(1) != airlines_page.REPLACE_HINT_TEXT:
+            return False, "expected the hint element's text to equal REPLACE_HINT_TEXT, got %r" % (
+                hint_p_match.group(1),)
+        style_css_path = os.path.join(HERE, "static", "style.css")
+        with open(style_css_path) as fh:
+            style_css_source = fh.read()
+        for class_name in (
+                airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS, airlines_page.REPLACE_HINT_CLASS,
+                airlines_page.REPLACE_ICON_CLASS):
+            if class_name not in style_css_source:
+                return False, "expected %r to appear in companion/static/style.css" % (class_name,)
+        if "::file-selector-button" not in style_css_source:
+            return False, "expected a '::file-selector-button' rule in companion/static/style.css"
+        return True, ""
+    check(
+        "exactly one .lightbox__replace-zone <div> is rendered, nested inside the single lightbox replace "
+        "form; within it, the icon, label, hint, file input and Upload button appear in that order; the hint "
+        "element's text equals REPLACE_HINT_TEXT; and companion/static/style.css (read from disk) contains "
+        "LIGHTBOX_REPLACE_ZONE_CLASS, REPLACE_HINT_CLASS, REPLACE_ICON_CLASS and a '::file-selector-button' rule",
+        _replace_zone_markup_and_styling_contract)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
@@ -5406,7 +5543,18 @@ def main():
                     retired_token = "airline-card__" + "replace"
                     if retired_token in body_text:
                         return False, "expected zero occurrences of the retired per-card class token in the real /airlines HTTP response body"
-                    replace_form_count = body_text.count(airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
+                    # quick task 260903-df3: a bare substring count of
+                    # LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
+                    # is no longer unambiguous — it is now also a prefix
+                    # of LIGHTBOX_REPLACE_ZONE_CLASS/REPLACE_HINT_CLASS/
+                    # REPLACE_ICON_CLASS (all "lightbox__replace-*"), each
+                    # occurring once in the shared lightbox's own markup.
+                    # The literal below carries a trailing quote after %s
+                    # so only the <form class="..."> attribute value
+                    # itself is counted, the same trailing-quote
+                    # technique _replace_form_action_matches_trigger_attribute_membership()
+                    # already uses.
+                    replace_form_count = body_text.count('class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
                     if replace_form_count != 1:
                         return False, (
                             "expected airlines_page.LIGHTBOX_REPLACE_FORM_CLASS exactly once in the real "

@@ -1445,7 +1445,14 @@ def main():
                 (airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR, "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR"),
                 ("<form", "<form"),
                 ('<input type="file"', '<input type="file"'),
-                ("enctype", "enctype")):
+                ("enctype", "enctype"),
+                # quick task 260903-df3: the framed zone's three new
+                # class constants extend this non-regression guard too —
+                # History must carry none of this task's new markup any
+                # more than it carried the old inline-row markup.
+                (airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS, "airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS"),
+                (airlines_page.REPLACE_HINT_CLASS, "airlines_page.REPLACE_HINT_CLASS"),
+                (airlines_page.REPLACE_ICON_CLASS, "airlines_page.REPLACE_ICON_CLASS")):
             count = rendered.count(token)
             if count != 0:
                 return False, "expected zero occurrences of %s in a real, seeded history_page.render() output, got %d" % (label, count)
@@ -1453,7 +1460,8 @@ def main():
     check(
         "a real, seeded history_page.render() call (real gallery entry, real runway event) renders its "
         "lightbox dialog exactly once, and carries zero occurrences of airlines_page's replace-form class, "
-        "replace-action attribute, <form>, file input, or enctype anywhere (quick task 260903-btu)",
+        "replace-action attribute, <form>, file input, enctype, or the framed zone's three class constants "
+        "(quick task 260903-df3) anywhere (quick task 260903-btu)",
         _history_lightbox_carries_zero_replace_markup)
 
     def _replace_lightbox_names_appear_in_three_files_never_in_history():
@@ -1491,17 +1499,27 @@ def main():
                 return False, "expected %r in a real airlines_page.render({}) call" % (token,)
             if token in history_rendered:
                 return False, "expected %r to never appear in a real, seeded history_page.render() call" % (token,)
-        if airlines_page.LIGHTBOX_REPLACE_FORM_CLASS not in style_css_source:
+        # quick task 260903-df3: a bare substring test here is no longer
+        # sufficient — LIGHTBOX_REPLACE_FORM_CLASS ("lightbox__replace")
+        # is now also a prefix of LIGHTBOX_REPLACE_ZONE_CLASS's own
+        # selector ("lightbox__replace-zone"), so the bare substring
+        # would keep passing even if the `.lightbox__replace { ... }`
+        # rule itself were deleted from the stylesheet (the zone
+        # selector alone would satisfy it). Require the exact selector,
+        # built from the constant rather than hard-coding the literal.
+        exact_selector = "." + airlines_page.LIGHTBOX_REPLACE_FORM_CLASS + " {"
+        if exact_selector not in style_css_source:
             return False, (
                 "expected %r in companion/static/style.css — the fourth file in the chain, and the one "
-                "whose drift would leave the form functional but unstyled" % (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,))
+                "whose drift would leave the form functional but unstyled" % (exact_selector,))
         return True, ""
     check(
         "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR and airlines_page.LIGHTBOX_REPLACE_FORM_CLASS each "
         "appear in companion/static/panel-lookup.js's source and in a real airlines_page.render({}) call, "
-        "LIGHTBOX_REPLACE_FORM_CLASS also appears in companion/static/style.css, and neither token appears "
-        "in a real, seeded history_page.render() call (quick task 260903-btu; these two constants have no "
-        "history_page counterpart by design and must never join "
+        "the exact '.lightbox__replace {' selector (not merely a substring, which the newer "
+        "'.lightbox__replace-zone' selector could otherwise satisfy) appears in companion/static/style.css, "
+        "and neither token appears in a real, seeded history_page.render() call (quick task 260903-btu; these "
+        "two constants have no history_page counterpart by design and must never join "
         "_airlines_lightbox_constants_match_history()'s pairs tuple)",
         _replace_lightbox_names_appear_in_three_files_never_in_history)
 
