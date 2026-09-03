@@ -646,9 +646,13 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 10-01-PLAN.md — Quiet-hours config registry fields plus DST-safe Europe/Paris window arithmetic in `server/device_config.py` (wave 1)
 - [ ] 10-02-PLAN.md — The "QUIET HOURS / Back at HH:MM" panel render state and its preview CLI in `server/plane/render.py` (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 10-03-PLAN.md — Extended `sleep_s` on `GET /device/v1/display` in the vendored `stub-server/byos_server.py`, with a duplication drift guard (wave 2)
 - [ ] 10-04-PLAN.md — `server/poll_loop.py` quiet-hours gate: render once at entry, hold, repaint the live board at exit (wave 2)
 - [ ] 10-05-PLAN.md — Companion Settings quiet-hours fieldset, `color-scheme` support and the shared checkbox class (wave 2)

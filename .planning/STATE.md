@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
-stopped_at: "Phase 10 (scheduled quiet hours) context gathered via /gsd-discuss-phase 10 — see .planning/phases/10-scheduled-quiet-hours/10-CONTEXT.md. Next: /gsd-plan-phase 10."
-last_updated: "2026-09-03T18:03:29.736Z"
-last_activity: 2026-09-03
-last_activity_desc: "Added Phase 10 (scheduled quiet hours, from SEED-001) and Phase 11 (web-configurable wake interval, from SEED-002) to the roadmap at the developer's request, then ran /gsd-discuss-phase 10. Discussion surfaced a correction to the seed's own premise: sleep_s is already fully server-controlled per poll response (stub-server/byos_server.py), so extending it during quiet hours needs zero firmware changes, contrary to what the seed assumed — locked as the pause mechanism (10-CONTEXT.md D-01). Also locked: one daily recurring window with a separate enabled/disabled flag (D-03/D-04), config-applies-on-next-poll accepted as-is even though that wait is now potentially hours long (D-02), a dedicated 'QUIET HOURS / Back at HH:MM' English-language screen at window entry as a deliberate exception to the no-status-text convention (D-05/D-06), and a silent (no dedicated screen) transition back to normal display at window exit (D-07). `gsd_run query state.record-session` reverted this field and the progress counters to a stale 2026-09-01 snapshot when called at the end of this session — hand-corrected (see project-gsd-state-percent-bug memory). Prior real history (2026-09-03, before this correction): quick task 260903-ghy (Health mobile tables, PR #37) was approved on a real phone and merged; quick task 260903-etm's COLOUR_CAVEAT -> LIGHTBOX_NOTE composition got explicit developer sign-off, recorded in history_page.py's own comment. Still open from the 06.6.4.1-UI-REVIEW.md audit: the Settings theme picker (UIR-01/02) and the UIR-20..26 typography/spacing direction items — both need a real design pass via /gsd-discuss-phase, not a quick task."
+stopped_at: Phase 10 UI-SPEC approved
+last_updated: "2026-09-03T18:58:34.586Z"
+last_activity: 2026-09-01
+last_activity_desc: "Completed quick task 260901-re6: merged Settings' doubled description/helper paragraphs into one muted caption per section, fixed the save bar's position:sticky containment bug (moved outside the form, switched to position:fixed) and restyled it to stand out from the page"
 progress:
   total_phases: 23
-  completed_phases: 20
+  completed_phases: 18
   total_plans: 104
   completed_plans: 102
-  percent: 98
+  percent: 78
 ---
 
 # Project State
@@ -93,7 +93,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 **06.6.3-08 Task 1 executed (2026-08-31), the full-suite gate for the phase's eighth and final plan (closing wave, depends on all seven prior plans 03-07).** `scripts/run-all-tests.sh` run against the fully composed worktree (7 prior plans of this phase, all already committed and clean at session start): 15/16 harnesses green, coverage 91% (above the pinned 83% threshold in pyproject.toml). The sole non-zero harness is the single pre-documented, already-accepted exception — `server/test_poll_loop.py`'s macOS-local Pillow/FreeType `panel.bin` digest mismatch (`44fe835e...` vs pinned `49b8ba45...`), confirmed unrelated since this phase's seven prior plans touch only `companion/` files (verified via `git log --oneline` across all ten of their commits) and zero `server/` files. Every companion `test_*.py` harness's on-disk `EXPECTED_CHECK_COUNT` matched its own real passed/total count from this run: `test_companion_app.py` 85/85, `test_config_page.py` 46/46, `test_status_pages.py` 58/58, `test_view_pages.py` 41/41. No file changes made — Task 1 is verification-only, matching the plan's own `files_modified: []`, so nothing was committed for this task. **Task 2 (`06.6.3-08-02`, `gate="blocking"`, `type="checkpoint:human-verify"`) is now the sole remaining item in this phase** — a 20-item local browser/keyboard/phone verification pass across Config/Health/History/Airlines/Preview plus a cross-cutting group (including the phase's own carried-forward deferred real assistive-technology pass and optional production walkthrough). Per the plan's own explicit instruction and this project's established precedent (06.6.1-06, 06.6.2-08, 06.3-05), this checkpoint must not be answered or inferred by the executor; the developer's verbatim verdict is required before `06.6.3-08-SUMMARY.md` can be written and the phase closed. `06.6.3-08-SUMMARY.md` does not exist yet — it is created only after the checkpoint resolves. `state.update-progress` was not invoked this session (Task 1 produced no commits to measure); `state.record-session` wrote the expected `percent: 88` corruption (`completed_phases/total_phases` = 15/17, the same recurring bug documented throughout this file's history) — corrected by hand back to `99` (78/79, unchanged from 06.6.3-07's session-end value, since this plan is not yet complete).
 
-Status: Executing Phase 06.6.4.1
+Status: Ready to execute
 Also merged 2026-08-28: origin/main's Phase 05 DEVICE-04 completion and the missed-flights-not-displayed debug session's two remaining mechanisms — B (`detect.py` now corroborates ADS-B sources on candidate SETS rather than final picks, and the D-P2-01 sort key tie-breaks on `hex` instead of the observer-local `seen_pos`) and C (`poll_loop.py` paces the display slot to the device's ~90s redraw floor through a bounded-age FIFO queue). Both compose with Phase 6's runway parameterisation: the pavement gate applies to whichever runway is selected, and corroboration runs on that runway's candidates. Also merged 2026-08-28 (second merge, this one): origin/main's Phase 7 (Final On-Glass Verification, PR #18) — panel palette re-tuning (Blue/Green darkened, dithered state background, text backing plate) and the legacy `inkframe-poll.timer` cleanup, described in the Phase 7 paragraph above.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
 Last activity: 2026-09-01 — Completed quick task 260901-re6: merged Settings' doubled description/helper paragraphs into one muted caption per section, fixed the save bar's position:sticky containment bug (moved outside the form, switched to position:fixed) and restyled it to stand out from the page
@@ -534,10 +534,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-03T18:03:29.721Z
-Stopped at: Phase 10 context gathered
+Last session: 2026-09-03T18:28:20.916Z
+Stopped at: Phase 10 UI-SPEC approved
 
-Resume file: .planning/phases/10-scheduled-quiet-hours/10-CONTEXT.md
+Resume file: .planning/phases/10-scheduled-quiet-hours/10-UI-SPEC.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
