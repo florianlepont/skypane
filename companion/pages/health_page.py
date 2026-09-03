@@ -366,6 +366,16 @@ _SOURCE_ROWS = (
      "tracks."),
 )
 
+# quick task 260903-ghy (UIR-10): promoted from a literal inline the
+# Resolution-statistics table's own `layout.data_table()` call used to
+# carry — single-sourced so `_stats_table_html()`'s table and
+# `_stats_cards_html()`'s mobile card list can never disagree on a header
+# word. Index 2 ("Count") is read directly by the card builder for its
+# field label; the middle header ("Description") has no card-side
+# equivalent, since the mobile card renders the full description as
+# stacked prose rather than a labelled field.
+_STATS_HEADERS = ("Source", "Description", "Count")
+
 # D-20: the filter bar's copy (06.6.3-UI-SPEC.md's Copywriting Contract),
 # driven client-side by companion/static/list-filter.js's shared
 # [data-filter-input]/[data-filter-count]/[data-filter-clear]/
@@ -1913,6 +1923,27 @@ def _registry_filter_bar_html(total):
     )
 
 
+# quick task 260903-ghy (UIR-11): promoted from `_registry_table_html()`'s
+# own local `headers` tuple — single-sourced so the table builder and the
+# mobile card builder can never disagree on a header word. Indices 1, 2, 3
+# and 4 ("Count", "First seen", "Last seen", "Example callsign") are read
+# directly by `_registry_cards_html()` for its field labels; index 0
+# ("Prefix") has no card-side label because the prefix value itself is
+# the card's primary line, exactly as it is the table's first column with
+# no separate label either.
+_REGISTRY_HEADERS = ("Prefix", "Count", "First seen", "Last seen", "Example callsign")
+
+
+def _registry_filter_text(prefix):
+    """The lowercased, escaped `data-filter-text` value shared by a
+    registry `<tr>` (`_registry_row_html()`) and its paired
+    `<li class="data-card">` (`_registry_cards_html()`) — extracted into
+    one place, used by both, so the two representations' filter text can
+    never diverge.
+    """
+    return escape_html(prefix.lower() if isinstance(prefix, str) else str(prefix).lower())
+
+
 def _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now):
     """One `<tr>` for the unresolved-prefix registry table. First seen/
     Last seen switch to `layout.concise_timestamp_html()` (D-09) — its
@@ -1932,11 +1963,14 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
         "<td>%s</td>" % last_seen_html,
         '<td class="mono">%s</td>' % escape_html(example_callsign),
     )
-    filter_text = escape_html(prefix.lower() if isinstance(prefix, str) else str(prefix).lower())
-    # data-filter-group: this card has only one representation per row
-    # (no mobile-card pairing like History), but list-filter.js counts
-    # distinct groups rather than raw elements, so every filterable row
-    # must still carry one.
+    filter_text = _registry_filter_text(prefix)
+    # data-filter-group (quick task 260903-ghy): this row now HAS a
+    # mobile-card pairing — _registry_cards_html() below emits one
+    # <li class="data-card"> per row, carrying this exact same integer.
+    # list-filter.js counts DISTINCT GROUPS, not raw elements, so this
+    # value must match the paired card's own data-filter-group exactly,
+    # or "N of N shown" silently doubles once every row has two DOM
+    # representations.
     return '<tr class="%s" data-filter-text="%s" data-filter-group="%d">%s</tr>' % (
         row_class, filter_text, index, "".join(cells))
 
@@ -1951,8 +1985,7 @@ def _registry_table_html(rows, now):
     precedent for exactly the same reason, matching `data_table()`'s CSS
     classes exactly for visual consistency.
     """
-    headers = ("Prefix", "Count", "First seen", "Last seen", "Example callsign")
-    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in headers)
+    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in _REGISTRY_HEADERS)
     body_rows = [
         _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now)
         for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows)
@@ -1965,6 +1998,74 @@ def _registry_table_html(rows, now):
         "</table>"
         "</div>"
     ) % (header_cells, "".join(body_rows))
+
+
+def _registry_cards_html(rows, now):
+    """(quick task 260903-ghy, UIR-11) Mobile two-line-plus-disclosure
+    representation of the unresolved-prefix registry — one
+    `<li class="data-card">` per row in the SAME `rows` list and the SAME
+    `now` value `_registry_table_html()` already receives (never a
+    second query, never a second `now`). Returns `""` for an empty list,
+    matching `_registry_table_html()`'s own no-chrome-with-no-data rule.
+
+    Per-table decision: this table's five columns are short comparison
+    values, and First seen/Last seen are meant to be read AGAINST each
+    other — a horizontal scroller that shows one of them at a time makes
+    that comparison impossible at 375px. Quick task 260902-w4t's
+    scroll-edge shadow on `.data-table-wrap` stays in force as this
+    table's desktop safety net; it is not this table's mobile answer.
+    The mobile shape is therefore a card per prefix: Prefix and Count at
+    rest on the primary line, Last seen at rest on the secondary line,
+    First seen and Example callsign one tap away inside a `<details>`
+    disclosure (History's own two-lines-at-rest card shape, so a large
+    registry does not become a many-screen page).
+
+    `data-filter-text`/`data-filter-group` are computed with the exact
+    same `_registry_filter_text()` helper and the same loop index
+    `_registry_row_html()` uses for the paired `<tr>` — the two can never
+    diverge. `layout.concise_timestamp_html(value, now, fallback="")` is
+    called identically to the `<tr>`'s own cell for the same value, so
+    the two representations' Last seen/First seen markup is
+    byte-identical (D-09).
+    """
+    if not rows:
+        return ""
+    items = []
+    for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows):
+        filter_text = _registry_filter_text(prefix)
+        primary = (
+            '<div class="data-card__primary">'
+            '<span class="cell-primary mono">%s</span>'
+            '<span class="data-card__value">'
+            '<span class="data-card__label">%s</span> %s'
+            "</span>"
+            "</div>"
+        ) % (escape_html(prefix), escape_html(_REGISTRY_HEADERS[1]), escape_html(count))
+        secondary = (
+            '<div class="data-card__secondary">'
+            '<span class="data-card__label">%s</span>%s'
+            "</div>"
+        ) % (
+            escape_html(_REGISTRY_HEADERS[3]),
+            layout.concise_timestamp_html(last_seen, now, fallback=""))
+        details = (
+            '<details class="data-card__details">'
+            "<summary>More details</summary>"
+            "<dl>"
+            "<dt>%s</dt><dd>%s</dd>"
+            '<dt>%s</dt><dd class="mono">%s</dd>'
+            "</dl>"
+            "</details>"
+        ) % (
+            escape_html(_REGISTRY_HEADERS[2]),
+            layout.concise_timestamp_html(first_seen, now, fallback=""),
+            escape_html(_REGISTRY_HEADERS[4]),
+            escape_html(example_callsign),
+        )
+        items.append(
+            '<li class="data-card" data-filter-text="%s" data-filter-group="%d">%s%s%s</li>'
+            % (filter_text, index, primary, secondary, details))
+    return '<ul class="data-cards">%s</ul>' % "".join(items)
 
 
 def _registry_section(rows, now):
@@ -1999,15 +2100,62 @@ def _registry_section(rows, now):
         return header_html + layout.empty_state(_NO_GAPS_HEADING, _NO_GAPS_BODY)
 
     filter_html = _registry_filter_bar_html(len(rows))
+    cards_html = _registry_cards_html(rows, now)
     table_html = _registry_table_html(rows, now)
-    return header_html + filter_html + table_html
+    # Cards render before the table (quick task 260903-ghy) — style.css's
+    # `.data-cards ~ .data-table-wrap` sibling-combinator toggle depends
+    # on this exact DOM order; do not reorder these two calls.
+    return header_html + filter_html + cards_html + table_html
+
+
+def _stats_cards_html(rows):
+    """(quick task 260903-ghy, UIR-10) Mobile stacked-prose representation
+    of the Resolution-statistics table — one `<li class="data-card">` per
+    `(label, gloss, count)` triple in `rows`, the SAME `stats["rows"]`
+    list `_stats_table_html()` already has: no second data pass. Returns
+    `""` for an empty list, matching `_stats_table_html()`'s own
+    no-chrome-with-no-data rule for this card.
+
+    Per-table decision: a horizontal scroll affordance is the wrong
+    answer for THIS table specifically, not a stylistic preference —
+    `.data-table--prose`'s own comment in style.css already measured
+    1172px of content inside an 831px container for this exact table and
+    ruled that a column of full sentences must WRAP, not scroll.
+    Re-answering this table's mobile shape with a scroller would reinstate
+    the exact defect that rule was written to remove. The mobile shape is
+    therefore stacked: Source label and Count on the primary line, the
+    FULL, untruncated Description sentence as a full-width paragraph
+    beneath it — never a disclosure, never a truncation, because the
+    description IS the content of this table.
+
+    Every value goes through `escape_html()` — this module's single
+    escaping choke-point discipline, no exceptions.
+    """
+    if not rows:
+        return ""
+    items = []
+    for label, gloss, count in rows:
+        primary = (
+            '<div class="data-card__primary">'
+            '<span class="cell-primary">%s</span>'
+            '<span class="data-card__value">'
+            '<span class="data-card__label">%s</span> %s'
+            "</span>"
+            "</div>"
+        ) % (escape_html(label), escape_html(_STATS_HEADERS[2]), escape_html(count))
+        desc = '<p class="data-card__desc">%s</p>' % escape_html(gloss)
+        items.append('<li class="data-card">%s%s</li>' % (primary, desc))
+    return '<ul class="data-cards">%s</ul>' % "".join(items)
 
 
 def _stats_table_html(stats):
-    """The resolution-statistics breakdown table. Returns the empty
-    string when there is nothing to show (no data yet, or the database
-    is unavailable) — `_resolution_rate_tile_html()` already carries
-    that message once, and this card must not repeat it.
+    """The resolution-statistics breakdown table, plus (quick task
+    260903-ghy, UIR-10) its `.data-cards` mobile sibling emitted BEFORE
+    it — style.css's `.data-cards ~ .data-table-wrap` sibling-combinator
+    toggle depends on that exact document order; do not reorder these two
+    calls. Returns the empty string when there is nothing to show (no
+    data yet, or the database is unavailable) — `_resolution_rate_tile_html()`
+    already carries that message once, and this card must not repeat it.
 
     quick task 260901-uzi (finding 2): this is the only table in the app
     whose Description column carries real prose (the `_SOURCE_ROWS`
@@ -2028,8 +2176,8 @@ def _stats_table_html(stats):
     """
     if stats is _DB_UNAVAILABLE or stats["total"] == 0:
         return ""
-    return layout.data_table(
-        ["Source", "Description", "Count"], stats["rows"],
+    return _stats_cards_html(stats["rows"]) + layout.data_table(
+        list(_STATS_HEADERS), stats["rows"],
         desc_columns=(1,), prose=True)
 
 

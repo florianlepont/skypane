@@ -54,7 +54,7 @@ if REPO_ROOT not in sys.path:
 
 import companion.app as app  # noqa: E402
 from companion import auth, illustration_normalize, layout  # noqa: E402
-from companion.pages import airlines_page, health_page  # noqa: E402
+from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import illustrations  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
@@ -270,7 +270,7 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 126  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
+EXPECTED_CHECK_COUNT = 130  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) + 2 (quick 260903-ghy Task 1: the Resolution-statistics table's mobile .data-cards completeness check, and the .data-cards toggle-contract/untouched-rules check; the pre-existing nested-card heading-rhythm check's own allowlist was extended in place for the new `<ul class="data-cards">` element, no count change from it) + 2 (quick 260903-ghy Task 2: the registry's mobile-card/table filter-pairing check, and the no-chrome-with-no-data/no-cross-page-leak check; the pre-existing anomaly-detail-list-markup check was retargeted in place from a page-wide <ul>/<li> ban onto the anomaly banner's own element slice, no count change from it) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1307,16 +1307,30 @@ def main():
         _battery_drop_drives_badge_and_banner_detail_copy_not_rendered)
 
     def _anomaly_detail_list_markup_is_gone():
+        # Retargeted in place by quick task 260903-ghy: this check used to
+        # assert zero <ul>/<li> occurrences across the WHOLE rendered page.
+        # That happened to still pass after this task's own .data-cards
+        # mechanism landed only because this fixture seeds neither runway
+        # events nor unresolved prefixes (so neither new card list ever
+        # renders) — a page-wide list ban was always a fragile proxy for
+        # this check's real subject (the retired anomaly detail list), and
+        # would have wrongly failed the moment a legitimate card list
+        # coexisted with an anomaly banner on the same fixture. Scoped now
+        # to the anomaly banner element's own slice — the one element this
+        # check actually cares about — rather than the whole page.
         tmp = _mkstate("h-no-list-markup")
         try:
             now = _now()
             _seed_device_health(tmp, [(_ago(health_page.STALE_DEVICE_ERROR_S + 60), 4000)])
             _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: _iso(now)})
             rendered = health_page.render(_ctx(tmp, now=_iso(now)))
-            if rendered.count("<ul") != 0:
-                return False, "expected zero <ul occurrences — the anomaly detail list must be gone"
-            if rendered.count("<li") != 0:
-                return False, "expected zero <li occurrences — the anomaly detail list must be gone"
+            banner_at = rendered.index('<div class="banner ')
+            banner_end = rendered.index("</div>", banner_at) + len("</div>")
+            banner_slice = rendered[banner_at:banner_end]
+            if banner_slice.count("<ul") != 0:
+                return False, "expected zero <ul occurrences inside the anomaly banner — the detail list must be gone"
+            if banner_slice.count("<li") != 0:
+                return False, "expected zero <li occurrences inside the anomaly banner — the detail list must be gone"
             count = rendered.count(health_page.ANOMALY_BANNER_TEXT)
             if count != 1:
                 return False, "expected the anomaly banner copy exactly once, found %d" % count
@@ -1324,7 +1338,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "an unhealthy fixture renders the anomaly banner with zero <ul/<li list markup",
+        "an unhealthy fixture renders the anomaly banner with zero <ul/<li list markup inside its own "
+        "element slice (retargeted from a page-wide ban by quick task 260903-ghy, to stop it colliding "
+        "with a legitimate .data-cards list elsewhere on the page)",
         _anomaly_detail_list_markup_is_gone)
 
     def _none_of_the_four_anomaly_item_strings_render():
@@ -3374,9 +3390,15 @@ def main():
         # the seeded/chart-present branch) is the readout paragraph
         # (`<p id="battery-readout" ...>`), not a `<p class="text-body">`
         # badge any more.
+        # quick task 260903-ghy: a third member added in place — the
+        # Resolution-statistics card's next element, when seeded, is now
+        # its own `.data-cards` mobile list (UIR-10), which style.css
+        # gives its own `margin: 0` list-reset rule, so it needs no
+        # separate top-margin exception of its own.
         allowed = (
             '<p class="text-body">', '<p class="text-body section-caption">',
-            '<p id="%s"' % health_page.BATTERY_READOUT_ID, "<div ", "<details", "<svg ")
+            '<p id="%s"' % health_page.BATTERY_READOUT_ID, "<div ", "<details", "<svg ",
+            '<ul class="data-cards">')
         for seeded in (False, True):
             tmp = _mkstate("h-card-rhythm-%s" % seeded)
             try:
@@ -3586,6 +3608,297 @@ def main():
         "first) and stylesheet (.data-table td.desc's 70% muted colour, no min-width, no opacity, no muted "
         "token anywhere in the file) (quick task 260902-bl2 Task 3, Check 1)",
         _desc_column_muted_end_to_end)
+
+    def _stats_cards_list_complete_and_precedes_table():
+        # quick task 260903-ghy Task 1, Check A (UIR-10): the
+        # Resolution-statistics table's mobile .data-cards representation
+        # is complete (one item per _SOURCE_ROWS entry, every label/full-
+        # gloss/count reachable) and sits before its unchanged desktop
+        # table, which is what style.css's `.data-cards ~ .data-table-wrap`
+        # sibling-combinator toggle depends on.
+        tmp = _mkstate("h-stats-cards-complete")
+        try:
+            now = _now()
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc001", "route_source": "fresh_hit"},
+                {"ts": _iso(now), "hex": "abc002", "route_source": "cache_hit"},
+                {"ts": _iso(now), "hex": "abc003", "route_source": "cache_hit"},
+                {"ts": _iso(now), "hex": "abc004", "route_source": "airline_only"},
+                {"ts": _iso(now), "hex": "abc005", "route_source": "miss"},
+            ])
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+
+            cards_list_count = rendered.count('<ul class="data-cards">')
+            if cards_list_count != 1:
+                return False, (
+                    'expected exactly one <ul class="data-cards"> list, got %d' % cards_list_count)
+            expected_items = len(health_page._SOURCE_ROWS)
+            item_count = rendered.count('<li class="data-card">')
+            if item_count != expected_items:
+                return False, (
+                    'expected exactly %d <li class="data-card"> items (one per _SOURCE_ROWS entry), '
+                    'got %d' % (expected_items, item_count))
+
+            stats_at = rendered.index(health_page.STATS_SECTION_HEADING)
+            cards_at = rendered.index('<ul class="data-cards">')
+            prose_at = rendered.index("data-table--prose")
+            if not (stats_at < cards_at < prose_at):
+                return False, (
+                    "expected the card list to sit after the Resolution-statistics heading and "
+                    "before its data-table--prose table")
+
+            card_slice = rendered[cards_at:rendered.index("</ul>", cards_at) + len("</ul>")]
+            with history_db.open_db(tmp) as conn:
+                stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
+            for label, gloss, count in stats["rows"]:
+                if layout.escape_html(label) not in card_slice:
+                    return False, "expected label %r inside the card-list slice" % (label,)
+                if layout.escape_html(gloss) not in card_slice:
+                    return False, (
+                        "expected the FULL gloss %r inside the card-list slice, untruncated" % (gloss,))
+                if str(count) not in card_slice:
+                    return False, "expected count %r inside the card-list slice" % (count,)
+
+            if rendered.count("data-table--prose") != 1:
+                return False, "expected the desktop table to still carry data-table--prose exactly once"
+            desc_count = rendered.count('<td class="desc">')
+            if desc_count != len(health_page._SOURCE_ROWS):
+                return False, "expected the desktop table's desc cells to stay intact"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the Resolution-statistics table has a complete mobile .data-cards representation — one item per "
+        "_SOURCE_ROWS entry, every label/full-gloss/count present, positioned before its unchanged desktop "
+        "table (quick task 260903-ghy Task 1, Check A / UIR-10)",
+        _stats_cards_list_complete_and_precedes_table)
+
+    def _data_cards_toggle_contract_and_untouched_rules():
+        # quick task 260903-ghy Task 1, Check B: the mobile toggle contract
+        # (base hide rule + both >=960px inverse rules), plus every rule
+        # this task must NOT disturb — .data-card__label mirrors
+        # .data-table th's label tier by value, .data-table-wrap's
+        # scroll-edge shadow stays intact, and the three literal selectors
+        # this harness itself indexes by elsewhere in this file are all
+        # still present. CSS comments are stripped before any presence/
+        # absence assertion so this check cannot be satisfied or defeated
+        # by comment prose.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+        stripped = re.sub(r"/\*.*?\*/", "", css_source, flags=re.DOTALL)
+
+        def _rule_body(selector, source):
+            at = source.index(selector)
+            return source[at:source.index("}", at)]
+
+        base_body = _rule_body(".data-cards ~ .data-table-wrap {", stripped)
+        if "display: none" not in base_body:
+            return False, "expected the base .data-cards ~ .data-table-wrap rule to hide the desktop table"
+
+        media_at = stripped.index("@media (min-width: 960px)")
+        media_body = stripped[media_at:]
+        hide_cards_at = media_body.index(".data-cards {")
+        hide_cards_body = media_body[hide_cards_at:media_body.index("}", hide_cards_at)]
+        if "display: none" not in hide_cards_body:
+            return False, "expected the >=960px .data-cards rule to hide the mobile card list"
+        show_table_at = media_body.index(".data-cards ~ .data-table-wrap {")
+        show_table_body = media_body[show_table_at:media_body.index("}", show_table_at)]
+        if "display: block" not in show_table_body:
+            return False, "expected the >=960px .data-cards ~ .data-table-wrap rule to reveal the desktop table"
+
+        label_body = _rule_body(".data-card__label {", stripped)
+        th_body = _rule_body(".data-table th {", stripped)
+        for prop in ("font-size", "color"):
+            label_decl = next(
+                (line.strip() for line in label_body.splitlines()
+                 if line.strip().startswith(prop + ":")), None)
+            th_decl = next(
+                (line.strip() for line in th_body.splitlines()
+                 if line.strip().startswith(prop + ":")), None)
+            if label_decl is None or th_decl is None or label_decl != th_decl:
+                return False, (
+                    "expected .data-card__label's %r declaration to be string-equal to .data-table "
+                    "th's, got %r vs %r" % (prop, label_decl, th_decl))
+
+        wrap_body = _rule_body(".data-table-wrap {", stripped)
+        if "background-attachment" not in wrap_body:
+            return False, (
+                "expected .data-table-wrap's scroll-edge shadow (background-attachment layers) to "
+                "remain intact")
+
+        for literal in (".data-table {", ".data-table--prose {", ".data-table td.desc {"):
+            if literal not in css_source:
+                return False, "expected the harness's own pinned literal %r to still exist" % (literal,)
+        return True, ""
+    check(
+        "the .data-cards mobile toggle contract exists at both breakpoints, .data-card__label mirrors "
+        ".data-table th's label tier by value, .data-table-wrap's scroll-edge shadow is untouched, and "
+        "the three literal selectors this harness indexes by elsewhere are all still present (quick task "
+        "260903-ghy Task 1, Check B)",
+        _data_cards_toggle_contract_and_untouched_rules)
+
+    def _registry_mobile_cards_paired_with_table():
+        # quick task 260903-ghy Task 2, Check C (UIR-11): the registry's
+        # mobile .data-cards representation is exactly paired with its
+        # <tr> table by (data-filter-text, data-filter-group), the
+        # distinct-group count stays equal to the row count even though
+        # the element count carrying data-filter-text doubles, the two
+        # representations' timestamp markup is byte-identical, and every
+        # column is reachable in the card slice.
+        tmp = _mkstate("h-registry-cards-paired")
+        try:
+            now = _now()
+            now_iso = _iso(now)
+            prefixes = {
+                "ABC": {"count": 12, "first_seen": _iso(now - timedelta(days=6)),
+                        "last_seen": _iso(now - timedelta(hours=1)),
+                        "example_callsign": "ABC123"},
+                "XYZ": {"count": 3, "first_seen": _iso(now - timedelta(days=4)),
+                        "last_seen": _iso(now - timedelta(hours=5)),
+                        "example_callsign": "XYZ456"},
+                "QRS": {"count": 27, "first_seen": _iso(now - timedelta(days=9)),
+                        "last_seen": _iso(now - timedelta(minutes=20)),
+                        "example_callsign": "QRS789"},
+            }
+            _seed_unresolved_prefixes(tmp, prefixes)
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+
+            rows = health_page.unresolved_rows(tmp)
+            expected_count = len(rows)
+            if expected_count != len(prefixes):
+                return False, "expected the fixture's %d seeded prefixes to all be readable" % len(prefixes)
+
+            tr_pattern = re.compile(
+                r'<tr class="[^"]*" data-filter-text="([^"]*)" data-filter-group="(\d+)">')
+            li_pattern = re.compile(
+                r'<li class="data-card" data-filter-text="([^"]*)" data-filter-group="(\d+)">')
+            tr_matches = tr_pattern.findall(rendered)
+            li_matches = li_pattern.findall(rendered)
+
+            if len(tr_matches) != expected_count:
+                return False, "expected %d <tr> rows, got %d" % (expected_count, len(tr_matches))
+            if len(li_matches) != expected_count:
+                return False, (
+                    'expected %d <li class="data-card"> cards, got %d' % (expected_count, len(li_matches)))
+
+            tr_pairs = {(text, int(group)) for text, group in tr_matches}
+            li_pairs = {(text, int(group)) for text, group in li_matches}
+            if tr_pairs != li_pairs:
+                return False, (
+                    "expected the <tr> and <li> (filter-text, filter-group) pair sets to be equal, got "
+                    "%r vs %r" % (tr_pairs, li_pairs))
+
+            distinct_groups = {group for _text, group in tr_matches}
+            if len(distinct_groups) != expected_count:
+                return False, "expected %d distinct filter groups, got %d" % (expected_count, len(distinct_groups))
+            filter_text_elements = rendered.count("data-filter-text=")
+            if filter_text_elements != 2 * expected_count:
+                return False, (
+                    "expected exactly twice the row count's worth of data-filter-text elements (2N), got %d"
+                    % filter_text_elements)
+
+            filter_bar_at = rendered.index('<div class="filter-bar">')
+            cards_at = rendered.index('<ul class="data-cards">', filter_bar_at)
+            table_wrap_at = rendered.index('<div class="data-table-wrap">', cards_at)
+            if not (filter_bar_at < cards_at < table_wrap_at):
+                return False, "expected filter bar, then card list, then table wrap, in that document order"
+            cards_end = rendered.index("</ul>", cards_at) + len("</ul>")
+            card_slice = rendered[cards_at:cards_end]
+
+            for prefix, count, first_seen, last_seen, example_callsign in rows:
+                first_html = layout.concise_timestamp_html(first_seen, now_iso, fallback="")
+                last_html = layout.concise_timestamp_html(last_seen, now_iso, fallback="")
+                if rendered.count(first_html) != 2:
+                    return False, (
+                        "expected First seen markup %r byte-identical in both representations (found "
+                        "%d occurrences, want 2)" % (first_html, rendered.count(first_html)))
+                if rendered.count(last_html) != 2:
+                    return False, (
+                        "expected Last seen markup %r byte-identical in both representations (found "
+                        "%d occurrences, want 2)" % (last_html, rendered.count(last_html)))
+                if layout.escape_html(prefix) not in card_slice:
+                    return False, "expected prefix %r inside the card-list slice" % (prefix,)
+                if str(count) not in card_slice:
+                    return False, "expected count %r inside the card-list slice" % (count,)
+                if layout.escape_html(example_callsign) not in card_slice:
+                    return False, "expected example callsign %r inside the card-list slice" % (example_callsign,)
+                if first_html not in card_slice:
+                    return False, "expected First seen markup inside the card-list slice"
+                if last_html not in card_slice:
+                    return False, "expected Last seen markup inside the card-list slice"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the registry's mobile .data-cards representation is exactly paired with its table by "
+        "(data-filter-text, data-filter-group), byte-identical on First/Last seen timestamp markup, "
+        "positioned between the filter bar and the table wrap, and every column (prefix, count, both "
+        "timestamps, example callsign) is reachable in the card slice (quick task 260903-ghy Task 2, "
+        "Check C / UIR-11)",
+        _registry_mobile_cards_paired_with_table)
+
+    def _no_chrome_with_no_data_and_no_cross_page_leak():
+        # quick task 260903-ghy Task 2, Check D: the standing no-chrome-
+        # with-no-data rule holds for the new mechanism (an empty registry
+        # renders no filter bar and no .data-cards, only empty_state()),
+        # both migrated tables together render exactly two .data-cards
+        # lists, and the mechanism does not leak its class names onto
+        # History or Airlines, which already carry their own unrelated
+        # card-list vocabularies.
+        tmp_empty = _mkstate("h-registry-empty-no-cards")
+        try:
+            now = _now()
+            rendered_empty = health_page.render(_ctx(tmp_empty, now=_iso(now)))
+            unresolved_at = rendered_empty.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
+            stats_at = rendered_empty.index(">%s</h2>" % health_page.STATS_SECTION_HEADING)
+            section_slice = rendered_empty[unresolved_at:stats_at]
+            if "data-card" in section_slice:
+                return False, "expected no .data-cards/.data-card markup in an empty registry's section"
+            if "filter-bar" in section_slice:
+                return False, "expected no filter bar in an empty registry's section"
+            if health_page._NO_GAPS_HEADING not in section_slice:
+                return False, "expected the empty_state() no-gaps heading in an empty registry's section"
+        finally:
+            shutil.rmtree(tmp_empty, ignore_errors=True)
+
+        tmp_both = _mkstate("h-both-cards-lists")
+        try:
+            now = _now()
+            _seed_runway_events(tmp_both, [
+                {"ts": _iso(now), "hex": "abc111", "route_source": "fresh_hit"}])
+            _seed_unresolved_prefixes(tmp_both, {
+                "ABC": {"count": 1, "first_seen": _iso(now), "last_seen": _iso(now),
+                        "example_callsign": "ABC123"},
+            })
+            rendered_both = health_page.render(_ctx(tmp_both, now=_iso(now)))
+            cards_list_count = rendered_both.count('<ul class="data-cards">')
+            if cards_list_count != 2:
+                return False, (
+                    'expected exactly two <ul class="data-cards"> lists (stats + registry) when both '
+                    "have data, got %d" % cards_list_count)
+        finally:
+            shutil.rmtree(tmp_both, ignore_errors=True)
+
+        tmp_leak = _mkstate("h-no-cross-page-leak")
+        try:
+            now = _now()
+            history_rendered = history_page.render(_ctx(tmp_leak, now=_iso(now)))
+            airlines_rendered = airlines_page.render(_ctx(tmp_leak, now=_iso(now)))
+            for page_name, rendered_page in (
+                    ("history_page", history_rendered), ("airlines_page", airlines_rendered)):
+                if "data-card" in rendered_page:
+                    return False, (
+                        "expected zero data-card(s) occurrences in %s's rendered output" % page_name)
+        finally:
+            shutil.rmtree(tmp_leak, ignore_errors=True)
+        return True, ""
+    check(
+        "no card chrome renders for an empty registry (filter bar and .data-cards both absent, "
+        "empty_state() present instead); both migrated tables together render exactly two .data-cards "
+        "lists; History and Airlines carry zero occurrences of the new card class names (quick task "
+        "260903-ghy Task 2, Check D)",
+        _no_chrome_with_no_data_and_no_cross_page_leak)
 
     def _humanised_readout_end_to_end():
         # quick task 260901-uzi Task 4 (Check 4): finding 3's markup half
