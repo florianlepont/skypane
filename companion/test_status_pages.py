@@ -270,9 +270,11 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 134  # 133 + 1 (06.6.4.1.1-03 Task 1: the desktop-
+EXPECTED_CHECK_COUNT = 135  # 133 + 2 (06.6.4.1.1-03 Task 1: the desktop-
 # padding/mobile-density pair guard for D-15's .page-section/.theme-status/
-# .battery-trend-section >= 960px padding override)
+# .battery-trend-section >= 960px padding override; Task 2: the mobile-only
+# button override's block-existence + declared-values + source-order guard
+# for D-18b — two new checks, one per task, no pre-existing check retargeted)
 # 133 = 130 + 3 (quick 260903-peo Task 2: UIR-14's
 # pipeline tile second-line checks — the seeded META_LAST_DETECTION render
 # and the absent-detection honest-fallback render — plus UIR-18's
@@ -5523,6 +5525,50 @@ def main():
         "(a misreading of the developer's original request, corrected on the same live test) must not "
         "silently return",
         _airline_card_zoom_stylesheet_contract)
+
+    def _06_6_4_1_1_03_mobile_button_override_block_and_source_order():
+        # 06.6.4.1.1-03 Task 2 (D-18b): pins the mobile-only button
+        # override's existence, its declared values, that the base
+        # button rule's own desktop values are untouched, and — the half
+        # that actually protects the behaviour — that the mobile block
+        # comes AFTER the base `button` rule in source order, since
+        # neither rule adds specificity beyond the bare `button` selector
+        # and source order alone decides the winner.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        marker = "@media (max-width: 959.98px) {"
+        if marker not in css_source:
+            return False, "expected style.css to declare %r" % (marker,)
+        media_at = css_source.index(marker)
+
+        base_button_at = css_source.index("button {")
+        if base_button_at > media_at:
+            return False, (
+                "expected the base `button {` rule to come BEFORE the "
+                "%r block, not after it" % (marker,))
+        base_body = css_source[base_button_at:css_source.index("}", base_button_at)]
+        if "height: 30px" not in base_body:
+            return False, "expected the base button rule to still declare height: 30px"
+        if "font-size: 13px" not in base_body:
+            return False, "expected the base button rule to still declare font-size: 13px"
+
+        media_close = css_source.index("\n}\n", media_at)
+        media_body = css_source[media_at:media_close]
+        mobile_button_pattern = r"button\s*\{\s*height:\s*36px;\s*font-size:\s*14px;\s*\}"
+        if not re.search(mobile_button_pattern, media_body):
+            return False, (
+                "expected the %r block to declare a bare `button { height: 36px; "
+                "font-size: 14px; }` rule" % (marker,))
+        return True, ""
+    check(
+        "the mobile-only button override exists as the file's @media (max-width: 959.98px) block, "
+        "declares a bare `button` rule with height: 36px and font-size: 14px, sits AFTER the base "
+        "`button` rule in source order (the mechanism that lets it win at equal specificity), and "
+        "the base rule's own desktop values (height: 30px, font-size: 13px) are untouched "
+        "(06.6.4.1.1-03 D-18b)",
+        _06_6_4_1_1_03_mobile_button_override_block_and_source_order)
 
     def _lightbox_wide_max_width_matches_illustration_target_width():
         css_path = os.path.join(HERE, "static", "style.css")

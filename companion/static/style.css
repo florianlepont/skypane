@@ -317,13 +317,31 @@ body {
  * contributes to the flex line's box, so the gap below this whole row
  * is exactly the gap that existed below the bare <h2> before this
  * wrapper existed — the unchanged spacing is the intent, not an
- * omission. `flex-wrap` is what lets the description drop onto its own
- * line on a narrow viewport instead of squeezing the heading. */
+ * omission.
+ *
+ * 06.6.4.1.1-03 (D-19, UIR-24) makes this rule mobile-first. The
+ * original single-rule form (baseline row plus `flex-wrap: wrap`) let
+ * the muted caption wrap onto its own line below 960px, but as a
+ * hanging "— …" line under the heading — an orphan, not a clean stack.
+ * The base rule below is now the mobile default (a real column stack,
+ * `gap: 2px` since a stacked heading+caption pair needs far less
+ * separation than a baseline-aligned inline pair); the
+ * `@media (min-width: 960px)` block (below, where `.stat-tile__caption`'s
+ * neighbours also live) restores the original inline baseline row once
+ * there is room for it. `display: flex` stays a literal declaration on
+ * THIS rule — a harness check in test_status_pages.py indexes it — so
+ * the desktop override only needs to change direction/alignment/gap,
+ * never re-declare `display`. `flex-wrap: wrap` is kept even in this
+ * column form: it is harmless (a column layout has no cross-axis line
+ * for a lone child to wrap onto today), and keeping it is what this
+ * rule's own comment above already describes, rather than removing a
+ * declaration this edit has no stated reason to touch. */
 .section-intro {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: flex-start;
   flex-wrap: wrap;
-  gap: var(--space-sm);
+  gap: 2px;
 }
 
 /* Zeroes the row's own <p> margin. Deliberately NOT added to
@@ -2029,9 +2047,16 @@ button:disabled {
  * pattern that named one is deliberately not carried over — inventing a
  * new token, or hard-coding a grey, would be wrong in one of the two
  * themes. opacity on the existing --color-text gives the same muted read
- * in both modes with no per-theme value to keep in sync. The 12px size on
+ * in both modes with no per-theme value to keep in sync. The 13px size on
  * .cell-secondary is a legitimate secondary-data exception to the 4-size
- * scale, scoped to this one class. */
+ * scale, scoped to this one class.
+ *
+ * 06.6.4.1.1-03 (D-18a, UIR-26): font-size 12px -> 13px, opacity
+ * 0.7 -> 0.75. 12px at 70% opacity on the dark surface measured at the
+ * edge of comfortable — this raises both the size and the effective
+ * contrast of History's secondary hex text a step, without inventing a
+ * new muted-text strength (still the same opacity-on-`--color-text`
+ * idiom, just a slightly stronger mix on this one class). */
 .cell-primary {
   font-family: var(--font-mono);
   font-weight: var(--weight-semibold);
@@ -2039,8 +2064,8 @@ button:disabled {
 
 .cell-secondary {
   font-family: var(--font-mono);
-  font-size: 12px;
-  opacity: 0.7;
+  font-size: 13px;
+  opacity: 0.75;
 }
 
 .cell-inline-sep {
@@ -3416,10 +3441,11 @@ summary::-webkit-details-marker {
  * ink now, not `fill` (was `fill` before this task; the same property
  * rename health_page.py's own axis-label markup already made). 10px
  * reuses this file's already-documented sub-scale exception tier
- * (.data-table th and .cell-secondary both at 12px, after 06.6.4.1.1
- * D-13 moved .data-table th up from 11px), one step further down
- * because chart-axis micro-labels sit below secondary table text in the
- * hierarchy — explicitly not a fifth content type role.
+ * (.data-table th at 12px, after 06.6.4.1.1 D-13 moved it up from 11px;
+ * .cell-secondary separately at 13px, after 06.6.4.1.1 D-18a moved IT up
+ * from 12px), one step further down because chart-axis micro-labels sit
+ * below secondary table text in the hierarchy — explicitly not a fifth
+ * content type role.
  * `line-height: 1.2` is added because health_page.py's
  * _SPARKLINE_VERTICAL_INSET_PERCENT arithmetic depends on this being a
  * known number (half the label's line box), not an inherited value. */
@@ -3726,9 +3752,9 @@ summary::-webkit-details-marker {
    * only `padding` — the chart's declared height never varies. Only the
    * chart's container WIDTH narrows slightly, which is explicitly safe:
    * the no-viewBox design (see that rule's own comment) makes 1 SVG unit
-   * equal 1 CSS pixel, so "the chart fills its card" is a property of
-   * the layout, not a tuned number that this padding change could
-   * invalidate. */
+   * equal 1 CSS pixel, so "the chart fills its card" is
+   * a property of the layout, not a tuned number that this padding
+   * change could invalidate. */
   .page-section,
   .theme-status,
   .battery-trend-section {
@@ -3745,6 +3771,19 @@ summary::-webkit-details-marker {
   .stat-tile__caption,
   .stat-tile__value {
     max-width: 60ch;
+  }
+
+  /* 06.6.4.1.1-03 (D-19 desktop half, UIR-24): restores the inline
+   * baseline row above this breakpoint. The mobile-first base rule
+   * (above, where `.section-intro` is declared) now stacks the heading
+   * and its muted caption in a column by default — this override is what
+   * brings back the original side-by-side reading once there is enough
+   * width for it not to wrap into a hanging "— …" orphan line (the exact
+   * defect UIR-24 found at 375px). */
+  .section-intro {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--space-sm);
   }
 }
 
@@ -4043,4 +4082,53 @@ summary::-webkit-details-marker {
 .lightbox__replace-zone input[type="file"]::file-selector-button:hover {
   background: var(--color-secondary); /* fallback for browsers without color-mix() (WR-02) */
   background: color-mix(in srgb, var(--color-text) 7%, var(--color-secondary));
+}
+
+/* 06.6.4.1.1-03 (D-18b, UIR-26): buttons grow to 14px/36px specifically
+ * below 960px — a phone-only extension of 06.6.4 D-01's 30px desktop
+ * button decision, NOT a reopening of it. This is the file's FIRST
+ * `max-width` media query, and that is deliberate, not incidental, for
+ * three load-bearing reasons — all recorded here because a future edit
+ * is most likely to "simplify" exactly one of them away:
+ *
+ * 1. Accessibility direction, not a trade. The base `button` rule
+ *    above (see its own 44px-touch-target-floor register comment) is a
+ *    documented, developer-accepted WCAG 2.5.5 (AAA, 44px) trade for
+ *    desktop density; WCAG 2.5.8 (AA, 24px) stays met everywhere. This
+ *    override moves buttons from 30px toward — not all the way to —
+ *    that AAA floor, specifically on the viewport class (phone) where
+ *    the density argument for 30px never applied in the first place. No
+ *    control anywhere loses height as a result of this rule.
+ *
+ * 2. Specificity stays untouched. The selector below is a bare `button`
+ *    at (0,0,1) — the exact same specificity as the base rule it
+ *    overrides. Adding a `:not()` qualifier here (e.g. to try to reach
+ *    "only bare buttons") would RAISE specificity and start winning
+ *    against every class-scoped control that declares its own geometry:
+ *    `.theme-form .theme-option` (28px segments), `.copy-btn` (its
+ *    synthesized 44px hit area via a `::before` pseudo-element),
+ *    `.airline-card__zoom`, and the file-selector-button pseudo-element
+ *    immediately above. All four must keep their own sizes untouched by
+ *    this rule, and staying at (0,0,1) is what guarantees that — not a
+ *    scoping selector that would need to be kept in sync with every new
+ *    button-shaped component added later.
+ *
+ * 3. Source position, not specificity, is what makes this win. Neither
+ *    this rule nor the base `button` rule adds specificity beyond
+ *    (0,0,1), so the LAST one in source order wins the cascade — the
+ *    same technique this file's own `.banner__pill` ordering already
+ *    relies on. Placing this block after every other `button` rule in
+ *    the file, including the `@media (min-width: 960px)` block above,
+ *    is therefore the mechanism, not decoration. A harness check in
+ *    test_status_pages.py pins this source-order relationship
+ *    explicitly, in addition to the declared values.
+ *
+ * `959.98px` rather than a bare `959px`: avoids a one-device-pixel gap
+ * on fractional-DPI viewports where 959px and 960px can both fail to
+ * match the same physical width. */
+@media (max-width: 959.98px) {
+  button {
+    height: 36px;
+    font-size: 14px;
+  }
 }
