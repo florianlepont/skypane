@@ -78,7 +78,12 @@ STARTUP_DEADLINE_S = 10.0
 # 108 + 0 (quick task 260902-tli Task 2: the panel-lookup.js banned-token
 # check retargeted in place — matchMedia/innerWidth added to the tuple,
 # pinning the CSS-only gate — no new check, no count change).
-EXPECTED_CHECK_COUNT = 125  # quick task 260902-qkm (2026-09-02): 1 new
+# 125 + 1 (quick task 260903-btu Task 4: the optional replace-form lookup
+# stays outside the mandatory three-element guard check — pins the
+# single line that keeps History's lightbox alive. The pre-existing
+# banned-token check was left unmodified — the new code introduces no
+# banned token, and widening that tuple is out of scope).
+EXPECTED_CHECK_COUNT = 126  # quick task 260902-qkm (2026-09-02): 1 new
 # check pinning both nav-link geometries apart after restoring
 # .mobile-nav__link's 44px/Body-size tap target (D-05 reached it by
 # mistake) while .sidebar-link keeps its D-05 32px/Label-size compaction.
@@ -1721,6 +1726,41 @@ def main():
             "dialog from viewport dimensions or device orientation (no matchMedia/innerWidth) — that "
             "gate is CSS-only, on the Airlines trigger's own rule (quick task 260902-tli)",
             _panel_lookup_script_es5_safe_and_no_html_write)
+
+        def _panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard():
+            # new (quick task 260903-btu): pins the single line that
+            # keeps History's lightbox alive. Moving the optional
+            # replace-form lookup into the mandatory guard's condition,
+            # or above it, would make the whole script a no-op on any
+            # page that renders no replace form — which is every page
+            # except Airlines.
+            js_path = os.path.join(HERE, "static", "panel-lookup.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            guard_needle = "if (!image || !caption || !note)"
+            guard_count = src.count(guard_needle)
+            if guard_count != 1:
+                return False, "expected the mandatory guard line exactly once, got %d" % guard_count
+            guard_line = [line for line in src.splitlines() if guard_needle in line][0]
+            if "replaceForm" in guard_line:
+                return False, "expected the optional replace-form variable name absent from the mandatory guard's own line"
+            lookup_needle = "var replaceForm"
+            lookup_count = src.count(lookup_needle)
+            if lookup_count != 1:
+                return False, "expected the optional replace-form lookup exactly once, got %d" % lookup_count
+            if src.index(lookup_needle) <= src.index(guard_needle):
+                return False, "expected the optional replace-form lookup's first occurrence after the mandatory guard's"
+            write_count = src.count('setAttribute("action"')
+            if write_count != 1:
+                return False, "expected the action-attribute setAttribute write exactly once, got %d" % write_count
+            return True, ""
+        check(
+            "the mandatory three-element guard appears exactly once and never mentions the optional "
+            "replace-form lookup on its own line, that lookup's first occurrence in the source comes after "
+            "the guard's, it appears exactly once, and the action-attribute setAttribute write appears "
+            "exactly once — pinning the single line that keeps History's lightbox alive (quick task "
+            "260903-btu)",
+            _panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard)
 
         def _panel_lookup_script_route_src_agree():
             import companion.app as app_module

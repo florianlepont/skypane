@@ -66,7 +66,7 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 45  # 43 + 1 (quick task 260902-tli Task 2: the
+EXPECTED_CHECK_COUNT = 47  # 43 + 1 (quick task 260902-tli Task 2: the
 # airlines_page/history_page cross-module LIGHTBOX_DIALOG_ID/
 # _VIEW_PANEL_*_ATTR equality guard. _lightbox_dom_contract_three_file_
 # guard() was widened in place to also assert the six shared tokens
@@ -74,7 +74,13 @@ EXPECTED_CHECK_COUNT = 45  # 43 + 1 (quick task 260902-tli Task 2: the
 # that retarget) + 1 (quick task 260902-v26 Task 3: render({}) with a
 # literal empty dict still contains the .illustration-grid gallery
 # container, pinning the ctx.get("state_dir") tolerance render(ctx) grew
-# in this task).
+# in this task) + 2 (quick task 260903-btu Task 4: a real, seeded
+# history_page.render() call carries zero replace-related markup, and
+# the two new Airlines-only lightbox constants each appear in
+# panel-lookup.js/airlines_page.render()/style.css and never in a real
+# history_page.render() call — _lightbox_dom_contract_three_file_guard()
+# and _airlines_lightbox_constants_match_history() themselves were left
+# unmodified, since their existing tokens/pairs are all still true).
 # 43 = 06.6.4.1-08 Task 3: 56 - 16 (Section 2's whole
 # companion/pages/preview_page.py-specific test section deleted outright —
 # the module itself is deleted, and every one of its 16 checks either has
@@ -1413,6 +1419,91 @@ def main():
         "airlines_page's LIGHTBOX_DIALOG_ID and its three _VIEW_PANEL_*_ATTR constants each equal "
         "history_page's own values (the duplicated-not-imported shared-lightbox contract)",
         _airlines_lightbox_constants_match_history)
+
+    def _history_lightbox_carries_zero_replace_markup():
+        # new (quick task 260903-btu): actually exercises history_page.
+        # render() against a seeded fixture — a real gallery entry and a
+        # real runway event, mirroring _lightbox_dom_contract_three_file_
+        # guard()'s own fixture shape — since History only emits its
+        # dialog when at least one row carries a trigger; a fixture with
+        # no entries would prove absence for the wrong reason.
+        tmp = _mkstate("h-no-replace-markup")
+        try:
+            names = ["2026-08-27T10-05-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:06:00+00:00", "hex": "dc02", "callsign": "NOREPLACE"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        dialog_count = rendered.count('id="%s"' % history_page.LIGHTBOX_DIALOG_ID)
+        if dialog_count != 1:
+            return False, "expected the History dialog exactly once (proves the absence checks below mean something), got %d" % dialog_count
+        for token, label in (
+                (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, "airlines_page.LIGHTBOX_REPLACE_FORM_CLASS"),
+                (airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR, "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR"),
+                ("<form", "<form"),
+                ('<input type="file"', '<input type="file"'),
+                ("enctype", "enctype")):
+            count = rendered.count(token)
+            if count != 0:
+                return False, "expected zero occurrences of %s in a real, seeded history_page.render() output, got %d" % (label, count)
+        return True, ""
+    check(
+        "a real, seeded history_page.render() call (real gallery entry, real runway event) renders its "
+        "lightbox dialog exactly once, and carries zero occurrences of airlines_page's replace-form class, "
+        "replace-action attribute, <form>, file input, or enctype anywhere (quick task 260903-btu)",
+        _history_lightbox_carries_zero_replace_markup)
+
+    def _replace_lightbox_names_appear_in_three_files_never_in_history():
+        # new (quick task 260903-btu): the three-file contract for the
+        # two new names, mirroring _lightbox_dom_contract_three_file_
+        # guard()'s style — each token must appear in panel-lookup.js's
+        # source and in a real airlines_page.render({}) call, and must
+        # never appear in a real, seeded history_page.render() call.
+        # These two constants deliberately have no history_page
+        # counterpart and must never be added to
+        # _airlines_lightbox_constants_match_history()'s pairs tuple.
+        js_path = os.path.join(HERE, "static", "panel-lookup.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+        style_css_path = os.path.join(HERE, "static", "style.css")
+        with open(style_css_path) as fh:
+            style_css_source = fh.read()
+
+        airlines_rendered = airlines_page.render({})
+        tmp = _mkstate("h-replace-tokens-absent")
+        try:
+            names = ["2026-08-27T10-07-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:08:00+00:00", "hex": "dc03", "callsign": "TOKENGONE"},
+            ])
+            history_rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        for token in (airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR, airlines_page.LIGHTBOX_REPLACE_FORM_CLASS):
+            if token not in js_source:
+                return False, "expected %r in companion/static/panel-lookup.js" % (token,)
+            if token not in airlines_rendered:
+                return False, "expected %r in a real airlines_page.render({}) call" % (token,)
+            if token in history_rendered:
+                return False, "expected %r to never appear in a real, seeded history_page.render() call" % (token,)
+        if airlines_page.LIGHTBOX_REPLACE_FORM_CLASS not in style_css_source:
+            return False, (
+                "expected %r in companion/static/style.css — the fourth file in the chain, and the one "
+                "whose drift would leave the form functional but unstyled" % (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,))
+        return True, ""
+    check(
+        "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR and airlines_page.LIGHTBOX_REPLACE_FORM_CLASS each "
+        "appear in companion/static/panel-lookup.js's source and in a real airlines_page.render({}) call, "
+        "LIGHTBOX_REPLACE_FORM_CLASS also appears in companion/static/style.css, and neither token appears "
+        "in a real, seeded history_page.render() call (quick task 260903-btu; these two constants have no "
+        "history_page counterpart by design and must never join "
+        "_airlines_lightbox_constants_match_history()'s pairs tuple)",
+        _replace_lightbox_names_appear_in_three_files_never_in_history)
 
     def _airlines_render_empty_ctx_still_contains_gallery_grid():
         # quick task 260902-v26 threaded an optional state_dir read
