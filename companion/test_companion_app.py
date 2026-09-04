@@ -53,6 +53,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from companion import auth, layout  # noqa: E402
+from server import device_config  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -62,7 +63,10 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 125  # merge origin/main into
+EXPECTED_CHECK_COUNT = 129  # 11-04: +4 (env_wake_interval_default() full input space,
+# page_context() threading, the end-to-end env-prefill/on-disk-precedence
+# check, and the below-floor-degrades-to-placeholder check)
+# merge origin/main into
 # claude/history-preview-gallery-32b974 (2026-09-03): combines this
 # branch's quick task 260903-c4o (-1: 108 -> 107, retiring the
 # /preview.png route) with main's independent, non-overlapping work
@@ -1510,6 +1514,116 @@ def main():
             "parse_single_uploaded_file() returns None for an empty file part payload",
             _parser_empty_payload_returns_none)
 
+        # --- 11-04: env_wake_interval_default() / page_context() threading ---
+        # --- (D-07's SKYPANE_SLEEP_S pre-fill). Pure in-process checks,    ---
+        # --- like the parser checks just above — Section 3's harness      ---
+        # --- checks below cover the same contract end-to-end over real    ---
+        # --- HTTP instead.                                                ---
+
+        def _env_wake_interval_default_full_input_space():
+            cases = (
+                (None, None),      # unset
+                ("", None),
+                ("900", 900),
+                ("abc", None),
+                ("1.5", None),
+                ("-1", None),
+                ("0", None),
+                # deploy/skypane.env.example's shipped value — below the 60s floor
+                ("30", None),
+                ("59", None),
+                ("3601", None),
+                ("60", 60),         # inclusive lower bound
+                ("3600", 3600),     # inclusive upper bound
+                (" 900 ", 900),     # whitespace-padded — int() tolerates it
+            )
+            saved = os.environ.get(app_module.SLEEP_ENV_VAR)
+            try:
+                for raw, expected in cases:
+                    if raw is None:
+                        os.environ.pop(app_module.SLEEP_ENV_VAR, None)
+                    else:
+                        os.environ[app_module.SLEEP_ENV_VAR] = raw
+                    actual = app_module.env_wake_interval_default()
+                    if actual != expected:
+                        return False, (
+                            "SKYPANE_SLEEP_S=%r: expected %r, got %r"
+                            % (raw, expected, actual))
+                return True, ""
+            finally:
+                if saved is not None:
+                    os.environ[app_module.SLEEP_ENV_VAR] = saved
+                else:
+                    os.environ.pop(app_module.SLEEP_ENV_VAR, None)
+        check(
+            "env_wake_interval_default() covers its whole input space (unset, empty, "
+            "non-numeric, whitespace-padded, in-range and out-of-range including "
+            "deploy/skypane.env.example's shipped below-floor SKYPANE_SLEEP_S=30) and "
+            "never raises",
+            _env_wake_interval_default_full_input_space)
+
+        class _FakePageContextHeaders:
+            def get(self, name, default=None):
+                return default
+
+        class _FakePageContextArgs:
+            def __init__(self, state_dir):
+                self.state_dir = state_dir
+
+        class _FakePageContextHandler:
+            """A minimal stand-in for companion.app.Handler carrying only
+            the attributes page_context() actually reads (self.path,
+            self.args.state_dir, self.headers, self._resolved_ui_theme())
+            — never constructed via BaseHTTPRequestHandler.__init__, which
+            requires a live socket. page_context() itself is called
+            unbound (Handler.page_context(fake_self)) against the real
+            method, so this proves the actual production code path, not a
+            reimplementation of it.
+            """
+            def __init__(self, state_dir):
+                self.path = "/settings"
+                self.args = _FakePageContextArgs(state_dir)
+                self.headers = _FakePageContextHeaders()
+
+            def _resolved_ui_theme(self):
+                return "auto"
+
+        def _page_context_threads_wake_interval_env_default():
+            tmp = tempfile.mkdtemp(prefix="skypane-page-context-")
+            fake_self = _FakePageContextHandler(tmp)
+            saved = os.environ.get(app_module.SLEEP_ENV_VAR)
+            try:
+                os.environ[app_module.SLEEP_ENV_VAR] = "900"
+                ctx = app_module.Handler.page_context(fake_self)
+                if ctx.get("wake_interval_env_default") != 900:
+                    return False, (
+                        "expected wake_interval_env_default == 900 with "
+                        "SKYPANE_SLEEP_S=900, got %r" % (ctx.get("wake_interval_env_default"),))
+
+                os.environ.pop(app_module.SLEEP_ENV_VAR, None)
+                ctx_unset = app_module.Handler.page_context(fake_self)
+                if "wake_interval_env_default" not in ctx_unset:
+                    return False, (
+                        "expected the wake_interval_env_default key to always be "
+                        "present in ctx, even with SKYPANE_SLEEP_S unset")
+                if ctx_unset["wake_interval_env_default"] is not None:
+                    return False, (
+                        "expected wake_interval_env_default to be None with "
+                        "SKYPANE_SLEEP_S unset, got %r"
+                        % (ctx_unset["wake_interval_env_default"],))
+                return True, ""
+            finally:
+                if saved is not None:
+                    os.environ[app_module.SLEEP_ENV_VAR] = saved
+                else:
+                    os.environ.pop(app_module.SLEEP_ENV_VAR, None)
+                shutil.rmtree(tmp, ignore_errors=True)
+        check(
+            "page_context() threads wake_interval_env_default from the real environment "
+            "read: 900 when SKYPANE_SLEEP_S=900, and always present (never conditionally "
+            "omitted) as None when unset",
+            _page_context_threads_wake_interval_env_default)
+
     finally:
         if previous_password is not None:
             os.environ[auth.PASSWORD_ENV_VAR] = previous_password
@@ -2070,6 +2184,103 @@ def main():
         check(
             "an authenticated POST /settings redirects to /settings carrying a flash query",
             _settings_post_redirects_to_settings_with_flash)
+
+        # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
+        # --- dedicated Harness instance (the environment must be set     ---
+        # --- before the subprocess starts — the shared `harness` above   ---
+        # --- was already launched without it), mirroring the             ---
+        # --- broken_harness/concurrent_harness pattern later in this     ---
+        # --- file for a harness with different startup conditions.       ---
+
+        def _wake_interval_env_prefill_and_on_disk_precedence():
+            saved = os.environ.get(app_module.SLEEP_ENV_VAR)
+            prefill_harness = None
+            try:
+                os.environ[app_module.SLEEP_ENV_VAR] = "900"
+                prefill_harness = Harness()
+                prefill_harness.start()
+                prefill_base = prefill_harness.base_url()
+                prefill_cookie = _login(prefill_harness)
+
+                # (a) nothing stored on disk -> pre-filled from SKYPANE_SLEEP_S
+                status, _headers, body = http_request(
+                    prefill_base + "/settings", cookie=prefill_cookie)
+                if status != 200:
+                    return False, "expected 200 for the env-only pre-fill case, got %d" % status
+                if not re.search(rb'name="wake_interval_s"[^>]*value="900"', body):
+                    return False, (
+                        "expected the Wake interval input to carry value=\"900\" "
+                        "pre-filled from SKYPANE_SLEEP_S=900 with nothing stored")
+
+                # (b) an on-disk wake_interval_s always wins over the environment
+                device_config.save_device_config(prefill_harness.tmpdir, wake_interval_s=120)
+                status, _headers, body = http_request(
+                    prefill_base + "/settings", cookie=prefill_cookie)
+                if status != 200:
+                    return False, "expected 200 after storing wake_interval_s=120, got %d" % status
+                if not re.search(rb'name="wake_interval_s"[^>]*value="120"', body):
+                    return False, (
+                        "expected the stored wake_interval_s=120 to win over the "
+                        "SKYPANE_SLEEP_S=900 environment pre-fill")
+                if re.search(rb'name="wake_interval_s"[^>]*value="900"', body):
+                    return False, (
+                        "expected the environment value 900 to no longer appear once "
+                        "a value is stored on disk")
+                return True, ""
+            finally:
+                if prefill_harness is not None:
+                    prefill_harness.stop()
+                    prefill_harness.cleanup()
+                if saved is not None:
+                    os.environ[app_module.SLEEP_ENV_VAR] = saved
+                else:
+                    os.environ.pop(app_module.SLEEP_ENV_VAR, None)
+        check(
+            "authenticated GET /settings pre-fills Wake interval with SKYPANE_SLEEP_S=900 "
+            "when nothing is stored, and a stored wake_interval_s=120 always wins over that "
+            "environment value",
+            _wake_interval_env_prefill_and_on_disk_precedence)
+
+        def _wake_interval_below_floor_env_degrades_to_placeholder():
+            from companion.pages import config_page
+            saved = os.environ.get(app_module.SLEEP_ENV_VAR)
+            floor_harness = None
+            try:
+                # deploy/skypane.env.example's actual shipped value
+                os.environ[app_module.SLEEP_ENV_VAR] = "30"
+                floor_harness = Harness()
+                floor_harness.start()
+                floor_base = floor_harness.base_url()
+                floor_cookie = _login(floor_harness)
+
+                status, _headers, body = http_request(
+                    floor_base + "/settings", cookie=floor_cookie)
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                if b'name="wake_interval_s"' not in body:
+                    return False, "expected the Wake interval input to still be present"
+                if re.search(rb'name="wake_interval_s"[^>]*\bvalue="', body):
+                    return False, (
+                        "expected no value attribute on the Wake interval input for a "
+                        "below-floor SKYPANE_SLEEP_S=30 — it must not render a number the "
+                        "form could not submit")
+                if config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT.encode() not in body:
+                    return False, (
+                        "expected the placeholder text for a below-floor environment value")
+                return True, ""
+            finally:
+                if floor_harness is not None:
+                    floor_harness.stop()
+                    floor_harness.cleanup()
+                if saved is not None:
+                    os.environ[app_module.SLEEP_ENV_VAR] = saved
+                else:
+                    os.environ.pop(app_module.SLEEP_ENV_VAR, None)
+        check(
+            "authenticated GET /settings degrades a below-floor SKYPANE_SLEEP_S=30 (the "
+            "shipped deploy/skypane.env.example value) to the placeholder empty state, "
+            "never a value attribute the form could not submit",
+            _wake_interval_below_floor_env_degrades_to_placeholder)
 
         def _login_get_with_settings_next_carries_hidden_field():
             status, _headers, body = http_request(base + "/login?next=/settings")
