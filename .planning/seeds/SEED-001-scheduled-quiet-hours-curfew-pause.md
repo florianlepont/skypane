@@ -1,13 +1,28 @@
 ---
 id: SEED-001
-status: dormant
+status: fulfilled
 planted: 2026-09-01
+resolved_date: 2026-09-04
 planted_during: "Phase 5: Battery Life & Low-Battery Indicator"
 trigger_when: "Once Phase 5's real multi-day discharge run (05-01 Tasks 2-3, DEVICE-05) produces an actual battery-life verdict — same trigger as the sibling seed presence-adaptive-poll-cadence.md, since this is the other lever for cutting battery spend during hours nobody is looking. Also revisit whenever the companion web interface's config surface (device_config.py / companion/pages/config_page.py) is next extended, since a quiet-hours schedule fits naturally alongside the existing theme/runway/LED toggles."
 scope: medium
 ---
 
 # SEED-001: Scheduled quiet hours — pause the frame's wake/poll/display cycle during set windows (e.g. a curfew), configurable via the companion web interface
+
+## Fulfilled 2026-09-04
+
+This seed shipped in full as Phase 10, `.planning/phases/10-scheduled-quiet-hours/`, plans `10-01` through `10-05`, completed 2026-09-03 — the seed is closed.
+
+Each layer delivered concretely: `server/device_config.py` gained the three registry fields (`quiet_hours_enabled`, `quiet_hours_start`, `quiet_hours_end`), the never-raising read-path normalisers, a strict pre-write gate in `save_device_config()`, and the DST-safe Europe/Paris window arithmetic `seconds_until_quiet_hours_end()` plus its epoch wrapper `quiet_hours_status()` (`10-01`); `server/plane/render.py` gained `_build_quiet_hours_canvas()`, dispatched ahead of the empty-state branch (`10-02`); `stub-server/byos_server.py` gained `read_quiet_hours()`/`quiet_hours_sleep_s()` extending `GET /device/v1/display`'s `sleep_s`, as a vendored duplicate pinned by an automated drift guard (`10-03`); `server/poll_loop.py`'s `run_once()` gained the render-once-at-entry / hold-silently / repaint-once-on-exit gate (`10-04`); and `companion/pages/config_page.py` gained `quiet_hours_group()`, the Settings page's fourth group (`10-05`).
+
+The evidence of record is the phase's own completed gates: `10-VERIFICATION.md` (`status: passed`, 27/28 must-haves verified, no gaps found), `10-UAT.md` (`status: complete`, 2/2 tests passed, 0 issues), and `10-SECURITY.md` (`status: verified`, 0 threats open). This is a human-signed-off result, not a code-only claim.
+
+Answering this seed's own open questions, including two divergences from what it predicted: the central design question (item 3, option (a) stop waking entirely vs. option (b) wake but skip the refresh) resolved as (a) — but the seed's stated reason for hesitating about (a), that it would need "a bigger change to `state_machine.c`/`app_main.c`'s sleep-duration logic," was wrong: `sleep_s` was already a per-response, fully server-controlled value, so extending it needed zero firmware change. The display-during-quiet-hours question (item 4) resolved as a dedicated one-time "QUIET HOURS / Back at HH:MM" screen rendered once at entry, held for the rest of the window, with no symmetric screen at exit — not a blank panel and not a held previous image. The seed's own trigger (waiting on Phase 5's multi-day discharge verdict) never fired as written: the phase was promoted at the developer's direct request on 2026-09-02 instead. And the `CFG-13`-style requirement entry this seed's Notes anticipated on promotion was never created — Phase 10 shipped as an unmapped backlog phase, and `REQUIREMENTS.md` still has no quiet-hours entry.
+
+Two non-blocking WARNING-level code-review findings (zero critical) remain open; `10-REVIEW.md` is their authoritative home.
+
+Everything below is the original 2026-09-01 record, retained unchanged as history.
 
 ## Why This Matters
 
