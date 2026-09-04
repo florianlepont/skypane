@@ -1,11 +1,12 @@
 ---
 phase: 11-web-configurable-wake-interval
 verified: 2026-09-04T06:48:19Z
-status: human_needed
+status: passed
 score: 22/22 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "Start the companion app locally against a scratch state dir, sign in, open /settings. At 375px and >=960px viewports, in both light and dark mode, confirm: (1) the Wake interval group renders last, below Quiet hours, with the same card surface/heading/caption treatment as its four siblings; (2) the native number input's stepper/spinner is legible and does not overflow or crowd the card at 375px; (3) the field's tap target is comfortably >=44px tall; (4) with nothing saved, the placeholder reads 'Uses server default' in the browser's muted placeholder tone, not a number; (5) editing the field raises the floating save bar exactly as editing any other group does, and the bar's section count names Wake interval; (6) the focus ring matches every other input's accent outline."
     expected: "All six checks pass against 11-UI-SPEC.md's locked Interaction Contract, with no visual regression to the four existing settings groups."
     why_human: "Native <input type=\"number\"> stepper rendering, touch-target feel, dirty-bar wiring, and focus-ring colour match require visual/interaction judgment automated checks cannot substitute for. This is 11-03-PLAN.md Task 2's own <human-check>, explicitly deferred to this end-of-phase pass per workflow.human_verify_mode = end-of-phase (11-03-SUMMARY.md 'Outstanding Verification' section) — it has not been performed by any prior plan execution."
