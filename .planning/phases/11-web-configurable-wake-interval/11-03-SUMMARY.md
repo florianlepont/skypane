@@ -168,6 +168,10 @@ The plan's Task 2 `<human-check>` (real-browser visual verification of the Wake 
 - `companion/app.py` (plan 11-04) can now populate `ctx["wake_interval_env_default"]` — `render()` already reads it as the `None`-fallback pre-fill source, confirmed by this plan's own render-placement/pre-fill-resolution check
 - The end-of-phase human-verify pass should cover this plan's Task 2 `<human-check>` alongside plan 11-04's own verification once that plan lands
 
+## Self-Check: PASSED
+
+All claimed files exist on disk and all claimed commit hashes are present in `git log --oneline --all`.
+
 ---
 *Phase: 11-web-configurable-wake-interval*
 *Completed: 2026-09-04*
