@@ -37,12 +37,15 @@ battery_state.json ({"battery_mv": int, "received_at": float}) in
 stub-server/VENDOR.md); added a read-only led_enabled lookup
 (device_config_path() / read_led_enabled()) so /device/v1/display serves
 the companion app's saved bring-up-LED setting instead of a hardcoded
-constant (Phase 06.2); and added a quiet-hours-aware sleep_s extension
+constant (Phase 06.2); added a quiet-hours-aware sleep_s extension
 (read_quiet_hours() / quiet_hours_sleep_s()) so /device/v1/display
 extends the base --sleep value to span the companion app's saved
 scheduled-quiet-hours window instead of always returning the raw
-per-poll value (Phase 10). See stub-server/VENDOR.md for the full list
-of local changes.
+per-poll value (Phase 10); and added a read-only wake_interval_s lookup
+(read_wake_interval_s()) so the base value fed into that quiet-hours
+extension is the companion app's saved wake interval when one is set,
+falling back to --sleep when it is not (Phase 11). See
+stub-server/VENDOR.md for the full list of local changes.
 """
 import argparse
 import hashlib
@@ -77,6 +80,19 @@ _HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
 # window's timezone is deliberately hardcoded here, matching
 # server/device_config.py's own QUIET_HOURS_TZ.
 QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")
+
+# Phase 11 (D-02): bounds for the companion Settings page's saved
+# wake_interval_s field. Independently redefined here rather than imported
+# from server/device_config.py - this file must never import a server.*
+# module (see the vendor-boundary rationale above seconds_until_quiet_hours_end()
+# below). These two values must stay numerically equal to
+# server/device_config.py's WAKE_INTERVAL_MIN_S/WAKE_INTERVAL_MAX_S of the
+# same names, by hand, in the same commit - the same discipline _HHMM_RE's
+# own comment already states. Unlike _HHMM_RE and seconds_until_quiet_hours_end(),
+# these two are NOT covered by test_poll_cycle.py's _quiet_hours_drift_guard,
+# which pins only the arithmetic core and the shared regex.
+WAKE_INTERVAL_MIN_S = 60
+WAKE_INTERVAL_MAX_S = 3600
 
 
 def state_path(state_dir):
@@ -125,6 +141,35 @@ def read_led_enabled(state_dir):
     if isinstance(value, bool):
         return value
     return True
+
+
+def read_wake_interval_s(state_dir, default):
+    """Best-effort read of the shared device_config.json's wake_interval_s
+    field. Never raises.
+
+    The file is written by companion/app.py's config page via
+    server/device_config.py's save_device_config(); every failure mode
+    here - a missing file, an unreadable file, malformed JSON, a
+    non-dict document, an absent wake_interval_s key, a wrong-typed
+    value (including a bool - isinstance(True, int) is True in Python,
+    so a bare int test would let a JSON `true` become a deep-sleep
+    duration), or a value outside the inclusive
+    [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] range - degrades to
+    `default`, the caller's `--sleep` CLI value. This is the only place
+    in this file that reads wake_interval_s.
+    """
+    try:
+        with open(device_config_path(state_dir)) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return default
+    if not isinstance(data, dict):
+        return default
+    value = data.get("wake_interval_s")
+    if (isinstance(value, int) and not isinstance(value, bool)
+            and WAKE_INTERVAL_MIN_S <= value <= WAKE_INTERVAL_MAX_S):
+        return value
+    return default
 
 
 # --- Quiet-hours sleep_s extension (Phase 10, D-01) --------------------
@@ -412,7 +457,17 @@ class Handler(BaseHTTPRequestHandler):
                 # device_config.json - no deployment or env change is
                 # required, SKYPANE_SLEEP_S remains the base, and deploy/
                 # is untouched by this phase.
-                "sleep_s": quiet_hours_sleep_s(self.args.sleep, self.args.state_dir),
+                # Phase 11 (D-01/D-03): the base value fed into the
+                # quiet-hours extension above is no longer the fixed
+                # --sleep CLI value itself - it is the companion Settings
+                # page's saved wake_interval_s when one is set, falling
+                # back to --sleep (fed by SKYPANE_SLEEP_S in the deployed
+                # unit) when it is not. The quiet-hours extension still
+                # layers on top of whichever base wins; no deployment, env
+                # or firmware change is required.
+                "sleep_s": quiet_hours_sleep_s(
+                    read_wake_interval_s(self.args.state_dir, self.args.sleep),
+                    self.args.state_dir),
                 "firmware": None,
                 "reset": False,
                 # DEVICE-05 bring-up LED toggle: originally a hardcoded
