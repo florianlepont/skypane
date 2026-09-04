@@ -25,8 +25,13 @@
  * clarification — the selected theme chip's border and check glyph
  * (.theme-chip--selected, .theme-chip__check) join the selected runway
  * card's own border/check-glyph pair above, the same accent use on a
- * second selectable-card component. Do not broaden this list without
- * updating 06.6.1-UI-SPEC.md's Color section.
+ * second selectable-card component. 06.6.4.1.1-06 (developer checkpoint
+ * follow-up): both selected cards also gained a 12%-accent background
+ * wash (`color-mix(in srgb, var(--color-accent) 12%, transparent)`,
+ * `.runway-card--selected` / `.theme-chip--selected .theme-chip__body`)
+ * — a third accent property on the same two already-listed components,
+ * not a new component. Do not broaden this list without updating
+ * 06.6.1-UI-SPEC.md's Color section.
  *
  * Colour-separation contract (heading-color-consistency debug session):
  * `--color-accent` must stay measurably distinguishable from every
