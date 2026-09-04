@@ -30,7 +30,18 @@
  * wash (`color-mix(in srgb, var(--color-accent) 12%, transparent)`,
  * `.runway-card--selected` / `.theme-chip--selected .theme-chip__body`)
  * — a third accent property on the same two already-listed components,
- * not a new component. Do not broaden this list without updating
+ * not a new component. quick task 260904-bbi (the strong treatment must
+ * follow the user's LIVE choice, not the saved config): the border,
+ * wash and check glyph on both components are RE-KEYED from the
+ * server-rendered `--selected` class to a live `:has(input:checked)`
+ * selector, inside `@supports selector(:has(*))` — the same two
+ * components, the same three accent properties, now driven by a live
+ * signal rather than a stale one. This is a re-keying of an
+ * already-listed use, not a new accent consumer. The server `--selected`
+ * class is demoted to a quiet "this is what is saved" marker (a dashed
+ * ring plus an English "Current" tag) that deliberately uses NO accent
+ * at all — a muted-text mix and a dashed edge only — so it adds nothing
+ * to this list. Do not broaden this list without updating
  * 06.6.1-UI-SPEC.md's Color section.
  *
  * Colour-separation contract (heading-color-consistency debug session):
@@ -1648,9 +1659,19 @@ button:disabled {
    * (D-03) supersedes 06.6.1's shadow-at-rest treatment (the border used
    * to be transparent, reserving a width only the now-deleted dark-mode
    * card-edge override coloured in). The shadow now appears only on
-   * hover/focus-within, below. The --selected modifier still replaces
-   * this hairline with its own real 2px accent border, and the hover
-   * rule below is scoped so it can never reach a selected card (D-03a). */
+   * hover/focus-within, below. SUPERSEDED (quick task 260904-bbi): this
+   * comment used to say "the --selected modifier still replaces this
+   * hairline with its own real 2px accent border" — that was the
+   * defect. `--selected` is server-computed from the SAVED config and
+   * never updates when the user clicks a different card without
+   * reloading, so the border stayed on the saved card even after
+   * another one was chosen. The strong border is now driven by live
+   * `:has(input:checked)` state (see the @supports block after the
+   * .theme-chip group below); `--selected` alone still replaces the
+   * hairline as the no-:has() FALLBACK (identical result, just not the
+   * live-state mechanism), and the hover rule below is scoped so it can
+   * never reach a selected-at-rest card either way (D-03a; its live-
+   * state transfer is documented in the @supports block). */
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   box-shadow: none;
@@ -1741,12 +1762,28 @@ button:disabled {
  * selectable-card component, deliberately placed as a neighbour of
  * .runway-card above because it reuses that component's mechanism
  * verbatim rather than inventing a new one: a visually-hidden native
- * radio inside the <label>, a server-computed --selected modifier (never
- * a client-side :has() trick) driving a real 2px accent border, and an
- * always-present check glyph shown only via that modifier. It is NOT
- * related to .theme-form .theme-option below, which is a different
- * component entirely — the segmented light/dark UI-theme control in the
- * nav footer, not a colour-theme picker.
+ * radio inside the <label>, and an always-present check glyph shown
+ * only when selected.
+ *
+ * SUPERSEDED (quick task 260904-bbi): this comment used to claim the
+ * mechanism was "a server-computed --selected modifier (never a
+ * client-side :has() trick) driving a real 2px accent border" — that
+ * reasoning is now DISPROVEN. `--selected` is computed once, server-
+ * side, from the SAVED config; clicking a different chip changes the
+ * live `:checked` radio but never re-renders the page, so the strong
+ * border/wash/check-glyph treatment stayed on the SAVED chip instead of
+ * following the user's live click — the exact defect a developer
+ * checkpoint follow-up found. The strong treatment is now driven by
+ * live `:has(input:checked)` state instead, inside the
+ * `@supports selector(:has(*))` block placed immediately after this
+ * group (see that block's own comment for the specificity arithmetic
+ * and the fallback story). `--selected` keeps two honest jobs: it still
+ * truthfully marks the SAVED value, and it is now the no-`:has()`
+ * FALLBACK, painting the identical strong treatment in browsers that
+ * don't support `:has()`. It is NOT related to .theme-form .theme-option
+ * below, which is a different component entirely — the segmented
+ * light/dark UI-theme control in the nav footer, not a colour-theme
+ * picker.
  */
 .theme-chip-grid {
   display: flex;
@@ -1872,6 +1909,162 @@ button:disabled {
  * above the 44px floor, and the visually-hidden radio inside it is
  * exempt-by-delegation exactly as quick task 260902-l9w recorded for the
  * Runway radios above. This adds no entry to the traded-floor register. */
+
+/* Live-selection layer (quick task 260904-bbi) — re-keys the strong
+ * "this is your selection" treatment of BOTH selectable-card components
+ * above (.theme-chip, .runway-card) from the server-rendered --selected
+ * class to live :has(input:checked) state, and demotes --selected to an
+ * honest, quiet "this is what is saved" marker for when the saved value
+ * is no longer the live choice.
+ *
+ * Diagnosis: --selected is computed once, server-side, from the SAVED
+ * config (config_page.py:269/:374) and painted at first response. It
+ * never changes when the user clicks a different chip/card client-side
+ * — dirty-state.js only snapshots/compares form values for the dirty
+ * bar, it never touches this class. Every selected-state rule keying
+ * off --selected alone therefore keeps painting the SAVED value as
+ * selected even after the user has visibly chosen something else — the
+ * defect a developer checkpoint follow-up found.
+ *
+ * Specificity arithmetic (verified, not to be re-derived): :has(X) and
+ * :not(X) each take the specificity of their most specific argument.
+ * .theme-chip--selected is (0,1,0). .theme-chip:has(input:checked) is
+ * (0,1,0)+(0,1,1) = (0,2,1), beating the fallback.
+ * .theme-chip--selected:not(:has(input:checked)) is also (0,2,1) — equal
+ * specificity to the rule above is NOT a conflict, because the two
+ * selectors are structurally incapable of matching the same element (one
+ * requires a checked descendant, the other forbids one). The existing
+ * hover guard `.theme-chip:not(.theme-chip--selected):hover` (above,
+ * unchanged) is (0,3,0), which OUTRANKS (0,2,1) and matches the newly-
+ * clicked chip (which lacks --selected) — it would clear that chip's
+ * live-state border on hover if left as the only guard. The fix is a
+ * POSITIVE restore rule below, on the checked-chip's own hover state:
+ * (0,2,1)+(0,1,0) = (0,3,1), which wins. Do NOT instead rewrite the base
+ * guard's :not(.theme-chip--selected) to :not(:has(...)) — an
+ * unsupported :has() invalidates the WHOLE selector list it appears in,
+ * dropping the hover reveal entirely in non-supporting browsers, which
+ * would violate the fallback story below. Identical reasoning and rule
+ * shape apply to .runway-card.
+ *
+ * Fallback (no-:has() browsers): every live-state rule lives inside this
+ * @supports selector(:has(*)) block. A browser without :has() support
+ * evaluates the feature query as false and skips this entire block,
+ * leaving the pre-existing --selected-keyed rules above (unchanged, not
+ * touched by this task) as the sole selected-state mechanism — exactly
+ * today's shipped strong treatment, never unstyled. This mirrors the
+ * file's own WR-02 fallback idiom (a plain declaration immediately
+ * followed by an enhanced color-mix() form, e.g. :1387-1389) one level
+ * up, at the selector rather than the value.
+ *
+ * Placement note: this block sits here, right after the .theme-chip
+ * group, purely for READABILITY (both components' live-state rules read
+ * as one group). This file does have genuine source-order-dependent
+ * rules elsewhere — this is NOT one of them; every rule inside this
+ * block already wins its target element on specificity alone, verified
+ * above. */
+@supports selector(:has(*)) {
+  .theme-chip:has(input:checked) {
+    border: 2px solid var(--color-accent);
+  }
+
+  .theme-chip:has(input:checked) .theme-chip__body {
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  .theme-chip:has(input:checked) .theme-chip__check {
+    display: inline-flex;
+  }
+
+  /* D-03a, transferred to live state: a positive restore rule, not a
+   * re-scoped guard — see the specificity arithmetic above. */
+  .theme-chip:has(input:checked):hover,
+  .theme-chip:has(input:checked):focus-within {
+    border-color: var(--color-accent);
+    box-shadow: none;
+  }
+
+  /* Quiet "this is what is saved" marker: accent-free, so it can never
+   * read as a second selection. Reuses the file's established 70%
+   * muted-text mix rather than inventing a new strength — no new wash
+   * percentage either, since this ring has no background at all. */
+  .theme-chip--selected:not(:has(input:checked)) {
+    border: 2px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .theme-chip--selected:not(:has(input:checked)) .theme-chip__body {
+    background: transparent;
+  }
+
+  .theme-chip--selected:not(:has(input:checked)) .theme-chip__check {
+    display: none;
+  }
+
+  /* content: "Current" — a CSS pseudo-element, deliberately not a real
+   * <span> (config_page.py keeps a zero diff). The authoritative
+   * selection state for assistive technology is the native radio's own
+   * checked property inside a real radio group, already announced
+   * natively; the pending-vs-saved distinction is separately carried in
+   * real, announced DOM text by the dirty bar ("Theme changed · Save
+   * settings · Cancel"). This tag is a supplementary VISUAL cue for a
+   * sighted user comparing 16 dense chips against the one saved chip —
+   * a real <span> would inject a redundant announcement into exactly 1
+   * of 16 chips for zero accessibility gain, and would force
+   * retargeting test_config_page.py's exact-count markup assertions.
+   * Bottom-right, not top-right: top-right on this component sits over
+   * .theme-chip__preview, the rendered panel image — the identical
+   * constraint that already scopes this chip's selected-wash to
+   * .theme-chip__body rather than the whole chip. */
+  .theme-chip--selected:not(:has(input:checked))::after {
+    content: "Current";
+    position: absolute;
+    bottom: var(--space-sm);
+    right: var(--space-sm);
+    font-size: 12px;
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .runway-card:has(input:checked) {
+    border: 2px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  .runway-card:has(input:checked) .runway-card__check {
+    display: inline-flex;
+  }
+
+  .runway-card:has(input:checked):hover,
+  .runway-card:has(input:checked):focus-within {
+    border-color: var(--color-accent);
+    box-shadow: none;
+  }
+
+  .runway-card--selected:not(:has(input:checked)) {
+    border: 2px dashed color-mix(in srgb, var(--color-text) 70%, transparent);
+    background: transparent;
+  }
+
+  .runway-card--selected:not(:has(input:checked)) .runway-card__check {
+    display: none;
+  }
+
+  /* Top-right here (unlike the chip's bottom-right): .runway-card has no
+   * preview band occupying that corner — its only other content is a
+   * plain-text number and an optional airport-diagram image below it. */
+  .runway-card--selected:not(:has(input:checked))::after {
+    content: "Current";
+    position: absolute;
+    top: var(--space-sm);
+    right: var(--space-sm);
+    font-size: 12px;
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+}
 
 /* Diagnostic LED checkbox (quick task 260901-qif). `summary`'s own idiom
  * reused verbatim: a centred flex row with a 44px `min-height`. The 44px
