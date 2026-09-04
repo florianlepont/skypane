@@ -3586,26 +3586,32 @@ summary::-webkit-details-marker {
 }
 
 /* 260902-req-02: the ratio matches companion/illustration_normalize.py's
- * ILLUSTRATION_TARGET_SIZE (900x263) exactly — every served illustration
- * is already normalized to that pixel size, so this reserves the same
- * box for a browser that ignores the <img>'s own width/height attributes.
+ * ILLUSTRATION_TARGET_SIZE exactly — every served illustration is already
+ * normalized to that pixel size, so this reserves the same box for a
+ * browser that ignores the <img>'s own width/height attributes.
  * object-fit: contain (not cover) mirrors the normalization's own
  * fit-inside discipline: nothing here may ever crop an aircraft.
  *
  * quick task 260902-v2v (UIR-07): `height: auto` is load-bearing, not
- * decorative. airlines_page.py's `<img width="900" height="263">`
+ * decorative. airlines_page.py's `<img width="..." height="...">`
  * attributes map to presentational height; with both dimensions already
  * resolved from the attributes, `aspect-ratio` above is ignored
- * entirely and every card rendered the full 263px-tall box regardless of
+ * entirely and every card rendered the full box-height regardless of
  * the card's actual (narrower) width — the letterboxing this fixes.
  * `height: auto` un-resolves the height so `aspect-ratio` can compute it
  * from the rendered width instead. The width/height attributes on the
  * <img> element itself must stay: they are still what reserves the
- * correct box for `loading="lazy"` before the image itself loads. */
+ * correct box for `loading="lazy"` before the image itself loads.
+ *
+ * quick task 260904-e92 (UIR-08): the frame was halved (900x263 ->
+ * 450x132) to cut served bytes — see illustration_normalize.py's own
+ * comment for the full ratio-derivation reasoning. `height: auto`
+ * remains load-bearing for exactly the same reason stated above: it is
+ * independent of which pixel pair the aspect-ratio declaration names. */
 .airline-card__image {
   width: 100%;
   height: auto;
-  aspect-ratio: 900 / 263;
+  aspect-ratio: 450 / 132;
   object-fit: contain;
   display: block;
   border-radius: var(--radius-control);
@@ -4261,15 +4267,32 @@ summary::-webkit-details-marker {
 }
 
 /* quick task 260902-tli: the Airlines gallery's wide lightbox variant.
- * .lightbox's stock 480px max-width would render the normalized 900x263
- * illustration at 480x140 — barely bigger than the grid card and not
- * worth a modal. Equal specificity to .lightbox (one class each), so
- * this must come later in source order to win — it does, as the last
- * rule in this section. 900 is illustration_normalize.py's
- * ILLUSTRATION_TARGET_WIDTH, pinned by a harness cross-file check, so
- * the illustration is never upscaled past its own native width. */
+ * Equal specificity to .lightbox (one class each), so this must come
+ * later in source order to win — it does, as the last rule in this
+ * section.
+ *
+ * quick task 260904-e92 (UIR-08): this cap exists so the dialog hugs the
+ * illustration's own native width and never upscales it — the value
+ * stays pinned to illustration_normalize.ILLUSTRATION_TARGET_WIDTH by a
+ * harness cross-file check
+ * (_lightbox_wide_max_width_matches_illustration_target_width). Since
+ * the frame was halved for UIR-08 (900 -> 450), this cap now sits BELOW
+ * .lightbox's own 480px base max-width — an inversion of the original
+ * "wide variant is wider than the base" intent this rule shipped with.
+ * That inversion is DELIBERATE, not a bug to "fix" back to 900 or bump
+ * to clear the base: `.lightbox--wide .lightbox__image` uses
+ * `width: auto`, so it never upscales to fill a wider dialog regardless
+ * of this cap's value, and serving a second, larger illustration size
+ * just for the lightbox is exactly the multi-size mechanism this
+ * feature deliberately does not build (DP-3). The developer accepted
+ * the measured consequence when choosing this frame size: the desktop
+ * enlarged view shrinks from ~852px to ~402px (mobile is unaffected —
+ * .lightbox's own `calc(100% - var(--space-lg) * 2)` width cap, ~327px,
+ * already binds before either max-width does). Do not reintroduce a
+ * larger `.lightbox--wide` max-width "to look bigger"; the illustration
+ * itself is smaller now, on purpose. */
 .lightbox--wide {
-  max-width: 900px;
+  max-width: 450px;
 }
 
 /* width: auto here, not the base .lightbox__image rule's width: 100%,

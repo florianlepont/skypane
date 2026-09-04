@@ -270,7 +270,19 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 135  # 133 + 2 (06.6.4.1.1-03 Task 1: the desktop-
+# quick task 260904-e92 (2026-09-04, UIR-08): 1 new — the byte-ceiling
+# regression check (_all_43_normalized_outputs_serve_well_under_the_byte_
+# ceiling) added alongside the existing pixel-dimensions check, asserting
+# the served bytes actually dropped when the normalization frame was
+# halved (900x263 -> 450x132), not merely that the dimensions changed.
+# The aspect-ratio literal check inside the 260902-v2v combined check
+# (UIR-07 half) was rewritten IN PLACE to derive its expected declaration
+# from illustration_normalize.ILLUSTRATION_TARGET_SIZE instead of a
+# hardcoded 900/263 literal pair — same check, zero count change from
+# that rewrite. Re-derived by RUNNING the harness (136/136), not by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 136  # 135 + 1 (quick task 260904-e92). 135 itself =
+# 133 + 2 (06.6.4.1.1-03 Task 1: the desktop-
 # padding/mobile-density pair guard for D-15's .page-section/.theme-status/
 # .battery-trend-section >= 960px padding override; Task 2: the mobile-only
 # button override's block-existence + declared-values + source-order guard
@@ -4695,13 +4707,17 @@ def main():
             return False, "expected .banner__pill to still precede .refresh-pill in source order"
 
         # UIR-07: .airline-card__image gains height: auto and keeps its
-        # aspect-ratio.
+        # aspect-ratio. quick task 260904-e92 (DP-5): the expected
+        # declaration is derived from illustration_normalize's own
+        # constants instead of a hardcoded literal pair, so the CSS and
+        # the Python constants cannot silently drift apart again.
         image_start = css_source.index(".airline-card__image {")
         image_body = css_source[image_start:css_source.index("}", image_start)]
         if "height: auto" not in image_body:
             return False, "expected .airline-card__image to declare height: auto (UIR-07)"
-        if "aspect-ratio: 900 / 263" not in image_body:
-            return False, "expected .airline-card__image to still declare its aspect-ratio (UIR-07)"
+        expected_aspect_ratio = "aspect-ratio: %d / %d" % illustration_normalize.ILLUSTRATION_TARGET_SIZE
+        if expected_aspect_ratio not in image_body:
+            return False, "expected .airline-card__image to declare %r (UIR-07)" % expected_aspect_ratio
 
         # UIR-13: a .data-table--prose-scoped :first-child nowrap rule
         # exists and sits after the base .data-table--prose rule.
@@ -4975,6 +4991,15 @@ def main():
         for filename in illustrations.target_filenames()
     ]
 
+    # quick task 260904-e92 (UIR-08, DP-6): the pre-change 900x263 frame
+    # served 132.5-175.5KB per file (measured across the 27 gallery-visible
+    # illustrations); the post-change 450x132 frame measured 40.8-53.1KB.
+    # This ceiling (64KB) sits far below the OLD per-file minimum
+    # (132.5KB), so a silent revert to the old frame size fails this check
+    # loudly rather than merely getting dimensions right while leaving the
+    # served bytes unchanged.
+    _ILLUSTRATION_BYTE_CEILING = 65536
+
     def _all_43_normalized_outputs_share_identical_pixel_dimensions():
         if len(_VENDORED_ILLUSTRATION_PATHS) != 43:
             return False, "expected 43 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_PATHS)
@@ -4989,6 +5014,19 @@ def main():
         "all 43 vendored illustrations normalize to the exact same pixel dimensions "
         "(illustration_normalize.ILLUSTRATION_TARGET_SIZE)",
         _all_43_normalized_outputs_share_identical_pixel_dimensions)
+
+    def _all_43_normalized_outputs_serve_well_under_the_byte_ceiling():
+        for path in _VENDORED_ILLUSTRATION_PATHS:
+            png_bytes = illustration_normalize.normalized_png_bytes(path)
+            if len(png_bytes) >= _ILLUSTRATION_BYTE_CEILING:
+                return False, "%s normalized to %d bytes, expected under the %d-byte ceiling" % (
+                    os.path.basename(path), len(png_bytes), _ILLUSTRATION_BYTE_CEILING)
+        return True, ""
+    check(
+        "all 43 vendored illustrations normalize and serve well under %d bytes per file, the UIR-08 "
+        "weight fix — a regression that got the dimensions right but left the served bytes unchanged "
+        "would defeat this check" % _ILLUSTRATION_BYTE_CEILING,
+        _all_43_normalized_outputs_serve_well_under_the_byte_ceiling)
 
     def _all_43_normalized_outputs_are_centred_and_unclipped():
         target_w, target_h = illustration_normalize.ILLUSTRATION_TARGET_SIZE

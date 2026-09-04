@@ -49,10 +49,25 @@ from server.plane import render as panel_render
 # transparent letterbox space each file gets. A target near the widest
 # ratio would letterbox every narrower file with dead horizontal space on
 # both sides; the measured median instead spreads that dead space evenly
-# across the whole distribution. 900x263 (3.4221:1) sits at that median,
-# rounded to clean output pixel dimensions.
-ILLUSTRATION_TARGET_WIDTH = 900
-ILLUSTRATION_TARGET_HEIGHT = 263
+# across the whole distribution.
+#
+# quick task 260904-e92 (UIR-08): the frame was HALVED — 900x263 SUPERSEDED
+# — to cut served bytes; the audit found the rendered `.airline-card__image`
+# never exceeding 325px wide on mobile or 224px on desktop, so 900x263 was
+# pure oversampling (3.92MB for a full 27-card gallery scroll, measured
+# pre-change). The new width, 450, was the developer's own choice (option-a
+# of the audit's two proposed fixes; option-b, a srcset, was rejected as a
+# multi-size mechanism this module deliberately does not build). The height
+# is DERIVED from the median ratio, never independently chosen:
+# round(W * 263 / 900). An exact integer reproduction of the 900:263 ratio
+# is impossible below 900x263 itself, because gcd(900, 263) = 1 (263 is
+# prime) — so round(450 * 263 / 900) = round(131.5) = 132, and the
+# resulting 450/132 (3.4091:1) tracks the measured 3.4221:1 median to
+# within 0.4%. That 0.4% deviation only shifts how much transparent
+# letterbox each file gets; because every crop still fits INSIDE the frame,
+# it can never clip an aircraft.
+ILLUSTRATION_TARGET_WIDTH = 450
+ILLUSTRATION_TARGET_HEIGHT = 132
 ILLUSTRATION_TARGET_SIZE = (ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT)
 
 
