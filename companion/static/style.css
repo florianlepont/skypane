@@ -1674,9 +1674,32 @@ button:disabled {
 /* A real 2px border, not merely a class toggle with no visual difference.
  * The global `* { box-sizing: border-box; }` reset above already keeps
  * `.runway-card`'s own padding/size stable with this border added, so
- * unselected siblings never shift. */
+ * unselected siblings never shift.
+ *
+ * 06.6.4.1.1-06 (developer checkpoint follow-up): the background wash
+ * below is an ADDITION to the border above, not a replacement — the
+ * border and the always-present check glyph (`.runway-card__check`)
+ * both stay exactly as they were. The developer reported that, across
+ * the whole site, "the selected element is very hard to see" — a thin
+ * 2px border and a small stroke-only check glyph against the same
+ * `--color-dominant` card surface every unselected sibling also uses.
+ * The fix reuses this app's own already-established "this is the
+ * current selection" language instead of inventing a new one:
+ * `.theme-form .theme-option--active` and the nav-pill active-link rules
+ * (`.sidebar-link--active`, `.mobile-nav__link--active`) all use this
+ * same `color-mix(in srgb, var(--color-accent) 12%, transparent)`
+ * background wash, and none of them were reported as hard to notice.
+ * Safe to add here: `.runway-card` has no separate body wrapper, but its
+ * only other child content is `.runway-card__number` (plain text) and
+ * the optional `.runway-card__image` (an airport-diagram PNG on two of
+ * the three cards) — a 12%-opacity accent tint does not obscure either.
+ * The hover-exclusion guard above (`:not(.runway-card--selected)`)
+ * still cannot reach a selected card after this addition, since it adds
+ * a new property to this same already-excluded selector rather than
+ * touching the hover rule itself. */
 .runway-card--selected {
   border: 2px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 .runway-card__number {
@@ -1761,6 +1784,23 @@ button:disabled {
  * unselected sibling chips from shifting when this is added. */
 .theme-chip--selected {
   border: 2px solid var(--color-accent);
+}
+
+/* 06.6.4.1.1-06 (developer checkpoint follow-up): same background-wash
+ * addition as `.runway-card--selected` above, and for the same reason —
+ * see that rule's comment for the full diagnosis. Scoped to
+ * `.theme-chip__body` specifically, NOT the whole `.theme-chip`, because
+ * unlike `.runway-card` this component has a real rendered preview band
+ * (`.theme-chip__preview`, the theme's own cropped panel render) sitting
+ * above the body — a wash across the whole chip would sit half-behind
+ * that photo-like image and visibly tint it, undermining the very thing
+ * the chip exists to show (the theme's real, undithered colours). The
+ * body area (name + swatch dots) has no such constraint and is the
+ * region that reads as "this chip's own info panel," matching how the
+ * wash reads as the "selected" surface on `.theme-form .theme-option`
+ * and the nav-pill links. */
+.theme-chip--selected .theme-chip__body {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 /* 56px is sketch 004 variant B's own validated band height.

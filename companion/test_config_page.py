@@ -134,7 +134,12 @@ EXPECTED_CHECK_COUNT = 65  # + 1 (quick task 260903-peo Task 4: UIR-19's
 # change, per this file's own established retarget-without-recounting
 # discipline, and the cross-file CSS guard was extended in place with the
 # four new .theme-chip* selector assertions, also no count change).
-EXPECTED_CHECK_COUNT = 69
+# 06.6.4.1.1-06 (developer checkpoint follow-up, after the developer's
+# real-device review reported the selected element was hard to see): 69
+# -> 70 (+1: the background-wash check proving both .runway-card--selected
+# and .theme-chip--selected .theme-chip__body carry the same 12%-accent
+# color-mix wash .theme-form .theme-option--active already uses).
+EXPECTED_CHECK_COUNT = 70
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1808,6 +1813,62 @@ def main():
         "the rendered Settings page contains no <fieldset> and no <legend>, and exactly three "
         "data-dirty-section groups (06.6.4.1.1-05)",
         _settings_page_has_zero_fieldsets_and_three_dirty_sections)
+
+    def _selected_runway_card_and_theme_chip_carry_a_background_wash():
+        # 06.6.4.1.1-06 (developer checkpoint follow-up): the developer
+        # reported that, across the whole site, the selected element was
+        # "very hard to see" — a border-only + check-glyph treatment was
+        # too subtle at density. The fix adds a background wash matching
+        # `.theme-form .theme-option--active`'s own established idiom
+        # (color-mix(in srgb, var(--color-accent) 12%, transparent)) to
+        # BOTH selectable-card components, alongside their existing
+        # border and check glyph, not replacing either.
+        source = _read_static("style.css")
+        wash = "background: color-mix(in srgb, var(--color-accent) 12%, transparent);"
+
+        runway_selector = ".runway-card--selected {"
+        if runway_selector not in source:
+            return False, "expected style.css to still declare a .runway-card--selected rule"
+        idx = source.index(runway_selector)
+        window = source[idx:idx + 1600]
+        if "border: 2px solid var(--color-accent);" not in window:
+            return False, ".runway-card--selected must keep its existing 2px accent border"
+        if wash not in window:
+            return False, (
+                "expected .runway-card--selected to carry the same 12%-accent background wash "
+                ".theme-form .theme-option--active uses")
+
+        # .theme-chip--selected itself must stay border-only (no
+        # background) — the wash must be scoped to .theme-chip__body
+        # only, so it never sits behind the rendered preview band and
+        # tints it. Isolate this rule's own body precisely (up to its
+        # closing brace), not an arbitrary fixed-size window, so a
+        # background declared just after the rule can't false-positive.
+        chip_selected_selector = ".theme-chip--selected {"
+        if chip_selected_selector not in source:
+            return False, "expected style.css to still declare a .theme-chip--selected rule"
+        idx = source.index(chip_selected_selector) + len(chip_selected_selector)
+        rule_body = source[idx:source.index("}", idx)]
+        if "background:" in rule_body:
+            return False, (
+                "expected .theme-chip--selected itself to stay border-only — the wash must be "
+                "scoped to .theme-chip__body, not the whole chip (which would tint the preview band)")
+
+        theme_chip_body_selector = ".theme-chip--selected .theme-chip__body {"
+        if theme_chip_body_selector not in source:
+            return False, "expected style.css to declare a %r rule" % (theme_chip_body_selector,)
+        idx = source.index(theme_chip_body_selector)
+        window = source[idx:idx + 200]
+        if wash not in window:
+            return False, (
+                "expected .theme-chip--selected .theme-chip__body to carry the same 12%-accent "
+                "background wash .theme-form .theme-option--active uses")
+        return True, ""
+    check(
+        "both .runway-card--selected and .theme-chip--selected .theme-chip__body carry a 12%-accent "
+        "background wash (color-mix), matching .theme-form .theme-option--active's established active-state "
+        "idiom, added alongside (not replacing) their existing border and check glyph (06.6.4.1.1-06)",
+        _selected_runway_card_and_theme_chip_carry_a_background_wash)
 
     def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
         # quick task 260901-re6 Task 3: the third new cross-file guard,
