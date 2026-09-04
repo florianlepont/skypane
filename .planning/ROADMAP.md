@@ -662,7 +662,7 @@ Plans:
 **Goal:** The device's wake/poll interval is set from the companion Settings page instead of an SSH edit to `/opt/skypane/skypane.env` plus a `skypane-byos.service` restart. A new bounded `wake_interval_s` registry field (60-3600s, D-02, grounded in `FP_MIN_REFRESH_SPACING_S`'s own 60s default) is written by a plain `<input type="number">` — this codebase's first — and becomes the base value Phase 10's existing `quiet_hours_sleep_s()` extends, reaching the device as `sleep_s` on its very next `/device/v1/display` poll with zero firmware change and no service restart (D-01/D-03/D-06). The field pre-fills from the deployed `SKYPANE_SLEEP_S` that systemd already injects into the companion process, degrading honestly to a "Uses server default" placeholder when that value is absent or outside the field's own bounds (D-07). Promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md`.
 **Requirements**: None — unmapped backlog phase promoted from SEED-002, matching Phase 10's own precedent; `.planning/REQUIREMENTS.md` has no wake-interval requirement ID.
 **Depends on:** Phase 10
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 **Wave 1**
@@ -671,7 +671,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 11-02-PLAN.md — `read_wake_interval_s()` and the rebased `sleep_s` on `GET /device/v1/display` in the vendored `stub-server/byos_server.py` (wave 2)
+- [x] 11-02-PLAN.md — `read_wake_interval_s()` and the rebased `sleep_s` on `GET /device/v1/display` in the vendored `stub-server/byos_server.py` (wave 2)
 - [ ] 11-03-PLAN.md — The companion Settings page's fifth group, Wake interval, with this codebase's first `<input type="number">` and its string-to-int save gate (wave 2)
 
 **Wave 3** *(blocked on Wave 2 completion)*

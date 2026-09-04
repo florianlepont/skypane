@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 11
 current_phase_name: Web-configurable wake interval
 status: executing
-stopped_at: 11-01 executed (wake_interval_s registry field)
-last_updated: "2026-09-04T07:49:54+02:00"
+stopped_at: 11-02 executed (wake-interval delivery in stub-server)
+last_updated: "2026-09-04T06:04:06.618Z"
 last_activity: 2026-09-04
-last_activity_desc: 11-01 executed, wake_interval_s registry field added
+last_activity_desc: Phase 11 plan 02 executed
 progress:
   total_phases: 23
   completed_phases: 19
   total_plans: 113
-  completed_plans: 108
+  completed_plans: 109
   percent: 96
 ---
 
@@ -29,6 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 11 (Web-configurable wake interval) — EXECUTING
+
+**11-02 executed (2026-09-04), wave 2 (depends on 11-01) — delivered the configured wake interval to the device by rebasing `stub-server/byos_server.py`'s `/device/v1/display` sleep_s expression.** Task 1 added independently-defined `WAKE_INTERVAL_MIN_S=60`/`WAKE_INTERVAL_MAX_S=3600` (hand-pinned equal to `server/device_config.py`'s constants, matching the `_HHMM_RE`/`QUIET_HOURS_TZ` duplicated-not-imported precedent) and `read_wake_interval_s(state_dir, default)` — a never-raising fail-open read structured as a direct copy of `read_led_enabled()`'s shape, with the mandatory `isinstance(value, int) and not isinstance(value, bool)` bool-exclusion idiom (Python's `isinstance(True, int)` gotcha). The `/display` handler's `sleep_s` expression now passes `read_wake_interval_s(self.args.state_dir, self.args.sleep)` as `quiet_hours_sleep_s()`'s `base_sleep_s` argument instead of `self.args.sleep` directly; `quiet_hours_sleep_s()`'s own signature and body stay completely unchanged, and no re-clamp was added after it returns — the 60-3600 bounds gate the stored config field only, never the delivered value, so an active quiet-hours window still legitimately extends `sleep_s` past 3600s (11-RESEARCH.md Pitfall 4). Both the module docstring and `stub-server/VENDOR.md` (local modification 6, re-pinning checklist bumped to "all six") record this local modification. Task 2 added 5 new checks to `stub-server/test_poll_cycle.py`: fail-open across 9 hostile cases (missing file, truncated JSON, non-dict, key-absent, bool `true`, string, float, below-floor `30`/`59`, above-ceiling `3601`), happy-path including the inclusive `60`/`3600` bounds, a layering check proving the configured value wins as `quiet_hours_sleep_s()`'s base and returns `28000` (>3600) inside an active window without being re-clamped, and two real-HTTP integration checks (a configured `120` reaches `sleep_s`; a below-floor `30` degrades to the CLI default `300`, still passing `validate_display_response()`); `EXPECTED_CHECK_COUNT` 29 → 34, harness passes 34/34. No deviations — all listed acceptance-criteria commands (harness count, `ruff check`, the direct-call sanity script, every literal `grep` match, `git diff --name-only` per task) ran verbatim and passed. `git diff --quiet firmware/` confirmed no firmware change; no package install occurred (stdlib only, `grep -cE '^\s*(from|import) server'` returns 0). This plan has `requirements: []` (unmapped backlog phase promoted from SEED-002, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. `state.advance-plan` errored again ("Cannot parse Current Plan or Total Plans in Phase from STATE.md", the same known prose-parsing limitation documented throughout this file's history); `state.update-progress` again wrote `percent: 83` (`completed_phases/total_phases` = 19/23, the same recurring wrong-ratio bug) despite its own returned JSON correctly reporting `completed: 109, total: 113, percent: 96` — corrected `percent` to `96` by hand per this file's own established precedent. `roadmap.update-plan-progress "11"` confirmed `plan_count: 4, summary_count: 2, status: "In Progress"` — plans 03-04 remain (Wave 2's other parallel-safe plan plus the closing plan). Known transient state, out of this plan's scope: `companion/test_config_page.py` currently has one failing dict-equality assertion missing the new `wake_interval_s` key, belonging to plan 11-03.
 
 **11-01 executed (2026-09-04), wave 1 (no dependencies) — the Phase 11 foundation plan, adding the `wake_interval_s` field to `server/device_config.py`'s registry that every other Phase 11 plan reads.** Task 1 added `WAKE_INTERVAL_MIN_S=60`/`WAKE_INTERVAL_MAX_S=3600` (D-02, grounded against `firmware/main/Kconfig.projbuild`'s `FP_MIN_REFRESH_SPACING_S`), `normalise_wake_interval_s()` (never-raising, degrades every hostile value — including a bool, via the mandatory `isinstance(value, int) and not isinstance(value, bool)` gotcha guard — to `None`), extended `load_device_config()` with a seventh `wake_interval_s` key (the single key whose valid value set includes `None`, meaning never-explicitly-set — D-07), and extended `save_device_config()` with a strict pre-write `wake_interval_s` gate plus carry-forward. Deliberately no `DEFAULT_WAKE_INTERVAL_S` constant — the true fallback (`SKYPANE_SLEEP_S`/`--sleep`) lives in a different OS process's argparse namespace and isn't knowable here. Repaired all 7 full-document equality assertions the widened dict breaks by construction; `EXPECTED_CHECK_COUNT` held at 39 for this task (mechanical repair only, no new coverage). Task 2 added 5 new checks: bounds + bool-gotcha (`True`/`False` named explicitly), hostile-on-disk-value degradation (JSON `true`, `"120"`, `120.5`, and the below-minimum `30` real value from `deploy/skypane.env.example`'s `SKYPANE_SLEEP_S`), save round-trip, save-rejects-out-of-bounds/bool with byte-identical-file-on-rejection, and carry-forward on an unrelated save; `EXPECTED_CHECK_COUNT` 39 → 44, harness passes 44/44. No deviations — both tasks' acceptance criteria commands (module-import checks, ruff, exact `git diff --name-only` per commit) ran verbatim and passed. `server/test_poll_loop.py` confirmed green (51/51, no digest-mismatch regression); `server/requirements.txt` unchanged (zero new dependencies, matching the plan's own threat-register `accept` disposition for supply-chain risk). This plan has `requirements: []` (unmapped backlog phase promoted from SEED-002, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. `state.advance-plan` errored again ("Cannot parse Current Plan or Total Plans in Phase from STATE.md", the same known prose-parsing limitation documented throughout this file's history); `state.update-progress` again wrote `percent: 83` (`completed_phases/total_phases` = 19/23, the same recurring wrong-ratio bug) despite its own returned JSON correctly reporting `completed: 108, total: 113, percent: 96` — corrected `percent` to `96` by hand per this file's own established precedent. `roadmap.update-plan-progress "11"` confirmed `plan_count: 4, summary_count: 1, status: "In Progress"` — plans 02-04 remain (Wave 2's two parallel-safe plans plus the closing plan).
 
@@ -285,6 +287,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 10 P04 | 40min | 2 tasks | 2 files |
 | Phase 10 P05 | 55min | 3 tasks | 4 files |
 | Phase 11 P01 | 17min | 2 tasks | 2 files |
+| Phase 11 P02 | 13min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -483,6 +486,8 @@ Recent decisions affecting current work:
 - [Phase ?]: .led-checkbox renamed in place to .settings-checkbox (not duplicated under a second class name) now that Diagnostic LED and Quiet hours share the identical checkbox-normalization pattern
 - [Phase 11]: wake_interval_s's unset state is None (D-07), not a hardcoded default - the true fallback lives in a different OS process's argparse namespace
 - [Phase 11]: save_device_config() has no way to clear an already-set wake_interval_s back to unset - an empty input means leave unchanged, resolving 11-RESEARCH.md Open Question 2
+- [Phase 11]: read_wake_interval_s() is an independently-written, behaviourally-compatible reimplementation, not a byte-for-byte pinned duplicate like seconds_until_quiet_hours_end()
+- [Phase 11]: No second bounds check is added after quiet_hours_sleep_s() returns - the 60-3600 range gates the stored config field only, never the delivered sleep_s value
 
 ### Pending Todos
 
@@ -563,7 +568,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-04T05:53:37.574Z
+Last session: 2026-09-04T06:03:21.955Z
 Stopped at: Phase 11 UI-SPEC approved
 
 Resume file: 
