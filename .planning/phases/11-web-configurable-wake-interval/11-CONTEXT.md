@@ -2,7 +2,7 @@
 
 **Gathered:** 2026-09-04
 **Status:** Ready for planning
-**Source:** `/gsd-discuss-phase 11 --auto` — fully autonomous pass (mode: yolo). Every decision below is Claude's recommended choice, not a developer-confirmed one. Review before treating any of it as final; nothing here has been shown to the developer yet.
+**Source:** `/gsd-discuss-phase 11 --auto` — fully autonomous pass (mode: yolo). Most decisions below are Claude's recommended choice, not developer-confirmed, and should be reviewed before being treated as final. Exception: D-02 (validation bounds) was caught and corrected live by the developer during the subsequent plan-phase step — see its entry below.
 
 <domain>
 ## Phase Boundary
@@ -44,15 +44,22 @@ recommended option for every question without developer confirmation.**
   protocol field since `sleep_s` already exists in the response).
 
 ### Validation bounds
-- **D-02:** [auto] Min/max bounds — Q: "What min/max should the wake
-  interval accept?" → Selected: "min 10s, max 3600s (1 hour)" (recommended
-  default — 10s floors the interval well above any risk of hammering the
-  free-tier ADS-B aggregators or the server itself; 3600s caps staleness at
-  worst-case one hour, matching the seed's own "too short burns battery, too
-  long risks staleness" framing). **Flagged for developer confirmation** —
-  this specific pair of numbers was not discussed live; the developer may
-  want a different max in particular (e.g. capping it much lower, given the
-  whole point of the frame is near-real-time departure info).
+- **D-02:** Min/max bounds — Q: "What min/max should the wake interval
+  accept?" → **min 60s, max 3600s (1 hour)**. Originally auto-selected as
+  "min 10s" with no grounding; the developer caught this live ("I thought
+  nothing under 60s was recommended") and correction confirmed against real
+  project precedent: `firmware/main/Kconfig.projbuild`'s
+  `FP_MIN_REFRESH_SPACING_S` — the existing minimum-panel-refresh-spacing
+  floor — has `range 30 86400` with `default 60`, documented as "this
+  project's own conservative margin against needless redraws and the
+  battery they spend" (not a vendor-mandated threshold; the GDEP133C02
+  datasheet specifies no such minimum). `wake_interval_s` is a different
+  knob from `FP_MIN_REFRESH_SPACING_S` (wake/poll cadence vs. panel-redraw
+  spacing), but they govern the same underlying tradeoff on the same
+  device, and 60s already carries this project's own considered
+  engineering judgment — reusing it as `wake_interval_s`'s floor is more
+  defensible than an unresearched guess. Max stays 3600s (1 hour),
+  developer-confirmed alongside the corrected min.
 
 ### Interaction with Phase 10 (quiet hours)
 - **D-03:** [auto] Base-value layering — Q: "Does the new configurable wake
@@ -220,4 +227,4 @@ zero matches).
 ---
 
 *Phase: 11-web-configurable-wake-interval*
-*Context gathered: 2026-09-04 (fully autonomous --auto pass — not yet reviewed by the developer)*
+*Context gathered: 2026-09-04 (fully autonomous --auto pass; D-02 corrected live by the developer during plan-phase)*

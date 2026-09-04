@@ -32,11 +32,11 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| min 10s / max 3600s (1h) | Floor well above any risk of hammering ADS-B aggregators; cap staleness at one hour worst case | ✓ |
-| Other bounds | Not explored — no alternative pair was generated for comparison | |
+| min 10s (auto-guessed, no grounding) / max 3600s (1h) | Floor picked ad hoc against ADS-B aggregator load; cap at one hour worst-case staleness | |
+| min 60s (grounded in `FP_MIN_REFRESH_SPACING_S`) / max 3600s (1h) | Floor matches the firmware's own existing minimum-panel-refresh-spacing constant (`firmware/main/Kconfig.projbuild`, `range 30 86400`, `default 60`) | ✓ |
 
-**Selected (auto):** min 10s, max 3600s.
-**Notes:** **Not discussed live with the developer.** Flagged explicitly in CONTEXT.md for confirmation — the developer may want a tighter max given the device's whole purpose is near-real-time departure info.
+**Selected (developer-corrected):** min 60s, max 3600s.
+**Notes:** Auto-pass originally picked "min 10s" with no real grounding. The developer caught this live: "I thought nothing under 60s was recommended" — referring to the e-ink panel's own refresh-spacing limitation, confirmed on lookup as `FP_MIN_REFRESH_SPACING_S` (firmware Kconfig, default 60, documented as "this project's own conservative margin against needless redraws and the battery they spend"). `wake_interval_s` is a different knob (wake/poll cadence, not panel-redraw spacing), but 60s already carries this project's own considered judgment on the same underlying tradeoff, so it was adopted as `wake_interval_s`'s floor too, rather than re-deriving a number from scratch. Max (3600s) was confirmed unchanged.
 
 ---
 
