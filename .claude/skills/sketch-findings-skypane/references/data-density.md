@@ -15,6 +15,60 @@
 
 **The secondary-data muting strength is shared on purpose.** History's merged Hex / Type·Airline parts render as `.cell-secondary` (opacity 0.7) in the desktop table and as `.history-card__secondary` (also opacity 0.7) in the mobile card — the *same* opacity value, deliberately, because the two are the same content at two different viewport widths. A second muting strength on either side would mean identical content reads at two different visual weights purely as a function of viewport width, which is exactly the defect this file's own accent-token comment already documents having been fixed twice elsewhere in the stylesheet.
 
+### Airlines gallery illustration frame (quick task 260904-e92, UIR-08)
+
+**Current contract.** Every companion-served Airlines illustration
+(`GET /illustration/{key}.png`) normalizes server-side to exactly
+**450x132** pixels — one single size, no srcset, no per-request size
+parameter. That pair is set by `companion/illustration_normalize.py`'s
+`ILLUSTRATION_TARGET_WIDTH`/`ILLUSTRATION_TARGET_HEIGHT`/
+`ILLUSTRATION_TARGET_SIZE`, and it is duplicated by necessity (not
+imported) into `companion/static/style.css` in two places that must
+always move together: `.airline-card__image`'s `aspect-ratio: 450 / 132`
+and `.lightbox--wide`'s `max-width: 450px`. Both are pinned to the
+Python constants by harness cross-file checks in
+`companion/test_status_pages.py` (an aspect-ratio derivation check and
+`_lightbox_wide_max_width_matches_illustration_target_width()`), so the
+CSS and the Python constants cannot silently drift apart.
+
+The ratio (450/132 = 3.4091:1) is not an independently chosen aspect —
+it tracks the *measured painted-content median* across all 43 vendored
+illustrations (2.97:1 to 4.98:1, median 3.42:1), the same median the
+original 900x263 frame was built from. The height is *derived* from
+that median, never chosen: `round(450 * 263 / 900) = round(131.5) = 132`
+— an exact integer reproduction of the 900:263 ratio is impossible below
+900x263 itself, since `gcd(900, 263) = 1` (263 is prime).
+
+**The old 900x263 frame is SUPERSEDED** by this quick task for UIR-08 —
+the audit found the rendered `.airline-card__image` never exceeding
+325px wide on mobile or 224px on desktop, making the 900x263 frame pure
+oversampling. The frame was halved (option-a of the audit's two proposed
+fixes; a srcset/multi-size mechanism, option-b, was rejected). Measured
+byte win: per-file served bytes dropped from 132.5-175.5KB to
+40.8-53.1KB, and the full 27-card gallery total dropped from 3.92MB to
+1.20MB (31% of the pre-change weight). A harness byte-ceiling check
+(64KB per file) now guards against a silent revert to the old frame
+size.
+
+One accepted, deliberate side effect: `.lightbox--wide`'s `max-width`
+(450px) now sits BELOW `.lightbox`'s own 480px base max-width — an
+inversion of that rule's original "wide variant is wider than the base"
+intent. This was measured and accepted by the developer at decision
+time: the desktop enlarged view shrinks from ~852px to ~402px (mobile is
+unaffected, since `.lightbox`'s own narrower width formula already binds
+there before either max-width does).
+
+**Load-bearing warning for whoever reads this next: this target governs
+the COMPANION WEB rendering only.** The physical e-ink panel resizes the
+exact same source files independently, via
+`server/plane/render.py`'s `_resize_illustration()`, at whatever
+resolution its own canvas needs. `companion/illustration_normalize.py`
+never writes back to disk and never touches that path. Do not lower this
+companion-web target further "for consistency" with the panel, and do
+not read the panel's own resize target as a hint that this one should
+match it — they are deliberately separate call sites reading the same
+source files for two different purposes.
+
 ### Table restyle this file predates (06.6.4, D-07)
 
 - **Header:** moved from a filled `--color-secondary` block to a quiet uppercase 11px label with only a bottom hairline — no background at all.
