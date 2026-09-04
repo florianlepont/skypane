@@ -3,18 +3,18 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
-current_phase_name: Companion page-by-page IA consolidation
+current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
-stopped_at: "Phase 11 (Web-configurable wake interval, 4/4 plans) and Phase 06.6.4.1.1 (Settings theme picker + typography/spacing direction pass, 6/6 plans) both complete, merged from separate branches via PR #44. Phase 06.6.4.1 remains open: 8/9 plans executed, only its closing Task 2 (blocking 28-item developer verification checklist) is outstanding. SEED-001 and SEED-002 marked fulfilled, citing Phase 10/11 as shipping evidence."
-last_updated: "2026-09-04T13:05:00.000Z"
+stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
+last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
-last_activity_desc: "Merged Phase 11 branch (carrying Phases 8-11 and 06.6.4.1's 8/9 plans) with origin/main (carrying Phase 06.6.4.1.1) via PR #44; resolved conflicts across STATE.md, SKILL.md, style.css and two test files."
+last_activity_desc: "Closed phase 06.6.4.1's plan 09 (the closing/validation plan) end to end. Mid-checkpoint, discovered — via the developer noticing what looked like a duplicate conversation, then a routine git fetch — that PR #44 (Phases 8-11, 66 files, +12286/-208) had merged from a separate, independent line of work while this branch's own Task 1 re-verification was already done. Rebased onto it (one STATE.md conflict resolved by hand), re-ran Task 1's full-suite/live-route/non-goal-regression gates a second time against the new tip (still 16/16 green, 92% coverage, no new route added), and flagged that Phase 10/11 had added two new Settings sections (Quiet hours, Wake interval) the original Task 2 checklist text predates — both already covered by their own dedicated Phase 10/11 UAT, so not a new gap, just disclosed. Presented the 28-item Task 2 checklist to the developer with a local test environment (a real production-data copy plus a public tunnel URL). The developer's first response was a blanket 'j'approuve tout' covering Groups A-D, E1, and E4 — but per this plan's own explicit no-escape-hatch instruction for Group E items 2 (real assistive-technology pass) and 3 (production walkthrough), the orchestrator did not accept that blanket alone for those two: asked each directly, got 'Oui, fait pour de vrai' for E2, and for E3 the developer's own reply ('il est déployé ?') surfaced that no production URL had ever been shared in this conversation — the developer then supplied the real one, the orchestrator confirmed only bare reachability (no login attempted on the developer's behalf, per the plan's own contract that this cannot be performed or inferred by an agent), and the developer signed in with their own credentials and confirmed 'non tout me semble bon'. Recorded the full verdict verbatim in a new 06.6.4.1-09-SUMMARY.md, resolved 06.6.4.1-VALIDATION.md's Approval line, checked ROADMAP.md's plan-09 checkbox and phase count (9/9), and updated this file. Phase 06.6.4.1 is now closed. Next: push the branch and open a PR."
 progress:
   total_phases: 24
-  completed_phases: 21
+  completed_phases: 22
   total_plans: 119
-  completed_plans: 117
-  percent: 98
+  completed_plans: 118
+  percent: 99
 
 # Project State
 

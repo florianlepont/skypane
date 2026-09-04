@@ -345,7 +345,7 @@ Plans:
 **Goal:** Full page-by-page visual/content pass across all 5 companion pages, validated interactively against sketch artifacts this session. Settings (renamed from Config): single-column stacked sections replacing the broken 2-column runway grid, per-section descriptions, one page-level Discord-style unified unsaved-changes save bar replacing per-section dirty-bars (fixes a real dirty-state.js bug where the static fallback Save button never hides), backend route merge (LED form folds into the same POST route as Theme+Runway). Health absorbs the OLD Airlines page's diagnostics content entirely: anomaly banner uses short category-label pills instead of repeating tile sentences; Corroboration detail rows collapse behind a native details disclosure; Battery trend becomes a full-width interactive chart with labeled axes and a default latest-reading value; page restructures into Screen (device/battery) and Server-and-data (pipeline, corroboration, and a new resolution-rate tile) sections, with the old Airlines page's two sections (Unresolved prefixes registry, Resolution-statistics breakdown) demoted from cramped stat-tile grid cards into full-width stacked cards under Server-and-data — this fixes both the No-resolution-data-yet contradiction and the nested horizontal-scroll bug. History absorbs Preview entirely (Preview removed as a standalone nav item): a new Now-showing section carries the live-panel image plus colour caveat, with the render gallery demoted into a collapsed details disclosure; every History row gains a small icon-button that looks up the nearest-by-timestamp gallery render; unresolved-airline rows get a lightweight link to Health instead of duplicating the prefixes table. Airlines is REBORN, not removed: the nav slot is repurposed into a visual gallery of the panel's real illustration set (`server/plane/illustrations.py`/`server/assets/icons/illustrations/`, already-shipped art for 27 airlines, no new asset pipeline) — one card per airline with its real PNG (served through a new session-gated, membership-validated route mirroring the existing `/runway-image/{id}.png` pattern) and its fleet-type variant chips, plus a filter bar. Net navigation stays at 4 items (Settings/Health/Airlines/History) — the diagnostics content moves out of Airlines into Health, but the Airlines nav slot itself survives, repurposed. This phase also folds in and closes 06.6.3-08's own still-open closing checkpoint (Task 2), per the developer's explicit choice this session to fold that dangling checkpoint into this new pass rather than close it separately. All sketches were built and iteratively validated as standalone HTML artifacts against the real CSS design tokens and real page/asset content before this phase was opened — nothing in companion/ has been touched yet.
 **Requirements**: None — unmapped backlog phase, matching every prior 06.6.x decimal phase's own precedent. Traced against `06.6.4.1-CONTEXT.md`'s 26 locked decisions D-01 through D-26 (all covered; see `06.6.4.1-ARTIFACTS.md`). Reorganizes the presentation of CFG-04, CFG-06, CFG-08, CFG-10 and CFG-11, all already marked complete under Phase 6 — this phase delivers no new requirement scope, so `requirements.mark-complete` returning `not_found` for its D-* ids is correct, not a gap.
 **Depends on:** Phase 06.6.4
-**Plans:** 8/9 plans executed
+**Plans:** 9/9 plans complete
 
 Plans:
 **Wave 1** *(parallel, disjoint files — additive foundation only, nothing renamed or deleted)*
@@ -373,7 +373,7 @@ Plans:
 
 **Wave 6** *(blocked on all — blocking developer checkpoint)*
 
-- [ ] 06.6.4.1-09-PLAN.md — Closing: full-suite and live-route gates, completed validation record, and the blocking 28-item developer verification pass translating 06.6.3-08's checklist, including the twice-deferred assistive-technology pass and production walkthrough (D-23, D-24, D-25)
+- [x] 06.6.4.1-09-PLAN.md — Closing: full-suite and live-route gates, completed validation record, and the blocking 28-item developer verification pass translating 06.6.3-08's checklist, including the twice-deferred assistive-technology pass and production walkthrough (D-23, D-24, D-25)
 
 ### Phase 06.6.4.1.1: Settings theme picker and typography/spacing direction pass (INSERTED)
 
@@ -406,7 +406,7 @@ Plans:
 **Goal:** Carry Phase 06.6.2's foundation (tokens, page-header pattern, sidebar, severity function, contrast checker) into a real recomposition of every companion page: Config's dirty-state save bar, read-only Theme status and runway cards; Health's roving-tabindex battery chart, specific anomaly summary, and disclosure-collapsed readings; History's mobile compact cards, filtering, and copy-to-clipboard; Airlines' filtering and simplified hierarchy; Preview's centered matte treatment, freshness signal, and task-oriented gallery captions. Split out 2026-08-31 from Phase 06.6.2 for context-budget reasons (see 06.6.2's Goal) — carries the nine per-page CONTEXT.md decisions and audit findings that need 06.6.2's shared primitives to land cleanly, avoiding double-touching the same page files.
 **Requirements**: None — unmapped backlog phase. Traced against `06.6.3-CONTEXT.md`'s own locked decisions D-02 through D-05, D-06 (heading-dedup half), D-07 through D-10, D-12, D-13, D-18, D-20, D-22, D-23, plus the audit's UXA-01 (mobile-card half), UXA-05, UXA-06, UXA-11, UXA-13, UXA-16, UXA-17, UXA-18, and UXA-08 (Config-specific half).
 **Depends on:** Phase 06.6.2 (consumes its design tokens, `page_header()`, sidebar footer region, and severity function)
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete — 06.6.3-08's own closing checkpoint was formally folded into and closed by phase 06.6.4.1-09 (D-23/D-24/D-25), per the developer's explicit choice recorded in `06.6.4.1-CONTEXT.md`
 
 Plans:
 **Wave 1** *(parallel, no shared files)*
@@ -427,7 +427,7 @@ Plans:
 
 **Wave 4** *(blocked on all)*
 
-- [ ] 06.6.3-08-PLAN.md — Full-suite gate plus a blocking local browser/keyboard/phone verification checkpoint across all five redesigned pages, closing this phase's two carried-forward deferred items (real assistive-technology testing, production authenticated walkthrough)
+- [x] 06.6.3-08-PLAN.md — Full-suite gate plus a blocking local browser/keyboard/phone verification checkpoint across all five redesigned pages, closing this phase's two carried-forward deferred items (real assistive-technology testing, production authenticated walkthrough) — CLOSED via phase 06.6.4.1-09's own checkpoint (2026-09-04), not re-run separately: the developer's choice was to cover the same ground once, translated to the new page structure, rather than twice
 
 ### Phase 06.6.2: Companion UX, accessibility, and responsive hardening (INSERTED)
 
