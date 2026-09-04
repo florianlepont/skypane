@@ -406,7 +406,7 @@ Plans:
 **Goal:** Carry Phase 06.6.2's foundation (tokens, page-header pattern, sidebar, severity function, contrast checker) into a real recomposition of every companion page: Config's dirty-state save bar, read-only Theme status and runway cards; Health's roving-tabindex battery chart, specific anomaly summary, and disclosure-collapsed readings; History's mobile compact cards, filtering, and copy-to-clipboard; Airlines' filtering and simplified hierarchy; Preview's centered matte treatment, freshness signal, and task-oriented gallery captions. Split out 2026-08-31 from Phase 06.6.2 for context-budget reasons (see 06.6.2's Goal) — carries the nine per-page CONTEXT.md decisions and audit findings that need 06.6.2's shared primitives to land cleanly, avoiding double-touching the same page files.
 **Requirements**: None — unmapped backlog phase. Traced against `06.6.3-CONTEXT.md`'s own locked decisions D-02 through D-05, D-06 (heading-dedup half), D-07 through D-10, D-12, D-13, D-18, D-20, D-22, D-23, plus the audit's UXA-01 (mobile-card half), UXA-05, UXA-06, UXA-11, UXA-13, UXA-16, UXA-17, UXA-18, and UXA-08 (Config-specific half).
 **Depends on:** Phase 06.6.2 (consumes its design tokens, `page_header()`, sidebar footer region, and severity function)
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete — 06.6.3-08's own closing checkpoint was formally folded into and closed by phase 06.6.4.1-09 (D-23/D-24/D-25), per the developer's explicit choice recorded in `06.6.4.1-CONTEXT.md`
 
 Plans:
 **Wave 1** *(parallel, no shared files)*
@@ -427,7 +427,7 @@ Plans:
 
 **Wave 4** *(blocked on all)*
 
-- [ ] 06.6.3-08-PLAN.md — Full-suite gate plus a blocking local browser/keyboard/phone verification checkpoint across all five redesigned pages, closing this phase's two carried-forward deferred items (real assistive-technology testing, production authenticated walkthrough)
+- [x] 06.6.3-08-PLAN.md — Full-suite gate plus a blocking local browser/keyboard/phone verification checkpoint across all five redesigned pages, closing this phase's two carried-forward deferred items (real assistive-technology testing, production authenticated walkthrough) — CLOSED via phase 06.6.4.1-09's own checkpoint (2026-09-04), not re-run separately: the developer's choice was to cover the same ground once, translated to the new page structure, rather than twice
 
 ### Phase 06.6.2: Companion UX, accessibility, and responsive hardening (INSERTED)
 
