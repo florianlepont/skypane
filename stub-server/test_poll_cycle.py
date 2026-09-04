@@ -20,7 +20,13 @@ read_quiet_hours()/quiet_hours_sleep_s() loaded directly via
 importlib.util (byos_server.py's module level is import-safe - constants
 and defs only, with main() behind an `if __name__ == "__main__"` guard),
 and integration coverage of the sleep_s extension and its fail-open
-contract over real HTTP.
+contract over real HTTP. Phase 11 (D-01/D-03) adds unit coverage of
+read_wake_interval_s()'s fail-open contract (including the
+bool-is-an-int gotcha) and happy path, unit coverage of the configured
+wake interval layering under quiet_hours_sleep_s() without being
+re-clamped past WAKE_INTERVAL_MAX_S, and integration coverage of the
+configured value (and a below-floor rejection) reaching sleep_s over
+real HTTP.
 
 Exits 0 only when every check below passes; any failure (or exception -
 none is ever swallowed into a pass) exits 1.
@@ -51,7 +57,7 @@ MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
 DEVICE_CONFIG_MODULE_PATH = os.path.join(REPO_ROOT, "server", "device_config.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 29
+EXPECTED_CHECK_COUNT = 34
 
 
 def verify_panel_bytes(buf, expected_hash):
@@ -429,6 +435,109 @@ def main():
             "quiet_hours_sleep_s() never returns less than the base sleep, even when the base "
             "already carries the device past the window's end",
             _quiet_hours_never_shorter_than_base,
+        )
+
+        # --- Task 2 (Phase 11, D-01/D-03): wake_interval_s delivery ------
+
+        # G. Unit, fail-open: read_wake_interval_s() returns the caller's
+        # default for every failure mode, never raises. Modelled on
+        # _quiet_hours_fail_open_never_raises() above. The JSON-`true` case
+        # is the regression guard for the bool-is-an-int gotcha
+        # (isinstance(True, int) is True in Python).
+        def _wake_interval_fail_open_never_raises():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-wi-failopen-")
+            try:
+                if module.read_wake_interval_s(tmpdir, 300) != 300:
+                    return False, "expected 300 for a missing device_config.json"
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                cases = [
+                    ("{truncated", "truncated JSON"),
+                    ('["not", "a", "dict"]', "a non-dict (list) document"),
+                    (json.dumps({"theme": "dark"}), "document with no wake_interval_s key"),
+                    (json.dumps({"wake_interval_s": True}), "wake_interval_s: true (bool-is-an-int gotcha)"),
+                    (json.dumps({"wake_interval_s": "120"}), 'wake_interval_s: "120" (string)'),
+                    (json.dumps({"wake_interval_s": 120.5}), "wake_interval_s: 120.5 (float)"),
+                    (json.dumps({"wake_interval_s": 30}), "wake_interval_s: 30 (below the 60s floor)"),
+                    (json.dumps({"wake_interval_s": 59}), "wake_interval_s: 59 (one below the floor)"),
+                    (json.dumps({"wake_interval_s": 3601}), "wake_interval_s: 3601 (one above the ceiling)"),
+                ]
+                for raw, label in cases:
+                    with open(cfg_path, "w") as fh:
+                        fh.write(raw)
+                    result = module.read_wake_interval_s(tmpdir, 300)
+                    if result != 300:
+                        return False, "expected 300 (default) for %s, got %r" % (label, result)
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "read_wake_interval_s() returns the caller's default and never raises for a missing, "
+            "truncated, non-dict, key-absent, bool (true), string, float, or out-of-range "
+            "device_config.json",
+            _wake_interval_fail_open_never_raises,
+        )
+
+        # H. Unit, happy path: an in-range int (including the two inclusive
+        # bounds) is returned unchanged.
+        def _wake_interval_happy_path():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-wi-happy-")
+            try:
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                for stored, expected in ((120, 120), (60, 60), (3600, 3600)):
+                    with open(cfg_path, "w") as fh:
+                        json.dump({"wake_interval_s": stored}, fh)
+                    result = module.read_wake_interval_s(tmpdir, 300)
+                    if result != expected:
+                        return False, "expected %r for stored wake_interval_s=%r, got %r" % (
+                            expected, stored, result)
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "read_wake_interval_s() returns 120 for a stored 120 and returns the inclusive bounds "
+            "60 and 3600 unchanged",
+            _wake_interval_happy_path,
+        )
+
+        # I. Unit, layering: the configured wake interval wins over the CLI
+        # default as quiet_hours_sleep_s()'s base, and an active quiet-hours
+        # window still extends the result past WAKE_INTERVAL_MAX_S (3600) -
+        # the delivered value is deliberately not re-clamped
+        # (11-RESEARCH.md Pitfall 4).
+        def _wake_interval_layers_under_quiet_hours():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-wi-layer-")
+            try:
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                with open(cfg_path, "w") as fh:
+                    json.dump({"wake_interval_s": 120}, fh)
+                disabled = module.quiet_hours_sleep_s(
+                    module.read_wake_interval_s(tmpdir, 300), tmpdir)
+                if disabled != 120:
+                    return False, "expected the configured 120 with quiet hours disabled, got %r" % (disabled,)
+                with open(cfg_path, "w") as fh:
+                    json.dump({"wake_interval_s": 120, "quiet_hours_enabled": True,
+                               "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}, fh)
+                inside_window = module.quiet_hours_sleep_s(
+                    module.read_wake_interval_s(tmpdir, 300), tmpdir,
+                    now=datetime.fromtimestamp(1700000000.0, timezone.utc))
+                if inside_window != 28000:
+                    return False, "expected 28000 inside the window, got %r" % (inside_window,)
+                if not (inside_window > module.WAKE_INTERVAL_MAX_S):
+                    return False, (
+                        "expected the delivered sleep_s (%r) to exceed WAKE_INTERVAL_MAX_S (%r) "
+                        "during an active quiet-hours window - re-clamping here would strand the "
+                        "device waking hourly through the window" % (inside_window, module.WAKE_INTERVAL_MAX_S))
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "quiet_hours_sleep_s(read_wake_interval_s(...), ...) uses the configured 120 as its "
+            "base with quiet hours disabled, and still returns 28000 (> 3600) inside an active "
+            "quiet-hours window - the delivered value is deliberately not re-clamped",
+            _wake_interval_layers_under_quiet_hours,
         )
 
         harness.generate_panel("palette")
@@ -951,6 +1060,62 @@ def main():
             "a hostile device_config.json (non-HH:MM quiet_hours_start, null quiet_hours_end) still "
             "yields a 200 display response with sleep_s exactly equal to the base --sleep (300)",
             _quiet_hours_hostile_config_fails_open,
+        )
+
+        # G. Integration, over real HTTP against the running harness (which
+        # started with --sleep 300): a device_config.json with an in-range
+        # wake_interval_s is delivered as sleep_s, not the harness's base.
+        def _wake_interval_integration_delivers_configured_value():
+            fixture_path = _device_config_fixture_path()
+            with open(fixture_path, "w") as fh:
+                json.dump({"wake_interval_s": 120}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"]})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if not validate_display_response(obj):
+                    return False, "response failed validate_display_response: %r" % (obj,)
+                if obj.get("sleep_s") != 120:
+                    return False, "expected sleep_s exactly 120, got %r" % (obj.get("sleep_s"),)
+                return True, ""
+            finally:
+                if os.path.exists(fixture_path):
+                    os.remove(fixture_path)
+        check(
+            "a device_config.json with wake_interval_s:120 yields a 200 display response with "
+            "sleep_s exactly 120 - not the harness's base --sleep (300)",
+            _wake_interval_integration_delivers_configured_value,
+        )
+
+        # H. Integration, negative twin: a below-floor stored value never
+        # reaches the wire - it degrades to the fail-open CLI default.
+        def _wake_interval_integration_below_floor_falls_back_to_default():
+            fixture_path = _device_config_fixture_path()
+            with open(fixture_path, "w") as fh:
+                json.dump({"wake_interval_s": 30}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"]})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if not validate_display_response(obj):
+                    return False, "response failed validate_display_response: %r" % (obj,)
+                if obj.get("sleep_s") != 300:
+                    return False, "expected sleep_s exactly 300 (fail-open default), got %r" % (obj.get("sleep_s"),)
+                return True, ""
+            finally:
+                if os.path.exists(fixture_path):
+                    os.remove(fixture_path)
+        check(
+            "a device_config.json with a below-floor wake_interval_s:30 yields a 200 display "
+            "response with sleep_s exactly 300 (the fail-open CLI default), and still passes "
+            "validate_display_response()",
+            _wake_interval_integration_below_floor_falls_back_to_default,
         )
 
         # 25. Failure classification: with the server stopped, a display poll
