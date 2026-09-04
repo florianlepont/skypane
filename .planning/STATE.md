@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.6.4.1.1
 current_phase_name: settings-theme-picker-and-typography-spacing-direction-pass
 status: executing
-stopped_at: "06.6.4.1.1-06 Task 2: blocking developer checkpoint (visual sign-off on revised type ladder/spacing/theme-chip picker)"
-last_updated: "2026-09-04T05:19:21.861Z"
-last_activity: 2026-09-03
-last_activity_desc: Executed 06.6.4.1.1-01 (theme_preview.py render/crop/cache module + session-gated /theme-preview/{id}.png route)
+stopped_at: "06.6.4.1.1-06 complete — phase 06.6.4.1.1 closed"
+last_updated: "2026-09-04T05:51:54.102Z"
+last_activity: 2026-09-04
+last_activity_desc: Completed 06.6.4.1.1-06-PLAN.md — developer checkpoint resolved (background-wash fix applied), sketch-findings-skypane skill brought current; phase 06.6.4.1.1 complete
 progress:
   total_phases: 22
   completed_phases: 19
   total_plans: 110
   completed_plans: 108
-  percent: 86
+  percent: 98
 ---
 
 # Project State
@@ -28,7 +28,9 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 06.6.4.1.1 (settings-theme-picker-and-typography-spacing-direction-pass) — EXECUTING
+Phase: 06.6.4.1.1 (settings-theme-picker-and-typography-spacing-direction-pass) — COMPLETE (6/6 plans)
+
+**06.6.4.1.1-06 executed (2026-09-04), wave 4's plan (depends on all), the phase's closing plan — full-suite/live-route gates (Task 1, prior session), the blocking developer checkpoint (Task 2), and the design-system-of-record update (Task 3). Phase 06.6.4.1.1 is now complete.** Task 1 (prior session): `scripts/run-all-tests.sh` 16/16 harnesses at 92% coverage; all 16 `/theme-preview/{id}.png` routes verified live (200/image/png, correct refusals, working disk cache, pairwise-distinct mean RGB). Task 2: recorded the developer's verbatim checkpoint response — every lettered/numbered item approved as shipped (theme-chip grid, the full heading ladder including D-09's deliberate second reversal specifically confirmed "oui", unified label voice, spacing/density), with one real, site-wide problem flagged: the selected-state visual treatment (border + small check glyph) was too weak to notice at a glance. Diagnosed as a pre-existing weak idiom `.theme-chip--selected` inherited verbatim from `.runway-card--selected` (per this phase's own CONTEXT.md D-01), made newly visible by the chip grid's greater density, not a new plan-05 defect. Fix: added a `color-mix(in srgb, var(--color-accent) 12%, transparent)` background wash to both `.runway-card--selected` (whole card) and `.theme-chip--selected .theme-chip__body` (body only, so the wash never tints the rendered preview band) — reusing `.theme-form .theme-option--active`'s own already-established idiom rather than inventing a new one. Extended `companion/test_config_page.py` with one new harness check (`EXPECTED_CHECK_COUNT` 69→70, re-derived by running the harness). Verified visually via a hand-rolled minimal raw-WebSocket CDP client driving the cached Playwright Chromium binary headless (no MCP browser tool reachable from this subagent, no external Python websocket library available) — real login via an in-browser form submission, screenshots confirming the selected theme chip and runway card are now clearly distinguishable in light/dark × desktop/mobile. Task 3: brought the `sketch-findings-skypane` skill (SKILL.md + 3 reference files) current with everything this phase shipped (type ladder, label voice, spacing, `.theme-chip`, and the checkpoint's own background-wash fix), with every superseded value marked in place (SUPERSEDED count in `visual-direction-typography.md` rose 13→18) — including a self-caught correction: an early draft claimed Phase 06.6.4.1 (the parent/sibling phase) was "closed," which `.planning/ROADMAP.md` contradicts (06.6.4.1's own closing plan 09 remains open, 8/9 plans executed); corrected before the final commit to state the two phases' distinct closure status precisely. All full-suite gates re-confirmed green after every code change (16/16 harnesses, 92% coverage). Plan has `requirements: []` (Decision-ID-tracked phase) — `requirements.mark-complete` not invoked. `state.advance-plan` again could not parse this file's prose-based Current Position section (same known limitation documented throughout this file's history); `state.update-progress` correctly computed `percent: 98` (108/110) on its own call, but a subsequent `state.record-session` call reverted it to `86` (the phases-ratio 19/22 figure, the same recurring `project_gsd_state_percent_bug`) and left `stopped_at`/`last_activity_desc` unchanged despite the flags passed — all hand-corrected in the same pass, consistent with this file's own prior-session notes. `roadmap.update-plan-progress "06.6.4.1.1"` confirmed `plan_count: 6, summary_count: 6, status: "Complete"`.
 
 **06.6.4.1.1-05 executed (2026-09-04), wave 3's plan (depends on 01/03), closing UIR-01/UIR-02 (D-01/D-02/D-03/D-08) — Settings' 16 stacked 44px theme radios replaced with the sketch-004-B chip grid.** Task 1 added a `.theme-chip` component family to `companion/static/style.css` (`.theme-chip-grid`/`.theme-chip`/`.theme-chip--selected`/`.theme-chip__preview`/`__body`/`__name`/`__swatches`/`__dot`/`__check`), placed as a direct neighbour of `.runway-card` and reusing its hidden-radio-in-label/server-computed `--selected` modifier/always-present check-glyph mechanism verbatim; extended the file's header accent-reservation list and applied the same one-line broadening to `06.6.1-UI-SPEC.md`'s Color section (the plan's own instruction, applied since that file is still present on disk). Task 2 rewrote `theme_fieldset()`'s multi-theme branch in `companion/pages/config_page.py`: it now emits a `.theme-status` card holding a `.theme-chip-grid` of one chip per `THEME_IDS` entry, each with a real `/theme-preview/{id}.png` rendered preview (plan 01's route, rebound as `THEME_PREVIEW_ROUTE_PREFIX`/`THEME_PREVIEW_ALT_TEMPLATE`), two real-`_palette_hex()` swatch dots, and the theme name — the radio's `name`/`value`/`checked` semantics are byte-for-byte unchanged, so `handle_post()`'s existing `THEME_IDS` membership validation keeps working untouched, and the whole Settings page now renders zero `<fieldset>`/`<legend>` anywhere. Task 3 retargeted 7 pre-existing `companion/test_config_page.py` checks that encoded the retired fieldset/radio-list contract, extended the cross-file CSS guard with four new `.theme-chip*` assertions, and added 4 new checks (preview-route contract, real-palette swatch values, hidden-radio + check-glyph markup, zero-fieldset/three-dirty-section page shape) — `EXPECTED_CHECK_COUNT` 65→69, no check weakened. One Rule 1 self-caught deviation: a first-draft `.theme-chip` comment used the literal string "margin-bottom: 0" in prose, colliding with the plan's own acceptance-criteria grep guard (reworded, the same collision class plan 01's own SUMMARY recorded). Verified against a real running companion instance (temp state dir, real login): `GET /settings` renders exactly 16 `theme-chip__preview`, 1 `theme-chip-grid`, 0 `<fieldset>`, 0 `<legend>`; `GET /theme-preview/blue.png` returned a real 320×120 PNG. All five companion harnesses pass (`companion-app` 144/144, `config-page` 69/69, `contrast-check` 36/36, `status-pages` 135/135, `view-pages` 54/54). Plan has `requirements: []` (Decision-ID-tracked phase) — `requirements.mark-complete` not invoked. `state.advance-plan` again could not parse this file's prose-based Current Position section (same known limitation documented throughout this file's history) — position/progress fields hand-corrected instead (`percent` 82→97, `completed_plans` already correct at 107 on disk); `state.record-metric`/`state.add-decision` needed the `--flag value` form, consistent with this file's own prior-session notes. `roadmap.update-plan-progress "06.6.4.1.1"` — see below. The plan's own `<verification>` section calls for a human keyboard/no-JS and light-vs-dark visual check — deferred to plan 06 or a later checkpoint since this plan was fully autonomous (no `checkpoint:*` tasks).
 
@@ -280,6 +282,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.4.1.1 P02 | 8min | 3 tasks | 2 files |
 | Phase 06.6.4.1.1 P04 | 30min | 2 tasks | 2 files |
 | Phase 06.6.4.1.1 P05 | 55min | 3 tasks | 4 files |
+| Phase 06.6.4.1.1 P06 | 55min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -475,6 +478,7 @@ Recent decisions affecting current work:
 - [Phase 06.6.4.1.1]: D-17: flash banner moves below page_header() via a single-definition FLASH_SLOT_MARKER substitution token, not a threaded parameter or CSS order/flex trick
 - [Phase 06.6.4.1.1]: Task 2's serif-boundary guard extensions (D-09/D-13 asserted) are in-place edits to existing checks, EXPECTED_CHECK_COUNT unchanged at 144
 - [Phase 06.6.4.1.1]: Applied the plan's own theme-chip accent-reservation broadening to 06.6.1-UI-SPEC.md's Color section, since that file is still present on disk (not just recorded as the fallback)
+- [Phase ?]: Developer's 06.6.4.1.1-06 checkpoint approved the entire revised visual contract (theme-chip grid, heading ladder incl. D-09's second reversal, label voice, spacing/density); the one requested fix (selected-state background wash on .runway-card/.theme-chip, matching .theme-form .theme-option--active's idiom) was applied and verified live in both themes.
 
 ### Pending Todos
 
@@ -557,10 +561,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-04T05:19:21.847Z
+Last session: 2026-09-04T05:51:54.087Z
 Stopped at: 06.6.4.1.1-06 Task 2: blocking developer checkpoint (visual sign-off on revised type ladder/spacing/theme-chip picker)
 
-Resume file: .planning/phases/06.6.4.1.1-settings-theme-picker-and-typography-spacing-direction-pass/06.6.4.1.1-06-PLAN.md
+Resume file: None
 
 **State at end of this session (2026-08-27, ~08:50):**
 
