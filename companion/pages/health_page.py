@@ -194,6 +194,11 @@ _SEVERITY_BANNER_NOUNS = {"warn": "warning", "error": "error"}
 DEVICE_FRESHNESS_LABEL = "Device last checked in"
 PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
 
+# Quick task 260903-peo (UIR-14): the pipeline tile's new second content
+# line, naming the last real aircraft detection sourced from
+# history_db.META_LAST_DETECTION.
+LAST_DETECTION_LABEL = "Last aircraft detected"
+
 # --- quick task 260902-gjj (ISSUE 2): D-01 reversal, recorded at the
 # removal site --------------------------------------------------------------
 #
@@ -231,6 +236,14 @@ PIPELINE_FRESHNESS_LABEL = "ADS-B pipeline last ran"
 # short in-flight verb (companion/pages/config_page.py's
 # POLL_SUBMIT_PENDING_TEXT = "Polling…"), not three periods.
 REFRESH_PILL_TEXT = "Updating…"
+
+# Quick task 260903-peo (UIR-18): the persistent liveness cue's leading
+# text, prefixing a concise_timestamp_html(now, now) timestamp. States
+# liveness and the refresh time without restating the 45s auto-refresh
+# interval (AUTO_REFRESH_INTERVAL_MS lives in companion/static/
+# freshness.js, not importable from Python, and naming it here would
+# need a pinned cross-file constant for no user benefit).
+PERSISTENT_FRESHNESS_PREFIX_TEXT = "Live — refreshed "
 
 # D-02: per-point interactive hit-target contract. BATTERY_READOUT_ID and
 # SPARKLINE_HIT_CLASS are looked up by companion/static/battery-trend.js
@@ -1120,7 +1133,8 @@ def compute_health_state(state_dir, now=None):
         now = history_db.utc_now_iso()
     inputs = _read_health_inputs(state_dir, now)
     device_html, device_state = _device_section(inputs["device_health"], now)
-    pipeline_html, pipeline_state = _pipeline_section(inputs["pipeline_ts"], now)
+    pipeline_html, pipeline_state = _pipeline_section(
+        inputs["pipeline_ts"], inputs["last_detection"], now)
     battery_html, battery_state = _battery_section(inputs["trend_rows"], inputs["daily_rows"])
     # 260902-l0b: computed from the same _battery_daily_series_usable()
     # predicate _battery_section() itself used above, so the heading
@@ -1401,7 +1415,7 @@ def _device_section(device_health, now):
     return row, state
 
 
-def _pipeline_section(pipeline_ts, now):
+def _pipeline_section(pipeline_ts, last_detection, now):
     if pipeline_ts is _DB_UNAVAILABLE:
         return _unavailable_block(), "ok"
     age = layout.age_seconds(pipeline_ts, now)
@@ -1415,7 +1429,34 @@ def _pipeline_section(pipeline_ts, now):
     # double-encode it and print the raw tags as visible text.
     detail = layout.concise_timestamp_html(pipeline_ts, now)
     row = '<p class="stat-tile__value">%s</p>' % detail
-    return row, state
+    # Quick task 260903-peo (UIR-14): a real second content line, not
+    # filler — `last_detection` is history_db.META_LAST_DETECTION, read
+    # inside the same atomic _read_health_inputs() snapshot pipeline_ts
+    # already comes from (they feed this one section builder together).
+    # Rendered unconditionally, matching _device_section()'s own
+    # unconditional-render precedent above: concise_timestamp_html()
+    # returns its escaped bare-string fallback ("no reading yet") when
+    # last_detection is falsy, so a fresh install that has never
+    # detected an aircraft still gets an honest line, never an empty
+    # element or a dangling label. `.stat-tile__meta` supplies only the
+    # spacing (no new type tier); `.section-caption` is the existing
+    # "quieter second line" muted-colour tier this reuses rather than
+    # inventing a new one — the same file-wide 70% color-mix strength
+    # the battery heading's trailing span and the Unresolved-prefixes
+    # read-only note already compose onto their own sizing class
+    # (quick task 260902-gjj, ISSUE 1). `.battery-readout__detail` was
+    # considered and rejected here specifically: its class name embeds
+    # the literal substring `battery-readout`, which two pre-existing
+    # regression guards (`_single_reading_still_no_chart_no_readout_no_
+    # script`, `_empty_battery_history_stays_script_free`) assert is
+    # ABSENT from the page whenever there is no battery reading — this
+    # tile renders unconditionally, so that reuse would fire those
+    # guards as false positives on every fresh install.
+    detection_detail = layout.concise_timestamp_html(last_detection, now)
+    detail_row = (
+        '<p class="stat-tile__meta text-label section-caption">%s %s</p>'
+        % (escape_html(LAST_DETECTION_LABEL + ":"), detection_detail))
+    return row + detail_row, state
 
 
 def _latest_numeric_battery_reading(trend_rows):
@@ -2199,10 +2240,10 @@ def _resolution_rate_tile_html(stats):
 
 
 def _read_health_inputs(state_dir, now):
-    """The six `_safe_query()` reads `render()` and `anomaly_active()`
+    """The seven `_safe_query()` reads `render()` and `anomaly_active()`
     both need, single-sourced into one dict.
 
-    `render()` and `anomaly_active()` must be looking at the same six
+    `render()` and `anomaly_active()` must be looking at the same seven
     values, or the Health nav-tab dot and the page's own anomaly banner
     can disagree on screen — single-sourcing the *inputs* (not just the
     section-builder calls that consume them) is what removes that whole
@@ -2212,12 +2253,16 @@ def _read_health_inputs(state_dir, now):
     `trend_rows` here, in the one atomic snapshot, because it is a
     battery-health read consumed by the same section builder
     (`_battery_section()`) from the same table (`device_health`) in the
-    same request. This does NOT reopen D-11: the migrated registry/stats
-    reads in `render()` stay their own independent calls, deliberately
-    NOT folded in here, because they are a genuinely DIFFERENT failure
-    mode (filesystem/JSON vs SQLite) feeding a DIFFERENT card that must
-    keep failing independently of this one — see `render()`'s own comment
-    at that call site for the unchanged reasoning.
+    same request. Quick task 260903-peo (UIR-14) grew it again, six to
+    seven: `last_detection` joins `pipeline_ts` here for the identical
+    reason — it feeds the same section builder (`_pipeline_section()`),
+    from the same table (`meta`), in the same request. This does NOT
+    reopen D-11: the migrated registry/stats reads in `render()` stay
+    their own independent calls, deliberately NOT folded in here, because
+    they are a genuinely DIFFERENT failure mode (filesystem/JSON vs
+    SQLite) feeding a DIFFERENT card that must keep failing independently
+    of this one — see `render()`'s own comment at that call site for the
+    unchanged reasoning.
     """
     cutoff = _cutoff_iso(now, _CORROBORATION_WINDOW_DAYS)
     return {
@@ -2225,6 +2270,9 @@ def _read_health_inputs(state_dir, now):
         "pipeline_ts": _safe_query(
             state_dir,
             lambda conn: history_db.get_meta(conn, history_db.META_LAST_PIPELINE_RUN)),
+        "last_detection": _safe_query(
+            state_dir,
+            lambda conn: history_db.get_meta(conn, history_db.META_LAST_DETECTION)),
         "source_fault_raw": _safe_query(
             state_dir,
             lambda conn: history_db.get_meta(conn, history_db.META_SOURCE_FAULT)),
@@ -2348,9 +2396,37 @@ def render(ctx):
     # state. Accepted in writing, not left as an omission: the lever if
     # this bites is the refresh interval, not the announcement, and a
     # live screen-reader pass is named in this task's SUMMARY.
-    freshness_html = (
+    pill_html = (
         '<span class="refresh-pill" data-refresh-pill data-loaded-at="%s" hidden>%s%s</span>'
         % (escape_html(now), layout.icon_html("icon-refresh"), REFRESH_PILL_TEXT))
+    # Quick task 260903-peo (UIR-18): a persistent, server-rendered
+    # liveness note joins the pill above inside ONE block-level wrapper —
+    # load-bearing, not decorative. `.page-header` is a plain block box;
+    # 260902-ep7 (BUG 1) fixed a measured 28px title-to-purpose gap
+    # caused by a stranded inline-level child (the bare pill span)
+    # forcing an anonymous block box between the block <h1> and the
+    # block <p class="page-header__purpose">. The pill escapes that only
+    # because `.page-header .refresh-pill` is absolutely positioned; a
+    # second bare inline node next to it would recreate the exact same
+    # condition. Wrapping both in one block-level <p> keeps
+    # `.page-header`'s children all block-level, and
+    # `.page-header .refresh-pill` — a descendant selector — still
+    # matches straight through the wrapper, so the pill's `top: 8px;
+    # right: 0` offsets (anchored to `.page-header`, the nearest
+    # positioned ancestor, never the wrapper) are unchanged.
+    #
+    # The note's content is layout.concise_timestamp_html(now, now) —
+    # `now` is already in hand, computed once per request by app.py's
+    # page_context() and already interpolated into `data-loaded-at`
+    # above. Its output is already-safe markup, interpolated verbatim
+    # (D-09) — never re-escaped. No client-side ticker, no new timer, no
+    # second data-loaded-at consumer: the page regenerates itself every
+    # 45s (freshness.js), so a render-time value is honest for its whole
+    # life.
+    freshness_html = (
+        '<p class="page-header__freshness text-label">%s%s%s</p>'
+        % (escape_html(PERSISTENT_FRESHNESS_PREFIX_TEXT),
+           layout.concise_timestamp_html(now, now), pill_html))
 
     # §5.2 (D-10): two id-anchored sections. Screen holds the
     # Device-freshness tile wrapped in its own single-tile dashboard-grid

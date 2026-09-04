@@ -13,6 +13,7 @@ only renders the button/copy for it.
 """
 import json
 
+from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
 from server import device_config, panel_format
@@ -24,6 +25,16 @@ from server import device_config, panel_format
 # app.py imports this module, so the reverse import would be a cycle.
 RUNWAY_IMAGE_ROUTE_PREFIX = "/runway-image/"
 RUNWAY_IMAGE_ALT_TEMPLATE = "Airport diagram for %s"
+
+# 06.6.4.1.1-05: same one-definition-site discipline as
+# RUNWAY_IMAGE_ROUTE_PREFIX above, with the definition site inverted —
+# the mechanism module (companion/theme_preview.py) owns the prefix and
+# alt-text template here, not this emitter module, because both this
+# module and companion/app.py need to rebind the same constant. The
+# literal is still typed exactly once in the repository, in
+# theme_preview.py.
+THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
+THEME_PREVIEW_ALT_TEMPLATE = theme_preview.THEME_PREVIEW_ALT_TEMPLATE
 
 # The single definition of this route in the repository (06.6.4.1, D-05/
 # D-26). companion/app.py rebinds its own SETTINGS_ROUTE constant to this
@@ -210,19 +221,48 @@ def _palette_hex(index):
 def theme_fieldset(current_theme_id):
     """D-04: a read-only theme status block when exactly one theme is
     registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
-    group has no real decision value. Falls back to the editable
-    radio-group markup below the moment a second theme is registered;
-    this is a `len()` check, not a hardcoded single-theme assumption —
-    which is exactly what makes it correct unmodified now that Phase 8's
-    on-glass session (08-06) widened the registry from one entry ("sky")
-    to nineteen. That radio-group path was written and tested against a
-    hypothetical multi-theme future; this merge is the first time it
-    actually runs.
+    group has no real decision value. Falls back to the editable D-01
+    chip-grid markup below the moment a second theme is registered; this
+    is a `len()` check, not a hardcoded single-theme assumption.
 
     Both branches render the same single `THEME_SECTION_CAPTION`
     paragraph directly under the `<h2>` heading (quick task 260901-re6)
     — `caption_html` below is computed once and reused by both, rather
     than each branch carrying its own copy of the markup template.
+
+    06.6.4.1.1-05 (D-01/D-02/D-03/D-08, sketch 004 variant B — the
+    developer-confirmed winner): the multi-theme branch no longer emits a
+    `<fieldset>`/`<legend>` radio list. It now emits a `.theme-status`
+    card (the same wrapper Runway and Diagnostic LED already use) holding
+    a `.theme-chip-grid` of one `.theme-chip` per `THEME_IDS` entry — a
+    compact, wrapping card, not stacked 44px native radios. This means
+    the whole rendered Settings page now emits zero `<fieldset>` and zero
+    `<legend>` elements: all four groups (Theme, Runway, Diagnostic LED,
+    Poll) are named by an `<h2 class="text-heading">` at one consistent
+    heading level.
+
+    Each chip reuses `.runway-card`'s own selectable-card mechanism
+    verbatim: a visually-hidden native radio inside the `<label>`, so
+    keyboard and no-JS selection keep working natively; a `--selected`
+    modifier and the radio's `checked` attribute computed from the SAME
+    server-side membership comparison (`theme_id == current_theme_id`),
+    never a client-side `:has()` trick; and an always-present check glyph
+    whose visibility follows the CSS modifier alone. The radio's `name`,
+    `value`, and `checked` semantics are byte-for-byte unchanged from the
+    retired radio-list markup, so `handle_post()`'s existing
+    `device_config.THEME_IDS` membership validation keeps working
+    untouched.
+
+    Each chip additionally carries a real rendered preview (D-03/D-04):
+    an `<img>` pointing at the plan-01 `/theme-preview/{id}.png` route
+    (rebound above as `THEME_PREVIEW_ROUTE_PREFIX`), with
+    `style="background:{departing_hex}"` as a graceful-degradation
+    fallback if that theme's render ever 404s — the chip still shows that
+    theme's own colour instead of a broken-image glyph. `width`/`height`
+    are the real served pixel dimensions (not a CSS `aspect-ratio`, per
+    UIR-07's lesson) so the browser reserves the correct box before the
+    image arrives, and `loading="lazy"` keeps below-the-fold chips off
+    the critical path (mirroring the Airlines gallery's own precedent).
     """
     caption_html = (
         '<p class="text-label section-caption">%s</p>'
@@ -253,28 +293,51 @@ def theme_fieldset(current_theme_id):
             escape_html(device_config.theme_label(theme_id)),
         )
 
-    options = []
+    chips = []
     for theme_id in device_config.THEME_IDS:
-        checked = " checked" if theme_id == current_theme_id else ""
-        options.append(
-            "<label>"
-            '<input type="radio" name="theme" value="%s"%s> %s'
+        selected = theme_id == current_theme_id
+        checked = " checked" if selected else ""
+        chip_class = (
+            "theme-chip theme-chip--selected" if selected else "theme-chip")
+        theme = device_config.THEMES[theme_id]
+        label = device_config.theme_label(theme_id)
+        escaped_id = escape_html(theme_id)
+        departing_hex = _palette_hex(theme["departing_index"])
+        arriving_hex = _palette_hex(theme["arriving_index"])
+        chips.append(
+            '<label class="%s">'
+            '<input type="radio" name="theme" value="%s" class="visually-hidden"%s>'
+            '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
+            'width="320" height="120" loading="lazy" style="background:%s">'
+            '<span class="theme-chip__body">'
+            '<span class="theme-chip__name">%s</span>'
+            '<span class="theme-chip__swatches" aria-hidden="true">'
+            '<span class="theme-chip__dot" style="background:%s"></span>'
+            '<span class="theme-chip__dot" style="background:%s"></span>'
+            "</span>"
+            "</span>"
+            '<span class="theme-chip__check">%s<span class="visually-hidden">Selected</span></span>'
             "</label>"
             % (
-                escape_html(theme_id), checked,
-                escape_html(device_config.theme_label(theme_id)),
+                chip_class, escaped_id, checked,
+                THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
+                escape_html(THEME_PREVIEW_ALT_TEMPLATE % label),
+                escape_html(departing_hex),
+                escape_html(label),
+                escape_html(departing_hex), escape_html(arriving_hex),
+                layout.icon_html("icon-check"),
             )
         )
     return (
-        '<fieldset %s="%s">'
-        "<legend>Theme</legend>"
+        '<div class="theme-status" %s="%s">'
+        '<h2 class="text-heading">Theme</h2>'
         "%s"
-        "%s"
-        "</fieldset>"
+        '<div class="theme-chip-grid">%s</div>'
+        "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Theme"),
         caption_html,
-        "".join(options),
+        "".join(chips),
     )
 
 

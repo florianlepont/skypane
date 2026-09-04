@@ -270,7 +270,32 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 130  # 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) + 2 (quick 260903-ghy Task 1: the Resolution-statistics table's mobile .data-cards completeness check, and the .data-cards toggle-contract/untouched-rules check; the pre-existing nested-card heading-rhythm check's own allowlist was extended in place for the new `<ul class="data-cards">` element, no count change from it) + 2 (quick 260903-ghy Task 2: the registry's mobile-card/table filter-pairing check, and the no-chrome-with-no-data/no-cross-page-leak check; the pre-existing anomaly-detail-list-markup check was retargeted in place from a page-wide <ul>/<li> ban onto the anomaly banner's own element slice, no count change from it) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
+# quick task 260904-e92 (2026-09-04, UIR-08): 1 new — the byte-ceiling
+# regression check (_all_43_normalized_outputs_serve_well_under_the_byte_
+# ceiling) added alongside the existing pixel-dimensions check, asserting
+# the served bytes actually dropped when the normalization frame was
+# halved (900x263 -> 450x132), not merely that the dimensions changed.
+# The aspect-ratio literal check inside the 260902-v2v combined check
+# (UIR-07 half) was rewritten IN PLACE to derive its expected declaration
+# from illustration_normalize.ILLUSTRATION_TARGET_SIZE instead of a
+# hardcoded 900/263 literal pair — same check, zero count change from
+# that rewrite. Re-derived by RUNNING the harness (136/136), not by
+# arithmetic.
+EXPECTED_CHECK_COUNT = 136  # 135 + 1 (quick task 260904-e92). 135 itself =
+# 133 + 2 (06.6.4.1.1-03 Task 1: the desktop-
+# padding/mobile-density pair guard for D-15's .page-section/.theme-status/
+# .battery-trend-section >= 960px padding override; Task 2: the mobile-only
+# button override's block-existence + declared-values + source-order guard
+# for D-18b — two new checks, one per task, no pre-existing check retargeted)
+# 133 = 130 + 3 (quick 260903-peo Task 2: UIR-14's
+# pipeline tile second-line checks — the seeded META_LAST_DETECTION render
+# and the absent-detection honest-fallback render — plus UIR-18's
+# persistent freshness-note structural-contract check; the pre-existing
+# _read_health_inputs() six-key guard was retargeted in place to seven
+# keys, and the pre-existing .dashboard-grid align-items:stretch guard
+# already fully covered UIR-14's "unedited" requirement with no change
+# needed — neither counted as new)
+# 130 = 47 + 2 (06.6.2-04: Health and Airlines page_header() shared component checks) + 1 (heading-color-consistency: acronym-safe anomaly category joining) + 4 (quick 260902-req-02 Task 1: illustration_normalize.py normalization checks) + 2 (quick 260902-req-02 Task 2: route-wiring + card-markup dimension checks) + 4 (quick 260902-tli Task 1: click-to-enlarge lightbox checks) + 1 (quick 260902-v2v: UIR-03/07/12/13 one-line fixes pinned together) + 6 (quick 260902-v26 Task 3: replace-form membership, method/enctype, unique labelled file-input ids, cache-buster absent/present-and-mtime-keyed, hostile-name escaping, and no-revert-control checks) + 1 (quick 260903-btu Task 3: the retired-per-card-control-gone-from-every-surface check; the six 260902-v26 checks were retargeted/extended in place onto the relocated lightbox form, no count change from any of them) + 2 (quick 260903-df3 Task 2: framed-zone sprite-provenance and markup/styling-contract checks; the four pre-existing replace-form checks were updated in place, no count change from any of them) + 2 (quick 260903-ghy Task 1: the Resolution-statistics table's mobile .data-cards completeness check, and the .data-cards toggle-contract/untouched-rules check; the pre-existing nested-card heading-rhythm check's own allowlist was extended in place for the new `<ul class="data-cards">` element, no count change from it) + 2 (quick 260903-ghy Task 2: the registry's mobile-card/table filter-pairing check, and the no-chrome-with-no-data/no-cross-page-leak check; the pre-existing anomaly-detail-list-markup check was retargeted in place from a page-wide <ul>/<li> ban onto the anomaly banner's own element slice, no count change from it) — re-derived from the real on-disk check() count at merge time, not carried forward from either branch's own arithmetic
 
 
 # --- fixture helpers ---------------------------------------------------
@@ -1773,6 +1798,22 @@ def main():
         # (health_page._battery_reading_parts()) rather than re-typing a
         # format string into the harness — the harness must not become a
         # second place this format lives.
+        #
+        # health_page._battery_section() deliberately computes its own
+        # `now` via history_db.utc_now_iso() (06.6-01, D-02 — see that
+        # function's own comment) rather than accepting the render() ctx's
+        # injected `now`, so the real wall clock — not the seeded `base`
+        # below — is what actually humanises the readout's "ago" text.
+        # Left unpatched, this check races the real clock: any elapsed
+        # time between capturing `base` and _battery_section()'s own
+        # history_db.utc_now_iso() call that crosses a whole-second
+        # boundary flips the rendered "(0s ago)" to "(1s ago)", a genuine
+        # CI flake (observed 2026-09-03) unrelated to any production
+        # defect. Pinning history_db.utc_now_iso() to `base` for the
+        # duration of this render() call — monkeypatch-and-restore,
+        # mirroring illustrations.target_variants_by_airline()'s own
+        # precedent above — makes the two `now` values identical by
+        # construction instead of by luck.
         tmp = _mkstate("h-readout-seeded")
         try:
             base = _now()
@@ -1781,7 +1822,12 @@ def main():
                 (_iso(base), 4190),
             ]
             _seed_device_health(tmp, readings)
-            rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            original_utc_now_iso = history_db.utc_now_iso
+            history_db.utc_now_iso = lambda: _iso(base)
+            try:
+                rendered = health_page.render(_ctx(tmp, now=_iso(base)))
+            finally:
+                history_db.utc_now_iso = original_utc_now_iso
             value_text, when_text = health_page._battery_reading_parts(
                 4190, _iso(base), _iso(base))
             expected_inner = (
@@ -2514,21 +2560,25 @@ def main():
         # 260902-l0b: renamed from _read_health_inputs_gained_no_new_key()
         # — that name stopped being true the moment daily_rows joined
         # trend_rows in this dict (a battery-health read, same table, same
-        # section builder, same request). D-11's real intent survives,
-        # restated explicitly: the migrated registry/stats reads must
-        # stay their own independent calls in render(), never folded into
-        # _read_health_inputs()'s single dict — that is what the negative
-        # assertion below checks directly, not just the key count.
+        # section builder, same request). Quick task 260903-peo (UIR-14)
+        # retargets this check in place again, six keys to seven:
+        # last_detection joins pipeline_ts for the identical reason (same
+        # section builder, same table, same request). D-11's real intent
+        # survives, restated explicitly: the migrated registry/stats
+        # reads must stay their own independent calls in render(), never
+        # folded into _read_health_inputs()'s single dict — that is what
+        # the negative assertion below checks directly, not just the key
+        # count.
         tmp = _mkstate("h-inputs-keys")
         try:
             inputs = health_page._read_health_inputs(tmp, _iso(_now()))
             expected_keys = {
-                "device_health", "pipeline_ts", "source_fault_raw",
+                "device_health", "pipeline_ts", "last_detection", "source_fault_raw",
                 "trend_rows", "daily_rows", "corroboration_counts",
             }
             if set(inputs.keys()) != expected_keys:
                 return False, (
-                    "expected _read_health_inputs() to carry exactly these six keys, got %r"
+                    "expected _read_health_inputs() to carry exactly these seven keys, got %r"
                     % (set(inputs.keys()),))
             if any("registr" in k or "stat" in k for k in inputs.keys()):
                 return False, "D-11: the registry/stats reads must stay separate calls in render(), not join this dict"
@@ -2536,8 +2586,9 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "_read_health_inputs() carries exactly six keys — daily_rows joins trend_rows in the one atomic "
-        "snapshot (260902-l0b) — while the migrated registry/stats reads stay separate calls in render() (D-11)",
+        "_read_health_inputs() carries exactly seven keys — last_detection joins pipeline_ts in the one "
+        "atomic snapshot (quick task 260903-peo, UIR-14) — while the migrated registry/stats reads stay "
+        "separate calls in render() (D-11)",
         _read_health_inputs_keeps_registry_stats_separate)
 
     def _battery_section_keeps_everything_after_the_move():
@@ -3001,7 +3052,7 @@ def main():
         "(quick task 260902-dng bug 2, closes 260901-uzi Finding 5 candidate (a))",
         _data_table_th_has_symmetric_nonzero_padding)
 
-    def _nested_heading_tier_reverted_to_standard_heading_role():
+    def _nested_heading_tier_promoted_to_sans_semibold_emphasis_role():
         # quick task 260901-uzi Task 4 (Check 2): finding 4's markup half
         # (exactly the two migrated cards carry page-section--nested,
         # located from each card's own heading constant rather than a
@@ -3009,19 +3060,25 @@ def main():
         # even when it renders; both .section-intro headings are
         # untouched) — UNCHANGED, this half is still true.
         #
-        # quick task 260902-iag retargets the stylesheet half IN PLACE:
-        # the rule this check inspects no longer demotes the nested tier
-        # (the developer's explicit, same-day reversal of the demotion
-        # this check used to pin — see the rule's own comment in
-        # style.css). It now asserts the opposite: the rule declares no
-        # font-size, no font-weight and (still) no font-family of its
-        # own, and it still declares the retained 260902-bl2 bottom
-        # margin. A positive half is added so the check stays meaningful
-        # after the reversal: `.text-heading` itself must still declare
-        # the 20px heading size and the regular weight this tier now
-        # inherits, and `--font-heading-size` must still be 20px in
-        # :root — so this check fails loudly if the treatment the nested
-        # tier now relies on ever moves out from under it.
+        # 06.6.4.1.1 (D-09, plan 02 Task 2) retargets the stylesheet half
+        # IN PLACE, for the third time: the nested-heading rule this check
+        # inspects is re-promoted to the sans-semibold Emphasis tier quick
+        # task 260901-uzi originally gave it, after quick task 260902-iag's
+        # own explicit reversal back to the plain serif treatment. This is
+        # the deliberate second reversal CONTEXT D-09 records — re-applied
+        # as the bottom rung of a real three-tier ladder (32px semibold
+        # page title / 22px regular section heading / 16px semibold sans
+        # card title), not as an isolated demotion the way 260901-uzi's own
+        # attempt was. The rule must now declare the sans family, the Body
+        # size (16px) and the semibold weight explicitly (no longer
+        # inheriting them from `.text-heading`), and it still declares the
+        # retained 260902-bl2 bottom margin. A positive half keeps the
+        # check meaningful: `.text-heading` itself must still declare the
+        # 22px heading size (D-10 grew it from 20px) and the regular
+        # weight — the section-heading tier must stay regular so the
+        # semibold nested title reads as a distinct tier below it, not
+        # more of the same — and `--font-heading-size` must be 22px in
+        # :root.
         tmp = _mkstate("h-nested-heading-tier")
         try:
             now = _now()
@@ -3066,82 +3123,82 @@ def main():
             selector_list = css_source[selector_at:body_open]
             nested_body = css_source[body_open:body_close]
             if ".battery-trend-section > h2" not in selector_list:
-                return False, "expected the reverted rule's selector list to still cover .battery-trend-section > h2"
+                return False, "expected the promoted rule's selector list to still cover .battery-trend-section > h2"
             if "margin-bottom: var(--space-md)" not in nested_body:
                 return False, (
-                    "expected the reverted rule to still declare its retained 260902-bl2 bottom "
-                    "margin — a missing bottom margin means the revert over-reached and took the "
-                    "independently-justified spacing fix with it")
-            if "font-size" in nested_body:
+                    "expected the promoted rule to still declare its retained 260902-bl2 bottom "
+                    "margin — a missing bottom margin means this re-promotion over-reached and "
+                    "took the independently-justified spacing fix with it")
+            if "font-family: var(--font-ui)" not in nested_body:
                 return False, (
-                    "the reverted rule must declare no font-size of its own — a font-size "
-                    "reappearing here is the 260901-uzi demotion returning")
-            if "font-weight" in nested_body:
+                    "expected the nested-heading rule to declare font-family: var(--font-ui) — "
+                    "D-09's second reversal moves this tier onto the sans Emphasis role")
+            if "font-size: var(--font-body-size)" not in nested_body:
                 return False, (
-                    "the reverted rule must declare no font-weight of its own — a font-weight "
-                    "reappearing here is the 260901-uzi demotion returning")
-            if "font-family" in nested_body:
+                    "expected the nested-heading rule to declare font-size: var(--font-body-size) "
+                    "(16px) — the same Emphasis-role size .stat-tile__value already uses, not a "
+                    "new fifth size")
+            if "font-weight: var(--weight-semibold)" not in nested_body:
                 return False, (
-                    "the reverted rule must set no font family — .text-heading already "
-                    "supplies the serif treatment")
+                    "expected the nested-heading rule to declare font-weight: var(--weight-semibold) "
+                    "— a font-weight missing here means the D-09 re-promotion did not land")
 
             heading_body = css_source[css_source.index(".text-heading {"):]
             heading_body = heading_body[heading_body.index("{"):heading_body.index("}")]
             if "font-size: var(--font-heading-size)" not in heading_body:
                 return False, (
-                    "expected .text-heading to still declare --font-heading-size — the reverted "
-                    "nested tier now inherits this treatment and has no fallback of its own")
+                    "expected .text-heading to still declare --font-heading-size — the section "
+                    "heading tier this nested title now sits below has no fallback of its own")
             if "font-weight: var(--weight-regular)" not in heading_body:
                 return False, (
-                    "expected .text-heading to still declare --weight-regular — the reverted "
-                    "nested tier now inherits this treatment and has no fallback of its own")
+                    "expected .text-heading to stay --weight-regular — the section-heading tier "
+                    "must stay regular so the semibold nested card title below it reads as a "
+                    "distinct third tier, not more of the same weight")
             root_body = css_source[css_source.index(":root"):css_source.index(":root") + 900]
             token_match = re.search(r"--font-heading-size:\s*(\S+);", root_body)
-            if token_match is None or token_match.group(1) != "20px":
+            if token_match is None or token_match.group(1) != "22px":
                 return False, (
-                    "expected --font-heading-size to still be 20px in :root — the value the "
-                    "developer's Settings comparison and this reversal both depend on")
+                    "expected --font-heading-size to be 22px in :root — D-10 grew the section "
+                    "heading tier from 20px to 22px as part of the same ladder this rule is "
+                    "the bottom rung of")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "exactly the two migrated cards carry page-section--nested (located by their own heading constants), "
         "the source-fault block never carries it even when it renders, both .section-intro headings are "
-        "untouched, and style.css's nested-heading rule — reverted by quick task 260902-iag — declares no "
-        "font-size, no font-weight and no font-family of its own (only its retained 260902-bl2 bottom margin), "
-        "inheriting .text-heading's 20px regular treatment, which the check confirms is still 20px/regular at "
-        "the token level too (quick task 260901-uzi finding 4, Check 2; reverted in place by quick task "
-        "260902-iag)",
-        _nested_heading_tier_reverted_to_standard_heading_role)
+        "untouched, and style.css's nested-heading rule — promoted by 06.6.4.1.1 D-09's deliberate second "
+        "reversal — declares the sans family, the Body size (16px) and the semibold weight explicitly (plus "
+        "its retained 260902-bl2 bottom margin), sitting below a .text-heading section-heading tier confirmed "
+        "still 22px/regular at the token level too (quick task 260901-uzi finding 4, Check 2; reverted by "
+        "quick task 260902-iag; re-promoted by 06.6.4.1.1 plan 02 Task 2)",
+        _nested_heading_tier_promoted_to_sans_semibold_emphasis_role)
 
-    def _stat_tile_caption_weight_reverted_and_four_role_scale_hold():
-        # SUPERSEDED (quick task 260902-dng, Task 3): this check used to
-        # pin .stat-tile__caption declaring --weight-semibold, and the
-        # region's four text roles sharing a caption/value/nested-title
-        # semibold trio below one regular-weight section heading. quick
-        # task 260902-iag rewrote this check's whole contract in place —
-        # not just the assertions — because 260901-uzi's finding 4 (the
-        # nested card title's 16px semibold demotion) was itself reverted
-        # by quick task 260902-iag Task 1, and 260902-dng's promotion's
-        # only stated reason was matching that now-reverted title. Task 2
-        # re-adjudicated the promotion against both a premise test and an
-        # inversion test (see .stat-tile__caption's own comment in
-        # style.css for the full reasoning) and reverted it: the caption
-        # is back to the plain Label role it held before 260902-dng.
+    def _stat_tile_caption_joins_the_unified_label_voice():
+        # SUPERSEDED (quick task 260902-dng, Task 3, and quick task
+        # 260902-iag, Task 2): this check used to weigh
+        # .stat-tile__caption's font-weight against the nested card
+        # title's own weight — first pinning a semibold promotion
+        # (260902-dng), then pinning its reversal back to .text-label's
+        # inherited regular (260902-iag). Both adjudications shared one
+        # premise: that the caption was, and would remain, a serif
+        # Label-role exception whose only open question was weight.
         #
-        # This check's post-reversal contract: the four roles' sizes
-        # still form a coherent, source-grounded set against the real
-        # :root token values (caption 14px, strictly below the tile value
-        # and the nested card title at 16px and 20px respectively, both
-        # at or below the 20px section heading — no fifth size anywhere);
-        # the caption declares no size of its own and keeps its named
-        # serif exception; the tile value keeps its own D-09 Emphasis-role
-        # size and weight, untouched by this adjudication; the nested
-        # card title and the section heading both declare regular weight
-        # or inherit it with no override; and the caption declares no
-        # font-weight of its own either, inheriting .text-label's
-        # regular weight — the verdict Task 2 shipped, asserted
-        # explicitly in that direction.
+        # 06.6.4.1.1 (D-13, plan 02 Task 3) retires that premise entirely.
+        # The caption is no longer serif and no longer weighed against the
+        # nested card title's weight at all — it converges, together with
+        # .data-table th, .data-card__label, .filter-bar__count,
+        # .banner__pill and .airline-card__chip, on the one unified label
+        # voice: sans, 12px, semibold, uppercase, 0.06em tracking. This
+        # check's post-D-13 contract: the caption declares all four of
+        # those properties plus the 12px size, and its rule body no
+        # longer names the serif token at all; .stat-tile__value keeps
+        # its own untouched D-09 Emphasis-role size and weight (16px
+        # semibold) — that role was never in question here and stays
+        # exactly as it was; the shared serif rule keeps its regular
+        # weight (still the section-heading tier's own contract,
+        # independent of the caption question this check used to
+        # adjudicate); and the token table reads 14/16/22px.
         css_path = os.path.join(HERE, "static", "style.css")
         with open(css_path) as fh:
             css_source = fh.read()
@@ -3153,19 +3210,31 @@ def main():
             return css_source[body_open:body_close]
 
         caption_body = _rule_body(".stat-tile__caption {")
-        if "font-weight" in caption_body:
+        if "font-family: var(--font-ui)" not in caption_body:
             return False, (
-                "expected .stat-tile__caption to declare no font-weight of its own — quick "
-                "task 260902-iag Task 2 reverted the semibold promotion back to .text-label's "
-                "inherited regular weight; a font-weight reappearing here is that promotion "
-                "returning without the fresh, non-circular justification the revert requires")
-        if "font-size" in caption_body:
+                "expected .stat-tile__caption to declare font-family: var(--font-ui) — D-13 "
+                "retires the serif Label-role exception this caption used to be")
+        if "var(--font-serif)" in caption_body:
             return False, (
-                "expected .stat-tile__caption to declare no font-size of its own "
-                "(it must keep inheriting .text-label's 14px) — a fifth size "
-                "would violate D-09's four-size scale")
-        if "var(--font-serif)" not in caption_body:
-            return False, "expected .stat-tile__caption to keep its named serif exception"
+                "expected .stat-tile__caption's rule body to no longer name the serif token at "
+                "all — a serif reference reappearing here is the retired Label-role exception "
+                "returning")
+        if "font-size: 12px" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare font-size: 12px — the unified label "
+                "voice's own size")
+        if "font-weight: var(--weight-semibold)" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare font-weight: var(--weight-semibold) "
+                "— one of the unified label voice's four properties")
+        if "text-transform: uppercase" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare text-transform: uppercase — one of "
+                "the unified label voice's four properties")
+        if "letter-spacing: 0.06em" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare letter-spacing: 0.06em — one of the "
+                "unified label voice's four properties")
 
         value_body = _rule_body(".stat-tile__value {")
         if "font-size: var(--font-body-size)" not in value_body:
@@ -3173,19 +3242,20 @@ def main():
         if "font-weight: var(--weight-semibold)" not in value_body:
             return False, "expected .stat-tile__value to stay semibold — Finding 4's own contract"
 
-        # quick task 260902-iag Task 1: the nested card title's demotion
-        # was reverted, so it now inherits 20px regular from
-        # .text-heading and declares neither a font-size nor a
-        # font-weight of its own.
+        # 06.6.4.1.1 (D-09, plan 02 Task 2): the nested card title's
+        # demotion — reverted by quick task 260902-iag — is re-promoted a
+        # second time, deliberately, as the bottom rung of the full type
+        # ladder. It now declares its own sans-semibold Body-size
+        # treatment rather than inheriting from .text-heading.
         nested_body = _rule_body(".page-section--nested > h2,")
-        if "font-size" in nested_body:
+        if "font-size: var(--font-body-size)" not in nested_body:
             return False, (
-                "expected the nested card title to declare no font-size of its own — it now "
-                "inherits .text-heading's 20px (quick task 260902-iag reverted the demotion)")
-        if "font-weight" in nested_body:
+                "expected the nested card title to declare font-size: var(--font-body-size) "
+                "(16px) — D-09's second reversal promotes it onto the sans Emphasis role")
+        if "font-weight: var(--weight-semibold)" not in nested_body:
             return False, (
-                "expected the nested card title to declare no font-weight of its own — it now "
-                "inherits .text-heading's regular weight (quick task 260902-iag reverted the demotion)")
+                "expected the nested card title to declare font-weight: var(--weight-semibold) "
+                "— D-09's second reversal promotes it onto the sans Emphasis role")
 
         heading_body = _rule_body("h1,\nh2,\nh3,\nlegend,\n.text-heading {")
         if "font-weight: var(--weight-regular)" not in heading_body:
@@ -3200,23 +3270,21 @@ def main():
         for name, expected in (
                 ("--font-label-size", "14px"),
                 ("--font-body-size", "16px"),
-                ("--font-heading-size", "20px")):
+                ("--font-heading-size", "22px")):
             token_match = re.search(r"%s:\s*(\S+);" % re.escape(name), tokens_body)
             if token_match is None or token_match.group(1) != expected:
                 return False, "expected %s to be %s in :root" % (name, expected)
 
         return True, ""
     check(
-        "style.css's four Server & data text roles form a coherent, source-grounded set after both the nested "
-        "card title's reversal and the stat-tile caption's re-adjudication (quick task 260902-iag): the caption "
-        "(14px, no font-size or font-weight of its own, keeping its named serif exception) declares no weight "
-        "promotion — reverted back to .text-label's inherited regular, since its only stated reason (matching "
-        "the now-reverted 16px-semibold nested title) evaporated and would otherwise recreate the same weight-"
-        "vs-size inversion this session has repeatedly fixed — while .stat-tile__value keeps its own untouched "
-        "D-09 Emphasis-role size/weight, and both the nested card title and the section heading inherit "
-        ".text-heading's 20px regular treatment with no override (quick task 260902-dng Task 3, whose promotion "
-        "and reasoning are superseded, not deleted, by quick task 260902-iag Task 2)",
-        _stat_tile_caption_weight_reverted_and_four_role_scale_hold)
+        "style.css's .stat-tile__caption converges on the one unified 12px uppercase label voice (D-13) — sans "
+        "family, 12px size, semibold weight, uppercase transform and 0.06em tracking all declared explicitly, "
+        "with no serif token named anywhere in its rule body — while .stat-tile__value keeps its own untouched "
+        "D-09 Emphasis-role size/weight, the nested card title stays on its own D-09-second-reversal sans-"
+        "semibold Body-size declarations, the shared h1/h2/h3/legend/.text-heading serif rule keeps its regular "
+        "weight, and the token table reads 14/16/22px (supersedes quick task 260902-dng Task 3's semibold "
+        "promotion and quick task 260902-iag Task 2's reversal of it — 06.6.4.1.1 plan 02 Task 3)",
+        _stat_tile_caption_joins_the_unified_label_voice)
 
     def _two_tier_hierarchy_carried_by_layout_not_type():
         # quick task 260902-iag Task 3: with font-size no longer
@@ -4448,6 +4516,159 @@ def main():
         "kept in flow with a reserved line box (260902-ep7)",
         _quick_260902_chc_pill_stylesheet_contract)
 
+    def _quick_260903_peo_pipeline_second_line():
+        # UIR-14: the pipeline tile gains a real second content line
+        # sourced from history_db.META_LAST_DETECTION, read inside the
+        # same atomic _read_health_inputs() snapshot pipeline_ts already
+        # comes from. The rendered timestamp markup must be byte-
+        # identical to what concise_timestamp_html() itself returns for
+        # the same (ts, now) pair, so the two can never drift into two
+        # formats.
+        tmp = _mkstate("h-pipeline-detection")
+        try:
+            now = _now()
+            now_iso = _iso(now)
+            detection_iso = _iso(now - timedelta(minutes=5))
+            _seed_meta(
+                tmp,
+                **{
+                    history_db.META_LAST_PIPELINE_RUN: now_iso,
+                    history_db.META_LAST_DETECTION: detection_iso,
+                })
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+            expected_detail = layout.concise_timestamp_html(detection_iso, now_iso)
+            if rendered.count(expected_detail) != 1:
+                return False, (
+                    "expected the pipeline tile's second line to render "
+                    "concise_timestamp_html() byte-identically for the seeded "
+                    "META_LAST_DETECTION value exactly once, got %d"
+                    % rendered.count(expected_detail))
+            if health_page.LAST_DETECTION_LABEL not in rendered:
+                return False, "expected the second line's label text in the rendered page"
+            if 'class="stat-tile__meta text-label section-caption"' not in rendered:
+                return False, (
+                    "expected the second line to reuse the existing muted "
+                    "text-label/section-caption tier via a layout-only "
+                    "stat-tile__meta class, not a new type tier — never "
+                    "battery-readout__detail, whose class name would collide "
+                    "with the BATTERY_READOUT_ID absence guards below")
+            if "battery-readout" in rendered.split(
+                    '<p class="stat-tile__meta')[1].split("</p>")[0]:
+                return False, (
+                    "expected the second line's own markup to carry no "
+                    "'battery-readout' substring — that would false-positive "
+                    "the BATTERY_READOUT_ID absence guards on a fresh install")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the pipeline tile's new second line renders META_LAST_DETECTION's timestamp "
+        "byte-identically to concise_timestamp_html(), reusing the existing muted "
+        "text-label/section-caption tier — never battery-readout__detail, whose class "
+        "name would collide with the BATTERY_READOUT_ID absence guards (quick task "
+        "260903-peo, UIR-14)",
+        _quick_260903_peo_pipeline_second_line)
+
+    def _quick_260903_peo_pipeline_second_line_absent_detection_fallback():
+        # The absent case: never an empty element or a dangling label —
+        # concise_timestamp_html()'s own escaped bare-string fallback
+        # renders honestly, matching _device_section()'s own
+        # unconditional-render precedent. Scoped to the pipeline tile's
+        # own second-line <p> (never a page-wide count): this fixture
+        # also leaves device_health unseeded, so the Device tile's own
+        # concise_timestamp_html() call renders the identical fallback
+        # text independently — a page-wide count would conflate the two.
+        tmp = _mkstate("h-pipeline-no-detection")
+        try:
+            now_iso = _iso(_now())
+            _seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: now_iso})
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+            fallback_html = layout.escape_html("no reading yet")
+            second_line_start = rendered.index('<p class="stat-tile__meta text-label section-caption">')
+            second_line_end = rendered.index("</p>", second_line_start) + len("</p>")
+            second_line = rendered[second_line_start:second_line_end]
+            if fallback_html not in second_line:
+                return False, (
+                    "expected the pipeline tile's second line to render the honest "
+                    "fallback when META_LAST_DETECTION is absent, got %r" % second_line)
+            if health_page.LAST_DETECTION_LABEL not in second_line:
+                return False, "expected the second line's label to still render alongside the fallback"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the pipeline tile's second line renders its honest no-reading-yet fallback when "
+        "META_LAST_DETECTION is absent, never an empty element or a dangling label "
+        "(quick task 260903-peo, UIR-14)",
+        _quick_260903_peo_pipeline_second_line_absent_detection_fallback)
+
+    def _quick_260903_peo_persistent_freshness_note():
+        # UIR-18: a persistent, server-rendered liveness note joins the
+        # existing hidden refresh pill inside ONE block-level wrapper —
+        # the anonymous-block-box guard from 260902-ep7 (BUG 1). Pins the
+        # structural contract (the wrapper is the .page-header's next
+        # child right after the <h1>, and the pill's own markup is
+        # untouched inside it), not just the note's text.
+        tmp = _mkstate("h-persistent-freshness")
+        try:
+            now_iso = _iso(_now())
+            rendered = health_page.render(_ctx(tmp, now=now_iso))
+
+            expected_note = layout.concise_timestamp_html(now_iso, now_iso)
+            if expected_note not in rendered:
+                return False, (
+                    "expected the persistent note to render "
+                    "concise_timestamp_html(now, now) byte-identically")
+            prefix = layout.escape_html(health_page.PERSISTENT_FRESHNESS_PREFIX_TEXT)
+            if prefix not in rendered:
+                return False, "expected the persistent note's prefix text in the rendered page"
+
+            if '<p class="page-header__freshness' not in rendered:
+                return False, "expected a block-level .page-header__freshness wrapper"
+            wrapper_start = rendered.index('<p class="page-header__freshness')
+            wrapper_end = rendered.index("</p>", wrapper_start) + len("</p>")
+            wrapper_slice = rendered[wrapper_start:wrapper_end]
+            if "data-refresh-pill" not in wrapper_slice:
+                return False, "expected the hidden refresh pill inside the freshness wrapper"
+            if expected_note not in wrapper_slice:
+                return False, "expected the persistent note inside the same freshness wrapper as the pill"
+
+            header_start = rendered.index('<div class="page-header">')
+            header_end = rendered.index("</div>", header_start) + len("</div>")
+            if wrapper_start < header_start or wrapper_end > header_end:
+                return False, "expected the freshness wrapper inside the .page-header div"
+            header_slice = rendered[header_start:header_end]
+            title_end = header_slice.index("</h1>") + len("</h1>")
+            between = header_slice[title_end:]
+            if not between.startswith('<p class="page-header__freshness'):
+                return False, (
+                    "expected the freshness wrapper to be .page-header's next "
+                    "block-level child right after the <h1> — a stranded bare "
+                    "inline node here would reopen 260902-ep7's anonymous-"
+                    "block-box gap")
+
+            # The pill's own markup is byte-for-byte unchanged: still an
+            # inline <span>, still carrying the bare hidden attribute and a
+            # live data-loaded-at — freshness.js itself carries zero diff
+            # and needs none of this to change.
+            pill_at = rendered.index("data-refresh-pill")
+            pill_tag = rendered[rendered.rindex("<", 0, pill_at):rendered.index(">", pill_at) + 1]
+            if not pill_tag.startswith("<span"):
+                return False, "expected the pill to still be an inline <span>"
+            if " hidden" not in pill_tag:
+                return False, "expected the pill to still carry the bare hidden attribute"
+            if ('data-loaded-at="%s"' % now_iso) not in rendered:
+                return False, "expected data-loaded-at to still carry the real now value"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Health's header renders a persistent server-rendered liveness note beside the "
+        "unchanged hidden refresh pill, both inside one block-level .page-header__freshness "
+        "wrapper that is the .page-header's next child right after the <h1> (quick task "
+        "260903-peo, UIR-18)",
+        _quick_260903_peo_persistent_freshness_note)
+
     def _quick_260902_v2v_uir_03_07_12_13_fixes():
         # quick task 260902-v2v: pins all four one-line fixes together in
         # one check so a partial fix (e.g. the CSS half without the
@@ -4486,13 +4707,17 @@ def main():
             return False, "expected .banner__pill to still precede .refresh-pill in source order"
 
         # UIR-07: .airline-card__image gains height: auto and keeps its
-        # aspect-ratio.
+        # aspect-ratio. quick task 260904-e92 (DP-5): the expected
+        # declaration is derived from illustration_normalize's own
+        # constants instead of a hardcoded literal pair, so the CSS and
+        # the Python constants cannot silently drift apart again.
         image_start = css_source.index(".airline-card__image {")
         image_body = css_source[image_start:css_source.index("}", image_start)]
         if "height: auto" not in image_body:
             return False, "expected .airline-card__image to declare height: auto (UIR-07)"
-        if "aspect-ratio: 900 / 263" not in image_body:
-            return False, "expected .airline-card__image to still declare its aspect-ratio (UIR-07)"
+        expected_aspect_ratio = "aspect-ratio: %d / %d" % illustration_normalize.ILLUSTRATION_TARGET_SIZE
+        if expected_aspect_ratio not in image_body:
+            return False, "expected .airline-card__image to declare %r (UIR-07)" % expected_aspect_ratio
 
         # UIR-13: a .data-table--prose-scoped :first-child nowrap rule
         # exists and sits after the base .data-table--prose rule.
@@ -4611,6 +4836,55 @@ def main():
         "var(--space-2xl) (260902-ep7 BUG 2)",
         _quick_260902_ep7_dashboard_grid_card_gap_two_role_split)
 
+    def _06_6_4_1_1_03_desktop_card_padding_mobile_density_pair():
+        # 06.6.4.1.1-03 Task 1 (D-15): pins BOTH halves of the desktop-
+        # padding/mobile-density pair as a set — a future "just harmonise
+        # the padding" edit that raises the base rules to --space-lg
+        # directly (deleting the mobile-density half) or that forgets to
+        # bump one of the three selectors inside the >= 960px override
+        # would each silently break one half with no other check
+        # noticing.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        selectors = (".page-section", ".theme-status", ".battery-trend-section")
+
+        # Base rules (below the breakpoint) must still declare the
+        # mobile-density value.
+        for selector in selectors:
+            needle = selector + " {"
+            if needle not in css_source:
+                return False, "expected style.css to declare %r" % (needle,)
+            start = css_source.index(needle)
+            body = css_source[start:css_source.index("}", start)]
+            if "padding: var(--space-md)" not in body:
+                return False, (
+                    "expected %r's base rule to still declare padding: var(--space-md) "
+                    "(the mobile-keeps-its-density half of D-15)" % (selector,))
+
+        # The >= 960px override must exist, cover all three selectors in
+        # one rule, and declare the desktop padding value.
+        media_at = css_source.index("@media (min-width: 960px) {")
+        media_close = css_source.index("\n}\n", media_at)
+        media_body = css_source[media_at:media_close]
+        override_pattern = (
+            r"\.page-section,\s*\.theme-status,\s*\.battery-trend-section\s*\{"
+            r"\s*padding:\s*var\(--space-lg\);"
+        )
+        if not re.search(override_pattern, media_body):
+            return False, (
+                "expected the @media (min-width: 960px) block to declare a single rule "
+                "covering .page-section, .theme-status and .battery-trend-section with "
+                "padding: var(--space-lg) (D-15's desktop half)")
+        return True, ""
+    check(
+        "the desktop-padding/mobile-density pair holds together: .page-section, .theme-status "
+        "and .battery-trend-section all still declare padding: var(--space-md) in their own base "
+        "rules, and one shared rule inside the @media (min-width: 960px) block raises all three "
+        "to padding: var(--space-lg) (06.6.4.1.1-03 D-15)",
+        _06_6_4_1_1_03_desktop_card_padding_mobile_density_pair)
+
     def _quick_260902_ep7_summary_accent_and_reservation_list():
         # quick task 260902-ep7 (BUG 3): pins both halves of the fix as
         # a pair — the bare `summary` rule must declare the accent
@@ -4717,6 +4991,15 @@ def main():
         for filename in illustrations.target_filenames()
     ]
 
+    # quick task 260904-e92 (UIR-08, DP-6): the pre-change 900x263 frame
+    # served 132.5-175.5KB per file (measured across the 27 gallery-visible
+    # illustrations); the post-change 450x132 frame measured 40.8-53.1KB.
+    # This ceiling (64KB) sits far below the OLD per-file minimum
+    # (132.5KB), so a silent revert to the old frame size fails this check
+    # loudly rather than merely getting dimensions right while leaving the
+    # served bytes unchanged.
+    _ILLUSTRATION_BYTE_CEILING = 65536
+
     def _all_43_normalized_outputs_share_identical_pixel_dimensions():
         if len(_VENDORED_ILLUSTRATION_PATHS) != 43:
             return False, "expected 43 vendored illustration files, got %d" % len(_VENDORED_ILLUSTRATION_PATHS)
@@ -4731,6 +5014,19 @@ def main():
         "all 43 vendored illustrations normalize to the exact same pixel dimensions "
         "(illustration_normalize.ILLUSTRATION_TARGET_SIZE)",
         _all_43_normalized_outputs_share_identical_pixel_dimensions)
+
+    def _all_43_normalized_outputs_serve_well_under_the_byte_ceiling():
+        for path in _VENDORED_ILLUSTRATION_PATHS:
+            png_bytes = illustration_normalize.normalized_png_bytes(path)
+            if len(png_bytes) >= _ILLUSTRATION_BYTE_CEILING:
+                return False, "%s normalized to %d bytes, expected under the %d-byte ceiling" % (
+                    os.path.basename(path), len(png_bytes), _ILLUSTRATION_BYTE_CEILING)
+        return True, ""
+    check(
+        "all 43 vendored illustrations normalize and serve well under %d bytes per file, the UIR-08 "
+        "weight fix — a regression that got the dimensions right but left the served bytes unchanged "
+        "would defeat this check" % _ILLUSTRATION_BYTE_CEILING,
+        _all_43_normalized_outputs_serve_well_under_the_byte_ceiling)
 
     def _all_43_normalized_outputs_are_centred_and_unclipped():
         target_w, target_h = illustration_normalize.ILLUSTRATION_TARGET_SIZE
@@ -5267,6 +5563,50 @@ def main():
         "(a misreading of the developer's original request, corrected on the same live test) must not "
         "silently return",
         _airline_card_zoom_stylesheet_contract)
+
+    def _06_6_4_1_1_03_mobile_button_override_block_and_source_order():
+        # 06.6.4.1.1-03 Task 2 (D-18b): pins the mobile-only button
+        # override's existence, its declared values, that the base
+        # button rule's own desktop values are untouched, and — the half
+        # that actually protects the behaviour — that the mobile block
+        # comes AFTER the base `button` rule in source order, since
+        # neither rule adds specificity beyond the bare `button` selector
+        # and source order alone decides the winner.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        marker = "@media (max-width: 959.98px) {"
+        if marker not in css_source:
+            return False, "expected style.css to declare %r" % (marker,)
+        media_at = css_source.index(marker)
+
+        base_button_at = css_source.index("button {")
+        if base_button_at > media_at:
+            return False, (
+                "expected the base `button {` rule to come BEFORE the "
+                "%r block, not after it" % (marker,))
+        base_body = css_source[base_button_at:css_source.index("}", base_button_at)]
+        if "height: 30px" not in base_body:
+            return False, "expected the base button rule to still declare height: 30px"
+        if "font-size: 13px" not in base_body:
+            return False, "expected the base button rule to still declare font-size: 13px"
+
+        media_close = css_source.index("\n}\n", media_at)
+        media_body = css_source[media_at:media_close]
+        mobile_button_pattern = r"button\s*\{\s*height:\s*36px;\s*font-size:\s*14px;\s*\}"
+        if not re.search(mobile_button_pattern, media_body):
+            return False, (
+                "expected the %r block to declare a bare `button { height: 36px; "
+                "font-size: 14px; }` rule" % (marker,))
+        return True, ""
+    check(
+        "the mobile-only button override exists as the file's @media (max-width: 959.98px) block, "
+        "declares a bare `button` rule with height: 36px and font-size: 14px, sits AFTER the base "
+        "`button` rule in source order (the mechanism that lets it win at equal specificity), and "
+        "the base rule's own desktop values (height: 30px, font-size: 13px) are untouched "
+        "(06.6.4.1.1-03 D-18b)",
+        _06_6_4_1_1_03_mobile_button_override_block_and_source_order)
 
     def _lightbox_wide_max_width_matches_illustration_target_width():
         css_path = os.path.join(HERE, "static", "style.css")

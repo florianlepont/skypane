@@ -72,7 +72,12 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 52  # merge origin/main into
+EXPECTED_CHECK_COUNT = 54  # + 2 (quick 260903-peo Task 3: UIR-17's desktop
+# copy-button reveal stylesheet contract — [data-copy-value]-scoped, opacity
+# + pointer-events only, both tr:hover/tr:focus-within named — and the
+# cross-file markup guard pinning the [data-copy-value] discriminator that
+# keeps the View-panel/eye button always visible)
+# 52 = merge origin/main into
 # claude/history-preview-gallery-32b974 (2026-09-03): this branch forked
 # from main at 49 (46 + 3, quick task 260902-w4t, see below) and made a
 # net +0 change of its own on top (quick task 260903-c4o +1 -> 50, quick
@@ -1175,6 +1180,121 @@ def main():
     check(
         "the mobile card's details region contains exactly 3 copy buttons (callsign, hex, full timestamp), each immediately followed by its data-copy-feedback sibling",
         _mobile_details_three_copy_buttons)
+
+    def _quick_260903_peo_desktop_copy_reveal_stylesheet_contract():
+        # UIR-17: the desktop-only reveal rule lives inside the shared
+        # min-width: 960px block, is scoped by [data-copy-value] (never
+        # the bare .copy-btn class the always-visible View-panel/eye
+        # trigger also carries), reveals via opacity + pointer-events
+        # (never visibility: hidden or display: none, which would remove
+        # the control from the tab order and break keyboard access — the
+        # exact regression this finding forbids), and names both
+        # tr:hover and tr:focus-within as its reveal triggers.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        media_marker = "@media (min-width: 960px) {"
+        if media_marker not in css_source:
+            return False, "expected style.css to declare the shared min-width: 960px block"
+        media_start = css_source.index(media_marker)
+        brace_at = css_source.index("{", media_start)
+        depth, i = 0, brace_at
+        while True:
+            ch = css_source[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        media_block = css_source[brace_at + 1:i]
+        # Same multi-line-selector normalization the existing
+        # [data-filter-clear] guard above uses (joining a comma-grouped
+        # selector split across lines onto one line), so this check is
+        # not fooled by the file's own line-wrapping convention.
+        normalized = re.sub(r",\s*\n\s*", ", ", media_block)
+
+        rest_selector = ".data-table tbody tr [data-copy-value] {"
+        if rest_selector not in normalized:
+            return False, (
+                "expected the at-rest rule to be scoped by [data-copy-value] "
+                "inside the 960px block, not the bare .copy-btn class")
+        rest_start = normalized.index(rest_selector)
+        rest_body = normalized[rest_start:normalized.index("}", rest_start)]
+        if "opacity" not in rest_body:
+            return False, "expected the at-rest rule to declare opacity"
+        if "visibility: hidden" in rest_body or "display: none" in rest_body:
+            return False, (
+                "expected the at-rest rule to use opacity + pointer-events, "
+                "never visibility: hidden or display: none")
+
+        reveal_selector = (
+            ".data-table tbody tr:hover [data-copy-value], "
+            ".data-table tbody tr:focus-within [data-copy-value] {")
+        if reveal_selector not in normalized:
+            return False, "expected one reveal rule naming both tr:hover and tr:focus-within"
+        reveal_start = normalized.index(reveal_selector)
+        reveal_body = normalized[reveal_start:normalized.index("}", reveal_start)]
+        if "opacity: 1" not in reveal_body:
+            return False, "expected the reveal rule to restore opacity: 1"
+        if "visibility: hidden" in reveal_body or "display: none" in reveal_body:
+            return False, "expected the reveal rule to carry no visibility/display override"
+        return True, ""
+    check(
+        "the desktop copy-button reveal rule lives inside the shared 960px block, is scoped by "
+        "[data-copy-value] (never the bare .copy-btn class), reveals via opacity + pointer-events "
+        "(never visibility: hidden or display: none) on both tr:hover and tr:focus-within "
+        "(quick task 260903-peo, UIR-17)",
+        _quick_260903_peo_desktop_copy_reveal_stylesheet_contract)
+
+    def _quick_260903_peo_desktop_row_copy_buttons_and_eye_button_discriminator():
+        # UIR-17's cross-file guard: the [data-copy-value] discriminator
+        # the reveal rule above depends on cannot silently disappear. A
+        # real rendered desktop row still carries both copy buttons with
+        # their aria-labels and data-copy-feedback siblings intact, and
+        # the same row's View-panel/eye trigger carries
+        # data-view-panel-src and NEVER data-copy-value.
+        tmp = _mkstate("h-copy-reveal-discriminator")
+        try:
+            names = ["2026-08-27T10-00-00+00-00.png"]
+            _seed_gallery(tmp, names)
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T10:01:00+00:00", "hex": "rev01", "callsign": "REVEAL"},
+            ])
+            rendered = history_page.render(_history_ctx(tmp, gallery_entries=names))
+            tr_block = _row_block(rendered, "tr", 0)
+            if tr_block is None:
+                return False, "could not locate the seeded row's desktop <tr>"
+            if tr_block.count("data-copy-value") != 2:
+                return False, (
+                    "expected exactly 2 copy buttons (callsign, hex) in the "
+                    "desktop row, got %d" % tr_block.count("data-copy-value"))
+            if tr_block.count("data-copy-feedback") != 2:
+                return False, "expected each copy button's data-copy-feedback sibling to survive"
+            for label in (history_page._COPY_CALLSIGN_LABEL, history_page._COPY_HEX_LABEL):
+                if layout.escape_html(label) not in tr_block:
+                    return False, "expected %r as an aria-label in the desktop row" % label
+            if "data-view-panel-src" not in tr_block:
+                return False, "expected the row's View-panel/eye trigger to still render"
+            view_panel_start = tr_block.index("data-view-panel-src")
+            view_panel_tag = tr_block[
+                tr_block.rindex("<", 0, view_panel_start):tr_block.index(">", view_panel_start) + 1]
+            if "data-copy-value" in view_panel_tag:
+                return False, (
+                    "the View-panel/eye button must never carry data-copy-value "
+                    "— that is the sole discriminator separating it from the "
+                    "two copy buttons the desktop reveal rule targets")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a real rendered desktop History row keeps both copy buttons (aria-labels, "
+        "data-copy-feedback siblings intact) and its View-panel/eye trigger never carries "
+        "data-copy-value — the discriminator the desktop reveal rule depends on "
+        "(quick task 260903-peo, UIR-17)",
+        _quick_260903_peo_desktop_row_copy_buttons_and_eye_button_discriminator)
 
     def _presentation_labels_in_full_render():
         # UXA-05: Task 1's format_event_row()-level fixture, re-asserted

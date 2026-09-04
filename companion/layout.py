@@ -87,6 +87,11 @@ FRESHNESS_SCRIPT_SRC = "/static/freshness.js"
 # exactly, same duplicated-not-imported contract as the four constants above.
 PANEL_LOOKUP_SCRIPT_SRC = "/static/panel-lookup.js"
 
+# Quick task 260903-peo (UIR-19): must equal companion/app.py's
+# FLASH_CLEANUP_SCRIPT_ROUTE exactly, same duplicated-not-imported
+# contract as the constants above.
+FLASH_CLEANUP_SCRIPT_SRC = "/static/flash-cleanup.js"
+
 UI_THEME_CHOICES = ("auto", "light", "dark")
 
 _STATUS_DOT_CLASSES = {
@@ -848,6 +853,16 @@ def login_shell(body, ui_theme="auto"):
     )
 
 
+# 06.6.4.1.1-04 (D-17): a substitution token, never markup that ships. It
+# has exactly one definition site (here). page_header() emits it as the
+# last thing in its returned string; page_shell() below is the only
+# consumer — it swaps the token for the flash banner when the token is
+# present (every page built on page_header()) and unconditionally strips
+# any leftover occurrence before the response is returned, so it can
+# never reach the browser on any path, flash or no-flash.
+FLASH_SLOT_MARKER = "<!--flash-slot-->"
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None):
@@ -874,6 +889,30 @@ def page_shell(
         active, theme_form_html, health_alert=health_alert)
     flash_html = flash or ""
     banner_html = banner or ""
+
+    # 06.6.4.1.1-04 (D-17): move the flash banner to directly below the
+    # page header instead of above the page title, so saving no longer
+    # shifts the title down. `body` is one opaque pre-built string by
+    # the time it reaches this function, so there is no structural
+    # handle on "just after the header" — page_header() instead leaves
+    # FLASH_SLOT_MARKER as a literal handle at exactly that point.
+    #   - A page built on page_header() (every authenticated page today)
+    #     carries the marker in `body`; the flash banner is spliced in
+    #     right there and `flash_html` is cleared so it is not also
+    #     emitted in its old pre-body slot.
+    #   - A page that does NOT use page_header() (login, 404, and any
+    #     future bare page) has no marker in `body`; `flash_html` is left
+    #     untouched and keeps rendering in today's before-body slot, so
+    #     no such caller has to change and none silently loses its
+    #     banner.
+    #   - The unconditional second replace() below guarantees the marker
+    #     itself never reaches the browser, including on the no-flash
+    #     path where `flash_html` is "" (nothing to splice in, but a
+    #     `page_header()` body still carries the marker literal).
+    if FLASH_SLOT_MARKER in body:
+        body = body.replace(FLASH_SLOT_MARKER, flash_html, 1)
+        flash_html = ""
+    body = body.replace(FLASH_SLOT_MARKER, "")
 
     # 06.6.2-05 (D-17): the sidebar's theme picker and Sign out control,
     # grouped into one footer region — the exact artifact Phase 06.6.3
@@ -947,6 +986,7 @@ def page_shell(
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
         '<script src="%s" defer></script>\n'
+        '<script src="%s" defer></script>\n'
         "</body>\n"
         "</html>\n"
     ) % (
@@ -976,6 +1016,11 @@ def page_shell(
         # 260902-tli both History and the Airlines gallery render
         # #panel-lookup-dialog.
         PANEL_LOOKUP_SCRIPT_SRC,
+        # Quick task 260903-peo (UIR-19): seventh script, same
+        # unconditional/no-op-via-guard-clause convention — served every
+        # page, since the flash banner it cleans up after is emitted by
+        # this function for every authenticated page, not just one.
+        FLASH_CLEANUP_SCRIPT_SRC,
     )
 
 
@@ -1178,6 +1223,15 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
     that has no padding and no border, its own bottom margin collapses
     with the parent's `margin-bottom`, so the gap below the header block
     is unchanged rather than doubled.
+
+    06.6.4.1.1-04 (D-17): the returned string now ends with
+    FLASH_SLOT_MARKER, appended after the closing `</div>`. This is NOT
+    a signature change — the LITERAL CONTRACT above governs this
+    function's parameter names and order, not the content of what it
+    returns — but it is documented here explicitly so the next reader
+    does not mistake it for one. `page_shell()` is the marker's only
+    consumer: it splices the flash banner in at that exact point and
+    strips the marker unconditionally before the response ships.
     """
     purpose_html = (
         '<p class="page-header__purpose text-body">%s</p>' % escape_html(purpose)
@@ -1189,7 +1243,11 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None):
         '<h1 class="page-title">%s</h1>'
         "%s%s%s"
         "</div>"
-    ) % (escape_html(title), freshness_block, action_block, purpose_html)
+        "%s"
+    ) % (
+        escape_html(title), freshness_block, action_block, purpose_html,
+        FLASH_SLOT_MARKER,
+    )
 
 
 def data_table(headers, rows, mono_columns=(), raw_columns=(), desc_columns=(), prose=False):

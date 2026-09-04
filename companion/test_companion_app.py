@@ -34,6 +34,7 @@ Usage:
 import hashlib
 import hmac
 import html
+import io
 import os
 import re
 import shutil
@@ -46,14 +47,18 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
+
+from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-from companion import auth, layout  # noqa: E402
-from server import device_config  # noqa: E402
+from companion import auth, layout, theme_preview  # noqa: E402
+from companion.pages import health_page  # noqa: E402
+from server import device_config, history_db  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -67,6 +72,42 @@ EXPECTED_CHECK_COUNT = 129  # 11-04: +4 (env_wake_interval_default() full input 
 # page_context() threading, the end-to-end env-prefill/on-disk-precedence
 # check, and the below-floor-degrades-to-placeholder check)
 # merge origin/main into
+EXPECTED_CHECK_COUNT = 144  # 141 + 3 (phase 06.6.4.1.1-04 Task 1, D-17: the
+# flash banner now splices below page_header() with FLASH_SLOT_MARKER never
+# leaking to the client, still falls back to its original before-body slot
+# for marker-less bodies (login/404), and an anomaly banner is unaffected
+# and keeps its own pre-body slot)
+# 141 = 137 + 4 (phase 06.6.4.1.1-01 Task 2: the
+# /theme-preview/{id}.png route — real key returns 200/image/png/a real
+# PNG body for every one of the 16 registered themes, an unknown id 404s
+# with the same not-found copy, three traversal-shaped paths all 404 with
+# no file content, and an unauthenticated request redirects to /login
+# without ever returning image bytes — same four shapes as the
+# illustration-image-route checks below)
+# 137 = 130 + 7 (phase 06.6.4.1.1-01 Task 1: theme_preview.py's
+# in-process checks — 320x120 PNG for every theme, pairwise-distinct means
+# across all 16 themes, byte-identical repeat renders, cache_path()'s
+# traversal/unknown/falsy-state_dir guard, cold-cache creates the file and
+# matches a direct render, a second call is served from disk without
+# re-rendering, and preview_signature() changing with
+# THEME_PREVIEW_CACHE_VERSION)
+# 130 = 127 + 3 (quick task 260903-peo Task 4: UIR-19's
+# flash-cleanup.js pre-auth-serving check, ES5-dialect check, and
+# route/src cross-file agreement check; the pre-existing six-script-tag
+# count guard was retargeted in place to seven, no count change from it)
+# 127 = quick task 260903-peo Task 1: 2 new checks
+# (UIR-16 — an authenticated 404 opens with the shared page_header()
+# component and shows the Health nav dot under seeded error state; the
+# same seeded error state produces NO health-dot markup for an
+# UNAUTHENTICATED 404, the leak guard for the two pre-auth static-asset
+# call sites, _serve_stylesheet() and _serve_script_file()). 125 = merge origin/main into
+EXPECTED_CHECK_COUNT = 148  # merge of HEAD (129: Phase 10/11's env-prefill
+# and page_context() threading checks) with origin/main (144: 06.6.4.1.1's
+# theme-preview route/flash-slot checks) — both branches' independent
+# additions combined. Recomputed directly against the real on-disk
+# check(...) call count at merge-resolution time (148/148 pass), not
+# trusted from arithmetic alone, per this file's own established
+# discipline.
 # claude/history-preview-gallery-32b974 (2026-09-03): combines this
 # branch's quick task 260903-c4o (-1: 108 -> 107, retiring the
 # /preview.png route) with main's independent, non-overlapping work
@@ -165,6 +206,17 @@ EXPECTED_CHECK_COUNT = 129  # 11-04: +4 (env_wake_interval_default() full input 
 # pre-existing NAV_TABS-redirect checks and the one POST /config redirect
 # check were updated in place for the new ?next= carrying behavior, not
 # counted as new).
+
+
+def _ago_iso(seconds):
+    """An ISO-8601 UTC timestamp `seconds` in the past — quick task
+    260903-peo's own seeding helper, mirroring test_status_pages.py's
+    `_ago()` for the one use this file needs (a stale
+    `META_LAST_PIPELINE_RUN` past `health_page.STALE_PIPELINE_ERROR_S`,
+    which drives `overall_severity()` to `"error"`).
+    """
+    return (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat(
+        timespec="seconds")
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -626,6 +678,69 @@ def main():
             "the dropdown link matching `active` carries a distinguishing class, the others do not",
             _page_shell_marks_only_the_active_dropdown_link)
 
+        # --- 06.6.4.1.1-04 (D-17): flash banner moves below page_header() ---
+
+        def _flash_banner_spliced_below_page_header_marker_never_leaks():
+            body = layout.page_header("Title") + "<p>body content</p>"
+            no_flash = layout.page_shell(title="X", active="settings", body=body)
+            flash_markup = layout.flash_banner("Saved")
+            with_flash = layout.page_shell(
+                title="X", active="settings", body=body, flash=flash_markup)
+            if layout.FLASH_SLOT_MARKER in no_flash:
+                return False, "expected no marker leakage on the no-flash render"
+            if layout.FLASH_SLOT_MARKER in with_flash:
+                return False, "expected no marker leakage on the with-flash render"
+            if "banner--flash" in no_flash:
+                return False, "expected no flash banner when none was supplied"
+            if with_flash.index("banner--flash") <= with_flash.index("page-header"):
+                return False, "expected the flash banner to render after the page header, not before it"
+            if with_flash.replace(flash_markup, "", 1) != no_flash:
+                return False, (
+                    "expected the flash-present and flash-absent documents to differ only "
+                    "by the spliced-in banner")
+            return True, ""
+        check(
+            "page_shell() splices the flash banner in directly below page_header()'s title, "
+            "and FLASH_SLOT_MARKER never reaches the rendered document",
+            _flash_banner_spliced_below_page_header_marker_never_leaks)
+
+        def _flash_banner_fallback_slot_when_body_has_no_marker():
+            # login/404-style bodies never call page_header(), so they carry
+            # no FLASH_SLOT_MARKER — the flash banner must keep rendering in
+            # its original before-body slot rather than silently vanishing.
+            bare_body = "<p>bare content, no page_header()</p>"
+            flash_markup = layout.flash_banner("Saved")
+            rendered = layout.page_shell(
+                title="X", active="settings", body=bare_body, flash=flash_markup)
+            if "banner--flash" not in rendered:
+                return False, "expected the flash banner in the fallback (before-body) slot"
+            if layout.FLASH_SLOT_MARKER in rendered:
+                return False, "expected no marker leakage on the fallback path"
+            if rendered.index("banner--flash") >= rendered.index("bare content"):
+                return False, "expected the fallback flash banner to render before the marker-less body"
+            return True, ""
+        check(
+            "page_shell() still renders the flash banner in its original slot for a body "
+            "with no FLASH_SLOT_MARKER (the pre-page_header() fallback path)",
+            _flash_banner_fallback_slot_when_body_has_no_marker)
+
+        def _anomaly_banner_unaffected_by_the_flash_slot_move():
+            body = layout.page_header("Title") + "<p>body content</p>"
+            rendered = layout.page_shell(
+                title="X", active="settings", body=body,
+                banner=layout.anomaly_banner("Uh oh"))
+            if "banner--anomaly" not in rendered:
+                return False, "expected the anomaly banner to render"
+            if "banner--flash" in rendered:
+                return False, "did not expect a flash banner when none was supplied"
+            if rendered.index("banner--anomaly") >= rendered.index("page-header"):
+                return False, "expected the anomaly banner to keep rendering before the page header"
+            return True, ""
+        check(
+            "an anomaly banner (banner=) is unaffected by the flash-slot move and still "
+            "renders in its existing pre-body slot",
+            _anomaly_banner_unaffected_by_the_flash_slot_move)
+
         def _theme_resolution():
             rendered = layout.page_shell(title="Health", active="health", body="", ui_theme="dark")
             if 'data-ui-theme="dark"' not in rendered:
@@ -973,6 +1088,18 @@ def main():
         # </h2>` at the same 20px size on the Config page. These two
         # checks make the contract executable in both directions: every
         # heading role IS serif, and no dense/tabular role IS NOT.
+        #
+        # 06.6.4.1.1-04 Task 2: plan 02 (D-09) gave the nested card-title
+        # selector below a deliberate sans override and (D-13) retired
+        # `.stat-tile__caption`'s serif Label role entirely, but neither
+        # change was caught by either guard — `_every_heading_role_is_serif`
+        # only inspected the shared selector's own block, and
+        # `_serif_never_reaches_dense_content`'s forbidden list never named
+        # `.stat-tile__caption`. Both checks kept passing while the serif
+        # contract they encode had quietly changed underneath them — the
+        # exact allow-list-drift failure mode these checks exist to catch.
+        # Extended below so both changes are now asserted, not merely
+        # tolerated.
 
         def _every_heading_role_is_serif():
             css_path = os.path.join(HERE, "static", "style.css")
@@ -1008,10 +1135,31 @@ def main():
                     "the standalone `legend` rule declares font-weight "
                     "again; at equal specificity it wins over the serif "
                     "heading rule and re-breaks legend/h2 consistency")
+            # 06.6.4.1.1-04 Task 2 (D-09): the shared rule above grants
+            # serif to every heading role, and there is exactly one
+            # documented, asserted exception — the nested card-title
+            # selector ("Battery trend", "Unresolved prefixes",
+            # "Resolution statistics"), deliberately demoted to the sans
+            # --font-ui voice at 16px semibold. Asserting it here turns
+            # D-09's override from "an unguarded rule that happens to
+            # exist" into a stated part of the contract.
+            nested_title_start = css.find("\n.page-section--nested > h2,")
+            if nested_title_start == -1:
+                return False, (
+                    "expected the named nested card-title exception "
+                    "selector `.page-section--nested > h2,` in style.css")
+            nested_title_block = css[
+                nested_title_start:css.index("}", nested_title_start)]
+            if "font-family: var(--font-ui)" not in nested_title_block:
+                return False, (
+                    "expected the nested card-title exception to declare "
+                    "font-family: var(--font-ui) (D-09's sans override)")
             return True, ""
         check(
             "every heading role (h1/h2/h3/legend/.text-heading) shares one "
-            "serif rule, and `legend` does not override its weight",
+            "serif rule except the one named, asserted nested card-title "
+            "sans exception (D-09), and `legend` does not override its "
+            "weight",
             _every_heading_role_is_serif)
 
         def _serif_never_reaches_dense_content():
@@ -1019,12 +1167,19 @@ def main():
             # form controls, nav links and mono content stay on
             # --font-ui. Guards against the rejected "serif partout"
             # option creeping back in one rule at a time.
+            #
+            # `.stat-tile__caption` (D-13, phase 06.6.4.1.1-02) was this
+            # file's one named Label-role serif exception until D-13
+            # retired it in favour of the unified sans 12px label voice —
+            # it is listed here now so that retirement cannot silently
+            # reverse without a deliberate edit to this check.
             css_path = os.path.join(HERE, "static", "style.css")
             with open(css_path) as fh:
                 css = fh.read()
             forbidden = (
                 ".data-table", ".cell-primary", ".cell-secondary",
-                ".mono", ".text-body", ".sidebar-link", ".mobile-nav__link")
+                ".mono", ".text-body", ".sidebar-link", ".mobile-nav__link",
+                ".stat-tile__caption")
             for selector in forbidden:
                 index = css.find("\n%s {" % selector)
                 if index == -1:
@@ -1037,8 +1192,9 @@ def main():
                         % selector)
             return True, ""
         check(
-            "--font-serif never reaches table, body, mono or nav-link rules "
-            "(D-03's headings-only boundary)",
+            "--font-serif never reaches table, body, mono, nav-link or "
+            "stat-tile-caption rules (D-03's headings-only boundary; "
+            "D-13 retired the caption's own former serif exception)",
             _serif_never_reaches_dense_content)
 
         def _nav_link_geometries_stay_diverged():
@@ -1631,6 +1787,116 @@ def main():
             os.environ.pop(auth.PASSWORD_ENV_VAR, None)
 
     # ==================================================================
+    # Section 2.5: companion/theme_preview.py (06.6.4.1.1-01 Task 1) — pure
+    # in-process module checks, no companion/app.py subprocess or password
+    # env needed (theme_preview.py imports neither auth nor app.py).
+    # ==================================================================
+
+    def _theme_preview_bytes_open_as_320x120_rgb_png_for_every_theme():
+        for theme_id in device_config.THEME_IDS:
+            payload = theme_preview.preview_png_bytes(theme_id)
+            img = Image.open(io.BytesIO(payload))
+            if img.format != "PNG":
+                return False, "theme %r: expected PNG, got %r" % (theme_id, img.format)
+            if img.size != theme_preview.THEME_PREVIEW_SIZE:
+                return False, "theme %r: expected size %r, got %r" % (
+                    theme_id, theme_preview.THEME_PREVIEW_SIZE, img.size)
+            if img.convert("RGB").mode != "RGB":
+                return False, "theme %r: expected an RGB-convertible image" % (theme_id,)
+        return True, ""
+    check(
+        "preview_png_bytes() returns a 320x120 PNG for every id in device_config.THEME_IDS",
+        _theme_preview_bytes_open_as_320x120_rgb_png_for_every_theme)
+
+    def _theme_preview_means_pairwise_distinct():
+        means = []
+        for theme_id in device_config.THEME_IDS:
+            payload = theme_preview.preview_png_bytes(theme_id)
+            img = Image.open(io.BytesIO(payload)).convert("RGB").resize((1, 1))
+            means.append(next(iter(img.getdata())))
+        if len(set(means)) != len(means):
+            return False, "expected 16 pairwise-distinct mean RGB values, got %r" % (means,)
+        return True, ""
+    check(
+        "the 16 themes' previews have pairwise-distinct mean RGB at the crop/size used "
+        "(proves the crop box discriminates themes, D-07)",
+        _theme_preview_means_pairwise_distinct)
+
+    def _theme_preview_bytes_stable_across_calls():
+        first = theme_preview.preview_png_bytes("white")
+        second = theme_preview.preview_png_bytes("white")
+        if first != second:
+            return False, "expected byte-identical output for the same fixed-scene theme"
+        return True, ""
+    check(
+        "preview_png_bytes() returns byte-identical output across two calls for the same "
+        "theme (the scene is fixed, D-06 — nothing time- or data-dependent leaks in)",
+        _theme_preview_bytes_stable_across_calls)
+
+    def _theme_preview_cache_path_rejects_unsafe_and_falsy_inputs():
+        with tempfile.TemporaryDirectory() as state_dir:
+            if theme_preview.cache_path(state_dir, "../../etc/passwd") is not None:
+                return False, "expected None for a traversal-shaped theme id"
+            if theme_preview.cache_path(state_dir, "nope") is not None:
+                return False, "expected None for an id not in device_config.THEMES"
+            if theme_preview.cache_path(None, "white") is not None:
+                return False, "expected None for a falsy state_dir"
+        return True, ""
+    check(
+        "cache_path() returns None for a traversal-shaped id, an unknown id, and a falsy "
+        "state_dir (boundary guard, T-v26-01-01 discipline)",
+        _theme_preview_cache_path_rejects_unsafe_and_falsy_inputs)
+
+    def _theme_preview_cached_bytes_cold_cache_creates_file():
+        with tempfile.TemporaryDirectory() as state_dir:
+            direct = theme_preview.preview_png_bytes("blue")
+            cached = theme_preview.cached_preview_bytes(state_dir, "blue")
+            path = theme_preview.cache_path(state_dir, "blue")
+            if not os.path.isfile(path):
+                return False, "expected cached_preview_bytes() to create %r" % (path,)
+            if cached != direct:
+                return False, "expected the cold-cache render to match preview_png_bytes()"
+        return True, ""
+    check(
+        "cached_preview_bytes() on a cold state dir creates the cache file and returns the "
+        "same bytes preview_png_bytes() would",
+        _theme_preview_cached_bytes_cold_cache_creates_file)
+
+    def _theme_preview_cached_bytes_second_call_serves_from_disk():
+        with tempfile.TemporaryDirectory() as state_dir:
+            theme_preview.cached_preview_bytes(state_dir, "green")
+            path = theme_preview.cache_path(state_dir, "green")
+            marker = b"mutated-cache-fixture-not-a-real-render"
+            with open(path, "wb") as fh:
+                fh.write(marker)
+            second = theme_preview.cached_preview_bytes(state_dir, "green")
+            if second != marker:
+                return False, (
+                    "expected the second call to serve the mutated on-disk bytes "
+                    "unchanged, proving it did not re-render")
+        return True, ""
+    check(
+        "a second cached_preview_bytes() call for the same theme is served from the file "
+        "on disk, not re-rendered",
+        _theme_preview_cached_bytes_second_call_serves_from_disk)
+
+    def _theme_preview_signature_changes_with_cache_version():
+        before = theme_preview.preview_signature("white")
+        original_version = theme_preview.THEME_PREVIEW_CACHE_VERSION
+        try:
+            theme_preview.THEME_PREVIEW_CACHE_VERSION = original_version + 1
+            after = theme_preview.preview_signature("white")
+        finally:
+            theme_preview.THEME_PREVIEW_CACHE_VERSION = original_version
+        if before == after:
+            return False, "expected preview_signature() to change when the cache version does"
+        return True, ""
+    check(
+        "preview_signature() changes when THEME_PREVIEW_CACHE_VERSION changes (the manual "
+        "escape hatch for a render-geometry change the signature can't otherwise see)",
+        _theme_preview_signature_changes_with_cache_version)
+
+    # ==================================================================
     # Section 3: companion/app.py (plan 06-05) — a real companion/app.py
     # subprocess, launched on a free local port, driven with
     # urllib.request. This section owns its own harness lifecycle
@@ -1928,20 +2194,73 @@ def main():
             "layout.PANEL_LOOKUP_SCRIPT_SRC equals companion.app.PANEL_LOOKUP_SCRIPT_ROUTE",
             _panel_lookup_script_route_src_agree)
 
-        def _six_deferred_scripts_before_closing_body():
+        # --- quick task 260903-peo Task 4: flash-cleanup.js (UIR-19) ---
+
+        check(
+            "GET /static/flash-cleanup.js succeeds without a session and returns a "
+            "shared-cacheable JavaScript content type",
+            _static_script_public("/static/flash-cleanup.js"))
+
+        def _flash_cleanup_script_es5_safe_and_no_html_write():
+            js_path = os.path.join(HERE, "static", "flash-cleanup.js")
+            with open(js_path) as fh:
+                src = fh.read()
+            if src.count('"use strict"') != 1:
+                return False, (
+                    "expected exactly one \"use strict\", got %d"
+                    % src.count('"use strict"'))
+            banned = (
+                "let ", "const ", "=>", "`", "fetch(", "XMLHttpRequest",
+                "setTimeout", "setInterval", "innerHTML", "document.write",
+                "eval(")
+            for token in banned:
+                if token in src:
+                    return False, "flash-cleanup.js must not contain %r" % token
+            # Confirmed from source, not assumed: history.replaceState and
+            # location.search/location.pathname are NOT among the banned
+            # ES5-unsafe/forbidden-sink tokens above (freshness.js already
+            # ships window.location.reload() and passes, so navigation
+            # APIs are not blanket-banned) — this is the mechanism the
+            # cleanup itself depends on.
+            for required in ("history.replaceState", "location.search", "location.pathname"):
+                if required not in src:
+                    return False, "expected %r in flash-cleanup.js" % required
+            return True, ""
+        check(
+            "flash-cleanup.js stays ES5-safe and side-effect-free (no let/const/arrow/backtick/"
+            "fetch/XHR/timers/innerHTML/document.write/eval), and uses history.replaceState with "
+            "location.search/location.pathname to strip a consumed ?flash= param (quick task "
+            "260903-peo, UIR-19)",
+            _flash_cleanup_script_es5_safe_and_no_html_write)
+
+        def _flash_cleanup_script_route_src_agree():
+            import companion.app as app_module
+            if layout.FLASH_CLEANUP_SCRIPT_SRC != app_module.FLASH_CLEANUP_SCRIPT_ROUTE:
+                return False, "flash-cleanup script route drift: %r vs %r" % (
+                    layout.FLASH_CLEANUP_SCRIPT_SRC, app_module.FLASH_CLEANUP_SCRIPT_ROUTE)
+            return True, ""
+        check(
+            "layout.FLASH_CLEANUP_SCRIPT_SRC equals companion.app.FLASH_CLEANUP_SCRIPT_ROUTE",
+            _flash_cleanup_script_route_src_agree)
+
+        def _seven_deferred_scripts_before_closing_body():
+            # Retargeted in place from _six_deferred_scripts_before_
+            # closing_body() (quick task 260903-peo, UIR-19 Task 4):
+            # flash-cleanup.js is the seventh unconditional script.
             doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
             body_close = doc.index("</body>")
             head = doc[:body_close]
             count = head.count('<script src=')
-            if count != 6:
-                return False, "expected exactly 6 deferred <script src= tags before </body>, got %d" % count
-            if ('<script src="%s" defer></script>' % layout.PANEL_LOOKUP_SCRIPT_SRC) not in doc:
-                return False, "expected a deferred <script> tag for PANEL_LOOKUP_SCRIPT_SRC"
+            if count != 7:
+                return False, "expected exactly 7 deferred <script src= tags before </body>, got %d" % count
+            for src_const in (layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC):
+                if ('<script src="%s" defer></script>' % src_const) not in doc:
+                    return False, "expected a deferred <script> tag for %r" % src_const
             return True, ""
         check(
-            "a rendered authenticated page contains exactly six deferred <script src= tags before "
-            "the closing body tag, including panel-lookup.js",
-            _six_deferred_scripts_before_closing_body)
+            "a rendered authenticated page contains exactly seven deferred <script src= tags "
+            "before the closing body tag, including panel-lookup.js and flash-cleanup.js",
+            _seven_deferred_scripts_before_closing_body)
 
         # --- login: wrong password, right password, cookie flags ---
 
@@ -2420,6 +2739,65 @@ def main():
             return True, ""
         check("an unknown path returns 404 with the exact 'Page not found.' copy", _unknown_path_404)
 
+        # --- UIR-16: 404 uses the shared page_header() and gates the Health nav dot on auth ---
+
+        # Seed a stale pipeline run once, shared by both checks below —
+        # health_page.overall_severity() resolves this to "error", giving
+        # both checks the same non-"ok" state to test the authenticated/
+        # unauthenticated split against.
+        with history_db.open_db(harness.tmpdir) as conn:
+            history_db.set_meta(
+                conn, history_db.META_LAST_PIPELINE_RUN,
+                _ago_iso(health_page.STALE_PIPELINE_ERROR_S + 60))
+
+        def _authenticated_404_uses_page_header_and_shows_health_dot():
+            status, _headers, body = http_request(
+                base + "/this-route-does-not-exist-uir16", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404, got %d" % status
+            if b'<h1 class="page-title">' not in body:
+                return False, (
+                    "expected the shared page_header() heading "
+                    "(<h1 class=\"page-title\">), the 30px serif role every "
+                    "other authenticated page opens with")
+            if b'<h1 class="text-heading">' in body:
+                return False, "expected the old text-heading 404 heading to be gone"
+            if b"dot--error" not in body:
+                return False, (
+                    "expected the Health nav dot (dot--error) to render for an "
+                    "authenticated caller under seeded error state")
+            return True, ""
+        check(
+            "an authenticated 404 opens with the shared page_header() (page-title, not "
+            "text-heading) and shows the Health nav dot when state is seeded error",
+            _authenticated_404_uses_page_header_and_shows_health_dot)
+
+        def _unauthenticated_404_never_leaks_health_state():
+            # T-peo-01, the leak guard: the exact same seeded error state
+            # above must NOT surface a dot for an unauthenticated caller
+            # landing on a 404. do_GET's own final, ungated fallback for
+            # any unmatched path is reached before any require_session()
+            # check runs (there is no route to gate) — the same
+            # structural class of pre-auth reach as the two named
+            # pre-auth static-asset delegates, _serve_stylesheet() and
+            # _serve_script_file(), which this harness cannot easily
+            # break on disk without deleting shipped files.
+            status, _headers, body = http_request(
+                base + "/this-route-does-not-exist-uir16-unauth")
+            if status != 404:
+                return False, "expected 404, got %d" % status
+            if b"dot--error" in body or b"dot--warn" in body:
+                return False, (
+                    "expected NO health-dot markup for an unauthenticated 404, "
+                    "even under the same seeded error state — this is the leak "
+                    "guard")
+            return True, ""
+        check(
+            "an UNAUTHENTICATED 404 renders no health-dot markup under the same seeded "
+            "error state — the leak guard for the two pre-auth call sites "
+            "(_serve_stylesheet, _serve_script_file)",
+            _unauthenticated_404_never_leaks_health_state)
+
         # --- preview.png: retired route, 404s even with a real panel present ---
 
         def _preview_png_404_even_with_real_panel():
@@ -2571,6 +2949,72 @@ def main():
         check(
             "an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes",
             _illustration_unauthenticated_redirects_to_login)
+
+        # --- theme preview image route (06.6.4.1.1-01 Task 2) ---
+
+        def _theme_preview_real_key_returns_png_for_every_theme():
+            for theme_id in device_config.THEME_IDS:
+                status, headers, body = http_request(
+                    base + "/theme-preview/%s.png" % theme_id, cookie=session_cookie)
+                if status != 200:
+                    return False, "theme %r: expected 200, got %d" % (theme_id, status)
+                if headers.get("Content-Type") != "image/png":
+                    return False, "theme %r: expected Content-Type image/png, got %r" % (
+                        theme_id, headers.get("Content-Type"))
+                if not body.startswith(PNG_SIGNATURE):
+                    return False, "theme %r: expected a real PNG body" % (theme_id,)
+            return True, ""
+        check(
+            "an authenticated GET /theme-preview/{id}.png returns 200, image/png, and a real "
+            "PNG body for every id in device_config.THEME_IDS — no theme is unreachable",
+            _theme_preview_real_key_returns_png_for_every_theme)
+
+        def _theme_preview_unknown_key_404():
+            status, _headers, body = http_request(
+                base + "/theme-preview/not-a-theme.png", cookie=session_cookie)
+            if status != 404:
+                return False, "expected 404 for a theme id not in the membership set, got %d" % status
+            if b"Page not found." not in body:
+                return False, "expected the exact 404 copy in the response body"
+            return True, ""
+        check(
+            "an authenticated GET for a theme id not in the membership set returns the same "
+            "404 page an unknown runway/illustration id produces",
+            _theme_preview_unknown_key_404)
+
+        def _theme_preview_traversal_key_404():
+            adversarial_paths = [
+                "/theme-preview/..%2F..%2Fetc%2Fpasswd.png",
+                "/theme-preview/../../../etc/passwd.png",
+                "/theme-preview/style.png",
+            ]
+            for adversarial_path in adversarial_paths:
+                status, _headers, body = http_request(
+                    base + adversarial_path, cookie=session_cookie)
+                if status != 404:
+                    return False, "expected 404 for adversarial path %r, got %d" % (adversarial_path, status)
+                if body and b"root:" in body:
+                    return False, "adversarial path %r returned file content" % (adversarial_path,)
+            return True, ""
+        check(
+            "authenticated GET requests for adversarial theme-preview paths (path traversal) "
+            "all return 404 with no file content",
+            _theme_preview_traversal_key_404)
+
+        def _theme_preview_unauthenticated_redirects_to_login():
+            status, headers, body = http_request(base + "/theme-preview/white.png")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            location = headers.get("Location", "")
+            if "/login" not in location:
+                return False, "expected a redirect to /login, got %r" % location
+            if body.startswith(PNG_SIGNATURE):
+                return False, "unauthenticated request must never return image bytes"
+            return True, ""
+        check(
+            "an unauthenticated GET /theme-preview/white.png redirects to /login, never "
+            "returns image bytes",
+            _theme_preview_unauthenticated_redirects_to_login)
 
         # --- 260902-v26 Task 3: the live upload round trip, against this ---
         # --- real running companion/app.py subprocess (D-01/D-02/D-03).  ---

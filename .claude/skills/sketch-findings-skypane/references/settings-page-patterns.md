@@ -2,6 +2,22 @@
 
 ## Design Decisions
 
+### The Theme group is a chip grid, not a fieldset (06.6.4.1.1-05)
+
+Settings renders zero `<fieldset>` and zero `<legend>` elements anywhere on the page — all four groups (Theme, Runway, Diagnostic LED, Poll) are named by an `<h2 class="text-heading">` at one consistent heading level, D-04/D-05 (06.6.3) having already dropped `<fieldset>` from Theme and Runway before this phase.
+
+`theme_fieldset()`'s multi-theme branch (`len(device_config.THEME_IDS) > 1`, the normal case) emits a `.theme-status` card — the same wrapper Runway and Diagnostic LED use — holding a `.theme-chip-grid` of one `.theme-chip` per registry entry: a real rendered `/theme-preview/{id}.png` preview, two real-palette swatch dots, and the theme name, replacing what used to be 16 stacked 44px native radios. See `SKILL.md`'s `<design_direction>` Cards paragraph and `references/control-density.md` for the chip's own selectable-card mechanism (reused verbatim from `.runway-card`) and its selected-state treatment (border, check glyph, and — since 06.6.4.1.1-06 — a background wash). The single-theme fallback branch (`len() == 1`) is unaffected: it still renders the plain read-only `.theme-status__row` swatch-plus-label line, no chip grid needed for a one-option "choice."
+
+### The flash-banner slot (06.6.4.1.1-04, D-17)
+
+The flash banner (the "Saved — ..." confirmation) renders directly below `page_header()`'s own markup, not above the page title — so saving no longer shifts the title down the page. `body` is one opaque pre-built string by the time `layout.page_shell()` receives it, so there is no structural handle on "just after the header"; `page_header()` instead leaves `layout.FLASH_SLOT_MARKER` (`"<!--flash-slot-->"`) as a literal handle at exactly that point, appended after its own closing `</div>`.
+
+`page_shell()` resolves the marker in two branches:
+- **A page built on `page_header()`** (every authenticated page, including Settings) carries the marker in `body`; the flash banner is spliced in at that exact point and the banner's old pre-body slot is cleared so it is not emitted twice.
+- **A page that does NOT use `page_header()`** (login, 404, and any future bare page) has no marker in `body` at all; the flash banner keeps rendering in its original before-body slot, so no such caller needs to change and none silently loses its banner. This is the documented fallback the marker's own contract explicitly names.
+
+An unconditional second `replace()` on the marker string guarantees it never reaches the browser on any path — flash or no-flash, marker-carrying or not.
+
 ### The one-caption-per-section rule
 
 Every section on the Settings page (`/settings`, `companion/pages/config_page.py`) renders exactly one muted caption sentence directly under its heading, before its control — Theme, Runway, Diagnostic LED, Poll, Quiet hours, and Wake interval: six sections, six captions, zero heading-without-caption sections. (Phase 10 added Quiet hours and left this enumeration behind at four; 11-03-PLAN.md brings it current to six along with Wake interval — the invariant itself is unchanged, only the enumeration was stale.) That invariant is what a future edit would most easily break silently, since nothing stops a section rendering with no caption at all.
@@ -111,4 +127,4 @@ Two things this history section must get right because they are the parts most l
 - Reintroducing the `>=960px` two-column `.config-form` grid — removed outright by 06.6.4.1 (D-01); do not restore it while "fixing" Settings' layout.
 
 ## Origin
-Synthesized from: 06.6.3-companion-per-page-redesign (D-03, the original dirty-state bar), 06.6.4.1-companion-page-by-page-ia-consolidation (D-01, D-03, D-04, D-26, still open), quick tasks 260901-qif/260901-re6/260901-s5o, and direct commit `e87d46d`, cross-checked against `companion/pages/config_page.py` / `companion/static/style.css` / `companion/static/dirty-state.js` read live at execution time (quick task 260901-t00).
+Synthesized from: 06.6.3-companion-per-page-redesign (D-03, the original dirty-state bar), 06.6.4.1-companion-page-by-page-ia-consolidation (D-01, D-03, D-04, D-26, closed), quick tasks 260901-qif/260901-re6/260901-s5o, direct commit `e87d46d`, and 06.6.4.1.1-04/06.6.4.1.1-05 (D-01 through D-08/D-17: the theme-chip grid, and the flash-slot move below `page_header()`), cross-checked against `companion/pages/config_page.py` / `companion/static/style.css` / `companion/static/dirty-state.js` / `companion/layout.py` read live at execution time (quick task 260901-t00, updated 06.6.4.1.1-06).

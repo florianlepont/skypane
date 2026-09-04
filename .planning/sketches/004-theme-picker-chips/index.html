@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 004 — Theme picker chips</title>
+<link rel="stylesheet" href="../themes/default.css">
+<style>
+  /* ---- variant tab bar (sketch tooling, not part of the design) ---- */
+  #variant-nav{position:fixed;top:0;left:0;right:0;z-index:9998;background:#fff;border-bottom:1px solid #e2e6ee;padding:8px 16px;display:flex;gap:8px;font-family:system-ui,sans-serif;align-items:center;flex-wrap:wrap}
+  .variant-tab{border:1px solid #d8dce4;background:#f7f8fb;color:#333;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px}
+  .variant-tab.active{background:#12151B;color:#fff;border-color:#12151B}
+  body{padding-top:52px}
+  .variant{display:none}
+  .variant.active{display:block}
+  #sketch-tools{position:fixed;bottom:12px;right:12px;z-index:9999;font-family:system-ui;font-size:12px;background:rgba(0,0,0,0.7);color:white;padding:8px 12px;border-radius:8px;opacity:0.4;transition:opacity 0.2s}
+  #sketch-tools:hover{opacity:1}
+  #sketch-tools select{margin-left:6px}
+
+  /* ---- shared page-shell scaffolding (mirrors companion/layout.py's real markup shape) ---- */
+  .page-content{padding:var(--space-xl) var(--space-lg) var(--space-2xl);max-width:1100px;margin:0 auto}
+  .page-title{font-family:var(--font-serif);font-size:var(--font-page-title-size);font-weight:var(--weight-regular);margin:0 0 var(--space-sm)}
+  .page-purpose{color:var(--color-text-muted);font-size:var(--font-body-size);margin:0 0 var(--space-xl)}
+  .section-heading{font-family:var(--font-serif);font-size:var(--font-heading-size);font-weight:var(--weight-regular);margin:0 0 var(--space-md)}
+  .theme-status{background:var(--color-dominant);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:var(--space-lg);margin-bottom:var(--space-xl)}
+
+  /* ---- ink-on-ground sample text (used inside every mini preview) ---- */
+  .preview-scene{position:relative;width:100%;height:100%;overflow:hidden;font-family:var(--font-mono);display:flex;flex-direction:column;justify-content:center;padding:0 8px}
+  .preview-scene__line{font-size:8px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .preview-scene__line--dep{font-weight:600}
+  .preview-band{position:absolute;inset:0;clip-path:polygon(60% 0, 100% 0, 100% 100%, 30% 100%);}
+
+  /* ============================================================
+     VARIANT A: Today — bare fieldset, 44px native radios, no swatch
+     ============================================================ */
+  #variant-a fieldset{border:1px solid var(--color-border);border-radius:0;background:transparent;padding:var(--space-md);margin:0}
+  #variant-a legend{padding:0 var(--space-xs);font-size:var(--font-body-size)}
+  #variant-a label{display:block;margin-bottom:8px;font-size:var(--font-body-size)}
+  #variant-a input[type="radio"]{min-height:44px;min-width:44px;vertical-align:middle;margin-right:8px}
+  #variant-a .a11y-note{margin-top:var(--space-md);font-size:13px;color:var(--color-status-error)}
+
+  /* ============================================================
+     VARIANT B: New — runway-card-style chips, ~160px, wrapping grid,
+     thin rendered-preview band on top third, swatches + name below.
+     Locked decision (06.6.4.1.1-CONTEXT.md D-01, D-02, D-03, D-07).
+     ============================================================ */
+  #variant-b .chip-grid{display:flex;flex-wrap:wrap;gap:var(--space-sm)}
+  #variant-b .theme-chip{width:160px;border:2px solid var(--color-border);border-radius:var(--radius-control);overflow:hidden;cursor:pointer;background:var(--color-dominant);transition:border-color .15s}
+  #variant-b .theme-chip:hover{border-color:color-mix(in srgb, var(--color-accent) 40%, var(--color-border))}
+  #variant-b .theme-chip input{position:absolute;opacity:0;pointer-events:none}
+  #variant-b .theme-chip.selected{border-color:var(--color-accent)}
+  #variant-b .theme-chip__preview{height:56px;width:100%}
+  #variant-b .theme-chip__body{padding:8px 10px}
+  #variant-b .theme-chip__name{font-size:13px;font-weight:var(--weight-semibold);margin:0 0 4px}
+  #variant-b .theme-chip__swatches{display:flex;gap:4px;align-items:center}
+  #variant-b .theme-chip__dot{width:12px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,0.15)}
+  #variant-b .theme-chip.selected .theme-chip__name::after{content:" ✓";color:var(--color-accent)}
+
+  /* ============================================================
+     VARIANT C: Density alt — narrower 140px chips, more per row,
+     same mechanism as B. Refinement knob, not a new direction.
+     ============================================================ */
+  #variant-c .chip-grid{display:flex;flex-wrap:wrap;gap:6px}
+  #variant-c .theme-chip{width:140px;border:2px solid var(--color-border);border-radius:var(--radius-control);overflow:hidden;cursor:pointer;background:var(--color-dominant);transition:border-color .15s}
+  #variant-c .theme-chip:hover{border-color:color-mix(in srgb, var(--color-accent) 40%, var(--color-border))}
+  #variant-c .theme-chip input{position:absolute;opacity:0;pointer-events:none}
+  #variant-c .theme-chip.selected{border-color:var(--color-accent)}
+  #variant-c .theme-chip__preview{height:44px;width:100%}
+  #variant-c .theme-chip__body{padding:6px 8px}
+  #variant-c .theme-chip__name{font-size:12px;font-weight:var(--weight-semibold);margin:0 0 3px}
+  #variant-c .theme-chip__swatches{display:flex;gap:3px;align-items:center}
+  #variant-c .theme-chip__dot{width:10px;height:10px;border-radius:2px;border:1px solid rgba(0,0,0,0.15)}
+  #variant-c .theme-chip.selected .theme-chip__name::after{content:" ✓";color:var(--color-accent)}
+</style>
+</head>
+<body>
+
+<div id="variant-nav">
+  <button class="variant-tab active" onclick="showVariant('a')">A: Today (44px radios)</button>
+  <button class="variant-tab" onclick="showVariant('b')">B: Chip grid, 160px ★</button>
+  <button class="variant-tab" onclick="showVariant('c')">C: Chip grid, 140px (denser)</button>
+</div>
+
+<!-- ============================================================
+     VARIANT A
+     ============================================================ -->
+<div id="variant-a" class="variant active">
+  <div class="page-content">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-purpose">Configure this device's runway, theme, and diagnostics.</p>
+
+    <h2 class="section-heading">Theme</h2>
+    <fieldset id="theme-fieldset-a"></fieldset>
+    <p class="a11y-note">16 rows × 53px ≈ 850px of the first screen. No colour swatch — "Yellow Light" vs "Band Blue Light" gives nothing to look at.</p>
+  </div>
+</div>
+
+<!-- ============================================================
+     VARIANT B
+     ============================================================ -->
+<div id="variant-b" class="variant">
+  <div class="page-content">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-purpose">Configure this device's runway, theme, and diagnostics.</p>
+
+    <div class="theme-status">
+      <h2 class="section-heading">Theme</h2>
+      <div class="chip-grid" id="theme-grid-b"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     VARIANT C
+     ============================================================ -->
+<div id="variant-c" class="variant">
+  <div class="page-content">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-purpose">Configure this device's runway, theme, and diagnostics.</p>
+
+    <div class="theme-status">
+      <h2 class="section-heading">Theme</h2>
+      <div class="chip-grid" id="theme-grid-c"></div>
+    </div>
+  </div>
+</div>
+
+<div id="sketch-tools">
+  Theme:
+  <select onchange="document.querySelector('link[href*=themes]').href='../themes/'+this.value+'.css'">
+    <option value="default">Default</option>
+  </select>
+  &nbsp;|&nbsp;
+  <button onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme==='dark'?'light':'dark'" style="background:none;border:1px solid #666;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer">Toggle dark</button>
+</div>
+
+<script>
+function showVariant(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Real data from server/device_config.py's THEMES dict and
+// server/panel_format.py's PALETTE_RGB — the 16 themes shipped today,
+// with their real departing/arriving/ink/band colours. Every theme's
+// departing_index currently equals its arriving_index (the old
+// two-tone "sky" pairing was retired outright), so both swatches are
+// identical for every entry below — that's the real current data
+// shape, not a sketch simplification.
+const INK = {
+  black:  '#000000',
+  white:  '#FFFFFF',
+  yellow: '#F0E050',
+  red:    '#A02020',
+  blue:   '#2D5F9B',
+  green:  '#326941',
+};
+
+const THEMES = [
+  { id: 'white',            label: 'White',             bg: 'white',  ink: 'black', weight: 400 },
+  { id: 'black',            label: 'Black',             bg: 'black',  ink: 'white', weight: 400 },
+  { id: 'grey',             label: 'Grey',              bg: 'black',  ink: 'white', weight: 600, dithered: true },
+  { id: 'yellow',           label: 'Yellow',            bg: 'yellow', ink: 'black', weight: 400 },
+  { id: 'yellow_light',     label: 'Yellow Light',      bg: 'yellow', ink: 'black', weight: 400, light: true },
+  { id: 'red',              label: 'Red',               bg: 'red',    ink: 'white', weight: 400 },
+  { id: 'red_light',        label: 'Red Light',         bg: 'red',    ink: 'white', weight: 400, light: true },
+  { id: 'green',            label: 'Green',             bg: 'green',  ink: 'white', weight: 400 },
+  { id: 'green_light',      label: 'Green Light',       bg: 'green',  ink: 'white', weight: 400, light: true },
+  { id: 'blue',             label: 'Blue',              bg: 'blue',   ink: 'white', weight: 400 },
+  { id: 'blue_light',       label: 'Blue Light',        bg: 'blue',   ink: 'white', weight: 400, light: true },
+  { id: 'band_blue',        label: 'Band Blue',         bg: 'white',  ink: 'black', weight: 400, band: 'blue' },
+  { id: 'band_blue_light',  label: 'Band Blue Light',   bg: 'white',  ink: 'black', weight: 400, band: 'blue', bandDithered: true },
+  { id: 'band_green_light', label: 'Band Green Light',  bg: 'white',  ink: 'black', weight: 400, band: 'green', bandDithered: true },
+  { id: 'band_red',         label: 'Band Red',          bg: 'white',  ink: 'black', weight: 400, band: 'red' },
+  { id: 'band_black',       label: 'Band Black',        bg: 'white',  ink: 'black', weight: 400, band: 'black' },
+];
+
+// Fixed fictional scene (06.6.4.1.1-CONTEXT.md D-06) — identical
+// content across all 16 previews so themes stay visually comparable.
+const SCENE = { departing: 'AFR123 → JFK  18:42', arriving: 'RER B  8 min' };
+
+function previewSceneHTML(theme) {
+  const bg = INK[theme.bg];
+  const ink = INK[theme.ink];
+  const opacity = theme.light ? 0.55 : 1; // approximation of the "Light" weight/dither treatments
+  let bandHTML = '';
+  if (theme.band) {
+    const bandColor = INK[theme.band];
+    const bandOpacity = theme.bandDithered ? 0.4 : 1;
+    bandHTML = `<div class="preview-band" style="background:${bandColor};opacity:${bandOpacity}"></div>`;
+  }
+  return `
+    <div class="preview-scene" style="background:${bg}">
+      ${bandHTML}
+      <div style="position:relative;color:${ink};opacity:${opacity}">
+        <div class="preview-scene__line preview-scene__line--dep" style="font-weight:${theme.weight}">${SCENE.departing}</div>
+        <div class="preview-scene__line">${SCENE.arriving}</div>
+      </div>
+    </div>`;
+}
+
+// ---- Variant A: today's plain radio list ----
+(function renderVariantA() {
+  const fieldset = document.getElementById('theme-fieldset-a');
+  fieldset.innerHTML = '<legend>Theme</legend>' + THEMES.map((t, i) =>
+    `<label><input type="radio" name="theme-a" ${i === 0 ? 'checked' : ''}> ${t.label}</label>`
+  ).join('');
+})();
+
+// ---- Variants B/C: chip grid ----
+function renderChipGrid(containerId, radioGroup, selectedIndex) {
+  const grid = document.getElementById(containerId);
+  grid.innerHTML = THEMES.map((t, i) => `
+    <label class="theme-chip${i === selectedIndex ? ' selected' : ''}" onclick="selectChip(this)">
+      <input type="radio" name="${radioGroup}" ${i === selectedIndex ? 'checked' : ''}>
+      <div class="theme-chip__preview">${previewSceneHTML(t)}</div>
+      <div class="theme-chip__body">
+        <p class="theme-chip__name">${t.label}</p>
+        <div class="theme-chip__swatches">
+          <span class="theme-chip__dot" style="background:${INK[t.bg]}"></span>
+          <span class="theme-chip__dot" style="background:${INK[t.bg]}"></span>
+        </div>
+      </div>
+    </label>`
+  ).join('');
+}
+renderChipGrid('theme-grid-b', 'theme-b', 0);
+renderChipGrid('theme-grid-c', 'theme-c', 0);
+
+function selectChip(label) {
+  label.closest('.chip-grid').querySelectorAll('.theme-chip').forEach(c => c.classList.remove('selected'));
+  label.classList.add('selected');
+}
+</script>
+
+</body>
+</html>
