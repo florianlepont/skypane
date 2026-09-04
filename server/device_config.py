@@ -58,6 +58,23 @@ DEFAULT_QUIET_HOURS_ENABLED = False  # D-04: an explicit boolean independent of 
 DEFAULT_QUIET_HOURS_START = "23:00"  # D-03: one daily recurring window, never per-weekday
 DEFAULT_QUIET_HOURS_END = "07:00"  # D-03: one daily recurring window, never per-weekday
 
+# D-02 (11-CONTEXT.md): bounds for the stored `wake_interval_s` config field only - the
+# value quiet_hours_sleep_s() hands the device is explicitly allowed to exceed
+# WAKE_INTERVAL_MAX_S during an active quiet-hours window (11-RESEARCH.md Pitfall 4).
+# 60 mirrors firmware/main/Kconfig.projbuild's FP_MIN_REFRESH_SPACING_S `default`
+# (with `range 30 86400`) - this project's own conservative margin against needless
+# redraws and the battery they spend, NOT a vendor-mandated threshold; the GDEP133C02
+# datasheet specifies no minimum. 3600 (one hour) is the developer-confirmed ceiling.
+WAKE_INTERVAL_MIN_S = 60
+WAKE_INTERVAL_MAX_S = 3600
+
+# Deliberately no DEFAULT_WAKE_INTERVAL_S constant. Unlike every other field in this
+# module, wake_interval_s's unset state is `None`, a single deliberate exception to this
+# module's otherwise-universal "always return a concrete value" contract - the true
+# fallback is the deployed SKYPANE_SLEEP_S / --sleep value, which lives in a different OS
+# process's argparse namespace and is not knowable here (D-07, 11-RESEARCH.md Pattern 1).
+# Do not "restore consistency" by inventing a default; there isn't one to invent.
+
 # Shape gate for a submitted/stored quiet-hours HH:MM string. Deliberately
 # anchored with `\Z`, NOT `$`: Python's `$` also matches immediately before a
 # trailing newline, so a submitted "07:00\n" would pass a `$`-anchored
@@ -389,17 +406,42 @@ def normalise_quiet_hours_time(value, default):
     return default
 
 
+def normalise_wake_interval_s(value):
+    """Return `value` unchanged only when it is an `int` that is not a `bool`
+    AND falls within `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` inclusive -
+    otherwise return `None`. Never raises.
+
+    Unlike every sibling normaliser in this module, `None` here does NOT mean
+    "degraded to the documented default" - there is no default to degrade to.
+    It means "never explicitly set", the same never-configured state a fresh
+    install starts in.
+
+    The bool exclusion is mandatory and load-bearing, not defensive noise: in
+    Python `isinstance(True, int)` evaluates true, so the type test must be
+    `isinstance(value, int) and not isinstance(value, bool)` - see
+    normalise_led_enabled()'s own docstring, which documents the same gotcha
+    from the other direction (an int such as 0 or 1 is deliberately not
+    accepted as a bool).
+    """
+    if isinstance(value, int) and not isinstance(value, bool) and WAKE_INTERVAL_MIN_S <= value <= WAKE_INTERVAL_MAX_S:
+        return value
+    return None
+
+
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns all six keys with valid
+    empty dict rather than raising. Always returns all seven keys with valid
     values - `theme`, `tracked_runway`, `led_enabled`, `quiet_hours_enabled`,
-    `quiet_hours_start`, and `quiet_hours_end` - via
+    `quiet_hours_start`, `quiet_hours_end`, and `wake_interval_s` - via
     normalise_theme_id()/normalise_runway_id()/normalise_led_enabled()/
-    normalise_quiet_hours_enabled()/normalise_quiet_hours_time(), so a
-    hostile or stale value on disk (e.g. a path-traversal string, a numeric
-    runway id, a non-bool led_enabled, or a malformed quiet-hours time)
-    never reaches a caller. Never raises.
+    normalise_quiet_hours_enabled()/normalise_quiet_hours_time()/
+    normalise_wake_interval_s(), so a hostile or stale value on disk (e.g. a
+    path-traversal string, a numeric runway id, a non-bool led_enabled, a
+    malformed quiet-hours time, or a hostile wake_interval_s) never reaches a
+    caller. `wake_interval_s` is the single key whose valid value set
+    includes `None`, meaning never-explicitly-set - every other key always
+    has a concrete default. Never raises.
     """
     try:
         with open(device_config_path(state_dir)) as fh:
@@ -415,28 +457,41 @@ def load_device_config(state_dir):
         "quiet_hours_enabled": normalise_quiet_hours_enabled(data.get("quiet_hours_enabled")),
         "quiet_hours_start": normalise_quiet_hours_time(data.get("quiet_hours_start"), DEFAULT_QUIET_HOURS_START),
         "quiet_hours_end": normalise_quiet_hours_time(data.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END),
+        "wake_interval_s": normalise_wake_interval_s(data.get("wake_interval_s")),
     }
 
 
 def save_device_config(
     state_dir, theme=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
+    wake_interval_s=None,
 ):
     """Validate and persist a new theme and/or tracked-runway id and/or
-    led_enabled flag and/or the three quiet-hours fields.
+    led_enabled flag and/or the three quiet-hours fields and/or
+    wake_interval_s.
 
     Each supplied (non-None) value is checked before anything is written:
     `theme`/`tracked_runway` against their registries with an explicit
     membership test, `led_enabled`/`quiet_hours_enabled` with an explicit
     `isinstance(..., bool)` type check (there is no registry for a
-    boolean), and `quiet_hours_start`/`quiet_hours_end` against the
-    `_HHMM_RE` shape gate. An unknown/wrong-typed value raises `ValueError`
-    naming the rejected value - and leaves any pre-existing file
-    byte-identical (T-06-01-01/T-06-01-06). A value left `None` is carried
-    over unchanged from the current on-disk config (falling back to the
-    documented defaults if none exists yet), so a caller updating only the
-    theme never has to also resupply the runway, the LED flag, or the
-    quiet-hours fields.
+    boolean), `quiet_hours_start`/`quiet_hours_end` against the `_HHMM_RE`
+    shape gate, and `wake_interval_s` against the bounded-int gate
+    (`isinstance(value, int) and not isinstance(value, bool)`, then
+    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` inclusive). An
+    unknown/wrong-typed value raises `ValueError` naming both the bounds (for
+    `wake_interval_s`) or the registry (for the others) and the rejected
+    value - and leaves any pre-existing file byte-identical
+    (T-06-01-01/T-06-01-06). A value left `None` is carried over unchanged
+    from the current on-disk config (falling back to the documented defaults
+    if none exists yet), so a caller updating only the theme never has to
+    also resupply the runway, the LED flag, the quiet-hours fields, or
+    wake_interval_s.
+
+    Because `None` means "not supplied / carry forward" for every field,
+    there is no way to clear an already-set `wake_interval_s` back to unset
+    through this function - that is the resolution of 11-RESEARCH.md's Open
+    Question 2 (an empty numeric input means "leave unchanged", never
+    "reject the save"), not an oversight.
 
     Writes with the same tmp-write-then-os.replace() idiom
     server/poll_loop.py's save_poll_state() uses, including the except
@@ -457,6 +512,15 @@ def save_device_config(
         raise ValueError("quiet_hours_start must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_start,))
     if quiet_hours_end is not None and not (isinstance(quiet_hours_end, str) and _HHMM_RE.match(quiet_hours_end)):
         raise ValueError("quiet_hours_end must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_end,))
+    if wake_interval_s is not None and not (
+        isinstance(wake_interval_s, int)
+        and not isinstance(wake_interval_s, bool)
+        and WAKE_INTERVAL_MIN_S <= wake_interval_s <= WAKE_INTERVAL_MAX_S
+    ):
+        raise ValueError(
+            "wake_interval_s must be an int in [%d, %d], got %r"
+            % (WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S, wake_interval_s)
+        )
 
     current = load_device_config(state_dir)
     new_config = {
@@ -466,6 +530,7 @@ def save_device_config(
         "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],
         "quiet_hours_start": quiet_hours_start if quiet_hours_start is not None else current["quiet_hours_start"],
         "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
+        "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
     }
 
     os.makedirs(state_dir, exist_ok=True)
