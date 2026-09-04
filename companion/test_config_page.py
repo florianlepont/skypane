@@ -316,15 +316,15 @@ def main():
             return False, "expected exactly one <fieldset> (Theme's own radio group, now that THEME_IDS holds more than one entry), got %d" % rendered.count("<fieldset")
         if "<legend>Theme</legend>" not in rendered:
             return False, "expected Theme's radio group to carry a <legend>Theme</legend>"
-        if rendered.count('class="theme-status"') != 3:
-            return False, "expected exactly 3 theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours — Theme itself is a <fieldset> now), got %d" % rendered.count('class="theme-status"')
+        if rendered.count('class="theme-status"') != 4:
+            return False, "expected exactly 4 theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake interval — Theme itself is a <fieldset> now), got %d" % rendered.count('class="theme-status"')
         if rendered.count('<label class="runway-card') != 3:
             return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if "Save settings" not in rendered:
             return False, "expected the 'Save settings' submit button copy"
         return True, ""
     check(
-        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), three theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours), three runway-card labels, and a Save settings submit button",
+        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), four theme-status-wrapped groups (Runway/Diagnostic LED/Quiet hours/Wake interval), three runway-card labels, and a Save settings submit button",
         _render_shape_theme_radio_group_runway_cards_led_group_and_save_button)
 
     def _led_group_carries_classed_label_and_unchanged_input_attrs():
@@ -779,25 +779,27 @@ def main():
     # single-column, three-wrapped-section, one-merged-form shape.
     # ------------------------------------------------------------------
 
-    def _render_exactly_four_dirty_sections_in_order():
+    def _render_exactly_five_dirty_sections_in_order():
         # Acceptance criterion: the rendered output contains exactly
-        # four elements carrying data-dirty-section, whose attribute
+        # five elements carrying data-dirty-section, whose attribute
         # values in document order are "Theme", "Runway", "Diagnostic
-        # LED", "Quiet hours" — 10-05-PLAN.md Task 1 wires Quiet hours in
-        # as the fourth group, after Diagnostic LED.
+        # LED", "Quiet hours", "Wake interval" — 10-05-PLAN.md Task 1
+        # wired Quiet hours in as the fourth group after Diagnostic LED,
+        # and 11-03-PLAN.md Task 1 wires Wake interval in as the fifth,
+        # after Quiet hours.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         found = re.findall(
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
-        expected = ["Theme", "Runway", "Diagnostic LED", "Quiet hours"]
+        expected = ["Theme", "Runway", "Diagnostic LED", "Quiet hours", "Wake interval"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
     check(
-        "render() carries exactly four data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours",
-        _render_exactly_four_dirty_sections_in_order)
+        "render() carries exactly five data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval",
+        _render_exactly_five_dirty_sections_in_order)
 
     def _runway_fieldset_returns_single_top_level_div():
         # Acceptance criterion: runway_fieldset(...) returns a string
@@ -1246,7 +1248,7 @@ def main():
             # silently kept the prior/default value instead; the merged
             # Phase 8 registry (19 real entries) makes "black" valid, so
             # it now persists as posted.
-            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}:
+            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
