@@ -105,11 +105,37 @@ recommended option for every question without developer confirmation.**
 - Exact companion-page form layout/spacing for the new field (mirror the
   existing Settings page's fieldset pattern; validate against a real
   preview before treating it as final, given D-05's "new UI pattern" flag).
-- Whether the field pre-fills with the *current effective* interval (the
-  live device-config value, defaulting to the CLI `--sleep` value on first
-  load) — expected yes, matching every other field's pre-fill behavior, but
-  not explicitly re-derived here since it's the obvious, only sane choice.
 - Exact wording of the trade-off caption text under the field.
+
+### Pre-fill mechanism (D-07 — corrected after research)
+- **D-07:** 11-RESEARCH.md found the original assumption above ("pre-fills
+  with the CLI `--sleep` value, obviously") is not achievable as stated:
+  `companion/app.py` and `stub-server/byos_server.py` are separate OS
+  processes, and the companion process has no code path today that reads
+  `self.args.sleep`'s parsed CLI value. The developer was asked to choose
+  between (a) an empty/placeholder field, (b) reading `skypane.env`
+  directly, or (c) a hardcoded guess, and chose **(b) read the deployed
+  env value**.
+  **Correction discovered immediately after that choice:** reading
+  `skypane.env` does NOT require new file-parsing code — grep confirmed
+  `deploy/skypane-companion.service` uses the identical
+  `EnvironmentFile=/opt/skypane/skypane.env` directive `skypane-byos.service`
+  uses, so systemd already injects `SKYPANE_SLEEP_S` into the companion
+  process's own OS environment at startup, exactly like
+  `SKYPANE_COMPANION_PASSWORD` already is (`companion/auth.py`'s
+  `PASSWORD_ENV_VAR` / `os.environ.get(...)` — the established, existing
+  pattern to copy verbatim, not a new one). **Locked mechanism:**
+  `companion/app.py` reads `os.environ.get("SKYPANE_SLEEP_S")` (same
+  environment-variable-read pattern as the password), passes it to
+  `config_page.render()`'s context for use as the field's pre-fill value
+  when the on-disk `device_config.json` value is `None`, parsed to `int`
+  with a bare fail-open fallback to no-value (`None` → empty/placeholder
+  input) if the env var is absent or non-numeric (e.g. local/dev runs
+  without the systemd unit) — this "graceful degrade to empty when truly
+  unknown" half is where the originally-recommended option (a) still
+  applies, as the fallback within option (b), not as an alternative to it.
+
+
 
 </decisions>
 
@@ -135,6 +161,17 @@ recommended option for every question without developer confirmation.**
   `sleep_s` is consumed as-is from the server response with no firmware
   interpretation — this phase needs zero firmware changes for the same
   reason Phase 10 did
+
+### Env-var pre-fill pattern (D-07)
+- `companion/auth.py` — `PASSWORD_ENV_VAR = "SKYPANE_COMPANION_PASSWORD"` and
+  `configured_password()`'s `os.environ.get(PASSWORD_ENV_VAR)` — the exact
+  established pattern for reading a systemd-`EnvironmentFile`-injected
+  value inside the companion process; `SKYPANE_SLEEP_S` should be read the
+  same way, not via new file-parsing code
+- `deploy/skypane-companion.service` and `deploy/skypane-byos.service` —
+  both declare `EnvironmentFile=/opt/skypane/skypane.env`, confirming
+  `SKYPANE_SLEEP_S` really is present in the companion process's own
+  environment, not only `byos_server.py`'s
 
 ### Config registry pattern (D-02, D-04)
 - `server/device_config.py` — `DEFAULT_QUIET_HOURS_ENABLED`/`_START`/`_END`

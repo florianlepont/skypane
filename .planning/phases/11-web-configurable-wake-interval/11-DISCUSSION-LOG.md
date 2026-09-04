@@ -76,6 +76,17 @@
 
 ---
 
+## Pre-fill mechanism (post-research correction)
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| (a) Empty field + placeholder | Field renders blank, caption says "uses server default" | |
+| (b) Read skypane.env directly | Companion reads the deployed SKYPANE_SLEEP_S value for an accurate pre-fill | ✓ |
+| (c) Hardcoded guess | A fixed pre-fill number, may not match real deployment | |
+
+**Selected:** (b), with a correction discovered immediately after: this does not need new env-file-parsing code. `deploy/skypane-companion.service` uses the identical `EnvironmentFile=/opt/skypane/skypane.env` directive as `skypane-byos.service`, so `SKYPANE_SLEEP_S` is already present in the companion process's own OS environment — readable via `os.environ.get("SKYPANE_SLEEP_S")`, the exact same pattern `companion/auth.py` already uses for `SKYPANE_COMPANION_PASSWORD`. Falls back to option (a)'s empty/placeholder behavior only when the env var is genuinely absent (e.g. local/dev runs outside the systemd unit).
+**Notes:** The research doc's Open Question #1 originally framed (b) as a "bigger, cross-cutting change" — that concern applied to file-parsing, which turned out to be unnecessary once the shared `EnvironmentFile=` directive was found.
+
 ## Claude's Discretion
 
 - Exact validation error copy for an out-of-bounds/non-numeric submitted value.
