@@ -21,8 +21,12 @@
  * (260902-ep7: this is a genuine broadening, not a clarification — the
  * marker pseudo-element was already on this list; its own label text
  * was not, and is now added too), the neutral (non-anomaly) banner's
- * left edge, and the favicon. Do not broaden this list without updating
- * 06.6.1-UI-SPEC.md's Color section.
+ * left edge, and the favicon. 06.6.4.1.1-05: a genuine broadening, not a
+ * clarification — the selected theme chip's border and check glyph
+ * (.theme-chip--selected, .theme-chip__check) join the selected runway
+ * card's own border/check-glyph pair above, the same accent use on a
+ * second selectable-card component. Do not broaden this list without
+ * updating 06.6.1-UI-SPEC.md's Color section.
  *
  * Colour-separation contract (heading-color-consistency debug session):
  * `--color-accent` must stay measurably distinguishable from every
@@ -1703,6 +1707,126 @@ button:disabled {
 .runway-card--selected .runway-card__check {
   display: inline-flex;
 }
+
+/* Theme picker chip (06.6.4.1.1-05, sketch 004 variant B — the
+ * developer-confirmed winner, UIR-01/UIR-02). This is a second
+ * selectable-card component, deliberately placed as a neighbour of
+ * .runway-card above because it reuses that component's mechanism
+ * verbatim rather than inventing a new one: a visually-hidden native
+ * radio inside the <label>, a server-computed --selected modifier (never
+ * a client-side :has() trick) driving a real 2px accent border, and an
+ * always-present check glyph shown only via that modifier. It is NOT
+ * related to .theme-form .theme-option below, which is a different
+ * component entirely — the segmented light/dark UI-theme control in the
+ * nav footer, not a colour-theme picker.
+ */
+.theme-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.theme-chip {
+  display: block;
+  position: relative;
+  width: 160px;
+  /* The margin reset below and the font-size declaration are load-
+   * bearing overrides of the global `label` rule (which gives every
+   * label an 8px bottom margin and shrinks its text to Label size) —
+   * without them every chip would carry an extra bottom margin on top
+   * of the grid's own `gap`, and the name/swatch text below would
+   * render at the wrong scale. */
+  margin-bottom: 0;
+  font-size: var(--font-body-size);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  /* Clips the preview <img> to the chip's own rounded corners. */
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* Scoped with :not(.theme-chip--selected), the same D-03a property
+ * .runway-card documents above: hovering a selected chip must never be
+ * able to clear its accent border, independent of source order. */
+.theme-chip:not(.theme-chip--selected):hover,
+.theme-chip:not(.theme-chip--selected):focus-within {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* A real 2px border, not merely a class toggle with no visual
+ * difference — the global `* { box-sizing: border-box; }` reset keeps
+ * unselected sibling chips from shifting when this is added. */
+.theme-chip--selected {
+  border: 2px solid var(--color-accent);
+}
+
+/* 56px is sketch 004 variant B's own validated band height.
+ * object-fit: cover absorbs the small ratio difference between the
+ * served 320x120 PNG and the chip's own ~156px-wide box, so the band
+ * never letterboxes (the UIR-07 defect). */
+.theme-chip__preview {
+  display: block;
+  width: 100%;
+  height: 56px;
+  object-fit: cover;
+}
+
+.theme-chip__body {
+  display: block;
+  padding: var(--space-sm);
+}
+
+.theme-chip__name {
+  display: block;
+  /* 13px is the documented sub-scale exception tier, not a new content
+   * size. */
+  font-size: 13px;
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  margin-bottom: var(--space-xs);
+}
+
+.theme-chip__swatches {
+  display: flex;
+  gap: var(--space-xs);
+  align-items: center;
+}
+
+/* Carries over .theme-swatch__chip's own comment reasoning: the fill is
+ * an inline style holding a raw panel PALETTE_RGB value, the one colour
+ * in this file the stylesheet cannot reason about, and the structural
+ * hairline is what keeps a white swatch visible on a white card
+ * surface. */
+.theme-chip__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
+  display: inline-block;
+}
+
+/* The check glyph's markup exists on every chip, but only ever visually
+ * shown on the selected one — matches .runway-card__check's own
+ * mechanism directly above. */
+.theme-chip__check {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  color: var(--color-accent);
+  display: none;
+}
+
+.theme-chip--selected .theme-chip__check {
+  display: inline-flex;
+}
+
+/* Touch target: .theme-chip is ~160px wide and roughly 100px tall, far
+ * above the 44px floor, and the visually-hidden radio inside it is
+ * exempt-by-delegation exactly as quick task 260902-l9w recorded for the
+ * Runway radios above. This adds no entry to the traded-floor register. */
 
 /* Diagnostic LED checkbox (quick task 260901-qif). `summary`'s own idiom
  * reused verbatim: a centred flex row with a 44px `min-height`. The 44px
