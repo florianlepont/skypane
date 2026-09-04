@@ -68,7 +68,12 @@ IMAGE_BYTES = 960000  # server/panel_format.py's IMAGE_BYTES, duplicated as a
 # precedent for stub-server/make_test_panel.py's independent duplication.
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 141  # 137 + 4 (phase 06.6.4.1.1-01 Task 2: the
+EXPECTED_CHECK_COUNT = 144  # 141 + 3 (phase 06.6.4.1.1-04 Task 1, D-17: the
+# flash banner now splices below page_header() with FLASH_SLOT_MARKER never
+# leaking to the client, still falls back to its original before-body slot
+# for marker-less bodies (login/404), and an anomaly banner is unaffected
+# and keeps its own pre-body slot)
+# 141 = 137 + 4 (phase 06.6.4.1.1-01 Task 2: the
 # /theme-preview/{id}.png route — real key returns 200/image/png/a real
 # PNG body for every one of the 16 registered themes, an unknown id 404s
 # with the same not-found copy, three traversal-shaped paths all 404 with
@@ -661,6 +666,69 @@ def main():
         check(
             "the dropdown link matching `active` carries a distinguishing class, the others do not",
             _page_shell_marks_only_the_active_dropdown_link)
+
+        # --- 06.6.4.1.1-04 (D-17): flash banner moves below page_header() ---
+
+        def _flash_banner_spliced_below_page_header_marker_never_leaks():
+            body = layout.page_header("Title") + "<p>body content</p>"
+            no_flash = layout.page_shell(title="X", active="settings", body=body)
+            flash_markup = layout.flash_banner("Saved")
+            with_flash = layout.page_shell(
+                title="X", active="settings", body=body, flash=flash_markup)
+            if layout.FLASH_SLOT_MARKER in no_flash:
+                return False, "expected no marker leakage on the no-flash render"
+            if layout.FLASH_SLOT_MARKER in with_flash:
+                return False, "expected no marker leakage on the with-flash render"
+            if "banner--flash" in no_flash:
+                return False, "expected no flash banner when none was supplied"
+            if with_flash.index("banner--flash") <= with_flash.index("page-header"):
+                return False, "expected the flash banner to render after the page header, not before it"
+            if with_flash.replace(flash_markup, "", 1) != no_flash:
+                return False, (
+                    "expected the flash-present and flash-absent documents to differ only "
+                    "by the spliced-in banner")
+            return True, ""
+        check(
+            "page_shell() splices the flash banner in directly below page_header()'s title, "
+            "and FLASH_SLOT_MARKER never reaches the rendered document",
+            _flash_banner_spliced_below_page_header_marker_never_leaks)
+
+        def _flash_banner_fallback_slot_when_body_has_no_marker():
+            # login/404-style bodies never call page_header(), so they carry
+            # no FLASH_SLOT_MARKER — the flash banner must keep rendering in
+            # its original before-body slot rather than silently vanishing.
+            bare_body = "<p>bare content, no page_header()</p>"
+            flash_markup = layout.flash_banner("Saved")
+            rendered = layout.page_shell(
+                title="X", active="settings", body=bare_body, flash=flash_markup)
+            if "banner--flash" not in rendered:
+                return False, "expected the flash banner in the fallback (before-body) slot"
+            if layout.FLASH_SLOT_MARKER in rendered:
+                return False, "expected no marker leakage on the fallback path"
+            if rendered.index("banner--flash") >= rendered.index("bare content"):
+                return False, "expected the fallback flash banner to render before the marker-less body"
+            return True, ""
+        check(
+            "page_shell() still renders the flash banner in its original slot for a body "
+            "with no FLASH_SLOT_MARKER (the pre-page_header() fallback path)",
+            _flash_banner_fallback_slot_when_body_has_no_marker)
+
+        def _anomaly_banner_unaffected_by_the_flash_slot_move():
+            body = layout.page_header("Title") + "<p>body content</p>"
+            rendered = layout.page_shell(
+                title="X", active="settings", body=body,
+                banner=layout.anomaly_banner("Uh oh"))
+            if "banner--anomaly" not in rendered:
+                return False, "expected the anomaly banner to render"
+            if "banner--flash" in rendered:
+                return False, "did not expect a flash banner when none was supplied"
+            if rendered.index("banner--anomaly") >= rendered.index("page-header"):
+                return False, "expected the anomaly banner to keep rendering before the page header"
+            return True, ""
+        check(
+            "an anomaly banner (banner=) is unaffected by the flash-slot move and still "
+            "renders in its existing pre-body slot",
+            _anomaly_banner_unaffected_by_the_flash_slot_move)
 
         def _theme_resolution():
             rendered = layout.page_shell(title="Health", active="health", body="", ui_theme="dark")
