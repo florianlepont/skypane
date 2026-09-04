@@ -124,6 +124,17 @@ EXPECTED_CHECK_COUNT = 65  # + 1 (quick task 260903-peo Task 4: UIR-19's
 # save-round-trip check pinning the server-side PRG redirect unchanged
 # (SETTINGS_ROUTE?flash=saved) and the rendered redirect target carrying
 # both the flash banner and flash-cleanup.js's deferred script tag)
+# 06.6.4.1.1-05: 65 (pre-plan baseline, observed on-disk at plan start) ->
+# 69 (Task 3, +4: the theme-chip preview-route contract check, the
+# real-palette swatch-dot check, the hidden-radio + check-glyph markup
+# check, and the zero-fieldset/three-dirty-section page-shape check — one
+# new check per <behavior> bullet the plan's Task 3 lists. Seven
+# pre-existing checks testing the retired fieldset/radio-list contract
+# were retargeted in place onto the D-01 chip-grid markup with no count
+# change, per this file's own established retarget-without-recounting
+# discipline, and the cross-file CSS guard was extended in place with the
+# four new .theme-chip* selector assertions, also no count change).
+EXPECTED_CHECK_COUNT = 69
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -284,37 +295,39 @@ def main():
     # temporary state directory and a hand-built ctx dict.
     # ==================================================================
 
-    def _render_shape_theme_radio_group_runway_cards_led_group_and_save_button():
-        # merge of origin/main (Phase 8): this check's premise used to be
-        # "with the real (unmodified) single-member THEME_IDS registry,
-        # Theme renders as the read-only .theme-status block (no
-        # <fieldset>)" — that premise died the moment the merged registry
-        # grew past one entry (19 real themes) for good; D-04's own
-        # len()==1 fallback (unmodified by this merge) now permanently
-        # takes the OTHER branch for Theme specifically. Runway and
-        # Diagnostic LED are unaffected — they never depended on
-        # THEME_IDS's size — so they still render as .theme-status blocks;
-        # only Theme's own assertion changes, from "zero <fieldset" to
-        # "exactly one <fieldset>, Theme's own".
+    def _render_shape_theme_chip_grid_runway_cards_led_group_and_save_button():
+        # 06.6.4.1.1-05 (D-01/D-02/D-08, sketch 004 variant B): Theme's own
+        # <fieldset>/<legend> radio group is retired outright in favour of
+        # a .theme-chip-grid inside the same .theme-status card idiom
+        # Runway and Diagnostic LED already use — the D-04 len()==1
+        # read-only-status fallback is unaffected (still no fieldset,
+        # still a real registry-size check), only the >1 branch's own
+        # markup shape changed. This is the successor of the
+        # pre-06.6.4.1.1-05 version of this check, which (post the
+        # merge of origin/main, Phase 8) asserted the OPPOSITE: exactly
+        # one <fieldset>, Theme's own. That assertion is now retired along
+        # with the fieldset it was pinning.
         ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        if rendered.count("<fieldset") != 1:
-            return False, "expected exactly one <fieldset> (Theme's own radio group, now that THEME_IDS holds more than one entry), got %d" % rendered.count("<fieldset")
-        if "<legend>Theme</legend>" not in rendered:
-            return False, "expected Theme's radio group to carry a <legend>Theme</legend>"
-        if rendered.count('class="theme-status"') != 2:
-            return False, "expected exactly 2 theme-status-wrapped groups (Runway/Diagnostic LED — Theme itself is a <fieldset> now), got %d" % rendered.count('class="theme-status"')
+        if "<fieldset" in rendered:
+            return False, "expected zero <fieldset> elements anywhere on the page, found one"
+        if "<legend" in rendered:
+            return False, "expected zero <legend> elements anywhere on the page, found one"
+        if rendered.count('class="theme-status"') != 3:
+            return False, "expected exactly 3 theme-status-wrapped groups (Theme/Runway/Diagnostic LED), got %d" % rendered.count('class="theme-status"')
+        if "theme-chip-grid" not in rendered:
+            return False, "expected the Theme group to render a .theme-chip-grid"
         if rendered.count('<label class="runway-card') != 3:
             return False, "expected exactly 3 runway-card labels, got %d" % rendered.count('<label class="runway-card')
         if "Save settings" not in rendered:
             return False, "expected the 'Save settings' submit button copy"
         return True, ""
     check(
-        "render() emits Theme's radio-group <fieldset> (real 19-theme registry, merge of origin/main), two theme-status-wrapped groups (Runway/Diagnostic LED), three runway-card labels, and a Save settings submit button",
-        _render_shape_theme_radio_group_runway_cards_led_group_and_save_button)
+        "render() emits Theme's .theme-chip-grid (no <fieldset>, D-01), three theme-status-wrapped groups (Theme/Runway/Diagnostic LED), three runway-card labels, and a Save settings submit button",
+        _render_shape_theme_chip_grid_runway_cards_led_group_and_save_button)
 
     def _led_group_carries_classed_label_and_unchanged_input_attrs():
         # quick task 260901-qif: pins the led-checkbox label class and
@@ -344,46 +357,36 @@ def main():
 
     def _every_settings_group_is_named_exactly_once():
         # heading-color-consistency debug session, extended by 06.6.4.1
-        # (D-05): Config carries four settings groups. Before D-05's LED
-        # merge, three used <h2 class="text-heading"> (Theme/Runway/Poll)
-        # while Diagnostic LED alone kept a <legend> inside its own
-        # <fieldset> (its own independently-submittable <form>, D-06).
-        # D-05 dropped the LED group's own <fieldset>/<legend> for the
-        # same <h2> role its three siblings already use.
-        #
-        # merge of origin/main (Phase 8): a SECOND legend reappears, for a
-        # different, permanent reason — D-04's own read-only-vs-editable
-        # fallback (unmodified by this merge) takes the editable
-        # <fieldset><legend>Theme</legend> branch now that THEME_IDS holds
-        # 19 real entries, not the read-only <h2>Theme</h2> branch it took
-        # under the single-"sky"-entry registry this test used to assume.
-        # Runway/Diagnostic LED/Poll are unaffected by THEME_IDS's size —
-        # they still share the one <h2> heading level D-05 established —
-        # so the real, current claim this test can make is "every group is
-        # named exactly once, whichever element does the naming," not "at
-        # one consistent heading level with zero <legend> elements."
+        # (D-05) and 06.6.4.1.1-05 (D-01): Config carries four settings
+        # groups. D-05 already merged Diagnostic LED off its own
+        # <fieldset>/<legend> onto the shared <h2 class="text-heading">
+        # role Theme/Runway/Poll used. The merge of origin/main (Phase 8)
+        # briefly reopened a second <legend> — D-04's read-only-vs-editable
+        # fallback took the editable <fieldset><legend>Theme</legend>
+        # branch once THEME_IDS held more than one real entry.
+        # 06.6.4.1.1-05 closes that gap for good: the multi-theme branch
+        # is now the D-01 chip grid inside a .theme-status card, so all
+        # four groups are named by the same <h2 class="text-heading">
+        # element, at one consistent heading level, with zero <legend>
+        # anywhere on the page.
         ctx = {
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         }
         rendered = config_page.render(ctx)
-        if rendered.count("<legend>Theme</legend>") != 1:
-            return False, (
-                "expected exactly one '<legend>Theme</legend>' — Theme's "
-                "own D-04 radio-group naming, now that THEME_IDS holds "
-                "more than one entry — got %d"
-                % rendered.count("<legend>Theme</legend>"))
-        for name in ("Runway", "Diagnostic LED", "Poll"):
+        for name in ("Theme", "Runway", "Diagnostic LED", "Poll"):
             heading = '<h2 class="text-heading">%s</h2>' % name
             if rendered.count(heading) != 1:
                 return False, (
                     "expected exactly one %r group heading, got %d"
                     % (heading, rendered.count(heading)))
-        if rendered.count("<legend") != 1:
+        if "<legend" in rendered:
             return False, (
-                "expected exactly one <legend element in render()'s output "
-                "(Theme's own) — LED's own <fieldset>/<legend> stays "
-                "retired per D-05")
+                "expected zero <legend> elements anywhere on the page — "
+                "Theme's own <fieldset>/<legend> radio group is retired "
+                "(06.6.4.1.1-05, D-01)")
+        if "<fieldset" in rendered:
+            return False, "expected zero <fieldset> elements anywhere on the page"
         # The old label-paragraph shape must not come back alongside
         # Theme's own naming — that would name the Theme group twice.
         if '<p class="text-label">Theme</p>' in rendered:
@@ -393,8 +396,8 @@ def main():
         return True, ""
     check(
         "all four Config settings groups (Theme/Runway/Diagnostic LED/Poll) are named "
-        "exactly once — Theme via its own D-04 <legend> now that THEME_IDS holds more "
-        "than one entry (merge of origin/main), the other three via the shared D-05 <h2>",
+        "exactly once, all via the shared <h2 class=\"text-heading\"> role, with zero "
+        "<legend> and zero <fieldset> anywhere on the page (06.6.4.1.1-05, D-01)",
         _every_settings_group_is_named_exactly_once)
 
     def _render_opens_with_shared_page_header():
@@ -554,11 +557,11 @@ def main():
         "theme_fieldset() renders the read-only theme-status block with real panel-color swatch hex values when THEME_IDS has one member (D-04)",
         _theme_fieldset_single_theme_renders_read_only_status_with_real_swatch_hex)
 
-    def _theme_fieldset_falls_back_to_radio_group_when_multiple_themes_registered():
+    def _theme_fieldset_falls_back_to_chip_grid_when_multiple_themes_registered():
         # D-04, Task 2 Test 2: a synthetic 2-member THEME_IDS (monkeypatched
         # for the duration of this check only) makes theme_fieldset() fall
-        # back to the original editable radio-group markup — a len()
-        # check, not a hardcoded single-theme assumption.
+        # back to the editable chip-grid markup (06.6.4.1.1-05, D-01) — a
+        # len() check, not a hardcoded single-theme assumption.
         #
         # merge of origin/main (Phase 8): THEMES is now REPLACED with a
         # clean 2-entry dict rather than dict(original_themes) plus one
@@ -583,20 +586,22 @@ def main():
         finally:
             device_config.THEMES = original_themes
             device_config.THEME_IDS = original_ids
-        # 06.6.4.1 (D-05): the <fieldset> now also carries
-        # data-dirty-section="Theme" (escaped literal), so this no longer
-        # matches the bare "<fieldset>" substring exactly — check for the
-        # element's presence and its attribute instead.
-        if "<fieldset" not in rendered or "<legend>Theme</legend>" not in rendered:
-            return False, "expected the original fieldset/legend radio-group markup once >1 theme is registered"
+        # 06.6.4.1.1-05: the fallback branch no longer emits a
+        # <fieldset>/<legend> radio group — it emits a .theme-chip-grid
+        # inside the same .theme-status card idiom Runway/Diagnostic LED
+        # use, carrying data-dirty-section="Theme" on that wrapper.
+        if "<fieldset" in rendered or "<legend" in rendered:
+            return False, "expected zero <fieldset>/<legend> once >1 theme is registered (D-01 retires the radio-list markup)"
+        if "theme-chip-grid" not in rendered:
+            return False, "expected the fallback branch to render a .theme-chip-grid"
         if ('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, escape_html("Theme"))) not in rendered:
-            return False, "expected the fallback fieldset to carry data-dirty-section=\"Theme\""
+            return False, "expected the fallback .theme-status card to carry data-dirty-section=\"Theme\""
         if rendered.count('name="theme"') != 2:
             return False, "expected 2 theme radios, got %d" % rendered.count('name="theme"')
         return True, ""
     check(
-        "theme_fieldset() falls back to the editable radio group the moment a second theme is registered (D-04)",
-        _theme_fieldset_falls_back_to_radio_group_when_multiple_themes_registered)
+        "theme_fieldset() falls back to the editable D-01 chip grid the moment a second theme is registered (D-04, 06.6.4.1.1-05)",
+        _theme_fieldset_falls_back_to_chip_grid_when_multiple_themes_registered)
 
     def _theme_fieldset_covers_every_registered_theme_with_own_id_and_label():
         # 08-CONTEXT.md D-01/D-02/D-03/D-04, widened by the 08-06 on-glass
@@ -629,9 +634,15 @@ def main():
         rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
         if rendered.count(" checked") != 1:
             return False, "expected exactly one selected radio, found %d" % rendered.count(" checked")
-        white_option_needle = 'value="white" checked'
+        # 06.6.4.1.1-05: the chip's radio carries class="visually-hidden"
+        # between value= and checked (matching .runway-card's own radio
+        # attribute sequence), so the needle grows an intervening
+        # attribute compared to the retired bare radio-list markup.
+        white_option_needle = 'value="white" class="visually-hidden" checked'
         if white_option_needle not in rendered:
             return False, "the selected option is not the white one (expected %r substring)" % (white_option_needle,)
+        if 'theme-chip theme-chip--selected' not in rendered:
+            return False, "expected the White chip's <label> to carry theme-chip--selected"
         return True, ""
     check(
         "theme_fieldset() rendered with the new default theme id marks exactly one option selected, and it is White",
@@ -784,17 +795,17 @@ def main():
         # index falling after the group's own naming element and before
         # the group's control.
         #
-        # merge of origin/main (Phase 8): theme_fieldset("black") (any
-        # valid theme id — "sky" no longer exists post-merge) now returns
-        # the D-04 editable-radio-group branch, not the read-only branch
-        # this check used to exercise — its heading is a </legend>, not
-        # an </h2>, since THEME_IDS holds 19 real entries. runway_fieldset()
-        # and led_group() are unaffected and still use </h2>.
+        # 06.6.4.1.1-05: theme_fieldset("black") (any valid theme id —
+        # "sky" no longer exists post-merge of origin/main) now returns
+        # the D-01 chip-grid branch, named by the same <h2 class=
+        # "text-heading"> element runway_fieldset()/led_group() already
+        # use — its control marker is "theme-chip-grid", not the retired
+        # radio-list's bare "options" skip-marker.
         theme_rendered = config_page.theme_fieldset("black")
         runway_rendered = config_page.runway_fieldset("3")
         led_rendered = config_page.led_group(True)
         groups = (
-            ("theme_fieldset()", theme_rendered, "</legend>", "options"),
+            ("theme_fieldset()", theme_rendered, "</h2>", "theme-chip-grid"),
             ("runway_fieldset()", runway_rendered, "</h2>", "runway-row"),
             ("led_group()", led_rendered, "</h2>", "led-checkbox"),
         )
@@ -807,12 +818,11 @@ def main():
             caption_pos = rendered.index("section-caption")
             if not (heading_close < caption_pos):
                 return False, "expected %s's caption to fall after %s" % (name, heading_close_marker)
-            if control_marker != "options" and control_marker not in rendered:
+            if control_marker not in rendered:
                 return False, "expected %s's control marker %r to be present" % (name, control_marker)
-            if control_marker != "options":
-                control_pos = rendered.index(control_marker)
-                if not (caption_pos < control_pos):
-                    return False, "expected %s's caption to fall before its control (%r)" % (name, control_marker)
+            control_pos = rendered.index(control_marker)
+            if not (caption_pos < control_pos):
+                return False, "expected %s's caption to fall before its control (%r)" % (name, control_marker)
         return True, ""
     check(
         "theme_fieldset()/runway_fieldset()/led_group() each emit exactly one section-caption <p> element, positioned after the group's own naming element and before its control (quick task 260901-re6, merge of origin/main)",
@@ -868,17 +878,13 @@ def main():
 
     def _current_theme_and_runway_are_selected():
         # merge of origin/main (Phase 8): the Runway assertions below
-        # predate this merge and are unaffected by it. The Theme
-        # assertion is NOT — 06.6.3-03's own comment here used to explain
-        # why Theme had "no radio at all (D-04's read-only status block)"
-        # while THEME_IDS held its real single member ("sky"); that
-        # branch is unreachable now that the merged registry holds 19
-        # entries, so theme_fieldset() always takes the radio-group path
-        # below, and the assertion is rewritten to match — a native
-        # radio's checked attribute sits directly after value= there
-        # (`value="{id}"{checked}>`), unlike Runway's card markup, whose
-        # checked attribute sits after an intervening class attribute
-        # (`value="{id}" class="visually-hidden"{checked}>`).
+        # predate this merge and are unaffected by it.
+        #
+        # 06.6.4.1.1-05: Theme's chip radio now carries
+        # class="visually-hidden" between value= and checked — the same
+        # attribute sequence Runway's own card markup already uses — so
+        # the needle grows the intervening class attribute compared to
+        # the retired bare radio-list markup.
         rendered = config_page.render({
             "device_config": {"theme": "black", "tracked_runway": "06-24"},
             "poll_cooldown_remaining": 0,
@@ -889,8 +895,10 @@ def main():
             return False, "expected runway 3 (not the saved value) to NOT be marked selected"
         if rendered.count("runway-card--selected") != 1:
             return False, "expected exactly one runway-card--selected modifier"
-        if 'value="black" checked' not in rendered:
+        if 'value="black" class="visually-hidden" checked' not in rendered:
             return False, "expected the saved theme (black) to be marked selected via its radio input"
+        if rendered.count("theme-chip--selected") != 1:
+            return False, "expected exactly one theme-chip--selected modifier"
         return True, ""
     check(
         "the currently-saved theme is shown current and the (non-default) saved runway card is the one marked selected",
@@ -1580,8 +1588,14 @@ def main():
         })
         if "/runway-image/06-24.png" not in rendered:
             return False, "expected render() to forward ctx['runway_images'] into the <img> src"
-        if rendered.count("<img") != 1:
-            return False, "expected exactly one <img occurrence, got %d" % rendered.count("<img")
+        # 06.6.4.1.1-05: scoped to the runway-card image class specifically
+        # — the page now also carries one theme-chip preview <img> per
+        # THEME_IDS entry, so a bare "<img" count is no longer exclusive
+        # to the runway picker.
+        if rendered.count('<img class="runway-card__image"') != 1:
+            return False, (
+                "expected exactly one runway-card__image <img occurrence, got %d"
+                % rendered.count('<img class="runway-card__image"'))
         return True, ""
     check(
         "render() forwards ctx['runway_images'] to runway_fieldset() rather than relying on the parameter default",
@@ -1660,10 +1674,140 @@ def main():
         window = source[idx:idx + 400]
         if "min-height: 0" not in window:
             return False, "expected .led-checkbox input[type=\"checkbox\"]'s rule body to clear the global rule's min-height"
+
+        # 06.6.4.1.1-05: the fourth cross-file guard, same index-plus-
+        # window technique, covering the new .theme-chip* selectors
+        # theme_fieldset()'s D-01 chip-grid markup now depends on.
+        if ".theme-chip-grid {" not in source:
+            return False, "expected style.css to declare a .theme-chip-grid rule"
+        idx = source.index(".theme-chip-grid {")
+        window = source[idx:idx + 200]
+        if "display: flex" not in window:
+            return False, "expected .theme-chip-grid's rule body to set display: flex"
+
+        if ".theme-chip {" not in source:
+            return False, "expected style.css to declare a .theme-chip rule"
+        idx = source.index(".theme-chip {")
+        window = source[idx:idx + 700]
+        if "var(--color-dominant)" not in window:
+            return False, "expected .theme-chip's rule body to carry the --color-dominant card-surface token"
+        if "width: 160px" not in window:
+            return False, "expected .theme-chip's rule body to set width: 160px"
+
+        if ".theme-chip--selected {" not in source:
+            return False, "expected style.css to declare a .theme-chip--selected rule"
+        idx = source.index(".theme-chip--selected {")
+        window = source[idx:idx + 100]
+        if "var(--color-accent)" not in window:
+            return False, "expected .theme-chip--selected's rule body to carry var(--color-accent)"
+
+        if ".theme-chip__preview {" not in source:
+            return False, "expected style.css to declare a .theme-chip__preview rule"
+        idx = source.index(".theme-chip__preview {")
+        window = source[idx:idx + 200]
+        if "height: 56px" not in window:
+            return False, "expected .theme-chip__preview's rule body to set height: 56px"
         return True, ""
     check(
-        "style.css declares .theme-status (card-surface token + hover selector), .runway-row (flex display), and .led-checkbox input[type=\"checkbox\"] (cleared min-height) - the selectors config_page.py's new markup depends on",
+        "style.css declares .theme-status (card-surface token + hover selector), .runway-row (flex display), "
+        ".led-checkbox input[type=\"checkbox\"] (cleared min-height), and .theme-chip-grid/.theme-chip/"
+        ".theme-chip--selected/.theme-chip__preview (flex display, card surface + 160px width, accent border, "
+        "56px preview band) - the selectors config_page.py's new markup depends on",
         _style_css_carries_theme_status_runway_row_and_led_checkbox_selectors)
+
+    def _theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme():
+        # 06.6.4.1.1-05: the cross-module route contract — every chip's
+        # <img src> is built from theme_preview.THEME_PREVIEW_ROUTE_PREFIX
+        # (rebound as config_page.THEME_PREVIEW_ROUTE_PREFIX) plus the
+        # theme's own registry id, asserted against the constant rather
+        # than a re-typed literal, for every entry in THEME_IDS.
+        rendered = config_page.theme_fieldset("white")
+        for theme_id in device_config.THEME_IDS:
+            expected_src = 'src="%s%s.png"' % (
+                config_page.THEME_PREVIEW_ROUTE_PREFIX, escape_html(theme_id))
+            if expected_src not in rendered:
+                return False, "expected chip %r to carry %r" % (theme_id, expected_src)
+        return True, ""
+    check(
+        "every theme chip's <img src> points at THEME_PREVIEW_ROUTE_PREFIX + the theme's own registry id, "
+        "for every entry in device_config.THEME_IDS (06.6.4.1.1-05)",
+        _theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme)
+
+    def _theme_chip_swatch_dots_carry_real_palette_hex_values():
+        # 06.6.4.1.1-05: each chip carries exactly two .theme-chip__dot
+        # spans whose inline background values are computed from
+        # _palette_hex() against the theme's own departing_index/
+        # arriving_index — real panel palette colours, never hardcoded.
+        rendered = config_page.theme_fieldset("white")
+        if rendered.count("theme-chip__dot") != len(device_config.THEME_IDS) * 2:
+            return False, (
+                "expected exactly %d .theme-chip__dot occurrences (2 per theme), got %d"
+                % (len(device_config.THEME_IDS) * 2, rendered.count("theme-chip__dot")))
+        for theme_id in device_config.THEME_IDS:
+            theme = device_config.THEMES[theme_id]
+            departing_hex = config_page._palette_hex(theme["departing_index"])
+            arriving_hex = config_page._palette_hex(theme["arriving_index"])
+            if ('theme-chip__dot" style="background:%s"' % departing_hex) not in rendered:
+                return False, "expected theme %r's departing swatch dot to carry %r" % (theme_id, departing_hex)
+            if ('theme-chip__dot" style="background:%s"' % arriving_hex) not in rendered:
+                return False, "expected theme %r's arriving swatch dot to carry %r" % (theme_id, arriving_hex)
+        return True, ""
+    check(
+        "every theme chip carries exactly two .theme-chip__dot swatches whose inline background values equal "
+        "_palette_hex() computed from that theme's own departing_index/arriving_index (06.6.4.1.1-05)",
+        _theme_chip_swatch_dots_carry_real_palette_hex_values)
+
+    def _theme_chip_radio_hidden_and_check_glyph_present_on_every_chip():
+        # 06.6.4.1.1-05: the markup half of the CSS-only selection reveal
+        # — every chip's radio is visually-hidden (never display:none, so
+        # keyboard/no-JS selection keeps working natively), and every chip
+        # carries a .theme-chip__check glyph with its visually-hidden
+        # "Selected" text, present on all 16 chips regardless of which one
+        # is actually selected.
+        rendered = config_page.theme_fieldset("white")
+        theme_count = len(device_config.THEME_IDS)
+        if rendered.count('name="theme" value="') != theme_count:
+            return False, "expected %d theme radios, got %d" % (theme_count, rendered.count('name="theme" value="'))
+        if rendered.count('class="visually-hidden"') < theme_count:
+            return False, "expected every chip's radio to carry class=\"visually-hidden\""
+        if "display:none" in rendered or "display: none" in rendered:
+            return False, "expected the radio hidden via the visually-hidden utility class, never display:none"
+        if rendered.count('<span class="theme-chip__check">') != theme_count:
+            return False, (
+                "expected exactly %d .theme-chip__check occurrences (one per chip, regardless of selection), got %d"
+                % (theme_count, rendered.count('<span class="theme-chip__check">')))
+        if rendered.count('<span class="visually-hidden">Selected</span>') != theme_count:
+            return False, "expected every chip's check glyph to carry the visually-hidden \"Selected\" text"
+        return True, ""
+    check(
+        "every theme chip's radio carries class=\"visually-hidden\" (never display:none) and every chip carries a "
+        ".theme-chip__check glyph with visually-hidden \"Selected\" text, present on all chips regardless of "
+        "selection (06.6.4.1.1-05)",
+        _theme_chip_radio_hidden_and_check_glyph_present_on_every_chip)
+
+    def _settings_page_has_zero_fieldsets_and_three_dirty_sections():
+        # 06.6.4.1.1-05: the rendered Settings page contains no <fieldset
+        # and no <legend anywhere, and exactly three data-dirty-section
+        # groups (Theme/Runway/Diagnostic LED) — so dirty-state.js's
+        # section-aware walk still finds Theme as one addressable unit
+        # after the rewrite.
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        })
+        if "<fieldset" in rendered:
+            return False, "expected zero <fieldset> elements on the rendered Settings page"
+        if "<legend" in rendered:
+            return False, "expected zero <legend> elements on the rendered Settings page"
+        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 3:
+            return False, (
+                "expected exactly 3 %s occurrences (Theme/Runway/Diagnostic LED), got %d"
+                % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
+        return True, ""
+    check(
+        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly three "
+        "data-dirty-section groups (06.6.4.1.1-05)",
+        _settings_page_has_zero_fieldsets_and_three_dirty_sections)
 
     def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
         # quick task 260901-re6 Task 3: the third new cross-file guard,
