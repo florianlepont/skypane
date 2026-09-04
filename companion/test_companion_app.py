@@ -1077,6 +1077,18 @@ def main():
         # </h2>` at the same 20px size on the Config page. These two
         # checks make the contract executable in both directions: every
         # heading role IS serif, and no dense/tabular role IS NOT.
+        #
+        # 06.6.4.1.1-04 Task 2: plan 02 (D-09) gave the nested card-title
+        # selector below a deliberate sans override and (D-13) retired
+        # `.stat-tile__caption`'s serif Label role entirely, but neither
+        # change was caught by either guard — `_every_heading_role_is_serif`
+        # only inspected the shared selector's own block, and
+        # `_serif_never_reaches_dense_content`'s forbidden list never named
+        # `.stat-tile__caption`. Both checks kept passing while the serif
+        # contract they encode had quietly changed underneath them — the
+        # exact allow-list-drift failure mode these checks exist to catch.
+        # Extended below so both changes are now asserted, not merely
+        # tolerated.
 
         def _every_heading_role_is_serif():
             css_path = os.path.join(HERE, "static", "style.css")
@@ -1112,10 +1124,31 @@ def main():
                     "the standalone `legend` rule declares font-weight "
                     "again; at equal specificity it wins over the serif "
                     "heading rule and re-breaks legend/h2 consistency")
+            # 06.6.4.1.1-04 Task 2 (D-09): the shared rule above grants
+            # serif to every heading role, and there is exactly one
+            # documented, asserted exception — the nested card-title
+            # selector ("Battery trend", "Unresolved prefixes",
+            # "Resolution statistics"), deliberately demoted to the sans
+            # --font-ui voice at 16px semibold. Asserting it here turns
+            # D-09's override from "an unguarded rule that happens to
+            # exist" into a stated part of the contract.
+            nested_title_start = css.find("\n.page-section--nested > h2,")
+            if nested_title_start == -1:
+                return False, (
+                    "expected the named nested card-title exception "
+                    "selector `.page-section--nested > h2,` in style.css")
+            nested_title_block = css[
+                nested_title_start:css.index("}", nested_title_start)]
+            if "font-family: var(--font-ui)" not in nested_title_block:
+                return False, (
+                    "expected the nested card-title exception to declare "
+                    "font-family: var(--font-ui) (D-09's sans override)")
             return True, ""
         check(
             "every heading role (h1/h2/h3/legend/.text-heading) shares one "
-            "serif rule, and `legend` does not override its weight",
+            "serif rule except the one named, asserted nested card-title "
+            "sans exception (D-09), and `legend` does not override its "
+            "weight",
             _every_heading_role_is_serif)
 
         def _serif_never_reaches_dense_content():
@@ -1123,12 +1156,19 @@ def main():
             # form controls, nav links and mono content stay on
             # --font-ui. Guards against the rejected "serif partout"
             # option creeping back in one rule at a time.
+            #
+            # `.stat-tile__caption` (D-13, phase 06.6.4.1.1-02) was this
+            # file's one named Label-role serif exception until D-13
+            # retired it in favour of the unified sans 12px label voice —
+            # it is listed here now so that retirement cannot silently
+            # reverse without a deliberate edit to this check.
             css_path = os.path.join(HERE, "static", "style.css")
             with open(css_path) as fh:
                 css = fh.read()
             forbidden = (
                 ".data-table", ".cell-primary", ".cell-secondary",
-                ".mono", ".text-body", ".sidebar-link", ".mobile-nav__link")
+                ".mono", ".text-body", ".sidebar-link", ".mobile-nav__link",
+                ".stat-tile__caption")
             for selector in forbidden:
                 index = css.find("\n%s {" % selector)
                 if index == -1:
@@ -1141,8 +1181,9 @@ def main():
                         % selector)
             return True, ""
         check(
-            "--font-serif never reaches table, body, mono or nav-link rules "
-            "(D-03's headings-only boundary)",
+            "--font-serif never reaches table, body, mono, nav-link or "
+            "stat-tile-caption rules (D-03's headings-only boundary; "
+            "D-13 retired the caption's own former serif exception)",
             _serif_never_reaches_dense_content)
 
         def _nav_link_geometries_stay_diverged():
