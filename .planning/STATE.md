@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 11
 current_phase_name: Web-configurable wake interval
 status: executing
-stopped_at: 11-02 executed (wake-interval delivery in stub-server)
-last_updated: "2026-09-04T06:04:06.618Z"
+stopped_at: 11-03 executed (Wake interval Settings field)
+last_updated: "2026-09-04T06:15:26.262Z"
 last_activity: 2026-09-04
-last_activity_desc: Phase 11 plan 02 executed
+last_activity_desc: 11-03 executed (Wake interval Settings field)
 progress:
   total_phases: 23
   completed_phases: 19
   total_plans: 113
-  completed_plans: 109
-  percent: 96
+  completed_plans: 110
+  percent: 97
 ---
 
 # Project State
@@ -29,6 +29,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 11 (Web-configurable wake interval) — EXECUTING
+
+**11-03 executed (2026-09-04), wave 2 (depends on 11-01) — the Settings page's fifth group, Wake interval, this codebase's first plain `<input type="number">`.** Task 1 added `WAKE_INTERVAL_SECTION_HEADING`/`_CAPTION`/`_PLACEHOLDER_TEXT` (11-UI-SPEC.md's Copywriting Contract, locked verbatim) and `wake_interval_group()`, built against `led_group()`'s exact `.theme-status`/no-fieldset structural template with `min`/`max` read live from `device_config.WAKE_INTERVAL_MIN_S`/`MAX_S` — the `value` attribute is emitted only for an in-range, non-bool int, since a fabricated or out-of-range pre-fill would fail HTML5 constraint validation and block the entire form's submission, not just this field (a live risk: `deploy/skypane.env.example`'s `SKYPANE_SLEEP_S=30` sits below the 60s floor and plan 11-04 feeds it in as the pre-fill fallback). `render()` resolves the current value from on-disk `wake_interval_s`, falling back to `ctx["wake_interval_env_default"]` (plan 11-04's future contribution) via an explicit `is None` check, and appends the group as the fifth and last inside the merged form. `handle_post()` reads `form.get("wake_interval_s")`, resolves absent/empty-string to `None` (leave unchanged — 11-RESEARCH.md Open Question 2), and `int()`-converts anything else inside a `try`/`except ValueError` (11-RESEARCH.md Pitfall 1 — the single highest-risk copy-paste mistake in this phase, since `quiet_hours_start`/`end` pass through as strings while `wake_interval_s` is an int end-to-end) before passing it into the single existing `save_device_config()` call, preserving all-or-nothing rejection across all seven fields. Three count-shaped harness assertions broke by construction and were repaired in the same commit: the `.theme-status` count 3→4, the round-trip dict literal gaining `"wake_interval_s": None`, and (a third instance beyond the plan's own two named ones, explicitly anticipated by its "repair any further purely-count-shaped... failure" instruction) the five-element `data-dirty-section`-order check. Task 2 added 6 new checks covering `wake_interval_group()`'s markup and its value-attribute-only-for-in-range-non-bool-int empty-state guard, `render()`'s five-group placement/pre-fill resolution (on-disk wins over ctx fallback, ctx fallback used when on-disk is `None`), `handle_post()`'s string-to-int conversion/persistence (asserting `isinstance(..., int)` explicitly — a stored string would silently look like "unset" via `normalise_wake_interval_s()`), both rejection paths byte-identical (`"abc"`/`"1.5"` at the handler's own `int()` gate, `"59"`/`"3601"`/`"-1"` inside `save_device_config()`'s range check), and the leave-unchanged semantics; `EXPECTED_CHECK_COUNT` 73 → 79, harness passes 79/79. Also recorded `<input type="number">` in `sketch-findings-skypane`'s touch-target "kept" category and per-task changelog (zero new tokens/rules/accent reservations), and brought `settings-page-patterns.md`'s stale four-section one-caption-per-section enumeration current to six (Quiet hours had already been added by Phase 10 without updating that doc). No deviations beyond the plan-anticipated third count-shaped repair above. One documented non-issue: Task 1's acceptance criterion `grep -c 'save_device_config(' companion/pages/config_page.py` expected `1`, but the real (and pre-existing, pre-Phase-11) count is 9 because several docstrings mention `save_device_config()` in prose — confirmed via `git show HEAD~2:...` that the baseline was already 6 before this plan touched the file; the substantive intent (`grep -n 'device_config.save_device_config('` matches exactly one real call site) holds. `companion/test_companion_app.py` (125/125), `server/test_config_history.py` (44/44), and `ruff check companion/` all pass; `git diff --quiet companion/static/style.css` confirmed zero new CSS. This plan has `requirements: []` (unmapped backlog phase promoted from SEED-002, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. The plan's Task 2 `<human-check>` (real-browser visual verification against 11-UI-SPEC.md's Interaction Contract) is deferred to the phase-level UAT pass per `human_verify_mode: end-of-phase` (`.planning/config.json`), recorded as `human_judgment: true` coverage item D6 in `11-03-SUMMARY.md`. `state.advance-plan` errored again ("Cannot parse Current Plan or Total Plans in Phase from STATE.md", the same known prose-parsing limitation documented throughout this file's history); `state.update-progress` again wrote `percent: 83` (`completed_phases/total_phases` = 19/23, the same recurring wrong-ratio bug) despite its own returned JSON correctly reporting `completed: 110, total: 113, percent: 97` — corrected `percent` to `97` by hand per this file's own established precedent. `state.add-decision` again wrote `[Phase ?]` for all three of this plan's decisions (same recurring doc/CLI-arg mismatch documented throughout this file's history — `--phase` needs to be passed explicitly and was not) — left as-is per this file's own established precedent of not retroactively rewriting prior entries. `roadmap.update-plan-progress "11"` confirmed `plan_count: 4, summary_count: 3, status: "In Progress"` — only plan 04 (the closing plan) remains.
 
 **11-02 executed (2026-09-04), wave 2 (depends on 11-01) — delivered the configured wake interval to the device by rebasing `stub-server/byos_server.py`'s `/device/v1/display` sleep_s expression.** Task 1 added independently-defined `WAKE_INTERVAL_MIN_S=60`/`WAKE_INTERVAL_MAX_S=3600` (hand-pinned equal to `server/device_config.py`'s constants, matching the `_HHMM_RE`/`QUIET_HOURS_TZ` duplicated-not-imported precedent) and `read_wake_interval_s(state_dir, default)` — a never-raising fail-open read structured as a direct copy of `read_led_enabled()`'s shape, with the mandatory `isinstance(value, int) and not isinstance(value, bool)` bool-exclusion idiom (Python's `isinstance(True, int)` gotcha). The `/display` handler's `sleep_s` expression now passes `read_wake_interval_s(self.args.state_dir, self.args.sleep)` as `quiet_hours_sleep_s()`'s `base_sleep_s` argument instead of `self.args.sleep` directly; `quiet_hours_sleep_s()`'s own signature and body stay completely unchanged, and no re-clamp was added after it returns — the 60-3600 bounds gate the stored config field only, never the delivered value, so an active quiet-hours window still legitimately extends `sleep_s` past 3600s (11-RESEARCH.md Pitfall 4). Both the module docstring and `stub-server/VENDOR.md` (local modification 6, re-pinning checklist bumped to "all six") record this local modification. Task 2 added 5 new checks to `stub-server/test_poll_cycle.py`: fail-open across 9 hostile cases (missing file, truncated JSON, non-dict, key-absent, bool `true`, string, float, below-floor `30`/`59`, above-ceiling `3601`), happy-path including the inclusive `60`/`3600` bounds, a layering check proving the configured value wins as `quiet_hours_sleep_s()`'s base and returns `28000` (>3600) inside an active window without being re-clamped, and two real-HTTP integration checks (a configured `120` reaches `sleep_s`; a below-floor `30` degrades to the CLI default `300`, still passing `validate_display_response()`); `EXPECTED_CHECK_COUNT` 29 → 34, harness passes 34/34. No deviations — all listed acceptance-criteria commands (harness count, `ruff check`, the direct-call sanity script, every literal `grep` match, `git diff --name-only` per task) ran verbatim and passed. `git diff --quiet firmware/` confirmed no firmware change; no package install occurred (stdlib only, `grep -cE '^\s*(from|import) server'` returns 0). This plan has `requirements: []` (unmapped backlog phase promoted from SEED-002, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. `state.advance-plan` errored again ("Cannot parse Current Plan or Total Plans in Phase from STATE.md", the same known prose-parsing limitation documented throughout this file's history); `state.update-progress` again wrote `percent: 83` (`completed_phases/total_phases` = 19/23, the same recurring wrong-ratio bug) despite its own returned JSON correctly reporting `completed: 109, total: 113, percent: 96` — corrected `percent` to `96` by hand per this file's own established precedent. `roadmap.update-plan-progress "11"` confirmed `plan_count: 4, summary_count: 2, status: "In Progress"` — plans 03-04 remain (Wave 2's other parallel-safe plan plus the closing plan). Known transient state, out of this plan's scope: `companion/test_config_page.py` currently has one failing dict-equality assertion missing the new `wake_interval_s` key, belonging to plan 11-03.
 
@@ -288,6 +290,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 10 P05 | 55min | 3 tasks | 4 files |
 | Phase 11 P01 | 17min | 2 tasks | 2 files |
 | Phase 11 P02 | 13min | 2 tasks | 3 files |
+| Phase 11-web-configurable-wake-interval P03 | 8min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -488,6 +491,9 @@ Recent decisions affecting current work:
 - [Phase 11]: save_device_config() has no way to clear an already-set wake_interval_s back to unset - an empty input means leave unchanged, resolving 11-RESEARCH.md Open Question 2
 - [Phase 11]: read_wake_interval_s() is an independently-written, behaviourally-compatible reimplementation, not a byte-for-byte pinned duplicate like seconds_until_quiet_hours_end()
 - [Phase 11]: No second bounds check is added after quiet_hours_sleep_s() returns - the 60-3600 range gates the stored config field only, never the delivered sleep_s value
+- [Phase ?]: Absent/empty-string wake_interval_s in handle_post() resolves to None (leave unchanged), never a rejection
+- [Phase ?]: No field-specific error copy for wake_interval_s — reuses the existing generic save-failed flash verbatim
+- [Phase ?]: No new CSS: <input type="number"> inherits the existing global input,select 44px floor and focus outline with zero new tokens
 
 ### Pending Todos
 
@@ -568,8 +574,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-04T06:03:21.955Z
-Stopped at: Phase 11 UI-SPEC approved
+Last session: 2026-09-04T06:15:26.246Z
+Stopped at: 11-03 executed (Wake interval Settings field)
 
 Resume file: 
 
