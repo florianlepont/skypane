@@ -1,0 +1,197 @@
+<title>Theme Picker Chips</title>
+<style>
+  /* ---- SkyPane companion design tokens, resynced 2026-09-03 to the
+     real production stylesheet (companion/static/style.css). Sketch
+     004 for phase 06.6.4.1.1 — validates locked decisions D-01..D-07. ---- */
+  :root {
+    --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px;
+    --space-xl: 32px; --space-2xl: 48px;
+    --font-label-size: 14px; --font-body-size: 16px; --font-heading-size: 20px;
+    --font-page-title-size: 30px;
+    --weight-regular: 400; --weight-semibold: 600;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --radius-card: 10px; --radius-control: 8px;
+
+    --color-canvas: #F7F4EF;
+    --color-dominant: #FFFFFF;
+    --color-secondary: #EEE8DE;
+    --color-border: #DFD7C8;
+    --color-accent: #B13F16;
+    --color-text: #17191F;
+    --color-status-error: #BE123C;
+    --color-text-muted: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --color-canvas: #0C0F14; --color-dominant: #151922; --color-secondary: #1C222D;
+      --color-border: #2A3040; --color-accent: #FF8A5C; --color-text: #F1F3F6;
+    }
+  }
+  :root[data-theme="dark"] {
+    --color-canvas: #0C0F14; --color-dominant: #151922; --color-secondary: #1C222D;
+    --color-border: #2A3040; --color-accent: #FF8A5C; --color-text: #F1F3F6;
+  }
+
+  body{margin:0;background:var(--color-canvas);color:var(--color-text);font-family:var(--font-ui);font-size:var(--font-body-size)}
+  h1,h2{font-family:var(--font-serif);font-weight:var(--weight-regular)}
+
+  /* ---- variant tab bar ---- */
+  #variant-nav{position:sticky;top:0;z-index:20;background:var(--color-secondary);border-bottom:1px solid var(--color-border);padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .variant-tab{border:1px solid var(--color-border);background:var(--color-dominant);color:var(--color-text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-family:var(--font-ui)}
+  .variant-tab.active{background:var(--color-text);color:var(--color-canvas);border-color:var(--color-text)}
+  .variant{display:none}
+  .variant.active{display:block}
+
+  .page-content{padding:var(--space-xl) var(--space-lg) var(--space-2xl);max-width:1100px;margin:0 auto}
+  .page-title{font-size:var(--font-page-title-size);margin:0 0 var(--space-sm)}
+  .page-purpose{color:var(--color-text-muted);font-size:var(--font-body-size);margin:0 0 var(--space-xl)}
+  .section-heading{font-size:var(--font-heading-size);margin:0 0 var(--space-md)}
+  .theme-status{background:var(--color-dominant);border:1px solid var(--color-border);border-radius:var(--radius-card);padding:var(--space-lg);margin-bottom:var(--space-xl)}
+
+  .preview-scene{position:relative;width:100%;height:100%;overflow:hidden;font-family:var(--font-mono);display:flex;flex-direction:column;justify-content:center;padding:0 8px}
+  .preview-scene__line{font-size:8px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .preview-band{position:absolute;inset:0;clip-path:polygon(60% 0, 100% 0, 100% 100%, 30% 100%)}
+
+  #variant-a fieldset{border:1px solid var(--color-border);border-radius:0;background:transparent;padding:var(--space-md);margin:0}
+  #variant-a legend{padding:0 var(--space-xs);font-size:var(--font-body-size)}
+  #variant-a label{display:block;margin-bottom:8px;font-size:var(--font-body-size)}
+  #variant-a input[type="radio"]{min-height:44px;min-width:44px;vertical-align:middle;margin-right:8px}
+  #variant-a .a11y-note{margin-top:var(--space-md);font-size:13px;color:var(--color-status-error)}
+
+  #variant-b .chip-grid,#variant-c .chip-grid{display:flex;flex-wrap:wrap;gap:var(--space-sm)}
+  .theme-chip{border:2px solid var(--color-border);border-radius:var(--radius-control);overflow:hidden;cursor:pointer;background:var(--color-dominant);transition:border-color .15s}
+  .theme-chip:hover{border-color:color-mix(in srgb, var(--color-accent) 40%, var(--color-border))}
+  .theme-chip input{position:absolute;opacity:0;pointer-events:none}
+  .theme-chip.selected{border-color:var(--color-accent)}
+  .theme-chip__body{padding:8px 10px}
+  .theme-chip__name{font-weight:var(--weight-semibold);margin:0 0 4px}
+  .theme-chip__swatches{display:flex;gap:4px;align-items:center}
+  .theme-chip__dot{border-radius:3px;border:1px solid rgba(0,0,0,0.15)}
+  .theme-chip.selected .theme-chip__name::after{content:" ✓";color:var(--color-accent)}
+  #variant-b .theme-chip{width:160px}
+  #variant-b .theme-chip__preview{height:56px;width:100%}
+  #variant-b .theme-chip__name{font-size:13px}
+  #variant-b .theme-chip__dot{width:12px;height:12px}
+  #variant-c .theme-chip{width:140px}
+  #variant-c .theme-chip__preview{height:44px;width:100%}
+  #variant-c .theme-chip__name{font-size:12px}
+  #variant-c .theme-chip__dot{width:10px;height:10px}
+  #variant-c .chip-grid{gap:6px}
+
+  #footer-note{max-width:1100px;margin:0 auto;padding:0 var(--space-lg) var(--space-2xl);color:var(--color-text-muted);font-size:13px}
+</style>
+
+<div id="variant-nav">
+  <button class="variant-tab active" data-v="a">A: Today (44px radios)</button>
+  <button class="variant-tab" data-v="b">B: Chip grid, 160px ★</button>
+  <button class="variant-tab" data-v="c">C: Chip grid, 140px (denser)</button>
+</div>
+
+<div id="variant-a" class="variant active">
+  <div class="page-content">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-purpose">Configure this device's runway, theme, and diagnostics.</p>
+    <h2 class="section-heading">Theme</h2>
+    <fieldset id="theme-fieldset-a"></fieldset>
+    <p class="a11y-note">16 rows × 53px ≈ 850px of the first screen. No colour swatch — "Yellow Light" vs "Band Blue Light" gives nothing to look at.</p>
+  </div>
+</div>
+
+<div id="variant-b" class="variant">
+  <div class="page-content">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-purpose">Configure this device's runway, theme, and diagnostics.</p>
+    <div class="theme-status">
+      <h2 class="section-heading">Theme</h2>
+      <div class="chip-grid" id="theme-grid-b"></div>
+    </div>
+  </div>
+</div>
+
+<div id="variant-c" class="variant">
+  <div class="page-content">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-purpose">Configure this device's runway, theme, and diagnostics.</p>
+    <div class="theme-status">
+      <h2 class="section-heading">Theme</h2>
+      <div class="chip-grid" id="theme-grid-c"></div>
+    </div>
+  </div>
+</div>
+
+<p id="footer-note">Sketch 004 for phase 06.6.4.1.1 — validates the theme-picker decisions already locked in 06.6.4.1.1-CONTEXT.md (a design discussion, not open exploration). Theme data is real (server/device_config.py's THEMES, server/panel_format.py's PALETTE_RGB). The rendered-preview band is a CSS stand-in for the real server.plane.render call the actual implementation will make.</p>
+
+<script>
+function showVariant(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  document.querySelector('.variant-tab[data-v="' + id + '"]').classList.add('active');
+}
+document.querySelectorAll('.variant-tab').forEach(btn => {
+  btn.addEventListener('click', () => showVariant(btn.dataset.v));
+});
+
+const INK = { black:'#000000', white:'#FFFFFF', yellow:'#F0E050', red:'#A02020', blue:'#2D5F9B', green:'#326941' };
+
+const THEMES = [
+  { id: 'white', label: 'White', bg: 'white', ink: 'black', weight: 400 },
+  { id: 'black', label: 'Black', bg: 'black', ink: 'white', weight: 400 },
+  { id: 'grey', label: 'Grey', bg: 'black', ink: 'white', weight: 600, light: true },
+  { id: 'yellow', label: 'Yellow', bg: 'yellow', ink: 'black', weight: 400 },
+  { id: 'yellow_light', label: 'Yellow Light', bg: 'yellow', ink: 'black', weight: 400, light: true },
+  { id: 'red', label: 'Red', bg: 'red', ink: 'white', weight: 400 },
+  { id: 'red_light', label: 'Red Light', bg: 'red', ink: 'white', weight: 400, light: true },
+  { id: 'green', label: 'Green', bg: 'green', ink: 'white', weight: 400 },
+  { id: 'green_light', label: 'Green Light', bg: 'green', ink: 'white', weight: 400, light: true },
+  { id: 'blue', label: 'Blue', bg: 'blue', ink: 'white', weight: 400 },
+  { id: 'blue_light', label: 'Blue Light', bg: 'blue', ink: 'white', weight: 400, light: true },
+  { id: 'band_blue', label: 'Band Blue', bg: 'white', ink: 'black', weight: 400, band: 'blue' },
+  { id: 'band_blue_light', label: 'Band Blue Light', bg: 'white', ink: 'black', weight: 400, band: 'blue', bandDithered: true },
+  { id: 'band_green_light', label: 'Band Green Light', bg: 'white', ink: 'black', weight: 400, band: 'green', bandDithered: true },
+  { id: 'band_red', label: 'Band Red', bg: 'white', ink: 'black', weight: 400, band: 'red' },
+  { id: 'band_black', label: 'Band Black', bg: 'white', ink: 'black', weight: 400, band: 'black' },
+];
+
+const SCENE = { departing: 'AFR123 → JFK  18:42', arriving: 'RER B  8 min' };
+
+function previewSceneHTML(theme) {
+  const bg = INK[theme.bg];
+  const ink = INK[theme.ink];
+  const opacity = theme.light ? 0.55 : 1;
+  let bandHTML = '';
+  if (theme.band) {
+    const bandOpacity = theme.bandDithered ? 0.4 : 1;
+    bandHTML = '<div class="preview-band" style="background:' + INK[theme.band] + ';opacity:' + bandOpacity + '"></div>';
+  }
+  return '<div class="preview-scene" style="background:' + bg + '">' + bandHTML +
+    '<div style="position:relative;color:' + ink + ';opacity:' + opacity + '">' +
+    '<div class="preview-scene__line" style="font-weight:' + theme.weight + '">' + SCENE.departing + '</div>' +
+    '<div class="preview-scene__line">' + SCENE.arriving + '</div></div></div>';
+}
+
+document.getElementById('theme-fieldset-a').innerHTML = '<legend>Theme</legend>' + THEMES.map((t, i) =>
+  '<label><input type="radio" name="theme-a" ' + (i === 0 ? 'checked' : '') + '> ' + t.label + '</label>'
+).join('');
+
+function renderChipGrid(containerId, radioGroup, selectedIndex) {
+  document.getElementById(containerId).innerHTML = THEMES.map((t, i) =>
+    '<label class="theme-chip' + (i === selectedIndex ? ' selected' : '') + '">' +
+    '<input type="radio" name="' + radioGroup + '" ' + (i === selectedIndex ? 'checked' : '') + '>' +
+    '<div class="theme-chip__preview">' + previewSceneHTML(t) + '</div>' +
+    '<div class="theme-chip__body"><p class="theme-chip__name">' + t.label + '</p>' +
+    '<div class="theme-chip__swatches"><span class="theme-chip__dot" style="background:' + INK[t.bg] + '"></span>' +
+    '<span class="theme-chip__dot" style="background:' + INK[t.bg] + '"></span></div></div></label>'
+  ).join('');
+  document.querySelectorAll('#' + containerId + ' .theme-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chip.closest('.chip-grid').querySelectorAll('.theme-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+    });
+  });
+}
+renderChipGrid('theme-grid-b', 'theme-b', 0);
+renderChipGrid('theme-grid-c', 'theme-c', 0);
+</script>

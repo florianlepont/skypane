@@ -1,0 +1,148 @@
+<title>Type Ladder Preview</title>
+<style>
+  :root {
+    --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px; --space-xl: 32px; --space-2xl: 48px;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+    --weight-regular: 400; --weight-semibold: 600;
+    --radius-card: 10px;
+    --color-canvas: #F7F4EF; --color-dominant: #FFFFFF; --color-secondary: #EEE8DE;
+    --color-border: #DFD7C8; --color-accent: #B13F16; --color-text: #17191F;
+    --color-status-ok: #16A34A;
+    --color-text-muted: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --color-canvas: #0C0F14; --color-dominant: #151922; --color-secondary: #1C222D;
+      --color-border: #2A3040; --color-accent: #FF8A5C; --color-text: #F1F3F6;
+      --color-status-ok: #4ADE80;
+    }
+  }
+  :root[data-theme="dark"] {
+    --color-canvas: #0C0F14; --color-dominant: #151922; --color-secondary: #1C222D;
+    --color-border: #2A3040; --color-accent: #FF8A5C; --color-text: #F1F3F6;
+    --color-status-ok: #4ADE80;
+  }
+
+  body{margin:0;background:var(--color-canvas);color:var(--color-text);font-family:var(--font-ui);font-size:16px}
+
+  #variant-nav{position:sticky;top:0;z-index:20;background:var(--color-secondary);border-bottom:1px solid var(--color-border);padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .variant-tab{border:1px solid var(--color-border);background:var(--color-dominant);color:var(--color-text);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-family:var(--font-ui)}
+  .variant-tab.active{background:var(--color-text);color:var(--color-canvas);border-color:var(--color-text)}
+  .variant{display:none}
+  .variant.active{display:block}
+
+  .site-header{display:flex;align-items:center;gap:var(--space-lg);padding:var(--space-md) var(--space-lg);background:var(--color-secondary)}
+  .page-content{padding:var(--space-xl) var(--space-lg) var(--space-2xl);max-width:1100px;margin:0 auto}
+  .flash-banner{background:color-mix(in srgb, var(--color-status-ok) 15%, var(--color-dominant));border:1px solid var(--color-status-ok);border-radius:8px;padding:var(--space-sm) var(--space-md);font-size:14px;margin-bottom:var(--space-lg)}
+  .page-purpose{color:var(--color-text-muted);font-size:16px;margin:0 0 var(--space-xl)}
+  .dashboard-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:var(--space-xl)}
+  .stat-tile{background:var(--color-dominant);border:1px solid var(--color-border);padding:var(--space-md)}
+  .stat-tile__body{font-size:16px;font-weight:var(--weight-semibold)}
+  .page-section{background:var(--color-dominant);border:1px solid var(--color-border);border-radius:var(--radius-card)}
+  .data-table{width:100%;border-collapse:collapse;font-size:14px}
+  .data-table th{text-align:left;padding:var(--space-sm);border-bottom:1px solid var(--color-border);font-weight:var(--weight-regular)}
+  .data-table td{padding:var(--space-sm);border-bottom:1px solid var(--color-border)}
+  .data-table td.mono{font-family:var(--font-mono)}
+  .page-section--nested{margin-top:24px;border:1px solid var(--color-border);border-radius:var(--radius-card)}
+
+  /* Variant A: today's flat hierarchy */
+  #variant-a .site-title{font-family:var(--font-serif);font-size:20px;font-weight:400}
+  #variant-a .page-title{font-family:var(--font-serif);font-size:30px;font-weight:400;margin:0 0 var(--space-sm)}
+  #variant-a .dashboard-grid{gap:32px}
+  #variant-a .stat-tile__caption{font-family:var(--font-serif);font-size:14px;color:var(--color-text-muted);margin:0 0 4px}
+  #variant-a .page-section{padding:16px;margin-bottom:24px}
+  #variant-a .page-section h2{font-family:var(--font-serif);font-size:20px;font-weight:400;margin:0 0 var(--space-md)}
+  #variant-a .page-section--nested{padding:16px}
+  #variant-a .page-section--nested h3{font-family:var(--font-serif);font-size:20px;font-weight:400;margin:0 0 var(--space-md)}
+  #variant-a .data-table th{font-family:var(--font-ui);text-transform:uppercase;font-size:11px;letter-spacing:0.06em;color:var(--color-text-muted)}
+  #variant-a .section-caption{font-family:var(--font-serif);font-size:14px;color:var(--color-text-muted)}
+  #variant-a .screen-heading{font-family:var(--font-serif);font-size:20px;font-weight:400}
+  #variant-a .flash-banner{order:-1}
+
+  /* Variant B: new ladder (locked) */
+  #variant-b .site-title{font-family:var(--font-serif);font-size:24px;font-weight:var(--weight-semibold);letter-spacing:-0.01em}
+  #variant-b .page-title{font-family:var(--font-serif);font-size:32px;font-weight:var(--weight-semibold);letter-spacing:-0.015em;line-height:1.15;margin:0 0 var(--space-sm)}
+  #variant-b .dashboard-grid{gap:24px}
+  #variant-b .stat-tile__caption{font-family:var(--font-ui);font-size:12px;font-weight:var(--weight-semibold);text-transform:uppercase;letter-spacing:0.06em;color:var(--color-text-muted);margin:0 0 4px}
+  #variant-b .page-section{padding:24px;margin-bottom:24px}
+  #variant-b .page-section h2{font-family:var(--font-serif);font-size:22px;font-weight:400;line-height:1.25;margin:0 0 var(--space-md)}
+  #variant-b .page-section--nested{padding:20px}
+  #variant-b .page-section--nested h3{font-family:var(--font-ui);font-size:16px;font-weight:var(--weight-semibold);margin:0 0 var(--space-md)}
+  #variant-b .data-table th{font-family:var(--font-ui);text-transform:uppercase;font-size:12px;font-weight:var(--weight-semibold);letter-spacing:0.06em;color:var(--color-text-muted)}
+  #variant-b .section-caption{font-family:var(--font-ui);font-size:12px;font-weight:var(--weight-semibold);text-transform:uppercase;letter-spacing:0.06em;color:var(--color-text-muted)}
+  #variant-b .screen-heading{font-family:var(--font-serif);font-size:22px;font-weight:400}
+
+  /* Variant C: sizes-only (declined alternative) */
+  #variant-c .site-title{font-family:var(--font-serif);font-size:20px;font-weight:400}
+  #variant-c .page-title{font-family:var(--font-serif);font-size:30px;font-weight:400;margin:0 0 var(--space-sm)}
+  #variant-c .dashboard-grid{gap:24px}
+  #variant-c .stat-tile__caption{font-family:var(--font-serif);font-size:14px;color:var(--color-text-muted);margin:0 0 4px}
+  #variant-c .page-section{padding:20px;margin-bottom:24px}
+  #variant-c .page-section h2{font-family:var(--font-serif);font-size:20px;font-weight:400;margin:0 0 var(--space-md)}
+  #variant-c .page-section--nested{padding:16px}
+  #variant-c .page-section--nested h3{font-family:var(--font-serif);font-size:20px;font-weight:400;margin:0 0 var(--space-md)}
+  #variant-c .data-table th{font-family:var(--font-ui);text-transform:uppercase;font-size:11px;letter-spacing:0.06em;color:var(--color-text-muted)}
+  #variant-c .section-caption{font-family:var(--font-serif);font-size:14px;color:var(--color-text-muted)}
+  #variant-c .screen-heading{font-family:var(--font-serif);font-size:20px;font-weight:400}
+
+  #footer-note{max-width:1100px;margin:0 auto;padding:0 var(--space-lg) var(--space-2xl);color:var(--color-text-muted);font-size:13px}
+</style>
+
+<div id="variant-nav">
+  <button class="variant-tab active" data-v="a">A: Today (flat, 20px everywhere)</button>
+  <button class="variant-tab" data-v="b">B: New ladder ★</button>
+  <button class="variant-tab" data-v="c">C: Sizes only (declined option)</button>
+</div>
+
+<div id="variant-a" class="variant active"></div>
+<div id="variant-b" class="variant"></div>
+<div id="variant-c" class="variant"></div>
+
+<p id="footer-note">Sketch 005 for phase 06.6.4.1.1 — validates the type-ladder decisions already locked in 06.6.4.1.1-CONTEXT.md (a design discussion, not open exploration). Content and copy are from companion/pages/health_page.py's real constants.</p>
+
+<script>
+function showVariant(id) {
+  document.querySelectorAll('.variant').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.variant-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('variant-' + id).classList.add('active');
+  document.querySelector('.variant-tab[data-v="' + id + '"]').classList.add('active');
+}
+document.querySelectorAll('.variant-tab').forEach(btn => {
+  btn.addEventListener('click', () => showVariant(btn.dataset.v));
+});
+
+function healthPageHTML() {
+  return '' +
+    '<div class="site-header"><span class="site-title">SkyPane</span></div>' +
+    '<div class="page-content">' +
+    '<div class="flash-banner">Saved — will apply on the frame\'s next scheduled refresh.</div>' +
+    '<h1 class="page-title">Health</h1>' +
+    '<p class="page-purpose">Live status of this device\'s own signal quality and the companion server\'s data pipeline.</p>' +
+    '<h2 class="screen-heading" style="margin-bottom:16px">Screen</h2>' +
+    '<div class="dashboard-grid">' +
+    '<div class="stat-tile"><p class="stat-tile__caption">Device last checked in</p><p class="stat-tile__body">18:07 UTC (2m ago)</p></div>' +
+    '<div class="stat-tile"><p class="stat-tile__caption">ADS-B pipeline last ran</p><p class="stat-tile__body">18:07 UTC (2m ago)</p>' +
+    '<p style="font-size:12px;color:var(--color-text-muted);margin-top:4px">Last aircraft detected: 17:56 UTC (13m ago)</p></div>' +
+    '<div class="stat-tile"><p class="stat-tile__caption">Corroboration</p><p class="stat-tile__body">92% agreement</p></div>' +
+    '</div>' +
+    '<section class="page-section" style="padding:24px">' +
+    '<h2>Battery trend <span class="section-caption">— Last 3 months, daily average</span></h2>' +
+    '<svg viewBox="0 0 640 80" style="width:100%;height:80px;display:block;margin-bottom:16px">' +
+    '<polyline fill="none" stroke="var(--color-accent)" stroke-width="2" points="10,40 65,44 120,38 175,50 230,54 285,60 340,58 395,66 450,64 505,72 560,70 615,76"/>' +
+    '</svg>' +
+    '<div class="page-section--nested"><h3>Unresolved prefixes</h3>' +
+    '<table class="data-table"><thead><tr><th>Prefix</th><th>Count</th><th>Last seen</th></tr></thead>' +
+    '<tbody><tr><td class="mono">AFR</td><td>42</td><td>18:02 UTC (7m ago)</td></tr>' +
+    '<tr><td class="mono">EZY</td><td>18</td><td>17:41 UTC (28m ago)</td></tr></tbody></table></div>' +
+    '<div class="page-section--nested"><h3>Resolution statistics</h3>' +
+    '<table class="data-table"><thead><tr><th>Source</th><th>Description</th><th>Count</th></tr></thead>' +
+    '<tbody><tr><td>Fresh lookup</td><td style="opacity:.7">Resolved via a live adsbdb API call, cached after.</td><td>310</td></tr>' +
+    '<tr><td>Cache hit</td><td style="opacity:.7">Resolved from a previously-cached lookup.</td><td>1204</td></tr></tbody></table></div>' +
+    '</section></div>';
+}
+document.getElementById('variant-a').innerHTML = healthPageHTML();
+document.getElementById('variant-b').innerHTML = healthPageHTML();
+document.getElementById('variant-c').innerHTML = healthPageHTML();
+</script>

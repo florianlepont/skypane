@@ -270,7 +270,12 @@ STARTUP_DEADLINE_S = 10.0
 # the count; the +1 is the single new check pinning that the retired
 # per-card control left no dead markup, no dead stylesheet rule and no
 # dead module surface behind.
-EXPECTED_CHECK_COUNT = 133  # 130 + 3 (quick 260903-peo Task 2: UIR-14's
+EXPECTED_CHECK_COUNT = 135  # 133 + 2 (06.6.4.1.1-03 Task 1: the desktop-
+# padding/mobile-density pair guard for D-15's .page-section/.theme-status/
+# .battery-trend-section >= 960px padding override; Task 2: the mobile-only
+# button override's block-existence + declared-values + source-order guard
+# for D-18b — two new checks, one per task, no pre-existing check retargeted)
+# 133 = 130 + 3 (quick 260903-peo Task 2: UIR-14's
 # pipeline tile second-line checks — the seeded META_LAST_DETECTION render
 # and the absent-detection honest-fallback render — plus UIR-18's
 # persistent freshness-note structural-contract check; the pre-existing
@@ -3035,7 +3040,7 @@ def main():
         "(quick task 260902-dng bug 2, closes 260901-uzi Finding 5 candidate (a))",
         _data_table_th_has_symmetric_nonzero_padding)
 
-    def _nested_heading_tier_reverted_to_standard_heading_role():
+    def _nested_heading_tier_promoted_to_sans_semibold_emphasis_role():
         # quick task 260901-uzi Task 4 (Check 2): finding 4's markup half
         # (exactly the two migrated cards carry page-section--nested,
         # located from each card's own heading constant rather than a
@@ -3043,19 +3048,25 @@ def main():
         # even when it renders; both .section-intro headings are
         # untouched) — UNCHANGED, this half is still true.
         #
-        # quick task 260902-iag retargets the stylesheet half IN PLACE:
-        # the rule this check inspects no longer demotes the nested tier
-        # (the developer's explicit, same-day reversal of the demotion
-        # this check used to pin — see the rule's own comment in
-        # style.css). It now asserts the opposite: the rule declares no
-        # font-size, no font-weight and (still) no font-family of its
-        # own, and it still declares the retained 260902-bl2 bottom
-        # margin. A positive half is added so the check stays meaningful
-        # after the reversal: `.text-heading` itself must still declare
-        # the 20px heading size and the regular weight this tier now
-        # inherits, and `--font-heading-size` must still be 20px in
-        # :root — so this check fails loudly if the treatment the nested
-        # tier now relies on ever moves out from under it.
+        # 06.6.4.1.1 (D-09, plan 02 Task 2) retargets the stylesheet half
+        # IN PLACE, for the third time: the nested-heading rule this check
+        # inspects is re-promoted to the sans-semibold Emphasis tier quick
+        # task 260901-uzi originally gave it, after quick task 260902-iag's
+        # own explicit reversal back to the plain serif treatment. This is
+        # the deliberate second reversal CONTEXT D-09 records — re-applied
+        # as the bottom rung of a real three-tier ladder (32px semibold
+        # page title / 22px regular section heading / 16px semibold sans
+        # card title), not as an isolated demotion the way 260901-uzi's own
+        # attempt was. The rule must now declare the sans family, the Body
+        # size (16px) and the semibold weight explicitly (no longer
+        # inheriting them from `.text-heading`), and it still declares the
+        # retained 260902-bl2 bottom margin. A positive half keeps the
+        # check meaningful: `.text-heading` itself must still declare the
+        # 22px heading size (D-10 grew it from 20px) and the regular
+        # weight — the section-heading tier must stay regular so the
+        # semibold nested title reads as a distinct tier below it, not
+        # more of the same — and `--font-heading-size` must be 22px in
+        # :root.
         tmp = _mkstate("h-nested-heading-tier")
         try:
             now = _now()
@@ -3100,82 +3111,82 @@ def main():
             selector_list = css_source[selector_at:body_open]
             nested_body = css_source[body_open:body_close]
             if ".battery-trend-section > h2" not in selector_list:
-                return False, "expected the reverted rule's selector list to still cover .battery-trend-section > h2"
+                return False, "expected the promoted rule's selector list to still cover .battery-trend-section > h2"
             if "margin-bottom: var(--space-md)" not in nested_body:
                 return False, (
-                    "expected the reverted rule to still declare its retained 260902-bl2 bottom "
-                    "margin — a missing bottom margin means the revert over-reached and took the "
-                    "independently-justified spacing fix with it")
-            if "font-size" in nested_body:
+                    "expected the promoted rule to still declare its retained 260902-bl2 bottom "
+                    "margin — a missing bottom margin means this re-promotion over-reached and "
+                    "took the independently-justified spacing fix with it")
+            if "font-family: var(--font-ui)" not in nested_body:
                 return False, (
-                    "the reverted rule must declare no font-size of its own — a font-size "
-                    "reappearing here is the 260901-uzi demotion returning")
-            if "font-weight" in nested_body:
+                    "expected the nested-heading rule to declare font-family: var(--font-ui) — "
+                    "D-09's second reversal moves this tier onto the sans Emphasis role")
+            if "font-size: var(--font-body-size)" not in nested_body:
                 return False, (
-                    "the reverted rule must declare no font-weight of its own — a font-weight "
-                    "reappearing here is the 260901-uzi demotion returning")
-            if "font-family" in nested_body:
+                    "expected the nested-heading rule to declare font-size: var(--font-body-size) "
+                    "(16px) — the same Emphasis-role size .stat-tile__value already uses, not a "
+                    "new fifth size")
+            if "font-weight: var(--weight-semibold)" not in nested_body:
                 return False, (
-                    "the reverted rule must set no font family — .text-heading already "
-                    "supplies the serif treatment")
+                    "expected the nested-heading rule to declare font-weight: var(--weight-semibold) "
+                    "— a font-weight missing here means the D-09 re-promotion did not land")
 
             heading_body = css_source[css_source.index(".text-heading {"):]
             heading_body = heading_body[heading_body.index("{"):heading_body.index("}")]
             if "font-size: var(--font-heading-size)" not in heading_body:
                 return False, (
-                    "expected .text-heading to still declare --font-heading-size — the reverted "
-                    "nested tier now inherits this treatment and has no fallback of its own")
+                    "expected .text-heading to still declare --font-heading-size — the section "
+                    "heading tier this nested title now sits below has no fallback of its own")
             if "font-weight: var(--weight-regular)" not in heading_body:
                 return False, (
-                    "expected .text-heading to still declare --weight-regular — the reverted "
-                    "nested tier now inherits this treatment and has no fallback of its own")
+                    "expected .text-heading to stay --weight-regular — the section-heading tier "
+                    "must stay regular so the semibold nested card title below it reads as a "
+                    "distinct third tier, not more of the same weight")
             root_body = css_source[css_source.index(":root"):css_source.index(":root") + 900]
             token_match = re.search(r"--font-heading-size:\s*(\S+);", root_body)
-            if token_match is None or token_match.group(1) != "20px":
+            if token_match is None or token_match.group(1) != "22px":
                 return False, (
-                    "expected --font-heading-size to still be 20px in :root — the value the "
-                    "developer's Settings comparison and this reversal both depend on")
+                    "expected --font-heading-size to be 22px in :root — D-10 grew the section "
+                    "heading tier from 20px to 22px as part of the same ladder this rule is "
+                    "the bottom rung of")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "exactly the two migrated cards carry page-section--nested (located by their own heading constants), "
         "the source-fault block never carries it even when it renders, both .section-intro headings are "
-        "untouched, and style.css's nested-heading rule — reverted by quick task 260902-iag — declares no "
-        "font-size, no font-weight and no font-family of its own (only its retained 260902-bl2 bottom margin), "
-        "inheriting .text-heading's 20px regular treatment, which the check confirms is still 20px/regular at "
-        "the token level too (quick task 260901-uzi finding 4, Check 2; reverted in place by quick task "
-        "260902-iag)",
-        _nested_heading_tier_reverted_to_standard_heading_role)
+        "untouched, and style.css's nested-heading rule — promoted by 06.6.4.1.1 D-09's deliberate second "
+        "reversal — declares the sans family, the Body size (16px) and the semibold weight explicitly (plus "
+        "its retained 260902-bl2 bottom margin), sitting below a .text-heading section-heading tier confirmed "
+        "still 22px/regular at the token level too (quick task 260901-uzi finding 4, Check 2; reverted by "
+        "quick task 260902-iag; re-promoted by 06.6.4.1.1 plan 02 Task 2)",
+        _nested_heading_tier_promoted_to_sans_semibold_emphasis_role)
 
-    def _stat_tile_caption_weight_reverted_and_four_role_scale_hold():
-        # SUPERSEDED (quick task 260902-dng, Task 3): this check used to
-        # pin .stat-tile__caption declaring --weight-semibold, and the
-        # region's four text roles sharing a caption/value/nested-title
-        # semibold trio below one regular-weight section heading. quick
-        # task 260902-iag rewrote this check's whole contract in place —
-        # not just the assertions — because 260901-uzi's finding 4 (the
-        # nested card title's 16px semibold demotion) was itself reverted
-        # by quick task 260902-iag Task 1, and 260902-dng's promotion's
-        # only stated reason was matching that now-reverted title. Task 2
-        # re-adjudicated the promotion against both a premise test and an
-        # inversion test (see .stat-tile__caption's own comment in
-        # style.css for the full reasoning) and reverted it: the caption
-        # is back to the plain Label role it held before 260902-dng.
+    def _stat_tile_caption_joins_the_unified_label_voice():
+        # SUPERSEDED (quick task 260902-dng, Task 3, and quick task
+        # 260902-iag, Task 2): this check used to weigh
+        # .stat-tile__caption's font-weight against the nested card
+        # title's own weight — first pinning a semibold promotion
+        # (260902-dng), then pinning its reversal back to .text-label's
+        # inherited regular (260902-iag). Both adjudications shared one
+        # premise: that the caption was, and would remain, a serif
+        # Label-role exception whose only open question was weight.
         #
-        # This check's post-reversal contract: the four roles' sizes
-        # still form a coherent, source-grounded set against the real
-        # :root token values (caption 14px, strictly below the tile value
-        # and the nested card title at 16px and 20px respectively, both
-        # at or below the 20px section heading — no fifth size anywhere);
-        # the caption declares no size of its own and keeps its named
-        # serif exception; the tile value keeps its own D-09 Emphasis-role
-        # size and weight, untouched by this adjudication; the nested
-        # card title and the section heading both declare regular weight
-        # or inherit it with no override; and the caption declares no
-        # font-weight of its own either, inheriting .text-label's
-        # regular weight — the verdict Task 2 shipped, asserted
-        # explicitly in that direction.
+        # 06.6.4.1.1 (D-13, plan 02 Task 3) retires that premise entirely.
+        # The caption is no longer serif and no longer weighed against the
+        # nested card title's weight at all — it converges, together with
+        # .data-table th, .data-card__label, .filter-bar__count,
+        # .banner__pill and .airline-card__chip, on the one unified label
+        # voice: sans, 12px, semibold, uppercase, 0.06em tracking. This
+        # check's post-D-13 contract: the caption declares all four of
+        # those properties plus the 12px size, and its rule body no
+        # longer names the serif token at all; .stat-tile__value keeps
+        # its own untouched D-09 Emphasis-role size and weight (16px
+        # semibold) — that role was never in question here and stays
+        # exactly as it was; the shared serif rule keeps its regular
+        # weight (still the section-heading tier's own contract,
+        # independent of the caption question this check used to
+        # adjudicate); and the token table reads 14/16/22px.
         css_path = os.path.join(HERE, "static", "style.css")
         with open(css_path) as fh:
             css_source = fh.read()
@@ -3187,19 +3198,31 @@ def main():
             return css_source[body_open:body_close]
 
         caption_body = _rule_body(".stat-tile__caption {")
-        if "font-weight" in caption_body:
+        if "font-family: var(--font-ui)" not in caption_body:
             return False, (
-                "expected .stat-tile__caption to declare no font-weight of its own — quick "
-                "task 260902-iag Task 2 reverted the semibold promotion back to .text-label's "
-                "inherited regular weight; a font-weight reappearing here is that promotion "
-                "returning without the fresh, non-circular justification the revert requires")
-        if "font-size" in caption_body:
+                "expected .stat-tile__caption to declare font-family: var(--font-ui) — D-13 "
+                "retires the serif Label-role exception this caption used to be")
+        if "var(--font-serif)" in caption_body:
             return False, (
-                "expected .stat-tile__caption to declare no font-size of its own "
-                "(it must keep inheriting .text-label's 14px) — a fifth size "
-                "would violate D-09's four-size scale")
-        if "var(--font-serif)" not in caption_body:
-            return False, "expected .stat-tile__caption to keep its named serif exception"
+                "expected .stat-tile__caption's rule body to no longer name the serif token at "
+                "all — a serif reference reappearing here is the retired Label-role exception "
+                "returning")
+        if "font-size: 12px" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare font-size: 12px — the unified label "
+                "voice's own size")
+        if "font-weight: var(--weight-semibold)" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare font-weight: var(--weight-semibold) "
+                "— one of the unified label voice's four properties")
+        if "text-transform: uppercase" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare text-transform: uppercase — one of "
+                "the unified label voice's four properties")
+        if "letter-spacing: 0.06em" not in caption_body:
+            return False, (
+                "expected .stat-tile__caption to declare letter-spacing: 0.06em — one of the "
+                "unified label voice's four properties")
 
         value_body = _rule_body(".stat-tile__value {")
         if "font-size: var(--font-body-size)" not in value_body:
@@ -3207,19 +3230,20 @@ def main():
         if "font-weight: var(--weight-semibold)" not in value_body:
             return False, "expected .stat-tile__value to stay semibold — Finding 4's own contract"
 
-        # quick task 260902-iag Task 1: the nested card title's demotion
-        # was reverted, so it now inherits 20px regular from
-        # .text-heading and declares neither a font-size nor a
-        # font-weight of its own.
+        # 06.6.4.1.1 (D-09, plan 02 Task 2): the nested card title's
+        # demotion — reverted by quick task 260902-iag — is re-promoted a
+        # second time, deliberately, as the bottom rung of the full type
+        # ladder. It now declares its own sans-semibold Body-size
+        # treatment rather than inheriting from .text-heading.
         nested_body = _rule_body(".page-section--nested > h2,")
-        if "font-size" in nested_body:
+        if "font-size: var(--font-body-size)" not in nested_body:
             return False, (
-                "expected the nested card title to declare no font-size of its own — it now "
-                "inherits .text-heading's 20px (quick task 260902-iag reverted the demotion)")
-        if "font-weight" in nested_body:
+                "expected the nested card title to declare font-size: var(--font-body-size) "
+                "(16px) — D-09's second reversal promotes it onto the sans Emphasis role")
+        if "font-weight: var(--weight-semibold)" not in nested_body:
             return False, (
-                "expected the nested card title to declare no font-weight of its own — it now "
-                "inherits .text-heading's regular weight (quick task 260902-iag reverted the demotion)")
+                "expected the nested card title to declare font-weight: var(--weight-semibold) "
+                "— D-09's second reversal promotes it onto the sans Emphasis role")
 
         heading_body = _rule_body("h1,\nh2,\nh3,\nlegend,\n.text-heading {")
         if "font-weight: var(--weight-regular)" not in heading_body:
@@ -3234,23 +3258,21 @@ def main():
         for name, expected in (
                 ("--font-label-size", "14px"),
                 ("--font-body-size", "16px"),
-                ("--font-heading-size", "20px")):
+                ("--font-heading-size", "22px")):
             token_match = re.search(r"%s:\s*(\S+);" % re.escape(name), tokens_body)
             if token_match is None or token_match.group(1) != expected:
                 return False, "expected %s to be %s in :root" % (name, expected)
 
         return True, ""
     check(
-        "style.css's four Server & data text roles form a coherent, source-grounded set after both the nested "
-        "card title's reversal and the stat-tile caption's re-adjudication (quick task 260902-iag): the caption "
-        "(14px, no font-size or font-weight of its own, keeping its named serif exception) declares no weight "
-        "promotion — reverted back to .text-label's inherited regular, since its only stated reason (matching "
-        "the now-reverted 16px-semibold nested title) evaporated and would otherwise recreate the same weight-"
-        "vs-size inversion this session has repeatedly fixed — while .stat-tile__value keeps its own untouched "
-        "D-09 Emphasis-role size/weight, and both the nested card title and the section heading inherit "
-        ".text-heading's 20px regular treatment with no override (quick task 260902-dng Task 3, whose promotion "
-        "and reasoning are superseded, not deleted, by quick task 260902-iag Task 2)",
-        _stat_tile_caption_weight_reverted_and_four_role_scale_hold)
+        "style.css's .stat-tile__caption converges on the one unified 12px uppercase label voice (D-13) — sans "
+        "family, 12px size, semibold weight, uppercase transform and 0.06em tracking all declared explicitly, "
+        "with no serif token named anywhere in its rule body — while .stat-tile__value keeps its own untouched "
+        "D-09 Emphasis-role size/weight, the nested card title stays on its own D-09-second-reversal sans-"
+        "semibold Body-size declarations, the shared h1/h2/h3/legend/.text-heading serif rule keeps its regular "
+        "weight, and the token table reads 14/16/22px (supersedes quick task 260902-dng Task 3's semibold "
+        "promotion and quick task 260902-iag Task 2's reversal of it — 06.6.4.1.1 plan 02 Task 3)",
+        _stat_tile_caption_joins_the_unified_label_voice)
 
     def _two_tier_hierarchy_carried_by_layout_not_type():
         # quick task 260902-iag Task 3: with font-size no longer
@@ -4798,6 +4820,55 @@ def main():
         "var(--space-2xl) (260902-ep7 BUG 2)",
         _quick_260902_ep7_dashboard_grid_card_gap_two_role_split)
 
+    def _06_6_4_1_1_03_desktop_card_padding_mobile_density_pair():
+        # 06.6.4.1.1-03 Task 1 (D-15): pins BOTH halves of the desktop-
+        # padding/mobile-density pair as a set — a future "just harmonise
+        # the padding" edit that raises the base rules to --space-lg
+        # directly (deleting the mobile-density half) or that forgets to
+        # bump one of the three selectors inside the >= 960px override
+        # would each silently break one half with no other check
+        # noticing.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        selectors = (".page-section", ".theme-status", ".battery-trend-section")
+
+        # Base rules (below the breakpoint) must still declare the
+        # mobile-density value.
+        for selector in selectors:
+            needle = selector + " {"
+            if needle not in css_source:
+                return False, "expected style.css to declare %r" % (needle,)
+            start = css_source.index(needle)
+            body = css_source[start:css_source.index("}", start)]
+            if "padding: var(--space-md)" not in body:
+                return False, (
+                    "expected %r's base rule to still declare padding: var(--space-md) "
+                    "(the mobile-keeps-its-density half of D-15)" % (selector,))
+
+        # The >= 960px override must exist, cover all three selectors in
+        # one rule, and declare the desktop padding value.
+        media_at = css_source.index("@media (min-width: 960px) {")
+        media_close = css_source.index("\n}\n", media_at)
+        media_body = css_source[media_at:media_close]
+        override_pattern = (
+            r"\.page-section,\s*\.theme-status,\s*\.battery-trend-section\s*\{"
+            r"\s*padding:\s*var\(--space-lg\);"
+        )
+        if not re.search(override_pattern, media_body):
+            return False, (
+                "expected the @media (min-width: 960px) block to declare a single rule "
+                "covering .page-section, .theme-status and .battery-trend-section with "
+                "padding: var(--space-lg) (D-15's desktop half)")
+        return True, ""
+    check(
+        "the desktop-padding/mobile-density pair holds together: .page-section, .theme-status "
+        "and .battery-trend-section all still declare padding: var(--space-md) in their own base "
+        "rules, and one shared rule inside the @media (min-width: 960px) block raises all three "
+        "to padding: var(--space-lg) (06.6.4.1.1-03 D-15)",
+        _06_6_4_1_1_03_desktop_card_padding_mobile_density_pair)
+
     def _quick_260902_ep7_summary_accent_and_reservation_list():
         # quick task 260902-ep7 (BUG 3): pins both halves of the fix as
         # a pair — the bare `summary` rule must declare the accent
@@ -5454,6 +5525,50 @@ def main():
         "(a misreading of the developer's original request, corrected on the same live test) must not "
         "silently return",
         _airline_card_zoom_stylesheet_contract)
+
+    def _06_6_4_1_1_03_mobile_button_override_block_and_source_order():
+        # 06.6.4.1.1-03 Task 2 (D-18b): pins the mobile-only button
+        # override's existence, its declared values, that the base
+        # button rule's own desktop values are untouched, and — the half
+        # that actually protects the behaviour — that the mobile block
+        # comes AFTER the base `button` rule in source order, since
+        # neither rule adds specificity beyond the bare `button` selector
+        # and source order alone decides the winner.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        marker = "@media (max-width: 959.98px) {"
+        if marker not in css_source:
+            return False, "expected style.css to declare %r" % (marker,)
+        media_at = css_source.index(marker)
+
+        base_button_at = css_source.index("button {")
+        if base_button_at > media_at:
+            return False, (
+                "expected the base `button {` rule to come BEFORE the "
+                "%r block, not after it" % (marker,))
+        base_body = css_source[base_button_at:css_source.index("}", base_button_at)]
+        if "height: 30px" not in base_body:
+            return False, "expected the base button rule to still declare height: 30px"
+        if "font-size: 13px" not in base_body:
+            return False, "expected the base button rule to still declare font-size: 13px"
+
+        media_close = css_source.index("\n}\n", media_at)
+        media_body = css_source[media_at:media_close]
+        mobile_button_pattern = r"button\s*\{\s*height:\s*36px;\s*font-size:\s*14px;\s*\}"
+        if not re.search(mobile_button_pattern, media_body):
+            return False, (
+                "expected the %r block to declare a bare `button { height: 36px; "
+                "font-size: 14px; }` rule" % (marker,))
+        return True, ""
+    check(
+        "the mobile-only button override exists as the file's @media (max-width: 959.98px) block, "
+        "declares a bare `button` rule with height: 36px and font-size: 14px, sits AFTER the base "
+        "`button` rule in source order (the mechanism that lets it win at equal specificity), and "
+        "the base rule's own desktop values (height: 30px, font-size: 13px) are untouched "
+        "(06.6.4.1.1-03 D-18b)",
+        _06_6_4_1_1_03_mobile_button_override_block_and_source_order)
 
     def _lightbox_wide_max_width_matches_illustration_target_width():
         css_path = os.path.join(HERE, "static", "style.css")
