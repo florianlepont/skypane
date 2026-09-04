@@ -1,0 +1,674 @@
+<!--
+  SkyPane — Tour de contrôle
+  Tableau de bord de suivi : roadmap, seeds, backlog v2, bugs.
+
+  PUBLIÉ À : https://claude.ai/code/artifact/3f2189e4-0717-40b4-888e-1fae0e852ba6
+
+  POUR METTRE À JOUR — republier CE fichier à CETTE URL, sinon un nouveau lien
+  est créé et l'ancien reste figé sur des données périmées. Depuis une session
+  Claude Code : outil Artifact, action publish, file_path = ce fichier,
+  url = l'URL ci-dessus.
+
+  SOURCES À RELIRE AVANT CHAQUE MISE À JOUR (dans cet ordre) :
+    .planning/ROADMAP.md      — liste des phases + section "Phase Details"
+                                (⚠ la liste de tête et la table "Progress"
+                                sont connues pour être en retard ; les
+                                répertoires .planning/phases/ font foi)
+    .planning/STATE.md        — frontmatter : total_phases, completed_plans,
+                                current_phase, et `stopped_at` pour le vrai
+                                "où on en est"
+    .planning/REQUIREMENTS.md — section "v2 Requirements" pour le backlog
+    .planning/seeds/*.md      — champ `status:` de chaque seed
+                                (dormant / fulfilled / partially-fulfilled ;
+                                les seeds les plus anciennes n'ont pas ce champ)
+    .planning/debug/          — resolved/ = bugs clos ; tout fichier hors
+                                resolved/ serait un bug ouvert
+
+  ⚠ VÉRIFIER `git fetch && git status` D'ABORD. Ce tableau a déjà été généré
+  une fois depuis un checkout 374 commits en retard : deux phases entières et
+  la moitié des seeds manquaient, sans aucun signe visible.
+
+  Dernière génération : 2026-09-04, au commit a85222e.
+-->
+<title>Tour de contrôle SkyPane</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    --paper:#F2F5F4;
+    --paper-raised:#FFFFFF;
+    --ink:#15191C;
+    --ink-dim:#5B6570;
+    --ink-faint:#8A939C;
+    --line:#D9DFDE;
+    --line-soft:#E6EAE9;
+
+    --accent:#2C6FBF;
+    --accent-soft:#E5EEF9;
+    --accent-ink:#1B4A85;
+
+    --good:#2F8F5B;
+    --good-soft:#E3F2E9;
+    --good-ink:#1F6B41;
+
+    --warn:#A6740A;
+    --warn-soft:#FAF0DA;
+    --warn-ink:#7D5807;
+
+    --neutral:#66707A;
+    --neutral-soft:#EAEDEF;
+
+    --shadow: 0 1px 2px rgba(20,26,30,0.04), 0 8px 24px -12px rgba(20,26,30,0.10);
+    --radius: 10px;
+  }
+
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#14181B;
+      --paper-raised:#1B2124;
+      --ink:#EDF1F2;
+      --ink-dim:#A3AFB6;
+      --ink-faint:#707B82;
+      --line:#2A3236;
+      --line-soft:#232A2D;
+      --accent:#5B9AE8;
+      --accent-soft:#1E2E42;
+      --accent-ink:#9BC3F2;
+      --good:#4FAE79;
+      --good-soft:#1C2E24;
+      --good-ink:#8FD3AC;
+      --warn:#D9A63B;
+      --warn-soft:#332A15;
+      --warn-ink:#EBC978;
+      --neutral:#8B96A0;
+      --neutral-soft:#232A2E;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+      --paper:#14181B;
+      --paper-raised:#1B2124;
+      --ink:#EDF1F2;
+      --ink-dim:#A3AFB6;
+      --ink-faint:#707B82;
+      --line:#2A3236;
+      --line-soft:#232A2D;
+      --accent:#5B9AE8;
+      --accent-soft:#1E2E42;
+      --accent-ink:#9BC3F2;
+      --good:#4FAE79;
+      --good-soft:#1C2E24;
+      --good-ink:#8FD3AC;
+      --warn:#D9A63B;
+      --warn-soft:#332A15;
+      --warn-ink:#EBC978;
+      --neutral:#8B96A0;
+      --neutral-soft:#232A2E;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Public Sans', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--accent-soft); color:var(--accent-ink); }
+  code{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:0.92em; }
+
+  .page{ max-width:940px; margin:0 auto; padding:56px 24px 96px; }
+
+  /* Masthead */
+  .masthead{
+    display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+    padding-bottom:22px; border-bottom:2px solid var(--ink); margin-bottom:34px;
+  }
+  .masthead h1{
+    font-family:'Zilla Slab', Georgia, serif; font-weight:700;
+    font-size:2.5rem; line-height:1.05; margin:0 0 8px;
+    letter-spacing:-0.01em; text-wrap:balance;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:0.72rem; font-weight:600; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--accent-ink); margin:0 0 10px;
+  }
+  .masthead-sub{ font-size:0.95rem; color:var(--ink-dim); max-width:56ch; margin:0; }
+  .masthead-meta{
+    text-align:right; font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:0.78rem; color:var(--ink-faint); white-space:nowrap;
+  }
+  .masthead-meta strong{ color:var(--ink-dim); font-weight:600; display:block; margin-bottom:3px; }
+
+  /* Stat strip */
+  .stats{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
+    background:var(--line); border:1px solid var(--line);
+    border-radius:var(--radius); overflow:hidden;
+    margin-bottom:44px; box-shadow:var(--shadow);
+  }
+  .stat{ background:var(--paper-raised); padding:18px; display:flex; flex-direction:column; gap:6px; }
+  .stat-value{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:1.9rem; font-weight:600; line-height:1; font-variant-numeric:tabular-nums;
+  }
+  .stat-value.accent{ color:var(--accent-ink); }
+  .stat-value.good{ color:var(--good-ink); }
+  .stat-value.warn{ color:var(--warn-ink); }
+  .stat-label{ font-size:0.78rem; font-weight:600; color:var(--ink); }
+  .stat-note{ font-size:0.76rem; color:var(--ink-faint); line-height:1.35; }
+
+  /* Section shell */
+  section.board{ margin-bottom:42px; }
+  .board-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--line);
+  }
+  .board-head h2{ font-family:'Zilla Slab', Georgia, serif; font-size:1.5rem; font-weight:600; margin:0; }
+  .board-head .count{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:0.76rem; color:var(--ink-faint); }
+  .board-intro{ font-size:0.88rem; color:var(--ink-dim); margin:0 0 18px; max-width:70ch; line-height:1.55; }
+
+  /* Rows */
+  .rows{ display:flex; flex-direction:column; }
+  .row{
+    display:grid; grid-template-columns:46px 1fr auto auto;
+    align-items:start; gap:14px; padding:12px 4px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .row:last-child{ border-bottom:none; }
+  .row-tag{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:0.75rem; font-weight:600; color:var(--ink-faint); padding-top:2px;
+  }
+  .row-main{ min-width:0; }
+  .row-title{ font-weight:600; font-size:0.94rem; margin:0 0 3px; }
+  .row-desc{ font-size:0.82rem; color:var(--ink-dim); line-height:1.45; margin:0; }
+  .row-date{
+    font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:0.75rem;
+    color:var(--ink-faint); white-space:nowrap; padding-top:3px; text-align:right;
+  }
+
+  /* Nested sub-phase chain */
+  .chain{
+    margin:10px 0 2px; padding:12px 14px;
+    background:var(--neutral-soft); border-radius:8px;
+  }
+  .chain-head{
+    font-size:0.76rem; font-weight:600; color:var(--ink-dim);
+    margin:0 0 8px; display:flex; align-items:center; gap:8px;
+  }
+  .chain-list{ display:flex; flex-direction:column; gap:5px; margin:0; padding:0; list-style:none; }
+  .chain-item{
+    display:grid; grid-template-columns:56px 1fr auto; gap:10px;
+    align-items:baseline; font-size:0.79rem; color:var(--ink-dim);
+  }
+  .chain-item code{ color:var(--ink-faint); font-size:0.72rem; font-weight:600; }
+  .chain-item .n{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--ink-faint); font-weight:600; }
+  .chain-item .done{ color:var(--good-ink); font-size:0.7rem; font-weight:600; white-space:nowrap; }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:5px;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:0.68rem; font-weight:600; letter-spacing:0.03em; text-transform:uppercase;
+    padding:3px 9px; border-radius:999px; white-space:nowrap; height:fit-content;
+  }
+  .pill::before{ content:""; width:6px; height:6px; border-radius:50%; }
+  .pill.good{ background:var(--good-soft); color:var(--good-ink); }
+  .pill.good::before{ background:var(--good); }
+  .pill.warn{ background:var(--warn-soft); color:var(--warn-ink); }
+  .pill.warn::before{ background:var(--warn); }
+  .pill.neutral{ background:var(--neutral-soft); color:var(--ink-dim); }
+  .pill.neutral::before{ background:var(--neutral); }
+  .pill.accent{ background:var(--accent-soft); color:var(--accent-ink); }
+  .pill.accent::before{ background:var(--accent); }
+
+  /* Callout */
+  .callout{
+    display:flex; gap:14px; align-items:flex-start;
+    background:var(--warn-soft);
+    border:1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    border-radius:var(--radius); padding:16px 18px; margin-top:18px;
+  }
+  .callout-mark{
+    font-family:'IBM Plex Mono', monospace; font-weight:700; font-size:0.7rem;
+    color:var(--warn-ink); background:var(--paper-raised);
+    border:1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    border-radius:6px; padding:3px 7px; white-space:nowrap;
+  }
+  .callout p{ margin:0; font-size:0.86rem; line-height:1.55; color:var(--ink); }
+  .callout strong{ color:var(--warn-ink); }
+
+  /* Backlog */
+  .backlog-group{ margin-bottom:4px; }
+  .backlog-group-name{
+    font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
+    letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-faint);
+    margin:16px 0 6px; padding-bottom:4px; border-bottom:1px dashed var(--line);
+  }
+  .backlog-group-name:first-child{ margin-top:0; }
+  .backlog-item{
+    display:grid; grid-template-columns:76px 1fr; gap:12px;
+    align-items:baseline; padding:7px 4px; font-size:0.86rem;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .backlog-item:last-child{ border-bottom:none; }
+  .backlog-item .rid{
+    font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
+    font-weight:600; color:var(--accent-ink);
+  }
+  .note-box{
+    margin-top:18px; font-size:0.8rem; color:var(--ink-faint); line-height:1.6;
+    background:var(--neutral-soft); border-radius:8px; padding:12px 14px;
+  }
+  .note-box strong{ color:var(--ink-dim); }
+
+  /* Seeds */
+  .seed-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  .seed-card{
+    background:var(--paper-raised); border:1px solid var(--line);
+    border-radius:var(--radius); padding:16px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:9px;
+  }
+  .seed-card.fresh{ border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .seed-card.done{ background:var(--paper); box-shadow:none; }
+  .seed-top{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .seed-title{ font-weight:600; font-size:0.9rem; line-height:1.32; margin:0; }
+  .seed-card.done .seed-title{ color:var(--ink-dim); }
+  .seed-body{ font-size:0.8rem; color:var(--ink-dim); line-height:1.5; margin:0; }
+  .seed-trigger{
+    font-size:0.75rem; color:var(--ink-faint); line-height:1.5;
+    padding-top:8px; border-top:1px dashed var(--line);
+  }
+  .seed-trigger b{ color:var(--ink-dim); font-weight:600; }
+  .seed-new-flag{
+    font-size:0.72rem; font-weight:600; color:var(--accent-ink);
+    background:var(--accent-soft); border-radius:6px; padding:5px 8px; line-height:1.4;
+  }
+
+  /* Bugs */
+  .zero-bugs{
+    display:flex; align-items:center; gap:14px;
+    background:var(--good-soft);
+    border:1px solid color-mix(in srgb, var(--good) 35%, transparent);
+    border-radius:var(--radius); padding:16px 18px; margin-bottom:16px;
+  }
+  .zero-bugs .num{ font-family:'IBM Plex Mono',monospace; font-size:2rem; font-weight:700; color:var(--good-ink); line-height:1; }
+  .zero-bugs p{ margin:0; font-size:0.85rem; color:var(--ink); line-height:1.5; }
+  .zero-bugs strong{ color:var(--good-ink); }
+  .bug-row{
+    display:grid; grid-template-columns:1fr auto auto; gap:12px;
+    align-items:baseline; padding:9px 4px;
+    border-bottom:1px solid var(--line-soft); font-size:0.85rem;
+  }
+  .bug-row:last-child{ border-bottom:none; }
+  .bug-name{ font-weight:600; }
+  .bug-desc{ display:block; font-weight:400; color:var(--ink-dim); font-size:0.78rem; margin-top:2px; line-height:1.45; }
+  .bug-date{ font-family:'IBM Plex Mono',monospace; font-size:0.73rem; color:var(--ink-faint); white-space:nowrap; }
+
+  footer{
+    margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
+    font-size:0.75rem; color:var(--ink-faint);
+    display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  }
+  footer code{ background:var(--neutral-soft); padding:1px 5px; border-radius:4px; color:var(--ink-dim); }
+
+  @media (max-width:680px){
+    .stats{ grid-template-columns:repeat(2,1fr); }
+    .seed-grid{ grid-template-columns:1fr; }
+    .row{ grid-template-columns:36px 1fr; }
+    .row-date{ grid-column:2; text-align:left; padding-top:0; }
+    .chain-item{ grid-template-columns:48px 1fr; }
+    .chain-item .done{ grid-column:2; }
+    .masthead{ flex-direction:column; align-items:flex-start; }
+    .masthead-meta{ text-align:left; }
+  }
+</style>
+
+<div class="page">
+
+  <div class="masthead">
+    <div>
+      <p class="eyebrow">SkyPane · rapport d'état</p>
+      <h1>Tour de contrôle</h1>
+      <p class="masthead-sub">Roadmap, backlog v2, seeds et bugs — consolidé depuis <code>.planning/</code> au commit <code>a85222e</code>.</p>
+    </div>
+    <div class="masthead-meta">
+      <strong>Synthèse</strong>
+      04 sept. 2026
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value good">23/24</div>
+      <div class="stat-label">Phases closes</div>
+      <div class="stat-note">118/119 plans exécutés (99 %)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value warn">1</div>
+      <div class="stat-label">Chantier ouvert</div>
+      <div class="stat-note">DEVICE-05 — run batterie multi-jours, parqué volontairement</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value good">0</div>
+      <div class="stat-label">Bugs ouverts</div>
+      <div class="stat-note">4 sessions debug résolues et archivées</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value accent">5</div>
+      <div class="stat-label">Seeds dormantes</div>
+      <div class="stat-note">sur 9 · 3 réalisées, 1 partielle · + 9 items backlog v2</div>
+    </div>
+  </div>
+
+  <!-- ===================== ROADMAP ===================== -->
+  <section class="board">
+    <div class="board-head">
+      <h2>Roadmap v1</h2>
+      <span class="count">24 phases · 2026-08-26 → 2026-09-04</span>
+    </div>
+    <p class="board-intro">Onze phases principales, treize insérées en cours de route. Tout est clos sauf un point, volontairement gardé pour la fin.</p>
+
+    <div class="rows">
+      <div class="row">
+        <span class="row-tag">P1</span>
+        <div class="row-main">
+          <p class="row-title">Foundation — bring-up matériel &amp; validation ADS-B</p>
+          <p class="row-desc">Boucle wake → poll → display → deep-sleep prouvée sur matériel réel, backoff exponentiel, persistance NVS.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">26 août</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P2</span>
+        <div class="row-main">
+          <p class="row-title">Plane View — tranche bout-en-bout</p>
+          <p class="row-desc">Détection ADS-B piste 3 → rendu serveur → écran physique, en conditions réelles.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">26 août</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P3</span>
+        <div class="row-main">
+          <p class="row-title">Visual Polish on Real Glass <span style="color:var(--ink-faint);font-weight:400;">· + 3.1 rendu par type d'appareil</span></p>
+          <p class="row-desc">Illustrations ditherées par compagnie, puis précision réelle au type ICAO avec repli à quatre niveaux.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">26–27 août</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P4</span>
+        <div class="row-main">
+          <p class="row-title">CI/CD, documentation &amp; conformité légale</p>
+          <p class="row-desc">GitHub Actions, déploiement gaté vers le VPS OVH, README, LICENSE, conformité des API tierces.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">26 août</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P5</span>
+        <div class="row-main">
+          <p class="row-title">Battery Life &amp; indicateur batterie faible</p>
+          <p class="row-desc">Indicateur batterie faible livré et confirmé sur verre réel (DEVICE-04). La mesure de décharge réelle multi-jours (DEVICE-05) reste ouverte.</p>
+        </div>
+        <span class="pill warn">Parqué</span>
+        <span class="row-date">27 août*</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P6</span>
+        <div class="row-main">
+          <p class="row-title">Interface web compagnon</p>
+          <p class="row-desc">Page protégée : thèmes, piste suivie, santé, historique, couverture compagnies, aperçu de rendu, poll manuel. A engendré la plus longue chaîne du projet.</p>
+          <div class="chain">
+            <p class="chain-head">11 sous-phases insérées <span class="pill good" style="font-size:0.62rem;padding:2px 7px;">toutes closes</span></p>
+            <ul class="chain-list">
+              <li class="chain-item"><span class="n">6.1</span><span>Statut batterie — <em>supersédée</em>, fusionnée dans 6.5</span><span class="done">—</span></li>
+              <li class="chain-item"><span class="n">6.2</span><span>Toggle LED activable/désactivable</span><span class="done">28 août</span></li>
+              <li class="chain-item"><span class="n">6.3</span><span>Design visuel + layout desktop (sidebar, stat tiles)</span><span class="done">28 août</span></li>
+              <li class="chain-item"><span class="n">6.4</span><span>Sélecteur de piste : numéro + plan d'aéroport</span><span class="done">28 août</span></li>
+              <li class="chain-item"><span class="n">6.5</span><span>Graphique batterie interactif + statut global</span><span class="done">29 août</span></li>
+              <li class="chain-item"><span class="n">6.6</span><span>Clarté : horodatages, compte à rebours du poll</span><span class="done">30 août</span></li>
+              <li class="chain-item"><span class="n">6.6.1</span><span>Polish visuel : serif, terracotta, nav hamburger mobile</span><span class="done">30 août</span></li>
+              <li class="chain-item"><span class="n">6.6.2</span><span>Durcissement UX, accessibilité et responsive (8 plans)</span><span class="done">31 août</span></li>
+              <li class="chain-item"><span class="n">6.6.3</span><span>Refonte page par page (8 plans)</span><span class="done">1<sup>er</sup> sept.</span></li>
+              <li class="chain-item"><span class="n">6.6.4</span><span>Sobriété visuelle « façon Linear » (6 plans)</span><span class="done">2 sept.</span></li>
+              <li class="chain-item"><span class="n">6.6.4.1</span><span>Consolidation IA page par page + sign-off 28 points (9 plans)</span><span class="done">4 sept.</span></li>
+              <li class="chain-item"><span class="n">6.6.4.1.1</span><span>Sélecteur de thème Settings + typo/espacement (6 plans)</span><span class="done">4 sept.</span></li>
+            </ul>
+          </div>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">28 août → 4 sept.</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P7</span>
+        <div class="row-main">
+          <p class="row-title">Vérification finale sur verre réel</p>
+          <p class="row-desc">Sign-off matériel : lisibilité PT Serif, clipping bezel, calibration Jaune/Rouge, cas limites forcés.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">28 août</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P8</span>
+        <div class="row-main">
+          <p class="row-title">Refonte des thèmes du panneau</p>
+          <p class="row-desc">Blanc par défaut, ajout Noir/Jaune/Rouge, plaque de fond retirée, numéro IATA réel au lieu de l'indicatif ADS-B brut.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">31 août</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P9</span>
+        <div class="row-main">
+          <p class="row-title">Thème bande diagonale</p>
+          <p class="row-desc">Bande trapézoïdale derrière l'illustration, hiérarchie à 3 niveaux du numéro de vol, 5 coloris.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">2 sept.</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P10</span>
+        <div class="row-main">
+          <p class="row-title">Heures calmes programmées</p>
+          <p class="row-desc">Fenêtre de couvre-feu (23:00–07:00 par défaut, DST-safe Europe/Paris), écran dédié « QUIET HOURS / Back at HH:MM », <code>sleep_s</code> étendu pour dormir à travers la fenêtre.</p>
+          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-001.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">3 sept.</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P11</span>
+        <div class="row-main">
+          <p class="row-title">Intervalle de réveil configurable depuis le web</p>
+          <p class="row-desc"><code>SKYPANE_SLEEP_S</code> réglable depuis Settings (60–3600 s) au lieu d'une édition SSH du fichier d'env, sans redémarrage de service ni changement firmware.</p>
+          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-002.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">4 sept.</span>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span class="callout-mark">SEUL POINT OUVERT</span>
+      <p>
+        <strong>Phase 5 · DEVICE-05</strong> — l'essai de décharge réel sur batterie (jusqu'à 21 jours sans intervention ; le protocole pré-enregistré et le checker <code>check-battery</code> sont déjà faits et validés sur fixtures) reste volontairement repoussé, le temps qu'aucune autre phase n'ait besoin que le Mac reste éveillé en continu. C'est aujourd'hui le seul chantier qui empêche de déclarer la roadmap v1 close — et il ne reste plus rien d'autre à attendre : aucune Phase 12 n'existe encore.
+      </p>
+    </div>
+  </section>
+
+  <!-- ===================== SEEDS ===================== -->
+  <section class="board">
+    <div class="board-head">
+      <h2>Seeds</h2>
+      <span class="count">.planning/seeds/ · 9 fichiers</span>
+    </div>
+    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Deux ont été promues en phases cette semaine (10 et 11) — c'est le mécanisme qui fonctionne.</p>
+
+    <div class="seed-grid">
+      <div class="seed-card fresh">
+        <div class="seed-top">
+          <p class="seed-title">SEED-004 — Allumer/éteindre l'écran e-ink à distance</p>
+          <span class="pill accent">Nouvelle</span>
+        </div>
+        <p class="seed-body">L'interrupteur manuel et immédiat, là où les heures calmes couvrent le cas programmé : partir une semaine, un invité dans la pièce, ou simplement vouloir le mur vide aujourd'hui.</p>
+        <p class="seed-new-flag">Scope small — Phases 10 et 11 ont déjà construit l'écran d'état, le gate du poll-loop et l'extension de <code>sleep_s</code> à réutiliser.</p>
+        <p class="seed-trigger"><b>Réveil :</b> à la prochaine ouverture des contrôles de la page Settings. Aucune dépendance au verdict batterie, contrairement à ses voisines.</p>
+      </div>
+
+      <div class="seed-card fresh">
+        <div class="seed-top">
+          <p class="seed-title">SEED-003 — Thèmes par direction, règles par vol, vols de K Stewart</p>
+          <span class="pill neutral">Dormante</span>
+        </div>
+        <p class="seed-body">Trois niveaux de personnalisation : un thème dédié aux départs vs aux arrivées ; une couleur forcée quand un callsign ou une immatriculation précise est détectée ; et le surlignage automatique des vols que K Stewart opère.</p>
+        <p class="seed-new-flag">Enrichie aujourd'hui : la source est un <em>roster d'équipage</em>, pas un agenda perso — ça change le format à parser et pose une vraie question de confidentialité.</p>
+        <p class="seed-trigger"><b>Réveil :</b> au prochain milestone « personnalisation » touchant la config de l'interface compagnon. Scope large — c'est trois features.</p>
+      </div>
+
+      <div class="seed-card">
+        <div class="seed-top">
+          <p class="seed-title">Cadence de poll adaptative à la présence</p>
+          <span class="pill neutral">Dormante</span>
+        </div>
+        <p class="seed-body">Capteur PIR pour espacer le polling quand personne ne regarde — premier levier batterie avant d'envisager une plus grosse batterie ou du solaire.</p>
+        <p class="seed-trigger"><b>Réveil :</b> après le verdict du run batterie réel (DEVICE-05).</p>
+      </div>
+
+      <div class="seed-card">
+        <div class="seed-top">
+          <p class="seed-title">RTL-SDR local en secours ADS-B</p>
+          <span class="pill neutral">Dormante</span>
+        </div>
+        <p class="seed-body">Récepteur local comme source de secours, pour ne plus dépendre de la politique d'un agrégateur tiers.</p>
+        <p class="seed-trigger"><b>Réveil :</b> si adsb.fi <em>et</em> adsb.lol fermaient tous deux — déjà arrivé à airplanes.live (27 août) et à adsb.one.</p>
+      </div>
+
+      <div class="seed-card">
+        <div class="seed-top">
+          <p class="seed-title">Repli AeroDataBox pour indicatifs tournants</p>
+          <span class="pill neutral">Dormante</span>
+        </div>
+        <p class="seed-body">Croiser le FIDS AeroDataBox (payant) pour retrouver la destination des compagnies à indicatifs tournants, type Transavia.</p>
+        <p class="seed-trigger"><b>Réveil :</b> le correctif gratuit par préfixe est déjà livré — à raviver seulement si l'écart restant justifie une dépense API.</p>
+      </div>
+
+      <div class="seed-card">
+        <div class="seed-top">
+          <p class="seed-title">Icône de défaut à l'écran</p>
+          <span class="pill warn">Partielle</span>
+        </div>
+        <p class="seed-body">Le badge de panne source côté serveur (CFG-05) est livré. Il reste la moitié <em>device-local</em> — DEVICE-06, l'écran de repli quand l'appareil n'atteint plus du tout le serveur.</p>
+        <p class="seed-trigger"><b>Réveil :</b> si les coupures de communication deviennent une vraie gêne. Reste listé au backlog v2.</p>
+      </div>
+
+      <div class="seed-card done">
+        <div class="seed-top">
+          <p class="seed-title">SEED-001 — Heures calmes programmées</p>
+          <span class="pill good">Réalisée</span>
+        </div>
+        <p class="seed-body">Promue et livrée comme Phase 10, le 3 septembre.</p>
+      </div>
+
+      <div class="seed-card done">
+        <div class="seed-top">
+          <p class="seed-title">SEED-002 — Intervalle de réveil configurable</p>
+          <span class="pill good">Réalisée</span>
+        </div>
+        <p class="seed-body">Promue et livrée comme Phase 11, le 4 septembre.</p>
+      </div>
+
+      <div class="seed-card done">
+        <div class="seed-top">
+          <p class="seed-title">LED de bring-up pilotable à distance</p>
+          <span class="pill good">Réalisée</span>
+        </div>
+        <p class="seed-body">Les deux moitiés livrées : la LED elle-même en quick task <code>260827-wo4</code>, le toggle distant en Phase 6.2.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BACKLOG v2 ===================== -->
+  <section class="board">
+    <div class="board-head">
+      <h2>Backlog v2</h2>
+      <span class="count">REQUIREMENTS.md · 9 exigences</span>
+    </div>
+    <p class="board-intro">Explicitement reporté après le v1 « vue avion seule ». Rien ici n'est planifié — il faudrait ouvrir un nouveau milestone.</p>
+
+    <p class="backlog-group-name">RER (Orly-Ville)</p>
+    <div class="backlog-item"><span class="rid">RER-01</span><span>Ligne, destination et minutes avant départ des 2+ prochains trains</span></div>
+    <div class="backlog-item"><span class="rid">RER-02</span><span>Indication « leave by » : countdown du train + marge de marche fixe</span></div>
+    <div class="backlog-item"><span class="rid">RER-03</span><span>Bannière de perturbation sur la vue RER en cas d'incident</span></div>
+
+    <p class="backlog-group-name">Bascule de vue</p>
+    <div class="backlog-item"><span class="rid">CFG-02</span><span>Basculer entre les vues depuis l'interface web (remplace le bouton physique)</span></div>
+    <div class="backlog-item"><span class="rid">DEVICE-01</span><span>Bascule avion ↔ RER — reformulée en CFG-02, plus de bouton physique</span></div>
+    <div class="backlog-item"><span class="rid">DEVICE-02</span><span>Le changement de vue déclenche un poll frais, pas une image en cache</span></div>
+
+    <p class="backlog-group-name">Autres</p>
+    <div class="backlog-item"><span class="rid">MSG-01</span><span>Message court poussé depuis une app compagnon, livré au prochain poll</span></div>
+    <div class="backlog-item"><span class="rid">VIS-01</span><span>Photo personnelle en fond de la vue avion, rendue en dithering</span></div>
+    <div class="backlog-item"><span class="rid">DEVICE-06</span><span>Écran de repli local après 2+ polls échoués (moitié device de l'icône de défaut)</span></div>
+
+    <p class="note-box"><strong>Un décalage documentaire à corriger un jour :</strong> quatre lignes de <code>PROJECT.md</code> (cycle wake/poll/sleep, indicateur batterie faible, fonctionnement sur batterie, ingestion serveur) sont toujours cochées « Active » sans étiquette v2, alors que les phases 1, 2 et 5 qui les livrent sont closes. Le passage Active → Validated n'a jamais été rejoué — ce n'est pas du reste à faire.</p>
+  </section>
+
+  <!-- ===================== BUGS ===================== -->
+  <section class="board">
+    <div class="board-head">
+      <h2>Bugs</h2>
+      <span class="count">.planning/debug/</span>
+    </div>
+
+    <div class="zero-bugs">
+      <span class="num">0</span>
+      <p>Aucun bug ouvert suivi. Le dossier debug ne contient que des sessions <strong>résolues</strong> — la base de connaissances les ressort comme hypothèses de départ si un symptôme similaire revient.</p>
+    </div>
+
+    <div>
+      <div class="bug-row">
+        <span class="bug-name">Cohérence des headings et des couleurs
+          <span class="bug-desc">L'accent terracotta assombri pour le contraste WCAG s'était rapproché du rouge d'erreur (ΔE 22.9) sans que rien ne le détecte, et les headings de section se rendaient de quatre façons différentes. Corrigé, avec des checks de séparation perceptuelle ajoutés au harnais.</span>
+        </span>
+        <span class="pill good">Résolu</span>
+        <span class="bug-date">31 août</span>
+      </div>
+      <div class="bug-row">
+        <span class="bug-name">Marge illustration/texte variable selon la compagnie
+          <span class="bug-desc">Seuil alpha différent entre la mesure et le rendu — les deux ancrages lisent désormais le même bbox de contenu réel.</span>
+        </span>
+        <span class="pill good">Résolu</span>
+        <span class="bug-date">28 août</span>
+      </div>
+      <div class="bug-row">
+        <span class="bug-name">Vols manqués non affichés</span>
+        <span class="pill good">Résolu</span>
+        <span class="bug-date">archivé</span>
+      </div>
+      <div class="bug-row">
+        <span class="bug-name">Faux positifs piste 3</span>
+        <span class="pill good">Résolu</span>
+        <span class="bug-date">27 août</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Sources : <code>ROADMAP.md</code> · <code>STATE.md</code> · <code>REQUIREMENTS.md</code> · <code>seeds/</code> · <code>debug/</code> · 52 quick tasks</span>
+    <span>* dernière date de plan livré — DEVICE-05 reste ouvert</span>
+  </footer>
+
+</div>
