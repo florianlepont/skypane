@@ -5,16 +5,16 @@ milestone_name: milestone
 current_phase: 06.6.4.1.1
 current_phase_name: settings-theme-picker-and-typography-spacing-direction-pass
 status: executing
-stopped_at: Executed 06.6.4.1.1-05 (Settings theme picker chip grid — .theme-chip component in style.css, theme_fieldset()'s multi-theme branch rewritten as the D-01 chip grid, test_config_page.py retargeted to 69/69) — wave 3's plan, depends on 01/03. 1 of the phase's 6 plans remains (06, wave 4). See the Current Position entry immediately below for the full task-by-task account.
-last_updated: "2026-09-04T05:08:33.503Z"
-last_activity: 2026-09-04
-last_activity_desc: Executed 06.6.4.1.1-05 (Settings theme picker chip grid — .theme-chip component, theme_fieldset() rewrite, test_config_page.py retarget)
+stopped_at: "06.6.4.1.1-06 Task 2: blocking developer checkpoint (visual sign-off on revised type ladder/spacing/theme-chip picker)"
+last_updated: "2026-09-04T05:19:21.861Z"
+last_activity: 2026-09-03
+last_activity_desc: Executed 06.6.4.1.1-01 (theme_preview.py render/crop/cache module + session-gated /theme-preview/{id}.png route)
 progress:
   total_phases: 22
-  completed_phases: 18
+  completed_phases: 19
   total_plans: 110
-  completed_plans: 107
-  percent: 97
+  completed_plans: 108
+  percent: 86
 ---
 
 # Project State
@@ -489,12 +489,13 @@ None yet.
 - Device wake interval (`sleep_s`, how often the physical frame polls the server) is currently **30s** on the live OVH deployment (`inkframe.env`'s `INK_SLEEP_S=30`, verified directly on the VPS 2026-08-26 — same cadence as the server's own ADS-B poll timer, not yet distinguished) — NOT yet a tuned production value, this is the bring-up/test default. Real tradeoff: shorter interval = fresher plane-departure info but faster battery drain; longer = more autonomy but a departure could be several minutes stale by the time it's shown. Decision deliberately deferred until Phase 5's 05-01 produces a real mAh-per-cycle figure — tune this once actual battery-life data exists, not before.
   (Post-rename: this env file and variable are `skypane.env`'s `SKYPANE_SLEEP_S`, per quick-task 260826-vlq.)
 
-- A-02-02-01 (departure-side D-03 threshold, +200 ft/min) — CLOSED 2026-09-02: validated against real production sensor data, superseding every "never observed" / "visual path only" framing of this item elsewhere in this file. Evidence gathered live with the developer over SSH on the production VPS (ubuntu@92.222.92.167), from two independent real sources. (1) server/history_db.py's runway_events table in /opt/skypane/state/history.db, queried with SELECT ts, hex, callsign, confirmed_state FROM runway_events WHERE confirmed_state='departing' ORDER BY ts DESC LIMIT 20 — returned 20 real departing rows spanning 2026-09-01T20:54:47Z to 2026-09-02T09:44:48Z across many distinct real aircraft: FPO683 (399264), TVF62GV (39de44), TVF65SU (39cea9), TVF18NK (3964e9), EJU9041 (44083b), TVF15ER (39dd00), TVF55ZF (39de4c), EJU408P (4401d1, twice), TAP441 (4952d1), FGN9372 (3aac0c), QAF10 (06a3d5, twice), DAH1007 (4d2190), VLG33BP (34560d), plus a few rows with callsign=None — an enrichment miss only; the hex, timestamp and confirmed departing state on those rows are real. (2) journalctl -u skypane-poll on the same VPS, grepped for confirmed_state=[a-z_]* and counted across the service's full log history: 13327 confirmed_state=arriving, 4183 confirmed_state=departing. This is real ADS-B vertical-rate data flowing through the actually-deployed +200 ft/min deadband in server/plane/detect.py (D-P2-04) — thousands of real departure detections, not the forced/synthetic render path Phase 7's on-glass session exercised. The climb side of D-P2-04 is therefore no longer provisional/symmetry-derived. ROADMAP.md is deliberately left unchanged: it is historical record for phases that are already complete.
+- A-02-02-01 (departure-side D-03 threshold, +200 ft/min) — CLOSED 2026-09-02: validated against real production sensor data, superseding every "never observed" / "visual path only" framing of this item elsewhere in this file. Evidence gathered live with the developer over SSH on the production VPS (ubuntu@92.222.92.167), from two independent real sources. (1) server/history_db.py's runway_events table in /opt/skypane/state/history.db, queried with SELECT ts, hex, callsign, confirmed_state FROM runway_events WHERE confirmed_state='departing' ORDER BY ts DESC LIMIT 20 — returned 20 real departing rows spanning 2026-09-01T20:54:47Z to 2026-09-02T09:44:48Z across many distinct real aircraft: FPO683 (399264), TVF62GV (39de44), TVF65SU (39cea9), TVF18NK (3964e9), EJU9041 (44083b), TVF15ER (39dd00), TVF55ZF (39de4c), EJU408P (4401d1, twice), TAP441 (4952d1), FGN9372 (3aac0c), QAF10 (06a3d5, twice), DAH1007 (4d2190), VLG33BP (34560d), plus a few rows with callsign=— an enrichment miss only; the hex, timestamp and confirmed departing state on those rows are real. (2) journalctl -u skypane-poll on the same VPS, grepped for confirmed_state=[a-z_]* and counted across the service's full log history: 13327 confirmed_state=arriving, 4183 confirmed_state=departing. This is real ADS-B vertical-rate data flowing through the actually-deployed +200 ft/min deadband in server/plane/detect.py (D-P2-04) — thousands of real departure detections, not the forced/synthetic render path Phase 7's on-glass session exercised. The climb side of D-P2-04 is therefore no longer provisional/symmetry-derived. ROADMAP.md is deliberately left unchanged: it is historical record for phases that are already complete.
   (Post-rename: this is now the `skypane-poll` unit, per quick-task 260826-vlq.)
 
 - **05-03 blocked at Task 3 (blocking `checkpoint:human-verify`).** Requires the developer to physically flash the real EE02 board with `firmware/build.sh`/`firmware/flash.sh`, read the `fp_batt` console line via `firmware/monitor.sh`, confirm a plausible `battery mv=`/`pin_mv=` pair, and visually confirm the low-battery icon appears/disappears on the real 13.3" Spectra 6 panel. No soldering or external components required — only flashing firmware and reading numbers off the console/screen. DEVICE-04 remains incomplete until this step runs.
 - This session's sandbox has the `docker` CLI installed but no running daemon, so `firmware/build.sh` (the pinned `espressif/idf:v5.3.1` containerised build) could not be run to confirm Task 2's ESP-IDF-dependent `battery.c` module actually compiles under the real toolchain. Host-testable evidence (four-suite `run_host_tests.sh`, strict `cc` compile of the pure-math half) all passes; the ESP-IDF half is unverified by any build in this session and must be confirmed as part of Task 3's real flash (which requires Docker/ESP-IDF access on the developer's own machine regardless).
 - 06.3-05 Task 1 done (VALIDATION.md reconciled, commit 9bc163e). scripts/run-all-tests.sh exits 1: pre-existing, out-of-scope server/test_poll_loop.py digest-pin failure unrelated to this phase (needs unmerged upstream commit aeac512 merged). Per T-06.3-13, nyquist_compliant stays false while suite is red -- pending human/orchestrator decision. Task 2 (browser visual sign-off) is a human-check step, not yet performed; plan not complete.
+- Phase 06.6.4.1.1 plan 06 stopped at Task 2's blocking developer checkpoint after Task 1's full-suite/coverage/live-route gates passed; see 06.6.4.1.1-06-SUMMARY.md
 
 ### Quick Tasks Completed
 
@@ -556,10 +557,10 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-04T05:05:49.027Z
-Stopped at: Phase 06.6.4.1.1 context gathered
+Last session: 2026-09-04T05:19:21.847Z
+Stopped at: 06.6.4.1.1-06 Task 2: blocking developer checkpoint (visual sign-off on revised type ladder/spacing/theme-chip picker)
 
-Resume file: .planning/phases/06.6.4.1.1-settings-theme-picker-and-typography-spacing-direction-pass/06.6.4.1.1-CONTEXT.md
+Resume file: .planning/phases/06.6.4.1.1-settings-theme-picker-and-typography-spacing-direction-pass/06.6.4.1.1-06-PLAN.md
 
 **State at end of this session (2026-08-27, ~08:50):**
 
