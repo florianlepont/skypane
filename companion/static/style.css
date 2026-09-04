@@ -1875,6 +1875,17 @@ button:disabled {
   display: flex;
   gap: var(--space-xs);
   align-items: center;
+  /* quick task 260904-bbi: real-browser measurement caught this row's
+   * own bounding box (a block-level flex container defaults to filling
+   * the full available width of .theme-chip__body, even though its two
+   * 12px dots only occupy the left ~28px of it) geometrically
+   * intersecting the new bottom-right "Current" tag's box, even though
+   * no visible pixel ever collides (the tag sits in the row's own empty
+   * right-hand space). width: fit-content shrinks the box to its actual
+   * rendered content with zero visual change (the dots already render
+   * flush-left via the default flex-start justification) and clears the
+   * measured collision outright. */
+  width: fit-content;
 }
 
 /* Carries over .theme-swatch__chip's own comment reasoning: the fill is
