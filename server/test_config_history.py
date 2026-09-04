@@ -30,7 +30,10 @@ if REPO_ROOT not in sys.path:
 # 10-01: +4 (DST-safe window arithmetic: wrap-midnight/DST anchors,
 # same-day/zero-width window, quiet_hours_status() enabled-gate + verified
 # value, quiet_hours_status() hostile now_epoch never-raise)
-EXPECTED_CHECK_COUNT = 39
+# 11-01: +5 (wake_interval_s registry field: normalise bounds + bool
+# gotcha, hostile-on-disk-value degradation, save round-trip, save-rejects
+# out-of-bounds/bool with byte-identical-on-rejection, carry-forward)
+EXPECTED_CHECK_COUNT = 44
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -686,6 +689,123 @@ def main():
     check(
         "quiet_hours_status() returns (None, None) and never raises for a non-numeric string, None, NaN, or an absurdly large now_epoch",
         _quiet_hours_status_never_raises_for_hostile_now_epoch,
+    )
+
+    def _normalise_wake_interval_s_bounds_and_bool_gotcha():
+        for hostile in (True, False, "120", 120.0, 59, 3601, 0, -1, None, []):
+            got = device_config.normalise_wake_interval_s(hostile)
+            if got is not None:
+                return False, "normalise_wake_interval_s(%r) returned %r, expected None" % (hostile, got)
+        for accepted in (60, 3600, 120):
+            got = device_config.normalise_wake_interval_s(accepted)
+            if got != accepted:
+                return False, "normalise_wake_interval_s(%r) returned %r, expected it unchanged" % (accepted, got)
+        return True, ""
+
+    check(
+        "normalise_wake_interval_s() returns None for True, False (the bool-is-an-int gotcha), a numeric string, a float, and every out-of-[60, 3600] int, and returns 60/3600/120 unchanged",
+        _normalise_wake_interval_s_bounds_and_bool_gotcha,
+    )
+
+    def _hand_written_hostile_wake_interval_s_yields_none():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            for bad_json, label in (
+                ('{"wake_interval_s": true}', "JSON true"),
+                ('{"wake_interval_s": "120"}', 'JSON string "120"'),
+                ('{"wake_interval_s": 120.5}', "JSON float 120.5"),
+                ('{"wake_interval_s": 30}', "below-minimum int 30 (deploy/skypane.env.example's SKYPANE_SLEEP_S)"),
+            ):
+                with open(path, "w") as fh:
+                    fh.write(bad_json)
+                config = device_config.load_device_config(tmpdir)
+                if config["wake_interval_s"] is not None:
+                    return False, "%s produced wake_interval_s=%r, expected None" % (label, config["wake_interval_s"])
+            with open(path, "w") as fh:
+                fh.write('{"wake_interval_s": 120}')
+            config = device_config.load_device_config(tmpdir)
+            if config["wake_interval_s"] != 120:
+                return False, "an in-range wake_interval_s=120 produced %r, expected 120" % (config["wake_interval_s"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "load_device_config() degrades a hand-written hostile wake_interval_s (JSON true, a numeric string, a float, or the below-minimum 30) to None, and lets an in-range 120 survive unchanged",
+        _hand_written_hostile_wake_interval_s_yields_none,
+    )
+
+    def _save_wake_interval_s_round_trips():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, wake_interval_s=120)
+            config = device_config.load_device_config(tmpdir)
+            if config != {
+                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+                "wake_interval_s": 120,
+            }:
+                return False, "round-trip produced %r" % (config,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(wake_interval_s=120) round-trips through load_device_config() as 120, with theme/tracked_runway/led_enabled and all three quiet-hours fields still at their prior (default) values",
+        _save_wake_interval_s_round_trips,
+    )
+
+    def _save_wake_interval_s_rejects_out_of_bounds_and_bools():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="3")
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            for hostile in (59, 3601, True, False, "120", 120.0):
+                raised = False
+                try:
+                    device_config.save_device_config(tmpdir, wake_interval_s=hostile)
+                except ValueError:
+                    raised = True
+                if not raised:
+                    return False, "save_device_config(wake_interval_s=%r) did not raise ValueError" % (hostile,)
+                with open(path, "rb") as fh:
+                    after = fh.read()
+                if before != after:
+                    return False, "save_device_config(wake_interval_s=%r) changed a pre-existing file's bytes" % (hostile,)
+            for boundary in (60, 3600):
+                device_config.save_device_config(tmpdir, wake_interval_s=boundary)
+                config = device_config.load_device_config(tmpdir)
+                if config["wake_interval_s"] != boundary:
+                    return False, "save_device_config(wake_interval_s=%r) did not round-trip as %r, got %r" % (
+                        boundary, boundary, config["wake_interval_s"],
+                    )
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config() rejects wake_interval_s=59, 3601, True, False, '120', and 120.0 with ValueError, leaves a pre-existing, legitimately-saved file byte-identical across every rejection, and accepts the inclusive bounds 60 and 3600",
+        _save_wake_interval_s_rejects_out_of_bounds_and_bools,
+    )
+
+    def _wake_interval_s_carries_forward_on_unrelated_save():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, wake_interval_s=120)
+            device_config.save_device_config(tmpdir, theme="black")
+            config = device_config.load_device_config(tmpdir)
+            if config["wake_interval_s"] != 120:
+                return False, "a theme-only save did not carry a previously-saved wake_interval_s=120 forward, got %r" % (config["wake_interval_s"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a subsequent theme-only save_device_config(theme='black') carries a previously-saved wake_interval_s=120 forward unchanged",
+        _wake_interval_s_carries_forward_on_unrelated_save,
     )
 
     # --- history_db.py ------------------------------------------------------
