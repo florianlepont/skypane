@@ -139,7 +139,12 @@ EXPECTED_CHECK_COUNT = 65  # + 1 (quick task 260903-peo Task 4: UIR-19's
 # -> 70 (+1: the background-wash check proving both .runway-card--selected
 # and .theme-chip--selected .theme-chip__body carry the same 12%-accent
 # color-mix wash .theme-form .theme-option--active already uses).
-EXPECTED_CHECK_COUNT = 70
+# quick task 260904-bbi (selected state must follow the LIVE :checked
+# choice, not the saved config): 70 -> 72 (+2, RED run confirmed 70/72
+# with both new checks failing for the expected reason before any CSS
+# was written: the strong-treatment-keyed-to-:has(input:checked) check,
+# and the saved-card-degrades-to-a-quiet-marker check).
+EXPECTED_CHECK_COUNT = 72
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1869,6 +1874,197 @@ def main():
         "background wash (color-mix), matching .theme-form .theme-option--active's established active-state "
         "idiom, added alongside (not replacing) their existing border and check glyph (06.6.4.1.1-06)",
         _selected_runway_card_and_theme_chip_carry_a_background_wash)
+
+    def _strong_selected_treatment_is_keyed_to_the_live_checked_radio():
+        # quick task 260904-bbi: the developer found that the strong
+        # "this is your selection" treatment followed the SAVED config,
+        # not the user's LIVE choice, because every selected-state rule
+        # keyed off the server-computed --selected class alone. This
+        # check proves the strong treatment is now driven by live
+        # :has(input:checked) state, inside a single
+        # @supports selector(:has(*)) feature-query block, for BOTH
+        # selectable-card components — and that the D-03a hover guard
+        # (which would otherwise clear the newly-checked chip's border,
+        # since it is keyed to :not(--selected) which still matches the
+        # newly-checked-but-not-yet-saved chip) is answered with a
+        # positive restore rule rather than a re-scoped guard.
+        source = _read_static("style.css")
+
+        supports_marker = "@supports selector(:has(*)) {"
+        if source.count(supports_marker) != 1:
+            return False, (
+                "expected exactly one %r block, got %d" % (supports_marker, source.count(supports_marker)))
+        supports_idx = source.index(supports_marker)
+
+        wash = "background: color-mix(in srgb, var(--color-accent) 12%, transparent);"
+
+        def _rule_body(selector):
+            if selector not in source:
+                return None, "expected style.css to declare %r" % (selector,)
+            idx = source.index(selector)
+            if idx < supports_idx:
+                return None, "expected %r to live inside the @supports selector(:has(*)) block" % (selector,)
+            body = source[idx + len(selector):source.index("}", idx)]
+            return body, ""
+
+        # Theme chip: strong border, body wash, check glyph shown.
+        body, err = _rule_body(".theme-chip:has(input:checked) {")
+        if body is None:
+            return False, err
+        if "border: 2px solid var(--color-accent);" not in body:
+            return False, ".theme-chip:has(input:checked) must carry the 2px accent border"
+
+        body, err = _rule_body(".theme-chip:has(input:checked) .theme-chip__body {")
+        if body is None:
+            return False, err
+        if wash not in body:
+            return False, ".theme-chip:has(input:checked) .theme-chip__body must carry the 12%-accent wash"
+
+        body, err = _rule_body(".theme-chip:has(input:checked) .theme-chip__check {")
+        if body is None:
+            return False, err
+        if "display: inline-flex;" not in body:
+            return False, ".theme-chip:has(input:checked) .theme-chip__check must be shown"
+
+        # Theme chip hover/focus-within restore (D-03a transferred to
+        # live state) - a POSITIVE rule, not a re-scoped guard.
+        hover_selector = ".theme-chip:has(input:checked):hover,"
+        if hover_selector not in source:
+            return False, "expected a live-state hover restore selector for .theme-chip"
+        idx = source.index(hover_selector)
+        if idx < supports_idx:
+            return False, "expected the .theme-chip live-state hover restore rule inside @supports"
+        window = source[idx:idx + 250]
+        if "border-color: var(--color-accent);" not in window:
+            return False, ".theme-chip:has(input:checked):hover must restore the accent border-color"
+        if "box-shadow: none;" not in window:
+            return False, ".theme-chip:has(input:checked):hover must clear the hover shadow"
+
+        # Runway card: strong border + wash on one rule (no body wrapper),
+        # check glyph shown.
+        body, err = _rule_body(".runway-card:has(input:checked) {")
+        if body is None:
+            return False, err
+        if "border: 2px solid var(--color-accent);" not in body:
+            return False, ".runway-card:has(input:checked) must carry the 2px accent border"
+        if wash not in body:
+            return False, ".runway-card:has(input:checked) must carry the 12%-accent wash directly (no body wrapper)"
+
+        body, err = _rule_body(".runway-card:has(input:checked) .runway-card__check {")
+        if body is None:
+            return False, err
+        if "display: inline-flex;" not in body:
+            return False, ".runway-card:has(input:checked) .runway-card__check must be shown"
+
+        hover_selector = ".runway-card:has(input:checked):hover,"
+        if hover_selector not in source:
+            return False, "expected a live-state hover restore selector for .runway-card"
+        idx = source.index(hover_selector)
+        if idx < supports_idx:
+            return False, "expected the .runway-card live-state hover restore rule inside @supports"
+        window = source[idx:idx + 250]
+        if "border-color: var(--color-accent);" not in window:
+            return False, ".runway-card:has(input:checked):hover must restore the accent border-color"
+        if "box-shadow: none;" not in window:
+            return False, ".runway-card:has(input:checked):hover must clear the hover shadow"
+
+        # Fallback intact: all four pre-existing server-class rules must
+        # still exist verbatim (source.index would already have raised/
+        # returned an error above via the wash check, but assert the two
+        # not otherwise touched here too).
+        for selector in (
+            ".theme-chip--selected {",
+            ".theme-chip--selected .theme-chip__body {",
+            ".runway-card--selected {",
+            ".theme-chip--selected .theme-chip__check {",
+            ".runway-card--selected .runway-card__check {",
+        ):
+            if selector not in source:
+                return False, "expected the pre-existing fallback rule %r to survive verbatim" % (selector,)
+
+        return True, ""
+    check(
+        "the strong selected-card treatment (border, wash, check glyph, and a D-03a hover restore) is keyed to "
+        "live :has(input:checked) state inside one @supports selector(:has(*)) block, for both .theme-chip and "
+        ".runway-card, with every pre-existing --selected fallback rule surviving verbatim (quick task 260904-bbi)",
+        _strong_selected_treatment_is_keyed_to_the_live_checked_radio)
+
+    def _saved_but_unchecked_card_degrades_to_a_quiet_current_marker():
+        # quick task 260904-bbi: the server-rendered --selected class is
+        # demoted from driving the strong treatment to an honest, quiet
+        # "this is what is saved" marker once it is no longer the live
+        # choice: an accent-free dashed 70%-muted-text ring, its wash and
+        # check glyph cleared, and an English "Current" tag rendered as a
+        # ::after pseudo-element (see PLAN.md's
+        # <current_tag_markup_decision> for why a pseudo-element and not
+        # a <span>).
+        source = _read_static("style.css")
+        muted = "color-mix(in srgb, var(--color-text) 70%, transparent)"
+
+        for prefix in (".theme-chip--selected:not(:has(input:checked))", ".runway-card--selected:not(:has(input:checked))"):
+            base_selector = prefix + " {"
+            if base_selector not in source:
+                return False, "expected style.css to declare %r" % (base_selector,)
+            idx = source.index(base_selector)
+            body = source[idx + len(base_selector):source.index("}", idx)]
+            if "dashed" not in body:
+                return False, "%r must use a dashed ring, not a solid one" % (base_selector,)
+            if muted not in body:
+                return False, "%r must use the established 70%%-muted-text colour, not a new strength" % (base_selector,)
+            if "var(--color-accent)" in body:
+                return False, "%r must be accent-free - the quiet marker signals 'saved', not 'selected'" % (base_selector,)
+
+        chip_body_selector = ".theme-chip--selected:not(:has(input:checked)) .theme-chip__body {"
+        if chip_body_selector not in source:
+            return False, "expected style.css to declare %r" % (chip_body_selector,)
+        idx = source.index(chip_body_selector)
+        window = source[idx:idx + 100]
+        if "background: transparent;" not in window:
+            return False, "%r must clear the wash back to transparent" % (chip_body_selector,)
+
+        for check_selector in (
+            ".theme-chip--selected:not(:has(input:checked)) .theme-chip__check {",
+            ".runway-card--selected:not(:has(input:checked)) .runway-card__check {",
+        ):
+            if check_selector not in source:
+                return False, "expected style.css to declare %r" % (check_selector,)
+            idx = source.index(check_selector)
+            window = source[idx:idx + 100]
+            if "display: none;" not in window:
+                return False, "%r must hide the check glyph" % (check_selector,)
+
+        current_literal = 'content: "Current";'
+        if source.count(current_literal) != 2:
+            return False, (
+                "expected exactly 2 occurrences of %r, got %d" % (current_literal, source.count(current_literal)))
+
+        for after_selector in (
+            ".theme-chip--selected:not(:has(input:checked))::after {",
+            ".runway-card--selected:not(:has(input:checked))::after {",
+        ):
+            if after_selector not in source:
+                return False, "expected style.css to declare %r" % (after_selector,)
+            idx = source.index(after_selector)
+            window = source[idx:idx + 250]
+            if current_literal not in window:
+                return False, "%r must render the English 'Current' tag" % (after_selector,)
+
+        if "actuel" in source.lower():
+            return False, "expected zero occurrences of the French word for 'current' - DP-2 requires English copy"
+
+        muted_count = source.count(muted)
+        if muted_count < 17:
+            return False, (
+                "expected the established 70%%-muted-text mix to appear at least 17 times (16 pre-existing plus "
+                "the new quiet-marker rules), got %d - a new muted strength must not be invented" % (muted_count,))
+
+        return True, ""
+    check(
+        "the saved-but-no-longer-live --selected card degrades to an accent-free dashed 70%-muted ring with its "
+        "wash/check glyph cleared and an English \"Current\" ::after tag (exactly 2 occurrences site-wide, zero "
+        "French copy), reusing the established muted-text strength rather than inventing a new one "
+        "(quick task 260904-bbi)",
+        _saved_but_unchecked_card_degrades_to_a_quiet_current_marker)
 
     def _style_css_carries_section_caption_and_restyled_fixed_dirty_bar():
         # quick task 260901-re6 Task 3: the third new cross-file guard,
