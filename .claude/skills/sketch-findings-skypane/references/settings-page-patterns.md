@@ -4,7 +4,7 @@
 
 ### The one-caption-per-section rule
 
-Every section on the Settings page (`/settings`, `companion/pages/config_page.py`) renders exactly one muted caption sentence directly under its heading, before its control — Theme, Runway, Diagnostic LED, and Poll: four sections, four captions, zero heading-without-caption sections. That invariant is what a future edit would most easily break silently, since nothing stops a section rendering with no caption at all.
+Every section on the Settings page (`/settings`, `companion/pages/config_page.py`) renders exactly one muted caption sentence directly under its heading, before its control — Theme, Runway, Diagnostic LED, Poll, Quiet hours, and Wake interval: six sections, six captions, zero heading-without-caption sections. (Phase 10 added Quiet hours and left this enumeration behind at four; 11-03-PLAN.md brings it current to six along with Wake interval — the invariant itself is unchanged, only the enumeration was stale.) That invariant is what a future edit would most easily break silently, since nothing stops a section rendering with no caption at all.
 
 Markup shape: `<p class="text-label section-caption">{escaped caption text}</p>`. The two classes deliberately **compose** rather than either restating the other — `.text-label` already supplies `var(--font-label-size)` (14px), so `.section-caption` declares only colour (`color-mix(in srgb, var(--color-text) 70%, transparent)` — this file's one existing muted-secondary strength, not a new value). The markup always carries both classes together; a caption with only `.section-caption` and no `.text-label` would render at the browser's default paragraph size.
 
@@ -12,7 +12,7 @@ What the rule deliberately does *not* declare, and why the absence is a decision
 
 This shape replaced an earlier description-above / helper-below paragraph pair: each group used to render a description sentence above its control (`THEME_SECTION_DESCRIPTION`/`RUNWAY_SECTION_DESCRIPTION`) *and* a helper sentence below it (`THEME_HELPER_TEXT`/`RUNWAY_HELPER_TEXT`/`LED_HELPER_TEXT`) — Theme and Runway rendered both, LED escaped the doubling but kept its lone paragraph un-muted and positioned after its control instead of before. All five of those constants are retired outright; each group now carries exactly one caption.
 
-The four constants (`THEME_SECTION_CAPTION`, `RUNWAY_SECTION_CAPTION`, `LED_SECTION_CAPTION`, `POLL_SECTION_CAPTION`) live in one named family, contiguous in `companion/pages/config_page.py`, each with the developer-validated copy verbatim.
+The six constants (`THEME_SECTION_CAPTION`, `RUNWAY_SECTION_CAPTION`, `LED_SECTION_CAPTION`, `POLL_SECTION_CAPTION`, `QUIET_HOURS_SECTION_CAPTION`, `WAKE_INTERVAL_SECTION_CAPTION`) live in one named family, contiguous in `companion/pages/config_page.py`, each with the developer-validated copy verbatim.
 
 One section's caption is consumed by a two-branch renderer: `poll_trigger_section(cooldown_remaining)` has an enabled (zero-cooldown) branch and a disabled (cooldown-active) branch, and `caption_html` is computed once above the `if cooldown_remaining > 0:` split so it is interpolated as the first element of *both* return expressions — the same computed-once-reused-by-both-branches idiom `theme_fieldset()` already established for its own read-only/editable branch split. A caption emitted on only one branch would silently disappear for the whole cooldown window; this is why the constant is computed once outside the branch rather than inlined into each return.
 

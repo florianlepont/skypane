@@ -129,7 +129,18 @@ STARTUP_DEADLINE_S = 10.0
 # count 2->3, the dirty-section count 3->4, and three class-literal
 # renames from led-checkbox to settings-checkbox) with no count change,
 # per this file's own established retarget-without-recounting discipline.
-EXPECTED_CHECK_COUNT = 73
+# 11-03: +6 (Task 1, no count change: two pre-existing count-shaped
+# checks — the theme-status count 3->4 and the five-dirty-section-order
+# check 4->5 — were retargeted in place, per this file's own
+# retarget-without-recounting discipline; the round-trip dict-equality
+# literal gained "wake_interval_s": None in place too, no count change.
+# Task 2, +6: wake_interval_group() markup, wake_interval_group()'s
+# value-attribute-only-for-in-range-non-bool-int empty-state check,
+# render()'s five-group placement/pre-fill-resolution check,
+# handle_post()'s string-to-int conversion/persistence check, its
+# rejection-paths-byte-identical check, and its
+# empty-or-absent-leaves-unchanged check).
+EXPECTED_CHECK_COUNT = 79
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -433,6 +444,101 @@ def main():
     check(
         "render() wires quiet_hours_group() with the saved current values, positioned after Diagnostic LED and before the Save settings button",
         _render_wires_quiet_hours_group_after_led_before_save_button)
+
+    # ------------------------------------------------------------------
+    # 11-03-PLAN.md Task 1/Task 2: wake_interval_group() markup/empty-state
+    # and render() placement/pre-fill-resolution checks (11-UI-SPEC.md).
+    # ------------------------------------------------------------------
+
+    def _wake_interval_group_markup_in_range_value():
+        rendered = config_page.wake_interval_group(120)
+        if rendered.count('class="theme-status"') != 1:
+            return False, "expected exactly one .theme-status wrapper"
+        if config_page.DIRTY_SECTION_ATTR not in rendered:
+            return False, "expected the wrapper to carry DIRTY_SECTION_ATTR"
+        expected_heading = (
+            '<h2 class="text-heading">%s</h2>'
+            % escape_html(config_page.WAKE_INTERVAL_SECTION_HEADING))
+        if rendered.count(expected_heading) != 1:
+            return False, "expected exactly one heading %r" % (expected_heading,)
+        expected_caption = (
+            '<p class="text-label section-caption">%s</p>'
+            % escape_html(config_page.WAKE_INTERVAL_SECTION_CAPTION))
+        if rendered.count(expected_caption) != 1:
+            return False, "expected exactly one caption %r" % (expected_caption,)
+        if rendered.count('<input type="number" name="wake_interval_s"') != 1:
+            return False, "expected exactly one <input type=\"number\" name=\"wake_interval_s\">"
+        if 'min="%d"' % device_config.WAKE_INTERVAL_MIN_S not in rendered:
+            return False, "expected min to equal device_config.WAKE_INTERVAL_MIN_S"
+        if 'max="%d"' % device_config.WAKE_INTERVAL_MAX_S not in rendered:
+            return False, "expected max to equal device_config.WAKE_INTERVAL_MAX_S"
+        if 'placeholder="%s"' % config_page.WAKE_INTERVAL_PLACEHOLDER_TEXT not in rendered:
+            return False, "expected the locked placeholder text"
+        if 'value="120"' not in rendered:
+            return False, "expected the matching value attribute"
+        if "<fieldset" in rendered:
+            return False, "expected no <fieldset> — these sibling groups deliberately don't use one"
+        if "<legend" in rendered:
+            return False, "expected no <legend> — a <legend> only has accessible-name semantics inside a <fieldset>"
+        if "settings-checkbox" in rendered:
+            return False, "expected no settings-checkbox class — that class normalises a checkbox, not a numeric input"
+        return True, ""
+    check(
+        "wake_interval_group(120) emits one .theme-status[data-dirty-section] wrapper, the locked heading/caption, one type=\"number\" input with min/max from device_config and the locked placeholder and a matching value, and none of <fieldset>/<legend>/settings-checkbox",
+        _wake_interval_group_markup_in_range_value)
+
+    def _wake_interval_group_value_attribute_only_for_in_range_non_bool_int():
+        # An out-of-range or wrong-typed value attribute would fail native
+        # HTML5 constraint validation and block submission of the entire
+        # Settings form, not just this field (11-UI-SPEC.md, T-11-03-03) —
+        # this is the direct regression guard for that risk.
+        no_value_cases = (None, True, False, "120", 30, 59, 3601, 7200)
+        for case in no_value_cases:
+            if "value=" in config_page.wake_interval_group(case):
+                return False, "expected wake_interval_group(%r) to emit no value attribute" % (case,)
+        for case, expected in ((60, 60), (3600, 3600), (120, 120)):
+            rendered = config_page.wake_interval_group(case)
+            if 'value="%d"' % expected not in rendered:
+                return False, "expected wake_interval_group(%r) to emit value=\"%d\"" % (case, expected)
+        return True, ""
+    check(
+        "wake_interval_group() emits a value attribute only for an in-range, non-bool int (None/True/False/a str/30/59/3601/7200 all emit none; 60/3600/120 each emit theirs) — an out-of-range or wrong-typed value would fail native constraint validation and block the whole form",
+        _wake_interval_group_value_attribute_only_for_in_range_non_bool_int)
+
+    def _render_places_wake_interval_last_and_resolves_prefill():
+        base_ctx = {
+            "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
+            "poll_cooldown_remaining": 0,
+        }
+        rendered = config_page.render(base_ctx)
+        headings = [
+            "Theme", "Runway", config_page.LED_SECTION_HEADING,
+            config_page.QUIET_HOURS_SECTION_HEADING,
+            config_page.WAKE_INTERVAL_SECTION_HEADING,
+        ]
+        positions = [rendered.index(h) for h in headings]
+        if positions != sorted(positions):
+            return False, "expected the five settings groups in locked order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval, got positions %r" % (positions,)
+        if "value=" in rendered.split('name="wake_interval_s"')[1].split(">")[0]:
+            return False, "expected no value attribute when neither on-disk nor ctx fallback is present"
+
+        on_disk_ctx = dict(base_ctx)
+        on_disk_ctx["device_config"] = dict(
+            base_ctx["device_config"], wake_interval_s=180)
+        on_disk_ctx["wake_interval_env_default"] = 900
+        rendered = config_page.render(on_disk_ctx)
+        if 'value="180"' not in rendered:
+            return False, "expected the on-disk wake_interval_s to win over the ctx fallback"
+
+        fallback_ctx = dict(base_ctx)
+        fallback_ctx["wake_interval_env_default"] = 900
+        rendered = config_page.render(fallback_ctx)
+        if 'value="900"' not in rendered:
+            return False, "expected the ctx fallback to be used when the on-disk value is None"
+        return True, ""
+    check(
+        "render() places Wake interval last in the locked five-group order, resolves no value attribute when neither source is present, prefers an on-disk wake_interval_s over ctx['wake_interval_env_default'], and falls back to the ctx default when the on-disk value is None",
+        _render_places_wake_interval_last_and_resolves_prefill)
 
     def _every_settings_group_is_named_exactly_once():
         # heading-color-consistency debug session, extended by 06.6.4.1
@@ -1613,6 +1719,86 @@ def main():
     check(
         "a post with a valid theme AND a malformed quiet_hours_end returns save-failed and persists neither — the theme on disk is unchanged (all-or-nothing across groups)",
         _handle_post_valid_theme_and_malformed_quiet_hours_end_all_or_nothing)
+
+    # ------------------------------------------------------------------
+    # 11-03-PLAN.md Task 2: handle_post()'s wake_interval_s conversion,
+    # rejection, and leave-unchanged checks (D-05, 11-UI-SPEC.md).
+    # ------------------------------------------------------------------
+
+    def _handle_post_wake_interval_string_converts_to_int_and_persists():
+        # The direct regression guard for 11-RESEARCH.md Pitfall 1: a
+        # stored string would round-trip through load_device_config() as
+        # None (normalise_wake_interval_s() rejects non-int values) and
+        # silently look like "unset" instead of like a bug — asserting
+        # isinstance(..., int) explicitly is what catches that.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({"wake_interval_s": "120"}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if not isinstance(on_disk["wake_interval_s"], int):
+                return False, "expected the submitted string \"120\" to convert to an int, got %r" % (on_disk["wake_interval_s"],)
+            if on_disk["wake_interval_s"] != 120:
+                return False, "expected wake_interval_s 120 on disk, got %r" % (on_disk["wake_interval_s"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post({\"wake_interval_s\": \"120\"}, ctx) explicitly string-to-int converts before persisting, stores the int (not a string) 120, and returns the saved flash key (11-RESEARCH.md Pitfall 1 regression guard)",
+        _handle_post_wake_interval_string_converts_to_int_and_persists)
+
+    def _handle_post_wake_interval_rejection_paths_byte_identical():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            seed_flash = config_page.handle_post({"wake_interval_s": "120"}, ctx)
+            if seed_flash != config_page.FLASH_SAVED:
+                return False, "expected the seeding save to succeed, got %r" % (seed_flash,)
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            # "abc"/"1.5" fail at this handler's own int() gate; "59"/
+            # "3601"/"-1" are syntactically valid ints but fail inside
+            # save_device_config()'s bounded-range check.
+            for bad in ("abc", "1.5", "59", "3601", "-1"):
+                flash_key = config_page.handle_post({"wake_interval_s": bad}, ctx)
+                after = open(device_config.device_config_path(tmpdir), "rb").read()
+                if flash_key != config_page.FLASH_SAVE_FAILED:
+                    return False, "expected FLASH_SAVE_FAILED for wake_interval_s=%r, got %r" % (bad, flash_key)
+                if before != after:
+                    return False, "expected device_config.json to stay byte-identical after rejecting wake_interval_s=%r" % (bad,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post rejects \"abc\"/\"1.5\" (handler's int() gate) and \"59\"/\"3601\"/\"-1\" (save_device_config()'s bounded-range check), each returning the save-failed flash key and leaving a pre-existing device_config.json byte-identical",
+        _handle_post_wake_interval_rejection_paths_byte_identical)
+
+    def _handle_post_wake_interval_empty_or_absent_leaves_unchanged():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            seed_flash = config_page.handle_post({"wake_interval_s": "120"}, ctx)
+            if seed_flash != config_page.FLASH_SAVED:
+                return False, "expected the seeding save to succeed, got %r" % (seed_flash,)
+            empty_flash = config_page.handle_post({"wake_interval_s": ""}, ctx)
+            if empty_flash != config_page.FLASH_SAVED:
+                return False, "expected an empty-string wake_interval_s to succeed (leave unchanged), got %r" % (empty_flash,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["wake_interval_s"] != 120:
+                return False, "expected wake_interval_s to remain 120 after an empty-string submission, got %r" % (on_disk["wake_interval_s"],)
+            absent_flash = config_page.handle_post({}, ctx)
+            if absent_flash != config_page.FLASH_SAVED:
+                return False, "expected an absent wake_interval_s key to succeed (leave unchanged), got %r" % (absent_flash,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["wake_interval_s"] != 120:
+                return False, "expected wake_interval_s to remain 120 after an absent-key submission, got %r" % (on_disk["wake_interval_s"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "after a save that stored wake_interval_s 120, a later submission with wake_interval_s as the empty string, and another with the key absent entirely, both return the saved flash key and leave the stored value at 120 (11-RESEARCH.md Open Question 2)",
+        _handle_post_wake_interval_empty_or_absent_leaves_unchanged)
 
     # ------------------------------------------------------------------
     # 06.6.4.1-07 (D-05): led_fieldset()/led_section()/handle_led_post()
