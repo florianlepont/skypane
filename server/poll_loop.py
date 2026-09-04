@@ -631,6 +631,19 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     Never logs a bearer token or BYOS setup secret - this module has no
     access to either; only the selected hex/callsign/altitude/state and
     whether the panel changed are printed (T-02-01-04).
+
+    Scheduled quiet hours (D-04/D-05/D-07, phase 10): when the once-per-cycle
+    device-config read reports the cycle falls inside an enabled daily
+    window, this function takes an EARLY RETURN before any ADS-B call is
+    made - the window suppresses detection entirely for the cycle, not just
+    its display. The rule is "render once at entry, then hold": the QUIET
+    HOURS screen is drawn exactly once, on the first cycle
+    `poll_state["quiet_hours_active"]` flips to True, and every subsequent
+    in-window cycle is a deliberate no-op for the panel. The first cycle
+    after the window ends clears that flag and forces one repaint of the
+    live board from whichever branch below would otherwise have held it, so
+    no stale QUIET HOURS image survives past the window and no separate
+    "waking up" transition screen is ever invented.
     """
     state_dir = state_dir or DEFAULT_STATE_DIR
     os.makedirs(state_dir, exist_ok=True)
@@ -661,6 +674,102 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     device_cfg = device_config.load_device_config(state_dir)
     theme_id = device_cfg["theme"]
     tracked_runway_id = device_cfg["tracked_runway"]
+    # D-04/D-05/D-07 (10-CONTEXT.md): the once-per-cycle quiet-hours
+    # decision, computed from the SAME device_cfg read above - never a
+    # second load_device_config() call, for the identical reason the
+    # comment above gives (a mid-cycle save landing between two separate
+    # reads is how a panel ends up rendered half in one configuration and
+    # half in another). now_s() (not datetime.now()) is deliberate: it is
+    # this module's own harness-replaceable clock seam, so the poll-loop
+    # test harness's fake clock drives this arithmetic too.
+    quiet_remaining, quiet_until = device_config.quiet_hours_status(device_cfg, now_s())
+
+    if quiet_remaining is not None:
+        # 10-RESEARCH.md Pitfall 4: this early return sits BEFORE
+        # detect.load_geofence()/detect.poll_current_aircraft() below on
+        # purpose. The most surgical-looking insertion point - next to the
+        # existing `if flight is not None:` branching further down - is
+        # already after detection has run, which would keep querying the
+        # free-tier ADS-B aggregators every 30 seconds for an entire
+        # overnight window and throw every result away. Inside the window,
+        # this cycle must not touch `detect` at all.
+        poll_state = load_poll_state(state_dir)
+        was_quiet = bool(poll_state.get("quiet_hours_active", False))
+
+        # 05-02 (DEVICE-04): the identical three-line battery decision the
+        # main path computes below - the quiet screen carries the same
+        # battery-low icon, per 10-UI-SPEC.md's Panel Screen Contract and
+        # _build_empty_canvas()'s own precedent.
+        was_battery_low = bool(poll_state.get("battery_low_active", False))
+        battery_low = apply_battery_hysteresis(load_battery_state(state_dir), was_battery_low)
+        battery_changed = battery_low != was_battery_low
+        poll_state["battery_low_active"] = battery_low
+
+        # No provider was queried this cycle, so there is no new
+        # observation to classify - carry the previously-persisted fault
+        # flag forward rather than inventing a fault or silently clearing a
+        # real ongoing one overnight.
+        source_fault = _last_source_fault(state_dir)
+        poll_state["quiet_hours_active"] = True
+        now_iso = history_db.utc_now_iso()
+
+        # Render ONLY on entry. A full e-ink refresh measures ~31.5s on
+        # this panel, the device is deep-asleep and cannot fetch anything
+        # mid-window anyway, and re-rendering all night would burn the
+        # panel for zero new information - so every later cycle inside the
+        # window is a deliberate no-op, even across a battery transition
+        # (unlike the held branch below, nothing rendered mid-window can
+        # ever reach the glass, so a battery transition during the window
+        # must not trigger a repaint).
+        panel_changed = False
+        if not was_quiet:
+            canvas = render.build_canvas(
+                None, "quiet_hours", quiet_hours_until=quiet_until,
+                source_fault=source_fault, battery_low=battery_low,
+            )
+            rendered = panel_format.pack_panel(canvas)
+            panel_changed = write_panel_atomic(state_dir, rendered)
+            if panel_changed:
+                _save_to_gallery(state_dir, canvas, now_iso)
+
+        # The flag and the hysteresis memory both have to survive this
+        # oneshot's process boundary; an unconditional save every 30
+        # seconds would be a pointless write.
+        if not was_quiet or battery_changed:
+            save_poll_state(state_dir, poll_state)
+
+        # T-06-10-05/Pitfall 1: this call is NOT optional - it is what
+        # advances history_db.META_LAST_PIPELINE_RUN, and skipping it for
+        # an eight-hour window would make the companion Health page raise a
+        # false "ADS-B pipeline run is stale" anomaly every morning.
+        _record_history(
+            state_dir, None, None, None, None, tracked_runway_id,
+            source_fault, False, now_iso, caddy_log=caddy_log,
+        )
+
+        print(
+            "poll_loop: quiet_hours=active until=%s entered=%s panel_changed=%s "
+            "battery_low=%s theme=%s tracked_runway=%s source_fault=%s"
+            % (
+                quiet_until,
+                not was_quiet,
+                panel_changed,
+                battery_low,
+                theme_id,
+                tracked_runway_id,
+                source_fault,
+            )
+        )
+
+        return {
+            "flight": None,
+            "state": "quiet_hours",
+            "panel_changed": panel_changed,
+            "theme": theme_id,
+            "tracked_runway": tracked_runway_id,
+            "source_fault": source_fault,
+            "event_recorded": False,
+        }
 
     geofence_data = detect.load_geofence(geofence)
 
@@ -686,6 +795,15 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     now_iso = history_db.utc_now_iso()
 
     poll_state = load_poll_state(state_dir)
+    # D-07 (10-CONTEXT.md): reaching this line at all means the window is
+    # not currently active, so a True flag here can only mean "this is the
+    # first cycle after the window ended" - clear it now so every branch
+    # below sees the cleared value in poll_state, and remember the fact in
+    # quiet_hours_exited so the branches that don't unconditionally repaint
+    # can force exactly one exit repaint.
+    quiet_hours_exited = bool(poll_state.get("quiet_hours_active", False))
+    if quiet_hours_exited:
+        poll_state["quiet_hours_active"] = False
     current_flight = poll_state.get("last_flight")
     current_confirmed_state = poll_state.get("last_confirmed_state")
     current_route = poll_state.get("last_route")
@@ -915,13 +1033,26 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # (Phase 1), so refreshing every cycle would keep the display in
         # permanent refresh and burn battery for no added information.
         #
-        # This stays D-04-compatible: the only pixels that can differ are
-        # the badge and the icon. It does not invent a waiting state,
-        # expire the held flight, or alter any flight-derived pixel. A
-        # frame that sits in this branch all night would otherwise never
-        # show a warning that arose during it, defeating both DEVICE-04 and
-        # CFG-05 in exactly the situation they exist for.
-        if source_fault != previous_source_fault or battery_changed:
+        # This stays D-04-compatible for a source-fault/battery transition:
+        # the only pixels that can differ there are the badge and the icon.
+        # It does not invent a waiting state, expire the held flight, or
+        # alter any flight-derived pixel. A frame that sits in this branch
+        # all night would otherwise never show a warning that arose during
+        # it, defeating both DEVICE-04 and CFG-05 in exactly the situation
+        # they exist for.
+        #
+        # That "only the badge and icon differ" property is NOT true on a
+        # window-exit cycle (quiet_hours_exited below). `panel.bin`
+        # currently holds the QUIET HOURS image from the early-return
+        # branch above, and this branch's whole purpose is otherwise to NOT
+        # repaint. Without this term, a frame whose last detection predates
+        # the window would keep serving the QUIET HOURS image to the
+        # device - for hours, until the next aircraft happens to be
+        # detected. Forcing one repaint here is exactly D-07's "the first
+        # normal poll after the device wakes renders the real, live board
+        # directly": no new transition state is invented, the branch simply
+        # re-renders what it would already have been showing.
+        if source_fault != previous_source_fault or battery_changed or quiet_hours_exited:
             if confirmed_state is not None:
                 held_canvas = render.build_canvas(
                     current_flight,
@@ -951,7 +1082,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             # would silently disable the whole mitigation.
             poll_state["pending_flights"] = pending
             poll_state["last_advance_at"] = last_advance_at
-        if battery_changed or queue_dirty:
+        if battery_changed or queue_dirty or quiet_hours_exited:
             save_poll_state(state_dir, poll_state)
         # T-06-10-05/Pitfall 1: every cycle through this branch, transition
         # or not, still records the per-cycle pipeline-run + source-fault
@@ -982,7 +1113,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # save_poll_state() unconditionally; this branch otherwise never
         # does, so the hysteresis memory would not survive this oneshot's
         # process boundary on a frame that has never seen an aircraft.
-        if battery_changed:
+        # quiet_hours_exited is included so the cleared flag also survives -
+        # this branch already renders unconditionally, so no re-render
+        # change is needed here, only the save.
+        if battery_changed or quiet_hours_exited:
             save_poll_state(state_dir, poll_state)
         _record_history(
             state_dir, None, None, None, None,
@@ -1028,7 +1162,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     print(
         "poll_loop: hex=%s callsign=%s aircraft_type=%s corroborated=%s altitude_ft=%s confirmed_state=%s "
         "render_state=%s state_source=%s route_source=%s unknown_prefix=%s shown=%s pending=%d dropped=%s "
-        "battery_low=%s panel_changed=%s theme=%s tracked_runway=%s source_fault=%s"
+        "battery_low=%s panel_changed=%s theme=%s tracked_runway=%s source_fault=%s quiet_hours_exited=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
@@ -1048,6 +1182,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             theme_id,
             tracked_runway_id,
             source_fault,
+            quiet_hours_exited,
         )
     )
 

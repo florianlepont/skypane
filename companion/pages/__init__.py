@@ -59,6 +59,15 @@ Every page module in this package exposes:
           `layout.flash_banner(role=...)` announces a save/poll failure
           assertively and every other outcome politely, instead of one
           role for every outcome
+        - wake_interval_env_default: an int in
+          [device_config.WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] or
+          None — companion/app.py's own env_wake_interval_default(),
+          read fresh from this process's SKYPANE_SLEEP_S environment
+          variable on every request (added by plan 11-04, D-07). Its
+          only consumer is companion/pages/config_page.py's render(),
+          which falls back to it for the Wake interval field's pre-fill
+          only when the on-disk wake_interval_s is None; a stored value
+          always wins
         - now: a UTC ISO-8601 timestamp string for this request
 
     handle_post(form, ctx) -> str

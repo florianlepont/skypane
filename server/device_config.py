@@ -34,7 +34,10 @@ future change could leak state into a log.
 """
 import json
 import os
+import re
 import sys
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 # Allow both `import server.device_config` (package import) and direct
 # script execution, matching server/poll_loop.py's own bootstrap (lines
@@ -51,6 +54,41 @@ from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHI
 DEFAULT_THEME_ID = "white"
 DEFAULT_RUNWAY_ID = "3"
 DEFAULT_LED_ENABLED = True  # D-02: matches the LED's current hardcoded always-on behaviour, so nothing changes until a user opts out
+DEFAULT_QUIET_HOURS_ENABLED = False  # D-04: an explicit boolean independent of the stored times, the same shape led_enabled uses - never "empty fields mean off". False so nothing changes for any existing installation until a user opts in.
+DEFAULT_QUIET_HOURS_START = "23:00"  # D-03: one daily recurring window, never per-weekday
+DEFAULT_QUIET_HOURS_END = "07:00"  # D-03: one daily recurring window, never per-weekday
+
+# D-02 (11-CONTEXT.md): bounds for the stored `wake_interval_s` config field only - the
+# value quiet_hours_sleep_s() hands the device is explicitly allowed to exceed
+# WAKE_INTERVAL_MAX_S during an active quiet-hours window (11-RESEARCH.md Pitfall 4).
+# 60 mirrors firmware/main/Kconfig.projbuild's FP_MIN_REFRESH_SPACING_S `default`
+# (with `range 30 86400`) - this project's own conservative margin against needless
+# redraws and the battery they spend, NOT a vendor-mandated threshold; the GDEP133C02
+# datasheet specifies no minimum. 3600 (one hour) is the developer-confirmed ceiling.
+WAKE_INTERVAL_MIN_S = 60
+WAKE_INTERVAL_MAX_S = 3600
+
+# Deliberately no DEFAULT_WAKE_INTERVAL_S constant. Unlike every other field in this
+# module, wake_interval_s's unset state is `None`, a single deliberate exception to this
+# module's otherwise-universal "always return a concrete value" contract - the true
+# fallback is the deployed SKYPANE_SLEEP_S / --sleep value, which lives in a different OS
+# process's argparse namespace and is not knowable here (D-07, 11-RESEARCH.md Pattern 1).
+# Do not "restore consistency" by inventing a default; there isn't one to invent.
+
+# Shape gate for a submitted/stored quiet-hours HH:MM string. Deliberately
+# anchored with `\Z`, NOT `$`: Python's `$` also matches immediately before a
+# trailing newline, so a submitted "07:00\n" would pass a `$`-anchored
+# pattern, persist a dirty value into device_config.json, and later reach
+# the panel's own "Back at ..." body text (T-06-01-01 / ASVS V5 - untrusted
+# input must never reach a parser call it could make raise, or a document
+# it could pollute, before its shape is checked).
+_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)\Z")
+
+# The device has exactly one fixed physical location (10-RESEARCH.md
+# Assumption A3), so the quiet-hours window's timezone is deliberately
+# hardcoded here, not a per-installation setting. `zoneinfo` is stdlib
+# since Python 3.9 and adds nothing to server/requirements.txt.
+QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")
 
 # --- Theme registry ----------------------------------------------------
 #
@@ -345,15 +383,65 @@ def normalise_led_enabled(value):
     return DEFAULT_LED_ENABLED
 
 
+def normalise_quiet_hours_enabled(value):
+    """Same contract as normalise_led_enabled(): return `value` unchanged
+    only when `isinstance(value, bool)` is true, otherwise return
+    `DEFAULT_QUIET_HOURS_ENABLED`. Never raises. Deliberately no registry/
+    membership test, for the same reason normalise_led_enabled() documents.
+    """
+    if isinstance(value, bool):
+        return value
+    return DEFAULT_QUIET_HOURS_ENABLED
+
+
+def normalise_quiet_hours_time(value, default):
+    """Return `value` unchanged only when it is a string matching the
+    `_HHMM_RE` shape gate (24-hour, zero-padded "HH:MM"), otherwise return
+    `default`. One shared function for both the start and the end field -
+    deliberately not two near-identical functions - so the two can never
+    drift apart on validation strictness. Never raises.
+    """
+    if isinstance(value, str) and _HHMM_RE.match(value):
+        return value
+    return default
+
+
+def normalise_wake_interval_s(value):
+    """Return `value` unchanged only when it is an `int` that is not a `bool`
+    AND falls within `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` inclusive -
+    otherwise return `None`. Never raises.
+
+    Unlike every sibling normaliser in this module, `None` here does NOT mean
+    "degraded to the documented default" - there is no default to degrade to.
+    It means "never explicitly set", the same never-configured state a fresh
+    install starts in.
+
+    The bool exclusion is mandatory and load-bearing, not defensive noise: in
+    Python `isinstance(True, int)` evaluates true, so the type test must be
+    `isinstance(value, int) and not isinstance(value, bool)` - see
+    normalise_led_enabled()'s own docstring, which documents the same gotcha
+    from the other direction (an int such as 0 or 1 is deliberately not
+    accepted as a bool).
+    """
+    if isinstance(value, int) and not isinstance(value, bool) and WAKE_INTERVAL_MIN_S <= value <= WAKE_INTERVAL_MAX_S:
+        return value
+    return None
+
+
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns all three keys with
-    valid values - `theme`, `tracked_runway`, and `led_enabled` - via
-    normalise_theme_id()/normalise_runway_id()/normalise_led_enabled(), so a
-    hostile or stale value on disk (e.g. a path-traversal string, a numeric
-    runway id, or a non-bool led_enabled) never reaches a caller. Never
-    raises.
+    empty dict rather than raising. Always returns all seven keys with valid
+    values - `theme`, `tracked_runway`, `led_enabled`, `quiet_hours_enabled`,
+    `quiet_hours_start`, `quiet_hours_end`, and `wake_interval_s` - via
+    normalise_theme_id()/normalise_runway_id()/normalise_led_enabled()/
+    normalise_quiet_hours_enabled()/normalise_quiet_hours_time()/
+    normalise_wake_interval_s(), so a hostile or stale value on disk (e.g. a
+    path-traversal string, a numeric runway id, a non-bool led_enabled, a
+    malformed quiet-hours time, or a hostile wake_interval_s) never reaches a
+    caller. `wake_interval_s` is the single key whose valid value set
+    includes `None`, meaning never-explicitly-set - every other key always
+    has a concrete default. Never raises.
     """
     try:
         with open(device_config_path(state_dir)) as fh:
@@ -366,23 +454,44 @@ def load_device_config(state_dir):
         "theme": normalise_theme_id(data.get("theme")),
         "tracked_runway": normalise_runway_id(data.get("tracked_runway")),
         "led_enabled": normalise_led_enabled(data.get("led_enabled")),
+        "quiet_hours_enabled": normalise_quiet_hours_enabled(data.get("quiet_hours_enabled")),
+        "quiet_hours_start": normalise_quiet_hours_time(data.get("quiet_hours_start"), DEFAULT_QUIET_HOURS_START),
+        "quiet_hours_end": normalise_quiet_hours_time(data.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END),
+        "wake_interval_s": normalise_wake_interval_s(data.get("wake_interval_s")),
     }
 
 
-def save_device_config(state_dir, theme=None, tracked_runway=None, led_enabled=None):
+def save_device_config(
+    state_dir, theme=None, tracked_runway=None, led_enabled=None,
+    quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
+    wake_interval_s=None,
+):
     """Validate and persist a new theme and/or tracked-runway id and/or
-    led_enabled flag.
+    led_enabled flag and/or the three quiet-hours fields and/or
+    wake_interval_s.
 
     Each supplied (non-None) value is checked before anything is written:
     `theme`/`tracked_runway` against their registries with an explicit
-    membership test, `led_enabled` with an explicit `isinstance(..., bool)`
-    type check (there is no registry for a boolean). An unknown/wrong-typed
-    value raises `ValueError` naming the rejected value - and leaves any
-    pre-existing file byte-identical (T-06-01-01/T-06-01-06). A value left
-    `None` is carried over unchanged from the current on-disk config
-    (falling back to the documented defaults if none exists yet), so a
-    caller updating only the theme never has to also resupply the runway
-    or the LED flag.
+    membership test, `led_enabled`/`quiet_hours_enabled` with an explicit
+    `isinstance(..., bool)` type check (there is no registry for a
+    boolean), `quiet_hours_start`/`quiet_hours_end` against the `_HHMM_RE`
+    shape gate, and `wake_interval_s` against the bounded-int gate
+    (`isinstance(value, int) and not isinstance(value, bool)`, then
+    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` inclusive). An
+    unknown/wrong-typed value raises `ValueError` naming both the bounds (for
+    `wake_interval_s`) or the registry (for the others) and the rejected
+    value - and leaves any pre-existing file byte-identical
+    (T-06-01-01/T-06-01-06). A value left `None` is carried over unchanged
+    from the current on-disk config (falling back to the documented defaults
+    if none exists yet), so a caller updating only the theme never has to
+    also resupply the runway, the LED flag, the quiet-hours fields, or
+    wake_interval_s.
+
+    Because `None` means "not supplied / carry forward" for every field,
+    there is no way to clear an already-set `wake_interval_s` back to unset
+    through this function - that is the resolution of 11-RESEARCH.md's Open
+    Question 2 (an empty numeric input means "leave unchanged", never
+    "reject the save"), not an oversight.
 
     Writes with the same tmp-write-then-os.replace() idiom
     server/poll_loop.py's save_poll_state() uses, including the except
@@ -397,12 +506,31 @@ def save_device_config(state_dir, theme=None, tracked_runway=None, led_enabled=N
         raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
     if led_enabled is not None and not isinstance(led_enabled, bool):
         raise ValueError("led_enabled must be a bool, got %r" % (led_enabled,))
+    if quiet_hours_enabled is not None and not isinstance(quiet_hours_enabled, bool):
+        raise ValueError("quiet_hours_enabled must be a bool, got %r" % (quiet_hours_enabled,))
+    if quiet_hours_start is not None and not (isinstance(quiet_hours_start, str) and _HHMM_RE.match(quiet_hours_start)):
+        raise ValueError("quiet_hours_start must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_start,))
+    if quiet_hours_end is not None and not (isinstance(quiet_hours_end, str) and _HHMM_RE.match(quiet_hours_end)):
+        raise ValueError("quiet_hours_end must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_end,))
+    if wake_interval_s is not None and not (
+        isinstance(wake_interval_s, int)
+        and not isinstance(wake_interval_s, bool)
+        and WAKE_INTERVAL_MIN_S <= wake_interval_s <= WAKE_INTERVAL_MAX_S
+    ):
+        raise ValueError(
+            "wake_interval_s must be an int in [%d, %d], got %r"
+            % (WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S, wake_interval_s)
+        )
 
     current = load_device_config(state_dir)
     new_config = {
         "theme": theme if theme is not None else current["theme"],
         "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
         "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
+        "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],
+        "quiet_hours_start": quiet_hours_start if quiet_hours_start is not None else current["quiet_hours_start"],
+        "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
+        "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
     }
 
     os.makedirs(state_dir, exist_ok=True)
@@ -419,6 +547,105 @@ def save_device_config(state_dir, theme=None, tracked_runway=None, led_enabled=N
             except OSError:
                 pass
         raise
+
+
+# --- Quiet-hours window arithmetic --------------------------------------
+#
+# Genuinely new domain logic - no existing timezone-aware or window/
+# schedule arithmetic exists anywhere else in the codebase
+# (server/history_db.py is UTC-only). See 10-RESEARCH.md Pattern 2 and
+# 10-PATTERNS.md's "New DST-safe window-arithmetic helper" section for the
+# reference implementation this is adapted from, with exactly two
+# mandatory deviations documented in seconds_until_quiet_hours_end()'s own
+# docstring below.
+
+
+def seconds_until_quiet_hours_end(now_utc, start_hm, end_hm):
+    """Return the whole seconds remaining until the daily [start_hm, end_hm)
+    Europe/Paris wall-clock window's end time, or `None` when `now_utc`
+    falls outside the window. The window wraps midnight whenever
+    `end_hm <= start_hm` (e.g. "23:00"/"07:00"); when `start_hm == end_hm`
+    the window is zero-width and this always returns `None` for every
+    instant - a zero-width window is never active, and that is intentional
+    rather than a bug to "fix" into an always-active window.
+
+    Parameter contract - this function is the arithmetic core only and
+    performs no validation of its own, because stub-server/byos_server.py
+    (plan 10-03) duplicates it byte-for-byte across the vendor boundary and
+    every byte it carries has to be reproducible there:
+      - `now_utc` MUST be a timezone-aware datetime.
+      - `start_hm`/`end_hm` MUST already have passed `_HHMM_RE`.
+
+    Two mandatory deviations from 10-PATTERNS.md's reference body, both
+    load-bearing - do not "restore" the reference version:
+
+    (a) The final return subtracts in UTC, not in local time:
+    `end_dt.astimezone(timezone.utc) - now_utc`, NOT `end_dt - local_now`.
+    This is a correctness fix, verified numerically during planning:
+    `end_dt` and `local_now` share the same `tzinfo` object, and Python's
+    documented rule for subtracting two aware datetimes with the same
+    `tzinfo` is to ignore the zone and subtract the wall-clock numerals -
+    so the reference body's naive numeral difference is wrong by exactly
+    one hour across a Europe/Paris DST transition. Converting `end_dt` to
+    UTC first restores the true-elapsed-duration property.
+
+    (b) Accepted caveat (10-RESEARCH.md Pitfall 2), not engineered around: a
+    window boundary configured inside the 02:00-03:00 transition hour on
+    the last Sunday of March or October resolves via PEP 495's default
+    `fold=0` semantics and can be up to an hour off for that one instant.
+    No `fold=1` override is added - D-01's "never shorter than the base
+    sleep" rule bounds the worst case to one extra or one missing wake,
+    twice a year, only for a boundary configured inside that specific hour.
+    """
+    local_now = now_utc.astimezone(QUIET_HOURS_TZ)
+    start_h, start_m = (int(x) for x in start_hm.split(":"))
+    end_h, end_m = (int(x) for x in end_hm.split(":"))
+    start_today = local_now.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+    end_today = local_now.replace(hour=end_h, minute=end_m, second=0, microsecond=0)
+    if (start_h, start_m) <= (end_h, end_m):
+        if not (start_today <= local_now < end_today):
+            return None
+        end_dt = end_today
+    else:
+        if local_now >= start_today:
+            end_dt = end_today + timedelta(days=1)
+        elif local_now < end_today:
+            end_dt = end_today
+        else:
+            return None
+    return max(0, int((end_dt.astimezone(timezone.utc) - now_utc).total_seconds()))
+
+
+def quiet_hours_status(config, now_epoch):
+    """Convenience wrapper server/poll_loop.py calls (plan 10-04) -
+    deliberately NOT part of what stub-server/byos_server.py duplicates.
+
+    `config` is a load_device_config() return dict; `now_epoch` is epoch
+    seconds as a float (so poll_loop.py can pass its existing now_s() seam
+    straight through). Returns `(seconds_remaining, end_hm)`, or
+    `(None, None)` when `config` is not a dict, `config.get(
+    "quiet_hours_enabled")` is not literally `True`, or
+    seconds_until_quiet_hours_end() returns `None`.
+
+    Both time strings are re-normalised through normalise_quiet_hours_time()
+    before use, so a caller passing a hand-built dict cannot slip an
+    unvalidated string into the arithmetic. Never raises, including for a
+    hostile `now_epoch` (non-numeric, None, NaN, or absurdly large) -
+    poll_loop.py calls this before it has rendered anything, and this
+    module's never-raise contract has to hold here too.
+    """
+    try:
+        if not isinstance(config, dict) or config.get("quiet_hours_enabled") is not True:
+            return None, None
+        start_hm = normalise_quiet_hours_time(config.get("quiet_hours_start"), DEFAULT_QUIET_HOURS_START)
+        end_hm = normalise_quiet_hours_time(config.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END)
+        now_utc = datetime.fromtimestamp(float(now_epoch), timezone.utc)
+        remaining = seconds_until_quiet_hours_end(now_utc, start_hm, end_hm)
+        if remaining is None:
+            return None, None
+        return remaining, end_hm
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None, None
 
 
 # --- Presentation accessors -------------------------------------------

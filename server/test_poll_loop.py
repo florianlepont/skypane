@@ -87,7 +87,7 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 44
+EXPECTED_CHECK_COUNT = 51
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -1816,6 +1816,232 @@ def main():
             check(
                 "the pinned-digest verdict is Linux-strict and non-Linux-informational - both branches proven by forcing platform.system()",
                 _digest_verdict_is_linux_strict_and_non_linux_informational,
+            )
+
+            # --- Phase 10 plan 10-04: scheduled quiet hours -----------------
+            #
+            # CLOCK_BASE (1_700_000_000.0) is 23:13:20 Europe/Paris - inside a
+            # 23:00-07:00 window. CLOCK_BASE + 28800 is 07:13:20 Paris - just
+            # outside it. Both anchors are verified by 10-01's own DST-anchor
+            # test of seconds_until_quiet_hours_end() and reused here as
+            # literals.
+
+            # 31. D-05: window entry renders the QUIET HOURS canvas exactly
+            # once and persists poll_state["quiet_hours_active"]. Detection
+            # is never reached for this branch (the early return sits before
+            # both the snapshot and live paths), so no snapshot is needed.
+            def _quiet_hours_entry_renders_once_and_persists_flag():
+                qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-entry-")
+                try:
+                    device_config.save_device_config(
+                        qh_dir, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE
+                    result = poll_loop.run_once(state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "quiet_hours":
+                        return False, "entry cycle returned state=%r, expected 'quiet_hours'" % (result.get("state"),)
+                    if not result.get("panel_changed"):
+                        return False, "entry cycle returned panel_changed=%r, expected True" % (result.get("panel_changed"),)
+                    on_disk = poll_loop.load_poll_state(qh_dir)
+                    if on_disk.get("quiet_hours_active") is not True:
+                        return False, "poll_state.json's quiet_hours_active is %r, expected True" % (on_disk.get("quiet_hours_active"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(qh_dir, ignore_errors=True)
+            check(
+                "window entry renders the QUIET HOURS canvas exactly once and persists quiet_hours_active=True",
+                _quiet_hours_entry_renders_once_and_persists_flag,
+            )
+
+            # 32. Every subsequent in-window cycle is a deliberate no-op: no
+            # second render, byte-identical panel.bin.
+            def _quiet_hours_hold_is_noop():
+                qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-hold-")
+                try:
+                    device_config.save_device_config(
+                        qh_dir, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE
+                    poll_loop.run_once(state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(qh_dir, "panel.bin"), "rb") as fh:
+                        first_bytes = fh.read()
+                    CLOCK["t"] = CLOCK_BASE + 60  # still inside the window
+                    result = poll_loop.run_once(state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "quiet_hours":
+                        return False, "hold cycle returned state=%r, expected 'quiet_hours'" % (result.get("state"),)
+                    if result.get("panel_changed"):
+                        return False, "hold cycle returned panel_changed=True, expected False - a mid-window cycle must not re-render"
+                    with open(os.path.join(qh_dir, "panel.bin"), "rb") as fh:
+                        second_bytes = fh.read()
+                    if second_bytes != first_bytes:
+                        return False, "panel.bin's bytes changed on a hold cycle, expected them unchanged"
+                    return True, ""
+                finally:
+                    shutil.rmtree(qh_dir, ignore_errors=True)
+            check(
+                "a second in-window cycle is a no-op - panel_changed is False and panel.bin's bytes are unchanged",
+                _quiet_hours_hold_is_noop,
+            )
+
+            # 33. The rendered panel really is the quiet-hours canvas - pins
+            # the "Back at" time to the configured local end.
+            def _quiet_hours_panel_matches_expected_canvas():
+                qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-canvas-")
+                try:
+                    device_config.save_device_config(
+                        qh_dir, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE
+                    poll_loop.run_once(state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(qh_dir, "panel.bin"), "rb") as fh:
+                        actual = fh.read()
+                    expected = poll_loop.panel_format.pack_panel(
+                        poll_loop.render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00")
+                    )
+                    if actual != expected:
+                        return False, "panel.bin does not equal panel_format.pack_panel(render.build_canvas(None, 'quiet_hours', quiet_hours_until='07:00'))"
+                    return True, ""
+                finally:
+                    shutil.rmtree(qh_dir, ignore_errors=True)
+            check(
+                "the rendered panel is exactly render.build_canvas(None, 'quiet_hours', quiet_hours_until='07:00')",
+                _quiet_hours_panel_matches_expected_canvas,
+            )
+
+            # 34. Pitfall 4: an in-window cycle must never touch detect at
+            # all, on the LIVE path (snapshot=None) - this is what a real
+            # systemd-timer cycle actually calls.
+            def _quiet_hours_skips_ads_b_detection():
+                qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-skip-")
+                try:
+                    device_config.save_device_config(
+                        qh_dir, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE
+                    called = {"poll": False, "geofence": False}
+                    original_poll = poll_loop.detect.poll_current_aircraft
+                    original_geofence = poll_loop.detect.load_geofence
+
+                    def _fake_poll(*args, **kwargs):
+                        called["poll"] = True
+                        return None
+
+                    def _fake_geofence(*args, **kwargs):
+                        called["geofence"] = True
+                        return {}
+
+                    poll_loop.detect.poll_current_aircraft = _fake_poll
+                    poll_loop.detect.load_geofence = _fake_geofence
+                    try:
+                        poll_loop.run_once(state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.poll_current_aircraft = original_poll
+                        poll_loop.detect.load_geofence = original_geofence
+                    if called["poll"] or called["geofence"]:
+                        return False, "detect.poll_current_aircraft/load_geofence were called during an active quiet-hours window: %r" % (called,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(qh_dir, ignore_errors=True)
+            check(
+                "an in-window cycle on the live path never calls detect.poll_current_aircraft or detect.load_geofence",
+                _quiet_hours_skips_ads_b_detection,
+            )
+
+            # 35. REGRESSION GUARD: window exit from the held branch forces
+            # one repaint and clears the flag - this is the stale-QUIET-
+            # HOURS-image bug this plan exists to prevent. Sequence models
+            # the real production shape: detect a flight before the window,
+            # enter the window (which renders over it), then exit with
+            # nothing newly detected (current_flight is still the
+            # pre-window flight, sitting in the held branch). Negative
+            # control run and recorded per the plan's own verification
+            # requirement: temporarily dropping `or quiet_hours_exited` from
+            # the held branch's re-render gate makes this check fail with
+            # "panel_changed=False, expected True" - see 10-04-SUMMARY.md.
+            def _quiet_hours_exit_from_held_branch_repaints():
+                qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-exit-")
+                try:
+                    device_config.save_device_config(
+                        qh_dir, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE - 3600  # 22:13:20 Paris - before the window
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    CLOCK["t"] = CLOCK_BASE  # 23:13:20 - inside the window: entry render
+                    poll_loop.run_once(state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(qh_dir, "panel.bin"), "rb") as fh:
+                        quiet_bytes = fh.read()
+                    CLOCK["t"] = CLOCK_BASE + 28800  # 07:13:20 - just outside the window
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    if not result.get("panel_changed"):
+                        return False, "the first cycle after window exit returned panel_changed=False, expected True (must force one repaint)"
+                    with open(os.path.join(qh_dir, "panel.bin"), "rb") as fh:
+                        after_bytes = fh.read()
+                    if after_bytes == quiet_bytes:
+                        return False, "panel.bin is still the QUIET HOURS bytes after the window ended - the stale-image bug this plan exists to prevent"
+                    on_disk = poll_loop.load_poll_state(qh_dir)
+                    if on_disk.get("quiet_hours_active") is not False:
+                        return False, "poll_state.json's quiet_hours_active is %r after window exit, expected False" % (on_disk.get("quiet_hours_active"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(qh_dir, ignore_errors=True)
+            check(
+                "REGRESSION GUARD: the first cycle after window exit repaints the held live board and clears quiet_hours_active",
+                _quiet_hours_exit_from_held_branch_repaints,
+            )
+
+            # 36. D-07: the exit cycle's returned state is the ordinary held
+            # value, never "quiet_hours" and never a new third state - no
+            # separate "waking up" transition screen exists.
+            def _quiet_hours_exit_writes_no_transition_screen():
+                qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-notrans-")
+                try:
+                    device_config.save_device_config(
+                        qh_dir, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE - 3600
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    CLOCK["t"] = CLOCK_BASE
+                    poll_loop.run_once(state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    CLOCK["t"] = CLOCK_BASE + 28800
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") == "quiet_hours":
+                        return False, "the exit cycle's returned state is still 'quiet_hours', expected the ordinary held value"
+                    if result.get("state") != "departing":
+                        return False, "the exit cycle's returned state is %r, expected 'departing' (the held FLIGHT1 confirmed state)" % (result.get("state"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(qh_dir, ignore_errors=True)
+            check(
+                "the exit cycle's returned state is the ordinary held value, never 'quiet_hours' and never a new third state",
+                _quiet_hours_exit_writes_no_transition_screen,
+            )
+
+            # 37. D-04: the enabled flag genuinely gates the feature - a
+            # disabled config with valid stored times still takes the
+            # ordinary detection path.
+            def _quiet_hours_disabled_is_inert():
+                qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-disabled-")
+                try:
+                    device_config.save_device_config(
+                        qh_dir, quiet_hours_enabled=False,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE
+                    result = poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=qh_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") == "quiet_hours":
+                        return False, "a disabled quiet_hours_enabled flag still entered the quiet-hours branch"
+                    return True, ""
+                finally:
+                    shutil.rmtree(qh_dir, ignore_errors=True)
+            check(
+                "quiet_hours_enabled=False takes the ordinary detection path regardless of stored start/end times",
+                _quiet_hours_disabled_is_inert,
             )
 
         finally:

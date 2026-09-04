@@ -125,6 +125,95 @@ names, response shapes, telemetry printing) is untouched:
    No other endpoint, response field, status code, or telemetry print
    statement was touched by this change.
 
+5. **Added a quiet-hours-aware `sleep_s` extension** (Phase 10, D-01).
+   Upstream's `GET /device/v1/display` response always returns the raw
+   `--sleep` CLI value as `sleep_s`. This repository now computes that
+   field via `quiet_hours_sleep_s(self.args.sleep, self.args.state_dir)`:
+   a poll landing inside an enabled quiet-hours window gets an extended
+   `sleep_s` that spans past the window's local end time, so the device
+   deep-sleeps through the whole window instead of waking, connecting,
+   and polling during it - this is the entire battery win, and requires
+   zero firmware change because `sleep_s` is already a fully
+   server-controlled, per-response value the firmware consumes as-is.
+   Outside a window, or on any config failure, `sleep_s` is exactly the
+   unchanged base `--sleep` value.
+
+   Concretely: this repository adds `read_quiet_hours(state_dir)`
+   (mirrors `read_led_enabled()`'s shape and never-raises contract - a
+   read-only, fail-open lookup of the same shared `device_config.json`
+   `read_led_enabled()` already reads; every failure mode - missing or
+   unreadable file, malformed JSON, a non-dict document,
+   `quiet_hours_enabled` not literally `True`, or either time string
+   failing the `_HHMM_RE` shape gate - degrades to `None`, i.e. the
+   pre-existing unmodified `sleep_s` behaviour) and
+   `quiet_hours_sleep_s(base_sleep_s, state_dir, now=None)` (returns
+   `base_sleep_s` unchanged when no window is active, otherwise
+   `max(base_sleep_s, remaining)` - never shorter than the base value,
+   per D-01's Claude's-Discretion resolution).
+
+   `seconds_until_quiet_hours_end()` - the window-end arithmetic
+   `quiet_hours_sleep_s()` calls - is a deliberate byte-for-byte
+   DUPLICATE of `server/device_config.py`'s function of the same name
+   (landed by plan 10-01), kept duplicated rather than imported because
+   this file must never import a `server.*` project module: there is no
+   `sys.path` bootstrap here to make such an import even resolve, it
+   would break this file's own "Stdlib only" docstring claim, and it
+   would blur the vendor-provenance boundary this document exists to
+   track - the same reasoning that already kept local modifications 1-4
+   free of any project-package import. The two copies (the function body
+   and the `_HHMM_RE` pattern) are pinned byte-for-byte equal by an
+   automated drift guard in `stub-server/test_poll_cycle.py`, which reads
+   both `server/device_config.py` and this file as plain text (never by
+   importing `server.device_config`) and fails with a diff-style message
+   naming both files if they diverge. `re`, `datetime`, and `zoneinfo`
+   (added to this file's import block for this change) are all Python
+   standard library - `zoneinfo` since 3.9 - so the "Stdlib only"
+   contract stays intact.
+
+   `quiet_hours_sleep_s()` runs inside the `do_GET` `/device/v1/display`
+   branch, after the pre-existing `bearer_ok()` gate, so no new
+   unauthenticated surface is added. No other endpoint, response field,
+   status code, or telemetry print statement was touched by this change.
+
+6. **Added a read-only `wake_interval_s` lookup against the shared
+   `device_config.json` document** (Phase 11, D-01/D-03). Upstream has no
+   concept of a per-device configurable wake interval at all; this
+   repository's Phase 10 state fed the fixed `--sleep` CLI value directly
+   into `quiet_hours_sleep_s()` as its `base_sleep_s` argument. Phase 11
+   closes that gap on the companion side — `companion/pages/config_page.py`'s
+   Settings page now writes a genuine, user-settable `wake_interval_s`
+   value via `server/device_config.py`'s `save_device_config()` — and this
+   change is this vendored file's read half of that same feature.
+
+   Concretely: this repository adds `WAKE_INTERVAL_MIN_S = 60` /
+   `WAKE_INTERVAL_MAX_S = 3600` (independently redefined duplicates of
+   `server/device_config.py`'s constants of the same names, never
+   imported, matching how `_HHMM_RE`/`QUIET_HOURS_TZ` are already
+   duplicated) and `read_wake_interval_s(state_dir, default)` (mirrors
+   `read_led_enabled()`'s shape and never-raises contract: a missing file,
+   an unreadable file, malformed JSON, a non-dict document, an absent
+   key, a wrong-typed value including a bool, or a value outside the
+   inclusive `[60, 3600]` range all degrade to the caller-supplied
+   `default`, the `--sleep` CLI value). The `do_GET` `/device/v1/display`
+   branch is the single call site — it now passes
+   `read_wake_interval_s(self.args.state_dir, self.args.sleep)` as
+   `quiet_hours_sleep_s()`'s `base_sleep_s` argument instead of
+   `self.args.sleep` directly. `quiet_hours_sleep_s()`'s own signature and
+   body are completely unchanged, and the delivered value is not
+   re-clamped to `[60, 3600]` after quiet hours extends it — the bounds
+   gate only the stored config field, never the value actually sent to
+   the device.
+
+   A deliberate decision **not** made here, for the same reasons already
+   given for local modification 4 (`led_enabled`): this file does not
+   import `server.device_config` to read or validate the field — the
+   read logic above is a small, self-contained, independent
+   reimplementation of just the `wake_interval_s` half of
+   `server.device_config.normalise_wake_interval_s()`.
+
+   No other endpoint, response field, status code, or telemetry print
+   statement was touched by this change.
+
 **Everything else is verbatim**, including: the three endpoint
 implementations (`POST /device/v1/setup`, `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`), the `--image`/`--port`/`--secret`/
@@ -162,8 +251,9 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply all **four** local modifications (`--state-dir`,
+recorded here, re-apply all **six** local modifications (`--state-dir`,
 `--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
-and this LED read), update the pinned commit hash above, and re-run
+the LED read, the quiet-hours `sleep_s` extension, and the wake-interval
+read), update the pinned commit hash above, and re-run
 `stub-server/test_poll_cycle.py` to confirm the contract — including both
-scheme checks — still holds.
+scheme checks and the quiet-hours drift guard — still holds.

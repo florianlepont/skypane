@@ -57,6 +57,12 @@ SETTINGS_FORM_ID = "settings-form"
 # never drift apart.
 LED_CHECKBOX_VALUE = "on"
 
+# The sole accepted submitted value for the Quiet hours enable checkbox
+# (10-05-PLAN.md), mirroring LED_CHECKBOX_VALUE's own rationale exactly:
+# shared by quiet_hours_group()'s markup and handle_post()'s validator so
+# the two can never drift apart.
+QUIET_HOURS_CHECKBOX_VALUE = "on"
+
 # quick task 260901-re6: each settings group used to render a description
 # sentence above its control (THEME_SECTION_DESCRIPTION/
 # RUNWAY_SECTION_DESCRIPTION, D-02 06.6.4.1) AND a helper sentence below
@@ -96,6 +102,32 @@ POLL_SECTION_CAPTION = (
 # from its own <fieldset>/<legend> into a sibling <h2>-headed group of
 # the merged form — see led_group() below.
 LED_SECTION_HEADING = "Diagnostic LED"
+
+# 10-05-PLAN.md / 10-UI-SPEC.md Copywriting Contract: the Quiet hours
+# group's heading and caption, locked verbatim. Unlike Theme/Runway/LED's
+# captions, this one deliberately restates the "could now be hours away"
+# duration caveat (D-02) directly in its own sentence, rather than a
+# separate flash message — this is the one settings field on the page
+# whose wait can stretch from minutes to hours.
+QUIET_HOURS_SECTION_HEADING = "Quiet hours"
+QUIET_HOURS_SECTION_CAPTION = (
+    "Pauses the frame's wake, poll and display cycle overnight. Applies "
+    "on the next scheduled poll, which may now be hours away.")
+
+# 11-UI-SPEC.md Copywriting Contract, locked verbatim (D-05). The caption's
+# closing sentence deliberately reuses the same "Applies on the next
+# scheduled poll" clause every sibling caption ends on (D-06 — no new
+# apply-timing mechanism exists for this field either). The placeholder is
+# a legitimate empty state (D-07: "never explicitly set"), not an error
+# state — it names the fallback behavior instead of showing a fabricated
+# number.
+WAKE_INTERVAL_SECTION_HEADING = "Wake interval"
+WAKE_INTERVAL_SECTION_CAPTION = (
+    "How often the frame wakes to poll for updates. Shorter means "
+    "fresher info and more battery drain; longer means more battery "
+    "life and staler info at a glance. Applies on the next scheduled "
+    "poll.")
+WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
 
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
@@ -437,21 +469,24 @@ def led_group(current_led_enabled):
     was never true of the shipped markup and is the reason this position
     drift went unnoticed.
 
-    The `<label>` carries `class="led-checkbox"` (quick task 260901-qif):
-    unclassed, it fell through to the global `input, select` rule written
-    for text inputs and selects, painting an oversized 44x44 filled,
-    bordered, rounded box instead of a normal small checkbox. The class
-    scopes a normalization rule that shrinks the checkbox to its native
-    16px size while relocating the 44px touch-target floor onto this
-    label — the input's own `type`/`name`/`value`/`checked` attribute
-    sequence is untouched.
+    The `<label>` carries `class="settings-checkbox"` (quick task
+    260901-qif; a rename of this group's own original checkbox-
+    normalization class, by 10-05-PLAN.md Task 2, once the Quiet hours
+    group became a second consumer of the identical pattern): unclassed,
+    it fell through to the global `input, select`
+    rule written for text inputs and selects, painting an oversized 44x44
+    filled, bordered, rounded box instead of a normal small checkbox. The
+    class scopes a normalization rule that shrinks the checkbox to its
+    native 16px size while relocating the 44px touch-target floor onto
+    this label — the input's own `type`/`name`/`value`/`checked`
+    attribute sequence is untouched.
     """
     checked = " checked" if current_led_enabled else ""
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption">%s</p>'
-        '<label class="led-checkbox">'
+        '<label class="settings-checkbox">'
         '<input type="checkbox" name="led_enabled" value="%s"%s> Enable diagnostic LED'
         "</label>"
         "</div>"
@@ -460,6 +495,132 @@ def led_group(current_led_enabled):
         escape_html(LED_SECTION_HEADING),
         escape_html(LED_SECTION_CAPTION),
         escape_html(LED_CHECKBOX_VALUE), checked,
+    )
+
+
+def quiet_hours_group(current_enabled, current_start, current_end):
+    """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md): a
+    fourth sibling of the Theme/Runway/Diagnostic LED groups inside the
+    single merged `<form action="{SETTINGS_ROUTE}">`, built against
+    `led_group()`'s exact structure above — same `.theme-status` wrapper
+    idiom, same `<h2 class="text-heading">` naming (no `<fieldset>`/
+    `<legend>`, for the identical reason `led_group()`'s own docstring
+    already documents: a `<legend>` only has accessible-name semantics
+    inside a `<fieldset>`, which these sibling groups deliberately do not
+    have).
+
+    Controls render in this locked order (10-UI-SPEC.md's Interaction
+    Contract): the enable checkbox, then a "Start" `<input type="time">`,
+    then an "End" `<input type="time">`, each its own full-width line.
+    They are deliberately NOT wrapped in `.theme-status__row` or any other
+    side-by-side layout — 10-UI-SPEC.md rejects that explicitly, both to
+    avoid two native time pickers wrapping at a narrow (320-375px)
+    viewport and to stay consistent with 06.6.4.1 (D-01)'s removal of this
+    page's two-column grid.
+
+    The checkbox's wrapping `<label>` carries `class="settings-checkbox"`
+    — the generalised name Task 2 of 10-05-PLAN.md introduces, once
+    `led_group()`'s own single-consumer checkbox-normalization class is
+    renamed to serve both groups identically.
+
+    Unlike an "unchecked disables the fields" pattern, this group's Start/
+    End inputs are NEVER given a `disabled` attribute or a dimmed/
+    `.disabled` visual treatment tied to the checkbox's state — they stay
+    fully interactive and save independently of it, resolving
+    10-RESEARCH.md's Open Question 2 / Assumption A1 in the affirmative: a
+    user can pre-configure a window before ever turning it on.
+
+    Every interpolated current value — the heading, the caption, the
+    checkbox value, and both current times — is routed through
+    `escape_html()`, matching this file's universal escaping discipline.
+    """
+    checked = " checked" if current_enabled else ""
+    return (
+        '<div class="theme-status" %s="%s">'
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        '<label class="settings-checkbox">'
+        '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s> Enable quiet hours'
+        "</label>"
+        '<label>Start <input type="time" name="quiet_hours_start" value="%s"></label>'
+        '<label>End <input type="time" name="quiet_hours_end" value="%s"></label>'
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(QUIET_HOURS_SECTION_HEADING),
+        escape_html(QUIET_HOURS_SECTION_HEADING),
+        escape_html(QUIET_HOURS_SECTION_CAPTION),
+        escape_html(QUIET_HOURS_CHECKBOX_VALUE), checked,
+        escape_html(current_start),
+        escape_html(current_end),
+    )
+
+
+def wake_interval_group(current_wake_interval_s):
+    """The Wake interval settings group (11-UI-SPEC.md, 11-RESEARCH.md
+    Pattern 4): a fifth sibling of the Theme/Runway/Diagnostic LED/Quiet
+    hours groups inside the single merged `<form action="{SETTINGS_ROUTE}">`,
+    built against `led_group()`'s exact structure — same `.theme-status`
+    wrapper idiom, same `<h2 class="text-heading">` naming (no
+    `<fieldset>`/`<legend>`, for the identical reason `led_group()`'s own
+    docstring already documents: a `<legend>` only has accessible-name
+    semantics inside a `<fieldset>`, which these sibling groups
+    deliberately do not have). Unlike `quiet_hours_group()`, this group has
+    no checkbox gate — a plain `<label>` wraps a single
+    `<input type="number">`, this codebase's first (D-05), not
+    `class="settings-checkbox"` — that class normalises a checkbox and
+    would mis-size a text-like input; the global `input, select` rule
+    already supplies the 44px touch-target floor with no type-specific
+    override needed, exactly like `<input type="time">`'s own precedent.
+
+    `min`/`max` are interpolated from `device_config.WAKE_INTERVAL_MIN_S`/
+    `WAKE_INTERVAL_MAX_S`, read from the module rather than re-typed as
+    literals, so the two can never drift apart from `save_device_config()`'s
+    own server-side re-check of the identical bounds.
+
+    The `value` attribute is the one place this function does real work:
+    it is emitted only when `current_wake_interval_s` is an `int` that is
+    not a `bool` and falls within the inclusive
+    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` range; otherwise no
+    `value` attribute is emitted at all, and the placeholder
+    (`WAKE_INTERVAL_PLACEHOLDER_TEXT`) carries the empty state. Two
+    reasons this guard is load-bearing, not decorative: a fabricated
+    number would lie to the user about a setting that was never made
+    (D-07), and — more sharply — an out-of-range `value` on a native
+    numeric input fails HTML5 constraint validation, which blocks
+    submission of the *entire* Settings form, not just this field. That is
+    a live risk, not hypothetical: `deploy/skypane.env.example` currently
+    sets `SKYPANE_SLEEP_S=30`, below the 60s floor, and plan 11-04 feeds
+    that environment value in as the pre-fill fallback. The bool exclusion
+    is mandatory for the same reason it is everywhere else in this phase —
+    `isinstance(True, int)` is true in Python.
+
+    The heading, the caption and the placeholder are routed through
+    `escape_html()`, matching this file's universal escaping discipline;
+    the numeric value needs no escaping because `%d` cannot emit anything
+    but digits and a sign.
+    """
+    value_attr = (
+        ' value="%d"' % current_wake_interval_s
+        if (
+            isinstance(current_wake_interval_s, int)
+            and not isinstance(current_wake_interval_s, bool)
+            and device_config.WAKE_INTERVAL_MIN_S <= current_wake_interval_s <= device_config.WAKE_INTERVAL_MAX_S
+        ) else "")
+    return (
+        '<div class="theme-status" %s="%s">'
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        "<label>Wake interval (seconds) "
+        '<input type="number" name="wake_interval_s" min="%d" max="%d"'
+        ' placeholder="%s"%s></label>'
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(WAKE_INTERVAL_SECTION_HEADING),
+        escape_html(WAKE_INTERVAL_SECTION_HEADING),
+        escape_html(WAKE_INTERVAL_SECTION_CAPTION),
+        device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
+        escape_html(WAKE_INTERVAL_PLACEHOLDER_TEXT),
+        value_attr,
     )
 
 
@@ -663,6 +824,24 @@ def render(ctx):
         "tracked_runway", device_config.DEFAULT_RUNWAY_ID)
     current_led_enabled = device_cfg.get(
         "led_enabled", device_config.DEFAULT_LED_ENABLED)
+    current_quiet_enabled = device_cfg.get(
+        "quiet_hours_enabled", device_config.DEFAULT_QUIET_HOURS_ENABLED)
+    current_quiet_start = device_cfg.get(
+        "quiet_hours_start", device_config.DEFAULT_QUIET_HOURS_START)
+    current_quiet_end = device_cfg.get(
+        "quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END)
+    # D-07 (11-UI-SPEC.md): an explicit `is None` test, not `or` — `0` is
+    # never a valid wake_interval_s (WAKE_INTERVAL_MIN_S is 60), but `or`
+    # would still be the wrong idiom to reach for here even so. Falls back
+    # to ctx["wake_interval_env_default"], the deployed SKYPANE_SLEEP_S
+    # value plan 11-04 reads out of the companion process's own environment
+    # (systemd injects it via the same EnvironmentFile=/opt/skypane/
+    # skypane.env directive skypane-byos.service uses). That key is absent
+    # — resolving to None, i.e. the placeholder empty state — on any local
+    # or dev run without the systemd unit.
+    current_wake_interval_s = device_cfg.get("wake_interval_s")
+    if current_wake_interval_s is None:
+        current_wake_interval_s = ctx.get("wake_interval_env_default")
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
 
     # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
@@ -715,6 +894,8 @@ def render(ctx):
         "%s"
         "%s"
         "%s"
+        "%s"
+        "%s"
         '<button type="submit" %s>Save settings</button>'
         "</form>"
         '<section class="page-section">'
@@ -728,6 +909,9 @@ def render(ctx):
         theme_fieldset(current_theme_id),
         runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
         led_group(current_led_enabled),
+        quiet_hours_group(
+            current_quiet_enabled, current_quiet_start, current_quiet_end),
+        wake_interval_group(current_wake_interval_s),
         STATIC_SAVE_FALLBACK_ATTR,
         poll_trigger_section(cooldown_remaining),
         dirty_bar_html,
@@ -735,13 +919,16 @@ def render(ctx):
 
 
 def handle_post(form, ctx):
-    """Validate the submitted theme/runway/LED state against
-    `device_config`'s own registries — server-side, before any value is
-    used anywhere — and persist all three in a single
-    `save_device_config()` call (D-05, 06.6.4.1: this handler absorbed
-    what the now-retired `handle_led_post()` used to do on its own
-    separate `POST /config-led` route — removed outright in 06.6.4.1-07
-    once this route became the sole settings-writing path).
+    """Validate the submitted theme/runway/LED/quiet-hours/wake-interval
+    state against `device_config`'s own registries and validators —
+    server-side, before any value is used anywhere — and persist all
+    seven fields in a single `save_device_config()` call (D-05, 06.6.4.1:
+    this handler absorbed what the now-retired `handle_led_post()` used to
+    do on its own separate `POST /config-led` route — removed outright in
+    06.6.4.1-07 once this route became the sole settings-writing path;
+    10-05-PLAN.md extended the same single-call contract to the three
+    quiet-hours fields, and 11-03-PLAN.md extends it again to
+    wake_interval_s, rather than adding a second write path).
 
     Deliberately does NOT call any of `device_config`'s read-path
     normalising helpers (the ones an unrecognised on-disk value silently
@@ -752,46 +939,91 @@ def handle_post(form, ctx):
     D-06/D-07, 06-RESEARCH.md's V5 threat control). Instead, each
     submitted field is checked explicitly before it is ever used as a
     dict key or passed onward: `theme`/`tracked_runway` by membership
-    test against `device_config.THEME_IDS`/`RUNWAY_IDS`, `led_enabled` by
-    exact equality against `LED_CHECKBOX_VALUE`.
+    test against `device_config.THEME_IDS`/`RUNWAY_IDS`, `led_enabled`/
+    `quiet_hours_enabled` by exact equality against `LED_CHECKBOX_VALUE`/
+    `QUIET_HOURS_CHECKBOX_VALUE`. `quiet_hours_start`/`quiet_hours_end`
+    are passed straight through, unchecked, to `save_device_config()`
+    itself — deliberately not pre-validated here against the HH:MM
+    shape-gate regex `device_config` keeps as a private module-level
+    name — because that function already validates both fields strictly
+    against that same regex and raises `ValueError` before it ever
+    touches the file, which this handler's existing
+    `except (ValueError, OSError)` below already maps to the generic
+    save-failed flash. All-or-nothing rejection holds because that
+    validation happens before any write.
 
-    Two properties are load-bearing here, not incidental:
+    Three properties are load-bearing here, not incidental:
 
-    First, the LED field's absent-means-False semantics is deliberately
-    different from theme's and runway's absent-means-unchanged semantics.
-    A field absent from `form` for `theme`/`tracked_runway` means "leave
-    unchanged" and is passed as `None`, which `save_device_config()`
-    carries forward from the current on-disk value — because a radio
-    group and a select always submit *some* value once one is selected,
-    absence there only ever means "this page didn't render that control."
-    An HTML checkbox is different: an *unchecked* checkbox is omitted
-    from the POST body entirely, so `led_enabled`'s absence must resolve
-    to `False`, never to "leave unchanged" — carrying it forward instead
-    would silently re-enable a disabled LED on every save that happens to
-    leave the box unchecked. Exactly three shapes are resolved for
-    `led_enabled` and no others: absent -> `False`; equal to
-    `LED_CHECKBOX_VALUE` -> `True`; anything else (a crafted/hostile
-    value) -> reject the whole submission.
+    First, the LED and quiet-hours-enable checkboxes' absent-means-False
+    semantics is deliberately different from theme's, runway's, and the
+    quiet-hours times' absent-means-unchanged semantics. A field absent
+    from `form` for `theme`/`tracked_runway`/`quiet_hours_start`/
+    `quiet_hours_end` means "leave unchanged" and is passed as `None`,
+    which `save_device_config()` carries forward from the current on-disk
+    value — because a radio group, a select, and a text/time input always
+    submit *some* value once one is set, absence there only ever means
+    "this page didn't render that control." An HTML checkbox is
+    different: an *unchecked* checkbox is omitted from the POST body
+    entirely, so `led_enabled`'s and `quiet_hours_enabled`'s absence must
+    each resolve to `False`, never to "leave unchanged" — carrying either
+    forward instead would silently re-enable a disabled LED, or a curfew
+    the user just turned off, on every save that happens to leave the box
+    unchecked. Exactly three shapes are resolved for each checkbox field
+    and no others: absent -> `False`; equal to its own `*_CHECKBOX_VALUE`
+    -> `True`; anything else (a crafted/hostile value) -> reject the whole
+    submission.
 
-    Second, rejection stays all-or-nothing across all three fields, now
-    more so than before the merge: because there is now one form and one
+    Second, an unchecked "Enable quiet hours" checkbox still persists any
+    edited `quiet_hours_start`/`quiet_hours_end` values — this resolves
+    10-RESEARCH.md's Assumption A1 / Open Question 2 in the affirmative,
+    per 10-UI-SPEC.md's locked Interaction Contract: a user can
+    pre-configure a window before ever turning it on. This is a decision,
+    not an oversight.
+
+    Third, rejection stays all-or-nothing across all seven fields, now more
+    so than before the merge: because there is still one form and one
     `save_device_config()` call, a crafted or invalid value in ANY field
     aborts before that call, never persisting the valid remainder —
     applying only the valid half would leave the on-disk state out of
     sync with what the page would redisplay on the very next load.
 
+    Fourth, `wake_interval_s` needs an explicit string-to-int conversion
+    gate that `quiet_hours_start`/`quiet_hours_end` deliberately do not:
+    those two fields are strings end-to-end and are correctly passed
+    through unconverted, but `wake_interval_s` is an int end-to-end in
+    `device_config.py`, so the same pass-through habit here would make
+    `save_device_config()`'s type check reject every legitimate
+    submission (11-RESEARCH.md Pitfall 1 — the single highest-risk
+    copy-paste mistake in this phase). An absent or empty-string
+    `wake_interval_s` resolves to `None`, meaning leave unchanged — a
+    numeric input a user clears mid-edit is an incomplete edit, not an
+    invalid one, and the all-or-nothing contract above is about invalid
+    values (11-RESEARCH.md Open Question 2). Anything else is passed to
+    `int()` inside a `try`, whose `ValueError` returns `FLASH_SAVE_FAILED`
+    before any write; `save_device_config()`'s own range check raises
+    `ValueError` for an out-of-bounds int, already mapped to the same
+    generic flash by the `except (ValueError, OSError)` clause below — no
+    field-specific error copy is added (11-UI-SPEC.md's Copywriting
+    Contract locks reuse of the existing generic flash).
+
     On success, the frame's next scheduled poll cycle (server/poll_loop.py,
-    D-06/D-28) is the first place any of the three changes actually take
+    D-06/D-28) is the first place any of the seven changes actually take
     effect — no push mechanism exists, and none is added here. The caller
     (companion/app.py) redirects back to `SETTINGS_ROUTE`, whose banner
     then renders the D-07 confirmation copy the FLASH_SAVED key maps to,
     telling the user their change was saved but has not yet reached the
-    physical frame.
+    physical frame. No quiet-hours-specific flash message exists — saving
+    reuses FLASH_SAVED/FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's
+    Copywriting Contract.
     """
     state_dir = ctx["state_dir"]
     submitted_theme = form.get("theme")
     submitted_runway = form.get("tracked_runway")
     submitted_led = form.get("led_enabled")
+    submitted_qh_enabled = form.get("quiet_hours_enabled")
+    submitted_qh_start = form.get("quiet_hours_start")
+    submitted_qh_end = form.get("quiet_hours_end")
+    submitted_wake_interval = form.get("wake_interval_s")
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
         return FLASH_SAVE_FAILED
@@ -803,11 +1035,26 @@ def handle_post(form, ctx):
         led_enabled = True
     else:
         return FLASH_SAVE_FAILED
+    if submitted_qh_enabled is None:
+        quiet_hours_enabled = False
+    elif submitted_qh_enabled == QUIET_HOURS_CHECKBOX_VALUE:
+        quiet_hours_enabled = True
+    else:
+        return FLASH_SAVE_FAILED
+    if submitted_wake_interval is None or submitted_wake_interval == "":
+        wake_interval_s = None
+    else:
+        try:
+            wake_interval_s = int(submitted_wake_interval)
+        except ValueError:
+            return FLASH_SAVE_FAILED
 
     try:
         device_config.save_device_config(
             state_dir, theme=submitted_theme, tracked_runway=submitted_runway,
-            led_enabled=led_enabled)
+            led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
+            quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
+            wake_interval_s=wake_interval_s)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
     return FLASH_SAVED

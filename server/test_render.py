@@ -29,6 +29,7 @@ Usage:
     server/.venv/bin/python3 server/test_render.py
 """
 import contextlib
+import inspect
 import io
 import os
 import sys
@@ -40,7 +41,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 119
+EXPECTED_CHECK_COUNT = 127
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -3548,6 +3549,145 @@ def main():
         "MAIN_VERTICAL_DRIFT_TOLERANCE_PX) across all vendored files, instead of drifting with each file's own "
         "transparent top padding (illustration-crop-text-margin's missed sixth anchor)",
         _main_illustration_vertical_centre_has_no_per_file_drift,
+    )
+
+    # 120. Plan 10-02, Task 1 (1): the quiet-hours packed panel is exactly
+    # IMAGE_BYTES, White-dominant, and contains at least one Black nibble -
+    # mirrors _empty_state_white_dominant_with_black()'s structure.
+    def _quiet_hours_packs_white_dominant_with_black():
+        buf = render.render_panel(None, "quiet_hours", quiet_hours_until="07:00")
+        if len(buf) != panel_format.IMAGE_BYTES:
+            return False, "quiet-hours render is %d bytes, expected %d" % (len(buf), panel_format.IMAGE_BYTES)
+        counts = nibble_counts(buf)
+        dom = max(counts, key=counts.get)
+        if dom != NIBBLE_WHITE:
+            return False, "quiet-hours render's dominant nibble is 0x%x, expected 0x1 (White)" % dom
+        if NIBBLE_BLACK not in counts:
+            return False, "quiet-hours render contains no Black (0x0) nibble - expected Black text"
+        return True, ""
+    check(
+        "render_panel(None, 'quiet_hours', quiet_hours_until='07:00') packs to exactly 960000 bytes, "
+        "White-dominant, with at least one Black nibble (D-05/D-06)",
+        _quiet_hours_packs_white_dominant_with_black,
+    )
+
+    # 121. Plan 10-02, Task 1 (2): every pixel index on the quiet-hours
+    # canvas is one of the six legal palette indices.
+    def _quiet_hours_only_legal_indices():
+        canvas = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00")
+        colors = canvas.getcolors()
+        idx_set = {value for _count, value in colors} if colors else set()
+        bad = idx_set - LEGAL_IDX
+        if bad:
+            return False, "quiet-hours canvas contains illegal palette index(es): %r" % (sorted(bad),)
+        return True, ""
+    check(
+        "every pixel index in build_canvas(None, 'quiet_hours', quiet_hours_until='07:00') is one of the "
+        "six legal palette indices",
+        _quiet_hours_only_legal_indices,
+    )
+
+    # 122. Plan 10-02, Task 1 (3): theme_id is ignored - the canvas is
+    # pixel-identical for two different theme_id values.
+    def _quiet_hours_ignores_theme_id():
+        a = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", theme_id="white")
+        b = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", theme_id="blue")
+        if a.tobytes() != b.tobytes():
+            return False, "quiet-hours canvas differs between theme_id='white' and theme_id='blue' - theme_id must be ignored"
+        return True, ""
+    check(
+        "build_canvas(None, 'quiet_hours', ...) is pixel-identical across different theme_id values "
+        "(theme is ignored for this screen)",
+        _quiet_hours_ignores_theme_id,
+    )
+
+    # 123. Plan 10-02, Task 1 (4): a missing/non-string quiet_hours_until
+    # renders the heading alone without raising, and differs from a real
+    # HH:MM value's canvas (the body line is genuinely absent, never "Back
+    # at None").
+    def _quiet_hours_missing_until_omits_body_without_raising():
+        with_time = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00").tobytes()
+        for missing_value in (None, ""):
+            canvas = render.build_canvas(None, "quiet_hours", quiet_hours_until=missing_value)
+            if canvas.tobytes() == with_time:
+                return False, (
+                    "quiet_hours_until=%r produced the same canvas as quiet_hours_until='07:00' - the body "
+                    "line was not actually omitted" % (missing_value,)
+                )
+        return True, ""
+    check(
+        "build_canvas(None, 'quiet_hours', quiet_hours_until=None) and quiet_hours_until='' both render "
+        "without raising and differ from quiet_hours_until='07:00' (heading-only degradation, T-10-02-01)",
+        _quiet_hours_missing_until_omits_body_without_raising,
+    )
+
+    # 124. Plan 10-02, Task 1 (5a): battery_low=True changes the canvas
+    # relative to the same call with battery_low=False.
+    def _quiet_hours_battery_low_changes_canvas():
+        off = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", battery_low=False)
+        on = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", battery_low=True)
+        if off.tobytes() == on.tobytes():
+            return False, "battery_low=True produced no pixel difference on the quiet-hours canvas"
+        return True, ""
+    check(
+        "battery_low=True changes the quiet-hours canvas relative to battery_low=False (10-RESEARCH.md A2)",
+        _quiet_hours_battery_low_changes_canvas,
+    )
+
+    # 125. Plan 10-02, Task 1 (5b): source_fault=True changes the canvas
+    # relative to the same call with source_fault=False.
+    def _quiet_hours_source_fault_changes_canvas():
+        off = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", source_fault=False)
+        on = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", source_fault=True)
+        if off.tobytes() == on.tobytes():
+            return False, "source_fault=True produced no pixel difference on the quiet-hours canvas"
+        return True, ""
+    check(
+        "source_fault=True changes the quiet-hours canvas relative to source_fault=False (10-RESEARCH.md A2)",
+        _quiet_hours_source_fault_changes_canvas,
+    )
+
+    # 126. Plan 10-02, Task 1 (6): build_canvas()'s "quiet_hours" dispatch
+    # branch is evaluated BEFORE the "state == \"empty\"" branch in source
+    # order - otherwise every quiet-hours call would silently render the
+    # empty state instead (flight is always None for this state).
+    def _quiet_hours_branch_precedes_empty_branch_in_source():
+        source = inspect.getsource(render.build_canvas)
+        quiet_hours_pos = source.index('state == "quiet_hours"')
+        empty_pos = source.index('state == "empty"')
+        if quiet_hours_pos >= empty_pos:
+            return False, (
+                "build_canvas()'s 'state == \"quiet_hours\"' branch (source index %d) does not precede its "
+                "'state == \"empty\"' branch (source index %d) - every quiet-hours call would silently "
+                "render the empty state instead" % (quiet_hours_pos, empty_pos)
+            )
+        return True, ""
+    check(
+        "build_canvas()'s source lists the 'quiet_hours' dispatch branch before the 'empty' dispatch branch",
+        _quiet_hours_branch_precedes_empty_branch_in_source,
+    )
+
+    # 127. Plan 10-02, Task 2: the preview CLI renders the quiet-hours state
+    # to a real IMAGE_BYTES-sized .bin via render.main()/build_parser() -
+    # the path the deferred visual review actually depends on.
+    def _cli_renders_quiet_hours_state():
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_path = os.path.join(tmpdir, "quiet-hours-cli.bin")
+            argv = ["--state", "quiet_hours", "--quiet-hours-until", "07:00", "--out", out_path]
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = render.main(argv)
+            if rc != 0:
+                return False, "render.main(%r) returned %r, expected 0" % (argv, rc)
+            if not os.path.isfile(out_path):
+                return False, "render.main(%r) did not write %r" % (argv, out_path)
+            size = os.path.getsize(out_path)
+            if size != panel_format.IMAGE_BYTES:
+                return False, "%r is %d bytes, expected %d" % (out_path, size, panel_format.IMAGE_BYTES)
+        return True, ""
+    check(
+        "render.main() via build_parser() with ['--state', 'quiet_hours', '--quiet-hours-until', '07:00', "
+        "'--out', <path>] returns 0 and writes exactly IMAGE_BYTES bytes",
+        _cli_renders_quiet_hours_state,
     )
 
     total = len(results)

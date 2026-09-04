@@ -89,6 +89,14 @@ MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
 # shaped DoS reachable before any credential check. 30s comfortably covers
 # a slow real client on this LAN/VPN deployment while bounding the worst case.
 REQUEST_SOCKET_TIMEOUT_S = 30
+# D-07 (11-04): the same environment variable deploy/skypane-byos.service
+# passes to byos_server.py as --sleep. It reaches this process because
+# deploy/skypane-companion.service declares the identical
+# EnvironmentFile=/opt/skypane/skypane.env directive — no file parsing, no
+# dotenv loader, no new deployment step. Deliberately not imported from
+# companion/auth.py: that module owns the password variable's name, not
+# this one, and the two have unrelated lifecycles.
+SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"
 
 LOGIN_ROUTE = "/login"
 STYLE_ROUTE = "/static/style.css"
@@ -330,6 +338,42 @@ def poll_cooldown_remaining(state_dir):
         return 0
     remaining = POLL_COOLDOWN_S - (time.time() - last_triggered)
     return int(remaining) if remaining > 0 else 0
+
+
+def env_wake_interval_default():
+    """Return the deployed SKYPANE_SLEEP_S as an int, or None.
+
+    Read via `os.environ.get(SLEEP_ENV_VAR)` on every call — never
+    captured at import time — so a redeployed env file takes effect on
+    the next service restart with nothing cached in between, matching
+    `auth.configured_password()`'s own per-call shape.
+
+    Contract difference from `configured_password()`: that function is
+    fail-closed and raises `AuthNotConfigured` when its variable is
+    missing, because it guards an auth boundary. This function is
+    fail-open and returns `None` for every failure case (unset, empty,
+    non-numeric, or out of range), because it is a UI pre-fill
+    convenience whose absence has a designed, legitimate empty state —
+    the Wake interval field's `WAKE_INTERVAL_PLACEHOLDER_TEXT`
+    (`config_page.py`).
+
+    The `[device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S]`
+    range check is not belt-and-braces: `deploy/skypane.env.example` ships
+    `SKYPANE_SLEEP_S=30`, below the field's own 60s floor. Rendering that
+    as a `value` attribute on a `min="60"` numeric input would fail HTML5
+    constraint validation and block submission of the *entire* Settings
+    form, not just this field. The honest, designed behaviour for a
+    deployed value the form cannot represent is the placeholder, not a
+    number the user cannot save. Never raises.
+    """
+    raw = os.environ.get(SLEEP_ENV_VAR)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if device_config.WAKE_INTERVAL_MIN_S <= value <= device_config.WAKE_INTERVAL_MAX_S:
+        return value
+    return None
 
 
 def mark_poll_triggered(state_dir):
@@ -692,6 +736,17 @@ class Handler(BaseHTTPRequestHandler):
             "state_dir": state_dir,
             "ui_theme": self._resolved_ui_theme(),
             "device_config": device_config.load_device_config(state_dir),
+            # D-07 (11-04): the deployed SKYPANE_SLEEP_S, read fresh from
+            # this process's own environment on every request — an int in
+            # [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] or None. An
+            # on-disk wake_interval_s (above) always wins; config_page's
+            # render() only consults this key when the stored value is
+            # None, i.e. before the user has ever set one explicitly.
+            # Once a user saves any value, the stored one wins
+            # permanently — save_device_config() has no unset path
+            # (11-RESEARCH.md Open Question 2: an empty numeric input
+            # means "leave unchanged", never "clear").
+            "wake_interval_env_default": env_wake_interval_default(),
             "flash": _resolve_flash_text(flash_key, state_dir),
             # 06.6.2-06 (UXA-07): the ARIA role the resolved flash text
             # should render with, looked up from the same flash_key this

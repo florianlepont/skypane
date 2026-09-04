@@ -24,7 +24,16 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # 260902-l0b: +1 (_daily_battery_averages_groups_excludes_and_bounds_correctly)
-EXPECTED_CHECK_COUNT = 30
+# 10-01: +5 (quiet-hours registry fields: hostile-defaults, save round-trip,
+# save-rejects-invalid-start, save-rejects-non-bool-enabled,
+# normalise_quiet_hours_time hostile-shape rejection)
+# 10-01: +4 (DST-safe window arithmetic: wrap-midnight/DST anchors,
+# same-day/zero-width window, quiet_hours_status() enabled-gate + verified
+# value, quiet_hours_status() hostile now_epoch never-raise)
+# 11-01: +5 (wake_interval_s registry field: normalise bounds + bool
+# gotcha, hostile-on-disk-value degradation, save round-trip, save-rejects
+# out-of-bounds/bool with byte-identical-on-rejection, carry-forward)
+EXPECTED_CHECK_COUNT = 44
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -72,7 +81,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -88,7 +97,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
+                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -103,7 +112,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -116,7 +125,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "black", "tracked_runway": "02-20", "led_enabled": True}:
+            if config != {"theme": "black", "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -165,7 +174,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -197,7 +206,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -502,6 +511,301 @@ def main():
     check(
         "theme_band_dithered() returns THEMES's own band_dithered for every band id and False for every non-band id",
         _theme_band_dithered_matches_registry_or_false,
+    )
+
+    def _hostile_quiet_hours_values_yield_defaults():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "w") as fh:
+                fh.write('{"quiet_hours_enabled": "yes", "quiet_hours_start": "25:99", "quiet_hours_end": 7}')
+            config = device_config.load_device_config(tmpdir)
+            expected = {
+                "quiet_hours_enabled": device_config.DEFAULT_QUIET_HOURS_ENABLED,
+                "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
+                "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
+            }
+            for key, want in expected.items():
+                if config[key] != want:
+                    return False, "hostile quiet-hours input produced %r=%r, expected %r" % (key, config[key], want)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "load_device_config() replaces hostile quiet_hours_enabled/quiet_hours_start/quiet_hours_end values with their documented defaults",
+        _hostile_quiet_hours_values_yield_defaults,
+    )
+
+    def _save_quiet_hours_round_trips():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(
+                tmpdir, quiet_hours_enabled=True, quiet_hours_start="22:30", quiet_hours_end="06:15")
+            config = device_config.load_device_config(tmpdir)
+            if config != {
+                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
+                "wake_interval_s": None,
+            }:
+                return False, "round-trip produced %r" % (config,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(quiet_hours_enabled=True, quiet_hours_start='22:30', quiet_hours_end='06:15') round-trips through load_device_config() with theme/tracked_runway/led_enabled still at their prior (default) values",
+        _save_quiet_hours_round_trips,
+    )
+
+    def _save_quiet_hours_start_invalid_rejected_without_touching_file():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="3")
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            raised = False
+            try:
+                device_config.save_device_config(tmpdir, quiet_hours_start="24:00")
+            except ValueError:
+                raised = True
+            if not raised:
+                return False, "save_device_config(quiet_hours_start='24:00') did not raise ValueError"
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "a rejected quiet_hours_start write changed a pre-existing file's bytes"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(quiet_hours_start='24:00') raises ValueError and leaves a pre-existing, legitimately-saved file byte-identical",
+        _save_quiet_hours_start_invalid_rejected_without_touching_file,
+    )
+
+    def _save_quiet_hours_enabled_non_bool_rejected():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            raised = False
+            try:
+                device_config.save_device_config(tmpdir, quiet_hours_enabled="on")
+            except ValueError:
+                raised = True
+            if not raised:
+                return False, "save_device_config(quiet_hours_enabled='on') did not raise ValueError"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(quiet_hours_enabled='on') raises ValueError",
+        _save_quiet_hours_enabled_non_bool_rejected,
+    )
+
+    def _normalise_quiet_hours_time_rejects_every_hostile_shape():
+        default = "23:00"
+        for hostile in ("7:00", "07:60", "24:00", "", None, 7, "07:00\n"):
+            got = device_config.normalise_quiet_hours_time(hostile, default)
+            if got != default:
+                return False, "normalise_quiet_hours_time(%r, %r) returned %r, expected the supplied default" % (hostile, default, got)
+        return True, ""
+
+    check(
+        "normalise_quiet_hours_time() rejects an unpadded hour, an out-of-range minute, midnight-as-24:00, an empty string, None, an int, and a trailing newline - returning the supplied default for each",
+        _normalise_quiet_hours_time_rejects_every_hostile_shape,
+    )
+
+    def _wrap_midnight_window_returns_verified_dst_values():
+        from datetime import datetime, timezone
+
+        cases = [
+            (1700000000.0, "23:00", "07:00", 28000),  # 2023-11-14T23:13:20+01:00 Paris
+            (1700028800.0, "23:00", "07:00", None),  # 07:13:20 Paris, just past end
+            (1774737000.0, "23:00", "07:00", 23400),  # spring-forward night
+            (1792877400.0, "23:00", "07:00", 30600),  # autumn fall-back night
+        ]
+        for epoch, start_hm, end_hm, expected in cases:
+            now_utc = datetime.fromtimestamp(epoch, timezone.utc)
+            got = device_config.seconds_until_quiet_hours_end(now_utc, start_hm, end_hm)
+            if got != expected:
+                return False, "seconds_until_quiet_hours_end(epoch=%r, %r, %r) returned %r, expected %r" % (
+                    epoch, start_hm, end_hm, got, expected,
+                )
+        return True, ""
+
+    check(
+        "seconds_until_quiet_hours_end() returns the verified wrap-midnight/DST anchors: 28000 mid-window, None just past end, 23400 across spring-forward (1h less than naive), 30600 across autumn fall-back (1h more than naive)",
+        _wrap_midnight_window_returns_verified_dst_values,
+    )
+
+    def _same_day_window_and_zero_width_window():
+        from datetime import datetime, timezone
+
+        # 2023-11-14 13:30/12:30 Paris (CET, UTC+1) for a same-day 13:00-14:00 window.
+        at_1330 = datetime(2023, 11, 14, 12, 30, 0, tzinfo=timezone.utc)
+        at_1230 = datetime(2023, 11, 14, 11, 30, 0, tzinfo=timezone.utc)
+        got_active = device_config.seconds_until_quiet_hours_end(at_1330, "13:00", "14:00")
+        if got_active != 1800:
+            return False, "same-day window at 13:30 Paris returned %r, expected 1800" % (got_active,)
+        got_inactive = device_config.seconds_until_quiet_hours_end(at_1230, "13:00", "14:00")
+        if got_inactive is not None:
+            return False, "same-day window at 12:30 Paris returned %r, expected None" % (got_inactive,)
+        got_zero_width = device_config.seconds_until_quiet_hours_end(at_1330, "13:00", "13:00")
+        if got_zero_width is not None:
+            return False, "start_hm == end_hm returned %r, expected None (a zero-width window is never active)" % (got_zero_width,)
+        return True, ""
+
+    check(
+        "seconds_until_quiet_hours_end() handles a same-day (non-wrapping) window correctly and returns None for a zero-width start_hm == end_hm window",
+        _same_day_window_and_zero_width_window,
+    )
+
+    def _quiet_hours_status_enabled_gate_and_verified_value():
+        base_config = {"quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}
+        got_disabled = device_config.quiet_hours_status(base_config, 1700000000.0)
+        if got_disabled != (None, None):
+            return False, "quiet_hours_status() with quiet_hours_enabled=False returned %r, expected (None, None)" % (got_disabled,)
+        enabled_config = dict(base_config, quiet_hours_enabled=True)
+        got_enabled = device_config.quiet_hours_status(enabled_config, 1700000000.0)
+        if got_enabled != (28000, "07:00"):
+            return False, "quiet_hours_status() for an enabled 23:00-07:00 config at epoch 1700000000.0 returned %r, expected (28000, '07:00')" % (got_enabled,)
+        return True, ""
+
+    check(
+        "quiet_hours_status() returns (None, None) when quiet_hours_enabled is False, and (28000, '07:00') for an enabled 23:00-07:00 config at the verified anchor epoch",
+        _quiet_hours_status_enabled_gate_and_verified_value,
+    )
+
+    def _quiet_hours_status_never_raises_for_hostile_now_epoch():
+        config = {"quiet_hours_enabled": True, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}
+        for hostile in ("nope", None, float("nan"), 1e30):
+            got = device_config.quiet_hours_status(config, hostile)
+            if got != (None, None):
+                return False, "quiet_hours_status(config, %r) returned %r, expected (None, None)" % (hostile, got)
+        return True, ""
+
+    check(
+        "quiet_hours_status() returns (None, None) and never raises for a non-numeric string, None, NaN, or an absurdly large now_epoch",
+        _quiet_hours_status_never_raises_for_hostile_now_epoch,
+    )
+
+    def _normalise_wake_interval_s_bounds_and_bool_gotcha():
+        for hostile in (True, False, "120", 120.0, 59, 3601, 0, -1, None, []):
+            got = device_config.normalise_wake_interval_s(hostile)
+            if got is not None:
+                return False, "normalise_wake_interval_s(%r) returned %r, expected None" % (hostile, got)
+        for accepted in (60, 3600, 120):
+            got = device_config.normalise_wake_interval_s(accepted)
+            if got != accepted:
+                return False, "normalise_wake_interval_s(%r) returned %r, expected it unchanged" % (accepted, got)
+        return True, ""
+
+    check(
+        "normalise_wake_interval_s() returns None for True, False (the bool-is-an-int gotcha), a numeric string, a float, and every out-of-[60, 3600] int, and returns 60/3600/120 unchanged",
+        _normalise_wake_interval_s_bounds_and_bool_gotcha,
+    )
+
+    def _hand_written_hostile_wake_interval_s_yields_none():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            for bad_json, label in (
+                ('{"wake_interval_s": true}', "JSON true"),
+                ('{"wake_interval_s": "120"}', 'JSON string "120"'),
+                ('{"wake_interval_s": 120.5}', "JSON float 120.5"),
+                ('{"wake_interval_s": 30}', "below-minimum int 30 (deploy/skypane.env.example's SKYPANE_SLEEP_S)"),
+            ):
+                with open(path, "w") as fh:
+                    fh.write(bad_json)
+                config = device_config.load_device_config(tmpdir)
+                if config["wake_interval_s"] is not None:
+                    return False, "%s produced wake_interval_s=%r, expected None" % (label, config["wake_interval_s"])
+            with open(path, "w") as fh:
+                fh.write('{"wake_interval_s": 120}')
+            config = device_config.load_device_config(tmpdir)
+            if config["wake_interval_s"] != 120:
+                return False, "an in-range wake_interval_s=120 produced %r, expected 120" % (config["wake_interval_s"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "load_device_config() degrades a hand-written hostile wake_interval_s (JSON true, a numeric string, a float, or the below-minimum 30) to None, and lets an in-range 120 survive unchanged",
+        _hand_written_hostile_wake_interval_s_yields_none,
+    )
+
+    def _save_wake_interval_s_round_trips():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, wake_interval_s=120)
+            config = device_config.load_device_config(tmpdir)
+            if config != {
+                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+                "wake_interval_s": 120,
+            }:
+                return False, "round-trip produced %r" % (config,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(wake_interval_s=120) round-trips through load_device_config() as 120, with theme/tracked_runway/led_enabled and all three quiet-hours fields still at their prior (default) values",
+        _save_wake_interval_s_round_trips,
+    )
+
+    def _save_wake_interval_s_rejects_out_of_bounds_and_bools():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="3")
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            for hostile in (59, 3601, True, False, "120", 120.0):
+                raised = False
+                try:
+                    device_config.save_device_config(tmpdir, wake_interval_s=hostile)
+                except ValueError:
+                    raised = True
+                if not raised:
+                    return False, "save_device_config(wake_interval_s=%r) did not raise ValueError" % (hostile,)
+                with open(path, "rb") as fh:
+                    after = fh.read()
+                if before != after:
+                    return False, "save_device_config(wake_interval_s=%r) changed a pre-existing file's bytes" % (hostile,)
+            for boundary in (60, 3600):
+                device_config.save_device_config(tmpdir, wake_interval_s=boundary)
+                config = device_config.load_device_config(tmpdir)
+                if config["wake_interval_s"] != boundary:
+                    return False, "save_device_config(wake_interval_s=%r) did not round-trip as %r, got %r" % (
+                        boundary, boundary, config["wake_interval_s"],
+                    )
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config() rejects wake_interval_s=59, 3601, True, False, '120', and 120.0 with ValueError, leaves a pre-existing, legitimately-saved file byte-identical across every rejection, and accepts the inclusive bounds 60 and 3600",
+        _save_wake_interval_s_rejects_out_of_bounds_and_bools,
+    )
+
+    def _wake_interval_s_carries_forward_on_unrelated_save():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, wake_interval_s=120)
+            device_config.save_device_config(tmpdir, theme="black")
+            config = device_config.load_device_config(tmpdir)
+            if config["wake_interval_s"] != 120:
+                return False, "a theme-only save did not carry a previously-saved wake_interval_s=120 forward, got %r" % (config["wake_interval_s"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a subsequent theme-only save_device_config(theme='black') carries a previously-saved wake_interval_s=120 forward unchanged",
+        _wake_interval_s_carries_forward_on_unrelated_save,
     )
 
     # --- history_db.py ------------------------------------------------------
