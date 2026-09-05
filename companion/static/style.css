@@ -2636,6 +2636,15 @@ button:disabled {
   margin-top: var(--space-sm);
 }
 
+/* Phase 13 (D-10): Health's per-row Resolve deep link on the mobile
+ * registry card. The link inherits the page's default anchor styling
+ * deliberately — no colour, no size — so the project's exhaustive
+ * accent-reservation list (style.css's own header comment) is not
+ * extended for it. */
+.data-card__action {
+  margin-top: var(--space-xs);
+}
+
 /* Filter bar (06.6.3 D-20) — shared by History and Airlines, driven by
  * list-filter.js; inert without JS (the full unfiltered table/card list
  * stays completely usable if the script fails to load). */

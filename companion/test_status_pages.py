@@ -281,9 +281,12 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 138  # 136 + 2 (phase 13 plan 02 Task 1: the
-# read-only-note reword check and the _SOURCE_ROWS fifth-entry/"manual"
-# check — D-10/D-02). 136 = 135 + 1 (quick task 260904-e92). 135 itself =
+EXPECTED_CHECK_COUNT = 140  # 138 + 2 (phase 13 plan 02 Task 2: the
+# registry Resolve-link desktop/mobile pairing + hostile-prefix-escaping
+# check, and the no-form/exactly-one-<button-literal read-only-guard
+# check — D-10/T-13-05/T-13-13). 138 = 136 + 2 (phase 13 plan 02 Task 1:
+# the read-only-note reword check and the _SOURCE_ROWS fifth-entry/
+# "manual" check — D-10/D-02). 136 = 135 + 1 (quick task 260904-e92). 135 itself =
 # 133 + 2 (06.6.4.1.1-03 Task 1: the desktop-
 # padding/mobile-density pair guard for D-15's .page-section/.theme-status/
 # .battery-trend-section >= 960px padding override; Task 2: the mobile-only
@@ -2544,6 +2547,86 @@ def main():
         "_SOURCE_ROWS has a fifth 'manual' entry, resolution_stats() folds a seeded 'manual' route_source "
         "count into the total and a labelled row, and render() shows a 'Manual' row (phase 13 D-02)",
         _source_rows_gains_fifth_manual_entry)
+
+    def _registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_input():
+        # phase 13 (D-10): each registry row's Resolve link is emitted
+        # twice — once in the desktop <tr>'s sixth <td>, once in the
+        # mobile card's .data-card__action block — sharing the identical
+        # href/aria-label, differing only in visible link text.
+        tmp = _mkstate("h-registry-resolve-link")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
+            })
+            rendered = health_page.render(_ctx(tmp))
+            expected_href = 'href="%s"' % (health_page.RESOLVE_LINK_HREF_TEMPLATE % "XYZ")
+            expected_aria = 'aria-label="%s"' % (health_page.RESOLVE_LINK_ARIA_TEMPLATE % "XYZ")
+            if rendered.count(expected_href) != 2:
+                return False, "expected %r exactly twice (table + card), got %d" % (
+                    expected_href, rendered.count(expected_href))
+            if rendered.count(expected_aria) != 2:
+                return False, "expected %r exactly twice (table + card), got %d" % (
+                    expected_aria, rendered.count(expected_aria))
+            if rendered.count(">%s</a>" % health_page.RESOLVE_LINK_TEXT) != 1:
+                return False, "expected the desktop anchor's link text 'Resolve' exactly once"
+            if rendered.count(">%s</a>" % health_page.RESOLVE_CARD_LINK_TEXT) != 1:
+                return False, "expected the mobile anchor's link text 'Resolve this prefix' exactly once"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        # Hostile prefix — must render fully escaped in both
+        # representations, no raw angle bracket or quote reaching output.
+        tmp_hostile = _mkstate("h-registry-resolve-link-hostile")
+        try:
+            hostile_prefix = '<x>"'
+            _seed_unresolved_prefixes(tmp_hostile, {
+                hostile_prefix: {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "X"},
+            })
+            rendered = health_page.render(_ctx(tmp_hostile))
+            escaped_prefix = layout.escape_html(hostile_prefix)
+            expected_href = 'href="%s"' % (health_page.RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix)
+            expected_aria = 'aria-label="%s"' % (health_page.RESOLVE_LINK_ARIA_TEMPLATE % escaped_prefix)
+            if rendered.count(expected_href) != 2:
+                return False, "expected the escaped href exactly twice, got %d" % rendered.count(expected_href)
+            if rendered.count(expected_aria) != 2:
+                return False, "expected the escaped aria-label exactly twice, got %d" % rendered.count(expected_aria)
+            if hostile_prefix in rendered:
+                return False, "expected no raw hostile prefix anywhere in the rendered page"
+            if "<x>" in rendered:
+                return False, "expected the hostile prefix's angle bracket to never reach the output raw"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_hostile, ignore_errors=True)
+    check(
+        "the registry's per-row Resolve link is paired identically (href/aria-label) across the desktop "
+        "table and mobile card, with distinct visible text per representation, and a hostile prefix renders "
+        "fully escaped in both (phase 13 D-10, T-13-05)",
+        _registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_input)
+
+    def _health_still_has_no_form_and_exactly_one_button_literal():
+        # phase 13 (D-10, T-13-13): the machine-readable form of the
+        # promise that adding the Resolve link does not reopen
+        # 06.6.4.1-04's D-11/D-12 — Health gains no state-changing
+        # control. Reads the module source directly, filters out
+        # nothing.
+        source_path = os.path.join(HERE, "pages", "health_page.py")
+        with open(source_path, encoding="utf-8") as fh:
+            source = fh.read()
+        form_count = source.count("<form")
+        button_count = source.count("<button")
+        if form_count != 0:
+            return False, "expected zero '<form' occurrences in health_page.py, got %d" % form_count
+        if button_count != 1:
+            return False, (
+                "expected exactly one '<button' occurrence (the pre-existing D-16 docstring mention), "
+                "got %d" % button_count)
+        return True, ""
+    check(
+        "companion/pages/health_page.py still contains zero HTML form elements and exactly one '<button' "
+        "literal (the pre-existing D-16 docstring mention) — Health gains no state-changing control "
+        "(phase 13 D-10, T-13-13)",
+        _health_still_has_no_form_and_exactly_one_button_literal)
 
     def _quick_260902_gjj_muted_captions_compose_section_caption():
         # quick task 260902-gjj (ISSUE 1): pins the markup pair (both

@@ -1992,7 +1992,21 @@ def _registry_filter_bar_html(total):
 # ("Prefix") has no card-side label because the prefix value itself is
 # the card's primary line, exactly as it is the table's first column with
 # no separate label either.
-_REGISTRY_HEADERS = ("Prefix", "Count", "First seen", "Last seen", "Example callsign")
+#
+# Phase 13 (D-10) APPENDS a sixth entry, "Resolve" — never inserted,
+# because the four index lookups above are positional and an insertion
+# would silently relabel every mobile card field.
+_REGISTRY_HEADERS = ("Prefix", "Count", "First seen", "Last seen", "Example callsign", "Resolve")
+
+# Phase 13 (D-10): the per-row deep link to the Airlines resolve surface.
+# Both representations (_registry_row_html()'s <td> and
+# _registry_cards_html()'s .data-card__action block) build their anchor
+# from these same four constants, so the href/aria-label/text can never
+# drift apart between the two.
+RESOLVE_LINK_HREF_TEMPLATE = "/airlines?resolve=%s"
+RESOLVE_LINK_ARIA_TEMPLATE = "Resolve prefix %s"
+RESOLVE_LINK_TEXT = "Resolve"
+RESOLVE_CARD_LINK_TEXT = "Resolve this prefix"
 
 
 def _registry_filter_text(prefix):
@@ -2013,16 +2027,32 @@ def _registry_row_html(index, prefix, count, first_seen, last_seen, example_call
     discipline for every other cell. `data-filter-text` (D-20/
     T-06.6.3-12) carries the lowercased prefix, escaped before
     interpolation into the attribute.
+
+    Phase 13 (D-10) appends a sixth `<td>`: a plain `<a>` navigating to
+    `/airlines?resolve={prefix}` — never a submit-type control, so this
+    stays a navigation affordance only and Health remains read-only (the
+    link changes nothing on this page). The
+    prefix passes through `escape_html()` once for the `href` and once
+    for the `aria-label`, this module's usual single-escaping-choke-
+    point discipline. `_registry_cards_html()` below builds the mobile
+    equivalent from the exact same href/aria-label — the two
+    representations deliberately differ only in visible link text
+    (`RESOLVE_LINK_TEXT` here, `RESOLVE_CARD_LINK_TEXT` there).
     """
     row_class = "row-alt" if index % 2 else "row"
     first_seen_html = layout.concise_timestamp_html(first_seen, now, fallback="")
     last_seen_html = layout.concise_timestamp_html(last_seen, now, fallback="")
+    escaped_prefix = escape_html(prefix)
+    resolve_href = RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix
+    resolve_aria = RESOLVE_LINK_ARIA_TEMPLATE % escaped_prefix
     cells = (
-        '<td class="mono">%s</td>' % escape_html(prefix),
+        '<td class="mono">%s</td>' % escaped_prefix,
         "<td>%s</td>" % escape_html(count),
         "<td>%s</td>" % first_seen_html,
         "<td>%s</td>" % last_seen_html,
         '<td class="mono">%s</td>' % escape_html(example_callsign),
+        '<td><a href="%s" aria-label="%s">%s</a></td>' % (
+            resolve_href, resolve_aria, RESOLVE_LINK_TEXT),
     )
     filter_text = _registry_filter_text(prefix)
     # data-filter-group (quick task 260903-ghy): this row now HAS a
@@ -2088,6 +2118,17 @@ def _registry_cards_html(rows, now):
     called identically to the `<tr>`'s own cell for the same value, so
     the two representations' Last seen/First seen markup is
     byte-identical (D-09).
+
+    Phase 13 (D-10): a `.data-card__action` block sits between the
+    secondary line and the `<details>` disclosure — visible at rest, not
+    behind a tap, since it is this card's one actionable affordance. Its
+    anchor carries the identical `href`/`aria-label` the paired `<tr>`'s
+    sixth `<td>` carries, built from the same `RESOLVE_LINK_HREF_TEMPLATE`/
+    `RESOLVE_LINK_ARIA_TEMPLATE` constants — the two representations
+    deliberately differ ONLY in visible link text (`RESOLVE_CARD_LINK_TEXT`
+    here, longer/self-contained since a mobile card is read standalone,
+    versus `RESOLVE_LINK_TEXT` on desktop where the row's own Prefix cell
+    already supplies context).
     """
     if not rows:
         return ""
@@ -2109,6 +2150,14 @@ def _registry_cards_html(rows, now):
         ) % (
             escape_html(_REGISTRY_HEADERS[3]),
             layout.concise_timestamp_html(last_seen, now, fallback=""))
+        escaped_prefix = escape_html(prefix)
+        resolve_href = RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix
+        resolve_aria = RESOLVE_LINK_ARIA_TEMPLATE % escaped_prefix
+        action = (
+            '<div class="data-card__action">'
+            '<a href="%s" aria-label="%s">%s</a>'
+            "</div>"
+        ) % (resolve_href, resolve_aria, RESOLVE_CARD_LINK_TEXT)
         details = (
             '<details class="data-card__details">'
             "<summary>More details</summary>"
@@ -2124,8 +2173,8 @@ def _registry_cards_html(rows, now):
             escape_html(example_callsign),
         )
         items.append(
-            '<li class="data-card" data-filter-text="%s" data-filter-group="%d">%s%s%s</li>'
-            % (filter_text, index, primary, secondary, details))
+            '<li class="data-card" data-filter-text="%s" data-filter-group="%d">%s%s%s%s</li>'
+            % (filter_text, index, primary, secondary, action, details))
     return '<ul class="data-cards">%s</ul>' % "".join(items)
 
 
