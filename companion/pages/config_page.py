@@ -63,6 +63,12 @@ LED_CHECKBOX_VALUE = "on"
 # the two can never drift apart.
 QUIET_HOURS_CHECKBOX_VALUE = "on"
 
+# The sole accepted submitted value for the Display enable checkbox
+# (12-UI-SPEC.md), mirroring LED_CHECKBOX_VALUE's/QUIET_HOURS_CHECKBOX_VALUE's
+# own rationale exactly: shared by display_group()'s markup and
+# handle_post()'s validator so the two can never drift apart.
+DISPLAY_CHECKBOX_VALUE = "on"
+
 # quick task 260901-re6: each settings group used to render a description
 # sentence above its control (THEME_SECTION_DESCRIPTION/
 # RUNWAY_SECTION_DESCRIPTION, D-02 06.6.4.1) AND a helper sentence below
@@ -128,6 +134,20 @@ WAKE_INTERVAL_SECTION_CAPTION = (
     "life and staler info at a glance. Applies on the next scheduled "
     "poll.")
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
+
+# 12-UI-SPEC.md Copywriting Contract, locked verbatim (D-02, 12-CONTEXT.md).
+# Unlike every other caption on this page, this one does not reuse the
+# generic "applies on the next scheduled poll" clause: while the display is
+# off, the device does not follow wake_interval_s or quiet hours at all — D-01
+# pins the off-state check-in to a fixed 300s cadence, independent of both —
+# so this field's apply-timing genuinely differs and earns its own honest
+# sentence instead. The caption must never say "instant" or "immediate" —
+# D-02 is explicit the change is not, and the UI must not imply otherwise.
+DISPLAY_SECTION_HEADING = "Display"
+DISPLAY_SECTION_CAPTION = (
+    "Turns the physical panel off remotely, without touching the "
+    "hardware. Takes effect within about 5 minutes, both switching off "
+    "and back on.")
 
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
@@ -624,6 +644,51 @@ def wake_interval_group(current_wake_interval_s):
     )
 
 
+def display_group(current_display_enabled):
+    """The Display settings group (12-UI-SPEC.md, 12-CONTEXT.md D-08/D-09):
+    a sixth and last sibling of the Theme/Runway/Diagnostic LED/Quiet
+    hours/Wake interval groups inside the single merged `<form
+    action="{SETTINGS_ROUTE}">`, built directly against `led_group()`'s
+    exact structure above — a lone checkbox with no dependent fields is
+    exactly `led_group()`'s shape, not `quiet_hours_group()`'s (which has
+    two dependent time inputs this group deliberately does not gain). Same
+    `.theme-status` wrapper idiom, same `<h2 class="text-heading">` naming
+    (no `<fieldset>`/`<legend>`, for the identical reason `led_group()`'s
+    own docstring already documents).
+
+    The developer's own framing challenge for this phase — *"pas possible
+    de juste faire ON/OFF ?"* — is the reason this function must stay this
+    small: exactly one `.theme-status` wrapper, one `.settings-checkbox`
+    label, one checkbox input, and nothing else. No helper field, no
+    schedule, no sibling control whose enabled state depends on this one.
+
+    `DISPLAY_SECTION_CAPTION` states the ~5-minute apply latency in both
+    directions (D-02) rather than the generic next-scheduled-poll clause
+    every sibling caption ends on, because this is the one field on the
+    page whose apply-timing is genuinely different — see the constant's
+    own comment above for why.
+
+    Every interpolated current value — the heading, the caption, and the
+    checkbox value — is routed through `escape_html()`, matching this
+    file's universal escaping discipline.
+    """
+    checked = " checked" if current_display_enabled else ""
+    return (
+        '<div class="theme-status" %s="%s">'
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        '<label class="settings-checkbox">'
+        '<input type="checkbox" name="display_enabled" value="%s"%s> Enable display'
+        "</label>"
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(DISPLAY_SECTION_HEADING),
+        escape_html(DISPLAY_SECTION_HEADING),
+        escape_html(DISPLAY_SECTION_CAPTION),
+        escape_html(DISPLAY_CHECKBOX_VALUE), checked,
+    )
+
+
 def _js_literal(value):
     """The single, mandatory gate for every Python value crossing into
     `_poll_cooldown_script()`'s inline `<script>` body. Never interpolate
@@ -842,6 +907,12 @@ def render(ctx):
     current_wake_interval_s = device_cfg.get("wake_interval_s")
     if current_wake_interval_s is None:
         current_wake_interval_s = ctx.get("wake_interval_env_default")
+    # D-09 (12-CONTEXT.md): an explicit boolean default, matching
+    # current_led_enabled's/current_quiet_enabled's own precedent — a config
+    # predating this field renders the box checked, not unchecked, so
+    # nothing changes for an installation already in service.
+    current_display_enabled = device_cfg.get(
+        "display_enabled", device_config.DEFAULT_DISPLAY_ENABLED)
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
 
     # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
@@ -896,6 +967,7 @@ def render(ctx):
         "%s"
         "%s"
         "%s"
+        "%s"
         '<button type="submit" %s>Save settings</button>'
         "</form>"
         '<section class="page-section">'
@@ -912,6 +984,7 @@ def render(ctx):
         quiet_hours_group(
             current_quiet_enabled, current_quiet_start, current_quiet_end),
         wake_interval_group(current_wake_interval_s),
+        display_group(current_display_enabled),
         STATIC_SAVE_FALLBACK_ATTR,
         poll_trigger_section(cooldown_remaining),
         dirty_bar_html,
@@ -919,16 +992,17 @@ def render(ctx):
 
 
 def handle_post(form, ctx):
-    """Validate the submitted theme/runway/LED/quiet-hours/wake-interval
-    state against `device_config`'s own registries and validators —
+    """Validate the submitted theme/runway/LED/quiet-hours/wake-interval/
+    display state against `device_config`'s own registries and validators —
     server-side, before any value is used anywhere — and persist all
-    seven fields in a single `save_device_config()` call (D-05, 06.6.4.1:
+    eight fields in a single `save_device_config()` call (D-05, 06.6.4.1:
     this handler absorbed what the now-retired `handle_led_post()` used to
     do on its own separate `POST /config-led` route — removed outright in
     06.6.4.1-07 once this route became the sole settings-writing path;
     10-05-PLAN.md extended the same single-call contract to the three
-    quiet-hours fields, and 11-03-PLAN.md extends it again to
-    wake_interval_s, rather than adding a second write path).
+    quiet-hours fields, 11-03-PLAN.md extended it again to
+    wake_interval_s, and 12-05-PLAN.md extends it again to
+    display_enabled, rather than adding a second write path).
 
     Deliberately does NOT call any of `device_config`'s read-path
     normalising helpers (the ones an unrecognised on-disk value silently
@@ -940,8 +1014,9 @@ def handle_post(form, ctx):
     submitted field is checked explicitly before it is ever used as a
     dict key or passed onward: `theme`/`tracked_runway` by membership
     test against `device_config.THEME_IDS`/`RUNWAY_IDS`, `led_enabled`/
-    `quiet_hours_enabled` by exact equality against `LED_CHECKBOX_VALUE`/
-    `QUIET_HOURS_CHECKBOX_VALUE`. `quiet_hours_start`/`quiet_hours_end`
+    `quiet_hours_enabled`/`display_enabled` by exact equality against
+    `LED_CHECKBOX_VALUE`/`QUIET_HOURS_CHECKBOX_VALUE`/
+    `DISPLAY_CHECKBOX_VALUE`. `quiet_hours_start`/`quiet_hours_end`
     are passed straight through, unchecked, to `save_device_config()`
     itself — deliberately not pre-validated here against the HH:MM
     shape-gate regex `device_config` keeps as a private module-level
@@ -954,24 +1029,25 @@ def handle_post(form, ctx):
 
     Three properties are load-bearing here, not incidental:
 
-    First, the LED and quiet-hours-enable checkboxes' absent-means-False
-    semantics is deliberately different from theme's, runway's, and the
-    quiet-hours times' absent-means-unchanged semantics. A field absent
-    from `form` for `theme`/`tracked_runway`/`quiet_hours_start`/
-    `quiet_hours_end` means "leave unchanged" and is passed as `None`,
-    which `save_device_config()` carries forward from the current on-disk
-    value — because a radio group, a select, and a text/time input always
-    submit *some* value once one is set, absence there only ever means
-    "this page didn't render that control." An HTML checkbox is
-    different: an *unchecked* checkbox is omitted from the POST body
-    entirely, so `led_enabled`'s and `quiet_hours_enabled`'s absence must
-    each resolve to `False`, never to "leave unchanged" — carrying either
-    forward instead would silently re-enable a disabled LED, or a curfew
-    the user just turned off, on every save that happens to leave the box
-    unchecked. Exactly three shapes are resolved for each checkbox field
-    and no others: absent -> `False`; equal to its own `*_CHECKBOX_VALUE`
-    -> `True`; anything else (a crafted/hostile value) -> reject the whole
-    submission.
+    First, the LED, quiet-hours-enable and display-enable checkboxes'
+    absent-means-False semantics is deliberately different from theme's,
+    runway's, and the quiet-hours times' absent-means-unchanged semantics.
+    A field absent from `form` for `theme`/`tracked_runway`/
+    `quiet_hours_start`/`quiet_hours_end` means "leave unchanged" and is
+    passed as `None`, which `save_device_config()` carries forward from the
+    current on-disk value — because a radio group, a select, and a
+    text/time input always submit *some* value once one is set, absence
+    there only ever means "this page didn't render that control." An HTML
+    checkbox is different: an *unchecked* checkbox is omitted from the
+    POST body entirely, so `led_enabled`'s, `quiet_hours_enabled`'s and
+    `display_enabled`'s absence must each resolve to `False`, never to
+    "leave unchanged" — carrying either forward instead would silently
+    re-enable a disabled LED, a curfew the user just turned off, or a
+    display the user just switched off, on every save that happens to
+    leave the box unchecked. Exactly three shapes are resolved for each
+    checkbox field and no others: absent -> `False`; equal to its own
+    `*_CHECKBOX_VALUE` -> `True`; anything else (a crafted/hostile value)
+    -> reject the whole submission.
 
     Second, an unchecked "Enable quiet hours" checkbox still persists any
     edited `quiet_hours_start`/`quiet_hours_end` values — this resolves
@@ -980,7 +1056,7 @@ def handle_post(form, ctx):
     pre-configure a window before ever turning it on. This is a decision,
     not an oversight.
 
-    Third, rejection stays all-or-nothing across all seven fields, now more
+    Third, rejection stays all-or-nothing across all eight fields, now more
     so than before the merge: because there is still one form and one
     `save_device_config()` call, a crafted or invalid value in ANY field
     aborts before that call, never persisting the valid remainder —
@@ -1007,13 +1083,18 @@ def handle_post(form, ctx):
     Contract locks reuse of the existing generic flash).
 
     On success, the frame's next scheduled poll cycle (server/poll_loop.py,
-    D-06/D-28) is the first place any of the seven changes actually take
-    effect — no push mechanism exists, and none is added here. The caller
-    (companion/app.py) redirects back to `SETTINGS_ROUTE`, whose banner
-    then renders the D-07 confirmation copy the FLASH_SAVED key maps to,
-    telling the user their change was saved but has not yet reached the
-    physical frame. No quiet-hours-specific flash message exists — saving
-    reuses FLASH_SAVED/FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's
+    D-06/D-28) is the first place any of the eight changes actually take
+    effect — no push mechanism exists, and none is added here. `display_
+    enabled` is the one exception to "next scheduled poll": D-01
+    (12-CONTEXT.md) pins the off-state check-in to a fixed 300s cadence
+    independent of `wake_interval_s`, which is why `DISPLAY_SECTION_CAPTION`
+    states its own honest ~5-minute latency rather than reusing this
+    generic clause. The caller (companion/app.py) redirects back to
+    `SETTINGS_ROUTE`, whose banner then renders the D-07 confirmation copy
+    the FLASH_SAVED key maps to, telling the user their change was saved
+    but has not yet reached the physical frame. No quiet-hours-specific or
+    display-specific flash message exists — saving reuses FLASH_SAVED/
+    FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's/12-UI-SPEC.md's
     Copywriting Contract.
     """
     state_dir = ctx["state_dir"]
@@ -1024,6 +1105,7 @@ def handle_post(form, ctx):
     submitted_qh_start = form.get("quiet_hours_start")
     submitted_qh_end = form.get("quiet_hours_end")
     submitted_wake_interval = form.get("wake_interval_s")
+    submitted_display = form.get("display_enabled")
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
         return FLASH_SAVE_FAILED
@@ -1048,13 +1130,19 @@ def handle_post(form, ctx):
             wake_interval_s = int(submitted_wake_interval)
         except ValueError:
             return FLASH_SAVE_FAILED
+    if submitted_display is None:
+        display_enabled = False
+    elif submitted_display == DISPLAY_CHECKBOX_VALUE:
+        display_enabled = True
+    else:
+        return FLASH_SAVE_FAILED
 
     try:
         device_config.save_device_config(
             state_dir, theme=submitted_theme, tracked_runway=submitted_runway,
             led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
             quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
-            wake_interval_s=wake_interval_s)
+            wake_interval_s=wake_interval_s, display_enabled=display_enabled)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
     return FLASH_SAVED
