@@ -764,7 +764,7 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10, 11 and 12's own precedent. To be confirmed at discuss time; if promoted it would be a new CFG-style entry alongside CFG-08, whose resolution statistics this phase makes actionable.
 **Depends on:** Phase 12 (numeric order only — no functional dependency), plus the already-shipped upload path from quick tasks `260902-v26` / `260903-df3` and Phase 06.6.4.1, which reborn Airlines as the illustration gallery this affordance extends.
 **Closes with:** a `/gsd-secure-phase` pass over the key-minting path — this is the first phase to deliberately reopen a documented threat model (`T-v26-02-01`) rather than inherit one — plus a blocking on-glass verification **if and only if** the discussion picks branch (b) or otherwise changes what `select_illustration()` renders.
-**Plans:** 2/6 plans executed
+**Plans:** 3/6 plans executed
 
 Plans:
 **Wave 1**
@@ -774,7 +774,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 13-03-PLAN.md — `enrich.airline_source_from_callsign()` / `static_airline_name_for_prefix()` / `clear_resolved_unresolved_prefix()` and `resolve_route()`'s fifth source (D-01/D-02/D-06/D-14)
+- [x] 13-03-PLAN.md — `enrich.airline_source_from_callsign()` / `static_airline_name_for_prefix()` / `clear_resolved_unresolved_prefix()` and `resolve_route()`'s fifth source (D-01/D-02/D-06/D-14)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 

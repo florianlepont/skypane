@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 13
+current_phase: 11
 status: executing
-stopped_at: "Phase 13 plan 02 executed (2/6 plans, wave 1 of 4 complete) — Health's read-only note reworded and per-row Resolve deep link shipped"
-last_updated: "2026-09-05T23:17:37.714Z"
+stopped_at: "Phase 13 plan 03 executed (3/6 plans, wave 2 of 4 — depends on 13-01) — threaded the manual-resolution registry into server/plane/enrich.py's enrichment seam: airline_source_from_callsign()/static_airline_name_for_prefix() added, airline_from_callsign() reduced to a one-line wrapper, resolve_route() extended to a fifth 'manual' source (D-02), clear_resolved_unresolved_prefix() added as D-14's whole implementation. server/test_enrich.py 52 -> 59 checks; scripts/run-all-tests.sh 17/17 harnesses PASS."
+last_updated: "2026-09-05T23:35:00.000Z"
 last_activity: 2026-09-06
-last_activity_desc: "Executed 13-02-PLAN.md: reworded Health's _READ_ONLY_NOTE to name Airlines as the resolution surface (D-10), appended a fifth 'manual' _SOURCE_ROWS entry (D-02), and added a per-row escaped/aria-labelled Resolve deep link to both the desktop registry table and mobile card list. Health still has zero <form> and exactly one pre-existing <button> docstring literal. Full scripts/run-all-tests.sh green (17/17 harnesses)."
+last_activity_desc: "Executed 13-03-PLAN.md (server/plane/enrich.py manual-resolution wiring) — 3/3 tasks, 59/59 test_enrich.py checks, full suite green"
 progress:
   total_phases: 26
   completed_phases: 22
   total_plans: 131
-  completed_plans: 125
-  percent: 95
+  completed_plans: 126
+  percent: 96
 ---
 
 ---
@@ -336,6 +336,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 12 P05 | 15min | 2 tasks | 2 files |
 | Phase 13 P01 | 25min | 3 tasks | 3 files |
 | Phase 13 P02 | 20min | 2 tasks | 3 files |
+| Phase 13 P03 | 35min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -559,6 +560,8 @@ Recent decisions affecting current work:
 - [Phase ?]: DISPLAY_SECTION_CAPTION states its own ~5-minute apply latency (D-02) instead of the generic next-scheduled-poll clause, because D-01 pins the off-state check-in to a fixed 300s cadence independent of wake_interval_s/quiet hours
 - [Phase 13]: Added a raw-input _HOSTILE_NAME_RE check inside illustration_key_for_name() (mirroring illustrations.py's _UNSAFE_KEY_RE), since normalise_airline_key()'s total ASCII-slug transform reduces a path-traversal-shaped name to an already-safe-looking slug that the plan's own _SAFE_KEY_RE-on-the-slug check could not catch — 13-01 Task 1/2's own behavior spec and hostile-input sweep require rejection of these exact inputs
 - [Phase 13-02]: Health's per-row Resolve link reuses one escape_html() call per representation for both href and aria-label interpolation points, rather than two separate calls — Every interpolation point still passes through the escaping choke point exactly once (T-13-05); avoids a redundant second escape_html() call while keeping the same security guarantee
+- [Phase 13]: resolve_route() cleanup for a newly-resolved prefix is gated on airline_from_callsign() (either table), never on route_source, since adsbdb wins by construction and a resolved prefix can still show fresh_hit/cache_hit on any given cycle
+- [Phase 13]: airline_only and manual stay two distinct resolve_route() source values rather than merged, because health_page._SOURCE_ROWS' airline_only gloss names the static prefix table specifically
 
 ### Pending Todos
 
@@ -646,7 +649,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-05T22:59:37.316Z
+Last session: 2026-09-05T23:31:38.086Z
 Stopped at: Phase 13 UI-SPEC approved
 
 Resume file: 
