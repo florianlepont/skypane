@@ -1815,10 +1815,10 @@ def main():
             img = Image.open(io.BytesIO(payload)).convert("RGB").resize((1, 1))
             means.append(next(iter(img.getdata())))
         if len(set(means)) != len(means):
-            return False, "expected 16 pairwise-distinct mean RGB values, got %r" % (means,)
+            return False, "expected 18 pairwise-distinct mean RGB values, got %r" % (means,)
         return True, ""
     check(
-        "the 16 themes' previews have pairwise-distinct mean RGB at the crop/size used "
+        "the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used "
         "(proves the crop box discriminates themes, D-07)",
         _theme_preview_means_pairwise_distinct)
 
