@@ -299,14 +299,17 @@ EMPTY_HEADING_TEXT = empty_heading_text(device_config.DEFAULT_RUNWAY_ID)
 EMPTY_INK = IDX_BLACK
 # 12-06 on-glass session: the developer read the empty screen on the panel and
 # asked for the break to fall before "the display", not wherever the measured
-# width lands (which orphaned "one is." on its own line). The two halves are
-# the authored lines; EMPTY_BODY_TEXT stays their joined form so the locked
-# copy is still one byte-identical string to assert against. The builder wraps
-# each half on its own, so the semantic break is honoured while the width
-# safety net still catches a line that cannot fit.
+# width lands (which orphaned "one is." on its own line) - and then, seeing
+# the em dash left dangling at the end of the first line, for the dash to go:
+# two sentences, a full stop each. This is the one copy change the session
+# made (the original "yet — the display" dates from Phase 2). The two
+# sentences are the authored lines; EMPTY_BODY_TEXT is their joined form, the
+# single string the copy is asserted against. The builder wraps each sentence
+# on its own, so the break is honoured while the width safety net still
+# catches a line that cannot fit.
 EMPTY_BODY_LINES = (
-    "No aircraft detected yet —",
-    "the display updates the moment one is.",
+    "No aircraft detected yet.",
+    "The display updates the moment one is.",
 )
 EMPTY_BODY_TEXT = " ".join(EMPTY_BODY_LINES)
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
