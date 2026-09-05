@@ -2291,21 +2291,33 @@ def main():
 
     # 64. build_canvas(None, "empty", runway_id=...) draws that runway's
     # heading - including the longest of the three registry headings - and
-    # still passes the safe-box assertion (fit_text_size() shrink path).
+    # still passes the safe-box assertion. Retargeted in the 12-06 on-glass
+    # session: the heading is now a tracked label drawn glyph-by-glyph via
+    # draw_tracked_text() (upper-cased at draw time; empty_heading_text()
+    # itself is unchanged), so the check reconstructs the single-glyph run
+    # the way check 65 already does for the runway tag, instead of looking
+    # for the whole string in one draw call. The fit_text_size() shrink path
+    # no longer applies; the safe-box assert inside _build_hold_canvas() is
+    # what now guards a runway label that could not fit, and it still runs
+    # here on the longest registered id.
     def _empty_canvas_draws_selected_runways_heading():
         longest_runway_id = max(
             render.device_config.RUNWAY_IDS, key=lambda rid: len(render.device_config.runway_empty_heading(rid))
         )
         with _TextSpy(render) as spy:
             render.build_canvas(None, "empty", runway_id=longest_runway_id)
-        texts = [t for t, _xy, _anchor in spy.calls]
-        expected = render.empty_heading_text(longest_runway_id)
-        if expected not in texts:
-            return False, "expected the longest runway heading %r among the text draws, got %r" % (expected, texts)
+        expected = render.empty_heading_text(longest_runway_id).upper()
+        glyphs = [t for t, _xy, _anchor in spy.calls if len(t) == 1]
+        joined = "".join(glyphs)
+        if expected not in joined:
+            return False, (
+                "expected the longest runway heading %r (upper-cased, tracked glyph-by-glyph) in the "
+                "single-glyph draw run, got %r" % (expected, joined)
+            )
         return True, ""
     check(
-        "build_canvas(None, 'empty', runway_id=...) draws that runway's heading, including the longest of the "
-        "three, and passes the safe-box assertion",
+        "build_canvas(None, 'empty', runway_id=...) draws that runway's heading as a tracked label, including "
+        "the longest of the three, and passes the safe-box assertion",
         _empty_canvas_draws_selected_runways_heading,
     )
 
