@@ -3,7 +3,7 @@ phase: 13
 slug: add-an-illustration-for-an-unidentified-flight-from-the-comp
 status: draft
 nyquist_compliant: false
-wave_0_complete: false
+wave_0_complete: false  # 13-01 Tasks 2-3 are the Wave 0 items
 created: 2026-09-05
 ---
 
@@ -37,20 +37,20 @@ created: 2026-09-05
 
 ## Per-Task Verification Map
 
-This phase has no REQUIREMENTS.md ID (unmapped, promoted from a seed — the Phase 10/11/12 precedent). The map is keyed to the phase's own locked decisions from `13-CONTEXT.md` instead. Task IDs fill in once PLAN.md files exist.
+This phase has no REQUIREMENTS.md ID (unmapped, promoted from a seed — the Phase 10/11/12 precedent). The map is keyed to the phase's own locked decisions from `13-CONTEXT.md` instead. Task IDs reconciled 2026-09-06 against the six committed plans (13-01..13-06).
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | 0 | D-05 | — | Registry load/save never raises; tmp-write-then-`os.replace`; all-or-nothing rejection; bounded entry count | unit | `server/.venv/bin/python3 server/test_manual_resolutions.py` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 0 | D-08 | — | Deleting a manual entry never removes `illustration_overrides/{key}.png` | unit | `server/.venv/bin/python3 server/test_manual_resolutions.py` | ❌ W0 | ⬜ pending |
-| TBD | TBD | 1 | D-01 | T-hyy-01 | A manually-registered prefix resolves only after the static table is consulted; the returnable set is now operator-supplied, so path-construction boundaries must hold alone | unit | `server/.venv/bin/python3 server/test_enrich.py` | ✅ | ⬜ pending |
-| TBD | TBD | 1 | D-02 | — | `resolve_route()` returns `"manual"`, never `"airline_only"`, when the manual registry did the resolving | unit | `server/.venv/bin/python3 server/test_enrich.py` | ✅ | ⬜ pending |
-| TBD | TBD | 1 | D-06 | — | A hand-resolved prefix later added to the static table reports "superseded"; the static name wins at runtime | unit | `server/.venv/bin/python3 server/test_enrich.py` + `companion/test_status_pages.py` | ✅ | ⬜ pending |
-| TBD | TBD | 1 | D-09 | — | `select_illustration()` / `resolved_illustration_path()` behaviour byte-for-byte unchanged — a must-NOT-change check: the existing `EXPECTED_CHECK_COUNT` holds with zero new checks | regression | `server/.venv/bin/python3 server/test_illustrations.py` | ✅ | ⬜ pending |
-| TBD | TBD | 2 | D-11 / D-12 | T-v26-02-01 | `?resolve={prefix}` membership-tested against the live registry; displayed context re-read server-side, never taken from the query string | unit + integration | `server/.venv/bin/python3 companion/test_status_pages.py` | ✅ | ⬜ pending |
-| TBD | TBD | 2 | Route/threat parity | T-v26-02-01 | The `_ILLUSTRATION_FILENAMES` widening admits only server-persisted keys, never a request-derived one | integration | `server/.venv/bin/python3 companion/test_companion_app.py` | ✅ | ⬜ pending |
-| TBD | TBD | 2 | D-13 | — | The `<datalist>` offers exactly `illustrations.target_airline_names()`, escaped once; a free-typed name slugging to a reserved key (`generic-fallback`, `generic-*`) is rejected | unit | `server/.venv/bin/python3 companion/test_status_pages.py` | ✅ | ⬜ pending |
-| TBD | TBD | 2 | D-14 | — | A resolved prefix leaves `unresolved_prefixes` on the next `run_once()` that observes it, independent of `route_source` | unit | `server/.venv/bin/python3 server/test_poll_loop.py` | ✅ | ⬜ pending |
+| 13-01-02 | 01 | 0 | D-05 | — | Registry load/save never raises; tmp-write-then-`os.replace`; all-or-nothing rejection; bounded entry count | unit | `server/.venv/bin/python3 server/test_manual_resolutions.py` | ❌ W0 | ⬜ pending |
+| 13-01-02 | 01 | 0 | D-08 | — | Deleting a manual entry never removes `illustration_overrides/{key}.png` | unit | `server/.venv/bin/python3 server/test_manual_resolutions.py` | ❌ W0 | ⬜ pending |
+| 13-03-01 | 03 | 2 | D-01 | T-hyy-01 | A manually-registered prefix resolves only after the static table is consulted; the returnable set is now operator-supplied, so path-construction boundaries must hold alone | unit | `server/.venv/bin/python3 server/test_enrich.py` | ✅ | ⬜ pending |
+| 13-03-02 | 03 | 2 | D-02 | — | `resolve_route()` returns `"manual"`, never `"airline_only"`, when the manual registry did the resolving | unit | `server/.venv/bin/python3 server/test_enrich.py` | ✅ | ⬜ pending |
+| 13-03-03 | 03 | 2 | D-06 | — | A hand-resolved prefix later added to the static table reports "superseded"; the static name wins at runtime | unit | `server/.venv/bin/python3 server/test_enrich.py` + `companion/test_status_pages.py` | ✅ | ⬜ pending |
+| all plans | all | — | D-09 | — | `select_illustration()` / `resolved_illustration_path()` behaviour byte-for-byte unchanged — a must-NOT-change check: the existing `EXPECTED_CHECK_COUNT` holds with zero new checks | regression | `server/.venv/bin/python3 server/test_illustrations.py` | ✅ | ⬜ pending |
+| 13-06-01 | 06 | 4 | D-11 / D-12 | T-v26-02-01 | `?resolve={prefix}` membership-tested against the live registry; displayed context re-read server-side, never taken from the query string | unit + integration | `server/.venv/bin/python3 companion/test_status_pages.py` | ✅ | ⬜ pending |
+| 13-06-01 | 06 | 4 | Route/threat parity | T-v26-02-01 | The `_ILLUSTRATION_FILENAMES` widening admits only server-persisted keys, never a request-derived one | integration | `server/.venv/bin/python3 companion/test_companion_app.py` | ✅ | ⬜ pending |
+| 13-04-01 | 04 | 3 | D-13 | — | The `<datalist>` offers exactly `illustrations.target_airline_names()`, escaped once; a free-typed name slugging to a reserved key (`generic-fallback`, `generic-*`) is rejected | unit | `server/.venv/bin/python3 companion/test_status_pages.py` | ✅ | ⬜ pending |
+| 13-05-02 | 05 | 3 | D-14 | — | A resolved prefix leaves `unresolved_prefixes` on the next `run_once()` that observes it, independent of `route_source` | unit | `server/.venv/bin/python3 server/test_poll_loop.py` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

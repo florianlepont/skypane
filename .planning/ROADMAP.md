@@ -767,10 +767,20 @@ Plans:
 **Plans:** 6 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 13-01-PLAN.md — `server/plane/manual_resolutions.py`, the runtime prefix→airline registry (D-05/D-08/D-13), its new contract harness, and its `run-all-tests.sh` registration
 - [ ] 13-02-PLAN.md — Health's re-worded read-only note, the per-row Resolve deep link in both representations, and the fifth `"manual"` source row (D-02/D-10)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 13-03-PLAN.md — `enrich.airline_source_from_callsign()` / `static_airline_name_for_prefix()` / `clear_resolved_unresolved_prefix()` and `resolve_route()`'s fifth source (D-01/D-02/D-06/D-14)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 13-04-PLAN.md — the Airlines resolve section with its native `<datalist>` and the manual-resolutions management list (D-03/D-07/D-11/D-12/D-13)
 - [ ] 13-05-PLAN.md — the per-cycle registry load and the gap-registry cleanup in `poll_loop.run_once()` (D-01/D-14)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 13-06-PLAN.md — the widened per-request illustration membership union plus the two new POST routes (D-09/D-11 — reopens and re-establishes `T-v26-02-01`)
