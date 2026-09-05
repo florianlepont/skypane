@@ -12,21 +12,21 @@ never depended on adsbdb in the first place: it is carried directly in the
 callsign's ICAO 3-letter prefix (`TVF` = Transavia France), stable
 standardised reference data. `airline_from_callsign()` resolves that prefix
 against a static, in-repo table (D-01); `resolve_route()` (D-05) layers it
-above an adsbdb miss as a fourth outcome, `"airline_only"` - the caller
-still learns the airline, even when adsbdb has nothing. This adds zero
-network calls, zero new dependencies, and zero cache entries of its own -
-it is a lookup recomputed from the static table on every call.
+above an adsbdb miss as an additional outcome, `"airline_only"` - the
+caller still learns the airline, even when adsbdb has nothing. This adds
+zero network calls, zero new dependencies, and zero cache entries of its
+own - it is a lookup recomputed from the static table on every call.
 
 Phase 13 (`13-add-an-illustration-for-an-unidentified-flight-from-the-comp`,
-D-01/D-02) layers a fifth, DIFFERENT-in-kind outcome on top of the same
-seam: `airline_source_from_callsign()` consults `airline_from_callsign()`'s
+D-01/D-02) layers a DIFFERENT-in-kind outcome on top of the same seam:
+`airline_source_from_callsign()` consults `airline_from_callsign()`'s
 static table FIRST and, only when that misses, falls through to
 `server.plane.manual_resolutions`'s runtime, operator-writable registry -
-so `resolve_route()` now classifies into five sources
-(`"fresh_hit"`/`"cache_hit"`/`"airline_only"`/`"manual"`/`"miss"`), not
-four. `airline_from_callsign()` itself keeps its exact signature and
-behaviour for every static-table input; see its own docstring for what
-changed underneath it.
+so `resolve_route()` now classifies into five distinct sources
+(`"fresh_hit"`/`"cache_hit"`/`"airline_only"`/`"manual"`/`"miss"`).
+`airline_from_callsign()` itself keeps its exact signature and behaviour
+for every static-table input; see its own docstring for what changed
+underneath it.
 
 Live-verified this session (02-RESEARCH.md) against all 38 distinct real
 callsigns observed in Phase 1's Orly-area sample: `api.adsbdb.com/v0/
@@ -761,18 +761,38 @@ def airline_only_route(airline_name):
 
 def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     """D-05's single resolution seam: classify `callsign`'s enrichment
-    outcome into one of four sources and return `(route, source)`.
+    outcome into one of FIVE sources (phase 13, D-02 - previously four) and
+    return `(route, source)`.
 
     `source` is one of:
       - `"fresh_hit"`: adsbdb resolved a full route this cycle (no cache
         entry existed for this callsign before the call).
       - `"cache_hit"`: the cache already held a resolved route for this
         callsign - the request was spared entirely.
-      - `"airline_only"` (new): adsbdb had no route (a fresh or a cached
-        miss), but the callsign's ICAO prefix identified the carrier via
-        `airline_from_callsign()` - a route carrying only the airline name,
-        the other four fields `None`.
-      - `"miss"`: neither adsbdb nor the prefix table resolved anything.
+      - `"airline_only"`: adsbdb had no route (a fresh or a cached miss),
+        but the callsign's ICAO prefix identified the carrier via the
+        **static** `_ICAO_AIRLINE_PREFIXES` prefix table - a route carrying
+        only the airline name, the other four fields `None`.
+      - `"manual"` (new, phase 13 D-01/D-02): adsbdb had no route AND the
+        static table missed too, but the prefix identified the carrier via
+        `server.plane.manual_resolutions`'s runtime, operator-writable
+        registry - the same airline-only route shape as `"airline_only"`,
+        just a different provenance.
+      - `"miss"`: neither adsbdb, the static table, nor the manual registry
+        resolved anything.
+
+    `"airline_only"` and `"manual"` are kept as two distinct source values
+    rather than folded into one (D-02), because `companion/pages/
+    health_page.py`'s `_SOURCE_ROWS` renders the `"airline_only"` bucket
+    with a gloss that names the static prefix table specifically - folding
+    a manually-resolved prefix into that bucket would make that sentence
+    false and would inflate the apparent "the static table already covers
+    this" resolution rate with results the static table had nothing to do
+    with. Both source values are built from the identical
+    `airline_only_route()` shape - see `airline_source_from_callsign()` for
+    which table wins when a prefix is present in both (D-06: the static
+    table always does, so `"manual"` is reported only when the static table
+    genuinely missed).
 
     `was_cached` is computed from the normalised callsign before delegating
     to `lookup_route()` (D-04: unchanged, not loosened), so the fresh/cache
@@ -780,17 +800,18 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     `"cache_hit"` still means the cache spared a request *and* returned a
     usable route; a cached miss is still not a cache hit. The prefix
     resolution itself is never cached - it is recomputed from the static
-    table on every call, since it is cheaper than a dict lookup and adds no
-    state of its own. Never raises (T-hyy-02).
+    and manual tables on every call, since it is cheaper than a second cache
+    and adds no state of its own. Never raises (T-hyy-02).
     """
     normalised = normalise_callsign(callsign)
     was_cached = normalised is not None and normalised in cache
     route = lookup_route(callsign, cache, transport=transport, timeout=timeout)
     if route is not None:
         return route, ("cache_hit" if was_cached else "fresh_hit")
-    airline_name = airline_from_callsign(callsign)
+    airline_name, airline_source = airline_source_from_callsign(callsign)
     if airline_name:
-        return airline_only_route(airline_name), "airline_only"
+        source = "airline_only" if airline_source == "static" else "manual"
+        return airline_only_route(airline_name), source
     return None, "miss"
 
 
@@ -807,16 +828,17 @@ def trim_cache(cache, max_entries=CACHE_MAX_ENTRIES):
 
 # --- Unrecognized-ICAO-prefix recorder (quick task 260827-oz9) --------------
 #
-# `resolve_route()`'s `"miss"` outcome means neither adsbdb nor
-# `_ICAO_AIRLINE_PREFIXES` resolved anything for a shape-valid callsign -
-# which, because `airline_from_callsign()` is the only thing that can ever
-# turn a "miss" into an "airline_only", is exactly equivalent to "this
-# callsign's 3-letter ICAO prefix is not (yet) in the static table". No new
-# resolution logic is required to detect that condition; this section only
-# gives it somewhere durable to live.
+# `resolve_route()`'s `"miss"` outcome means neither adsbdb, the static
+# `_ICAO_AIRLINE_PREFIXES` table, nor (phase 13, D-01) the runtime manual
+# registry resolved anything for a shape-valid callsign - which, because
+# `airline_from_callsign()` is the single seam whose verdict decides both
+# `resolve_route()`'s `"airline_only"`/`"manual"` split AND this recorder's
+# gate, is exactly equivalent to "this callsign's 3-letter ICAO prefix is
+# absent from both tables". No new resolution logic is required to detect
+# that condition; this section only gives it somewhere durable to live.
 #
 # This is observability only: it does not change `resolve_route()`'s
-# contract, its four source values, or anything `render.py`/
+# contract, its five source values, or anything `render.py`/
 # `illustrations.py` ever sees. Nothing here can influence what the panel
 # displays.
 #

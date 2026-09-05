@@ -28,7 +28,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 55
+EXPECTED_CHECK_COUNT = 57
 
 
 def load_fixture(name):
@@ -1237,6 +1237,75 @@ def main():
         "static_airline_name_for_prefix() returns the static name for that prefix, None for a manual-only prefix, "
         "and handles non-string/wrong-length input without raising",
         _d06_collision_and_static_airline_name_for_prefix,
+    )
+
+    # --- Phase 13 plan 13-03 Task 2 (D-02): resolve_route()'s fifth
+    # "manual" source. --------------------------------------------------
+
+    # 54. Manual source: a temp state dir holding a manual entry for a
+    #     prefix absent from the static table, with a transport stub
+    #     returning no route, yields source "manual" and an airline-only
+    #     route dict whose airline_name is the operator's name and whose
+    #     other five keys are None. Resets the process cache in a finally.
+    def _resolve_route_manual_source():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+                cache = {}
+                transport = make_transport(404, {"response": "unknown callsign"})
+                route, source = enrich.resolve_route("ZZZ1234", cache, transport=transport)
+                if source != "manual":
+                    return False, "expected source 'manual', got %r" % (source,)
+                if route is None or route.get("airline_name") != "Zephyr Air":
+                    return False, "expected an airline-only route with airline_name 'Zephyr Air', got %r" % (route,)
+                for key in route:
+                    if key != "airline_name" and route[key] is not None:
+                        return False, "expected route key %r to be None, got %r" % (key, route[key])
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "resolve_route() with a manual entry for a prefix absent from the static table and an adsbdb miss "
+        "returns source 'manual' and an airline-only route whose airline_name is the operator's name and whose "
+        "other five keys are None",
+        _resolve_route_manual_source,
+    )
+
+    # 55. Static/manual precedence and adsbdb precedence together: a manual
+    #     entry for a static-table prefix still yields "airline_only"; and
+    #     with a transport stub returning a full route, the source is
+    #     "fresh_hit" even though a manual entry exists for that prefix.
+    def _resolve_route_static_and_adsbdb_precedence_over_manual():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "TVF", "Some Operator Typo")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+
+                cache = {}
+                miss_transport = make_transport(404, {"response": "unknown callsign"})
+                route, source = enrich.resolve_route("TVF16VB", cache, transport=miss_transport)
+                if source != "airline_only" or route is None or route.get("airline_name") != "Transavia France":
+                    return False, (
+                        "D-06 violated: expected ('Transavia France', 'airline_only') for a static-table prefix "
+                        "with a colliding manual entry under an adsbdb miss, got (%r, %r)" % (route, source)
+                    )
+
+                cache2 = {}
+                route2, source2 = enrich.resolve_route("TVF16VB", cache2, transport=make_transport(200, hit_body))
+                if source2 != "fresh_hit":
+                    return False, "expected source 'fresh_hit' even with a manual entry present, got %r" % (source2,)
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "a manual entry for a static-table prefix still yields 'airline_only' under an adsbdb miss (D-06), and "
+        "adsbdb still wins by construction ('fresh_hit') even when a manual entry exists for that prefix",
+        _resolve_route_static_and_adsbdb_precedence_over_manual,
     )
 
     total = len(results)
