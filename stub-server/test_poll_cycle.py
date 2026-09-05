@@ -26,7 +26,14 @@ bool-is-an-int gotcha) and happy path, unit coverage of the configured
 wake interval layering under quiet_hours_sleep_s() without being
 re-clamped past WAKE_INTERVAL_MAX_S, and integration coverage of the
 configured value (and a below-floor rejection) reaching sleep_s over
-real HTTP.
+real HTTP. Phase 12 (D-01/D-05) adds unit coverage of
+read_display_enabled()'s fail-open contract, the flat 300s off-state
+sleep_s pin (display_off_sleep_s()), the display-off/quiet-hours
+overlap in both directions (D-05's sleep axis: the longest of the two
+wins), an on-state regression guard proving the new branch does not
+alter the pre-existing Phase 10/11 chain, and a lightweight parity
+check pinning DISPLAY_OFF_SLEEP_S numerically equal between this file
+and server/device_config.py.
 
 Exits 0 only when every check below passes; any failure (or exception -
 none is ever swallowed into a pass) exits 1.
@@ -57,7 +64,9 @@ MAKE_PANEL_PATH = os.path.join(HERE, "make_test_panel.py")
 DEVICE_CONFIG_MODULE_PATH = os.path.join(REPO_ROOT, "server", "device_config.py")
 IMAGE_BYTES = 960000
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 34
+EXPECTED_CHECK_COUNT = 40  # 12-03: +6 (display-off sleep pin: fail-open, flat pin, quiet-hours
+# overlap in both directions (unit + integration), on-state regression guard, and
+# DISPLAY_OFF_SLEEP_S parity)
 
 
 def verify_panel_bytes(buf, expected_hash):
@@ -538,6 +547,213 @@ def main():
             "base with quiet hours disabled, and still returns 28000 (> 3600) inside an active "
             "quiet-hours window - the delivered value is deliberately not re-clamped",
             _wake_interval_layers_under_quiet_hours,
+        )
+
+        # --- Task 2 (Phase 12, D-01/D-05): display-off sleep_s pin --------
+
+        # J. Unit, fail-open: read_display_enabled() returns True for every
+        # failure mode, never raises. Modelled on
+        # _quiet_hours_fail_open_never_raises()/_wake_interval_fail_open_never_raises()
+        # above. A real `false` survives as False.
+        def _display_enabled_fail_open_never_raises():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-de-failopen-")
+            try:
+                if module.read_display_enabled(tmpdir) is not True:
+                    return False, "expected True for a missing device_config.json"
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                cases = [
+                    ("{truncated", "truncated JSON"),
+                    ('["not", "a", "dict"]', "a non-dict (list) document"),
+                    (json.dumps({"theme": "dark"}), "document with no display_enabled key"),
+                    (json.dumps({"display_enabled": 0}), "display_enabled: 0 (int)"),
+                    (json.dumps({"display_enabled": 1}), "display_enabled: 1 (int)"),
+                    (json.dumps({"display_enabled": "false"}), 'display_enabled: "false" (string)'),
+                    (json.dumps({"display_enabled": None}), "display_enabled: null"),
+                ]
+                for raw, label in cases:
+                    with open(cfg_path, "w") as fh:
+                        fh.write(raw)
+                    result = module.read_display_enabled(tmpdir)
+                    if result is not True:
+                        return False, "expected True (fail-open) for %s, got %r" % (label, result)
+                with open(cfg_path, "w") as fh:
+                    json.dump({"display_enabled": False}, fh)
+                if module.read_display_enabled(tmpdir) is not False:
+                    return False, "expected a real display_enabled:false to survive as False"
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "read_display_enabled() returns True and never raises for a missing, truncated, "
+            "non-dict, key-absent, or non-bool (0, 1, \"false\", null) device_config.json, and a "
+            "real display_enabled:false survives as False",
+            _display_enabled_fail_open_never_raises,
+        )
+
+        # K. Unit, the flat pin (D-01): with display_enabled false and no
+        # quiet-hours window, quiet_hours_sleep_s(display_off_sleep_s(base,
+        # d), d) is exactly 300 for every configured base, including one
+        # longer than 300. Serving LESS than the configured interval is the
+        # intended off-state behaviour here, not a max()/min() - a future
+        # reader "fixing" this into a max() must fail here.
+        def _display_off_flat_pin():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-de-pin-")
+            try:
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                with open(cfg_path, "w") as fh:
+                    json.dump({"display_enabled": False}, fh)
+                for base in (60, 300, 900, 3600):
+                    result = module.quiet_hours_sleep_s(
+                        module.display_off_sleep_s(base, tmpdir), tmpdir)
+                    if result != 300:
+                        return False, "expected 300 for base=%r, got %r" % (base, result)
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "with display_enabled false and no quiet-hours window, "
+            "quiet_hours_sleep_s(display_off_sleep_s(base, d), d) is exactly 300 for base in "
+            "60, 300, 900 and 3600 (base=3600 proves the pin REPLACES rather than bounds the "
+            "configured interval)",
+            _display_off_flat_pin,
+        )
+
+        # L. Unit, the overlap (D-05, sleep axis) - the check this phase
+        # exists to get right. With display_enabled false AND an enabled
+        # quiet-hours window active, drive the injected now= seam to
+        # produce two distinct cases: remaining well above 300 (a
+        # 23:00-07:00 window entered at 23:30, remaining 28000s) must
+        # deliver the remaining seconds, NOT 300; remaining below 300 (a
+        # now inside the window's last 200 seconds) must still deliver
+        # exactly 300. Property under test: with the display off, the
+        # device must never wake more often than quiet hours alone would
+        # have made it - this behaviour is not implied by either feature's
+        # own existing tests.
+        def _display_off_and_quiet_hours_overlap():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-de-overlap-")
+            try:
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                with open(cfg_path, "w") as fh:
+                    json.dump({"display_enabled": False, "quiet_hours_enabled": True,
+                               "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}, fh)
+
+                # Case 1: well inside the window (23:30 entry -> 28000s
+                # remaining, verified independently against
+                # seconds_until_quiet_hours_end() during planning). The
+                # remaining time must win over the 300s off-state pin.
+                far_from_end = module.quiet_hours_sleep_s(
+                    module.display_off_sleep_s(300, tmpdir), tmpdir,
+                    now=datetime.fromtimestamp(1700000000.0, timezone.utc))
+                if far_from_end != 28000:
+                    return False, (
+                        "expected the remaining 28000s to win over the 300s off-state pin, "
+                        "got %r - the off state must never shorten a quiet-hours sleep"
+                        % (far_from_end,))
+
+                # Case 2: inside the window's last 200 seconds (below the
+                # 300s pin; window end epoch 1700028000.0, verified during
+                # planning). The 300s pin must win here - the device never
+                # sleeps for LESS than the off-state pin either.
+                close_to_end = module.quiet_hours_sleep_s(
+                    module.display_off_sleep_s(300, tmpdir), tmpdir,
+                    now=datetime.fromtimestamp(1700028000.0 - 200, timezone.utc))
+                if close_to_end != 300:
+                    return False, (
+                        "expected the 300s off-state pin to win when only 200s remain in the "
+                        "quiet-hours window, got %r" % (close_to_end,))
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "with the display off and quiet hours active, the served sleep_s is "
+            "max(300, quiet_hours_remaining) in both directions: 28000s of remaining window time "
+            "wins over the 300s off-state pin, and the 300s pin still floors the value when only "
+            "200s remain in the window - the device never wakes more often than quiet hours "
+            "alone would have made it",
+            _display_off_and_quiet_hours_overlap,
+        )
+
+        # M. Unit, on-state regression guard: with display_enabled true, the
+        # composed chain (including display_off_sleep_s()) equals the
+        # pre-existing Phase 10/11 quiet_hours_sleep_s(read_wake_interval_s(...))
+        # chain in all four combinations of window active/inactive and
+        # wake_interval_s set/unset. This plan adds a branch; it must not
+        # move the on-state behaviour.
+        def _display_on_state_matches_preexisting_chain():
+            module = ctx["byos_module"]
+            tmpdir = tempfile.mkdtemp(prefix="ink-poll-cycle-de-onstate-")
+            try:
+                cfg_path = os.path.join(tmpdir, "device_config.json")
+                base_default = 300
+                window_now = datetime.fromtimestamp(1700000000.0, timezone.utc)
+                combos = [
+                    ({"display_enabled": True}, None,
+                     "no wake_interval_s, no window"),
+                    ({"display_enabled": True, "wake_interval_s": 120}, None,
+                     "wake_interval_s set, no window"),
+                    ({"display_enabled": True, "quiet_hours_enabled": True,
+                      "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"},
+                     window_now, "no wake_interval_s, window active"),
+                    ({"display_enabled": True, "wake_interval_s": 120,
+                      "quiet_hours_enabled": True, "quiet_hours_start": "23:00",
+                      "quiet_hours_end": "07:00"},
+                     window_now, "wake_interval_s set, window active"),
+                ]
+                for cfg, now, label in combos:
+                    with open(cfg_path, "w") as fh:
+                        json.dump(cfg, fh)
+                    kwargs = {"now": now} if now is not None else {}
+                    preexisting = module.quiet_hours_sleep_s(
+                        module.read_wake_interval_s(tmpdir, base_default), tmpdir, **kwargs)
+                    composed = module.quiet_hours_sleep_s(
+                        module.display_off_sleep_s(
+                            module.read_wake_interval_s(tmpdir, base_default), tmpdir),
+                        tmpdir, **kwargs)
+                    if composed != preexisting:
+                        return False, (
+                            "on-state regression for %s: composed=%r, pre-existing chain=%r"
+                            % (label, composed, preexisting))
+                return True, ""
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        check(
+            "with display_enabled true, the composed sleep_s chain (including "
+            "display_off_sleep_s()) equals the pre-existing Phase 10/11 "
+            "quiet_hours_sleep_s(read_wake_interval_s(...)) chain across all four combinations "
+            "of window active/inactive and wake_interval_s set/unset - this plan adds a branch, "
+            "it does not alter the on-state behaviour",
+            _display_on_state_matches_preexisting_chain,
+        )
+
+        # N. The constant parity check - the lighter sibling of
+        # _quiet_hours_drift_guard() above, purpose-built for a bare
+        # integer constant; do not fold this into the def-block guard.
+        # Reads server/device_config.py as plain text, never by import,
+        # since this harness sits on the vendored side.
+        def _display_off_sleep_s_constant_parity():
+            module = ctx["byos_module"]
+            try:
+                with open(DEVICE_CONFIG_MODULE_PATH) as fh:
+                    origin_text = fh.read()
+            except OSError as exc:
+                return False, "could not read %s: %r" % (DEVICE_CONFIG_MODULE_PATH, exc)
+            origin_line = _extract_line(origin_text, "DISPLAY_OFF_SLEEP_S = ")
+            if origin_line is None:
+                return False, "could not locate 'DISPLAY_OFF_SLEEP_S = ' in server/device_config.py"
+            origin_value = int(origin_line.split("=", 1)[1].strip().split()[0])
+            if origin_value != module.DISPLAY_OFF_SLEEP_S:
+                return False, (
+                    "DISPLAY_OFF_SLEEP_S has drifted between server/device_config.py (%r) and "
+                    "stub-server/byos_server.py (%r)" % (origin_value, module.DISPLAY_OFF_SLEEP_S)
+                )
+            return True, ""
+        check(
+            "DISPLAY_OFF_SLEEP_S is numerically equal between server/device_config.py (read as "
+            "plain text, never imported) and the loaded stub-server/byos_server.py module",
+            _display_off_sleep_s_constant_parity,
         )
 
         harness.generate_panel("palette")
@@ -1116,6 +1332,52 @@ def main():
             "response with sleep_s exactly 300 (the fail-open CLI default), and still passes "
             "validate_display_response()",
             _wake_interval_integration_below_floor_falls_back_to_default,
+        )
+
+        # I. Integration, over real HTTP: the display-off/quiet-hours
+        # overlap (D-05, sleep axis), exercised through the actual do_GET
+        # /device/v1/display response construction rather than a direct
+        # function call - unlike the unit-level overlap check above, this
+        # one is sensitive to the composition ORDER as wired inside
+        # byos_server.py's inlined sleep_s expression, and is the check the
+        # composition-order negative control below targets. With
+        # display_enabled false and an enabled quiet-hours window still far
+        # from ending (~1h remaining, well above the 300s off-state pin),
+        # the served sleep_s must reflect the remaining window time, NOT
+        # collapse to the flat 300s pin.
+        def _display_off_and_quiet_hours_overlap_integration():
+            fixture_path = _device_config_fixture_path()
+            now_paris = datetime.now(ZoneInfo("Europe/Paris"))
+            start_hm = (now_paris - timedelta(hours=1)).strftime("%H:%M")
+            end_hm = (now_paris + timedelta(hours=1)).strftime("%H:%M")
+            with open(fixture_path, "w") as fh:
+                json.dump({"display_enabled": False, "quiet_hours_enabled": True,
+                           "quiet_hours_start": start_hm, "quiet_hours_end": end_hm}, fh)
+            try:
+                status, _, body = http_request(
+                    harness.base_url() + "/device/v1/display", method="GET",
+                    headers={"Authorization": "Bearer %s" % ctx["token"]})
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                obj = json.loads(body.decode())
+                if not validate_display_response(obj):
+                    return False, "response failed validate_display_response: %r" % (obj,)
+                sleep_s = obj.get("sleep_s")
+                if not (300 < sleep_s <= 7200):
+                    return False, (
+                        "expected sleep_s in (300, 7200] (the remaining window time, not the "
+                        "flat 300s off-state pin), got %r - display_off_sleep_s() may be nested "
+                        "outside quiet_hours_sleep_s() instead of inside it" % (sleep_s,))
+                return True, ""
+            finally:
+                if os.path.exists(fixture_path):
+                    os.remove(fixture_path)
+        check(
+            "with display_enabled false and quiet hours enabled for a window still ~1h from "
+            "ending, a live GET /device/v1/display response's sleep_s is strictly greater than "
+            "300 (the remaining window time wins over the flat off-state pin, D-05's sleep "
+            "axis) - this is the check the composition-order negative control targets",
+            _display_off_and_quiet_hours_overlap_integration,
         )
 
         # 25. Failure classification: with the server stopped, a display poll
