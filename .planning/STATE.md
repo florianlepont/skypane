@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 11
 status: executing
 stopped_at: Phase 13 UI-SPEC approved
-last_updated: "2026-09-05T22:39:22.461Z"
+last_updated: "2026-09-05T23:00:24.247Z"
 last_activity: 2026-09-04
 last_activity_desc: "Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence"
 progress:
   total_phases: 26
   completed_phases: 22
-  total_plans: 125
-  completed_plans: 123
-  percent: 98
+  total_plans: 131
+  completed_plans: 124
+  percent: 85
 ---
 
 ---
@@ -334,6 +334,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.4.1.1 P06 | 55min | 3 tasks | 7 files |
 | Phase 12 P02 | 25min | 3 tasks | 2 files |
 | Phase 12 P05 | 15min | 2 tasks | 2 files |
+| Phase 13 P01 | 25min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -555,6 +556,7 @@ Recent decisions affecting current work:
 - [Phase ?]: Placed display_off dispatch branch above both quiet_hours and empty in build_canvas(), closing the same silent-fallback trap plan 10-02 documented
 - [Phase ?]: display_group() mirrors led_group()'s markup shape (lone checkbox, no dependent fields), not quiet_hours_group()'s
 - [Phase ?]: DISPLAY_SECTION_CAPTION states its own ~5-minute apply latency (D-02) instead of the generic next-scheduled-poll clause, because D-01 pins the off-state check-in to a fixed 300s cadence independent of wake_interval_s/quiet hours
+- [Phase 13]: Added a raw-input _HOSTILE_NAME_RE check inside illustration_key_for_name() (mirroring illustrations.py's _UNSAFE_KEY_RE), since normalise_airline_key()'s total ASCII-slug transform reduces a path-traversal-shaped name to an already-safe-looking slug that the plan's own _SAFE_KEY_RE-on-the-slug check could not catch — 13-01 Task 1/2's own behavior spec and hostile-input sweep require rejection of these exact inputs
 
 ### Pending Todos
 
@@ -642,12 +644,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-05T22:05:55.921Z
+Last session: 2026-09-05T22:59:37.316Z
 Stopped at: Phase 13 UI-SPEC approved
 
 Resume file: 
 
-.planning/phases/13-add-an-illustration-for-an-unidentified-flight-from-the-comp/13-UI-SPEC.md
+None
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).

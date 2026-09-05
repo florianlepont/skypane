@@ -764,12 +764,12 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10, 11 and 12's own precedent. To be confirmed at discuss time; if promoted it would be a new CFG-style entry alongside CFG-08, whose resolution statistics this phase makes actionable.
 **Depends on:** Phase 12 (numeric order only — no functional dependency), plus the already-shipped upload path from quick tasks `260902-v26` / `260903-df3` and Phase 06.6.4.1, which reborn Airlines as the illustration gallery this affordance extends.
 **Closes with:** a `/gsd-secure-phase` pass over the key-minting path — this is the first phase to deliberately reopen a documented threat model (`T-v26-02-01`) rather than inherit one — plus a blocking on-glass verification **if and only if** the discussion picks branch (b) or otherwise changes what `select_illustration()` renders.
-**Plans:** 6 plans
+**Plans:** 1/6 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 13-01-PLAN.md — `server/plane/manual_resolutions.py`, the runtime prefix→airline registry (D-05/D-08/D-13), its new contract harness, and its `run-all-tests.sh` registration
+- [x] 13-01-PLAN.md — `server/plane/manual_resolutions.py`, the runtime prefix→airline registry (D-05/D-08/D-13), its new contract harness, and its `run-all-tests.sh` registration
 - [ ] 13-02-PLAN.md — Health's re-worded read-only note, the per-row Resolve deep link in both representations, and the fifth `"manual"` source row (D-02/D-10)
 
 **Wave 2** *(blocked on Wave 1 completion)*
