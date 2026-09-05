@@ -57,6 +57,7 @@ from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import illustrations  # noqa: E402
+from server.plane import manual_resolutions  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
@@ -281,7 +282,11 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 140  # 138 + 2 (phase 13 plan 02 Task 2: the
+EXPECTED_CHECK_COUNT = 143  # 140 + 3 (phase 13 plan 04 Task 1: the
+# resolve section's four-state state-machine check, the Step A datalist
+# contract check, and the hostile-value-escaping/query-string-distrust
+# check — D-03/D-11/D-12/D-13/T-13-05/T-13-08). Re-derived by RUNNING the
+# harness, not by arithmetic. 140 = 138 + 2 (phase 13 plan 02 Task 2: the
 # registry Resolve-link desktop/mobile pairing + hostile-prefix-escaping
 # check, and the no-form/exactly-one-<button-literal read-only-guard
 # check — D-10/T-13-05/T-13-13). 138 = 136 + 2 (phase 13 plan 02 Task 1:
@@ -5515,20 +5520,30 @@ def main():
         "data-filter-group values has the same size as the card count",
         _every_card_carries_distinct_filter_text_and_group)
 
-    def _airlines_page_source_has_no_history_db_poll_loop_or_sqlite_import():
-        # D-17 non-goal: the gallery shows the full static curated list
-        # and performs no detection-history cross-reference — the page
-        # module opens no database and reads no poll state.
+    def _airlines_page_source_has_no_history_db_or_sqlite_import():
+        # D-17 non-goal (unchanged half): the gallery shows the full
+        # static curated list and performs no detection-history
+        # cross-reference — the page module opens no SQLite database of
+        # any kind. Phase 13 (13-04-PLAN.md Task 1) deliberately
+        # supersedes the OTHER half of this same D-17 sentence ("reads no
+        # poll state"): `unresolved_row_for_prefix()` now reads
+        # `server.poll_loop.load_poll_state()` as D-11's membership test,
+        # so `poll_loop` is no longer forbidden here — see
+        # airlines_page.py's own module docstring for the supersession
+        # note.
         with open(os.path.join(HERE, "pages", "airlines_page.py")) as fh:
             source = fh.read()
-        for needle in ("history_db", "poll_loop", "import sqlite3"):
+        for needle in ("history_db", "import sqlite3"):
             if needle in source:
                 return False, "airlines_page.py must not import %r (D-17 non-goal)" % needle
+        if "import server.poll_loop as poll_loop" not in source:
+            return False, "expected airlines_page.py to import poll_loop (phase 13 D-11 supersession)"
         return True, ""
     check(
-        "companion/pages/airlines_page.py imports no history-database module, no poll-state module, and no "
-        "sqlite module (D-17 non-goal: no detection-history cross-reference)",
-        _airlines_page_source_has_no_history_db_poll_loop_or_sqlite_import)
+        "companion/pages/airlines_page.py imports no history-database module and no sqlite module (D-17 "
+        "non-goal: no detection-history cross-reference), and imports poll_loop exactly the way phase 13's "
+        "D-11 membership test deliberately supersedes the OLDER half of that same non-goal",
+        _airlines_page_source_has_no_history_db_or_sqlite_import)
 
     def _airlines_page_no_longer_renders_registry_or_stats_headers():
         # D-13 non-goal: after this plan, exactly one page (Health)
@@ -6218,6 +6233,186 @@ def main():
         "element's text equals REPLACE_HINT_TEXT; and companion/static/style.css (read from disk) contains "
         "LIGHTBOX_REPLACE_ZONE_CLASS, REPLACE_HINT_CLASS, REPLACE_ICON_CLASS and a '::file-selector-button' rule",
         _replace_zone_markup_and_styling_contract)
+
+    # ------------------------------------------------------------------
+    # Phase 13 (13-04-PLAN.md Task 1): the conditional resolve section
+    # (D-03, D-10 through D-13).
+    # ------------------------------------------------------------------
+
+    def _resolve_slice(rendered):
+        """Isolate just the resolve section's own markup from a full
+        page render — the shared lightbox dialog (rendered later, once
+        per page regardless of resolve state) carries its own permanent
+        `<form>`/file input that must not contaminate a "no form"/"no
+        file input" assertion scoped to the resolve section alone.
+        """
+        return rendered[:rendered.index("filter-bar")]
+
+    def _resolve_section_four_states_render_correctly():
+        tmp = _mkstate("a-resolve-states")
+        try:
+            now = _iso(_now())
+
+            # State 1: the query prefix is not a member of the live
+            # registry at all -> the stale sentence, no form of any kind.
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "ZZZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            if airlines_page.RESOLVE_STALE_BODY not in section:
+                return False, "expected the stale sentence for a prefix absent from the registry"
+            if airlines_page.MANUAL_NAME_INPUT_ID in section:
+                return False, "expected no name input for a stale/absent prefix"
+            if "<form" in section:
+                return False, "expected no <form> inside the resolve section for a stale/absent prefix"
+
+            # Seed a real coverage gap, no manual entry recorded for it yet.
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            if airlines_page.RESOLVE_HEADING not in section:
+                return False, "expected the Step A heading for a seeded gap with no manual entry"
+            if ('id="%s"' % airlines_page.MANUAL_NAME_INPUT_ID) not in section:
+                return False, "expected the name input to render at Step A"
+            if '<input type="file"' in section:
+                return False, "expected no file input at Step A"
+
+            # Record a manual entry naming a fresh airline with no artwork.
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Brand New Air", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected add_entry() to accept a fresh, valid name, got %r" % (add_result,)
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Brand New Air"
+            if expected_heading not in section:
+                return False, "expected the Step B heading naming the stored airline, got a render missing %r" % (
+                    expected_heading,)
+            key = manual_resolutions.illustration_key_for_name("Brand New Air")
+            expected_action = 'action="%s%s.png"' % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key)
+            if expected_action not in section:
+                return False, "expected the upload form action to be %r" % (expected_action,)
+            if '<input type="file"' not in section:
+                return False, "expected a file input at Step B"
+
+            # Re-add the same prefix, this time naming a target airline
+            # that already has artwork.
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Air France", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected add_entry() to accept overwriting the same prefix, got %r" % (add_result,)
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            expected_done = airlines_page.RESOLVE_ALREADY_DONE_TEMPLATE % "Air France"
+            if expected_done not in section:
+                return False, "expected the already-resolved sentence naming Air France"
+            if '<input type="file"' in section:
+                return False, "expected no file input once artwork already resolves for the stored name"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the resolve section renders all four server-derived states and only the right controls in each: "
+        "absent-from-registry (stale sentence, no form at all), seeded-gap-no-entry (Step A heading, name "
+        "input, no file input), seeded-gap-with-artless-entry (Step B heading naming the stored airline, "
+        "upload form action ending /{key}.png, a file input), and seeded-gap-with-resolved-entry (the "
+        "already-resolved sentence, no file input) — D-03/D-11",
+        _resolve_section_four_states_render_correctly)
+
+    def _resolve_section_datalist_contract():
+        tmp = _mkstate("a-resolve-datalist")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            ctx = _ctx(tmp)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            names = illustrations.target_airline_names()
+            option_count = rendered.count("<option value=")
+            if option_count != len(names):
+                return False, "expected %d <option> elements (one per target airline), got %d" % (
+                    len(names), option_count)
+            datalist_match = re.search(r'<datalist id="([^"]+)">', rendered)
+            if not datalist_match:
+                return False, "expected a <datalist id=\"...\"> element"
+            list_attr_match = re.search(r'list="([^"]+)"', rendered)
+            if not list_attr_match or list_attr_match.group(1) != datalist_match.group(1):
+                return False, "expected the name input's list attribute to equal the datalist's own id"
+            for name in names:
+                expected_option = '<option value="%s">' % layout.escape_html(name)
+                if expected_option not in rendered:
+                    return False, "expected an escaped %r for airline %r" % (expected_option, name)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Step A's rendered datalist carries exactly len(illustrations.target_airline_names()) (27 against "
+        "today's data) <option> elements, the datalist's id matches the name input's list attribute, and "
+        "every airline name appears as an escaped <option value=...> exactly once (D-13)",
+        _resolve_section_datalist_contract)
+
+    def _resolve_section_escapes_hostile_values_and_distrusts_query_string():
+        tmp = _mkstate("a-resolve-escaping")
+        try:
+            hostile_name = '<b>Evil & "quoted" name'
+            hostile_callsign = '<i>XYZ</i> & "call"'
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": hostile_callsign,
+                },
+            })
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", hostile_name)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected add_entry() to accept the hostile-but-slug-safe name, got %r" % (
+                    add_result,)
+
+            ctx = _ctx(tmp)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+
+            if "<b>Evil" in rendered or "<i>XYZ</i>" in rendered:
+                return False, "found an unescaped hostile tag in the rendered page"
+            if re.search(r"&(?!amp;|lt;|gt;|quot;|#39;|#x27;)", rendered):
+                return False, "found a raw & that is not part of an HTML entity"
+            if 'value="<b>' in rendered or 'title="<b>' in rendered:
+                return False, "found an unescaped hostile value inside an attribute"
+
+            # D-12: a resolve_prefix that differs in case or padding from
+            # the stored registry key must never be treated as a match —
+            # nothing displayed comes from the query string.
+            for hostile_prefix in ("xyz", "XYZ ", " XYZ", "Xyz"):
+                ctx = _ctx(tmp)
+                ctx["resolve_prefix"] = hostile_prefix
+                rendered = airlines_page.render(ctx)
+                if airlines_page.RESOLVE_STALE_BODY not in rendered:
+                    return False, "expected the stale card for mismatched-case/padded prefix %r" % (
+                        hostile_prefix,)
+                if airlines_page.MANUAL_NAME_INPUT_ID in rendered:
+                    return False, "expected no name input for mismatched-case/padded prefix %r" % (
+                        hostile_prefix,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a stored airline name and example callsign both containing an angle bracket, a double quote and an "
+        "ampersand render fully escaped everywhere they appear (including inside an attribute value), and a "
+        "resolve_prefix differing in case or padding from the stored registry key renders the stale card "
+        "rather than the form — nothing displayed comes from the query string (D-12)",
+        _resolve_section_escapes_hostile_values_and_distrusts_query_string)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
