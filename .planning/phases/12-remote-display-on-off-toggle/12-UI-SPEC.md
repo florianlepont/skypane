@@ -272,11 +272,14 @@ unchanged as the record of what 12-02 built; what ships is this:
 | Layout | Glyph, `SPACE_MD`, label, `SPACE_MD`, rule, `SPACE_MD`, body — one block, vertically centred with the sibling screens' formula, so every part moves the whole block |
 | Palette legality | Black/White only, Black-dominant — `_assert_legal_palette()` holds (verified in the sketch harness for every candidate before any was shown). Tests 120 and 129 retargeted to pin Black dominance, not relaxed |
 | The system this creates | **Dark = the frame is resting on purpose** (DISPLAY OFF, QUIET HOURS). **White = the frame is working** (the empty state, the flight boards). This is a deliberate revision of `12-CONTEXT.md` D-03 by choice, on glass, at the developer's request — not by way of the escalation ladder below |
+| The empty state | Reworked in the same session at the developer's request, through the same routine as its white variant (`_build_hold_canvas()` with `IDX_WHITE` / `EMPTY_INK`, no dither): a runway glyph (`draw_runway_icon()` — strip, threshold "piano keys", dashed centreline, 76px like the other two marks), the CFG-12 runway-dependent heading as a tracked label (upper-cased at draw time; `empty_heading_text()` unchanged), the rule, the body. All three hold screens are now one composition, and the field alone tells resting from working. Copy: the body breaks before "The display" as two authored lines, and the Phase 2 em dash was retired — `EMPTY_BODY_TEXT` is now `"No aircraft detected yet. The display updates the moment one is."`, the session's only locked-copy change |
 
 On-glass verdicts (developer, 2026-09-05, from normal viewing distance): the field reads
 as a soft even grey, not the noise the preview shows; Regular white body text holds at
 40px; label, rule and both glyphs are crisp; the two dark screens read as a system and
-differ clearly by glyph. All validated.
+differ clearly by glyph. All validated. The empty screen was validated on glass in its
+reworked form; its final copy fix (the dash) was accepted from the preview alone at the
+developer's explicit choice.
 
 ### Visual structure — ORIGINAL 12-02 CONTRACT (SUPERSEDED, retained as record): mirror `_build_quiet_hours_canvas()` exactly, minus the body's time reference
 
