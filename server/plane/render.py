@@ -2194,8 +2194,21 @@ def build_canvas(
     instead of raising (T-10-02-01). `theme_id`, `runway_id`, `route`, and
     the three `previous_*` arguments are all ignored for this state - it is
     always a flat White/Black screen with no flight to enrich, exactly like
-    the empty state ignores `theme_id`.
+    the empty state ignores `theme_id`. It is also ignored entirely when
+    `state == "display_off"` (12-CONTEXT.md D-03/D-04): the display-off
+    branch below never forwards it, even when a caller has one in hand from
+    a shared hold-branch call site that also serves quiet-hours - dropping
+    the argument here is what guarantees no return-time string can ever
+    reach the off screen, no matter what the caller passes.
+
+    `state == "display_off"` (12-CONTEXT.md D-03/D-04): a dedicated,
+    always-White/Black screen with the locked "DISPLAY OFF" heading and a
+    fixed body constant - no `theme_id`, `runway_id`, `route`,
+    `previous_*`, or `quiet_hours_until` value reaches it, exactly like the
+    quiet-hours and empty states ignore `theme_id`.
     """
+    if state == "display_off":
+        return _build_display_off_canvas(source_fault=source_fault, battery_low=battery_low)
     if state == "quiet_hours":
         return _build_quiet_hours_canvas(
             quiet_hours_until=quiet_hours_until, source_fault=source_fault, battery_low=battery_low)
@@ -2223,7 +2236,7 @@ def render_panel(
 ):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
-    ("departing" / "arriving" / "empty" / "quiet_hours").
+    ("departing" / "arriving" / "empty" / "quiet_hours" / "display_off").
 
     `state` is the return value of a server.plane.runway_config call
     (poll_loop.py never hardcodes it) - server.plane.runway_config.py's
@@ -2283,7 +2296,7 @@ _PREVIEW_PREVIOUS_ROUTE = {
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state", choices=["departing", "arriving", "empty", "quiet_hours"], default="empty")
+    parser.add_argument("--state", choices=["departing", "arriving", "empty", "quiet_hours", "display_off"], default="empty")
     parser.add_argument("--callsign", default=None, help="Manual QA only: fake callsign for a departing/arriving preview.")
     parser.add_argument("--hex", default="000000", help="Manual QA only: fake ICAO hex (used if --callsign is omitted).")
     parser.add_argument(
@@ -2371,7 +2384,8 @@ def build_parser():
         "--quiet-hours-until",
         default=device_config.DEFAULT_QUIET_HOURS_END,
         help="Manual QA only (D-05/D-06): the local Europe/Paris wall-clock end time the "
-             "--state quiet_hours preview's 'Back at' line shows. Ignored for every other --state.",
+             "--state quiet_hours preview's 'Back at' line shows. Ignored for every other --state, "
+             "including --state display_off, which never shows a return-time value (D-03/D-04).",
     )
     return parser
 
