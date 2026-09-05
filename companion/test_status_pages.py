@@ -281,7 +281,9 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 136  # 135 + 1 (quick task 260904-e92). 135 itself =
+EXPECTED_CHECK_COUNT = 138  # 136 + 2 (phase 13 plan 02 Task 1: the
+# read-only-note reword check and the _SOURCE_ROWS fifth-entry/"manual"
+# check — D-10/D-02). 136 = 135 + 1 (quick task 260904-e92). 135 itself =
 # 133 + 2 (06.6.4.1.1-03 Task 1: the desktop-
 # padding/mobile-density pair guard for D-15's .page-section/.theme-status/
 # .battery-trend-section >= 960px padding override; Task 2: the mobile-only
@@ -2449,8 +2451,13 @@ def main():
             for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
                 if marker not in rendered:
                     return False, "expected the migrated filter bar's %r marker to survive the move" % marker
-            if health_page._READ_ONLY_NOTE not in rendered:
-                return False, "expected the read-only note to survive the move verbatim"
+            # phase 13 (D-10) reworded this note to include two
+            # apostrophes ("row's", "prefix's"), which escape_html()'s
+            # quote=True mode renders as &#x27; — compare against the
+            # escaped form, matching this module's own single-escaping-
+            # choke-point discipline, not the raw Python literal.
+            if layout.escape_html(health_page._READ_ONLY_NOTE) not in rendered:
+                return False, "expected the read-only note to survive the move verbatim (escaped)"
             section_start = rendered.index(
                 '<h2 class="text-heading">%s</h2>' % health_page.UNRESOLVED_SECTION_HEADING)
             section_slice = rendered[section_start:section_start + 4000]
@@ -2463,6 +2470,80 @@ def main():
         "the migrated Unresolved-prefixes card keeps its filter bar, read-only note, and non-button Clear "
         "control (D-12)",
         _registry_card_keeps_filter_bar_note_and_non_button_clear)
+
+    def _read_only_note_reworded_to_point_at_airlines_not_the_runbook():
+        # phase 13 (D-10): the note now tells the operator where
+        # resolution happens (the Airlines page, via the per-row Resolve
+        # link Task 2 adds) instead of pointing at the old manual
+        # runbook. The old note's closing phrase, recovered from git
+        # history, belongs only here — never back in health_page.py,
+        # since the acceptance gate greps the page module for its
+        # absence.
+        old_note_closing_phrase = "following the existing coverage-gap runbook."
+        expected_note = (
+            "This list is read-only here — each row's Resolve link opens "
+            "the Airlines page to name that prefix's airline (and add "
+            "artwork, if it needs one).")
+        if health_page._READ_ONLY_NOTE != expected_note:
+            return False, (
+                "expected _READ_ONLY_NOTE to equal the UI-SPEC's exact new "
+                "string, got %r" % (health_page._READ_ONLY_NOTE,))
+        tmp = _mkstate("h-read-only-note-reworded")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            # The note contains two apostrophes ("row's", "prefix's"),
+            # which escape_html()'s quote=True mode renders as &#x27; —
+            # compare against the escaped form, the module's own single
+            # escaping choke-point discipline.
+            if layout.escape_html(expected_note) not in rendered:
+                return False, "expected the rendered page to contain the new note verbatim (escaped)"
+            if old_note_closing_phrase in rendered:
+                return False, "expected the old runbook-pointing phrase to be fully gone from the render"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the read-only note is reworded to name Airlines as the resolution surface and no longer points at "
+        "the manual runbook (phase 13 D-10)",
+        _read_only_note_reworded_to_point_at_airlines_not_the_runbook)
+
+    def _source_rows_gains_fifth_manual_entry():
+        # phase 13 (D-02): _SOURCE_ROWS gains a fifth "manual" tuple so
+        # the resolution-rate breakdown never folds a hand-resolved
+        # prefix into the "airline_only" bucket, whose gloss says the
+        # static prefix table did the work.
+        if len(health_page._SOURCE_ROWS) != 5:
+            return False, "expected exactly 5 _SOURCE_ROWS entries, got %d" % len(health_page._SOURCE_ROWS)
+        if health_page._SOURCE_ROWS[4][0] != "manual":
+            return False, "expected the fifth _SOURCE_ROWS entry's key to be 'manual', got %r" % (
+                health_page._SOURCE_ROWS[4][0],)
+        tmp = _mkstate("h-source-rows-manual")
+        try:
+            now = _now()
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc001", "route_source": "fresh_hit"},
+                {"ts": _iso(now), "hex": "abc002", "route_source": "manual"},
+                {"ts": _iso(now), "hex": "abc003", "route_source": "manual"},
+            ])
+            with history_db.open_db(tmp) as conn:
+                stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
+            if stats["total"] != 3:
+                return False, "expected the seeded 'manual' events to count toward the total, got %r" % (
+                    stats["total"],)
+            manual_rows = [row for row in stats["rows"] if row[0] == "Manual"]
+            if len(manual_rows) != 1 or manual_rows[0][2] != 2:
+                return False, "expected exactly one 'Manual' row with count 2, got %r" % (manual_rows,)
+
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if ">Manual<" not in rendered:
+                return False, "expected the rendered resolution-statistics table to contain a 'Manual' row label"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_SOURCE_ROWS has a fifth 'manual' entry, resolution_stats() folds a seeded 'manual' route_source "
+        "count into the total and a labelled row, and render() shows a 'Manual' row (phase 13 D-02)",
+        _source_rows_gains_fifth_manual_entry)
 
     def _quick_260902_gjj_muted_captions_compose_section_caption():
         # quick task 260902-gjj (ISSUE 1): pins the markup pair (both
@@ -2482,7 +2563,10 @@ def main():
                     "expected the battery heading's trailing span to compose "
                     "text-label with section-caption, got %r" % heading_html)
 
-            note_at = rendered.index(health_page._READ_ONLY_NOTE)
+            # phase 13 (D-10): the reworded note contains apostrophes,
+            # which escape_html() renders as &#x27; — locate the escaped
+            # form, not the raw Python literal.
+            note_at = rendered.index(layout.escape_html(health_page._READ_ONLY_NOTE))
             note_open = rendered.rindex("<p", 0, note_at)
             note_tag = rendered[note_open:rendered.index(">", note_open) + 1]
             if 'class="text-body section-caption"' not in note_tag:

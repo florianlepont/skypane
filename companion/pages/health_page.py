@@ -349,9 +349,14 @@ _NO_GAPS_HEADING = "No coverage gaps."
 _NO_GAPS_BODY = (
     "No unresolved callsign prefixes — airline coverage looks complete.")
 
+# Phase 13 (D-10) reworded this note in place: it now names Airlines as
+# the resolution surface and points at the per-row Resolve link Task 2
+# below adds, instead of the old manual runbook. This does NOT reopen
+# 06.6.4.1-04's D-11/D-12 — the registry here is still read-only; the
+# state-changing form lives on Airlines, not here.
 _READ_ONLY_NOTE = (
-    "This list is read-only by design — resolving a prefix is a manual "
-    "step done elsewhere, following the existing coverage-gap runbook.")
+    "This list is read-only here — each row's Resolve link opens the Airlines page "
+    "to name that prefix's airline (and add artwork, if it needs one).")
 
 _NO_STATS_HEADING = "No resolution data yet."
 _NO_STATS_BODY = (
@@ -363,8 +368,17 @@ RESOLUTION_WINDOW_DAYS = 30  # A month is long enough to smooth over a
 # as "recent" for a resolution-rate figure.
 
 # The four categories server/plane/enrich.py's resolve_route() documents,
-# in a fixed display order, with a plain-English gloss for each so this
-# page is readable without the source code (D-05/quick-task 260827-hyy).
+# plus a fifth added by phase 13 (D-02), in a fixed display order, with a
+# plain-English gloss for each so this page is readable without the
+# source code (D-05/quick-task 260827-hyy). This is NOT a closed
+# four-way enumeration any more — "airline_only" still means the STATIC
+# prefix table answered (server/plane/enrich.py's resolve_route()), while
+# "manual" (phase 13, D-02) is a distinct fifth value meaning the
+# operator answered it by hand, at runtime, from this companion web
+# interface. D-02 deliberately refused to fold the two together: one
+# reflects a maintained static table shipped with the code, the other
+# reflects an ad hoc runtime registry a human curates — collapsing them
+# would hide which of the two actually did the work.
 _SOURCE_ROWS = (
     ("fresh_hit", "Fresh lookup",
      "A live adsbdb lookup resolved a full route this cycle."),
@@ -377,6 +391,9 @@ _SOURCE_ROWS = (
      "Neither adsbdb nor the static prefix table resolved anything for "
      "this callsign — this is exactly what CFG-04's registry above "
      "tracks."),
+    ("manual", "Manual",
+     "The operator resolved this callsign's prefix by hand, from the "
+     "companion web interface."),
 )
 
 # quick task 260903-ghy (UIR-10): promoted from a literal inline the
@@ -1889,7 +1906,10 @@ def coverage_status(rows):
 def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
     """CFG-08's windowed resolution-rate breakdown: `history_db.
     route_source_counts()` bounded to the last `window_days`, mapped
-    onto the four documented `enrich.resolve_route()` categories.
+    onto `_SOURCE_ROWS`'s five documented categories — four from
+    `enrich.resolve_route()` plus phase 13's fifth, `"manual"`, for
+    prefixes the operator named by hand via the companion web
+    interface.
 
     The resolved percentage is the share of entries that produced any
     usable airline or route — i.e. everything except `"miss"` — matching
