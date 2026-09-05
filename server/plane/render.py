@@ -297,7 +297,18 @@ EMPTY_HEADING_TEXT = empty_heading_text(device_config.DEFAULT_RUNWAY_ID)
 # state_ink_index(). The CFG-05 source-fault badge shares it for the same
 # reason.
 EMPTY_INK = IDX_BLACK
-EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment one is."
+# 12-06 on-glass session: the developer read the empty screen on the panel and
+# asked for the break to fall before "the display", not wherever the measured
+# width lands (which orphaned "one is." on its own line). The two halves are
+# the authored lines; EMPTY_BODY_TEXT stays their joined form so the locked
+# copy is still one byte-identical string to assert against. The builder wraps
+# each half on its own, so the semantic break is honoured while the width
+# safety net still catches a line that cannot fit.
+EMPTY_BODY_LINES = (
+    "No aircraft detected yet —",
+    "the display updates the moment one is.",
+)
+EMPTY_BODY_TEXT = " ".join(EMPTY_BODY_LINES)
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
 
@@ -1842,7 +1853,7 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
         draw_runway_icon,
         RUNWAY_ICON_HEIGHT_PX,
         empty_heading_text(runway_id).upper(),
-        (EMPTY_BODY_TEXT,),
+        EMPTY_BODY_LINES,
         IDX_WHITE,
         EMPTY_INK,
         False,
