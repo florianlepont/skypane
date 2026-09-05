@@ -41,7 +41,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 127
+EXPECTED_CHECK_COUNT = 128
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -3387,8 +3387,8 @@ def main():
         # unconditionally. Proven by actual pixel colour for the full
         # registered set, not by absence of an exception.
         band_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
-        if len(band_ids) != 5:
-            return False, "expected exactly 5 registered band theme ids, found %d: %r" % (len(band_ids), band_ids)
+        if len(band_ids) != 7:
+            return False, "expected exactly 7 registered band theme ids, found %d: %r" % (len(band_ids), band_ids)
         for theme_id in band_ids:
             ink_values = _ink_pixels_drawn(theme_id)
             if IDX_WHITE not in ink_values:
@@ -3409,8 +3409,8 @@ def main():
     # the same linear interpolation _band_center_x() uses internally,
     # derived from BAND_TOP_RIGHT_FRAC/BAND_BOT_RIGHT_FRAC only, never a
     # hardcoded pixel literal - must sit to the LEFT of every previous-card
-    # text bbox's left edge, for all 5 band themes (the band's shape is
-    # colour-independent; only its fill varies).
+    # text bbox's left edge, for all registered band themes (the band's
+    # shape is colour-independent; only its fill varies).
     def _previous_card_never_collides_with_the_band():
         band_theme_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
         if not band_theme_ids:
@@ -3448,12 +3448,12 @@ def main():
         return True, ""
     check(
         "the previous card's drawn text bboxes never overlap the diagonal band's own rightmost extent, at any "
-        "of the 5 band themes, in a full two-flight render (PHASE9-6 clearance guard)",
+        "registered band theme, in a full two-flight render (PHASE9-6 clearance guard)",
         _previous_card_never_collides_with_the_band,
     )
 
-    # 118. Full legal-palette + dominance sweep: for all 5 band themes,
-    # both active states, with and without source_fault=True, build_canvas()
+    # 118. Full legal-palette + dominance sweep: for all registered band
+    # themes, both active states, with and without source_fault=True, build_canvas()
     # raises no AssertionError - _assert_legal_palette() (run internally)
     # holds with the full three-tier text and the source-fault badge both
     # present.
@@ -3688,6 +3688,57 @@ def main():
         "render.main() via build_parser() with ['--state', 'quiet_hours', '--quiet-hours-until', '07:00', "
         "'--out', <path>] returns 0 and writes exactly IMAGE_BYTES bytes",
         _cli_renders_quiet_hours_state,
+    )
+
+    # 128. Quick task 260905-e04: explicit dominance proof for the two new
+    # tone-on-tone band themes (band_blue_field/band_red_field), both active
+    # states. Check #108 already loops ALL band ids (these two included) and
+    # proves "no exception" transitively - build_canvas() runs
+    # _assert_legal_palette() internally on every render, so simply reaching
+    # the line after the call already IS the guard's own verdict; an
+    # AssertionError would have propagated and failed this check outright.
+    # This check exists to re-state that verdict explicitly and independently
+    # readably, in the check's own terms: read back canvas.getcolors() and
+    # assert the state's OWN background index (resolved through
+    # device_config.theme_background_index(), never hardcoded) is strictly
+    # the most common index, AND that that background index is the theme's
+    # own hue rather than White - the latter is what distinguishes these two
+    # from every pre-existing (White-field) band theme, and is the thing a
+    # regression would most plausibly break. Deliberately asserts the
+    # ORDERING (background dominates), never the measured pixel-count
+    # magnitudes recorded in the plan's F-2 - those are fixture- and
+    # font-dependent and not a stable thing to pin.
+    def _tinted_field_band_themes_prove_dominance_explicitly():
+        field_theme_ids = ("band_blue_field", "band_red_field")
+        missing = [t for t in field_theme_ids if t not in render.device_config.THEME_IDS]
+        if missing:
+            return False, "expected THEME_IDS to contain %r, missing %r" % (field_theme_ids, missing)
+        for theme_id in field_theme_ids:
+            for state in ("departing", "arriving"):
+                canvas = render.build_canvas(TEST_FLIGHT, state, route=TEST_ROUTE, theme_id=theme_id)
+                expected_bg_idx = render.device_config.theme_background_index(state, theme_id)
+                counts = canvas.getcolors()
+                if counts is None:
+                    return False, "theme %r state %r: canvas.getcolors() returned None (>256 colours?)" % (theme_id, state)
+                counts_sorted = sorted(counts, key=lambda pair: pair[0], reverse=True)
+                most_common_count, most_common_idx = counts_sorted[0]
+                if most_common_idx != expected_bg_idx:
+                    return False, (
+                        "theme %r state %r: most common index is %r (count %r), expected the theme's own "
+                        "background index %r to dominate" % (theme_id, state, most_common_idx, most_common_count, expected_bg_idx)
+                    )
+                if expected_bg_idx == panel_format.IDX_WHITE:
+                    return False, (
+                        "theme %r state %r: background index resolved to White, expected the theme's own "
+                        "tinted hue (this is what distinguishes tone-on-tone field themes from every "
+                        "pre-existing White-field band theme)" % (theme_id, state)
+                    )
+        return True, ""
+    check(
+        "band_blue_field/band_red_field each render via build_canvas() in both active states with the "
+        "state's own background index (never White) provably the single most common index on the panel, "
+        "stated explicitly rather than merely implied by the absence of an exception",
+        _tinted_field_band_themes_prove_dominance_explicitly,
     )
 
     total = len(results)

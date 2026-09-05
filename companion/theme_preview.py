@@ -20,7 +20,7 @@ Three things a future reader needs and cannot infer from the code alone:
    `server.poll_loop`'s in-memory state, and not from any request
    parameter. Live data would invalidate the cache on every poll cycle
    (defeating D-05's on-demand-cached-to-disk design) and would make the
-   16 previews non-comparable against each other, defeating the entire
+   18 previews non-comparable against each other, defeating the entire
    point of a side-by-side theme picker.
 
 3. **`build_canvas()` is called, not `render_panel()`.** This module needs
@@ -94,7 +94,9 @@ THEME_PREVIEW_PREVIOUS_STATE = "arriving"
 # the diagonal band's own crossing, so every theme paints something
 # different inside this box. D-07's "thin band across the top third of the
 # chip, cropped from the real 1200x1600 render" is what this constant
-# implements.
+# implements. Re-confirmed (2026-09-05) against the widened 18-theme set
+# (quick task 260905-e04's two tone-on-tone band_*_field themes) — still a
+# pairwise-distinct mean RGB across all 18, no change needed to this box.
 THEME_PREVIEW_CROP_BOX = (0, 420, 1200, 870)
 
 # 2x D-07's ~160x60 figure, so the chip's 160px-wide band stays crisp on a

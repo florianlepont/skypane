@@ -233,7 +233,8 @@ THEMES = {
     # round 15, developer-confirmed "oui !"). Every band candidate in the
     # spike rendered against `build_canvas(theme_id="white")` - the band's
     # own colour was always a separate function parameter, never a
-    # base-canvas property - so all 5 entries below carry the exact same
+    # base-canvas property - so all 5 entries immediately below (band_blue
+    # through band_black) carry the exact same
     # departing_index/arriving_index/ink_index/dithered/weight as "white"
     # itself. Only label, band_index (the band's own IDX_* colour), and
     # band_dithered (whether that band is drawn flat or dithered ~40%
@@ -241,6 +242,9 @@ THEMES = {
     # by server/plane/render.py's draw_diagonal_band() (plans 09-02/09-03)
     # via theme_is_band()/theme_band_index()/theme_band_dithered() below -
     # never by indexing THEMES directly.
+    #
+    # (Quick task 260905-e04 added two further band entries below band_black
+    # whose base canvas is NOT White - see the comment above them.)
     "band_blue": {
         "departing_index": IDX_WHITE,
         "arriving_index": IDX_WHITE,
@@ -289,6 +293,59 @@ THEMES = {
         "dithered": False,
         "weight": "regular",
         "band_index": IDX_BLACK,
+        "band_dithered": False,
+    },
+    # Quick task 260905-e04: the first two band themes whose field is NOT
+    # White - a solid diagonal band on a dithered field tinted the SAME hue
+    # as the band itself ("tone-on-tone"), per the developer's own request
+    # ("Diagonale bleu et fond bleu claire" / "Diagonale rouge et fond rouge
+    # clair"). Each row below is its `_light` sibling's base-canvas fields
+    # plus its solid-band sibling's band fields, with nothing invented:
+    #   - departing_index/arriving_index/dithered are copied from
+    #     blue_light/red_light (the hue itself, dithered True - the dithering
+    #     is what produces the ~40%-toward-White light tint via
+    #     dither.dithered_state_background()).
+    #   - ink_index/weight are ALSO copied from blue_light/red_light, NOT
+    #     from the band family's White-field/Black-ink pairing above. This
+    #     is deliberate, not an oversight: draw_main_text_block() forces
+    #     `effective_ink = IDX_WHITE` unconditionally for every band theme,
+    #     so a registry row's own ink_index never colours in-band text - it
+    #     only colours everything OUTSIDE the band (top labels, the
+    #     previous-flight card, the battery/source-fault indicators), all of
+    #     which sit on the tinted field here. The field's own on-glass-
+    #     confirmed ink/weight pairing (08-06) is what governs that surface,
+    #     not the band family's - putting Black ink on a saturated tinted
+    #     field would be an untested combination nothing has confirmed.
+    #   - band_index deliberately EQUALS departing_index/arriving_index -
+    #     tone-on-tone is the entire point, not a copy-paste slip a future
+    #     reader should "fix".
+    #   - band_dithered is False, copied from band_blue/band_red: the
+    #     developer asked for a SOLID diagonal, and a dithered band on an
+    #     already-dithered field of the same hue would leave almost no edge
+    #     to read.
+    # Disambiguation (DP-1): the `band_` prefix separates these two from the
+    # fieldless tints `blue_light`/`green_light`; the `_field` suffix
+    # separates them from `band_blue_light` (an existing Phase 9 entry)
+    # where `_light` describes the BAND's own dithered treatment, not the
+    # field - these two new ids name the FIELD instead.
+    "band_blue_field": {
+        "departing_index": IDX_BLUE,
+        "arriving_index": IDX_BLUE,
+        "ink_index": IDX_WHITE,
+        "label": "Band Blue Field",
+        "dithered": True,
+        "weight": "bold",
+        "band_index": IDX_BLUE,
+        "band_dithered": False,
+    },
+    "band_red_field": {
+        "departing_index": IDX_RED,
+        "arriving_index": IDX_RED,
+        "ink_index": IDX_WHITE,
+        "label": "Band Red Field",
+        "dithered": True,
+        "weight": "bold",
+        "band_index": IDX_RED,
         "band_dithered": False,
     },
 }
