@@ -15,7 +15,18 @@ against a static, in-repo table (D-01); `resolve_route()` (D-05) layers it
 above an adsbdb miss as a fourth outcome, `"airline_only"` - the caller
 still learns the airline, even when adsbdb has nothing. This adds zero
 network calls, zero new dependencies, and zero cache entries of its own -
-it is a pure lookup, recomputed from the static table on every call.
+it is a lookup recomputed from the static table on every call.
+
+Phase 13 (`13-add-an-illustration-for-an-unidentified-flight-from-the-comp`,
+D-01/D-02) layers a fifth, DIFFERENT-in-kind outcome on top of the same
+seam: `airline_source_from_callsign()` consults `airline_from_callsign()`'s
+static table FIRST and, only when that misses, falls through to
+`server.plane.manual_resolutions`'s runtime, operator-writable registry -
+so `resolve_route()` now classifies into five sources
+(`"fresh_hit"`/`"cache_hit"`/`"airline_only"`/`"manual"`/`"miss"`), not
+four. `airline_from_callsign()` itself keeps its exact signature and
+behaviour for every static-table input; see its own docstring for what
+changed underneath it.
 
 Live-verified this session (02-RESEARCH.md) against all 38 distinct real
 callsigns observed in Phase 1's Orly-area sample: `api.adsbdb.com/v0/
@@ -55,7 +66,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server.plane import runway_config
+from server.plane import manual_resolutions, runway_config
 
 ADSBDB_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
 
@@ -612,28 +623,116 @@ _ICAO_AIRLINE_PREFIXES = {
 }
 
 
+def static_airline_name_for_prefix(prefix):
+    """Return the STATIC-TABLE-ONLY airline name for a bare 3-letter ICAO
+    `prefix` (e.g. `"AFR"`), or `None`.
+
+    This is deliberately narrower than `airline_from_callsign()`: it never
+    consults `server.plane.manual_resolutions`'s runtime registry, only
+    `_ICAO_AIRLINE_PREFIXES`. Its one sanctioned consumer is the companion's
+    D-06 supersession check on the Airlines management list, which needs to
+    answer "has the built-in table caught up with this prefix yet?" - a
+    question `airline_from_callsign()` can no longer answer on its own once
+    the manual registry is in play, since a hit there would look identical
+    to a hit here from that caller's point of view.
+
+    Returns `None` for anything that is not exactly three uppercase ASCII
+    letters - non-string, wrong length, lowercase, or containing any
+    non-letter character. Never raises.
+    """
+    if not isinstance(prefix, str) or len(prefix) != 3 or not prefix.isalpha() or prefix != prefix.upper():
+        return None
+    return _ICAO_AIRLINE_PREFIXES.get(prefix)
+
+
+def airline_source_from_callsign(callsign):
+    """Return `(airline_name, source)` for `callsign`'s ICAO prefix (its
+    first three letters), where `source` is `"static"`, `"manual"`, or
+    `None`. This is the provenance-aware seam `airline_from_callsign()` now
+    wraps, and D-01/D-02's entry point for the phase 13 manual-resolution
+    registry.
+
+    Gate and lookup order (security-relevant - never reorder this):
+      1. `normalise_callsign(callsign)`; `None` -> `(None, None)`.
+      2. `_AIRLINE_PREFIX_SHAPE_RE` fails on the normalised callsign ->
+         `(None, None)` - this shape gate runs before any registry read, so
+         a hostile or malformed callsign never even reaches the manual
+         registry lookup.
+      3. `_ICAO_AIRLINE_PREFIXES.get(prefix)` - a hit returns
+         `(static_name, "static")` immediately. **The static table is
+         consulted first and always wins (D-06): a prefix present in both
+         tables can never report `"manual"`.**
+      4. Only once the static table misses,
+         `manual_resolutions.airline_name_for_prefix(prefix)` - a hit
+         returns `(manual_name, "manual")`.
+      5. Otherwise `(None, None)`.
+
+    Never raises (T-hyy-02): every gate above is a type/shape check before
+    either table is ever consulted, and
+    `manual_resolutions.airline_name_for_prefix()` itself never raises
+    (it reads a process-scoped dict populated by
+    `manual_resolutions.set_manual_registry_state_dir()`, never the disk).
+    """
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return None, None
+    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return None, None
+    prefix = normalised[:3]
+    static_name = _ICAO_AIRLINE_PREFIXES.get(prefix)
+    if static_name:
+        return static_name, "static"
+    manual_name = manual_resolutions.airline_name_for_prefix(prefix)
+    if manual_name:
+        return manual_name, "manual"
+    return None, None
+
+
 def airline_from_callsign(callsign):
     """Return the airline name for `callsign`'s ICAO prefix (its first
     three letters), or `None` for anything that does not resolve - an
     unknown prefix, a non-string, an int, an empty string, a bare 3-letter
     string with no flight suffix, or a callsign containing a path separator
-    or any other non-alphanumeric character. Never raises (T-hyy-02).
+    or any other non-alphanumeric character. Never raises (T-hyy-02), a
+    guarantee that now derives from `airline_source_from_callsign()`'s own
+    gates plus `manual_resolutions.airline_name_for_prefix()`'s own
+    never-raises contract.
 
-    Mirrors `illustrations.classify_aircraft_type()`'s security property
-    exactly (T-hyy-01): the only strings this function can ever return are
-    the fixed `_ICAO_AIRLINE_PREFIXES` table values, or `None` - never
-    anything derived from its argument, so a hostile callsign can never
-    reach `illustrations.py`'s path construction through this seam.
+    A one-line wrapper: `return airline_source_from_callsign(callsign)[0]`.
+    Its signature, name, and behaviour for every pre-existing (static-table)
+    input are unchanged - every one of its ~10 existing call sites and every
+    pre-phase-13 test continues to see exactly what it saw before.
 
-    Pure, no I/O, no network - a lookup against a static, in-repo table
-    (D-01), entirely independent of `lookup_route()`'s adsbdb call (D-04).
+    T-hyy-01, UPDATED (phase 13, D-01): before this phase, the only strings
+    this function could ever return were fixed `_ICAO_AIRLINE_PREFIXES`
+    table values, or `None`. That is no longer true. After D-01 the
+    returnable set additionally includes operator-supplied airline names
+    from `server.plane.manual_resolutions`'s runtime registry (see
+    `airline_source_from_callsign()` above for the static-first precedence
+    that governs which table answers). The property that used to protect
+    `illustrations.py`'s path construction - "this function can only ever
+    return a fixed-table value" - has moved upstream rather than
+    disappearing: `manual_resolutions.add_entry()` refuses at write time any
+    name whose `illustrations.normalise_airline_key()` slug fails its
+    `^[a-z0-9][a-z0-9-]*$` positive allowlist, and
+    `manual_resolutions.load_manual_resolutions()` re-applies that same
+    allowlist on every read, so a hostile or traversal-shaped name can never
+    be *stored* in the registry, let alone returned from here.
+    `illustrations._UNSAFE_KEY_RE`, `illustration_path_for_key()` and
+    `override_path_for_key()` are correctly understood as the defence-in-
+    depth *second* line against that threat now, not the first.
+    `illustrations.classify_aircraft_type()`, which this paragraph used to
+    cite as a mirror of this function's fixed-table-only property, still
+    holds that property itself and is no longer a mirror of this function.
+
+    This function performs no network access and opens no file of its own:
+    it reads a process-scoped dict that
+    `manual_resolutions.set_manual_registry_state_dir()` populates once per
+    poll cycle. A process that never calls that setter - every existing
+    test harness included - sees an empty registry here and therefore
+    exhibits exactly today's (pre-phase-13) behaviour.
     """
-    normalised = normalise_callsign(callsign)
-    if normalised is None:
-        return None
-    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
-        return None
-    return _ICAO_AIRLINE_PREFIXES.get(normalised[:3])
+    return airline_source_from_callsign(callsign)[0]
 
 
 def airline_only_route(airline_name):

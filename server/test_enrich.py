@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -27,7 +28,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 52
+EXPECTED_CHECK_COUNT = 55
 
 
 def load_fixture(name):
@@ -1120,6 +1121,122 @@ def main():
         "_parse_route()'s returned dict has no 'callsign'/'callsign_icao' key and no value equal to the raw ICAO "
         "callsign string - the raw callsign is structurally absent, not just unused by the renderer (D-08)",
         _raw_icao_callsign_never_smuggled_in,
+    )
+
+    # --- Phase 13 plan 13-03 (D-01/D-06): airline_source_from_callsign()/
+    # static_airline_name_for_prefix() - the provenance-aware seam
+    # airline_from_callsign() now wraps, and the manual-resolution
+    # registry's entry point into enrich.py. --------------------------------
+
+    from server.plane import manual_resolutions
+
+    # 51. Static-path parity: a known static prefix reports ("<name>",
+    #     "static"), an unknown one reports (None, None), and the full
+    #     existing 260827-hyy hostile-input battery (reused verbatim so the
+    #     two can never drift) all report (None, None) too, with no
+    #     registry configured.
+    def _airline_source_from_callsign_static_path_parity():
+        got = enrich.airline_source_from_callsign("TVF16VB")
+        if got != ("Transavia France", "static"):
+            return False, "airline_source_from_callsign('TVF16VB') = %r, expected ('Transavia France', 'static')" % (got,)
+        got = enrich.airline_source_from_callsign("ZZZ1234")
+        if got != (None, None):
+            return False, "airline_source_from_callsign('ZZZ1234') = %r, expected (None, None)" % (got,)
+        for case in ["ZZZ1234", "TVF", "", None, 42, "TVF/16VB"]:
+            got = enrich.airline_source_from_callsign(case)
+            if got != (None, None):
+                return False, "airline_source_from_callsign(%r) = %r, expected (None, None)" % (case, got)
+        return True, ""
+    check(
+        "airline_source_from_callsign() returns ('<name>', 'static') for a known static prefix, (None, None) for "
+        "an unknown one, and (None, None) for the full 260827-hyy hostile-input battery, with no registry "
+        "configured",
+        _airline_source_from_callsign_static_path_parity,
+    )
+
+    # 52. Manual-path resolution: a prefix with no static-table entry
+    #     resolves as "manual" through both airline_source_from_callsign()
+    #     and airline_from_callsign() once the registry is populated and
+    #     wired in; clearing the state dir restores (None, None). Resets
+    #     the process cache in a finally so it cannot leak into other
+    #     checks in this run.
+    def _airline_source_from_callsign_manual_path():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+                got = enrich.airline_source_from_callsign("ZZZ1234")
+                if got != ("Zephyr Air", "manual"):
+                    return False, "airline_source_from_callsign('ZZZ1234') = %r, expected ('Zephyr Air', 'manual')" % (got,)
+                if enrich.airline_from_callsign("ZZZ1234") != "Zephyr Air":
+                    return False, "airline_from_callsign('ZZZ1234') = %r, expected 'Zephyr Air'" % (
+                        enrich.airline_from_callsign("ZZZ1234"),
+                    )
+            manual_resolutions.set_manual_registry_state_dir(None)
+            got = enrich.airline_source_from_callsign("ZZZ1234")
+            if got != (None, None):
+                return False, "after clearing the state dir, airline_source_from_callsign('ZZZ1234') = %r, expected (None, None)" % (got,)
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "after manual_resolutions.set_manual_registry_state_dir(tmp) with a ZZZ->'Zephyr Air' entry, "
+        "airline_source_from_callsign('ZZZ1234') returns ('Zephyr Air', 'manual') and airline_from_callsign() "
+        "returns 'Zephyr Air'; clearing the state dir restores (None, None)",
+        _airline_source_from_callsign_manual_path,
+    )
+
+    # 53. D-06 collision + static_airline_name_for_prefix(): a manual entry
+    #     for a prefix already in the static table is never consulted - the
+    #     static name and source "static" win. static_airline_name_for_prefix()
+    #     returns the static name for that prefix, None for a manual-only
+    #     prefix, and handles a non-string and a wrong-length argument
+    #     without raising.
+    def _d06_collision_and_static_airline_name_for_prefix():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "TVF", "Some Operator Typo")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+                got = enrich.airline_source_from_callsign("TVF16VB")
+                if got != ("Transavia France", "static"):
+                    return False, (
+                        "D-06 violated: airline_source_from_callsign('TVF16VB') with a colliding manual entry = "
+                        "%r, expected ('Transavia France', 'static')" % (got,)
+                    )
+                if enrich.static_airline_name_for_prefix("TVF") != "Transavia France":
+                    return False, "static_airline_name_for_prefix('TVF') = %r, expected 'Transavia France'" % (
+                        enrich.static_airline_name_for_prefix("TVF"),
+                    )
+
+                result2 = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+                if result2 != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result2,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+                if enrich.static_airline_name_for_prefix("ZZZ") is not None:
+                    return False, "static_airline_name_for_prefix('ZZZ') should ignore the manual-only entry, got %r" % (
+                        enrich.static_airline_name_for_prefix("ZZZ"),
+                    )
+
+            for hostile in (None, 42, "af", "AFRX", ""):
+                try:
+                    got = enrich.static_airline_name_for_prefix(hostile)
+                except Exception as exc:
+                    return False, "static_airline_name_for_prefix(%r) raised %r" % (hostile, exc)
+                if got is not None:
+                    return False, "static_airline_name_for_prefix(%r) = %r, expected None" % (hostile, got)
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "a manual entry for a prefix already in the static table is never consulted (D-06): "
+        "airline_source_from_callsign() still reports the static name and source 'static'; "
+        "static_airline_name_for_prefix() returns the static name for that prefix, None for a manual-only prefix, "
+        "and handles non-string/wrong-length input without raising",
+        _d06_collision_and_static_airline_name_for_prefix,
     )
 
     total = len(results)
