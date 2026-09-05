@@ -313,6 +313,26 @@ dependency of any kind (confirmed by `10-RESEARCH.md`: zero new packages this ph
 
 ---
 
+## Post-Approval Amendment — Panel Screen reworked by Phase 12 (12-06 on-glass session, 2026-09-05)
+
+The "Visual structure — mirror `_build_empty_canvas()` exactly" contract above is
+**SUPERSEDED for the quiet-hours panel screen**, and retained here as the record of what
+10-02 built. Phase 12's on-glass session revised its own DISPLAY OFF screen onto a dimmed
+composition, and the developer — reading both screens on the real panel — asked for this
+one to follow, so the two "resting on purpose" screens would share one art direction.
+Both now draw through `server/plane/render.py`'s `_build_dimmed_hold_canvas()`: the Grey
+theme's dithered dark field, white ink, a filled crescent (`draw_moon_icon()`) above a
+tracked Bold `QUIET HOURS` label over a short rule, then the body. Locked copy is
+untouched — `QUIET_HOURS_HEADING_TEXT`, `QUIET_HOURS_BODY_TEMPLATE` and the
+missing-return-time branch (D-05/D-06, T-10-02-01) are exactly as 10-02 shipped them.
+The empty state is deliberately not changed: it stays the one white hold screen, because
+the frame is working there. Test 120 (`_quiet_hours_packs_white_dominant_with_black`) was
+retargeted to pin the now Black-dominant field, not relaxed. Full contract and rationale:
+`12-UI-SPEC.md`'s "Visual structure — REVISED ON GLASS" block; decision record:
+`12-CONTEXT.md` D-03 (revised); code: commit `4885206`.
+
+---
+
 ## Checker Sign-Off
 
 - [ ] Dimension 1 Copywriting: PASS
