@@ -33,7 +33,7 @@ if REPO_ROOT not in sys.path:
 # 11-01: +5 (wake_interval_s registry field: normalise bounds + bool
 # gotcha, hostile-on-disk-value degradation, save round-trip, save-rejects
 # out-of-bounds/bool with byte-identical-on-rejection, carry-forward)
-EXPECTED_CHECK_COUNT = 44
+EXPECTED_CHECK_COUNT = 45
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -356,12 +356,22 @@ def main():
             # Phase 9 (09-01): every band theme keeps the White base
             # canvas/Black ink pairing - the band's own colour is a
             # separate band_index field, never a base-canvas property
-            # (spike 003 round 15).
+            # (spike 003 round 15). NOTE: this uniform White-base/Black-ink
+            # claim covers only these 5 Phase 9 band ids - it stops being
+            # true of the band family AS A WHOLE the moment the two
+            # tone-on-tone `_field` ids below land (quick task 260905-e04).
             "band_blue": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
             "band_blue_light": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
             "band_green_light": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
             "band_red": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
             "band_black": (panel_format.IDX_WHITE, panel_format.IDX_BLACK),
+            # Quick task 260905-e04: these two copy their background/ink
+            # pairing from their `_light` tinted-field sibling instead
+            # (blue_light/red_light), not from the band family above - see
+            # THEMES' own module comment for why (ink_index never colours
+            # in-band text).
+            "band_blue_field": (panel_format.IDX_BLUE, panel_format.IDX_WHITE),
+            "band_red_field": (panel_format.IDX_RED, panel_format.IDX_WHITE),
         }
         if set(expected) != set(device_config.THEMES):
             return False, "expected mapping covers %r, THEMES actually has %r" % (set(expected), set(device_config.THEMES))
@@ -374,7 +384,7 @@ def main():
         return True, ""
 
     check(
-        "every one of the 16 registered themes carries the exact background/ink pairing expected, pinned as an explicit id-to-(background,ink) mapping",
+        "every one of the 18 registered themes carries the exact background/ink pairing expected, pinned as an explicit id-to-(background,ink) mapping",
         _ink_contrast_pairing_is_correct,
     )
 
@@ -402,11 +412,18 @@ def main():
             # dithered/weight pair matches "white"'s exactly (undithered,
             # Regular) - the band's own dithered treatment is a separate
             # band_dithered field, checked by the new accessor checks below.
+            # NOTE: this uniform undithered/Regular claim covers only these
+            # 5 Phase 9 band ids - the two tone-on-tone `_field` ids below
+            # (quick task 260905-e04) instead copy blue_light/red_light's
+            # dithered=True/weight="bold" base-canvas pair, since dithering
+            # is what produces their tinted field.
             "band_blue": (False, "regular"),
             "band_blue_light": (False, "regular"),
             "band_green_light": (False, "regular"),
             "band_red": (False, "regular"),
             "band_black": (False, "regular"),
+            "band_blue_field": (True, "bold"),
+            "band_red_field": (True, "bold"),
         }
         if set(expected) != set(device_config.THEMES):
             return False, "expected mapping covers %r, THEMES actually has %r" % (set(expected), set(device_config.THEMES))
@@ -419,7 +436,7 @@ def main():
         return True, ""
 
     check(
-        "every registered theme's base-canvas dithered/weight pair matches the on-glass-confirmed values, including Yellow Light's Regular exception and the 5 band themes' White-base values",
+        "every registered theme's base-canvas dithered/weight pair matches the on-glass-confirmed values, including Yellow Light's Regular exception, the 5 White-base band themes, and the 2 tinted-field band themes' blue_light/red_light-derived values",
         _dithered_and_weight_contract_is_correct,
     )
 
@@ -437,6 +454,7 @@ def main():
             "band_blue": "Band Blue", "band_blue_light": "Band Blue Light",
             "band_green_light": "Band Green Light", "band_red": "Band Red",
             "band_black": "Band Black",
+            "band_blue_field": "Band Blue Field", "band_red_field": "Band Red Field",
         }
         if set(expected_labels) != set(device_config.THEMES):
             return False, "expected label mapping covers %r, THEMES actually has %r" % (set(expected_labels), set(device_config.THEMES))
@@ -447,7 +465,7 @@ def main():
         return True, ""
 
     check(
-        "DEFAULT_THEME_ID is 'white' and a THEMES member; theme_label() returns the exact plain label for all 16 ids",
+        "DEFAULT_THEME_ID is 'white' and a THEMES member; theme_label() returns the exact plain label for all 18 ids",
         _default_theme_and_labels_are_correct,
     )
 
@@ -458,8 +476,11 @@ def main():
             want = theme_id in expected_band_ids
             if got != want:
                 return False, "theme_is_band(%r) returned %r, expected %r" % (theme_id, got, want)
-        if expected_band_ids != {"band_blue", "band_blue_light", "band_green_light", "band_red", "band_black"}:
-            return False, "registry's own band ids are %r, expected the 5 Phase 9 band ids" % (expected_band_ids,)
+        if expected_band_ids != {
+            "band_blue", "band_blue_light", "band_green_light", "band_red", "band_black",
+            "band_blue_field", "band_red_field",
+        }:
+            return False, "registry's own band ids are %r, expected the 7 band ids" % (expected_band_ids,)
         return True, ""
 
     check(
@@ -479,6 +500,8 @@ def main():
             "band_green_light": panel_format.IDX_GREEN,
             "band_red": panel_format.IDX_RED,
             "band_black": panel_format.IDX_BLACK,
+            "band_blue_field": panel_format.IDX_BLUE,
+            "band_red_field": panel_format.IDX_RED,
         }
         for theme_id, idx in expected.items():
             if device_config.theme_band_index(theme_id) != idx:
@@ -502,6 +525,8 @@ def main():
             "band_green_light": True,
             "band_red": False,
             "band_black": False,
+            "band_blue_field": False,
+            "band_red_field": False,
         }
         for theme_id, dithered in expected.items():
             if device_config.theme_band_dithered(theme_id) != dithered:
@@ -511,6 +536,39 @@ def main():
     check(
         "theme_band_dithered() returns THEMES's own band_dithered for every band id and False for every non-band id",
         _theme_band_dithered_matches_registry_or_false,
+    )
+
+    def _tinted_field_band_themes_are_tone_on_tone():
+        # Quick task 260905-e04: pins the actual tone-on-tone contract that
+        # makes band_blue_field/band_red_field what they are - no existing
+        # check above captures it. Deliberately derives each sibling's
+        # expected base-canvas values by READING THEMES["blue_light"]/
+        # THEMES["red_light"] rather than hardcoding them, so that if either
+        # sibling is ever re-tuned on glass, this check fails loudly instead
+        # of silently drifting - forcing a deliberate decision about whether
+        # the tinted-field band themes follow suit.
+        field_to_sibling = {"band_blue_field": "blue_light", "band_red_field": "red_light"}
+        for field_id, sibling_id in field_to_sibling.items():
+            entry = device_config.THEMES[field_id]
+            sibling = device_config.THEMES[sibling_id]
+            if entry["band_index"] != entry["departing_index"] or entry["band_index"] != entry["arriving_index"]:
+                return False, "theme %r is not tone-on-tone: band_index=%r departing_index=%r arriving_index=%r" % (
+                    field_id, entry["band_index"], entry["departing_index"], entry["arriving_index"],
+                )
+            if entry["dithered"] is not True:
+                return False, "theme %r expected dithered=True, got %r" % (field_id, entry["dithered"])
+            if entry["band_dithered"] is not False:
+                return False, "theme %r expected band_dithered=False, got %r" % (field_id, entry["band_dithered"])
+            for key in ("departing_index", "arriving_index", "ink_index", "dithered", "weight"):
+                if entry[key] != sibling[key]:
+                    return False, "theme %r key %r is %r, expected to match its tinted-field sibling %r's own %r" % (
+                        field_id, key, entry[key], sibling_id, sibling[key],
+                    )
+        return True, ""
+
+    check(
+        "band_blue_field/band_red_field are genuinely tone-on-tone (band_index equals departing_index equals arriving_index), dithered=True/band_dithered=False, and their base-canvas quadruple matches their tinted-field sibling's (blue_light/red_light) own registry row, read live rather than hardcoded",
+        _tinted_field_band_themes_are_tone_on_tone,
     )
 
     def _hostile_quiet_hours_values_yield_defaults():
