@@ -214,6 +214,60 @@ names, response shapes, telemetry printing) is untouched:
    No other endpoint, response field, status code, or telemetry print
    statement was touched by this change.
 
+7. **Added a display-off `sleep_s` pin composed inside the quiet-hours
+   extension** (Phase 12, D-01/D-05). Prior to this repository's Phase 12 state,
+   `sleep_s` was always derived from the configured (or default) wake interval,
+   extended by quiet hours when a window was active — there was no concept of a
+   manually-toggled "display off" state at all. The companion Settings page now
+   writes a genuine, user-settable `display_enabled` value via
+   `server/device_config.py`'s `save_device_config()`, and this change is this
+   vendored file's read-and-compose half of that same feature: while
+   `display_enabled` is `False`, the device's check-in cadence is pinned to a
+   fixed 300 seconds regardless of the configured wake interval, so it never
+   renders a new panel while off but keeps checking in often enough to notice
+   promptly when the toggle flips back on.
+
+   Concretely: this repository adds `DISPLAY_OFF_SLEEP_S = 300` (independently
+   redefined, never imported, matching how `WAKE_INTERVAL_MIN_S`/`MAX_S` are
+   already duplicated — origin: `server/device_config.py`'s constant of the same
+   name), `read_display_enabled(state_dir)` (mirrors `read_led_enabled()`'s
+   shape and never-raises contract: a missing file, an unreadable file,
+   malformed JSON, a non-dict document, or a present-but-non-bool
+   `display_enabled` value all degrade to `True`), and
+   `display_off_sleep_s(base_sleep_s, state_dir)` (returns `DISPLAY_OFF_SLEEP_S`
+   when `read_display_enabled()` is `False`, otherwise `base_sleep_s`
+   unchanged — a flat replacement, not a `max()`/`min()` against the base, by
+   design). The `do_GET` `/device/v1/display` branch is the single call site —
+   the response's `sleep_s` expression becomes
+   `quiet_hours_sleep_s(display_off_sleep_s(read_wake_interval_s(...), state_dir), state_dir)`.
+
+   **The nesting order is explicit and load-bearing, not a style choice.**
+   `display_off_sleep_s()` must sit *inside* `quiet_hours_sleep_s()` — feeding
+   it as `quiet_hours_sleep_s()`'s `base_sleep_s` argument — never the other
+   way round. Composed this way, the 300s off-state pin becomes the base that
+   `quiet_hours_sleep_s()`'s existing, completely unmodified
+   `max(base_sleep_s, remaining)` operates on, producing
+   `max(300, quiet_hours_remaining)`: the longer of the two always wins, so an
+   active quiet-hours window is never shortened by the display toggle (D-05's
+   sleep axis), with zero change to the Phase 10 function itself. Inverted —
+   `display_off_sleep_s()` wrapping `quiet_hours_sleep_s()` — an active
+   quiet-hours window's remaining time would be overwritten by a flat 300s and
+   the device would wake all night with the display off, defeating quiet
+   hours' entire purpose. `stub-server/test_poll_cycle.py` pins both the
+   overlap behaviour and, via an executed negative control that temporarily
+   inverts the nesting and confirms the harness fails, the specific correctness
+   of this order.
+
+   A deliberate decision **not** made here, for the same reasons already given
+   for local modifications 4 and 6 (`led_enabled`/`wake_interval_s`): this file
+   does not import `server.device_config` to read or validate the field — the
+   read logic above is a small, self-contained, independent reimplementation
+   of just the `display_enabled` half of
+   `server.device_config.normalise_display_enabled()`.
+
+   No other endpoint, response field, status code, or telemetry print
+   statement was touched by this change.
+
 **Everything else is verbatim**, including: the three endpoint
 implementations (`POST /device/v1/setup`, `GET /device/v1/display`,
 `POST /device/v1/log`, `GET /img/*`), the `--image`/`--port`/`--secret`/
@@ -251,9 +305,10 @@ reference simulator, per `docs/PROTOCOL.md`'s own text).
 
 A future re-pin of `byos_server.py` to a newer upstream commit is a
 deliberate, reviewable act: diff the new upstream file against the version
-recorded here, re-apply all **six** local modifications (`--state-dir`,
+recorded here, re-apply all **seven** local modifications (`--state-dir`,
 `--image-url-scheme`, the DEVICE-04 `X-Battery-Mv` validation/persistence,
-the LED read, the quiet-hours `sleep_s` extension, and the wake-interval
-read), update the pinned commit hash above, and re-run
-`stub-server/test_poll_cycle.py` to confirm the contract — including both
-scheme checks and the quiet-hours drift guard — still holds.
+the LED read, the quiet-hours `sleep_s` extension, the wake-interval
+read, and the display-off `sleep_s` pin), update the pinned commit hash
+above, and re-run `stub-server/test_poll_cycle.py` to confirm the contract
+— including both scheme checks, the quiet-hours drift guard, and the
+display-off composition-order coverage — still holds.
