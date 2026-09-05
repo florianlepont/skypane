@@ -28,7 +28,7 @@
   une fois depuis un checkout 374 commits en retard : deux phases entières et
   la moitié des seeds manquaient, sans aucun signe visible.
 
-  Dernière génération : 2026-09-04, au commit a85222e.
+  Dernière génération : 2026-09-05, au commit 67c4989.
 -->
 <title>Tour de contrôle SkyPane</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
@@ -331,11 +331,11 @@
     <div>
       <p class="eyebrow">SkyPane · rapport d'état</p>
       <h1>Tour de contrôle</h1>
-      <p class="masthead-sub">Roadmap, backlog v2, seeds et bugs — consolidé depuis <code>.planning/</code> au commit <code>a85222e</code>.</p>
+      <p class="masthead-sub">Roadmap, backlog v2, seeds et bugs — consolidé depuis <code>.planning/</code> au commit <code>67c4989</code>.</p>
     </div>
     <div class="masthead-meta">
       <strong>Synthèse</strong>
-      04 sept. 2026
+      05 sept. 2026
     </div>
   </div>
 
@@ -356,9 +356,9 @@
       <div class="stat-note">4 sessions debug résolues et archivées</div>
     </div>
     <div class="stat">
-      <div class="stat-value accent">5</div>
+      <div class="stat-value accent">6</div>
       <div class="stat-label">Seeds dormantes</div>
-      <div class="stat-note">sur 9 · 3 réalisées, 1 partielle · + 9 items backlog v2</div>
+      <div class="stat-note">sur 10 · 3 réalisées, 1 partielle · + 9 items backlog v2</div>
     </div>
   </div>
 
@@ -513,7 +513,7 @@
   <section class="board">
     <div class="board-head">
       <h2>Seeds</h2>
-      <span class="count">.planning/seeds/ · 9 fichiers</span>
+      <span class="count">.planning/seeds/ · 10 fichiers</span>
     </div>
     <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Deux ont été promues en phases cette semaine (10 et 11) — c'est le mécanisme qui fonctionne.</p>
 
@@ -526,6 +526,16 @@
         <p class="seed-body">L'interrupteur manuel et immédiat, là où les heures calmes couvrent le cas programmé : partir une semaine, un invité dans la pièce, ou simplement vouloir le mur vide aujourd'hui.</p>
         <p class="seed-new-flag">Scope small — Phases 10 et 11 ont déjà construit l'écran d'état, le gate du poll-loop et l'extension de <code>sleep_s</code> à réutiliser.</p>
         <p class="seed-trigger"><b>Réveil :</b> à la prochaine ouverture des contrôles de la page Settings. Aucune dépendance au verdict batterie, contrairement à ses voisines.</p>
+      </div>
+
+      <div class="seed-card fresh">
+        <div class="seed-top">
+          <p class="seed-title">SEED-005 — Ajouter l'illustration d'un vol non identifié depuis le web</p>
+          <span class="pill accent">Nouvelle</span>
+        </div>
+        <p class="seed-body">Depuis les pages qui montrent déjà le manque (les préfixes non résolus de Health, la galerie Airlines), permettre à l'opérateur d'uploader l'image manquante — au lieu de quitter l'interface pour un runbook manuel.</p>
+        <p class="seed-new-flag">Deux verrous : l'upload teste l'appartenance de la clé <em>avant</em> tout (parade à une menace identifiée), donc il ne sait que <em>remplacer</em> ; et la liste non résolue est read-only par décision explicite, que cette seed rouvre.</p>
+        <p class="seed-trigger"><b>Réveil :</b> à la prochaine ouverture des surfaces de couverture (Health, Airlines). Scope medium — le pipeline d'upload existe déjà, le travail est le pont entre deux espaces de noms.</p>
       </div>
 
       <div class="seed-card fresh">
