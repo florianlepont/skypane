@@ -722,13 +722,13 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phase 10's and Phase 11's own precedent (`REQUIREMENTS.md` has no display-toggle requirement ID). To be confirmed at discuss time; if promoted to a requirement it would be a new CFG-13-style entry.
 **Depends on:** Phase 10 (the render state, the poll-loop gate pattern and the `sleep_s` seam this extends) and Phase 11 (`wake_interval_s`'s 60-3600s bounds, the natural reference for the new bound's own range)
 **Closes with:** a blocking on-glass verification, same D-13 precedent as Phases 8, 9 and 10 — this phase ships a new render state, and no render state has ever been trusted on this project until it has been seen on real Spectra 6 ink.
-**Plans:** 2/6 plans executed
+**Plans:** 4/6 plans executed
 
 Plans:
 
 - [x] 12-01-PLAN.md — `display_enabled` registry field (D-08/D-09) and the `DISPLAY_OFF_SLEEP_S = 300` constant (D-01) in `server/device_config.py`
 - [x] 12-02-PLAN.md — the DISPLAY OFF panel render state with its locked no-return-time copy (D-03/D-04)
-- [ ] 12-03-PLAN.md — the vendored server's 300s off-state `sleep_s` pin, composed inside the quiet-hours extension so the longest sleep wins (D-01/D-05 sleep axis) + VENDOR.md entry
+- [x] 12-03-PLAN.md — the vendored server's 300s off-state `sleep_s` pin, composed inside the quiet-hours extension so the longest sleep wins (D-01/D-05 sleep axis) + VENDOR.md entry
 - [ ] 12-04-PLAN.md — the poll-loop gate ahead of detection and the hold-state latch generalisation (D-05 display axis / D-06 / D-07)
-- [ ] 12-05-PLAN.md — the companion Settings Display checkbox, sixth and last group (D-02/D-08/D-09)
+- [x] 12-05-PLAN.md — the companion Settings Display checkbox, sixth and last group (D-02/D-08/D-09)
 - [ ] 12-06-PLAN.md — blocking on-glass verification against both sibling hold screens plus the full off-and-back-on operator loop

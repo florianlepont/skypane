@@ -4,15 +4,15 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 11
 status: executing
-stopped_at: Quick task 260904-kug complete (SEED-001/SEED-002 marked fulfilled). Phase 11 and Phase 06.6.4.1.1 both merged and complete; Phase 06.6.4.1 remains open pending its own Task 2 developer verification checklist.
-last_updated: "2026-09-05T17:56:35.774Z"
+stopped_at: Completed 12-05-PLAN.md
+last_updated: "2026-09-05T18:08:40.322Z"
 last_activity: 2026-09-04
 last_activity_desc: "Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence"
 progress:
   total_phases: 25
   completed_phases: 22
   total_plans: 125
-  completed_plans: 120
+  completed_plans: 122
   percent: 88
 ---
 
@@ -333,6 +333,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.4.1.1 P05 | 55min | 3 tasks | 4 files |
 | Phase 06.6.4.1.1 P06 | 55min | 3 tasks | 7 files |
 | Phase 12 P02 | 25min | 3 tasks | 2 files |
+| Phase 12 P05 | 15min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -551,6 +552,8 @@ Recent decisions affecting current work:
 - [Phase 06.6.4.1.1]: Applied the plan's own theme-chip accent-reservation broadening to 06.6.1-UI-SPEC.md's Color section, since that file is still present on disk (not just recorded as the fallback)
 - [Phase ?]: Developer's 06.6.4.1.1-06 checkpoint approved the entire revised visual contract (theme-chip grid, heading ladder incl. D-09's second reversal, label voice, spacing/density); the one requested fix (selected-state background wash on .runway-card/.theme-chip, matching .theme-form .theme-option--active's idiom) was applied and verified live in both themes.
 - [Phase ?]: Placed display_off dispatch branch above both quiet_hours and empty in build_canvas(), closing the same silent-fallback trap plan 10-02 documented
+- [Phase ?]: display_group() mirrors led_group()'s markup shape (lone checkbox, no dependent fields), not quiet_hours_group()'s
+- [Phase ?]: DISPLAY_SECTION_CAPTION states its own ~5-minute apply latency (D-02) instead of the generic next-scheduled-poll clause, because D-01 pins the off-state check-in to a fixed 300s cadence independent of wake_interval_s/quiet hours
 
 ### Pending Todos
 
@@ -638,8 +641,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-05T17:54:02.459Z
-Stopped at: Quick task 260904-kug complete (SEED-001/SEED-002 marked fulfilled). Phase 11 and Phase 06.6.4.1.1 both merged and complete; Phase 06.6.4.1 remains open pending its own Task 2 developer verification checklist.
+Last session: 2026-09-05T18:08:40.306Z
+Stopped at: Completed 12-05-PLAN.md
 
 Resume file: 
 
