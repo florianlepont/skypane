@@ -41,11 +41,16 @@ constant (Phase 06.2); added a quiet-hours-aware sleep_s extension
 (read_quiet_hours() / quiet_hours_sleep_s()) so /device/v1/display
 extends the base --sleep value to span the companion app's saved
 scheduled-quiet-hours window instead of always returning the raw
-per-poll value (Phase 10); and added a read-only wake_interval_s lookup
+per-poll value (Phase 10); added a read-only wake_interval_s lookup
 (read_wake_interval_s()) so the base value fed into that quiet-hours
 extension is the companion app's saved wake interval when one is set,
-falling back to --sleep when it is not (Phase 11). See
-stub-server/VENDOR.md for the full list of local changes.
+falling back to --sleep when it is not (Phase 11); and added a
+read-only display_enabled lookup (read_display_enabled()) plus a
+display_off_sleep_s() composer so /device/v1/display pins sleep_s to a
+fixed 300s off-state cadence when the companion app's saved
+display_enabled is False, composed inside the quiet-hours extension so
+the longer of the two always wins (Phase 12). See stub-server/VENDOR.md
+for the full list of local changes.
 """
 import argparse
 import hashlib
@@ -94,6 +99,17 @@ QUIET_HOURS_TZ = ZoneInfo("Europe/Paris")
 WAKE_INTERVAL_MIN_S = 60
 WAKE_INTERVAL_MAX_S = 3600
 
+# Phase 12 (D-01): the fixed off-state check-in cadence while display_enabled is False.
+# Independently redefined here rather than imported from server/device_config.py - the
+# same vendor-boundary rationale as WAKE_INTERVAL_MIN_S/MAX_S immediately above. Origin:
+# server/device_config.py's DISPLAY_OFF_SLEEP_S constant of the same name and value; the
+# two must be kept numerically equal by hand, in the same commit, matching that module's
+# own cross-reference comment. Like WAKE_INTERVAL_MIN_S/MAX_S, this is NOT covered by
+# test_poll_cycle.py's byte-for-byte _quiet_hours_drift_guard, which extracts whole `def`
+# blocks and has nothing to compare for a bare integer - Task 2 adds a lighter,
+# purpose-built parity check instead.
+DISPLAY_OFF_SLEEP_S = 300
+
 
 def state_path(state_dir):
     return os.path.join(state_dir, "byos_state.json")
@@ -138,6 +154,35 @@ def read_led_enabled(state_dir):
     if not isinstance(data, dict):
         return True
     value = data.get("led_enabled")
+    if isinstance(value, bool):
+        return value
+    return True
+
+
+def read_display_enabled(state_dir):
+    """Best-effort read of the shared device_config.json's display_enabled
+    field. Never raises.
+
+    The file is written by companion/app.py's config page via
+    server/device_config.py's save_device_config(); every failure mode
+    here (missing file, unreadable file, malformed JSON, a non-dict
+    document, or a present-but-non-bool display_enabled value) degrades
+    to enabled (True) - the same fail-open direction
+    server/device_config.py's normalise_display_enabled() chose, and for
+    the same reason: a missing, unreadable, malformed or wrong-typed
+    config can never pin a healthy device to the 300s off-state cadence
+    (DISPLAY_OFF_SLEEP_S) and can never darken a frame that a corrupted
+    file merely failed to describe. This is the only place in this file
+    that reads that key.
+    """
+    try:
+        with open(device_config_path(state_dir)) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return True
+    if not isinstance(data, dict):
+        return True
+    value = data.get("display_enabled")
     if isinstance(value, bool):
         return value
     return True
@@ -274,6 +319,41 @@ def read_quiet_hours(state_dir):
     if not (isinstance(end_hm, str) and _HHMM_RE.match(end_hm)):
         return None
     return start_hm, end_hm
+
+
+def display_off_sleep_s(base_sleep_s, state_dir):
+    """Return the sleep_s to feed into quiet_hours_sleep_s() as its base:
+    exactly DISPLAY_OFF_SLEEP_S (300) when the display is off, otherwise
+    `base_sleep_s` unchanged (Phase 12, D-01).
+
+    This is a flat REPLACEMENT, deliberately not a max() or a min()
+    against `base_sleep_s` - that is the whole content of D-01. The
+    asymmetry is intentional in both directions, not an oversight for a
+    later reader to "restore consistency" on: against a short configured
+    wake_interval_s (floor 60s) the pin cuts the wake count roughly
+    fivefold while off; against a long one (ceiling 3600s) it makes
+    switching the display back on *faster* than the configured interval
+    would have - a predictable within-five-minutes instead of up to an
+    hour (D-02). Serving a value shorter than the configured interval is
+    the intended off-state behaviour here.
+
+    Composition order is load-bearing (D-05, sleep axis): this function's
+    result must be passed as quiet_hours_sleep_s()'s `base_sleep_s`
+    argument, i.e. `quiet_hours_sleep_s(display_off_sleep_s(...), ...)`,
+    never the other way round. Nested this way, the 300s pin becomes the
+    base that quiet_hours_sleep_s()'s own `max(base_sleep_s, remaining)`
+    operates on, yielding `max(300, quiet_hours_remaining)` for free with
+    no change to that function. Inverted - display_off_sleep_s() wrapping
+    quiet_hours_sleep_s() - an active quiet-hours window's remaining time
+    would be overwritten by a flat 300s, and the device would wake all
+    night with the display off, defeating quiet hours entirely. See the
+    do_GET /device/v1/display response construction below for the actual
+    composition, and Task 2's negative control for a live-executed proof
+    that the inverted order fails.
+    """
+    if read_display_enabled(state_dir) is False:
+        return DISPLAY_OFF_SLEEP_S
+    return base_sleep_s
 
 
 def quiet_hours_sleep_s(base_sleep_s, state_dir, now=None):
@@ -465,8 +545,29 @@ class Handler(BaseHTTPRequestHandler):
                 # unit) when it is not. The quiet-hours extension still
                 # layers on top of whichever base wins; no deployment, env
                 # or firmware change is required.
+                # Phase 12 (D-01/D-05): display_off_sleep_s() sits between
+                # read_wake_interval_s() and quiet_hours_sleep_s(),
+                # replacing the wake-interval-derived base with the fixed
+                # DISPLAY_OFF_SLEEP_S (300) whenever display_enabled is
+                # False. The nesting order below is deliberate and must
+                # not be swapped: composed as
+                # quiet_hours_sleep_s(display_off_sleep_s(...), ...), the
+                # 300s pin becomes quiet_hours_sleep_s()'s own base, so its
+                # existing max(base_sleep_s, remaining) produces
+                # max(300, quiet_hours_remaining) - the display toggle and
+                # quiet hours can overlap without either one shortening the
+                # device's sleep below what the other alone would have
+                # given it (D-05's sleep axis). Composed the other way
+                # round, an active quiet-hours window would be overwritten
+                # by a flat 300s and the device would wake all night with
+                # the display off. See display_off_sleep_s()'s own
+                # docstring for the full reasoning, and
+                # stub-server/test_poll_cycle.py for an executed negative
+                # control proving the inverted order fails.
                 "sleep_s": quiet_hours_sleep_s(
-                    read_wake_interval_s(self.args.state_dir, self.args.sleep),
+                    display_off_sleep_s(
+                        read_wake_interval_s(self.args.state_dir, self.args.sleep),
+                        self.args.state_dir),
                     self.args.state_dir),
                 "firmware": None,
                 "reset": False,

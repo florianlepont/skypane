@@ -308,6 +308,20 @@ ROUTE_FALLBACK_TEXT = "Route unavailable"
 QUIET_HOURS_HEADING_TEXT = "QUIET HOURS"
 QUIET_HOURS_BODY_TEMPLATE = "Back at %s"
 
+# D-03/D-04 (12-CONTEXT.md, 12-UI-SPEC.md Panel Screen Copywriting Contract):
+# the remote display-off screen's locked English copy. Unlike
+# QUIET_HOURS_BODY_TEMPLATE above, this body is a plain string constant, not
+# a `%`-template - a manual toggle has no end time, so there is no value to
+# interpolate, and D-04 forbids inventing one (no "Back at HH:MM", no
+# countdown, no duration). The copy also deliberately withholds any of the
+# fault vocabulary SOURCE_FAULT_TEXT below already owns ("unavailable",
+# "error", "offline", "disconnected") - this is an intentional operator
+# action, not a genuine fault, and blurring the two is exactly the ambiguity
+# D-03 rejected the blank-field option to avoid. Do not localise; every
+# other panel string is English.
+DISPLAY_OFF_HEADING_TEXT = "DISPLAY OFF"
+DISPLAY_OFF_BODY_TEXT = "Switched off from the companion page. Turn it back on there anytime."
+
 # CFG-05 (D-06 seed .planning/seeds/on-device-fault-icon.md): the source-
 # fault alert badge's caption - short, English (D-23), and pointing at the
 # companion page, which is where an all-sources-down outage is actually
@@ -1875,6 +1889,72 @@ def _build_quiet_hours_canvas(quiet_hours_until=None, source_fault=False, batter
     return canvas
 
 
+def _build_display_off_canvas(source_fault=False, battery_low=False):
+    """Build the remote display-off canvas (D-03/D-04, 12-UI-SPEC.md): a
+    dedicated, deliberate exception to the project's "no on-screen status
+    text" rule, drawn once by poll_loop.py (plan 12-04) at the poll that
+    first enters the off hold state.
+
+    Structurally a near-verbatim copy of `_build_quiet_hours_canvas()`
+    (12-UI-SPEC.md's locked "mirror the precedent exactly" default): flat
+    White background, EMPTY_INK text, identical vertical-centring formula.
+    `theme_id` and `runway_id` are both ignored - this screen is always
+    White/Black regardless of the currently configured theme, exactly like
+    the empty state and the quiet-hours screen.
+
+    Unlike the quiet-hours screen, there is no `quiet_hours_until`
+    parameter and no missing-value branch: DISPLAY_OFF_BODY_TEXT is a fixed
+    constant with no interpolated value, so the body is always drawn -
+    there is no "value is missing" case to handle because there is no
+    value at all (D-03/D-04). The body string is meaningfully longer than
+    the quiet-hours screen's one-liner and is expected to wrap; the wrap is
+    decided by `_wrap_text()` against `safe_width`, never assumed to be a
+    single line.
+
+    `battery_low`/`source_fault` (D-04/D-06, CFG-05) match
+    `_build_empty_canvas()`'s/`_build_quiet_hours_canvas()`'s own
+    precedent: both indicators are device/server-health facts independent
+    of this screen's content, drawn in EMPTY_INK.
+    """
+    canvas = pf.new_canvas(IDX_WHITE)
+    draw = ImageDraw.Draw(canvas)
+    heading_text = DISPLAY_OFF_HEADING_TEXT
+    body_font = _font(EMPTY_BODY_FONT)
+    center_x = WIDTH // 2
+    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
+
+    heading_font = fit_text_size(PT_SERIF_BOLD, EMPTY_HEADING_FONT[1], heading_text, safe_width, EMPTY_HEADING_MIN_SIZE)
+
+    heading_ascent, heading_descent = heading_font.getmetrics()
+    heading_height = heading_ascent + heading_descent
+
+    body_lines = _wrap_text(body_font, DISPLAY_OFF_BODY_TEXT, safe_width)
+    body_ascent, body_descent = body_font.getmetrics()
+    body_line_height = body_ascent + body_descent
+
+    total_height = heading_height + (SPACE_SM + len(body_lines) * body_line_height if body_lines else 0)
+    start_y = (HEIGHT - total_height) // 2
+
+    heading_bbox = draw.textbbox((center_x, start_y), heading_text, font=heading_font, anchor="ma")
+    _assert_in_safe_box(heading_bbox, "display-off heading")
+    draw.text((center_x, start_y), heading_text, font=heading_font, fill=EMPTY_INK, anchor="ma")
+
+    y = start_y + heading_height + SPACE_SM
+    for line in body_lines:
+        line_bbox = draw.textbbox((center_x, y), line, font=body_font, anchor="ma")
+        _assert_in_safe_box(line_bbox, "display-off body line")
+        draw.text((center_x, y), line, font=body_font, fill=EMPTY_INK, anchor="ma")
+        y += body_line_height
+
+    if source_fault:
+        draw_source_fault_badge(canvas, EMPTY_INK, weight="bold")
+
+    if battery_low:
+        draw_battery_icon(canvas, draw, EMPTY_INK)
+
+    return canvas
+
+
 _LEGAL_PANEL_INDICES = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN}
 
 
@@ -2114,8 +2194,21 @@ def build_canvas(
     instead of raising (T-10-02-01). `theme_id`, `runway_id`, `route`, and
     the three `previous_*` arguments are all ignored for this state - it is
     always a flat White/Black screen with no flight to enrich, exactly like
-    the empty state ignores `theme_id`.
+    the empty state ignores `theme_id`. It is also ignored entirely when
+    `state == "display_off"` (12-CONTEXT.md D-03/D-04): the display-off
+    branch below never forwards it, even when a caller has one in hand from
+    a shared hold-branch call site that also serves quiet-hours - dropping
+    the argument here is what guarantees no return-time string can ever
+    reach the off screen, no matter what the caller passes.
+
+    `state == "display_off"` (12-CONTEXT.md D-03/D-04): a dedicated,
+    always-White/Black screen with the locked "DISPLAY OFF" heading and a
+    fixed body constant - no `theme_id`, `runway_id`, `route`,
+    `previous_*`, or `quiet_hours_until` value reaches it, exactly like the
+    quiet-hours and empty states ignore `theme_id`.
     """
+    if state == "display_off":
+        return _build_display_off_canvas(source_fault=source_fault, battery_low=battery_low)
     if state == "quiet_hours":
         return _build_quiet_hours_canvas(
             quiet_hours_until=quiet_hours_until, source_fault=source_fault, battery_low=battery_low)
@@ -2143,7 +2236,7 @@ def render_panel(
 ):
     """Return a packed 960,000-byte panel for `flight` (the normalised dict
     from detect.select_runway3_aircraft(), or None) in `state`
-    ("departing" / "arriving" / "empty" / "quiet_hours").
+    ("departing" / "arriving" / "empty" / "quiet_hours" / "display_off").
 
     `state` is the return value of a server.plane.runway_config call
     (poll_loop.py never hardcodes it) - server.plane.runway_config.py's
@@ -2203,7 +2296,7 @@ _PREVIEW_PREVIOUS_ROUTE = {
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--state", choices=["departing", "arriving", "empty", "quiet_hours"], default="empty")
+    parser.add_argument("--state", choices=["departing", "arriving", "empty", "quiet_hours", "display_off"], default="empty")
     parser.add_argument("--callsign", default=None, help="Manual QA only: fake callsign for a departing/arriving preview.")
     parser.add_argument("--hex", default="000000", help="Manual QA only: fake ICAO hex (used if --callsign is omitted).")
     parser.add_argument(
@@ -2291,7 +2384,8 @@ def build_parser():
         "--quiet-hours-until",
         default=device_config.DEFAULT_QUIET_HOURS_END,
         help="Manual QA only (D-05/D-06): the local Europe/Paris wall-clock end time the "
-             "--state quiet_hours preview's 'Back at' line shows. Ignored for every other --state.",
+             "--state quiet_hours preview's 'Back at' line shows. Ignored for every other --state, "
+             "including --state display_off, which never shows a return-time value (D-03/D-04).",
     )
     return parser
 

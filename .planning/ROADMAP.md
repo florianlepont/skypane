@@ -36,6 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 9: Diagonal band theme** - A new dedicated theme (additive to Phase 8's 11) adding a diagonal decorative trapezoid band behind the aircraft illustration in 5 colours (blue/blue-light-dithered/green-light-dithered/red/black), a split top-label tag, a three-tier flight-identifier hierarchy centred inside the band for both the main and previous cards, band-aware ink colour, and a required on-glass verification pass — implements spike `.planning/spikes/003-diagonal-band-theme/`. Planned 2026-09-02: 4 plans across 4 waves (0/4 executed). (completed 2026-09-02)
 - [x] **Phase 10: Scheduled quiet hours** - Pause the frame's wake/poll/display cycle during a configurable window (curfew), via a server-side skip of the display refresh — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md` at the developer's request (2026-09-02). Not yet planned. (completed 2026-09-03)
 - [x] **Phase 11: Web-configurable wake interval** - Make `SKYPANE_SLEEP_S` configurable through the companion web interface instead of SSH-only env-file edits — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md` at the developer's request (2026-09-02). Planned 2026-09-04: 4 plans across 3 waves (3/4 executed). (completed 2026-09-04)
+- [ ] **Phase 12: Remote display on/off toggle** - Turn the e-ink panel dark on demand from the companion Settings page, and bring it back, without touching hardware — the manual, immediate sibling of Phase 10's scheduled quiet hours. Promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request (2026-09-05). Not yet discussed or planned.
 
 ## Phase Details
 
@@ -703,3 +704,31 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 11-04-PLAN.md — `SKYPANE_SLEEP_S` environment pre-fill for the Wake interval field in `companion/app.py` (wave 3)
+
+### Phase 12: Remote display on/off toggle
+
+**Goal:** The operator can turn the frame dark on demand from the companion Settings page, and bring it back, without touching hardware. This is the manual, immediate sibling of Phase 10's scheduled quiet hours: quiet hours covers "dark every night between 23:00 and 07:00", this covers "leaving for a week", "guest sleeping in the room", or simply not wanting the frame lit today. Today the only ways to get there are bending the quiet-hours window into something it was not designed for, or physically unplugging the frame.
+
+**Note on origin (2026-09-05):** Promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request, chosen over the four other dormant seeds. The seed scoped it *small* on the strength of Phase 10's machinery; investigation before promotion found that estimate half right — see the central design decision below — so it is scoped as a phase rather than a quick task, matching Phases 10 and 11's own precedent for the same file surface.
+
+**What carries over from Phase 10.** Two of the three hard parts are already solved and must be reused, not rebuilt: (1) *what "off" means on e-ink* — `10-02` built a dedicated "QUIET HOURS / Back at HH:MM" render state rather than blanking, precisely because the panel holds its last image for free; and (2) *the hold pattern* — `10-04`'s `poll_loop.py` gate renders once at entry, holds, and repaints the live board on exit, latched through `poll_state`.
+
+**The central design decision — what does NOT carry over.** `quiet_hours_sleep_s()`'s `max(base_sleep_s, remaining)` derives `remaining` from a window's end time. **A manual toggle has no end time**, so that computation cannot be reused. An open-ended off state needs a *bounded* sleep instead, so the device still wakes periodically to learn it has been switched back on — `sleep_s` cannot be infinite. That bound is a direct, user-facing trade-off: a long bound saves real battery but makes "turn it back on" take up to that long to appear on the glass; a short bound is responsive but saves almost nothing over simply skipping the render. **This is a behavioural choice for the developer, not an implementation detail — settle it in `/gsd-discuss-phase 12`, do not assume a default.**
+
+**Also to settle in discussion:** (a) precedence when this toggle and quiet hours are both active — "off wins, always" is the obvious answer, but it must be explicit and tested rather than emergent from whichever gate `run_once()` happens to evaluate first; (b) the off-state panel's own copy, which unlike quiet hours has no "Back at HH:MM" time it can honestly promise.
+
+**Expected surface** (mirroring Phase 10, to be confirmed at plan time): a `display_enabled` field in `server/device_config.py`'s registry following `normalise_led_enabled()`'s never-raising pattern; a Settings toggle in `companion/pages/config_page.py` reusing the shared `settings-checkbox` class; the gate in `server/poll_loop.py`; the bounded `sleep_s` in the vendored `stub-server/byos_server.py`; and the off-state canvas in `server/plane/render.py`.
+
+**Requirements**: None expected — unmapped phase promoted from a seed, matching Phase 10's and Phase 11's own precedent (`REQUIREMENTS.md` has no display-toggle requirement ID). To be confirmed at discuss time; if promoted to a requirement it would be a new CFG-13-style entry.
+**Depends on:** Phase 10 (the render state, the poll-loop gate pattern and the `sleep_s` seam this extends) and Phase 11 (`wake_interval_s`'s 60-3600s bounds, the natural reference for the new bound's own range)
+**Closes with:** a blocking on-glass verification, same D-13 precedent as Phases 8, 9 and 10 — this phase ships a new render state, and no render state has ever been trusted on this project until it has been seen on real Spectra 6 ink.
+**Plans:** 4/6 plans executed
+
+Plans:
+
+- [x] 12-01-PLAN.md — `display_enabled` registry field (D-08/D-09) and the `DISPLAY_OFF_SLEEP_S = 300` constant (D-01) in `server/device_config.py`
+- [x] 12-02-PLAN.md — the DISPLAY OFF panel render state with its locked no-return-time copy (D-03/D-04)
+- [x] 12-03-PLAN.md — the vendored server's 300s off-state `sleep_s` pin, composed inside the quiet-hours extension so the longest sleep wins (D-01/D-05 sleep axis) + VENDOR.md entry
+- [ ] 12-04-PLAN.md — the poll-loop gate ahead of detection and the hold-state latch generalisation (D-05 display axis / D-06 / D-07)
+- [x] 12-05-PLAN.md — the companion Settings Display checkbox, sixth and last group (D-02/D-08/D-09)
+- [ ] 12-06-PLAN.md — blocking on-glass verification against both sibling hold screens plus the full off-and-back-on operator loop

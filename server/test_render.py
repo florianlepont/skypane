@@ -41,7 +41,11 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 128
+# 12-02: +6 (display_off render state - locked copy constants,
+# _build_display_off_canvas() theme-independence, the dispatch-ordering
+# regression guard shared with quiet_hours/empty, quiet_hours_until
+# non-leak, battery/fault indicators, palette+safe-box compliance)
+EXPECTED_CHECK_COUNT = 134
 
 IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN = 0, 1, 2, 3, 4, 5
 NIBBLE_BLACK, NIBBLE_WHITE, NIBBLE_YELLOW, NIBBLE_RED, NIBBLE_BLUE, NIBBLE_GREEN = 0x0, 0x1, 0x2, 0x3, 0x5, 0x6
@@ -3739,6 +3743,160 @@ def main():
         "state's own background index (never White) provably the single most common index on the panel, "
         "stated explicitly rather than merely implied by the absence of an exception",
         _tinted_field_band_themes_prove_dominance_explicitly,
+    )
+
+    # 129. Plan 12-02, Task 1: the display-off canvas is a flat White
+    # background whose only other index is Black, carries the locked
+    # heading and body, and is byte-identical across the FULL registered
+    # THEME_IDS set (D-03) - mirrors _quiet_hours_ignores_theme_id() but
+    # iterates the real registry rather than spot-checking two ids, since
+    # this screen must ignore theme_id entirely, not merely for one pair.
+    def _display_off_flat_white_black_across_all_themes():
+        theme_ids = list(render.device_config.THEME_IDS)
+        if not theme_ids:
+            return False, "device_config.THEME_IDS is empty - nothing to iterate"
+        reference = None
+        for theme_id in theme_ids:
+            canvas = render.build_canvas(None, "display_off", theme_id=theme_id)
+            colors = canvas.getcolors()
+            idx_set = {value for _count, value in colors} if colors else set()
+            bad = idx_set - {IDX_WHITE, IDX_BLACK}
+            if bad:
+                return False, (
+                    "display-off canvas (theme_id=%r) contains index(es) other than White/Black: %r"
+                    % (theme_id, sorted(bad))
+                )
+            if IDX_WHITE not in idx_set:
+                return False, "display-off canvas (theme_id=%r) has no White pixels" % (theme_id,)
+            if IDX_BLACK not in idx_set:
+                return False, "display-off canvas (theme_id=%r) has no Black pixels" % (theme_id,)
+            counts = {value: count for count, value in colors}
+            if max(counts, key=counts.get) != IDX_WHITE:
+                return False, "display-off canvas (theme_id=%r) is not White-dominant" % (theme_id,)
+            data = canvas.tobytes()
+            if reference is None:
+                reference = data
+            elif data != reference:
+                return False, (
+                    "display-off canvas differs for theme_id=%r versus the first theme in THEME_IDS - "
+                    "theme_id must be ignored entirely" % (theme_id,)
+                )
+        return True, ""
+    check(
+        "build_canvas(None, 'display_off', theme_id=...) renders a flat White canvas whose only other "
+        "index is Black, carrying the heading and body, byte-identical across the full THEME_IDS "
+        "registry (D-03)",
+        _display_off_flat_white_black_across_all_themes,
+    )
+
+    # 130. Plan 12-02, Task 3 (2): dispatch-ordering regression guard. All
+    # three hold/empty states pass flight=None, so a reordered dispatch
+    # branch is silent - this check proves the three canvases are provably
+    # distinct from each other, not merely "didn't raise".
+    def _display_off_provably_distinct_from_empty_and_quiet_hours():
+        off = render.build_canvas(None, "display_off").tobytes()
+        empty = render.build_canvas(None, "empty").tobytes()
+        quiet = render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00").tobytes()
+        if off == empty:
+            return False, (
+                "build_canvas(None, 'display_off') is byte-identical to build_canvas(None, 'empty') - "
+                "both pass flight=None, so a reordered dispatch branch would silently render the empty "
+                "screen for every off-state call with no error anywhere"
+            )
+        if off == quiet:
+            return False, (
+                "build_canvas(None, 'display_off') is byte-identical to build_canvas(None, 'quiet_hours', "
+                "quiet_hours_until='07:00') - both pass flight=None and share the same White/Black "
+                "structure, so a dispatch mix-up here would be silent too"
+            )
+        return True, ""
+    check(
+        "build_canvas(None, 'display_off') is provably distinct from build_canvas(None, 'empty') and "
+        "build_canvas(None, 'quiet_hours', ...) - all three pass flight=None, so a reordered dispatch "
+        "branch is otherwise silent (the exact trap plan 10-02 documented)",
+        _display_off_provably_distinct_from_empty_and_quiet_hours,
+    )
+
+    # 131. Plan 12-02, Task 3 (3): quiet_hours_until never leaks into the
+    # off screen (D-04) - byte-identical with or without it.
+    def _display_off_ignores_quiet_hours_until():
+        without = render.build_canvas(None, "display_off").tobytes()
+        with_time = render.build_canvas(None, "display_off", quiet_hours_until="07:00").tobytes()
+        if without != with_time:
+            return False, (
+                "build_canvas(None, 'display_off', quiet_hours_until='07:00') differs from the call "
+                "without quiet_hours_until - a return-time value leaked into the off screen (D-04)"
+            )
+        return True, ""
+    check(
+        "build_canvas(None, 'display_off', quiet_hours_until='07:00') is byte-identical to the call "
+        "without it - no return-time value can reach this screen (D-04)",
+        _display_off_ignores_quiet_hours_until,
+    )
+
+    # 132. Plan 12-02, Task 3 (4): the copy constants equal their locked
+    # strings exactly (equality, not substring/absence - the stronger gate).
+    def _display_off_copy_constants_match_locked_strings():
+        if render.DISPLAY_OFF_HEADING_TEXT != "DISPLAY OFF":
+            return False, "DISPLAY_OFF_HEADING_TEXT is %r, expected 'DISPLAY OFF'" % (render.DISPLAY_OFF_HEADING_TEXT,)
+        expected_body = "Switched off from the companion page. Turn it back on there anytime."
+        if render.DISPLAY_OFF_BODY_TEXT != expected_body:
+            return False, "DISPLAY_OFF_BODY_TEXT is %r, expected %r" % (render.DISPLAY_OFF_BODY_TEXT, expected_body)
+        return True, ""
+    check(
+        "DISPLAY_OFF_HEADING_TEXT == 'DISPLAY OFF' and DISPLAY_OFF_BODY_TEXT == the locked body string, "
+        "asserted by exact equality (D-04)",
+        _display_off_copy_constants_match_locked_strings,
+    )
+
+    # 133. Plan 12-02, Task 3 (5): battery_low/source_fault each change the
+    # canvas independently and may both be set at once - mirroring
+    # _quiet_hours_battery_low_changes_canvas()/_quiet_hours_source_fault_changes_canvas().
+    def _display_off_battery_and_fault_indicators_are_independent():
+        neither = render.build_canvas(None, "display_off", battery_low=False, source_fault=False).tobytes()
+        battery_only = render.build_canvas(None, "display_off", battery_low=True, source_fault=False).tobytes()
+        fault_only = render.build_canvas(None, "display_off", battery_low=False, source_fault=True).tobytes()
+        both = render.build_canvas(None, "display_off", battery_low=True, source_fault=True).tobytes()
+        if battery_only == neither:
+            return False, "battery_low=True produced no pixel difference on the display-off canvas"
+        if fault_only == neither:
+            return False, "source_fault=True produced no pixel difference on the display-off canvas"
+        if both == neither or both == battery_only or both == fault_only:
+            return False, "battery_low=True, source_fault=True together did not produce a distinct canvas from each alone/neither"
+        return True, ""
+    check(
+        "battery_low=True and source_fault=True each change the display-off canvas independently, and "
+        "both may be set at once, mirroring the equivalent quiet-hours checks",
+        _display_off_battery_and_fault_indicators_are_independent,
+    )
+
+    # 134. Plan 12-02, Task 3 (6): palette legality and safe-box compliance
+    # hold across all four indicator combinations. Safe-box compliance is
+    # proven by the absence of an AssertionError from
+    # _assert_in_safe_box(), called internally by
+    # _build_display_off_canvas() before every draw - reaching the return
+    # below IS the guard's own verdict, stated explicitly here rather than
+    # merely implied.
+    def _display_off_legal_palette_and_safe_box_across_indicator_combos():
+        for battery_low in (False, True):
+            for source_fault in (False, True):
+                canvas = render.build_canvas(
+                    None, "display_off", battery_low=battery_low, source_fault=source_fault
+                )
+                colors = canvas.getcolors()
+                idx_set = {value for _count, value in colors} if colors else set()
+                bad = idx_set - LEGAL_IDX
+                if bad:
+                    return False, (
+                        "display-off canvas (battery_low=%r, source_fault=%r) contains illegal palette "
+                        "index(es): %r" % (battery_low, source_fault, sorted(bad))
+                    )
+        return True, ""
+    check(
+        "build_canvas(None, 'display_off', ...) uses only legal palette indices and passes every internal "
+        "_assert_in_safe_box() check across all four battery_low/source_fault combinations (neither / "
+        "battery only / fault only / both)",
+        _display_off_legal_palette_and_safe_box_across_indicator_combos,
     )
 
     total = len(results)

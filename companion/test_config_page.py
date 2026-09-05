@@ -174,6 +174,22 @@ EXPECTED_CHECK_COUNT = 87  # merge of HEAD (79: Phase 10/11's Quiet hours +
 # on-disk check(...) call count at merge-resolution time (87/87 pass),
 # not trusted from arithmetic alone, per this file's own established
 # discipline.
+# 12-05: +5 (Display settings group markup/checked-count check, its
+# locked-caption exact-equality check, render()'s D-09 empty-config-
+# checked / saved-False-unchecked prefill check, handle_post()'s
+# three-checkbox-shape resolution check (absent/exact-constant/crafted,
+# with byte-identity on rejection), and the cross-file guard proving
+# style.css needs no new selector for the group — one new check per
+# Task 2 behavior bullet. Three pre-existing fail-closed checks (the
+# theme-status count 5->6, the dirty-section order 5-entry->6-entry list,
+# and the DIRTY_SECTION_ATTR occurrence count 5->6) were retargeted in
+# place with no count change, per this file's own established retarget-
+# without-recounting discipline; the round-trip dict-equality literal
+# gained "display_enabled": False in place too, no count change.
+# 87 + 5 = 92, recomputed directly against the real on-disk check(...)
+# call count at execution time (92/92 pass), not trusted from arithmetic
+# alone.
+EXPECTED_CHECK_COUNT = 92
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -349,6 +365,10 @@ def main():
         # Theme/Runway/Diagnostic LED as the fourth and fifth .theme-status-
         # wrapped groups — the count below is 5, not the pre-Phase-10/11
         # value of 3, for that reason alone, not a rename.
+        #
+        # 12-05-PLAN.md: Display joins as the sixth and last .theme-status-
+        # wrapped group — the count below is 6, not 5, for that reason
+        # alone, not a rename.
         ctx = {
             "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -358,8 +378,8 @@ def main():
             return False, "expected zero <fieldset> elements anywhere on the page, found one"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements anywhere on the page, found one"
-        if rendered.count('class="theme-status"') != 5:
-            return False, "expected exactly 5 theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval), got %d" % rendered.count('class="theme-status"')
+        if rendered.count('class="theme-status"') != 6:
+            return False, "expected exactly 6 theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display), got %d" % rendered.count('class="theme-status"')
         if "theme-chip-grid" not in rendered:
             return False, "expected the Theme group to render a .theme-chip-grid"
         if rendered.count('<label class="runway-card') != 3:
@@ -368,7 +388,7 @@ def main():
             return False, "expected the 'Save settings' submit button copy"
         return True, ""
     check(
-        "render() emits Theme's .theme-chip-grid (no <fieldset>, D-01), five theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval), three runway-card labels, and a Save settings submit button",
+        "render() emits Theme's .theme-chip-grid (no <fieldset>, D-01), six theme-status-wrapped groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display), three runway-card labels, and a Save settings submit button",
         _render_shape_theme_chip_grid_runway_cards_groups_and_save_button)
 
     def _led_group_carries_classed_label_and_unchanged_input_attrs():
@@ -572,6 +592,155 @@ def main():
     check(
         "render() places Wake interval last in the locked five-group order, resolves no value attribute when neither source is present, prefers an on-disk wake_interval_s over ctx['wake_interval_env_default'], and falls back to the ctx default when the on-disk value is None",
         _render_places_wake_interval_last_and_resolves_prefill)
+
+    # ------------------------------------------------------------------
+    # 12-05-PLAN.md Task 1/Task 2: display_group() markup, its caption's
+    # locked copy, render()'s D-09 prefill default, and handle_post()'s
+    # three-shape checkbox resolution ladder (12-UI-SPEC.md, 12-CONTEXT.md
+    # D-02/D-08/D-09).
+    # ------------------------------------------------------------------
+
+    def _display_group_markup_shape_checked_and_unchecked():
+        # Bullet 1: display_group(True) emits one .theme-status[data-dirty-
+        # section] wrapper, the locked heading and caption, one
+        # .settings-checkbox label, exactly one checkbox input named for
+        # the field, exactly one checked flag; display_group(False) emits
+        # none; and neither emits <fieldset>/<legend>/type="time"/
+        # type="number"/disabled - this group has no dependent fields and
+        # must not grow any.
+        checked_html = config_page.display_group(True)
+        unchecked_html = config_page.display_group(False)
+        for rendered in (checked_html, unchecked_html):
+            if rendered.count('class="theme-status"') != 1:
+                return False, "expected exactly one .theme-status wrapper"
+            if config_page.DIRTY_SECTION_ATTR not in rendered:
+                return False, "expected the wrapper to carry DIRTY_SECTION_ATTR"
+            expected_heading = (
+                '<h2 class="text-heading">%s</h2>'
+                % escape_html(config_page.DISPLAY_SECTION_HEADING))
+            if rendered.count(expected_heading) != 1:
+                return False, "expected exactly one heading %r" % (expected_heading,)
+            expected_caption = (
+                '<p class="text-label section-caption">%s</p>'
+                % escape_html(config_page.DISPLAY_SECTION_CAPTION))
+            if rendered.count(expected_caption) != 1:
+                return False, "expected exactly one caption %r" % (expected_caption,)
+            if rendered.count('<label class="settings-checkbox">') != 1:
+                return False, "expected exactly one <label class=\"settings-checkbox\">"
+            if rendered.count('<input type="checkbox" name="display_enabled"') != 1:
+                return False, "expected exactly one checkbox input named display_enabled"
+            if "<fieldset" in rendered:
+                return False, "expected no <fieldset> - this group deliberately doesn't use one"
+            if "<legend" in rendered:
+                return False, "expected no <legend> - a <legend> only has accessible-name semantics inside a <fieldset>"
+            if 'type="time"' in rendered:
+                return False, "expected no type=\"time\" input - this group has no dependent fields"
+            if 'type="number"' in rendered:
+                return False, "expected no type=\"number\" input - this group has no dependent fields"
+            if "disabled" in rendered:
+                return False, "expected no disabled attribute - no sibling control's enabled state depends on this one"
+        if checked_html.count(" checked") != 1:
+            return False, "expected display_group(True) to carry exactly one checked flag"
+        if unchecked_html.count(" checked") != 0:
+            return False, "expected display_group(False) to carry zero checked flags"
+        return True, ""
+    check(
+        "display_group(True)/display_group(False) emit exactly one .theme-status[data-dirty-section] wrapper, the locked heading/caption, one .settings-checkbox label, one checkbox input named display_enabled, and the correct checked count, with none of <fieldset>/<legend>/type=\"time\"/type=\"number\"/disabled",
+        _display_group_markup_shape_checked_and_unchecked)
+
+    def _display_section_caption_locked_verbatim():
+        # Bullet 2: exact equality is a stronger gate here than a
+        # word-level absence rule (e.g. "instant"/"immediate" not present)
+        # and does not risk pinning fragile phrasing beyond the locked
+        # sentence itself (12-UI-SPEC.md Copywriting Contract, D-02).
+        expected = (
+            "Turns the physical panel off remotely, without touching the "
+            "hardware. Takes effect within about 5 minutes, both "
+            "switching off and back on.")
+        if config_page.DISPLAY_SECTION_CAPTION != expected:
+            return False, "expected DISPLAY_SECTION_CAPTION to equal the locked sentence, got %r" % (config_page.DISPLAY_SECTION_CAPTION,)
+        return True, ""
+    check(
+        "DISPLAY_SECTION_CAPTION equals 12-UI-SPEC.md's locked sentence exactly, stating the ~5-minute apply latency in both directions and never claiming immediacy (D-02)",
+        _display_section_caption_locked_verbatim)
+
+    def _render_display_prefill_defaults_checked_and_honors_saved_false():
+        # Bullet 3: render() with an empty device_config produces a
+        # checked box (D-09 reaching the page, not just the loader), and
+        # {"display_enabled": False} produces an unchecked one.
+        rendered = config_page.render({"device_config": {}, "state_dir": "/tmp"})
+        if rendered.count('name="display_enabled"') != 1:
+            return False, "expected exactly one display_enabled input"
+        segment = rendered[rendered.index('%s="Display"' % config_page.DIRTY_SECTION_ATTR):]
+        segment = segment[:segment.index("</div>")]
+        if " checked" not in segment:
+            return False, "expected an empty device_config to render the Display box checked (D-09)"
+
+        rendered_off = config_page.render({
+            "device_config": {"display_enabled": False}, "state_dir": "/tmp"})
+        segment_off = rendered_off[rendered_off.index('%s="Display"' % config_page.DIRTY_SECTION_ATTR):]
+        segment_off = segment_off[:segment_off.index("</div>")]
+        if " checked" in segment_off:
+            return False, "expected device_config={'display_enabled': False} to render the box unchecked"
+        return True, ""
+    check(
+        "render() with an empty device_config renders the Display checkbox checked (D-09), and with display_enabled explicitly False renders it unchecked",
+        _render_display_prefill_defaults_checked_and_honors_saved_false)
+
+    def _handle_post_display_enabled_three_shapes():
+        # Bullet 4: all three checkbox shapes - absent means off and is
+        # persisted as off; the exact constant means on; a crafted value
+        # returns the generic save-failed flash and leaves a pre-existing
+        # device_config.json byte-identical, proving all-or-nothing
+        # rejection still holds across all eight fields.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for an absent display_enabled, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["display_enabled"] is not False:
+                return False, "expected display_enabled False on disk, got %r" % (on_disk["display_enabled"],)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"display_enabled": config_page.DISPLAY_CHECKBOX_VALUE}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED for the exact checkbox constant, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["display_enabled"] is not True:
+                return False, "expected display_enabled True on disk, got %r" % (on_disk["display_enabled"],)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3", led_enabled=True)
+            with open(device_config.device_config_path(tmpdir), "r") as fh:
+                doc = json.load(fh)
+            doc["display_enabled"] = True
+            with open(device_config.device_config_path(tmpdir), "w") as fh:
+                json.dump(doc, fh)
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"display_enabled": "<crafted>"}, ctx)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED for a crafted display_enabled value, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to be byte-identical, it changed"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post() resolves display_enabled through all three checkbox shapes: absent persists False, DISPLAY_CHECKBOX_VALUE persists True, and a crafted value returns the save-failed flash key and leaves a pre-existing device_config.json byte-identical",
+        _handle_post_display_enabled_three_shapes)
 
     def _every_settings_group_is_named_exactly_once():
         # heading-color-consistency debug session, extended by 06.6.4.1
@@ -918,24 +1087,25 @@ def main():
 
     def _render_exactly_five_dirty_sections_in_order():
         # Acceptance criterion: the rendered output contains exactly
-        # five elements carrying data-dirty-section, whose attribute
+        # six elements carrying data-dirty-section, whose attribute
         # values in document order are "Theme", "Runway", "Diagnostic
-        # LED", "Quiet hours", "Wake interval" — 10-05-PLAN.md Task 1
-        # wired Quiet hours in as the fourth group after Diagnostic LED,
-        # and 11-03-PLAN.md Task 1 wires Wake interval in as the fifth,
-        # after Quiet hours.
+        # LED", "Quiet hours", "Wake interval", "Display" — 10-05-PLAN.md
+        # Task 1 wired Quiet hours in as the fourth group after
+        # Diagnostic LED, 11-03-PLAN.md Task 1 wired Wake interval in as
+        # the fifth, after Quiet hours, and 12-05-PLAN.md Task 1 wires
+        # Display in as the sixth and last, after Wake interval.
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         found = re.findall(
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
-        expected = ["Theme", "Runway", "Diagnostic LED", "Quiet hours", "Wake interval"]
+        expected = ["Theme", "Runway", "Diagnostic LED", "Quiet hours", "Wake interval", "Display"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
     check(
-        "render() carries exactly five data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval",
+        "render() carries exactly six data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display",
         _render_exactly_five_dirty_sections_in_order)
 
     def _runway_fieldset_returns_single_top_level_div():
@@ -1382,7 +1552,7 @@ def main():
             # silently kept the prior/default value instead; the merged
             # Phase 8 registry (19 real entries) makes "black" valid, so
             # it now persists as posted.
-            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
+            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": False}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -2129,6 +2299,24 @@ def main():
         "56px preview band) - the selectors config_page.py's new markup depends on",
         _style_css_carries_theme_status_runway_row_and_settings_checkbox_selectors)
 
+    def _style_css_needs_no_new_selector_for_display_group():
+        # 12-05-PLAN.md Task 2 bullet 5: a cross-file guard that style.css
+        # needs no new selector for the Display group - both classes
+        # display_group() depends on (.theme-status, .settings-checkbox)
+        # are already declared above, matching led_group()'s/
+        # quiet_hours_group()'s own precedent (12-UI-SPEC.md: zero new
+        # selectors, zero new declarations, zero new design tokens).
+        source = _read_static("style.css")
+        if ".theme-status {" not in source:
+            return False, "expected style.css to already declare a .theme-status rule"
+        checkbox_selector = '.settings-checkbox input[type="checkbox"] {'
+        if checkbox_selector not in source:
+            return False, "expected style.css to already declare a %r rule" % (checkbox_selector,)
+        return True, ""
+    check(
+        "style.css already declares .theme-status and .settings-checkbox - the Display group introduces zero new CSS selectors",
+        _style_css_needs_no_new_selector_for_display_group)
+
     def _theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme():
         # 06.6.4.1.1-05: the cross-module route contract — every chip's
         # <img src> is built from theme_preview.THEME_PREVIEW_ROUTE_PREFIX
@@ -2207,6 +2395,9 @@ def main():
         # 06.6.4.1.1-05's own 3 (Theme/Runway/Diagnostic LED), now that
         # Quiet hours and Wake interval each joined as a fourth and fifth
         # group — not a rename of this check's own premise.
+        # 12-05-PLAN.md: the count is 6, not 5, now that Display joined as
+        # the sixth and last group — again not a rename of this check's
+        # own premise.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -2215,14 +2406,14 @@ def main():
             return False, "expected zero <fieldset> elements on the rendered Settings page"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements on the rendered Settings page"
-        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 5:
+        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 6:
             return False, (
-                "expected exactly 5 %s occurrences (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval), got %d"
+                "expected exactly 6 %s occurrences (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display), got %d"
                 % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
         return True, ""
     check(
-        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly five "
-        "data-dirty-section groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval)",
+        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly six "
+        "data-dirty-section groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display)",
         _settings_page_has_zero_fieldsets_and_five_dirty_sections)
 
     def _selected_runway_card_and_theme_chip_carry_a_background_wash():

@@ -2,6 +2,24 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
+current_phase: 11
+status: executing
+stopped_at: Completed 12-05-PLAN.md
+last_updated: "2026-09-05T18:08:40.322Z"
+last_activity: 2026-09-04
+last_activity_desc: "Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence"
+progress:
+  total_phases: 25
+  completed_phases: 22
+  total_plans: 125
+  completed_plans: 122
+  percent: 88
+---
+
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
 status: executing
@@ -10,7 +28,7 @@ last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: "Closed phase 06.6.4.1's plan 09 (the closing/validation plan) end to end. Mid-checkpoint, discovered — via the developer noticing what looked like a duplicate conversation, then a routine git fetch — that PR #44 (Phases 8-11, 66 files, +12286/-208) had merged from a separate, independent line of work while this branch's own Task 1 re-verification was already done. Rebased onto it (one STATE.md conflict resolved by hand), re-ran Task 1's full-suite/live-route/non-goal-regression gates a second time against the new tip (still 16/16 green, 92% coverage, no new route added), and flagged that Phase 10/11 had added two new Settings sections (Quiet hours, Wake interval) the original Task 2 checklist text predates — both already covered by their own dedicated Phase 10/11 UAT, so not a new gap, just disclosed. Presented the 28-item Task 2 checklist to the developer with a local test environment (a real production-data copy plus a public tunnel URL). The developer's first response was a blanket 'j'approuve tout' covering Groups A-D, E1, and E4 — but per this plan's own explicit no-escape-hatch instruction for Group E items 2 (real assistive-technology pass) and 3 (production walkthrough), the orchestrator did not accept that blanket alone for those two: asked each directly, got 'Oui, fait pour de vrai' for E2, and for E3 the developer's own reply ('il est déployé ?') surfaced that no production URL had ever been shared in this conversation — the developer then supplied the real one, the orchestrator confirmed only bare reachability (no login attempted on the developer's behalf, per the plan's own contract that this cannot be performed or inferred by an agent), and the developer signed in with their own credentials and confirmed 'non tout me semble bon'. Recorded the full verdict verbatim in a new 06.6.4.1-09-SUMMARY.md, resolved 06.6.4.1-VALIDATION.md's Approval line, checked ROADMAP.md's plan-09 checkbox and phase count (9/9), and updated this file. Phase 06.6.4.1 is now closed. Next: push the branch and open a PR."
 progress:
-  total_phases: 24
+  [██████████] 95%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -314,11 +332,14 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.4.1.1 P04 | 30min | 2 tasks | 2 files |
 | Phase 06.6.4.1.1 P05 | 55min | 3 tasks | 4 files |
 | Phase 06.6.4.1.1 P06 | 55min | 3 tasks | 7 files |
+| Phase 12 P02 | 25min | 3 tasks | 2 files |
+| Phase 12 P05 | 15min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
+- Phase 12 added (2026-09-05) — "Remote display on/off toggle", promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request, chosen over the four other dormant seeds. The seed itself scoped this *small*, on the strength of Phase 10 having already built the render state and the poll-loop hold pattern. Investigation before promotion found that half right: those two do carry over, but `quiet_hours_sleep_s()`'s `max(base_sleep_s, remaining)` does not — it derives `remaining` from a window's end time, and a manual toggle has no end time. An open-ended off state needs a *bounded* sleep so the device still wakes to learn it was switched back on, and choosing that bound is a user-facing battery-versus-responsiveness trade-off rather than an implementation detail. That is why this was promoted as a phase (developer's explicit choice between phase-with-discussion, phase-without, and quick task) rather than run as a quick task, and why `/gsd-discuss-phase 12` must settle the bound, the precedence against quiet hours, and the off-state copy before planning. Added via `gsd-tools query phase.add`, which again did not touch ROADMAP.md's top-level `## Phases` bullet list (the same documented CLI gap already recorded for `phase.insert` in the Phase 6 entry below) — the bullet and the enriched Goal block were both written by hand.
 - Phase 4 added (2026-08-25), then renumbered to Phase 3 — "Visual Polish on Real Glass": user asked to split Phase 2 into a functional pass and a design-polish pass; since Phase 2 already built up from basic to polished internally across its 5 plans (02-01 bare flight number → 02-04 route/airline captions) and its only remaining plan (02-05) is pure deployment infra with no visual work, the agreed split instead adds a new phase after real hardware exists, dedicated to refining the already-built design against actual Spectra 6 output — closing the hardware-verified-legibility items every Phase 2 SUMMARY.md carried forward rather than guessed at. Old Phase 3 (Low-Battery Indicator) renumbered to Phase 4.
 - 01-08 (battery-life measurement, DEVICE-05) moved from Phase 1 to Phase 4 (2026-08-26), becoming 04-01: user wants the unattended multi-day (up to 21-day) discharge run scheduled at the end of the project, once other phases no longer need this Mac to stay awake continuously, rather than mid-Phase-1. Phase 1's goal/success-criteria trimmed to drop the on-battery-viability criterion (now Phase 4's job); Phase 1 is now 7/7 plans executed. Phase 4 renamed "Battery Life & Low-Battery Indicator", gained requirement DEVICE-05 alongside DEVICE-04 and a new success criterion for the measured mAh-per-cycle figure. Task 1 (checker + pre-registered protocol) was already done under the old numbering and carries over unchanged; only the phase/plan numbers and cross-references were updated. REQUIREMENTS.md's DEVICE-05 checkbox corrected from a stale pre-existing `[x] Complete` (predating this move, predating the actual measurement) to `[ ]` — only Task 1 of 3 is done.
 - Phase 5 added (2026-08-26): "CI/CD, Documentation & Legal Compliance" — user flagged this as a missing v1 step during Phase 3 work. GitHub Actions CI (tests + build + code-quality/coverage) with automated (gated) deploy to the real OVH VPS, a README, a LICENSE, and documented third-party API terms-of-use compliance (PRIM/IDFM, ADS-B aggregators) plus consolidated asset attribution. Scoped as its own closing phase, orthogonal to the on-device experience Phases 1-4 build — not yet planned (requirements TBD, pending /gsd-discuss-phase 5).
@@ -530,6 +551,9 @@ Recent decisions affecting current work:
 - [Phase 06.6.4.1.1]: Task 2's serif-boundary guard extensions (D-09/D-13 asserted) are in-place edits to existing checks, EXPECTED_CHECK_COUNT unchanged at 144
 - [Phase 06.6.4.1.1]: Applied the plan's own theme-chip accent-reservation broadening to 06.6.1-UI-SPEC.md's Color section, since that file is still present on disk (not just recorded as the fallback)
 - [Phase ?]: Developer's 06.6.4.1.1-06 checkpoint approved the entire revised visual contract (theme-chip grid, heading ladder incl. D-09's second reversal, label voice, spacing/density); the one requested fix (selected-state background wash on .runway-card/.theme-chip, matching .theme-form .theme-option--active's idiom) was applied and verified live in both themes.
+- [Phase ?]: Placed display_off dispatch branch above both quiet_hours and empty in build_canvas(), closing the same silent-fallback trap plan 10-02 documented
+- [Phase ?]: display_group() mirrors led_group()'s markup shape (lone checkbox, no dependent fields), not quiet_hours_group()'s
+- [Phase ?]: DISPLAY_SECTION_CAPTION states its own ~5-minute apply latency (D-02) instead of the generic next-scheduled-poll clause, because D-01 pins the off-state check-in to a fixed 300s cadence independent of wake_interval_s/quiet hours
 
 ### Pending Todos
 
@@ -617,8 +641,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-04T13:05:00.000Z
-Stopped at: Quick task 260904-kug complete (SEED-001/SEED-002 marked fulfilled). Phase 11 and Phase 06.6.4.1.1 both merged and complete; Phase 06.6.4.1 remains open pending its own Task 2 developer verification checklist.
+Last session: 2026-09-05T18:08:40.306Z
+Stopped at: Completed 12-05-PLAN.md
 
 Resume file: 
 

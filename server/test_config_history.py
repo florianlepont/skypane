@@ -33,7 +33,10 @@ if REPO_ROOT not in sys.path:
 # 11-01: +5 (wake_interval_s registry field: normalise bounds + bool
 # gotcha, hostile-on-disk-value degradation, save round-trip, save-rejects
 # out-of-bounds/bool with byte-identical-on-rejection, carry-forward)
-EXPECTED_CHECK_COUNT = 45
+# 12-01: +4 (display_enabled registry field: normalise bool-only gotcha,
+# hostile-on-disk-value fail-open degradation, save round-trip +
+# carry-forward, save-rejects-non-bool with byte-identical-on-rejection)
+EXPECTED_CHECK_COUNT = 49
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -81,7 +84,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -97,7 +100,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
+                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -112,7 +115,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -125,7 +128,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "black", "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
+            if config != {"theme": "black", "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -174,7 +177,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -206,7 +209,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None}:
+            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -604,7 +607,7 @@ def main():
             if config != {
                 "theme": "white", "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
-                "wake_interval_s": None,
+                "wake_interval_s": None, "display_enabled": True,
             }:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
@@ -802,7 +805,7 @@ def main():
             if config != {
                 "theme": "white", "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-                "wake_interval_s": 120,
+                "wake_interval_s": 120, "display_enabled": True,
             }:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
@@ -864,6 +867,111 @@ def main():
     check(
         "a subsequent theme-only save_device_config(theme='black') carries a previously-saved wake_interval_s=120 forward unchanged",
         _wake_interval_s_carries_forward_on_unrelated_save,
+    )
+
+    def _normalise_display_enabled_only_accepts_real_bools():
+        # 12-01: the bool-is-an-int gotcha from the other direction -
+        # isinstance(0, bool) is False, so a JSON 0 is not a valid off value
+        # and must degrade to the fail-open DEFAULT_DISPLAY_ENABLED (D-09).
+        for hostile in (0, 1, "true", "on", "", None, [], {}, 1.0):
+            got = device_config.normalise_display_enabled(hostile)
+            if got is not device_config.DEFAULT_DISPLAY_ENABLED:
+                return False, "normalise_display_enabled(%r) returned %r, expected DEFAULT_DISPLAY_ENABLED" % (hostile, got)
+        if device_config.normalise_display_enabled(True) is not True:
+            return False, "normalise_display_enabled(True) did not return True"
+        if device_config.normalise_display_enabled(False) is not False:
+            return False, "normalise_display_enabled(False) did not return False"
+        return True, ""
+
+    check(
+        "normalise_display_enabled() degrades int 0, int 1, 'true', 'on', an empty string, None, an empty list, and an empty dict to DEFAULT_DISPLAY_ENABLED, and returns both real booleans unchanged",
+        _normalise_display_enabled_only_accepts_real_bools,
+    )
+
+    def _hand_written_hostile_display_enabled_yields_true_but_false_survives():
+        # 12-01/D-09: a corrupted or hand-edited config must never be the
+        # reason a frame goes dark - every hostile on-disk shape degrades to
+        # True, while a legitimate False survives untouched.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            for bad_json, label in (
+                ('{"display_enabled": 0}', "JSON int 0"),
+                ('{"display_enabled": "false"}', 'JSON string "false"'),
+                ('{"display_enabled": null}', "JSON null"),
+                ('["not", "a", "dict"]', "a non-dict document"),
+            ):
+                with open(path, "w") as fh:
+                    fh.write(bad_json)
+                config = device_config.load_device_config(tmpdir)
+                if config["display_enabled"] is not True:
+                    return False, "%s produced display_enabled=%r, expected True (fail-open, D-09)" % (label, config["display_enabled"])
+            with open(path, "w") as fh:
+                fh.write('{"display_enabled": false}')
+            config = device_config.load_device_config(tmpdir)
+            if config["display_enabled"] is not False:
+                return False, "a hand-written display_enabled=false produced %r, expected it to survive as False" % (config["display_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "load_device_config() degrades a hand-written hostile display_enabled (0, \"false\", null, or a non-dict document) to True so a corrupted config can never darken the frame (D-09), while a legitimate display_enabled=false survives as False",
+        _hand_written_hostile_display_enabled_yields_true_but_false_survives,
+    )
+
+    def _save_display_enabled_false_round_trips_and_carries_forward():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, display_enabled=False)
+            config = device_config.load_device_config(tmpdir)
+            if config != {
+                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+                "wake_interval_s": None, "display_enabled": False,
+            }:
+                return False, "round-trip produced %r" % (config,)
+            device_config.save_device_config(tmpdir, theme="black")
+            config = device_config.load_device_config(tmpdir)
+            if config["display_enabled"] is not False:
+                return False, "a theme-only save did not carry a previously-saved display_enabled=False forward, got %r" % (config["display_enabled"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(display_enabled=False) round-trips through load_device_config() as False with all seven other fields still at their prior (default) values, and a subsequent theme-only save carries display_enabled=False forward unchanged",
+        _save_display_enabled_false_round_trips_and_carries_forward,
+    )
+
+    def _save_display_enabled_rejects_non_bool_and_leaves_file_byte_identical():
+        # display_enabled=None is deliberately NOT a rejection case - None
+        # means carry forward, matching every other field's contract.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="3", display_enabled=True)
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            for hostile in ("on", 0, 1, "false", []):
+                raised = False
+                try:
+                    device_config.save_device_config(tmpdir, display_enabled=hostile)
+                except ValueError:
+                    raised = True
+                if not raised:
+                    return False, "save_device_config(display_enabled=%r) did not raise ValueError" % (hostile,)
+                with open(path, "rb") as fh:
+                    after = fh.read()
+                if before != after:
+                    return False, "save_device_config(display_enabled=%r) changed a pre-existing file's bytes" % (hostile,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config() rejects display_enabled='on', 0, 1, 'false', and [] with ValueError and leaves a pre-existing, legitimately-saved file byte-identical across every rejection (display_enabled=None is not a rejection case - it means carry forward)",
+        _save_display_enabled_rejects_non_bool_and_leaves_file_byte_identical,
     )
 
     # --- history_db.py ------------------------------------------------------

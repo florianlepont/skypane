@@ -87,7 +87,12 @@ GEOFENCE_PATH = os.path.join(REPO_ROOT, "adsb-test", "runway3.json")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 51
+# 12-04: +9 (display-off gate and hold-state generalisation: entry-renders-
+# once + canvas byte-identity, hold-is-noop across a battery transition,
+# detection-skip, the display/quiet-hours overlap, both D-07 hold-to-hold
+# transition directions, exit-repaints-once-no-transition-screen, the
+# legacy poll_state.json migration, and toggle-enabled-is-inert) - 51 + 9.
+EXPECTED_CHECK_COUNT = 60
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -1827,9 +1832,11 @@ def main():
             # literals.
 
             # 31. D-05: window entry renders the QUIET HOURS canvas exactly
-            # once and persists poll_state["quiet_hours_active"]. Detection
-            # is never reached for this branch (the early return sits before
-            # both the snapshot and live paths), so no snapshot is needed.
+            # once and persists the generalised poll_state["hold_state"]
+            # (12-04: this key replaces the retired single-purpose
+            # quiet_hours_active boolean). Detection is never reached for
+            # this branch (the early return sits before both the snapshot
+            # and live paths), so no snapshot is needed.
             def _quiet_hours_entry_renders_once_and_persists_flag():
                 qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-entry-")
                 try:
@@ -1844,13 +1851,13 @@ def main():
                     if not result.get("panel_changed"):
                         return False, "entry cycle returned panel_changed=%r, expected True" % (result.get("panel_changed"),)
                     on_disk = poll_loop.load_poll_state(qh_dir)
-                    if on_disk.get("quiet_hours_active") is not True:
-                        return False, "poll_state.json's quiet_hours_active is %r, expected True" % (on_disk.get("quiet_hours_active"),)
+                    if on_disk.get("hold_state") != "quiet_hours":
+                        return False, "poll_state.json's hold_state is %r, expected 'quiet_hours'" % (on_disk.get("hold_state"),)
                     return True, ""
                 finally:
                     shutil.rmtree(qh_dir, ignore_errors=True)
             check(
-                "window entry renders the QUIET HOURS canvas exactly once and persists quiet_hours_active=True",
+                "window entry renders the QUIET HOURS canvas exactly once and persists hold_state='quiet_hours'",
                 _quiet_hours_entry_renders_once_and_persists_flag,
             )
 
@@ -1952,16 +1959,17 @@ def main():
             )
 
             # 35. REGRESSION GUARD: window exit from the held branch forces
-            # one repaint and clears the flag - this is the stale-QUIET-
+            # one repaint and clears the latch - this is the stale-QUIET-
             # HOURS-image bug this plan exists to prevent. Sequence models
             # the real production shape: detect a flight before the window,
             # enter the window (which renders over it), then exit with
             # nothing newly detected (current_flight is still the
             # pre-window flight, sitting in the held branch). Negative
             # control run and recorded per the plan's own verification
-            # requirement: temporarily dropping `or quiet_hours_exited` from
+            # requirement: temporarily dropping `or hold_exited` from
             # the held branch's re-render gate makes this check fail with
-            # "panel_changed=False, expected True" - see 10-04-SUMMARY.md.
+            # "panel_changed=False, expected True" - see 10-04-SUMMARY.md
+            # and this plan's (12-04) own negative-control record below.
             def _quiet_hours_exit_from_held_branch_repaints():
                 qh_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-quiet-exit-")
                 try:
@@ -1984,13 +1992,13 @@ def main():
                     if after_bytes == quiet_bytes:
                         return False, "panel.bin is still the QUIET HOURS bytes after the window ended - the stale-image bug this plan exists to prevent"
                     on_disk = poll_loop.load_poll_state(qh_dir)
-                    if on_disk.get("quiet_hours_active") is not False:
-                        return False, "poll_state.json's quiet_hours_active is %r after window exit, expected False" % (on_disk.get("quiet_hours_active"),)
+                    if on_disk.get("hold_state") is not None:
+                        return False, "poll_state.json's hold_state is %r after window exit, expected None" % (on_disk.get("hold_state"),)
                     return True, ""
                 finally:
                     shutil.rmtree(qh_dir, ignore_errors=True)
             check(
-                "REGRESSION GUARD: the first cycle after window exit repaints the held live board and clears quiet_hours_active",
+                "REGRESSION GUARD: the first cycle after window exit repaints the held live board and clears hold_state",
                 _quiet_hours_exit_from_held_branch_repaints,
             )
 
@@ -2042,6 +2050,373 @@ def main():
             check(
                 "quiet_hours_enabled=False takes the ordinary detection path regardless of stored start/end times",
                 _quiet_hours_disabled_is_inert,
+            )
+
+            # --- Phase 12 plan 12-04: the display on/off toggle, generalised
+            # hold-state latch, and their overlap with quiet hours ----------
+            #
+            # These checks mirror the Phase 10 quiet-hours checks directly
+            # above: same fixture setup (device_config.save_device_config()),
+            # same fake-clock injection, same assertion style. CLOCK_BASE
+            # (23:13:20 Paris) sits inside the 23:00-07:00 window used
+            # throughout; CLOCK_BASE + 28800 (07:13:20 Paris) sits just
+            # outside it - both anchors reused as literals exactly as the
+            # quiet-hours checks above do.
+
+            # 38. Display-off entry renders once, and the rendered canvas is
+            # byte-identical to render.build_canvas(None, "display_off", ...)
+            # for the same indicator flags - proves this is genuinely the
+            # DISPLAY OFF screen, not merely "some screen changed".
+            def _display_off_entry_renders_once_and_matches_canvas():
+                off_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-off-entry-")
+                try:
+                    device_config.save_device_config(off_dir, display_enabled=False)
+                    CLOCK["t"] = CLOCK_BASE
+                    result = poll_loop.run_once(state_dir=off_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "display_off":
+                        return False, "entry cycle returned state=%r, expected 'display_off'" % (result.get("state"),)
+                    if not result.get("panel_changed"):
+                        return False, "entry cycle returned panel_changed=%r, expected True" % (result.get("panel_changed"),)
+                    on_disk = poll_loop.load_poll_state(off_dir)
+                    if on_disk.get("hold_state") != "display_off":
+                        return False, "poll_state.json's hold_state is %r, expected 'display_off'" % (on_disk.get("hold_state"),)
+                    with open(os.path.join(off_dir, "panel.bin"), "rb") as fh:
+                        actual = fh.read()
+                    expected = poll_loop.panel_format.pack_panel(
+                        poll_loop.render.build_canvas(None, "display_off")
+                    )
+                    if actual != expected:
+                        return False, "panel.bin does not equal panel_format.pack_panel(render.build_canvas(None, 'display_off'))"
+                    return True, ""
+                finally:
+                    shutil.rmtree(off_dir, ignore_errors=True)
+            check(
+                "toggle-off entry renders the DISPLAY OFF canvas exactly once, byte-identical to render.build_canvas(None, 'display_off')",
+                _display_off_entry_renders_once_and_matches_canvas,
+            )
+
+            # 39. Display-off hold is a no-op, including across a battery
+            # hysteresis transition - nothing rendered while the device is
+            # asleep can reach the glass.
+            def _display_off_hold_is_noop_across_battery_transition():
+                off_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-off-hold-")
+                try:
+                    device_config.save_device_config(off_dir, display_enabled=False)
+                    CLOCK["t"] = CLOCK_BASE
+                    poll_loop.run_once(state_dir=off_dir, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(off_dir, "panel.bin"), "rb") as fh:
+                        first_bytes = fh.read()
+                    gallery_dir = os.path.join(off_dir, "gallery")
+                    before_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
+                    # A battery-low transition mid-hold must not force a
+                    # repaint (unlike the held branch below, where a
+                    # transition DOES force one) - nothing rendered mid-hold
+                    # can ever reach the glass.
+                    _write_battery_state(off_dir, 3000)  # below BATTERY_LOW_THRESHOLD_MV
+                    CLOCK["t"] = CLOCK_BASE + 60
+                    result = poll_loop.run_once(state_dir=off_dir, geofence=GEOFENCE_PATH)
+                    if result.get("panel_changed"):
+                        return False, "hold cycle across a battery transition returned panel_changed=True, expected False"
+                    with open(os.path.join(off_dir, "panel.bin"), "rb") as fh:
+                        second_bytes = fh.read()
+                    if second_bytes != first_bytes:
+                        return False, "panel.bin's bytes changed on a hold cycle, expected them unchanged"
+                    after_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
+                    if after_count != before_count:
+                        return False, "a hold cycle added a gallery entry (%d -> %d), expected none" % (before_count, after_count)
+                    return True, ""
+                finally:
+                    shutil.rmtree(off_dir, ignore_errors=True)
+            check(
+                "toggle-off hold is a no-op - panel.bin unchanged and no gallery entry added, even across a battery hysteresis transition",
+                _display_off_hold_is_noop_across_battery_transition,
+            )
+
+            # 40. Pitfall 4 (D-06): a toggle-off cycle on the LIVE path never
+            # calls detect.poll_current_aircraft or detect.load_geofence -
+            # an off period is unbounded, so a query-and-discard loop here
+            # would run against the free-tier aggregators indefinitely.
+            def _display_off_skips_ads_b_detection():
+                off_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-off-skip-")
+                try:
+                    device_config.save_device_config(off_dir, display_enabled=False)
+                    CLOCK["t"] = CLOCK_BASE
+                    called = {"poll": False, "geofence": False}
+                    original_poll = poll_loop.detect.poll_current_aircraft
+                    original_geofence = poll_loop.detect.load_geofence
+
+                    def _fake_poll(*args, **kwargs):
+                        called["poll"] = True
+                        return None
+
+                    def _fake_geofence(*args, **kwargs):
+                        called["geofence"] = True
+                        return {}
+
+                    poll_loop.detect.poll_current_aircraft = _fake_poll
+                    poll_loop.detect.load_geofence = _fake_geofence
+                    try:
+                        poll_loop.run_once(state_dir=off_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.detect.poll_current_aircraft = original_poll
+                        poll_loop.detect.load_geofence = original_geofence
+                    if called["poll"] or called["geofence"]:
+                        return False, "detect.poll_current_aircraft/load_geofence were called during an active display-off hold: %r" % (called,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(off_dir, ignore_errors=True)
+            check(
+                "a toggle-off cycle on the live path never calls detect.poll_current_aircraft or detect.load_geofence - an off period is unbounded, so a query-and-discard loop would run against the free-tier aggregators indefinitely",
+                _display_off_skips_ads_b_detection,
+            )
+
+            # 41. D-05 (the overlap, display axis): toggle off AND an enabled
+            # window active simultaneously - the rendered canvas is the
+            # DISPLAY OFF screen, not the QUIET HOURS screen, and the latch
+            # holds the off kind. Asserted by canvas byte-identity so this
+            # cannot pass by accident.
+            def _display_off_wins_over_active_quiet_hours_window():
+                overlap_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-overlap-")
+                try:
+                    device_config.save_device_config(
+                        overlap_dir, display_enabled=False, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE  # inside the window too
+                    result = poll_loop.run_once(state_dir=overlap_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "display_off":
+                        return False, "toggle-off with an active window returned state=%r, expected 'display_off' (D-05: the toggle wins on what the panel shows)" % (result.get("state"),)
+                    on_disk = poll_loop.load_poll_state(overlap_dir)
+                    if on_disk.get("hold_state") != "display_off":
+                        return False, "poll_state.json's hold_state is %r, expected 'display_off'" % (on_disk.get("hold_state"),)
+                    with open(os.path.join(overlap_dir, "panel.bin"), "rb") as fh:
+                        actual = fh.read()
+                    expected = poll_loop.panel_format.pack_panel(
+                        poll_loop.render.build_canvas(None, "display_off")
+                    )
+                    if actual != expected:
+                        return False, "panel.bin does not equal the DISPLAY OFF canvas while toggle-off overlaps an active quiet-hours window"
+                    return True, ""
+                finally:
+                    shutil.rmtree(overlap_dir, ignore_errors=True)
+            check(
+                "the overlap: toggle off AND an active quiet-hours window renders DISPLAY OFF, not QUIET HOURS (D-05 display axis)",
+                _display_off_wins_over_active_quiet_hours_window,
+            )
+
+            # 42. D-07, direction one: a quiet-hours window is active (quiet
+            # screen up), then the toggle is switched off MID-WINDOW - moving
+            # between two hold states must not cost an e-ink refresh.
+            # panel.bin stays byte-identical, no gallery entry is added, and
+            # the latch now records the off kind while the quiet screen stays
+            # on the glass.
+            def _toggle_off_mid_window_produces_no_refresh():
+                transit_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-hold-to-hold-a-")
+                try:
+                    device_config.save_device_config(
+                        transit_dir, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE  # window entry - quiet screen renders
+                    poll_loop.run_once(state_dir=transit_dir, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(transit_dir, "panel.bin"), "rb") as fh:
+                        quiet_bytes = fh.read()
+                    gallery_dir = os.path.join(transit_dir, "gallery")
+                    before_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
+
+                    device_config.save_device_config(transit_dir, display_enabled=False)
+                    CLOCK["t"] = CLOCK_BASE + 60  # still inside the window
+                    result = poll_loop.run_once(state_dir=transit_dir, geofence=GEOFENCE_PATH)
+                    if result.get("panel_changed"):
+                        return False, "switching the toggle off mid-window returned panel_changed=True, expected False - moving between two hold states must not cost a refresh"
+                    with open(os.path.join(transit_dir, "panel.bin"), "rb") as fh:
+                        after_bytes = fh.read()
+                    if after_bytes != quiet_bytes:
+                        return False, "panel.bin changed when the toggle was switched off mid-window - the quiet screen must stay on the glass until the transition is silent"
+                    after_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
+                    if after_count != before_count:
+                        return False, "switching the toggle off mid-window added a gallery entry (%d -> %d), expected none" % (before_count, after_count)
+                    on_disk = poll_loop.load_poll_state(transit_dir)
+                    if on_disk.get("hold_state") != "display_off":
+                        return False, "poll_state.json's hold_state is %r after switching off mid-window, expected 'display_off'" % (on_disk.get("hold_state"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(transit_dir, ignore_errors=True)
+            check(
+                "D-07 hold-to-hold, direction one: switching the toggle off mid-window costs no e-ink refresh - the quiet screen stays up and the latch silently updates to 'display_off'",
+                _toggle_off_mid_window_produces_no_refresh,
+            )
+
+            # 43. D-07, direction two - the true mirror of check 42. Because
+            # the display axis always wins (D-05: hold_kind is "display_off"
+            # for as long as display_enabled is False, REGARDLESS of window
+            # state), a window merely starting or ending while the toggle
+            # stays off can never itself change hold_kind - there is no
+            # transition to suppress in that shape, so it cannot exercise
+            # this guard (confirmed empirically: it still passes unchanged
+            # under the negative control below). The genuine reverse
+            # transition is display_off -> quiet_hours: toggle off (no
+            # window, off screen up), then the toggle is switched back ON
+            # while a window is ALSO now active - hold_kind flips straight
+            # from "display_off" to "quiet_hours" without ever passing
+            # through None, so this is the real second direction the guard
+            # must hold for. panel.bin stays byte-identical (the off screen
+            # stays on the glass, not the quiet screen), no gallery entry is
+            # added, and the latch now records the quiet-hours kind.
+            def _toggle_back_on_during_window_produces_no_refresh():
+                transit_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-hold-to-hold-b-")
+                try:
+                    device_config.save_device_config(transit_dir, display_enabled=False)
+                    CLOCK["t"] = CLOCK_BASE  # toggle-off entry render, no window yet
+                    poll_loop.run_once(state_dir=transit_dir, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(transit_dir, "panel.bin"), "rb") as fh:
+                        off_bytes = fh.read()
+                    gallery_dir = os.path.join(transit_dir, "gallery")
+                    before_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
+
+                    # Switch the toggle back on AND bring a window into effect
+                    # in the same save, so the very next cycle sees BOTH
+                    # display_enabled=True and an active window at once -
+                    # hold_kind flips straight from "display_off" to
+                    # "quiet_hours" on a single cycle, with no None step
+                    # between them.
+                    device_config.save_device_config(
+                        transit_dir, display_enabled=True, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE + 60  # still inside the window
+                    result = poll_loop.run_once(state_dir=transit_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "quiet_hours":
+                        return False, "toggling back on during an active window returned state=%r, expected 'quiet_hours'" % (result.get("state"),)
+                    if result.get("panel_changed"):
+                        return False, "toggling back on during an active window returned panel_changed=True, expected False - moving between two hold states must not cost a refresh"
+                    with open(os.path.join(transit_dir, "panel.bin"), "rb") as fh:
+                        after_bytes = fh.read()
+                    if after_bytes != off_bytes:
+                        return False, "panel.bin changed when the toggle was switched back on during an active window - the off screen must stay on the glass until the transition is silent"
+                    after_count = len(os.listdir(gallery_dir)) if os.path.isdir(gallery_dir) else 0
+                    if after_count != before_count:
+                        return False, "toggling back on during an active window added a gallery entry (%d -> %d), expected none" % (before_count, after_count)
+                    on_disk = poll_loop.load_poll_state(transit_dir)
+                    if on_disk.get("hold_state") != "quiet_hours":
+                        return False, "poll_state.json's hold_state is %r after toggling back on during an active window, expected 'quiet_hours'" % (on_disk.get("hold_state"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(transit_dir, ignore_errors=True)
+            check(
+                "D-07 hold-to-hold, direction two: switching the toggle back on while a quiet-hours window is already active costs no e-ink refresh - the off screen stays up and the latch silently updates to 'quiet_hours'",
+                _toggle_back_on_during_window_produces_no_refresh,
+            )
+
+            # 44. Exit repaints once, from the off state - the display-side
+            # mirror of the Phase 10 window-exit regression guard above. The
+            # first cycle after the toggle is switched back on with no
+            # window active resumes detection and repaints the live board,
+            # with no intermediate transition screen, including from the
+            # held branch where nothing new was detected.
+            def _display_off_exit_repaints_once_with_no_transition_screen():
+                exit_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-off-exit-")
+                try:
+                    device_config.save_device_config(exit_dir)
+                    CLOCK["t"] = CLOCK_BASE - 3600
+                    poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=exit_dir, geofence=GEOFENCE_PATH)
+
+                    device_config.save_device_config(exit_dir, display_enabled=False)
+                    CLOCK["t"] = CLOCK_BASE  # toggle-off entry render
+                    poll_loop.run_once(state_dir=exit_dir, geofence=GEOFENCE_PATH)
+                    with open(os.path.join(exit_dir, "panel.bin"), "rb") as fh:
+                        off_bytes = fh.read()
+
+                    device_config.save_device_config(exit_dir, display_enabled=True)
+                    CLOCK["t"] = CLOCK_BASE + 60
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=exit_dir, geofence=GEOFENCE_PATH)
+                    if not result.get("panel_changed"):
+                        return False, "the first cycle after the toggle is switched back on returned panel_changed=False, expected True (must force one repaint)"
+                    if result.get("state") == "display_off":
+                        return False, "the exit cycle's returned state is still 'display_off', expected the ordinary held value"
+                    if result.get("state") != "departing":
+                        return False, "the exit cycle's returned state is %r, expected 'departing' (the held FLIGHT1 confirmed state)" % (result.get("state"),)
+                    with open(os.path.join(exit_dir, "panel.bin"), "rb") as fh:
+                        after_bytes = fh.read()
+                    if after_bytes == off_bytes:
+                        return False, "panel.bin is still the DISPLAY OFF bytes after the toggle was switched back on - a stale-image bug"
+                    on_disk = poll_loop.load_poll_state(exit_dir)
+                    if on_disk.get("hold_state") is not None:
+                        return False, "poll_state.json's hold_state is %r after the toggle exit, expected None" % (on_disk.get("hold_state"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(exit_dir, ignore_errors=True)
+            check(
+                "the first cycle after the toggle is switched back on repaints the held live board once, with no intermediate transition screen, and clears hold_state",
+                _display_off_exit_repaints_once_with_no_transition_screen,
+            )
+
+            # 45. Legacy migration: a poll_state.json written by the Phase 10
+            # code - the legacy quiet_hours_active=True boolean, no
+            # generalised hold_state key at all - must be read correctly on
+            # the first post-upgrade cycle and must not cause a spurious
+            # repaint. Asserted on the ON-DISK result, not only the
+            # in-memory value.
+            def _legacy_poll_state_migrates_without_spurious_repaint():
+                mig_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-migration-")
+                try:
+                    device_config.save_device_config(
+                        mig_dir, quiet_hours_enabled=True,
+                        quiet_hours_start="23:00", quiet_hours_end="07:00",
+                    )
+                    CLOCK["t"] = CLOCK_BASE
+                    # Seed a Phase-10-shaped poll_state.json directly, bypassing
+                    # run_once() entirely so this genuinely models a file the
+                    # OLD code wrote and left behind before this upgrade -
+                    # panel.bin is seeded to match what that old code would
+                    # have rendered for the same window, so a spurious repaint
+                    # is detectable as a byte change.
+                    legacy_canvas = poll_loop.render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00")
+                    legacy_bytes = poll_loop.panel_format.pack_panel(legacy_canvas)
+                    with open(os.path.join(mig_dir, "panel.bin"), "wb") as fh:
+                        fh.write(legacy_bytes)
+                    poll_loop.save_poll_state(mig_dir, {"quiet_hours_active": True})
+
+                    result = poll_loop.run_once(state_dir=mig_dir, geofence=GEOFENCE_PATH)
+                    if result.get("panel_changed"):
+                        return False, "the first post-upgrade cycle returned panel_changed=True, expected False (no spurious repaint on upgrade)"
+                    with open(os.path.join(mig_dir, "panel.bin"), "rb") as fh:
+                        after_bytes = fh.read()
+                    if after_bytes != legacy_bytes:
+                        return False, "panel.bin changed on the first post-upgrade cycle, expected it byte-identical to the legacy-written image"
+                    with open(poll_loop._poll_state_path(mig_dir)) as fh:
+                        on_disk_raw = json.load(fh)
+                    if on_disk_raw.get("hold_state") != "quiet_hours":
+                        return False, "the on-disk poll_state.json's hold_state is %r, expected 'quiet_hours'" % (on_disk_raw.get("hold_state"),)
+                    if "quiet_hours_active" in on_disk_raw:
+                        return False, "the on-disk poll_state.json still has the legacy quiet_hours_active key: %r, expected it removed" % (on_disk_raw,)
+                    return True, ""
+                finally:
+                    shutil.rmtree(mig_dir, ignore_errors=True)
+            check(
+                "a Phase-10-shaped poll_state.json (legacy quiet_hours_active=True, no hold_state) migrates without a spurious repaint and loses its stale key on disk",
+                _legacy_poll_state_migrates_without_spurious_repaint,
+            )
+
+            # 46. Toggle enabled is inert - with the toggle on and no window,
+            # the ordinary detection path runs exactly as before. The
+            # display-off machinery costs nothing when unused.
+            def _display_enabled_is_inert():
+                inert_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-off-inert-")
+                try:
+                    device_config.save_device_config(inert_dir, display_enabled=True)
+                    CLOCK["t"] = CLOCK_BASE
+                    result = poll_loop.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=inert_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") == "display_off":
+                        return False, "display_enabled=True still entered the display-off branch"
+                    if result.get("state") != "departing":
+                        return False, "display_enabled=True returned state=%r, expected the ordinary 'departing' detection outcome" % (result.get("state"),)
+                    return True, ""
+                finally:
+                    shutil.rmtree(inert_dir, ignore_errors=True)
+            check(
+                "display_enabled=True takes the ordinary detection path - the display-off machinery costs nothing when unused",
+                _display_enabled_is_inert,
             )
 
         finally:

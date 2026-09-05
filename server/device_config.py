@@ -57,6 +57,10 @@ DEFAULT_LED_ENABLED = True  # D-02: matches the LED's current hardcoded always-o
 DEFAULT_QUIET_HOURS_ENABLED = False  # D-04: an explicit boolean independent of the stored times, the same shape led_enabled uses - never "empty fields mean off". False so nothing changes for any existing installation until a user opts in.
 DEFAULT_QUIET_HOURS_START = "23:00"  # D-03: one daily recurring window, never per-weekday
 DEFAULT_QUIET_HOURS_END = "07:00"  # D-03: one daily recurring window, never per-weekday
+DEFAULT_DISPLAY_ENABLED = True  # D-09 (12-CONTEXT.md): an explicit boolean following the
+# DEFAULT_LED_ENABLED/DEFAULT_QUIET_HOURS_ENABLED precedent, never an
+# absence-means-off convention, so nothing changes for an installation already in
+# service until someone opts in.
 
 # D-02 (11-CONTEXT.md): bounds for the stored `wake_interval_s` config field only - the
 # value quiet_hours_sleep_s() hands the device is explicitly allowed to exceed
@@ -67,6 +71,18 @@ DEFAULT_QUIET_HOURS_END = "07:00"  # D-03: one daily recurring window, never per
 # datasheet specifies no minimum. 3600 (one hour) is the developer-confirmed ceiling.
 WAKE_INTERVAL_MIN_S = 60
 WAKE_INTERVAL_MAX_S = 3600
+
+# D-01 (12-CONTEXT.md): the fixed off-state check-in cadence while display_enabled is
+# False - deliberately replaces wake_interval_s rather than being derived from it: a
+# short configured interval (near WAKE_INTERVAL_MIN_S) gets roughly a 5x wake reduction
+# while off, and a long one (near WAKE_INTERVAL_MAX_S) gets a predictable
+# back-within-five-minutes switch-on instead of waiting up to an hour. 300 sits inside
+# the inclusive [WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S] band above, so unlike
+# quiet_hours_sleep_s() this mechanism needs none of the ceiling-exceeding latitude that
+# function was granted. stub-server/byos_server.py independently redefines this same
+# value across the vendor boundary (plan 12-03, VENDOR.md) and must be kept in step with
+# it - the same cross-file convention WAKE_INTERVAL_MIN_S/WAKE_INTERVAL_MAX_S already use.
+DISPLAY_OFF_SLEEP_S = 300
 
 # Deliberately no DEFAULT_WAKE_INTERVAL_S constant. Unlike every other field in this
 # module, wake_interval_s's unset state is `None`, a single deliberate exception to this
@@ -451,6 +467,26 @@ def normalise_quiet_hours_enabled(value):
     return DEFAULT_QUIET_HOURS_ENABLED
 
 
+def normalise_display_enabled(value):
+    """Same contract as normalise_led_enabled(): return `value` unchanged only
+    when `isinstance(value, bool)` is true, otherwise return
+    `DEFAULT_DISPLAY_ENABLED`. Never raises. Deliberately no registry/
+    membership test, for the same reason normalise_led_enabled() documents.
+
+    Security-relevant consequence of the default's direction (D-09,
+    12-CONTEXT.md): because DEFAULT_DISPLAY_ENABLED is True, every
+    degradation path - a missing file, an unreadable file, malformed JSON, a
+    non-dict document, or a wrong-typed value - leaves the display ON. A
+    corrupted config can never be the reason a frame goes dark; this is the
+    fail-open direction this field deliberately needs (a fail-closed default
+    would turn a disk-level fault into an apparently-dead device, exactly the
+    ambiguity D-03 rejected the blank-field off-screen option to avoid).
+    """
+    if isinstance(value, bool):
+        return value
+    return DEFAULT_DISPLAY_ENABLED
+
+
 def normalise_quiet_hours_time(value, default):
     """Return `value` unchanged only when it is a string matching the
     `_HHMM_RE` shape gate (24-hour, zero-padded "HH:MM"), otherwise return
@@ -488,17 +524,19 @@ def normalise_wake_interval_s(value):
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns all seven keys with valid
+    empty dict rather than raising. Always returns all eight keys with valid
     values - `theme`, `tracked_runway`, `led_enabled`, `quiet_hours_enabled`,
-    `quiet_hours_start`, `quiet_hours_end`, and `wake_interval_s` - via
-    normalise_theme_id()/normalise_runway_id()/normalise_led_enabled()/
-    normalise_quiet_hours_enabled()/normalise_quiet_hours_time()/
-    normalise_wake_interval_s(), so a hostile or stale value on disk (e.g. a
+    `quiet_hours_start`, `quiet_hours_end`, `wake_interval_s`, and
+    `display_enabled` - via normalise_theme_id()/normalise_runway_id()/
+    normalise_led_enabled()/normalise_quiet_hours_enabled()/
+    normalise_quiet_hours_time()/normalise_wake_interval_s()/
+    normalise_display_enabled(), so a hostile or stale value on disk (e.g. a
     path-traversal string, a numeric runway id, a non-bool led_enabled, a
-    malformed quiet-hours time, or a hostile wake_interval_s) never reaches a
-    caller. `wake_interval_s` is the single key whose valid value set
-    includes `None`, meaning never-explicitly-set - every other key always
-    has a concrete default. Never raises.
+    malformed quiet-hours time, a hostile wake_interval_s, or a non-bool
+    display_enabled) never reaches a caller. `wake_interval_s` is the single
+    key whose valid value set includes `None`, meaning never-explicitly-set -
+    every other key always has a concrete default (D-09: `display_enabled`
+    defaults to `True`). Never raises.
     """
     try:
         with open(device_config_path(state_dir)) as fh:
@@ -515,25 +553,26 @@ def load_device_config(state_dir):
         "quiet_hours_start": normalise_quiet_hours_time(data.get("quiet_hours_start"), DEFAULT_QUIET_HOURS_START),
         "quiet_hours_end": normalise_quiet_hours_time(data.get("quiet_hours_end"), DEFAULT_QUIET_HOURS_END),
         "wake_interval_s": normalise_wake_interval_s(data.get("wake_interval_s")),
+        "display_enabled": normalise_display_enabled(data.get("display_enabled")),
     }
 
 
 def save_device_config(
     state_dir, theme=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
-    wake_interval_s=None,
+    wake_interval_s=None, display_enabled=None,
 ):
     """Validate and persist a new theme and/or tracked-runway id and/or
     led_enabled flag and/or the three quiet-hours fields and/or
-    wake_interval_s.
+    wake_interval_s and/or display_enabled.
 
     Each supplied (non-None) value is checked before anything is written:
     `theme`/`tracked_runway` against their registries with an explicit
-    membership test, `led_enabled`/`quiet_hours_enabled` with an explicit
-    `isinstance(..., bool)` type check (there is no registry for a
-    boolean), `quiet_hours_start`/`quiet_hours_end` against the `_HHMM_RE`
-    shape gate, and `wake_interval_s` against the bounded-int gate
-    (`isinstance(value, int) and not isinstance(value, bool)`, then
+    membership test, `led_enabled`/`quiet_hours_enabled`/`display_enabled`
+    with an explicit `isinstance(..., bool)` type check (there is no
+    registry for a boolean), `quiet_hours_start`/`quiet_hours_end` against
+    the `_HHMM_RE` shape gate, and `wake_interval_s` against the bounded-int
+    gate (`isinstance(value, int) and not isinstance(value, bool)`, then
     `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` inclusive). An
     unknown/wrong-typed value raises `ValueError` naming both the bounds (for
     `wake_interval_s`) or the registry (for the others) and the rejected
@@ -541,8 +580,8 @@ def save_device_config(
     (T-06-01-01/T-06-01-06). A value left `None` is carried over unchanged
     from the current on-disk config (falling back to the documented defaults
     if none exists yet), so a caller updating only the theme never has to
-    also resupply the runway, the LED flag, the quiet-hours fields, or
-    wake_interval_s.
+    also resupply the runway, the LED flag, the quiet-hours fields,
+    wake_interval_s, or display_enabled.
 
     Because `None` means "not supplied / carry forward" for every field,
     there is no way to clear an already-set `wake_interval_s` back to unset
@@ -565,6 +604,8 @@ def save_device_config(
         raise ValueError("led_enabled must be a bool, got %r" % (led_enabled,))
     if quiet_hours_enabled is not None and not isinstance(quiet_hours_enabled, bool):
         raise ValueError("quiet_hours_enabled must be a bool, got %r" % (quiet_hours_enabled,))
+    if display_enabled is not None and not isinstance(display_enabled, bool):
+        raise ValueError("display_enabled must be a bool, got %r" % (display_enabled,))
     if quiet_hours_start is not None and not (isinstance(quiet_hours_start, str) and _HHMM_RE.match(quiet_hours_start)):
         raise ValueError("quiet_hours_start must be a 24-hour zero-padded HH:MM string, got %r" % (quiet_hours_start,))
     if quiet_hours_end is not None and not (isinstance(quiet_hours_end, str) and _HHMM_RE.match(quiet_hours_end)):
@@ -588,6 +629,7 @@ def save_device_config(
         "quiet_hours_start": quiet_hours_start if quiet_hours_start is not None else current["quiet_hours_start"],
         "quiet_hours_end": quiet_hours_end if quiet_hours_end is not None else current["quiet_hours_end"],
         "wake_interval_s": wake_interval_s if wake_interval_s is not None else current["wake_interval_s"],
+        "display_enabled": display_enabled if display_enabled is not None else current["display_enabled"],
     }
 
     os.makedirs(state_dir, exist_ok=True)

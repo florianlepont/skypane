@@ -319,6 +319,43 @@ def load_poll_state(state_dir):
     return data if isinstance(data, dict) else {}
 
 
+# D-07-factoring (12-CONTEXT.md/12-04-PLAN.md): the tri-valued hold-state
+# latch. `None` means not holding; the other two name which screen is
+# currently on the glass. Two independent booleans were rejected because
+# they make "am I already holding?" a compound test every future hold
+# mechanism has to remember to extend everywhere it appears - with one key,
+# that test is the single `was_hold is None`, and it stays correct for a
+# third mechanism without touching a line.
+_HOLD_KINDS = ("quiet_hours", "display_off")
+
+
+def _hold_state(poll_state):
+    """Return the current hold kind (`"quiet_hours"` / `"display_off"`), or
+    `None` when not holding.
+
+    Migration - this runs on a live deployed device. A `poll_state.json`
+    written by the Phase 10 code carries only the legacy `quiet_hours_active`
+    boolean and no `hold_state` key at all. If this simply read `hold_state`
+    and found it absent, an upgrade landing mid-window would read "not
+    holding", enter the hold branch as if fresh, and repaint the same
+    quiet-hours screen already on the glass - a needless full refresh, and
+    exactly the class of spurious repaint D-07 exists to prevent. So when
+    `hold_state` is absent, this falls back to the legacy boolean, returning
+    `"quiet_hours"` when it is literally `True` (otherwise `None`). This
+    fallback fires for at most ONE cycle per upgraded install: the caller
+    retires the legacy key on its first write after reading it here.
+
+    Never raises: `poll_state.json` is a cross-process latch a crash or a
+    hand-edit could have left in any shape, so an unrecognised `hold_state`
+    string degrades to `None` (not holding) rather than raising, matching
+    every other reader in this module.
+    """
+    if "hold_state" in poll_state:
+        kind = poll_state.get("hold_state")
+        return kind if kind in _HOLD_KINDS else None
+    return "quiet_hours" if poll_state.get("quiet_hours_active") is True else None
+
+
 def load_battery_state(state_dir):
     """Read-only: `<state_dir>/battery_state.json` is owned and written
     exclusively by stub-server/byos_server.py's save_battery_state() (05-02
@@ -632,18 +669,32 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     access to either; only the selected hex/callsign/altitude/state and
     whether the panel changed are printed (T-02-01-04).
 
-    Scheduled quiet hours (D-04/D-05/D-07, phase 10): when the once-per-cycle
-    device-config read reports the cycle falls inside an enabled daily
-    window, this function takes an EARLY RETURN before any ADS-B call is
-    made - the window suppresses detection entirely for the cycle, not just
-    its display. The rule is "render once at entry, then hold": the QUIET
-    HOURS screen is drawn exactly once, on the first cycle
-    `poll_state["quiet_hours_active"]` flips to True, and every subsequent
-    in-window cycle is a deliberate no-op for the panel. The first cycle
-    after the window ends clears that flag and forces one repaint of the
-    live board from whichever branch below would otherwise have held it, so
-    no stale QUIET HOURS image survives past the window and no separate
-    "waking up" transition screen is ever invented.
+    Hold states (D-05/D-06/D-07, phases 10 and 12): two independent
+    mechanisms can each put the panel on hold - a scheduled quiet-hours
+    window (phase 10) and the manual display-off toggle (phase 12) - and
+    both are gated through one shared `poll_state["hold_state"]` latch
+    (`_hold_state()`). When the once-per-cycle device-config read reports
+    EITHER mechanism active, this function takes an EARLY RETURN before any
+    ADS-B call is made - a hold suppresses detection entirely for the
+    cycle, not just its display; an off period has no scheduled end, so
+    without this the aggregators would be queried indefinitely rather than
+    merely overnight (D-06). The rule is "render once at entry, then hold":
+    the held screen is drawn exactly once, on the first cycle
+    `_hold_state(poll_state)` flips from `None` to a kind, and every
+    subsequent held cycle - INCLUDING a move from one hold kind to the
+    other, in either direction - is a deliberate no-op for the panel (D-07):
+    an e-ink refresh costs energy and flashes visibly for no informational
+    gain, so entering a hold renders once and only a return to the live
+    board renders again. `display_enabled=False` always wins on WHAT THE
+    PANEL SHOWS over a standing quiet-hours window (D-05's display axis) -
+    the toggle is the operator's explicit manual instruction; the opposite
+    resolution (longest sleep wins) applies only to HOW LONG THE DEVICE
+    SLEEPS, and lives entirely in stub-server/byos_server.py (plan 12-03),
+    not here. The first cycle after ALL hold conditions clear resumes
+    normal detection and forces one repaint of the live board from
+    whichever branch below would otherwise have held it, so no stale held
+    image survives and no separate "waking up" transition screen is ever
+    invented.
     """
     state_dir = state_dir or DEFAULT_STATE_DIR
     os.makedirs(state_dir, exist_ok=True)
@@ -683,21 +734,43 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # this module's own harness-replaceable clock seam, so the poll-loop
     # test harness's fake clock drives this arithmetic too.
     quiet_remaining, quiet_until = device_config.quiet_hours_status(device_cfg, now_s())
+    # D-05 (12-CONTEXT.md, display axis): read display_enabled from the SAME
+    # device_cfg read above - never a second load_device_config() call, for
+    # the identical reason the comment above gives. The toggle is the
+    # operator's explicit manual instruction and wins over a standing
+    # schedule on WHAT THE PANEL SHOWS, so "off" is checked first: the off
+    # screen renders whenever the toggle is off, regardless of any window.
+    # This is ONLY the display axis - the sleep-duration axis resolves the
+    # opposite way (the longest value wins, `max(300, quiet_hours_remaining)`)
+    # and lives entirely in stub-server/byos_server.py (plan 12-03), not
+    # here. Collapsing the two axes into one rule is exactly the mistake
+    # D-05 warns a reader of only this file would otherwise reasonably make.
+    display_enabled = device_cfg["display_enabled"]
+    if not display_enabled:
+        hold_kind = "display_off"
+    elif quiet_remaining is not None:
+        hold_kind = "quiet_hours"
+    else:
+        hold_kind = None
 
-    if quiet_remaining is not None:
-        # 10-RESEARCH.md Pitfall 4: this early return sits BEFORE
-        # detect.load_geofence()/detect.poll_current_aircraft() below on
-        # purpose. The most surgical-looking insertion point - next to the
-        # existing `if flight is not None:` branching further down - is
-        # already after detection has run, which would keep querying the
-        # free-tier ADS-B aggregators every 30 seconds for an entire
-        # overnight window and throw every result away. Inside the window,
-        # this cycle must not touch `detect` at all.
+    if hold_kind is not None:
+        # 10-RESEARCH.md Pitfall 4 (D-06, 12-CONTEXT.md): this early return
+        # sits BEFORE detect.load_geofence()/detect.poll_current_aircraft()
+        # below on purpose. The most surgical-looking insertion point - next
+        # to the existing `if flight is not None:` branching further down -
+        # is already after detection has run, which would keep querying the
+        # free-tier ADS-B aggregators every 30 seconds throughout a hold and
+        # throw every result away. Inside a hold, this cycle must not touch
+        # `detect` at all. An off period has no scheduled end, so querying
+        # the aggregators through it would be unbounded rather than merely
+        # overnight, which makes this placement matter even more here than
+        # it did for quiet hours alone.
         poll_state = load_poll_state(state_dir)
-        was_quiet = bool(poll_state.get("quiet_hours_active", False))
+        was_hold = _hold_state(poll_state)
+        legacy_present = "quiet_hours_active" in poll_state
 
         # 05-02 (DEVICE-04): the identical three-line battery decision the
-        # main path computes below - the quiet screen carries the same
+        # main path computes below - the held screen carries the same
         # battery-low icon, per 10-UI-SPEC.md's Panel Screen Contract and
         # _build_empty_canvas()'s own precedent.
         was_battery_low = bool(poll_state.get("battery_low_active", False))
@@ -708,23 +781,32 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # No provider was queried this cycle, so there is no new
         # observation to classify - carry the previously-persisted fault
         # flag forward rather than inventing a fault or silently clearing a
-        # real ongoing one overnight.
+        # real ongoing one.
         source_fault = _last_source_fault(state_dir)
-        poll_state["quiet_hours_active"] = True
+        poll_state["hold_state"] = hold_kind
+        if legacy_present:
+            del poll_state["quiet_hours_active"]
         now_iso = history_db.utc_now_iso()
 
-        # Render ONLY on entry. A full e-ink refresh measures ~31.5s on
-        # this panel, the device is deep-asleep and cannot fetch anything
-        # mid-window anyway, and re-rendering all night would burn the
-        # panel for zero new information - so every later cycle inside the
-        # window is a deliberate no-op, even across a battery transition
-        # (unlike the held branch below, nothing rendered mid-window can
-        # ever reach the glass, so a battery transition during the window
-        # must not trigger a repaint).
+        # Render ONLY on entry into a hold from the live board - guarded by
+        # `was_hold is None`, NEVER by `was_hold != hold_kind` (D-07). A
+        # full e-ink refresh measures ~31.5s on this panel, the device is
+        # deep-asleep and cannot fetch anything mid-hold anyway, and
+        # re-rendering for zero new information burns the panel for
+        # nothing - so every later cycle inside a hold is a deliberate
+        # no-op, even across a battery transition (unlike the held branch
+        # below, nothing rendered mid-hold can ever reach the glass, so a
+        # battery transition during a hold must not trigger a repaint).
+        # `was_hold is None` is also what makes a MOVE BETWEEN two hold
+        # states silent in both directions (D-07): a quiet window ending
+        # while the toggle is still off leaves the off screen up; the
+        # toggle being switched off during a window leaves the quiet screen
+        # up until the window itself ends. Both are correct and both cost
+        # zero refreshes.
         panel_changed = False
-        if not was_quiet:
+        if was_hold is None:
             canvas = render.build_canvas(
-                None, "quiet_hours", quiet_hours_until=quiet_until,
+                None, hold_kind, quiet_hours_until=quiet_until,
                 source_fault=source_fault, battery_low=battery_low,
             )
             rendered = panel_format.pack_panel(canvas)
@@ -732,27 +814,33 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             if panel_changed:
                 _save_to_gallery(state_dir, canvas, now_iso)
 
-        # The flag and the hysteresis memory both have to survive this
+        # The kind and the hysteresis memory both have to survive this
         # oneshot's process boundary; an unconditional save every 30
-        # seconds would be a pointless write.
-        if not was_quiet or battery_changed:
+        # seconds would be a pointless write. `was_hold != hold_kind`
+        # persists a hold-kind change even though nothing was rendered - the
+        # panel did not change but the record of what is on it did.
+        # `legacy_present` is the one-time migration flush that retires the
+        # stale key; it fires for at most one cycle per upgraded install.
+        if was_hold != hold_kind or battery_changed or legacy_present:
             save_poll_state(state_dir, poll_state)
 
         # T-06-10-05/Pitfall 1: this call is NOT optional - it is what
-        # advances history_db.META_LAST_PIPELINE_RUN, and skipping it for
-        # an eight-hour window would make the companion Health page raise a
-        # false "ADS-B pipeline run is stale" anomaly every morning.
+        # advances history_db.META_LAST_PIPELINE_RUN, and skipping it for a
+        # long hold would make the companion Health page raise a false
+        # "ADS-B pipeline run is stale" anomaly. This matters even more for
+        # an off period, which (unlike quiet hours) has no scheduled end.
         _record_history(
             state_dir, None, None, None, None, tracked_runway_id,
             source_fault, False, now_iso, caddy_log=caddy_log,
         )
 
         print(
-            "poll_loop: quiet_hours=active until=%s entered=%s panel_changed=%s "
+            "poll_loop: hold_state=%s until=%s entered=%s panel_changed=%s "
             "battery_low=%s theme=%s tracked_runway=%s source_fault=%s"
             % (
+                hold_kind,
                 quiet_until,
-                not was_quiet,
+                was_hold is None,
                 panel_changed,
                 battery_low,
                 theme_id,
@@ -763,7 +851,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
 
         return {
             "flight": None,
-            "state": "quiet_hours",
+            "state": hold_kind,
             "panel_changed": panel_changed,
             "theme": theme_id,
             "tracked_runway": tracked_runway_id,
@@ -795,15 +883,19 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     now_iso = history_db.utc_now_iso()
 
     poll_state = load_poll_state(state_dir)
-    # D-07 (10-CONTEXT.md): reaching this line at all means the window is
-    # not currently active, so a True flag here can only mean "this is the
-    # first cycle after the window ended" - clear it now so every branch
-    # below sees the cleared value in poll_state, and remember the fact in
-    # quiet_hours_exited so the branches that don't unconditionally repaint
-    # can force exactly one exit repaint.
-    quiet_hours_exited = bool(poll_state.get("quiet_hours_active", False))
-    if quiet_hours_exited:
-        poll_state["quiet_hours_active"] = False
+    # D-07 (12-CONTEXT.md): reaching this line at all means no hold
+    # condition is active any more - whichever mechanism it was, and
+    # regardless of how many kinds it passed through while held - so a
+    # non-None hold kind here can only mean "this is the first cycle after
+    # the last hold ended". Clear it now so every branch below sees the
+    # cleared value in poll_state, and remember the fact in hold_exited so
+    # the branches that don't unconditionally repaint can force exactly one
+    # exit repaint.
+    hold_exited = _hold_state(poll_state) is not None
+    if hold_exited:
+        poll_state["hold_state"] = None
+        if "quiet_hours_active" in poll_state:
+            del poll_state["quiet_hours_active"]
     current_flight = poll_state.get("last_flight")
     current_confirmed_state = poll_state.get("last_confirmed_state")
     current_route = poll_state.get("last_route")
@@ -1042,17 +1134,18 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # they exist for.
         #
         # That "only the badge and icon differ" property is NOT true on a
-        # window-exit cycle (quiet_hours_exited below). `panel.bin`
-        # currently holds the QUIET HOURS image from the early-return
-        # branch above, and this branch's whole purpose is otherwise to NOT
-        # repaint. Without this term, a frame whose last detection predates
-        # the window would keep serving the QUIET HOURS image to the
-        # device - for hours, until the next aircraft happens to be
-        # detected. Forcing one repaint here is exactly D-07's "the first
-        # normal poll after the device wakes renders the real, live board
-        # directly": no new transition state is invented, the branch simply
-        # re-renders what it would already have been showing.
-        if source_fault != previous_source_fault or battery_changed or quiet_hours_exited:
+        # hold-exit cycle (hold_exited below). `panel.bin` currently holds
+        # whichever held screen (QUIET HOURS or DISPLAY OFF) the early-return
+        # branch above last drew, and this branch's whole purpose is
+        # otherwise to NOT repaint. Without this term, a frame whose last
+        # detection predates the hold would keep serving the held image to
+        # the device - for as long as the hold lasted, until the next
+        # aircraft happens to be detected. Forcing one repaint here is
+        # exactly D-07's "the first normal poll after the device wakes
+        # renders the real, live board directly": no new transition state is
+        # invented, the branch simply re-renders what it would already have
+        # been showing.
+        if source_fault != previous_source_fault or battery_changed or hold_exited:
             if confirmed_state is not None:
                 held_canvas = render.build_canvas(
                     current_flight,
@@ -1082,7 +1175,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             # would silently disable the whole mitigation.
             poll_state["pending_flights"] = pending
             poll_state["last_advance_at"] = last_advance_at
-        if battery_changed or queue_dirty or quiet_hours_exited:
+        if battery_changed or queue_dirty or hold_exited:
             save_poll_state(state_dir, poll_state)
         # T-06-10-05/Pitfall 1: every cycle through this branch, transition
         # or not, still records the per-cycle pipeline-run + source-fault
@@ -1113,10 +1206,10 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # save_poll_state() unconditionally; this branch otherwise never
         # does, so the hysteresis memory would not survive this oneshot's
         # process boundary on a frame that has never seen an aircraft.
-        # quiet_hours_exited is included so the cleared flag also survives -
-        # this branch already renders unconditionally, so no re-render
-        # change is needed here, only the save.
-        if battery_changed or quiet_hours_exited:
+        # hold_exited is included so the cleared latch also survives - this
+        # branch already renders unconditionally, so no re-render change is
+        # needed here, only the save.
+        if battery_changed or hold_exited:
             save_poll_state(state_dir, poll_state)
         _record_history(
             state_dir, None, None, None, None,
@@ -1162,7 +1255,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     print(
         "poll_loop: hex=%s callsign=%s aircraft_type=%s corroborated=%s altitude_ft=%s confirmed_state=%s "
         "render_state=%s state_source=%s route_source=%s unknown_prefix=%s shown=%s pending=%d dropped=%s "
-        "battery_low=%s panel_changed=%s theme=%s tracked_runway=%s source_fault=%s quiet_hours_exited=%s"
+        "battery_low=%s panel_changed=%s theme=%s tracked_runway=%s source_fault=%s hold_exited=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
@@ -1182,7 +1275,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             theme_id,
             tracked_runway_id,
             source_fault,
-            quiet_hours_exited,
+            hold_exited,
         )
     )
 
