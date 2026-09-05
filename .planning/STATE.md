@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 11
 status: executing
-stopped_at: Completed 12-05-PLAN.md
-last_updated: "2026-09-05T18:08:40.322Z"
+stopped_at: Phase 13 context gathered
+last_updated: "2026-09-05T21:29:53.454Z"
 last_activity: 2026-09-04
 last_activity_desc: "Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence"
 progress:
   total_phases: 26
   completed_phases: 22
   total_plans: 125
-  completed_plans: 122
-  percent: 88
+  completed_plans: 123
+  percent: 98
 ---
 
 ---
@@ -642,12 +642,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-05T18:08:40.306Z
-Stopped at: Completed 12-05-PLAN.md
+Last session: 2026-09-05T21:29:53.438Z
+Stopped at: Phase 13 context gathered
 
 Resume file: 
 
-None
+.planning/phases/13-add-an-illustration-for-an-unidentified-flight-from-the-comp/13-CONTEXT.md
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
