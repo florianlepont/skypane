@@ -879,11 +879,17 @@ def note_unresolved_prefix(callsign, registry, now=None):
     Recording happens only when `callsign` passes `_AIRLINE_PREFIX_SHAPE_RE`
     (a real callsign shape, not empty/malformed/hostile input) AND
     `airline_from_callsign(callsign)` returns None (the prefix is genuinely
-    absent from `_ICAO_AIRLINE_PREFIXES`, not just a differently-shaped
-    string). Both decisions are derived from the single
+    absent from BOTH the static `_ICAO_AIRLINE_PREFIXES` table AND (phase
+    13, D-01) the runtime manual-resolution registry, not just a
+    differently-shaped string). Both decisions are derived from the single
     `airline_from_callsign()` call rather than a second, parallel lookup
-    against `_ICAO_AIRLINE_PREFIXES` - so this function can never drift from
-    that seam's resolve/None verdict as the table grows.
+    against either table - so this function can never drift from that
+    seam's resolve/None verdict as either table grows. This single-seam
+    derivation is now MORE load-bearing than it was before phase 13, not
+    less: `clear_resolved_unresolved_prefix()` (this module's structural
+    inverse of this function, defined immediately below) is gated on the
+    exact same `airline_from_callsign()` call, so the two functions can
+    never disagree about whether a prefix currently resolves.
 
     `registry` is a plain, JSON-serialisable dict (the caller persists it in
     `poll_state.json`'s `unresolved_prefixes` key) mapping a 3-letter prefix
@@ -935,6 +941,71 @@ def note_unresolved_prefix(callsign, registry, now=None):
         entry["last_seen"] = now
         entry["example_callsign"] = example
 
+    return prefix
+
+
+def clear_resolved_unresolved_prefix(callsign, registry):
+    """Remove `callsign`'s 3-letter ICAO prefix from `registry` if it is
+    present AND now resolves, returning the removed prefix; otherwise
+    return `None` and leave `registry` untouched. Never raises.
+
+    This is D-14's WHOLE implementation. `note_unresolved_prefix()` already
+    stops *recording* a prefix once it resolves (its own gate, unchanged by
+    this function) - but nothing in this module ever *removed* an entry
+    that predates the resolution, and a plain dict entry persists forever
+    until something deletes it. Without this function, a prefix added to
+    `_ICAO_AIRLINE_PREFIXES` or resolved via the manual registry would keep
+    showing up in `poll_state.json`'s `unresolved_prefixes` registry (and
+    therefore in `coverage_status()`'s gap report) as a phantom, permanently
+    stale gap that no longer exists (T-13-16).
+
+    Written as `note_unresolved_prefix()`'s structural inverse, with the
+    identical gate order, so the two functions can never drift apart:
+      1. `registry` is not a dict -> return `None`.
+      2. `normalise_callsign(callsign)` is `None` -> return `None`.
+      3. `_AIRLINE_PREFIX_SHAPE_RE` fails on the normalised callsign ->
+         return `None`.
+      4. the prefix is not a key of `registry` -> return `None` (nothing to
+         clear).
+      5. `airline_from_callsign(callsign)` is `None` (still unresolved) ->
+         return `None`, leaving the entry in place.
+      6. `del registry[prefix]`; return `prefix`.
+
+    The resolution test is `airline_from_callsign()` - i.e. a hit in
+    EITHER table (D-01) - and deliberately NEVER a `route_source` value.
+    `route_source` (`resolve_route()`'s return, e.g. `"fresh_hit"`,
+    `"airline_only"`, `"manual"`, `"miss"`) describes only this specific
+    cycle's specific callsign's adsbdb outcome, not whether the prefix as a
+    whole is now resolvable - gating cleanup on `route_source` would leave
+    a genuinely-resolved prefix's stale entry uncleaned on every cycle
+    where adsbdb happened to answer first (adsbdb wins by construction in
+    `resolve_route()`, so a resolved prefix can still show `"fresh_hit"`/
+    `"cache_hit"` instead of `"airline_only"`/`"manual"` on any given
+    cycle, even though `airline_from_callsign()` would say it resolves).
+
+    Ordering requirement for the caller (`server/poll_loop.py`'s
+    `run_once()`, the sole caller, wired by plan 13-05): this must run
+    BEFORE `trim_unresolved_prefixes()` and before the
+    `poll_state["unresolved_prefixes"]` write-back, so a newly-resolved
+    prefix is removed in the same cycle it stops mattering, rather than
+    surviving one extra trim/write cycle as a phantom entry.
+
+    Calling this twice in a row for the same callsign is safe: the second
+    call finds the prefix already absent (gate 4) and returns `None`.
+    """
+    if not isinstance(registry, dict):
+        return None
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return None
+    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return None
+    prefix = normalised[:3]
+    if prefix not in registry:
+        return None
+    if airline_from_callsign(callsign) is None:
+        return None
+    del registry[prefix]
     return prefix
 
 

@@ -28,7 +28,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 57
+EXPECTED_CHECK_COUNT = 59
 
 
 def load_fixture(name):
@@ -1306,6 +1306,97 @@ def main():
         "a manual entry for a static-table prefix still yields 'airline_only' under an adsbdb miss (D-06), and "
         "adsbdb still wins by construction ('fresh_hit') even when a manual entry exists for that prefix",
         _resolve_route_static_and_adsbdb_precedence_over_manual,
+    )
+
+    # --- Phase 13 plan 13-03 Task 3 (D-14): clear_resolved_unresolved_prefix()
+    # - note_unresolved_prefix()'s structural inverse. ---------------------
+
+    # 56. Happy path and idempotence: a registry entry for a
+    #     manually-resolved prefix is removed and the prefix returned; a
+    #     second call returns None; a still-unresolved prefix's entry
+    #     survives untouched (the exact entry dict, not merely present).
+    def _clear_resolved_unresolved_prefix_happy_path_and_idempotence():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+
+                still_unresolved_entry = {
+                    "count": 3,
+                    "first_seen": "T1",
+                    "last_seen": "T3",
+                    "example_callsign": "YYY9999",
+                }
+                registry = {
+                    "ZZZ": {
+                        "count": 2,
+                        "first_seen": "T1",
+                        "last_seen": "T2",
+                        "example_callsign": "ZZZ1234",
+                    },
+                    "YYY": dict(still_unresolved_entry),
+                }
+
+                got = enrich.clear_resolved_unresolved_prefix("ZZZ1234", registry)
+                if got != "ZZZ":
+                    return False, "expected 'ZZZ' removed and returned, got %r" % (got,)
+                if "ZZZ" in registry:
+                    return False, "expected the 'ZZZ' entry to be removed from the registry, still present: %r" % (registry,)
+                if registry.get("YYY") != still_unresolved_entry:
+                    return False, "the still-unresolved 'YYY' entry must survive byte-identical, got %r" % (registry.get("YYY"),)
+
+                got2 = enrich.clear_resolved_unresolved_prefix("ZZZ1234", registry)
+                if got2 is not None:
+                    return False, "second call should return None (already cleared), got %r" % (got2,)
+                if registry.get("YYY") != still_unresolved_entry:
+                    return False, "the still-unresolved 'YYY' entry must survive the second call too, got %r" % (registry.get("YYY"),)
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "clear_resolved_unresolved_prefix() removes a manually-resolved prefix's entry and returns the prefix, a "
+        "second call returns None, and a still-unresolved prefix's entry survives byte-identical (D-14)",
+        _clear_resolved_unresolved_prefix_happy_path_and_idempotence,
+    )
+
+    # 57. Hostile-input sweep: non-dict registry, None, 42, "", "ZZ", "ZZZ",
+    #     "../x" - every one returns None, raises nothing, and leaves a
+    #     seeded registry byte-identical.
+    def _clear_resolved_unresolved_prefix_hostile_input_sweep():
+        seeded = {
+            "AFR": {
+                "count": 1,
+                "first_seen": "T1",
+                "last_seen": "T1",
+                "example_callsign": "AFR1234",
+            },
+        }
+        original = copy.deepcopy(seeded)
+        hostile = (None, 42, "", "ZZ", "ZZZ", "../x")
+        for bad in hostile:
+            try:
+                got = enrich.clear_resolved_unresolved_prefix(bad, seeded)
+            except Exception as exc:
+                return False, "clear_resolved_unresolved_prefix(%r, ...) raised %r instead of returning None" % (bad, exc)
+            if got is not None:
+                return False, "clear_resolved_unresolved_prefix(%r, ...) = %r, expected None" % (bad, got)
+            if seeded != original:
+                return False, "hostile input %r mutated the registry: %r" % (bad, seeded)
+
+        try:
+            got = enrich.clear_resolved_unresolved_prefix("AFR1234", "not-a-dict")
+        except Exception as exc:
+            return False, "a non-dict registry must be refused, not raise: %r" % (exc,)
+        if got is not None:
+            return False, "clear_resolved_unresolved_prefix('AFR1234', 'not-a-dict') = %r, expected None" % (got,)
+        return True, ""
+    check(
+        "clear_resolved_unresolved_prefix() returns None and mutates nothing for a non-dict registry, None, an "
+        "int, an empty string, a bare 3-letter callsign, and a path-separator payload - one check covering the "
+        "whole hostile-input sweep",
+        _clear_resolved_unresolved_prefix_hostile_input_sweep,
     )
 
     total = len(results)
