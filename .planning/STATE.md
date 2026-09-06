@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 13
-status: Phase 14 plan 07/8 complete — distinct manual_name_unusable flash key closes 13-UAT.md G-01
-stopped_at: Completed 14-07-PLAN.md (companion/app.py FLASH_KEY_MANUAL_NAME_UNUSABLE + narrowed _handle_manual_resolve_post() branch, closes 13-UAT.md G-01); test_companion_app.py 159/159, full suite PASS. Wave 3 (14-06) and 14-08 next.
-last_updated: "2026-09-06T15:01:27.612Z"
+status: Phase 14 plan 06/8 complete — chip/superseded/trigger-tag generalisation, D-11 summary line, management-table removal
+stopped_at: Completed 14-06-PLAN.md (chip/superseded/trigger-tag generalisation, D-11 summary line, management-table removal); test_status_pages.py 163/163, full suite PASS. 14-08 next.
+last_updated: "2026-09-06T15:39:35.831Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
   completed_phases: 24
   total_plans: 139
-  completed_plans: 136
-  percent: 89
+  completed_plans: 137
+  percent: 99
 ---
 
 ---
@@ -45,6 +45,8 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 ## Current Position
 
 Phase: 13
+
+**14-06 executed (2026-09-06), wave 3, the last plan in this wave to touch `companion/pages/airlines_page.py` before Wave 4's closing verification — absorbs Phase 13's standalone "Manually resolved prefixes" table into the gallery cards themselves.** Task 1 widened `_airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None)`: `manual_info=None` is byte-identical to the pre-existing plain curated card; present as `(prefix, superseded, needs_artwork)` — the exact trailing three fields of one `_manual_resolution_rows()` row, sliced by `render()` and consumed here, never re-derived (RESEARCH.md Pitfall 6) — it derives `mode`/`manual`/`heading`/`upload-action`/`delete-action`/`manual-note`/sighting-context attributes and generalises the trigger-tag rule so any card carrying a resolve prefix is a real `<a href="/airlines?resolve={prefix}">` (a plain curated card keeps its `<button>`). A superseded card's image/mode reflect the BUILT-IN airline's own current state (D-10) via one `enrich.static_airline_name_for_prefix()` call. `render()` gained an additive grid-injection step: `manual_info_by_name` keys a superseded row by the built-in name (the card the frame actually renders under) and an active row by its own stored name, and `injected_pairs` adds exactly one card for a genuinely novel active manual name not already curated. Task 2 deleted the standalone management table and its six now-orphaned rendering functions plus nine copy/class constants (the plan's own eight, plus `SUPERSEDED_CAPTION`, a ninth genuinely-orphaned one its enumeration missed), replacing it with `_manual_summary_html(manual_rows)` — a one-line, clickable `data-filter-set="manual"` summary reusing `list-filter.js`'s plan-14-03 hook — and deleted the now-dead `.manual-resolution__status--superseded` CSS rule. Four `test_status_pages.py` checks were retargeted in place (zero net count change) plus one pre-existing 14-03 check flipped from asserting the CSS rule's survival to its absence; 5 new Task-1 checks brought `EXPECTED_CHECK_COUNT` 158 → 163. Two Rule-1 bugs were auto-fixed along the way: a missing pair of format-string placeholders that crashed every card render (caught immediately by `test_view_pages.py`'s `render({})` regression check), and a superseded card's manual-note interpolating the built-in name into its own "the name you gave it" slot instead of the operator's actual stored name (fixed with one `manual_resolutions.load_manual_resolutions()` lookup scoped to that branch, caught by a pre-existing check's assertion going red). External gap-closure per 14-05-SUMMARY.md's own documented finding: `_resolve_name_form_html()` now emits `<p class="lightbox__resolve-scope"></p>`, and `panel-lookup.js`'s previously-discarded `data-view-panel-scope` read now writes into it. `scripts/run-all-tests.sh`: `Result: PASS`, 93% coverage. `git diff --name-only` against this plan's start: `companion/pages/airlines_page.py`, `companion/static/panel-lookup.js`, `companion/static/style.css`, `companion/test_status_pages.py` — zero files under `server/`, no new dependency. Wave 3 (14-04 through 14-06) is now complete; 14-08 (Wave 4's closing verification) is next.
 
 **11-04 executed (2026-09-04), wave 3 (depends on 11-01, 11-03) — the closing plan of Phase 11, implementing D-07's locked pre-fill mechanism: `companion/app.py` reads `SKYPANE_SLEEP_S` from its own process environment.** Task 1 added `SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"` and `env_wake_interval_default()`, mirroring `auth.configured_password()`'s per-call `os.environ.get()` shape but fail-open (returns `None` on any failure) rather than fail-closed, since its absence has a designed empty state (the Wake interval field's placeholder) rather than an auth boundary to guard; the `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` range check is a Denial-of-Service guard, not belt-and-braces — an out-of-range `value` attribute on a `min`/`max`-bounded number input fails HTML5 constraint validation and blocks submission of the whole Settings form, which is exactly the shape of `deploy/skypane.env.example`'s shipped `SKYPANE_SLEEP_S=30`. `page_context()` now returns `"wake_interval_env_default": env_wake_interval_default()` alongside `"device_config"`, and `companion/pages/__init__.py`'s documented `ctx` contract names the new key, its type, its source, and its sole consumer (`config_page.render()`'s pre-fill fallback, wired in plan 11-03). `deploy/skypane.env.example`'s `SKYPANE_SLEEP_S` comment was corrected to describe it as an overridable fallback rather than the sole cadence source — no value or unit-file change; `git diff --quiet deploy/skypane-companion.service deploy/skypane-byos.service` confirmed both systemd units unchanged, the mechanism resting entirely on their pre-existing identical `EnvironmentFile=/opt/skypane/skypane.env` directives. Task 2 added 4 new checks to `companion/test_companion_app.py`: a full-input-space unit check on `env_wake_interval_default()` (unset, empty, non-numeric, whitespace-padded, in-range/out-of-range including the shipped below-floor `30`, verified against the exact `[None, None, 900, None, None, None, None, None, None, 60, 3600, 900]` output vector), a `page_context()`-threading check calling the real unbound `Handler.page_context` method against a minimal hand-built stand-in object (proving the key is always present, never conditionally omitted, rather than mocking/reimplementing the method), and two real-HTTP end-to-end checks over dedicated `Harness` instances (on-disk `wake_interval_s=120` always wins over a `SKYPANE_SLEEP_S=900` pre-fill; a below-floor `SKYPANE_SLEEP_S=30` degrades to the placeholder, never a value attribute the form could not submit); `EXPECTED_CHECK_COUNT` 125 → 129, harness passes 129/129. No deviations — both tasks' acceptance criteria commands (the exact twelve-case env-conversion output, both harness exit codes, `ruff check`, every named grep, and the unchanged unit files) ran verbatim and passed. `scripts/run-all-tests.sh` at plan close: `Result: PASS`; sole non-zero note is the same pre-existing, already-accepted macOS Pillow/FreeType `panel.bin` digest mismatch documented throughout this file's history, confirmed unrelated. This plan has `requirements: []` (unmapped backlog phase promoted from SEED-002, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. `state.advance-plan` was not attempted (this is Phase 11's last plan — advancing within-phase has no target; the phase-level transition is left to the orchestrating workflow). `state.update-progress` again wrote `percent: 87` (`completed_phases/total_phases` = 20/23, the same recurring wrong-ratio bug documented throughout this file's history) despite its own returned JSON correctly reporting `completed: 111, total: 113, percent: 98` — corrected `percent` to `98` by hand per this file's own established precedent. `roadmap.update-plan-progress "11"` confirmed `plan_count: 4, summary_count: 4, status: "Complete"` — Phase 11 is now fully summarized; the phase-level transition itself (ROADMAP.md phase status / next-phase selection, `/gsd-transition`) is left to the orchestrating workflow, not this plan executor. This plan's `<threat_model>` disposed all four of its own threat entries as `mitigate`/`accept` with no `block`; the Threat Flags section of `11-04-SUMMARY.md` records none new beyond what that threat model already enumerated.
 
@@ -346,6 +348,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 14 P04 | 45min | 2 tasks | 2 files |
 | Phase 14 P05 | 23min | 2 tasks | 3 files |
 | Phase 14 P07 | 20min | 1 tasks | 2 files |
+| Phase 14 P06 | 30min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -591,6 +594,8 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-05: data-view-panel-scope is read but has nowhere to write (no page module renders .lightbox__resolve-scope yet) - documented as a known limitation, not fixed here since it requires touching airlines_page.py, outside this plan's file scope
 - [Phase 14]: 14-05: wrapped the load-time auto-open's querySelector([data-view-panel-resolve-prefix=...]) call in try/catch and placed it after the click listener is wired, so a malformed ?resolve= value can never break the rest of the script
 - [Phase 14]: 14-07: distinguish a supplied-but-unusable manual airline name from an empty field by re-reading the same raw form value already passed to add_entry(), rather than duplicating manual_resolutions.py's own regex/validation logic
+- [Phase 14]: A superseded row's card-attachment key is the built-in airline's own name (enrich.static_airline_name_for_prefix()), never the operator's own orphaned stored name, so a superseded card's chip/note always land on the curated card the frame actually renders under (D-10)
+- [Phase 14]: Deleted a ninth constant (SUPERSEDED_CAPTION) beyond the plan's own enumerated eight, since it became genuinely unreferenced once the management table's own rendering functions were deleted
 
 ### Pending Todos
 
@@ -678,8 +683,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T15:01:27.594Z
-Stopped at: Completed 14-07-PLAN.md (companion/app.py FLASH_KEY_MANUAL_NAME_UNUSABLE + narrowed _handle_manual_resolve_post() branch, closes 13-UAT.md G-01); test_companion_app.py 159/159, full suite PASS. Wave 3 (14-06) and 14-08 next.
+Last session: 2026-09-06T15:39:27.830Z
+Stopped at: Completed 14-06-PLAN.md (chip/superseded/trigger-tag generalisation, D-11 summary line, management-table removal); test_status_pages.py 163/163, full suite PASS. 14-08 next.
 
 Resume file: 
 

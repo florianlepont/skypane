@@ -809,7 +809,7 @@ Plans:
 **Requirements**: None expected — a presentation-layer follow-up to an unmapped phase, matching the Phase 10-13 precedent.
 **Depends on:** Phase 13 (merged as `8f45385`, PR #51) — this phase re-presents that machinery and changes none of it. Also Phase 06.6.4.1, which established the shared lightbox and reborn Airlines as the illustration gallery.
 **Closes with:** a real-browser pass, since the whole phase is interaction design and the dialog's behaviour is browser-owned. This also closes Phase 13's two open UAT gaps, which live in exactly this surface: **G-02** (the `<datalist>` popup was never verified in a browser) and **G-01** (a rejected airline name is reported to the operator as an empty one).
-**Plans:** 6/8 plans executed
+**Plans:** 7/8 plans executed
 
 Plans:
 **Wave 1**
@@ -826,7 +826,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 14-06-PLAN.md — Manual-resolution absorption: chip + superseded-state cards, trigger-tag generalisation, grid injection, summary line, management-table removal
+- [x] 14-06-PLAN.md — Manual-resolution absorption: chip + superseded-state cards, trigger-tag generalisation, grid injection, summary line, management-table removal
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
