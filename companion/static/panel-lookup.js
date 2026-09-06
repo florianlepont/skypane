@@ -83,6 +83,14 @@
   var resolveUploadZone = dialog.querySelector(".resolve-upload-zone");
   var deleteForm = dialog.querySelector(".lightbox__delete");
 
+  // Phase 14 (14-06-PLAN.md external gap-closure, 2026-09-06): the
+  // element 14-UI-SPEC.md's Copy Deck names as data-view-panel-scope's
+  // destination — companion/pages/airlines_page.py's
+  // _resolve_name_form_html() now emits it (empty, server-side) inside
+  // the same form as resolveNameForm above, so this lookup is optional
+  // in the identical style as everything else in this block.
+  var resolveScope = dialog.querySelector(".lightbox__resolve-scope");
+
   // These three are unconditionally present in the dialog's static
   // markup after 14-02 (companion/pages/airlines_page.py's
   // _lightbox_html() always emits them) — still looked up in this same
@@ -194,13 +202,16 @@
       manualNote.textContent = manualNoteText;
     }
 
-    // 14-UI-SPEC.md's Copy Deck names .lightbox__resolve-scope as this
-    // value's destination, but no page module renders that element yet
-    // — read here anyway so the correctness rule's "read every one of
-    // these on every open" half holds regardless; a future plan that
-    // adds the element only needs one more assignment line, not a new
-    // lookup or a new read.
-    trigger.getAttribute("data-view-panel-scope");
+    // Phase 14 (14-06-PLAN.md external gap-closure, 2026-09-06): the
+    // element 14-UI-SPEC.md's Copy Deck names as this value's
+    // destination now exists (airlines_page._resolve_name_form_html()),
+    // so the read that used to be discarded is written here — the one
+    // more assignment line 14-05-SUMMARY.md's own "Known Limitations"
+    // section predicted would be all a future plan needed.
+    var scopeText = trigger.getAttribute("data-view-panel-scope") || "";
+    if (resolveScope) {
+      resolveScope.textContent = scopeText;
+    }
 
     var resolvePrefix = trigger.getAttribute("data-view-panel-resolve-prefix") || "";
     var firstSeen = trigger.getAttribute("data-view-panel-first-seen") || "";

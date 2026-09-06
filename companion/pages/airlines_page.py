@@ -605,7 +605,7 @@ def _lightbox_replace_form_html():
     )
 
 
-def _airline_card_html(index, airline_name, shapes, state_dir=None):
+def _airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None):
     """One `.airline-card` (06.6.4.1-UI-SPEC.md §7.1): an image pointing
     at the session-gated `/illustration/{key}.png` route, wrapped in a
     `.airline-card__zoom` click-to-enlarge trigger (quick task
@@ -634,6 +634,25 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None):
     before this parameter existed. (Quick task 260903-btu: this
     parameter no longer also feeds a per-card replace form — the shared
     lightbox's single form is not built here at all.)
+
+    `manual_info` (Phase 14, 14-06-PLAN.md Task 1, D-08/D-10/D-12
+    fallback reachability): either `None` (today's plain curated card —
+    byte-identical output to before this parameter existed) or the
+    three-tuple `(prefix, superseded, needs_artwork)` — the exact
+    trailing three fields of one `_manual_resolution_rows()` row, sliced
+    by the caller (`render()`) and consumed here, never recomputed
+    (RESEARCH.md Pitfall 6). When present: the trigger becomes a real
+    `<a href="/airlines?resolve={prefix}">` (the trigger-tag
+    generalisation, UI-SPEC's Page Composition), the chip list gains
+    "Resolved by hand"/"Superseded", `data-filter-text` gains the
+    matching invisible token, and the full `data-view-panel-*`
+    attribute vocabulary is populated per UI-SPEC's Interaction
+    Contract. A superseded card's `mode`/image always reflect the
+    BUILT-IN airline's own current state (UI-SPEC Autonomous Decision
+    3) — the built-in name's own single provenance lookup below (see
+    that call site) exists purely to interpolate the built-in name into
+    `MANUAL_SUPERSEDED_NOTE_TEMPLATE`, never to re-derive the
+    `superseded` boolean itself.
     """
     key = illustrations.normalise_airline_key(airline_name)
     if not key:
@@ -661,6 +680,60 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None):
         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
         escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
     )
+    # Phase 14 (14-06-PLAN.md Task 1): derive every manual-info-dependent
+    # attribute value once, here, from the sliced (prefix, superseded,
+    # needs_artwork) triple alone — never re-derived from a second call
+    # to enrich/illustrations beyond the one static-name lookup below
+    # (RESEARCH.md Pitfall 6).
+    has_manual = manual_info is not None
+    prefix = superseded = needs_artwork = None
+    if has_manual:
+        prefix, superseded, needs_artwork = manual_info
+
+    mode = (
+        _VIEW_PANEL_MODE_NEEDS_ARTWORK if (has_manual and needs_artwork)
+        else _VIEW_PANEL_MODE_ART)
+    if has_manual:
+        manual_value = (
+            _VIEW_PANEL_MANUAL_SUPERSEDED if superseded else _VIEW_PANEL_MANUAL_ACTIVE)
+    else:
+        manual_value = ""
+    resolve_prefix_value = escape_html(prefix) if has_manual else ""
+
+    heading_value = ""
+    upload_action_value = ""
+    if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
+        heading_value = STEP_B_HEADING_TEMPLATE % escape_html(airline_name)
+        upload_action_value = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
+
+    delete_action_value = _manual_delete_action(prefix) if has_manual else ""
+
+    manual_note_value = ""
+    if has_manual and superseded:
+        # This function's one sanctioned provenance lookup — fetching the
+        # built-in airline's own display name for the template's
+        # interpolation, never re-deriving the `superseded` boolean
+        # itself (that stays sourced from `manual_info`).
+        built_in_name = enrich.static_airline_name_for_prefix(prefix) or ""
+        escaped_built_in_name = escape_html(built_in_name)
+        manual_note_value = MANUAL_SUPERSEDED_NOTE_TEMPLATE % (
+            escape_html(prefix), escaped_built_in_name,
+            escape_html(airline_name), escaped_built_in_name,
+        )
+
+    first_seen_value = last_seen_value = count_value = ""
+    if mode == _VIEW_PANEL_MODE_NEEDS_ARTWORK:
+        gap_row = unresolved_row_for_prefix(state_dir, prefix)
+        if gap_row is not None:
+            _, gap_count, gap_first_seen, gap_last_seen, _gap_callsign = gap_row
+            first_seen_value = escape_html(gap_first_seen)
+            last_seen_value = escape_html(gap_last_seen)
+            count_value = escape_html(gap_count)
+
+    # D-01's per-prefix scope sentence is a raw-gap-only concept — these
+    # cards already show a resolved name.
+    scope_value = ""
+
     # quick task 260902-tli: wraps the image in a real <button> (not the
     # <img> itself) — this codebase's a11y discipline (the global
     # :focus-visible floor, aria-labelled icon buttons elsewhere) makes a
@@ -680,38 +753,63 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None):
     # a stale value from the previous click would leak onto this one,
     # since panel-lookup.js's `attr || ""` idiom (plan 14-05) copies
     # every attribute on every open.
+    #
+    # Phase 14 (14-06-PLAN.md Task 1, UI-SPEC's Trigger-tag
+    # generalisation): a card carrying a resolve prefix becomes a real
+    # `<a href="/airlines?resolve={prefix}">` instead — the no-JS
+    # fallback's own `?resolve={prefix}` page section can then already
+    # serve it, exactly like a raw gap card. Every `data-view-panel-*`
+    # attribute and the `aria-label` are otherwise identical between the
+    # two tag variants; only the outer tag name and the presence of
+    # `href` differ.
+    if resolve_prefix_value:
+        opening_tag = '<a href="%s?%s=%s" class="airline-card__zoom" ' % (
+            AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, resolve_prefix_value)
+        closing_tag = "</a>"
+    else:
+        opening_tag = '<button type="button" class="airline-card__zoom" '
+        closing_tag = "</button>"
     zoom_html = (
-        '<button type="button" class="airline-card__zoom" '
+        opening_tag +
         '%s="%s" %s="%s" %s="%s" %s="%s" '
-        '%s="" %s="" %s="" %s="" %s="" %s="" %s="" %s="" %s="" %s="" '
-        'aria-label="%s">%s</button>'
+        '%s="%s" %s="%s" %s="%s" %s="%s" '
+        '%s="%s" %s="%s" %s="%s" %s="%s" '
+        '%s="%s" %s="%s" '
+        'aria-label="%s">%s%s'
     ) % (
         _VIEW_PANEL_SRC_ATTR, busted_image_url,
         _VIEW_PANEL_CAPTION_ATTR, escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
-        _VIEW_PANEL_MODE_ATTR, _VIEW_PANEL_MODE_ART,
+        _VIEW_PANEL_MODE_ATTR, mode,
         _VIEW_PANEL_REPLACE_ACTION_ATTR, image_url,
-        _VIEW_PANEL_HEADING_ATTR,
-        _VIEW_PANEL_MANUAL_ATTR,
-        _VIEW_PANEL_SCOPE_ATTR,
-        _VIEW_PANEL_RESOLVE_PREFIX_ATTR,
-        _VIEW_PANEL_FIRST_SEEN_ATTR,
-        _VIEW_PANEL_LAST_SEEN_ATTR,
-        _VIEW_PANEL_COUNT_ATTR,
-        _VIEW_PANEL_UPLOAD_ACTION_ATTR,
-        _VIEW_PANEL_DELETE_ACTION_ATTR,
-        _VIEW_PANEL_MANUAL_NOTE_ATTR,
+        _VIEW_PANEL_HEADING_ATTR, heading_value,
+        _VIEW_PANEL_MANUAL_ATTR, manual_value,
+        _VIEW_PANEL_SCOPE_ATTR, scope_value,
+        _VIEW_PANEL_RESOLVE_PREFIX_ATTR, resolve_prefix_value,
+        _VIEW_PANEL_FIRST_SEEN_ATTR, first_seen_value,
+        _VIEW_PANEL_LAST_SEEN_ATTR, last_seen_value,
+        _VIEW_PANEL_COUNT_ATTR, count_value,
+        _VIEW_PANEL_UPLOAD_ACTION_ATTR, upload_action_value,
+        _VIEW_PANEL_DELETE_ACTION_ATTR, delete_action_value,
+        _VIEW_PANEL_MANUAL_NOTE_ATTR, manual_note_value,
         escape_html(ZOOM_LABEL_TEMPLATE % airline_name),
         image_html,
+        closing_tag,
     )
-    chips_html = ""
+    chip_parts = []
     if shapes:
-        chips = "".join(
+        chip_parts.extend(
             '<span class="airline-card__chip">%s</span>' % escape_html(variant_chip_label(shape))
             for shape in shapes
         )
-        chips_html = '<div class="airline-card__chips">%s</div>' % chips
-    filter_text = escape_html(
+    if has_manual:
+        chip_text = SUPERSEDED_MARKER_TEXT if superseded else MANUAL_CHIP_ACTIVE_TEXT
+        chip_parts.append('<span class="airline-card__chip">%s</span>' % escape_html(chip_text))
+    chips_html = '<div class="airline-card__chips">%s</div>' % "".join(chip_parts) if chip_parts else ""
+    base_filter_text = (
         airline_name.lower() if isinstance(airline_name, str) else str(airline_name).lower())
+    if has_manual:
+        base_filter_text += " superseded manual" if superseded else " resolved by hand manual"
+    filter_text = escape_html(base_filter_text)
     return (
         '<div class="airline-card" data-filter-text="%s" data-filter-group="%d">'
         "%s"
@@ -721,7 +819,7 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None):
     ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
 
 
-def _gallery_grid_html(pairs, state_dir=None, gap_cards_html=""):
+def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_name=None):
     """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
     pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
     §7.1, companion/static/style.css from plan 01). Skips (renders
@@ -737,9 +835,20 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html=""):
     discipline. Defaults to `""` so every existing call site (and every
     existing test calling this function positionally with two arguments)
     keeps rendering byte-identical output with no gap block at all.
+
+    `manual_info_by_name` (14-06-PLAN.md Task 1, D-08/D-10): an optional
+    dict mapping an airline's display name to its own
+    `(prefix, superseded, needs_artwork)` triple — `render()`'s own
+    lookup table, built once there from `_manual_resolution_rows()`,
+    never recomputed here. Defaults to `None` (treated as `{}`) so every
+    existing call site keeps rendering byte-identical output with no
+    manual-resolution state on any card.
     """
+    manual_info_by_name = manual_info_by_name or {}
     cards = "".join(
-        _airline_card_html(index, airline_name, shapes, state_dir)
+        _airline_card_html(
+            index, airline_name, shapes, state_dir,
+            manual_info_by_name.get(airline_name))
         for index, (airline_name, shapes) in enumerate(pairs))
     return '<div class="illustration-grid">%s%s</div>' % (gap_cards_html, cards)
 
@@ -1189,6 +1298,23 @@ def _resolve_name_form_html(prefix_value, id_suffix):
     no-JS fallback simply carries a spacing class style.css only ever
     selects from inside `.lightbox` (14-UI-SPEC.md's Component
     Inventory "New CSS" table).
+
+    Plan 14-06-external gap-closure (2026-09-06, per 14-05-SUMMARY.md's
+    own documented "Known Limitations" finding): also emits an empty,
+    always-present `<p class="lightbox__resolve-scope"></p>` — the
+    element 14-UI-SPEC.md's Copy Deck names as `RESOLVE_CAPTION_
+    TEMPLATE`'s destination inside the dialog. `panel-lookup.js`
+    (plan 14-05, already finished) reads `data-view-panel-scope` from
+    every trigger and writes it into this exact class on every open;
+    until this element existed, that write had nowhere to land and
+    D-01's per-prefix scope sentence never appeared in the dialog. No
+    server-side text is put here — the value is always written
+    client-side — and it is emitted unconditionally (not gated on
+    `id_suffix`) so the shared function keeps one output shape at both
+    call sites; a permanently-empty paragraph in the no-JS fallback's
+    own copy is harmless (nothing reads it there, the fallback's own
+    separate `<p class="text-label section-caption">` already carries
+    the real text).
     """
     name_input_id = MANUAL_NAME_INPUT_ID + id_suffix
     datalist_html = _known_airlines_datalist_html(id_suffix)
@@ -1209,6 +1335,7 @@ def _resolve_name_form_html(prefix_value, id_suffix):
     return (
         '<form class="%s" method="post" action="%s">'
         '<input type="hidden" name="prefix" value="%s">'
+        '<p class="lightbox__resolve-scope"></p>'
         "%s"
         '<button type="submit">%s</button>'
         "</form>"
@@ -1682,10 +1809,49 @@ def render(ctx):
     gap_shown, gap_overflow_count = _gap_rows_for_grid(state_dir)
     gap_cards_html = "".join(_gap_card_html(i, row) for i, row in enumerate(gap_shown))
     overflow_html = _gap_overflow_html(gap_overflow_count)
+    manual_section_html = _manual_resolutions_section_html(ctx)
+
+    # Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback
+    # reachability): the identical registry-loading fallback
+    # `_manual_resolutions_section_html()` already uses (Task 2 deletes
+    # that function; this load moves here so the summary line it adds
+    # has the same source of truth). `manual_rows` is
+    # `_manual_resolution_rows()`'s own tuples — consumed here, never
+    # re-derived.
+    registry = ctx.get("manual_resolutions")
+    if registry is None:
+        registry = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
+    manual_rows = _manual_resolution_rows(state_dir, registry)
+
+    # manual_info_by_name maps a CARD's display name to its own
+    # (prefix, superseded, needs_artwork) triple. A superseded row's
+    # display name is the BUILT-IN airline's own name (D-10: the card
+    # that gains the chip/note is the one the frame actually renders
+    # under, which is already a curated card by construction — UI-SPEC's
+    # "a superseded entry needs no injection"), never the operator's own
+    # orphaned stored name. An active row's display name is its own
+    # stored `airline_name`, whether already curated or newly injected
+    # below. Only the FIRST occurrence of a given display name is kept
+    # (manual_rows arrive prefix-ascending, so lowest-prefix wins —
+    # UI-SPEC's documented "Known limitation").
+    curated_names = {name for name, _shapes in pairs}
+    manual_info_by_name = {}
+    injected_pairs = []
+    injected_names = set()
+    for prefix, airline_name, _created_at, superseded, needs_artwork in manual_rows:
+        display_name = (
+            enrich.static_airline_name_for_prefix(prefix) if superseded else airline_name)
+        if display_name and display_name not in manual_info_by_name:
+            manual_info_by_name[display_name] = (prefix, superseded, needs_artwork)
+        if (not superseded and airline_name not in curated_names
+                and airline_name not in injected_names):
+            injected_pairs.append((airline_name, []))
+            injected_names.add(airline_name)
+    pairs = pairs + injected_pairs
+
     total = len(gap_shown) + len(pairs)
     filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
-    manual_section_html = _manual_resolutions_section_html(ctx)
     # Phase 14 (14-04-PLAN.md): UI-SPEC's binding top-to-bottom order is
     # filter_bar, then manual-summary, then gap-overflow, then grid. The
     # bare "" below is that manual-summary insertion point, reserved as
@@ -1702,7 +1868,7 @@ def render(ctx):
         + filter_html
         + ""
         + overflow_html
-        + _gallery_grid_html(pairs, state_dir, gap_cards_html)
+        + _gallery_grid_html(pairs, state_dir, gap_cards_html, manual_info_by_name)
         + lightbox_html
         + manual_section_html
         + resolve_html

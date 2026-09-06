@@ -283,7 +283,14 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 158  # 157 + 1 (phase 14 plan 14-04 Task 2: the
+EXPECTED_CHECK_COUNT = 163  # 158 + 5 (phase 14 plan 14-06 Task 1: the
+# manual_info=None byte-compat/plain-card check, the active-manual-states
+# (art + needs-artwork) attribute check, the needs-artwork sighting-
+# context conditional-on-live-gap check, the superseded-card
+# never-shows-operator-upload check, and the grid-injection check —
+# D-08/D-10/D-12 fallback reachability). Re-derived by RUNNING the
+# harness, not by arithmetic.
+# 158 = 157 + 1 (phase 14 plan 14-04 Task 2: the
 # _page_composition_order_matches_ui_spec() check, the one direct proof
 # that the resolve section now renders last, behind the shared dialog —
 # _resolve_slice() itself was retargeted IN PLACE as part of Task 1's
@@ -6519,6 +6526,214 @@ def main():
         "both in data-view-panel-caption and in the visible callsign paragraph, exactly once per "
         "interpolation site (T-06.6.4.1-05, T-14-16)",
         _gap_card_escapes_hostile_example_callsign)
+
+    # ------------------------------------------------------------------
+    # Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback
+    # reachability): _airline_card_html()'s widened manual_info
+    # parameter and render()'s grid-injection step.
+    # ------------------------------------------------------------------
+
+    def _airline_card_html_manual_info_none_matches_todays_plain_card_and_keeps_button():
+        tmp = _mkstate("a-manual-info-none")
+        try:
+            card_none = airlines_page._airline_card_html(0, "Air France", [], tmp, None)
+            card_omitted = airlines_page._airline_card_html(0, "Air France", [], tmp)
+            if card_none != card_omitted:
+                return False, "expected manual_info=None to match the default-omitted call byte-for-byte"
+            if '<button type="button" class="airline-card__zoom"' not in card_none:
+                return False, "expected a plain curated card (no manual_info) to still wrap a <button>"
+            if "<a href=" in card_none:
+                return False, "expected no <a> trigger anywhere on a plain curated card"
+            if 'data-view-panel-mode="art"' not in card_none:
+                return False, 'expected mode="art" for a plain curated card'
+            if 'data-view-panel-manual=""' not in card_none:
+                return False, "expected an empty manual attribute for a plain curated card"
+            if 'data-view-panel-resolve-prefix=""' not in card_none:
+                return False, "expected an empty resolve-prefix attribute for a plain curated card"
+            if "airline-card__chip" in card_none:
+                return False, "expected no chip at all for a shapeless, manual_info=None card"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_airline_card_html(index, airline_name, shapes, state_dir, manual_info=None) renders byte-identically "
+        "to the default-omitted call, and a plain curated card with no manual history still wraps a real "
+        "<button> (never an <a>), with mode=\"art\" and every manual/resolve-prefix attribute empty "
+        "(14-06-PLAN.md Task 1)",
+        _airline_card_html_manual_info_none_matches_todays_plain_card_and_keeps_button)
+
+    def _airline_card_html_active_manual_states_render_expected_attributes_and_chip():
+        tmp = _mkstate("a-manual-active-states")
+        try:
+            # (a) active, has artwork — Air France already has real vendored art.
+            card_art = airlines_page._airline_card_html(0, "Air France", [], tmp, ("ZZZ", False, False))
+            expected_open = '<a href="%s?%s=ZZZ" class="airline-card__zoom"' % (
+                airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+            if expected_open not in card_art:
+                return False, "expected the trigger to be a real <a href> when a resolve prefix is present"
+            if 'data-view-panel-mode="art"' not in card_art:
+                return False, 'expected mode="art" for an active manual entry with real artwork'
+            if 'data-view-panel-manual="active"' not in card_art:
+                return False, 'expected manual="active"'
+            if 'data-view-panel-resolve-prefix="ZZZ"' not in card_art:
+                return False, "expected the resolve-prefix attribute to equal the prefix"
+            expected_delete_action = airlines_page._manual_delete_action("ZZZ")
+            if ('data-view-panel-delete-action="%s"' % expected_delete_action) not in card_art:
+                return False, "expected the delete-action attribute to equal _manual_delete_action(prefix)"
+            if 'data-view-panel-manual-note=""' not in card_art:
+                return False, "expected an empty manual-note for an active (non-superseded) entry"
+            if ('<span class="airline-card__chip">%s</span>' % airlines_page.MANUAL_CHIP_ACTIVE_TEXT) not in card_art:
+                return False, "expected the 'Resolved by hand' chip"
+
+            # (b) active, needs artwork — a genuinely novel name with no artwork yet.
+            card_needs = airlines_page._airline_card_html(
+                0, "Totally Novel Airline", [], tmp, ("XQZ", False, True))
+            if 'data-view-panel-mode="needs-artwork"' not in card_needs:
+                return False, 'expected mode="needs-artwork"'
+            expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Totally Novel Airline"
+            if ('data-view-panel-heading="%s"' % expected_heading) not in card_needs:
+                return False, "expected the heading attribute to equal STEP_B_HEADING_TEMPLATE % airline_name"
+            if 'data-view-panel-upload-action="/illustration/totally-novel-airline.png"' not in card_needs:
+                return False, "expected the upload-action to point at /illustration/{key}.png"
+            if ('<span class="airline-card__chip">%s</span>' % airlines_page.MANUAL_CHIP_ACTIVE_TEXT) not in card_needs:
+                return False, "expected the 'Resolved by hand' chip on a needs-artwork active card too"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an active manual_info triple renders the real <a href> trigger, the correct mode/heading/"
+        "upload-action for both the has-artwork and needs-artwork cases, the delete-action attribute from "
+        "_manual_delete_action(), an empty manual-note, and the 'Resolved by hand' chip (14-06-PLAN.md "
+        "Task 1)",
+        _airline_card_html_active_manual_states_render_expected_attributes_and_chip)
+
+    def _airline_card_html_needs_artwork_sighting_context_conditional_on_live_gap():
+        tmp_live = _mkstate("a-manual-needs-artwork-live-gap")
+        tmp_cleared = _mkstate("a-manual-needs-artwork-cleared-gap")
+        try:
+            _seed_unresolved_prefixes(tmp_live, {
+                "XQZ": {
+                    "count": 5,
+                    "first_seen": "2026-01-01T00:00:00+00:00",
+                    "last_seen": "2026-01-02T00:00:00+00:00",
+                    "example_callsign": "XQZ123",
+                },
+            })
+            manual_info = ("XQZ", False, True)
+            card_live = airlines_page._airline_card_html(0, "Totally Novel Airline", [], tmp_live, manual_info)
+            if 'data-view-panel-first-seen="2026-01-01T00:00:00+00:00"' not in card_live:
+                return False, "expected first-seen populated from the live gap registry"
+            if 'data-view-panel-last-seen="2026-01-02T00:00:00+00:00"' not in card_live:
+                return False, "expected last-seen populated from the live gap registry"
+            if 'data-view-panel-count="5"' not in card_live:
+                return False, "expected count populated from the live gap registry"
+
+            # D-14: once the live gap is cleared, all three fall back to
+            # empty rather than crashing or showing stale data.
+            card_cleared = airlines_page._airline_card_html(
+                0, "Totally Novel Airline", [], tmp_cleared, manual_info)
+            if 'data-view-panel-first-seen=""' not in card_cleared:
+                return False, "expected first-seen empty once the live gap is gone"
+            if 'data-view-panel-last-seen=""' not in card_cleared:
+                return False, "expected last-seen empty once the live gap is gone"
+            if 'data-view-panel-count=""' not in card_cleared:
+                return False, "expected count empty once the live gap is gone"
+
+            # These three attributes are only ever computed for
+            # mode=needs-artwork — an art-mode card (even one carrying
+            # manual_info) must never populate them, matching UI-SPEC's
+            # own "wasted work, not a correctness requirement" framing.
+            card_art_mode = airlines_page._airline_card_html(
+                0, "Air France", [], tmp_live, ("ZZZ", False, False))
+            if 'data-view-panel-count=""' not in card_art_mode:
+                return False, "expected an art-mode card to leave the sighting-context attributes empty"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_live, ignore_errors=True)
+            shutil.rmtree(tmp_cleared, ignore_errors=True)
+    check(
+        "a needs-artwork manual card's first-seen/last-seen/count attributes are populated from "
+        "unresolved_row_for_prefix() only when a live gap still exists for that prefix, fall back to empty "
+        "once D-14 clears it, and stay empty on an art-mode card regardless of manual_info (14-06-PLAN.md "
+        "Task 1)",
+        _airline_card_html_needs_artwork_sighting_context_conditional_on_live_gap)
+
+    def _airline_card_html_superseded_shows_built_in_state_never_operator_upload():
+        tmp = _mkstate("a-manual-superseded-card")
+        try:
+            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES);
+            # the entry's own stored name is deliberately distinct from
+            # the real static name "Air France".
+            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            card = _card_slice(rendered, "Air France")
+            if 'data-view-panel-manual="superseded"' not in card:
+                return False, 'expected manual="superseded" on the Air France card'
+            if ('<span class="airline-card__chip">%s</span>' % airlines_page.SUPERSEDED_MARKER_TEXT) not in card:
+                return False, "expected the Superseded chip on the card"
+            src_match = re.search(r'data-view-panel-src="([^"]*)"', card)
+            if not src_match or not src_match.group(1).startswith("/illustration/air-france.png"):
+                return False, (
+                    "expected data-view-panel-src to point at the built-in Air France illustration key, "
+                    "got %r" % (src_match.group(1) if src_match else None,))
+            if "some-other-airline" in card.lower():
+                return False, "expected the card to never derive a key from the entry's own stored name"
+            note_match = re.search(r'data-view-panel-manual-note="([^"]*)"', card)
+            if not note_match or "AFR" not in note_match.group(1) or "Air France" not in note_match.group(1):
+                return False, "expected the manual-note to interpolate the prefix and the built-in name"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a superseded card never shows the operator's own orphaned upload: data-view-panel-src points at "
+        "the built-in Air France illustration key (never a key derived from the entry's own stored name), "
+        "the Superseded chip renders, and the manual-note interpolates the prefix and the built-in name "
+        "(D-10, 14-06-PLAN.md Task 1)",
+        _airline_card_html_superseded_shows_built_in_state_never_operator_upload)
+
+    def _render_grid_injection_adds_exactly_one_novel_card_and_none_for_superseded_or_curated():
+        def _grid_section(rendered):
+            grid_start = rendered.index('class="illustration-grid"')
+            dialog_start = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID, grid_start)
+            return rendered[grid_start:dialog_start]
+
+        tmp_novel = _mkstate("a-grid-injection-novel")
+        tmp_none = _mkstate("a-grid-injection-none")
+        try:
+            # A genuinely novel active manual name gets exactly one
+            # injected card.
+            manual_resolutions.add_entry(tmp_novel, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
+            rendered_novel = airlines_page.render(_ctx(tmp_novel))
+            novel_count = _grid_section(rendered_novel).count(
+                '<p class="airline-card__name">Totally Novel Airline</p>')
+            if novel_count != 1:
+                return False, (
+                    "expected exactly one injected card for a genuinely novel active manual name, "
+                    "got %d" % novel_count)
+
+            # A superseded entry needs no injection (its display name is
+            # already curated); an active entry whose name is ALREADY
+            # curated must not be duplicated either.
+            manual_resolutions.add_entry(tmp_none, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            manual_resolutions.add_entry(tmp_none, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
+            rendered_none = airlines_page.render(_ctx(tmp_none))
+            grid_none = _grid_section(rendered_none)
+            af_count = grid_none.count('<p class="airline-card__name">Air France</p>')
+            if af_count != 1:
+                return False, (
+                    "expected Air France to appear exactly once in the grid (no duplicate injection), "
+                    "got %d" % af_count)
+            if '<p class="airline-card__name">Some Other Airline</p>' in grid_none:
+                return False, "expected no injected card for a superseded entry's own orphaned stored name"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_novel, ignore_errors=True)
+            shutil.rmtree(tmp_none, ignore_errors=True)
+    check(
+        "render()'s grid-injection step adds exactly one card for a genuinely novel active manual airline "
+        "name not already among the curated pairs, and adds none for a superseded entry or for an active "
+        "entry whose name is already curated (D-08, UI-SPEC's Grid injection, 14-06-PLAN.md Task 1)",
+        _render_grid_injection_adds_exactly_one_novel_card_and_none_for_superseded_or_curated)
 
     # ------------------------------------------------------------------
     # Phase 13 (13-04-PLAN.md Task 1): the conditional resolve section
