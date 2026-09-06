@@ -311,10 +311,10 @@ def add_entry(state_dir, prefix, airline_name, now=None):
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     registry[normalised_prefix] = {"airline_name": name, "created_at": now}
 
-    os.makedirs(state_dir, exist_ok=True)
     path = manual_resolutions_path(state_dir)
     tmp = path + ".tmp"
     try:
+        os.makedirs(state_dir, exist_ok=True)
         with open(tmp, "w") as fh:
             json.dump(registry, fh, indent=1)
         os.replace(tmp, path)
@@ -355,10 +355,10 @@ def delete_entry(state_dir, prefix):
 
     del registry[normalised_prefix]
 
-    os.makedirs(state_dir, exist_ok=True)
     path = manual_resolutions_path(state_dir)
     tmp = path + ".tmp"
     try:
+        os.makedirs(state_dir, exist_ok=True)
         with open(tmp, "w") as fh:
             json.dump(registry, fh, indent=1)
         os.replace(tmp, path)
