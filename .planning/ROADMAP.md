@@ -825,8 +825,12 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10-13's precedent. If promoted, new CFG-13+ entries in `REQUIREMENTS.md`, which the seed names as the natural home.
 **Depends on:** Phase 13 (numeric order; and its `manual_resolutions.py` file contract and Airlines-page list editor are the precedents this phase copies), Phases 8 and 9 (the 18-theme registry every rule resolves into), Phase 06.6.4.1.1 (the theme chip grid with rendered previews that per-direction selection extends).
 **Closes with:** no on-glass verification if rules resolve to existing theme ids (nothing new reaches the glass — to be confirmed once the split and the rule shape are settled); a `/gsd-secure-phase 14` pass in any case, and a blocking one before the roster half ever ships.
-**Plans:** 0 plans — discussed 2026-09-06 (`14-CONTEXT.md`, D-01…D-13), not yet planned
+**Plans:** 5 plans — planned 2026-09-06 (`14-CONTEXT.md`, D-01…D-13), in 3 waves
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 14 to break down)
+- [ ] 14-01-PLAN.md — `server/plane/colour_rules.py`: the rules registry (D-08/D-09/D-12) and the D-13 effective-theme resolver, plus the new `server/test_colour_rules.py` harness and its suite registration (both Wave 0 items) [wave 1]
+- [ ] 14-02-PLAN.md — `server/device_config.py`: the optional `theme_arriving` key, its degrade-to-`None` normaliser and the `CLEAR_THEME_ARRIVING` sentinel that makes it genuinely clearable (D-04) [wave 1]
+- [ ] 14-03-PLAN.md — `server/poll_loop.py`: one cache-priming call plus the resolver at exactly the two `build_canvas()` call sites that display a flight, leaving the other four on the bare base theme (D-13/D-06) [wave 2]
+- [ ] 14-04-PLAN.md — Settings Theme group: the arrivals checkbox, the second chip grid, the CSS-only `:has()` reveal and the unchecked-clears-the-override save path (D-05) [wave 2]
+- [ ] 14-05-PLAN.md — Settings rules editor: add form, list with per-row delete, and the two immediate POST routes outside the dirty bar (D-10/D-11); carries the closing no-JS browser check [wave 3]
