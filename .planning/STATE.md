@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 11
 status: executing
 stopped_at: "Phase 13 plan 03 executed (3/6 plans, wave 2 of 4 — depends on 13-01) — threaded the manual-resolution registry into server/plane/enrich.py's enrichment seam: airline_source_from_callsign()/static_airline_name_for_prefix() added, airline_from_callsign() reduced to a one-line wrapper, resolve_route() extended to a fifth 'manual' source (D-02), clear_resolved_unresolved_prefix() added as D-14's whole implementation. server/test_enrich.py 52 -> 59 checks; scripts/run-all-tests.sh 17/17 harnesses PASS."
-last_updated: "2026-09-05T23:35:00.000Z"
-last_activity: 2026-09-06
-last_activity_desc: "Executed 13-03-PLAN.md (server/plane/enrich.py manual-resolution wiring) — 3/3 tasks, 59/59 test_enrich.py checks, full suite green"
+last_updated: "2026-09-06T00:13:02.878Z"
+last_activity: 2026-09-04
+last_activity_desc: "Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence"
 progress:
   total_phases: 26
   completed_phases: 22
   total_plans: 131
-  completed_plans: 126
-  percent: 96
+  completed_plans: 127
+  percent: 85
 ---
 
 ---
@@ -337,6 +337,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 13 P01 | 25min | 3 tasks | 3 files |
 | Phase 13 P02 | 20min | 2 tasks | 3 files |
 | Phase 13 P03 | 35min | 3 tasks | 2 files |
+| Phase 13 P04 | 31min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -562,6 +563,8 @@ Recent decisions affecting current work:
 - [Phase 13-02]: Health's per-row Resolve link reuses one escape_html() call per representation for both href and aria-label interpolation points, rather than two separate calls — Every interpolation point still passes through the escaping choke point exactly once (T-13-05); avoids a redundant second escape_html() call while keeping the same security guarantee
 - [Phase 13]: resolve_route() cleanup for a newly-resolved prefix is gated on airline_from_callsign() (either table), never on route_source, since adsbdb wins by construction and a resolved prefix can still show fresh_hit/cache_hit on any given cycle
 - [Phase 13]: airline_only and manual stay two distinct resolve_route() source values rather than merged, because health_page._SOURCE_ROWS' airline_only gloss names the static prefix table specifically
+- [Phase 13]: Manual-resolutions management list renders cards before the table in DOM order, matching health_page's own sibling-combinator toggle dependency (auto-fixed before shipping).
+- [Phase 13]: Real U+2019 apostrophes and U+2014 em dashes used in all new resolve-flow/management-list copy, per the plan's explicit instruction, even though 13-UI-SPEC.md's own source text uses plain ASCII apostrophes.
 
 ### Pending Todos
 
@@ -649,7 +652,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-05T23:31:38.086Z
+Last session: 2026-09-06T00:11:18.329Z
 Stopped at: Phase 13 UI-SPEC approved
 
 Resume file: 
