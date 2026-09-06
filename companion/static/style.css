@@ -2779,6 +2779,35 @@ button:disabled {
   color: var(--color-text);
 }
 
+/* Phase 14 (14-03-PLAN.md Task 2, D-11): the clickable manual-resolution
+ * summary line. A new, unscoped class rather than extending the
+ * selector above — the summary line sits below .filter-bar, not
+ * inside it (UI-SPEC Autonomous Decision 4), so it cannot inherit that
+ * scoped selector. Declares the identical property list
+ * .filter-bar [data-filter-clear] uses above, byte-for-byte. */
+.manual-summary {
+  height: auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: var(--weight-regular);
+  letter-spacing: normal;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.manual-summary:hover {
+  color: var(--color-text);
+}
+
 /* Empty state */
 .empty-state {
   padding: var(--space-lg);
@@ -3629,6 +3658,17 @@ summary::-webkit-details-marker {
   padding: var(--space-sm);
 }
 
+/* Phase 14 (14-03-PLAN.md Task 2, D-12): .airline-card was always a
+ * <div> before this phase; a gap card's whole outer element is now a
+ * real <a> and needs the block layout + link-reset a <div> got for
+ * free. Do not touch the :hover/:focus-within rule below — an <a>
+ * receiving focus already matches :focus-within per spec. */
+a.airline-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
 .airline-card:hover,
 .airline-card:focus-within {
   border-color: transparent;
@@ -3666,6 +3706,24 @@ summary::-webkit-details-marker {
   display: block;
   border-radius: var(--radius-control);
   margin-bottom: var(--space-sm);
+}
+
+/* Phase 14 (14-03-PLAN.md Task 2, D-02): the gap card's reserved-box
+ * placeholder — a dashed border (distinct from every solid-bordered
+ * card, reads as a *slot*, not damaged art) and a var(--color-canvas)
+ * fill one level down inside this card's own var(--color-dominant)
+ * surface, so it reads as a hole punched in the card. aspect-ratio and
+ * margin-bottom are string-identical to .airline-card__image's above,
+ * so grid rows stay aligned whether a card holds art or a gap. No new
+ * token, no accent use. aria-hidden="true" and empty in the markup —
+ * the card's own visible, announced callsign text is the real content. */
+.airline-card__placeholder {
+  aspect-ratio: 450 / 132;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-canvas);
+  margin-bottom: var(--space-sm);
+  display: block;
 }
 
 /* quick task 260902-tli: the click-to-enlarge trigger wrapping
@@ -4329,6 +4387,18 @@ summary::-webkit-details-marker {
   display: none;
 }
 
+/* Phase 14 (14-03-PLAN.md Task 2): the new optional <h2> (text-filled
+ * per click) and D-10's superseded explanation copy the .lightbox__note
+ * :empty idiom above exactly — empty for the modes/states that don't
+ * use them, never a bare-margin gap. */
+.lightbox__heading:empty {
+  display: none;
+}
+
+.lightbox__manual-note:empty {
+  display: none;
+}
+
 /* No scrim token exists in this file; a raw rgba value here is
  * consistent with this file's existing raw-rgba shadow values, so this
  * is not a new token. */
@@ -4406,7 +4476,15 @@ summary::-webkit-details-marker {
  * double-fencing. Restoring the hairline (and the old flex row) is a
  * one-line revert if the developer prefers it after Task 3's
  * real-browser check. */
-.lightbox__replace {
+/* Phase 14 (14-03-PLAN.md Task 2): .lightbox__resolve-name and
+ * .lightbox__delete added to this selector's existing group — the
+ * identical "one action block inside the dialog" spacing treatment
+ * this rule already declares, matching this file's own
+ * .lightbox__replace-zone, .resolve-upload-zone precedent below
+ * (extend the selector, never duplicate the declaration). */
+.lightbox__replace,
+.lightbox__resolve-name,
+.lightbox__delete {
   display: block;
   padding-top: var(--space-md);
   min-width: 0;

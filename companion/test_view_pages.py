@@ -2007,20 +2007,34 @@ def main():
         # rule itself were deleted from the stylesheet (the zone
         # selector alone would satisfy it). Require the exact selector,
         # built from the constant rather than hard-coding the literal.
-        exact_selector = "." + airlines_page.LIGHTBOX_REPLACE_FORM_CLASS + " {"
-        if exact_selector not in style_css_source:
+        #
+        # Phase 14 (14-03-PLAN.md Task 2) retargeted this pattern IN
+        # PLACE (no count change to EXPECTED_CHECK_COUNT — same check,
+        # re-scoped): .lightbox__replace's own selector is now the head
+        # of a three-way group (`.lightbox__replace,\n.lightbox__resolve-
+        # name,\n.lightbox__delete {`), so the class name is followed by
+        # a comma, not always " {". A lookahead for whitespace/comma/
+        # brace immediately after the class name (excluding the
+        # "-zone" hyphen continuation) still proves the exact selector
+        # exists as its own token, in either the old standalone form or
+        # the new grouped form.
+        exact_selector_pattern = re.compile(
+            r'\.' + re.escape(airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) + r'(?=[\s,{])')
+        if not exact_selector_pattern.search(style_css_source):
             return False, (
-                "expected %r in companion/static/style.css — the fourth file in the chain, and the one "
-                "whose drift would leave the form functional but unstyled" % (exact_selector,))
+                "expected a '.%s' selector (not merely a '-zone' prefix match) in "
+                "companion/static/style.css — the fourth file in the chain, and the one whose drift would "
+                "leave the form functional but unstyled" % (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,))
         return True, ""
     check(
         "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR and airlines_page.LIGHTBOX_REPLACE_FORM_CLASS each "
         "appear in companion/static/panel-lookup.js's source and in a real airlines_page.render({}) call, "
-        "the exact '.lightbox__replace {' selector (not merely a substring, which the newer "
-        "'.lightbox__replace-zone' selector could otherwise satisfy) appears in companion/static/style.css, "
-        "and neither token appears in a real, seeded history_page.render() call (quick task 260903-btu; these "
-        "two constants have no history_page counterpart by design and must never join "
-        "_airlines_lightbox_constants_match_history()'s pairs tuple)",
+        "the exact '.lightbox__replace' selector (not merely a substring, which the newer "
+        "'.lightbox__replace-zone' selector could otherwise satisfy) appears in companion/static/style.css "
+        "standalone or as the head of the phase-14 three-way group, and neither token appears in a real, "
+        "seeded history_page.render() call (quick task 260903-btu; these two constants have no history_page "
+        "counterpart by design and must never join _airlines_lightbox_constants_match_history()'s pairs "
+        "tuple; pattern retargeted in place by phase 14 plan 14-03 Task 2)",
         _replace_lightbox_names_appear_in_three_files_never_in_history)
 
     def _airlines_render_empty_ctx_still_contains_gallery_grid():

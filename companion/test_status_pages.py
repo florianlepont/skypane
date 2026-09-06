@@ -283,7 +283,13 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 151  # 150 + 1 (phase 14 plan 14-03 Task 1,
+EXPECTED_CHECK_COUNT = 152  # 151 + 1 (phase 14 plan 14-03 Task 2: the
+# style.css DOM-contract guard for the five new/extended selectors —
+# a.airline-card, .airline-card__placeholder, .lightbox__heading:empty,
+# .lightbox__manual-note:empty, .manual-summary, plus the
+# .lightbox__replace three-way group and the aspect-ratio/accent/token
+# invariants). Re-derived by RUNNING the harness, not by arithmetic.
+# 151 = 150 + 1 (phase 14 plan 14-03 Task 1,
 # RESEARCH.md Pitfall 5: the source-assertion guard for
 # companion/static/list-filter.js's new [data-filter-set] lookup — pins
 # the token is present, the new handler calls the file's one existing
@@ -6922,6 +6928,127 @@ def main():
         "ES5-safe, and introduces no network call or timer (phase 14 plan 14-03 Task 1, RESEARCH.md Pitfall "
         "5, D-11's summary-line mechanism)",
         _list_filter_js_gains_data_filter_set_hook)
+
+    def _phase14_task2_new_css_selectors_exhaustive():
+        # Phase 14 (14-03-PLAN.md Task 2): the style.css DOM-contract
+        # guard for every new/extended selector UI-SPEC's Component
+        # Inventory names, and no more. Uses the same
+        # index()-plus-window-slicing idiom this file's own cross-file
+        # CSS guards already use (see
+        # _quick_260901_tsa_css_dom_contract_guard above) — never a
+        # regex CSS parser.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        def _rule_body(selector_open):
+            start = css_source.index(selector_open)
+            brace_close = css_source.index("}", start)
+            return css_source[start:brace_close]
+
+        expectations = (
+            ("a.airline-card {", ("display: block", "color: inherit", "text-decoration: none")),
+            (".airline-card__placeholder {", (
+                "border: 1px dashed var(--color-border)",
+                "border-radius: var(--radius-control)",
+                "background: var(--color-canvas)",
+                "margin-bottom: var(--space-sm)",
+                "display: block")),
+            (".lightbox__heading:empty {", ("display: none",)),
+            (".lightbox__manual-note:empty {", ("display: none",)),
+            (".manual-summary {", (
+                "color: color-mix(in srgb, var(--color-text) 70%, transparent)",
+                "text-decoration: underline",
+                "cursor: pointer")),
+        )
+        for selector_open, expected_declarations in expectations:
+            if selector_open not in css_source:
+                return False, "expected style.css to declare %r" % (selector_open,)
+            body = _rule_body(selector_open)
+            for expected_declaration in expected_declarations:
+                if expected_declaration not in body:
+                    return False, (
+                        "expected %r's rule body to contain %r" % (selector_open, expected_declaration))
+
+        if ".manual-summary:hover {" not in css_source:
+            return False, "expected a .manual-summary:hover rule in style.css"
+        if "color: var(--color-text)" not in _rule_body(".manual-summary:hover {"):
+            return False, "expected .manual-summary:hover to declare color: var(--color-text)"
+
+        # .airline-card__placeholder's aspect-ratio must string-equal
+        # .airline-card__image's, so grid rows stay aligned whether a
+        # card holds art or a gap.
+        image_ratio = re.search(r'aspect-ratio:\s*([^;]+);', _rule_body(".airline-card__image {"))
+        placeholder_ratio = re.search(r'aspect-ratio:\s*([^;]+);', _rule_body(".airline-card__placeholder {"))
+        if not image_ratio or not placeholder_ratio:
+            return False, "expected both .airline-card__image and .airline-card__placeholder to declare aspect-ratio"
+        if image_ratio.group(1) != placeholder_ratio.group(1):
+            return False, (
+                "expected .airline-card__placeholder's aspect-ratio (%r) to string-equal "
+                ".airline-card__image's (%r)" % (placeholder_ratio.group(1), image_ratio.group(1)))
+
+        # The three-way group: .lightbox__replace's own selector list
+        # must now also name .lightbox__resolve-name and
+        # .lightbox__delete, in exactly one declaration block — extend
+        # the selector, never duplicate it, matching this file's own
+        # .lightbox__replace-zone, .resolve-upload-zone precedent.
+        group_selector = ".lightbox__replace,\n.lightbox__resolve-name,\n.lightbox__delete {"
+        if css_source.count(group_selector) != 1:
+            return False, (
+                "expected the exact three-way selector group %r exactly once in style.css, got %d"
+                % (group_selector, css_source.count(group_selector)))
+        group_body = _rule_body(group_selector)
+        for expected_declaration in ("display: block", "padding-top: var(--space-md)", "min-width: 0"):
+            if expected_declaration not in group_body:
+                return False, "expected the three-way group's rule body to contain %r" % (expected_declaration,)
+        # .lightbox__delete { (its own standalone rule) must not exist —
+        # confirms the selector was extended, not duplicated.
+        if css_source.count(".lightbox__delete {") != 1:
+            return False, (
+                "expected .lightbox__delete { to appear exactly once (inside the shared group only), got %d"
+                % css_source.count(".lightbox__delete {"))
+
+        # Zero new accent consumer: the exhaustive header
+        # accent-reservation list (the file's first block comment) must
+        # mention none of this plan's new selector/class names.
+        header = css_source[:css_source.index("*/")]
+        for new_name in (
+                "a.airline-card", "airline-card__placeholder", "lightbox__heading",
+                "lightbox__manual-note", "manual-summary", "lightbox__resolve-name",
+                "lightbox__delete"):
+            if new_name in header:
+                return False, (
+                    "expected the header accent-reservation list to not mention %r — this plan "
+                    "adds zero new accent consumers" % (new_name,))
+
+        # Zero new custom property: none of this plan's own new/extended
+        # rule bodies declares a `--` custom property.
+        for selector_open in (
+                "a.airline-card {", ".airline-card__placeholder {", ".lightbox__heading:empty {",
+                ".lightbox__manual-note:empty {", ".manual-summary {", ".manual-summary:hover {",
+                group_selector):
+            body = _rule_body(selector_open)
+            if re.search(r'(^|\s)--[a-z][a-z-]*:', body):
+                return False, "expected %r's rule body to declare no new custom property" % (selector_open,)
+
+        # The retired management-table selector deliberately survives
+        # this plan — it becomes dead code only when plan 14-06 deletes
+        # the management table's own rendering functions.
+        if "manual-resolution__status--superseded" not in css_source:
+            return False, "expected .manual-resolution__status--superseded to still be declared"
+
+        return True, ""
+    check(
+        "style.css declares exactly the five new/extended selectors UI-SPEC's Component Inventory "
+        "enumerates (a.airline-card, .airline-card__placeholder, .lightbox__heading:empty, "
+        ".lightbox__manual-note:empty, .manual-summary + :hover) with their exact declaration values, "
+        ".airline-card__placeholder's aspect-ratio string-equals .airline-card__image's, "
+        ".lightbox__replace's selector is extended to a three-way group with "
+        ".lightbox__resolve-name/.lightbox__delete in exactly one declaration block (never duplicated), "
+        "the header accent-reservation list mentions none of the new selectors, none of the new/extended "
+        "rule bodies declares a new custom property, and .manual-resolution__status--superseded survives "
+        "for plan 14-06 to retire (phase 14 plan 14-03 Task 2)",
+        _phase14_task2_new_css_selectors_exhaustive)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
