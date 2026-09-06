@@ -529,12 +529,24 @@
         <span class="pill good">Terminé</span>
         <span class="row-date">6 sept.</span>
       </div>
+
+      <div class="row">
+        <span class="row-tag">P14</span>
+        <div class="row-main">
+          <p class="row-title">Thèmes par direction, règles par vol, vols de K Stewart</p>
+          <p class="row-desc">Un thème pour les départs et un pour les arrivées ; une règle par vol (callsign ou hex ICAO24) qui impose un thème ; surlignage automatique des vols que K Stewart opère, lus depuis son roster. Trois features autour d'un même point de résolution en amont du choix de thème dans <code>run_once()</code>. Promue entière pour que le discuss-phase arbitre d'abord le découpage — recommandation : livrer le socle + les deux premières, garder le volet roster derrière ses deux inconnues externes (format d'export, consentement).</p>
+          <p class="row-note">Avant promotion, trois corrections au seed : les 18 thèmes ont déjà la même couleur départ/arrivée (aucun mécanisme à « réconcilier ») ; une règle doit désigner un thème, pas une couleur brute (rien de nouveau à vérifier sur le verre) ; la détection porte le hex mais pas l'immatriculation.</p>
+          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-003 · 0/0 plan — à cadrer (<code>/gsd-discuss-phase 14</code>).</p>
+        </div>
+        <span class="pill accent">En cadrage</span>
+        <span class="row-date">6 sept.</span>
+      </div>
     </div>
 
     <div class="callout">
       <span class="callout-mark">SEUL POINT OUVERT</span>
       <p>
-        <strong>Phase 5 · DEVICE-05</strong> — l'essai de décharge réel sur batterie (jusqu'à 21 jours sans intervention ; protocole pré-enregistré et checker <code>check-battery</code> déjà validés sur fixtures) reste volontairement repoussé, le temps qu'aucune autre phase n'ait besoin que le Mac reste éveillé en continu. C'est le seul chantier qui empêche de déclarer la roadmap v1 close — et il ne reste plus rien d'autre à attendre : aucune Phase 14 n'existe. Il déciderait aussi de l'hypothèse non mesurée de la Phase 12 (le rafraîchissement domine-t-il le coût d'un cycle ?).
+        <strong>Phase 5 · DEVICE-05</strong> — l'essai de décharge réel sur batterie (jusqu'à 21 jours sans intervention ; protocole pré-enregistré et checker <code>check-battery</code> déjà validés sur fixtures) reste volontairement repoussé, le temps qu'aucune autre phase n'ait besoin que le Mac reste éveillé en continu. C'est le seul chantier qui empêche de déclarer la roadmap v1 close. La Phase 14 (promue depuis SEED-003 le 6 sept., en cadrage) est ouverte mais indépendante de lui — elle ne touche ni le firmware ni la batterie. Il déciderait aussi de l'hypothèse non mesurée de la Phase 12 (le rafraîchissement domine-t-il le coût d'un cycle ?).
       </p>
     </div>
   </section>
@@ -545,17 +557,17 @@
       <h2>Seeds</h2>
       <span class="count">.planning/seeds/ · 10 fichiers</span>
     </div>
-    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Quatre ont été promues en phases en cinq jours (10, 11, 12, 13), toutes livrées — c'est le mécanisme qui fonctionne.</p>
+    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Cinq ont été promues en phases en six jours (10, 11, 12, 13, 14) — les quatre premières livrées, la 14 en cadrage — c'est le mécanisme qui fonctionne.</p>
 
     <div class="seed-grid">
       <div class="seed-card fresh">
         <div class="seed-top">
           <p class="seed-title">SEED-003 — Thèmes par direction, règles par vol, vols de K Stewart</p>
-          <span class="pill neutral">Dormante</span>
+          <span class="pill accent">Promue · Phase 14</span>
         </div>
         <p class="seed-body">Trois niveaux de personnalisation : un thème dédié aux départs vs aux arrivées ; une couleur forcée quand un callsign ou une immatriculation précise est détectée ; et le surlignage automatique des vols que K Stewart opère.</p>
         <p class="seed-new-flag">La source est un <em>roster d'équipage</em>, pas un agenda perso — ça change le format à parser et pose une vraie question de confidentialité.</p>
-        <p class="seed-trigger"><b>Réveil :</b> au prochain milestone « personnalisation » touchant la config de l'interface compagnon. Scope large — c'est trois features. La seule seed encore à promouvoir qui ait un vrai design derrière.</p>
+        <p class="seed-trigger"><b>Promue le 6 sept.</b> en Phase 14, entière, pour que le discuss-phase arbitre le découpage entre les trois features. Le volet roster reste conditionné au format d'export du roster et au consentement explicite de K Stewart — deux réponses que seule cette personne peut donner.</p>
       </div>
 
       <div class="seed-card">
