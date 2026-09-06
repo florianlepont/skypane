@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 14
-status: "Phase 14 plan 02/8 complete — shared rendering machinery"
-stopped_at: Completed 14-02-PLAN.md (shared rendering machinery); view-pages 55/55, status-pages 150/150, companion-app 159/159, full suite PASS at 93% coverage. Waves 2-3 next.
-last_updated: "2026-09-06T13:19:30.968Z"
+status: Phase 14 plan 03/8 complete — list-filter.js [data-filter-set] hook + new CSS selectors
+stopped_at: Completed 14-03-PLAN.md (list-filter.js [data-filter-set] hook + new CSS selectors); status-pages 152/152, view-pages 55/55, full suite PASS at 93% coverage. Wave 2 (14-04) next.
+last_updated: "2026-09-06T15:41:57.000Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
   completed_phases: 24
   total_plans: 139
-  completed_plans: 132
-  percent: 95
+  completed_plans: 133
+  percent: 96
 ---
 
 ---
@@ -342,6 +342,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 13 P06 | 22min | 3 tasks | 3 files |
 | Phase 14 P01 | 30min | 3 tasks | 3 files |
 | Phase 14 P02 | 55min | 3 tasks | 3 files |
+| Phase 14 P03 | 22min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -578,6 +579,8 @@ Recent decisions affecting current work:
 - [Phase 14]: One sanctioned manual-registry seeding fixture, _seed_manual_resolutions(), writes exclusively through manual_resolutions.add_entry() and raises loudly on any non-ADD_OK result; Waves 1-3 must reuse it rather than inventing a second seeding path
 - [Phase 14]: Applied LIGHTBOX_RESOLVE_NAME_CLASS/LIGHTBOX_DELETE_CLASS to the shared forms' own <form> tags in both call sites since a shared function cannot render two wrapper shapes for the same output
 - [Phase 14]: Retargeted three brittle test-status-pages assertions after Task 3 widened the trigger vocabulary
+- [Phase ?]: list-filter.js's [data-filter-set] single-query assertion targets the bracketed selector form, not a bare substring, since applyFilter()'s own getAttribute read is a second unrelated occurrence
+- [Phase ?]: .manual-summary declared as a new unscoped class reusing .filter-bar [data-filter-clear]'s property list byte-for-byte, since the summary line sits below the filter bar (UI-SPEC Autonomous Decision 4)
 
 ### Pending Todos
 
@@ -665,12 +668,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T13:19:30.950Z
-Stopped at: Completed 14-02-PLAN.md shared rendering machinery; view-pages 55/55, status-pages 150/150, companion-app 159/159, full suite PASS
+Last session: 2026-09-06T13:45:56.146Z
+Stopped at: Completed 14-03-PLAN.md (list-filter.js [data-filter-set] hook + new CSS selectors); status-pages 152/152, view-pages 55/55, full suite PASS at 93% coverage. Wave 2 (14-04) next.
 
 Resume file: 
 
-None
+.planning/phases/14-resolve-an-unidentified-flight-from-the-gallery-lightbox-wit/14-03-SUMMARY.md
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
