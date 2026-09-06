@@ -43,6 +43,7 @@ from companion import auth  # noqa: E402
 from companion.layout import escape_html  # noqa: E402
 from companion.pages import config_page  # noqa: E402
 from server import device_config  # noqa: E402
+from server.plane import colour_rules  # noqa: E402
 
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -212,6 +213,24 @@ EXPECTED_CHECK_COUNT = 92
 # the real on-disk check(...) call count at execution time (101/101
 # pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 101
+# 14-05-PLAN.md Task 3 (D-10/D-11): +8 (the rules-section-placement
+# check, the empty-state-then-list check, the cards-before-table DOM-
+# order check, the escaped-verbatim copy check, the kind-cell/add-form-
+# option shared-mapping check, the computed-swatch check, the
+# no-data-dirty-section check, and the locked-heading exact-equality
+# check pinning "Per-flight colour rules" literally — one check per
+# Task 3 markup/copy bullet, plus the literal-text pin). No pre-existing
+# count-shaped assertion needed retargeting: the new section's
+# `<form>`/`<section class="page-section">` elements sit outside every
+# existing count-shaped check's own scoped substring (the per-group
+# `<p>`/section-caption checks call theme_fieldset()/runway_fieldset()/
+# led_group() directly rather than the whole page, and the whole-page
+# DIRTY_SECTION_ATTR/STATIC_SAVE_FALLBACK_ATTR counts are both
+# unaffected since the rules section carries neither attribute).
+# 101 + 8 = 109, recomputed directly against the real on-disk check(...)
+# call count at execution time (109/109 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 109
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3136,6 +3155,232 @@ def main():
     check(
         "dirty-state.js still contains no fetch/XMLHttpRequest/setInterval/setTimeout",
         _dirty_state_js_still_has_no_network_or_timer_sinks)
+
+    # ==================================================================
+    # 14-05-PLAN.md Task 3 (D-10, D-11, 14-VALIDATION.md row 10): the
+    # per-flight colour-rules editor's markup/copy checks.
+    # ==================================================================
+
+    def _rules_section_renders_between_form_and_poll_section():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        form_end = rendered.index("</form>")
+        rules_pos = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_pos = rendered.index('<h2 class="text-heading">Poll</h2>')
+        if not (form_end < rules_pos < poll_pos):
+            return False, (
+                "expected </form> < Rules heading < Poll heading, got positions %d/%d/%d"
+                % (form_end, rules_pos, poll_pos))
+        return True, ""
+    check(
+        "render() places the rules section between the settings </form> and the Poll section (Phase 14 D-10)",
+        _rules_section_renders_between_form_and_poll_section)
+
+    def _rules_section_empty_state_then_list_once_a_rule_exists():
+        empty_ctx = {
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        }
+        rendered = config_page.render(empty_ctx)
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        rules_segment = rendered[rules_start:poll_start]
+        if config_page.RULES_EMPTY_HEADING not in rules_segment:
+            return False, "expected the empty-state heading with no rules"
+        if "data-table-wrap" in rules_segment or "data-cards" in rules_segment:
+            return False, "expected no list markup in the empty-state branch"
+
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-markup-")
+        try:
+            result = colour_rules.add_rule(
+                tmp, "callsign", "AFR1234", "white", now="2026-01-01T00:00:00+00:00")
+            if result != colour_rules.ADD_OK_NEW:
+                return False, "test setup failure: add_rule() returned %r" % (result,)
+            registry = colour_rules.load_colour_rules(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        filled_ctx = dict(empty_ctx)
+        filled_ctx["colour_rules"] = registry
+        filled_ctx["now"] = "2026-01-02T00:00:00+00:00"
+        rendered = config_page.render(filled_ctx)
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        rules_segment = rendered[rules_start:poll_start]
+        if config_page.RULES_EMPTY_HEADING in rules_segment:
+            return False, "expected the empty state to be replaced once a rule exists"
+        if "data-table-wrap" not in rules_segment or "data-cards" not in rules_segment:
+            return False, "expected both the card list and the table once a rule exists"
+        if "AFR1234" not in rules_segment:
+            return False, "expected the seeded rule's key to appear in the rendered list"
+        return True, ""
+    check(
+        "the rules section renders the empty state with no rules, and the empty state is replaced by "
+        "the cards-then-table list once a rule exists (Phase 14 D-10)",
+        _rules_section_empty_state_then_list_once_a_rule_exists)
+
+    def _rules_list_cards_precede_table_in_dom_order():
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-order-")
+        try:
+            result = colour_rules.add_rule(
+                tmp, "hex", "3944F2", "blue", now="2026-01-01T00:00:00+00:00")
+            if result != colour_rules.ADD_OK_NEW:
+                return False, "test setup failure: add_rule() returned %r" % (result,)
+            registry = colour_rules.load_colour_rules(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": registry,
+            "poll_cooldown_remaining": 0,
+            "now": "2026-01-02T00:00:00+00:00",
+        })
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        rules_segment = rendered[rules_start:poll_start]
+        if "data-cards" not in rules_segment or "data-table-wrap" not in rules_segment:
+            return False, "expected both data-cards and data-table-wrap to be present"
+        if rules_segment.index("data-cards") >= rules_segment.index("data-table-wrap"):
+            return False, "expected data-cards to precede data-table-wrap in DOM order"
+        return True, ""
+    check(
+        "the rules list's .data-cards precede its .data-table-wrap in DOM order (the sibling-combinator "
+        "toggle depends on this exact order)",
+        _rules_list_cards_precede_table_in_dom_order)
+
+    def _rules_copy_appears_escaped_verbatim():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        copy_strings = (
+            config_page.RULES_SECTION_HEADING,
+            config_page.RULES_SECTION_CAPTION,
+            config_page.RULE_KIND_FIELD_LABEL,
+            config_page.RULE_VALUE_FIELD_LABEL,
+            config_page.RULE_THEME_FIELD_LABEL,
+            config_page.RULE_ADD_BUTTON_TEXT,
+            config_page.RULE_VALUE_HINT,
+            config_page.RULES_EMPTY_HEADING,
+            config_page.RULES_EMPTY_BODY,
+        )
+        for text in copy_strings:
+            if escape_html(text) not in rendered:
+                return False, "expected %r to appear escaped-verbatim in the rendered page" % (text,)
+        for kind, label in config_page.RULE_KIND_LABELS.items():
+            if escape_html(label) not in rendered:
+                return False, "expected the kind label %r (for %r) to appear escaped-verbatim" % (label, kind)
+        return True, ""
+    check(
+        "every rules-section copy string (heading, caption, field labels, kind labels, value hint, "
+        "empty-state heading/body) appears escaped-verbatim, matching 14-UI-SPEC.md's Copywriting "
+        "Contract byte for byte",
+        _rules_copy_appears_escaped_verbatim)
+
+    def _rules_section_heading_locked_verbatim():
+        # Exact equality is a stronger gate than a substring check, and
+        # pins the section heading against 14-UI-SPEC.md's Copywriting
+        # Contract literally — "Per-flight colour rules" — rather than
+        # only via the RULES_SECTION_HEADING constant every check above
+        # already reuses.
+        if config_page.RULES_SECTION_HEADING != "Per-flight colour rules":
+            return False, (
+                "expected RULES_SECTION_HEADING to equal the locked heading exactly, got %r"
+                % (config_page.RULES_SECTION_HEADING,))
+        return True, ""
+    check(
+        "RULES_SECTION_HEADING equals 14-UI-SPEC.md's locked \"Per-flight colour rules\" heading exactly",
+        _rules_section_heading_locked_verbatim)
+
+    def _rules_kind_cell_and_add_form_option_share_one_mapping():
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-kind-")
+        try:
+            for kind, value, theme_id in (
+                ("callsign", "AFR1234", "white"),
+                ("hex", "3944F2", "blue"),
+                ("prefix", "AFR", "red"),
+            ):
+                result = colour_rules.add_rule(
+                    tmp, kind, value, theme_id, now="2026-01-01T00:00:00+00:00")
+                if result != colour_rules.ADD_OK_NEW:
+                    return False, "test setup failure: add_rule(%r) returned %r" % (kind, result)
+            registry = colour_rules.load_colour_rules(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": registry,
+            "poll_cooldown_remaining": 0,
+            "now": "2026-01-02T00:00:00+00:00",
+        })
+        add_form_start = rendered.index('name="rule_kind"')
+        add_form_segment = rendered[add_form_start:rendered.index("</select>", add_form_start)]
+        for kind in colour_rules.RULE_KINDS:
+            label = config_page.RULE_KIND_LABELS[kind]
+            option_needle = '<option value="%s">%s</option>' % (
+                escape_html(kind), escape_html(label))
+            if option_needle not in add_form_segment:
+                return False, "expected the add form's %r option to carry %r" % (kind, label)
+            # The list's Kind cell for that same kind's row carries the
+            # identical label text, never abbreviated differently.
+            if "<td>%s</td>" % escape_html(label) not in rendered:
+                return False, "expected a Kind cell carrying %r for kind %r" % (label, kind)
+        return True, ""
+    check(
+        "the add form's kind <option> text and the list's Kind cell text come from the same "
+        "RULE_KIND_LABELS mapping, so the two can never disagree",
+        _rules_kind_cell_and_add_form_option_share_one_mapping)
+
+    def _rules_swatch_is_computed_never_a_hardcoded_hex_literal():
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-swatch-")
+        try:
+            result = colour_rules.add_rule(
+                tmp, "callsign", "AFR1234", "white", now="2026-01-01T00:00:00+00:00")
+            if result != colour_rules.ADD_OK_NEW:
+                return False, "test setup failure: add_rule() returned %r" % (result,)
+            registry = colour_rules.load_colour_rules(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": registry,
+            "poll_cooldown_remaining": 0,
+            "now": "2026-01-02T00:00:00+00:00",
+        })
+        expected_hex = config_page._palette_hex(device_config.THEMES["white"]["departing_index"])
+        expected_swatch = (
+            '<span class="theme-swatch__chip" style="background:%s">'
+            % escape_html(expected_hex))
+        if expected_swatch not in rendered:
+            return False, (
+                "expected the rule row's swatch to carry the real _palette_hex() value %r"
+                % (expected_hex,))
+        return True, ""
+    check(
+        "the rule row's theme swatch is a computed _palette_hex() value, not a hardcoded hex literal",
+        _rules_swatch_is_computed_never_a_hardcoded_hex_literal)
+
+    def _rules_section_carries_no_dirty_section_attr():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        rules_segment = rendered[rules_start:poll_start]
+        if config_page.DIRTY_SECTION_ATTR in rules_segment:
+            return False, "expected the rules section to carry no data-dirty-section attribute"
+        return True, ""
+    check(
+        "the rules section carries no data-dirty-section attribute - it is not part of the tracked "
+        "settings form, exactly like the Poll section",
+        _rules_section_carries_no_dirty_section_attr)
 
     # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py
