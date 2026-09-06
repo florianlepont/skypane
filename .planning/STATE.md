@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 11
 status: executing
-stopped_at: Completed 13-05-PLAN.md (D-01/D-14 poll_loop.py wiring, 64/64 checks, 17/17 harnesses)
-last_updated: "2026-09-06T00:29:50.628Z"
+stopped_at: Completed 13-06-PLAN.md (widened illustration membership set, resolve/delete routes wired, 157/157 checks, 17/17 harnesses)
+last_updated: "2026-09-06T00:58:07.925Z"
 last_activity: 2026-09-04
 last_activity_desc: "Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence"
 progress:
   total_phases: 26
-  completed_phases: 22
+  completed_phases: 23
   total_plans: 131
-  completed_plans: 128
-  percent: 85
+  completed_plans: 129
+  percent: 88
 ---
 
 ---
@@ -339,6 +339,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 13 P03 | 35min | 3 tasks | 2 files |
 | Phase 13 P04 | 31min | 2 tasks | 3 files |
 | Phase 13 P05 | 45min | 2 tasks | 2 files |
+| Phase 13 P06 | 22min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -568,6 +569,7 @@ Recent decisions affecting current work:
 - [Phase 13]: Real U+2019 apostrophes and U+2014 em dashes used in all new resolve-flow/management-list copy, per the plan's explicit instruction, even though 13-UI-SPEC.md's own source text uses plain ASCII apostrophes.
 - [Phase ?]: 13-05: Avoided repeating clear_resolved_unresolved_prefix's literal name a second time in the D-14 code comment so grep -c on it stays at exactly 1, per the plan's own acceptance criterion.
 - [Phase ?]: 13-05: Split Task 1 and Task 2's harness checks into two separate atomic commits (withholding Task 2's checks/EXPECTED_CHECK_COUNT bump until its own commit) even though both were drafted together, preserving the plan's task-by-task commit granularity.
+- [Phase 13]: Widened the illustration membership set to a per-request union of vendored and server-persisted manual keys (D-09), re-establishing T-v26-02-01 under a wider closed set rather than relaxing it
 
 ### Pending Todos
 
@@ -655,8 +657,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T00:29:50.611Z
-Stopped at: Completed 13-05-PLAN.md (D-01/D-14 poll_loop.py wiring, 64/64 checks, 17/17 harnesses)
+Last session: 2026-09-06T00:58:07.908Z
+Stopped at: Completed 13-06-PLAN.md (widened illustration membership set, resolve/delete routes wired, 157/157 checks, 17/17 harnesses)
 
 Resume file: 
 

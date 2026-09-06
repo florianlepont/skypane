@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 10: Scheduled quiet hours** - Pause the frame's wake/poll/display cycle during a configurable window (curfew), via a server-side skip of the display refresh — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md` at the developer's request (2026-09-02). Not yet planned. (completed 2026-09-03)
 - [x] **Phase 11: Web-configurable wake interval** - Make `SKYPANE_SLEEP_S` configurable through the companion web interface instead of SSH-only env-file edits — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md` at the developer's request (2026-09-02). Planned 2026-09-04: 4 plans across 3 waves (3/4 executed). (completed 2026-09-04)
 - [ ] **Phase 12: Remote display on/off toggle** - Turn the e-ink panel dark on demand from the companion Settings page, and bring it back, without touching hardware — the manual, immediate sibling of Phase 10's scheduled quiet hours. Promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request (2026-09-05). Not yet discussed or planned.
-- [ ] **Phase 13: Add an illustration for an unidentified flight from the companion web interface** - Let the operator close a coverage gap from the two pages that already surface it (Health's unresolved-prefix registry, the Airlines gallery) instead of leaving the web UI for the manual runbook — promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` at the developer's request (2026-09-05). The hardened upload path already shipped (`260902-v26`/`260903-df3`); the open questions are how an unidentified flight mints a key without reopening threat `T-v26-02-01`, and whether uploading also resolves the airline. Not yet discussed or planned.
+- [x] **Phase 13: Add an illustration for an unidentified flight from the companion web interface** - Let the operator close a coverage gap from the two pages that already surface it (Health's unresolved-prefix registry, the Airlines gallery) instead of leaving the web UI for the manual runbook — promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` at the developer's request (2026-09-05). The hardened upload path already shipped (`260902-v26`/`260903-df3`); the open questions are how an unidentified flight mints a key without reopening threat `T-v26-02-01`, and whether uploading also resolves the airline. Not yet discussed or planned. (completed 2026-09-06)
 
 ## Phase Details
 
@@ -764,7 +764,7 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10, 11 and 12's own precedent. To be confirmed at discuss time; if promoted it would be a new CFG-style entry alongside CFG-08, whose resolution statistics this phase makes actionable.
 **Depends on:** Phase 12 (numeric order only — no functional dependency), plus the already-shipped upload path from quick tasks `260902-v26` / `260903-df3` and Phase 06.6.4.1, which reborn Airlines as the illustration gallery this affordance extends.
 **Closes with:** a `/gsd-secure-phase` pass over the key-minting path — this is the first phase to deliberately reopen a documented threat model (`T-v26-02-01`) rather than inherit one — plus a blocking on-glass verification **if and only if** the discussion picks branch (b) or otherwise changes what `select_illustration()` renders.
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 Plans:
 **Wave 1**
@@ -783,4 +783,4 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 13-06-PLAN.md — the widened per-request illustration membership union plus the two new POST routes (D-09/D-11 — reopens and re-establishes `T-v26-02-01`)
+- [x] 13-06-PLAN.md — the widened per-request illustration membership union plus the two new POST routes (D-09/D-11 — reopens and re-establishes `T-v26-02-01`)
