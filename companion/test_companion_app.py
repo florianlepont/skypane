@@ -35,6 +35,7 @@ import hashlib
 import hmac
 import html
 import io
+import json
 import os
 import re
 import shutil
@@ -59,6 +60,8 @@ if REPO_ROOT not in sys.path:
 from companion import auth, layout, theme_preview  # noqa: E402
 from companion.pages import health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
+from server.plane import illustrations as server_illustrations  # noqa: E402
+from server.plane import manual_resolutions  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -206,6 +209,16 @@ EXPECTED_CHECK_COUNT = 148  # merge of HEAD (129: Phase 10/11's env-prefill
 # pre-existing NAV_TABS-redirect checks and the one POST /config redirect
 # check were updated in place for the new ?next= carrying behavior, not
 # counted as new).
+EXPECTED_CHECK_COUNT = 151  # 148 + 3 (phase 13 plan 13-06 Task 1, D-09:
+# _illustration_filenames()'s widened per-request union — the in-process
+# union contract (None/empty-state-dir both equal the static set, one
+# seeded manual entry adds exactly one filename, an unusable-slug entry
+# contributes nothing), the real-handler read-path state machine for a
+# manual key (404/404/200 across no-entry, entry-with-no-file, and
+# both-exist), and Pitfall 3's warning sign made executable (a POST for a
+# never-registered key 404s and writes nothing, then succeeds once the
+# key is registered). Recomputed directly against the real on-disk
+# check(...) call count, not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -1897,6 +1910,62 @@ def main():
         _theme_preview_signature_changes_with_cache_version)
 
     # ==================================================================
+    # Section 2.6: companion/app.py's _illustration_filenames() (phase 13
+    # plan 13-06 Task 1, D-09) — pure in-process module checks against the
+    # widened per-request union helper, no subprocess needed.
+    # ==================================================================
+
+    def _illustration_filenames_union_contract():
+        import companion.app as app_module
+        baseline = frozenset(server_illustrations.target_filenames())
+        if app_module._illustration_filenames(None) != baseline:
+            return False, "expected _illustration_filenames(None) to equal the static target set"
+        tmp = tempfile.mkdtemp(prefix="skypane-illufn-")
+        try:
+            if app_module._illustration_filenames(tmp) != baseline:
+                return False, (
+                    "expected an empty state dir (no manual_resolutions.json yet) to "
+                    "contribute nothing beyond the static target set")
+            add_result = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected add_entry() to succeed for a fresh, valid entry, got %r" % (add_result,)
+            widened = app_module._illustration_filenames(tmp)
+            expected_key = manual_resolutions.illustration_key_for_name("Zephyr Air")
+            if widened != baseline | {expected_key + ".png"}:
+                return False, (
+                    "expected exactly one new filename (%r) added for the one seeded "
+                    "manual entry, got a diff of %r"
+                    % (expected_key + ".png", widened.symmetric_difference(baseline)))
+            # An entry whose stored name yields no usable key contributes nothing — hand-write
+            # a second, reserved-slug entry directly into the JSON file (past add_entry()'s
+            # own gate, which would refuse to persist it in the first place):
+            # load_manual_resolutions() already drops it on read, so the widened set here
+            # must stay exactly what it was above, unchanged.
+            path = manual_resolutions.manual_resolutions_path(tmp)
+            with open(path) as fh:
+                raw = json.load(fh)
+            raw["YYY"] = {
+                "airline_name": "Generic Fallback",
+                "created_at": "2026-01-01T00:00:00+00:00",
+            }
+            with open(path, "w") as fh:
+                json.dump(raw, fh)
+            unchanged = app_module._illustration_filenames(tmp)
+            if unchanged != widened:
+                return False, (
+                    "expected a reserved/unusable-slug entry to contribute nothing, "
+                    "got a diff of %r" % (unchanged.symmetric_difference(widened),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_illustration_filenames() is the per-request union of the static target set and "
+        "server-persisted manual keys: None and an empty state dir both equal the static "
+        "set exactly, a seeded manual entry adds exactly one filename, and an entry whose "
+        "stored name yields no usable key contributes nothing (D-09)",
+        _illustration_filenames_union_contract)
+
+    # ==================================================================
     # Section 3: companion/app.py (plan 06-05) — a real companion/app.py
     # subprocess, launched on a free local port, driven with
     # urllib.request. This section owns its own harness lifecycle
@@ -2949,6 +3018,115 @@ def main():
         check(
             "an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes",
             _illustration_unauthenticated_redirects_to_login)
+
+        # --- widened membership set: manual-resolution keys (phase 13 plan 13-06 Task 1, D-09) ---
+        # Both checks below spin up their own isolated Harness() (mirroring
+        # broken_harness/concurrent_harness above) rather than reusing the
+        # shared harness/state_dir: they write real files into
+        # illustration_overrides/, and the shared harness's state dir is
+        # asserted elsewhere (Section 3's D-03 round-trip check) to hold
+        # EXACTLY one file (air-france.png) — polluting it here would
+        # break that unrelated, correct assertion.
+
+        _VENDORED_ILLUSTRATIONS_DIR = os.path.join(
+            REPO_ROOT, "server", "assets", "icons", "illustrations")
+
+        def _illustration_manual_key_read_path_states():
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                manual_base = manual_harness.base_url()
+                manual_session = _login(manual_harness)
+                manual_prefix = "SWK"
+                manual_name = "Skyward Air"
+                manual_key = manual_resolutions.illustration_key_for_name(manual_name)
+                status, _headers, _body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, cookie=manual_session)
+                if status != 404:
+                    return False, "expected 404 with no manual entry registered, got %d" % status
+                add_result = manual_resolutions.add_entry(
+                    manual_harness.tmpdir, manual_prefix, manual_name)
+                if add_result != manual_resolutions.ADD_OK:
+                    return False, "expected add_entry() to succeed for a fresh entry, got %r" % (add_result,)
+                status, _headers, _body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, cookie=manual_session)
+                if status != 404:
+                    return False, (
+                        "expected 404 for a registered manual key with no override file yet — "
+                        "a member of the set with no bytes is a 404, indistinguishable from a "
+                        "non-member, got %d" % status)
+                override_dir = manual_harness.state_path("illustration_overrides")
+                os.makedirs(override_dir, exist_ok=True)
+                with open(os.path.join(_VENDORED_ILLUSTRATIONS_DIR, "vueling-airlines.png"), "rb") as fh:
+                    seed_bytes = fh.read()
+                with open(os.path.join(override_dir, manual_key + ".png"), "wb") as fh:
+                    fh.write(seed_bytes)
+                status, headers, body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, cookie=manual_session)
+                if status != 200:
+                    return False, (
+                        "expected 200 once both the manual entry and the override file exist, "
+                        "got %d" % status)
+                if headers.get("Content-Type") != "image/png":
+                    return False, "expected Content-Type image/png, got %r" % headers.get("Content-Type")
+                if not body:
+                    return False, "expected a non-empty response body"
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "GET /illustration/{key}.png for a manual key: 404 with no registry entry, 404 "
+            "with an entry but no override file, and 200/image/png once both exist",
+            _illustration_manual_key_read_path_states)
+
+        def _illustration_manual_key_post_unregistered_then_registered():
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                manual_base = manual_harness.base_url()
+                manual_session = _login(manual_harness)
+                manual_prefix = "BWX"
+                manual_name = "Boreal Wings"
+                manual_key = manual_resolutions.illustration_key_for_name(manual_name)
+                with open(os.path.join(_VENDORED_ILLUSTRATIONS_DIR, "vueling-airlines.png"), "rb") as fh:
+                    payload_bytes = fh.read()
+                body, content_type = _encode_multipart(payload_bytes, filename="x.png")
+                override_dir = manual_harness.state_path("illustration_overrides")
+                override_path = os.path.join(override_dir, manual_key + ".png")
+                before_entries = sorted(os.listdir(override_dir)) if os.path.isdir(override_dir) else []
+                status, _headers, _body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, method="POST", data=body,
+                    cookie=manual_session, content_type=content_type)
+                if status != 404:
+                    return False, "expected 404 for a never-registered manual key, got %d" % status
+                after_entries = sorted(os.listdir(override_dir)) if os.path.isdir(override_dir) else []
+                if after_entries != before_entries:
+                    return False, (
+                        "expected the override directory to gain nothing from a single-request "
+                        "upload of an unregistered key (Pitfall 3), before=%r after=%r"
+                        % (before_entries, after_entries))
+                add_result = manual_resolutions.add_entry(
+                    manual_harness.tmpdir, manual_prefix, manual_name)
+                if add_result != manual_resolutions.ADD_OK:
+                    return False, "expected add_entry() to succeed for a fresh entry, got %r" % (add_result,)
+                status, headers, _body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, method="POST", data=body,
+                    cookie=manual_session, content_type=content_type)
+                if status != 303:
+                    return False, "expected a 303 redirect once the key is registered, got %d" % status
+                if not os.path.isfile(override_path):
+                    return False, "expected the override file to now exist at %r" % (override_path,)
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "Pitfall 3's warning sign made executable: POST /illustration/{key}.png for a "
+            "manual key that was never registered returns 404 and writes nothing to the "
+            "override directory; once the key is registered via add_entry(), the identical "
+            "POST succeeds",
+            _illustration_manual_key_post_unregistered_then_registered)
 
         # --- theme preview image route (06.6.4.1.1-01 Task 2) ---
 
