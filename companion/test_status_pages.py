@@ -6529,12 +6529,11 @@ def main():
         """Isolate everything the page renders AFTER the shared dialog —
         Phase 14 (14-04-PLAN.md) moved the resolve section from the top
         of the page (before the filter bar) to the bottom (behind the
-        shared lightbox), so the old `rendered[:rendered.index(
-        "filter-bar")]` boundary no longer isolates it. This anchors on
-        the dialog's own id and its universal closing tag instead of a
-        hardcoded index into any specific inner string, so it stays
-        correct regardless of what any later wave adds inside the
-        dialog.
+        shared lightbox), so the old filter-bar-anchored slice boundary
+        no longer isolates it. This anchors on the dialog's own id and
+        its universal closing tag instead of a hardcoded index into any
+        specific inner string, so it stays correct regardless of what
+        any later wave adds inside the dialog.
         """
         dialog_id_marker = 'id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID
         dialog_start = rendered.index(dialog_id_marker)
