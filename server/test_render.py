@@ -2291,21 +2291,33 @@ def main():
 
     # 64. build_canvas(None, "empty", runway_id=...) draws that runway's
     # heading - including the longest of the three registry headings - and
-    # still passes the safe-box assertion (fit_text_size() shrink path).
+    # still passes the safe-box assertion. Retargeted in the 12-06 on-glass
+    # session: the heading is now a tracked label drawn glyph-by-glyph via
+    # draw_tracked_text() (upper-cased at draw time; empty_heading_text()
+    # itself is unchanged), so the check reconstructs the single-glyph run
+    # the way check 65 already does for the runway tag, instead of looking
+    # for the whole string in one draw call. The fit_text_size() shrink path
+    # no longer applies; the safe-box assert inside _build_hold_canvas() is
+    # what now guards a runway label that could not fit, and it still runs
+    # here on the longest registered id.
     def _empty_canvas_draws_selected_runways_heading():
         longest_runway_id = max(
             render.device_config.RUNWAY_IDS, key=lambda rid: len(render.device_config.runway_empty_heading(rid))
         )
         with _TextSpy(render) as spy:
             render.build_canvas(None, "empty", runway_id=longest_runway_id)
-        texts = [t for t, _xy, _anchor in spy.calls]
-        expected = render.empty_heading_text(longest_runway_id)
-        if expected not in texts:
-            return False, "expected the longest runway heading %r among the text draws, got %r" % (expected, texts)
+        expected = render.empty_heading_text(longest_runway_id).upper()
+        glyphs = [t for t, _xy, _anchor in spy.calls if len(t) == 1]
+        joined = "".join(glyphs)
+        if expected not in joined:
+            return False, (
+                "expected the longest runway heading %r (upper-cased, tracked glyph-by-glyph) in the "
+                "single-glyph draw run, got %r" % (expected, joined)
+            )
         return True, ""
     check(
-        "build_canvas(None, 'empty', runway_id=...) draws that runway's heading, including the longest of the "
-        "three, and passes the safe-box assertion",
+        "build_canvas(None, 'empty', runway_id=...) draws that runway's heading as a tracked label, including "
+        "the longest of the three, and passes the safe-box assertion",
         _empty_canvas_draws_selected_runways_heading,
     )
 
@@ -3555,23 +3567,29 @@ def main():
         _main_illustration_vertical_centre_has_no_per_file_drift,
     )
 
-    # 120. Plan 10-02, Task 1 (1): the quiet-hours packed panel is exactly
-    # IMAGE_BYTES, White-dominant, and contains at least one Black nibble -
-    # mirrors _empty_state_white_dominant_with_black()'s structure.
+    # 120. Plan 10-02, Task 1 (1), retargeted in the 12-06 on-glass session:
+    # the quiet-hours packed panel is exactly IMAGE_BYTES, dominated by its
+    # own dimmed field (Black - render.DIMMED_FIELD_IDX, the Grey theme's
+    # recipe), and contains at least one White nibble (the ink). 10-02 pinned
+    # a White-dominant flat field with Black text; the on-glass revision moved
+    # this screen onto the shared dimmed composition, so the check now pins
+    # THAT. Retargeted, not relaxed: it still fails closed on the wrong
+    # dominant index and on a canvas with no ink at all.
     def _quiet_hours_packs_white_dominant_with_black():
         buf = render.render_panel(None, "quiet_hours", quiet_hours_until="07:00")
         if len(buf) != panel_format.IMAGE_BYTES:
             return False, "quiet-hours render is %d bytes, expected %d" % (len(buf), panel_format.IMAGE_BYTES)
         counts = nibble_counts(buf)
         dom = max(counts, key=counts.get)
-        if dom != NIBBLE_WHITE:
-            return False, "quiet-hours render's dominant nibble is 0x%x, expected 0x1 (White)" % dom
-        if NIBBLE_BLACK not in counts:
-            return False, "quiet-hours render contains no Black (0x0) nibble - expected Black text"
+        if dom != NIBBLE_BLACK:
+            return False, "quiet-hours render's dominant nibble is 0x%x, expected 0x0 (Black, the dimmed field)" % dom
+        if NIBBLE_WHITE not in counts:
+            return False, "quiet-hours render contains no White (0x1) nibble - expected White ink"
         return True, ""
     check(
         "render_panel(None, 'quiet_hours', quiet_hours_until='07:00') packs to exactly 960000 bytes, "
-        "White-dominant, with at least one Black nibble (D-05/D-06)",
+        "dominated by the dimmed Black field, with at least one White nibble (D-05/D-06, as revised "
+        "on glass in 12-06)",
         _quiet_hours_packs_white_dominant_with_black,
     )
 
@@ -3745,12 +3763,19 @@ def main():
         _tinted_field_band_themes_prove_dominance_explicitly,
     )
 
-    # 129. Plan 12-02, Task 1: the display-off canvas is a flat White
-    # background whose only other index is Black, carries the locked
-    # heading and body, and is byte-identical across the FULL registered
-    # THEME_IDS set (D-03) - mirrors _quiet_hours_ignores_theme_id() but
-    # iterates the real registry rather than spot-checking two ids, since
-    # this screen must ignore theme_id entirely, not merely for one pair.
+    # 129. Plan 12-02, Task 1, retargeted in the 12-06 on-glass session: the
+    # display-off canvas is a dimmed field - Black dithered toward White, the
+    # Grey theme's own recipe (render.DIMMED_FIELD_IDX) - whose only
+    # indices are Black and White, carries the locked heading and body, and is
+    # byte-identical across the FULL registered THEME_IDS set (D-03, as
+    # revised on glass) - mirrors _quiet_hours_ignores_theme_id() but iterates
+    # the real registry rather than spot-checking two ids, since this screen
+    # must ignore theme_id entirely, not merely for one pair.
+    #
+    # The dominance assertion is retargeted, not relaxed: 12-02 pinned a
+    # White-dominant flat field; the on-glass revision made the field itself
+    # Black-dominant, so the check now pins THAT. It still fails closed on any
+    # third index and on a field that is not the dominant one.
     def _display_off_flat_white_black_across_all_themes():
         theme_ids = list(render.device_config.THEME_IDS)
         if not theme_ids:
@@ -3771,8 +3796,11 @@ def main():
             if IDX_BLACK not in idx_set:
                 return False, "display-off canvas (theme_id=%r) has no Black pixels" % (theme_id,)
             counts = {value: count for count, value in colors}
-            if max(counts, key=counts.get) != IDX_WHITE:
-                return False, "display-off canvas (theme_id=%r) is not White-dominant" % (theme_id,)
+            if max(counts, key=counts.get) != render.DIMMED_FIELD_IDX:
+                return False, (
+                    "display-off canvas (theme_id=%r) is not dominated by its own field index %r"
+                    % (theme_id, render.DIMMED_FIELD_IDX)
+                )
             data = canvas.tobytes()
             if reference is None:
                 reference = data
@@ -3783,9 +3811,9 @@ def main():
                 )
         return True, ""
     check(
-        "build_canvas(None, 'display_off', theme_id=...) renders a flat White canvas whose only other "
-        "index is Black, carrying the heading and body, byte-identical across the full THEME_IDS "
-        "registry (D-03)",
+        "build_canvas(None, 'display_off', theme_id=...) renders the dimmed Black/White field "
+        "(DIMMED_FIELD_IDX dominant, no third index), carrying the heading and body, "
+        "byte-identical across the full THEME_IDS registry (D-03 as revised on glass in 12-06)",
         _display_off_flat_white_black_across_all_themes,
     )
 

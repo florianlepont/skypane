@@ -1,10 +1,13 @@
 ---
 phase: 12
 slug: remote-display-on-off-toggle
-status: draft
+status: approved-amended
 shadcn_initialized: false
 preset: none
 created: 2026-09-05
+reviewed_at: 2026-09-05
+last_amended: 2026-09-05
+amended_by: ["12-06"]
 ---
 
 # Phase 12 — UI Design Contract
@@ -246,7 +249,39 @@ complete, self-contained contract for this surface instead.
   not a pixel-composition concern, but it constrains when this canvas gets drawn: once
   per "entering the off state," never on every poll while already off.
 
-### Visual structure — locked default: mirror `_build_quiet_hours_canvas()` exactly, minus the body's time reference
+### Visual structure — REVISED ON GLASS, 12-06 session (2026-09-05)
+
+**The "mirror the quiet-hours screen exactly" default below is SUPERSEDED.** It shipped
+as specified (plan 12-02, commit `39cbbc0`), was put on real Spectra 6 ink in the 12-06
+on-glass session, and the developer — reading it on the panel, not in a preview — asked
+for something more elegant. Five compositions were sketched with `render.py`'s own
+primitives and pushed through `_assert_legal_palette()`; the developer chose a blend of
+two, validated it on glass on every named point, and then asked for the quiet-hours
+screen to be reworked in the same direction. The section that follows is retained
+unchanged as the record of what 12-02 built; what ships is this:
+
+| Property | Value (as shipped, commit `4885206`) |
+|----------|-------|
+| Composition | One shared routine, `_build_dimmed_hold_canvas()`, drawing both DISPLAY OFF and QUIET HOURS — the two screens share their art direction by construction, not by copy |
+| Canvas background | **Dimmed field**: `DIMMED_FIELD_IDX` (= `IDX_BLACK`) dithered toward White via `dither.dithered_state_background()` — the Grey theme's own on-glass-validated recipe, `lighten_fraction` 0.4. `theme_id` is still ignored |
+| Ink | `DIMMED_INK` (= `IDX_WHITE`) for every element — the only ink that reads on the field |
+| Glyph | Above the label, centred, 76px footprint, Bold-class white: the **power ring** (`draw_power_icon()`) on DISPLAY OFF, a **filled crescent** (`draw_moon_icon()`) on QUIET HOURS. The glyph is what tells the two dark screens apart from across a room |
+| Label | `DISPLAY_OFF_HEADING_TEXT` / `QUIET_HOURS_HEADING_TEXT`, set as a **tracked label** via `draw_tracked_text()` — `PT_SERIF_BOLD` 40px, 10px tracking (`DIMMED_LABEL_FONT`, `DIMMED_LABEL_TRACKING_PX`) — not a fitted 72px display heading. Bold, not Regular, because thin white strokes drown in dither noise (the reason the Grey theme itself ships `weight: bold`) |
+| Rule | A 120×4px white rule (`DIMMED_RULE_WIDTH_PX`/`_HEIGHT_PX`) between label and body — the frame's dash-rule idiom from Phase 9 |
+| Body | `PT_SERIF_REGULAR` 40px (`DIMMED_BODY_FONT` = `EMPTY_BODY_FONT`), 6px line gap. DISPLAY OFF's two sentences are authored lines (`DISPLAY_OFF_BODY_LINES`), each wrapped on its own so the break falls after "page." — `DISPLAY_OFF_BODY_TEXT` remains their joined form, so the D-04 locked-copy check is unchanged. QUIET HOURS keeps `QUIET_HOURS_BODY_TEMPLATE` and its missing-value branch exactly |
+| Layout | Glyph, `SPACE_MD`, label, `SPACE_MD`, rule, `SPACE_MD`, body — one block, vertically centred with the sibling screens' formula, so every part moves the whole block |
+| Palette legality | Black/White only, Black-dominant — `_assert_legal_palette()` holds (verified in the sketch harness for every candidate before any was shown). Tests 120 and 129 retargeted to pin Black dominance, not relaxed |
+| The system this creates | **Dark = the frame is resting on purpose** (DISPLAY OFF, QUIET HOURS). **White = the frame is working** (the empty state, the flight boards). This is a deliberate revision of `12-CONTEXT.md` D-03 by choice, on glass, at the developer's request — not by way of the escalation ladder below |
+| The empty state | Reworked in the same session at the developer's request, through the same routine as its white variant (`_build_hold_canvas()` with `IDX_WHITE` / `EMPTY_INK`, no dither): a runway glyph (`draw_runway_icon()` — strip, threshold "piano keys", dashed centreline, 76px like the other two marks), the CFG-12 runway-dependent heading as a tracked label (upper-cased at draw time; `empty_heading_text()` unchanged), the rule, the body. All three hold screens are now one composition, and the field alone tells resting from working. Copy: the body breaks before "The display" as two authored lines, and the Phase 2 em dash was retired — `EMPTY_BODY_TEXT` is now `"No aircraft detected yet. The display updates the moment one is."`, the session's only locked-copy change |
+
+On-glass verdicts (developer, 2026-09-05, from normal viewing distance): the field reads
+as a soft even grey, not the noise the preview shows; Regular white body text holds at
+40px; label, rule and both glyphs are crisp; the two dark screens read as a system and
+differ clearly by glyph. All validated. The empty screen was validated on glass in its
+reworked form; its final copy fix (the dash) was accepted from the preview alone at the
+developer's explicit choice.
+
+### Visual structure — ORIGINAL 12-02 CONTRACT (SUPERSEDED, retained as record): mirror `_build_quiet_hours_canvas()` exactly, minus the body's time reference
 
 Structurally identical to Phase 10's quiet-hours screen (itself structurally identical
 to `_build_empty_canvas()`), with different, honest copy and no template substitution
@@ -280,6 +315,15 @@ body is a single fixed string constant, not a `%`-template like
 | Destructive confirmation | Not applicable — this is a passive display state, no user action happens on the panel itself |
 
 ### Open item this spec deliberately does NOT resolve — flag to planner/executor, on-glass verification required
+
+> **RESOLVED on glass, 12-06 session (2026-09-05) — and not the way this section
+> anticipated.** The distinguishability question was answered by construction rather
+> than by wording: the dimmed-field revision above makes DISPLAY OFF and QUIET HOURS the
+> two dark screens and leaves the empty state white, so all three tell apart from across
+> the room before a single word is read; the two dark ones differ by glyph. The developer
+> confirmed each of the three checks below on the real panel. The escalation ladder was
+> not used — the field change was a design choice made on glass, not a fallback. The
+> original text is retained below as the record of the risk as it was understood.
 
 **This phase now has three visually similar full-bleed White/Black centered-text hold
 screens** (`_build_empty_canvas()`, `_build_quiet_hours_canvas()`, and this phase's new

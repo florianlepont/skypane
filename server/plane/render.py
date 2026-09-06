@@ -84,6 +84,7 @@ snippet typed on a production host:
 """
 import argparse
 import hashlib
+import math
 import os
 import sys
 
@@ -296,7 +297,21 @@ EMPTY_HEADING_TEXT = empty_heading_text(device_config.DEFAULT_RUNWAY_ID)
 # state_ink_index(). The CFG-05 source-fault badge shares it for the same
 # reason.
 EMPTY_INK = IDX_BLACK
-EMPTY_BODY_TEXT = "No aircraft detected yet — the display updates the moment one is."
+# 12-06 on-glass session: the developer read the empty screen on the panel and
+# asked for the break to fall before "the display", not wherever the measured
+# width lands (which orphaned "one is." on its own line) - and then, seeing
+# the em dash left dangling at the end of the first line, for the dash to go:
+# two sentences, a full stop each. This is the one copy change the session
+# made (the original "yet — the display" dates from Phase 2). The two
+# sentences are the authored lines; EMPTY_BODY_TEXT is their joined form, the
+# single string the copy is asserted against. The builder wraps each sentence
+# on its own, so the break is honoured while the width safety net still
+# catches a line that cannot fit.
+EMPTY_BODY_LINES = (
+    "No aircraft detected yet.",
+    "The display updates the moment one is.",
+)
+EMPTY_BODY_TEXT = " ".join(EMPTY_BODY_LINES)
 TOP_RIGHT_TAG_TEXT = runway_tag_text(device_config.DEFAULT_RUNWAY_ID)
 ROUTE_FALLBACK_TEXT = "Route unavailable"
 
@@ -320,7 +335,56 @@ QUIET_HOURS_BODY_TEMPLATE = "Back at %s"
 # D-03 rejected the blank-field option to avoid. Do not localise; every
 # other panel string is English.
 DISPLAY_OFF_HEADING_TEXT = "DISPLAY OFF"
-DISPLAY_OFF_BODY_TEXT = "Switched off from the companion page. Turn it back on there anytime."
+# 12-06 on-glass session: the developer read the screen on real ink and asked
+# for the break to fall after "page." rather than wherever the measured width
+# happens to land. The two sentences are the authored lines; DISPLAY_OFF_BODY_TEXT
+# stays the joined form so the locked-copy contract (D-04) is still one string to
+# assert against, byte-identical to what 12-02 shipped. _build_display_off_canvas()
+# wraps each sentence individually, so the semantic break is honoured while the
+# width safety net still catches a line that cannot fit.
+DISPLAY_OFF_BODY_LINES = (
+    "Switched off from the companion page.",
+    "Turn it back on there anytime.",
+)
+DISPLAY_OFF_BODY_TEXT = " ".join(DISPLAY_OFF_BODY_LINES)
+
+# --- The dimmed hold composition (revised on real glass, 12-06 session) ---------
+# Shared by the two "resting on purpose" screens, DISPLAY OFF and QUIET HOURS,
+# and drawn by one routine (_build_dimmed_hold_canvas()) so the two share
+# their art direction by construction rather than by copy.
+#
+# Origin: the developer read 12-02's DISPLAY OFF - flat White, 72px Bold
+# heading, the same shape as QUIET HOURS - on the panel and asked for
+# something more elegant. Five compositions were sketched with these
+# primitives and the developer chose a blend of two: the editorial typography
+# of one (a glyph, then a tracked label in the frame's own label voice over a
+# short hairline rule, then the body) on the dimmed field of the other (Black
+# dithered toward White, the Grey theme's own on-glass-validated recipe, white
+# ink). Validated on real Spectra 6 glass on all three named points: the field
+# reads as a soft even grey, the Regular white body holds at 40px, and the
+# Bold-class label, rule and glyph are crisp. The developer then asked for
+# QUIET HOURS to be reworked in the same direction.
+#
+# The field is the load-bearing choice, and it makes the hold screens a
+# system: DARK means the frame is resting on purpose (off, quiet hours);
+# WHITE means it is working (the empty state, the flight boards). The two
+# dark screens then tell apart by glyph - power ring versus crescent - which
+# carries further across a room than two bold headings ever did. This is a
+# deliberate revision of 12-CONTEXT.md D-03's "same shape as quiet hours"
+# default, taken by choice at the developer's request on glass, not by way of
+# the UI-SPEC's escalation ladder.
+#
+# Bold for the label, not Regular: thin white strokes drown in dither noise,
+# which is why the Grey theme itself ships `weight: bold`. The body is Regular
+# at 40px (EMPTY_BODY_FONT) - confirmed legible on glass in the 12-06 session.
+DIMMED_FIELD_IDX = IDX_BLACK
+DIMMED_INK = IDX_WHITE
+DIMMED_LABEL_FONT = (PT_SERIF_BOLD, 40, 700)
+DIMMED_LABEL_TRACKING_PX = 10
+DIMMED_RULE_WIDTH_PX = 120
+DIMMED_RULE_HEIGHT_PX = 4
+DIMMED_BODY_FONT = EMPTY_BODY_FONT
+DIMMED_BODY_LINE_GAP_PX = 6
 
 # CFG-05 (D-06 seed .planning/seeds/on-device-fault-icon.md): the source-
 # fault alert badge's caption - short, English (D-23), and pointing at the
@@ -1763,6 +1827,12 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
     """Build the empty-state canvas ("Watching Runway 3" by default; the
     heading follows `runway_id` since CFG-12).
 
+    Reworked in Phase 12's 12-06 on-glass session onto the shared hold
+    composition (`_build_hold_canvas()`, white variant): the runway mark, a
+    tracked Bold label, a short rule, then the body - the same shape as the
+    dimmed DISPLAY OFF and QUIET HOURS screens, on a white field because the
+    frame is working here, not resting.
+
     `battery_low` (D-04/D-06): when True, draws the bottom-left battery-low
     icon in EMPTY_INK - a low-battery reading is a device-health fact
     independent of whether an aircraft is currently detected, so the icon
@@ -1773,51 +1843,26 @@ def _build_empty_canvas(runway_id=device_config.DEFAULT_RUNWAY_ID, source_fault=
     both be shown at once - they occupy horizontally disjoint parts of the
     same bottom band.
     """
-    canvas = pf.new_canvas(IDX_WHITE)
-    draw = ImageDraw.Draw(canvas)
-    heading_text = empty_heading_text(runway_id)
-    body_font = _font(EMPTY_BODY_FONT)
-    center_x = WIDTH // 2
-    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
-
-    # CFG-12: the heading is now runway-dependent and not a fixed,
-    # pre-measured string - it gets fit_text_size()'s shrink treatment
-    # (the same one long route/airline text already receives) rather than
-    # a bare _font() lookup, so a longer runway label shrinks instead of
-    # tripping the safe-box assertion below.
-    heading_font = fit_text_size(PT_SERIF_BOLD, EMPTY_HEADING_FONT[1], heading_text, safe_width, EMPTY_HEADING_MIN_SIZE)
-
-    heading_ascent, heading_descent = heading_font.getmetrics()
-    heading_height = heading_ascent + heading_descent
-
-    body_lines = _wrap_text(body_font, EMPTY_BODY_TEXT, safe_width)
-    body_ascent, body_descent = body_font.getmetrics()
-    body_line_height = body_ascent + body_descent
-
-    total_height = heading_height + SPACE_SM + len(body_lines) * body_line_height
-    start_y = (HEIGHT - total_height) // 2
-
-    heading_bbox = draw.textbbox((center_x, start_y), heading_text, font=heading_font, anchor="ma")
-    _assert_in_safe_box(heading_bbox, "empty-state heading")
-    draw.text((center_x, start_y), heading_text, font=heading_font, fill=EMPTY_INK, anchor="ma")
-
-    y = start_y + heading_height + SPACE_SM
-    for line in body_lines:
-        line_bbox = draw.textbbox((center_x, y), line, font=body_font, anchor="ma")
-        _assert_in_safe_box(line_bbox, "empty-state body line")
-        draw.text((center_x, y), line, font=body_font, fill=EMPTY_INK, anchor="ma")
-        y += body_line_height
-
-    # CFG-05: the source-fault badge is visible whichever state the panel
-    # is in, including the empty state - the empty canvas uses EMPTY_INK,
-    # matching every other element it already draws.
-    if source_fault:
-        draw_source_fault_badge(canvas, EMPTY_INK, weight="bold")
-
-    if battery_low:
-        draw_battery_icon(canvas, draw, EMPTY_INK)
-
-    return canvas
+    # 12-06 on-glass session: the shared hold composition, white variant - the
+    # runway mark, then the heading as a tracked label in the frame's label
+    # voice. The label is upper-cased at draw time only: EMPTY_HEADING_TEXT and
+    # empty_heading_text() are untouched, so the locked copy and CFG-12's
+    # runway-dependent heading both stand. Every registered runway id fits the
+    # 40px tracked label inside the safe box (the helper asserts it), so the
+    # fit_text_size() shrink the 72px heading used to need is no longer
+    # exercised here - a longer future runway label would trip that assert at
+    # test time rather than shrink silently, which is the right failure.
+    return _build_hold_canvas(
+        draw_runway_icon,
+        RUNWAY_ICON_HEIGHT_PX,
+        empty_heading_text(runway_id).upper(),
+        EMPTY_BODY_LINES,
+        IDX_WHITE,
+        EMPTY_INK,
+        False,
+        source_fault=source_fault,
+        battery_low=battery_low,
+    )
 
 
 def _build_quiet_hours_canvas(quiet_hours_until=None, source_fault=False, battery_low=False):
@@ -1826,12 +1871,18 @@ def _build_quiet_hours_canvas(quiet_hours_until=None, source_fault=False, batter
     drawn once by poll_loop.py (plan 10-04) at the poll that first detects
     window entry.
 
-    Structurally a near-verbatim copy of `_build_empty_canvas()`
-    (10-UI-SPEC.md's locked "mirror the empty state exactly" default): flat
-    White background, EMPTY_INK text, identical vertical-centring formula.
-    `theme_id` and `runway_id` are both ignored - this screen is always
-    White/Black regardless of the currently configured theme, exactly like
-    the empty state.
+    Shipped by 10-02 as a near-verbatim copy of `_build_empty_canvas()`
+    (10-UI-SPEC.md's "mirror the empty state exactly" default: flat White,
+    Bold heading), then reworked on real glass in Phase 12's 12-06 session
+    onto the shared dimmed hold composition (`_build_dimmed_hold_canvas()`,
+    see the DIMMED_* constants): a dithered dark field, white ink, the
+    crescent as its mark, a tracked Bold label over a short rule, then the
+    body. The rework makes the two "resting on purpose" screens - this one
+    and DISPLAY OFF - a matched pair that differ by glyph, and leaves the
+    empty state as the one white hold screen, since the frame is working
+    there. `theme_id` and `runway_id` are both ignored - this screen is
+    always the same White/Black composition regardless of the configured
+    theme, exactly like the empty state.
 
     `quiet_hours_until` is expected to be the "HH:MM" local (Europe/Paris)
     wall-clock end time string produced by
@@ -1845,48 +1896,24 @@ def _build_quiet_hours_canvas(quiet_hours_until=None, source_fault=False, batter
     `battery_low`/`source_fault` (D-04/D-06, CFG-05) match
     `_build_empty_canvas()`'s own precedent: both indicators are
     device/server-health facts independent of this screen's content, drawn
-    in EMPTY_INK.
+    in DIMMED_INK (white) since the 12-06 rework.
     """
-    canvas = pf.new_canvas(IDX_WHITE)
-    draw = ImageDraw.Draw(canvas)
-    heading_text = QUIET_HOURS_HEADING_TEXT
-    body_font = _font(EMPTY_BODY_FONT)
-    center_x = WIDTH // 2
-    safe_width = SAFE_BOX[2] - SAFE_BOX[0]
-
-    heading_font = fit_text_size(PT_SERIF_BOLD, EMPTY_HEADING_FONT[1], heading_text, safe_width, EMPTY_HEADING_MIN_SIZE)
-
-    heading_ascent, heading_descent = heading_font.getmetrics()
-    heading_height = heading_ascent + heading_descent
-
+    # 12-06 on-glass session: reworked onto the shared dimmed composition, the
+    # crescent as its mark. The missing-return-time branch (D-05/D-06) is
+    # preserved exactly: no `quiet_hours_until` means no body and no body
+    # spacing, never a placeholder, never an exception.
     if isinstance(quiet_hours_until, str) and quiet_hours_until:
-        body_lines = _wrap_text(body_font, QUIET_HOURS_BODY_TEMPLATE % quiet_hours_until, safe_width)
+        sentences = (QUIET_HOURS_BODY_TEMPLATE % quiet_hours_until,)
     else:
-        body_lines = []
-    body_ascent, body_descent = body_font.getmetrics()
-    body_line_height = body_ascent + body_descent
-
-    total_height = heading_height + (SPACE_SM + len(body_lines) * body_line_height if body_lines else 0)
-    start_y = (HEIGHT - total_height) // 2
-
-    heading_bbox = draw.textbbox((center_x, start_y), heading_text, font=heading_font, anchor="ma")
-    _assert_in_safe_box(heading_bbox, "quiet-hours heading")
-    draw.text((center_x, start_y), heading_text, font=heading_font, fill=EMPTY_INK, anchor="ma")
-
-    y = start_y + heading_height + SPACE_SM
-    for line in body_lines:
-        line_bbox = draw.textbbox((center_x, y), line, font=body_font, anchor="ma")
-        _assert_in_safe_box(line_bbox, "quiet-hours body line")
-        draw.text((center_x, y), line, font=body_font, fill=EMPTY_INK, anchor="ma")
-        y += body_line_height
-
-    if source_fault:
-        draw_source_fault_badge(canvas, EMPTY_INK, weight="bold")
-
-    if battery_low:
-        draw_battery_icon(canvas, draw, EMPTY_INK)
-
-    return canvas
+        sentences = ()
+    return _build_dimmed_hold_canvas(
+        draw_moon_icon,
+        MOON_ICON_DIAMETER_PX,
+        QUIET_HOURS_HEADING_TEXT,
+        sentences,
+        source_fault=source_fault,
+        battery_low=battery_low,
+    )
 
 
 def _build_display_off_canvas(source_fault=False, battery_low=False):
@@ -1895,12 +1922,18 @@ def _build_display_off_canvas(source_fault=False, battery_low=False):
     text" rule, drawn once by poll_loop.py (plan 12-04) at the poll that
     first enters the off hold state.
 
-    Structurally a near-verbatim copy of `_build_quiet_hours_canvas()`
-    (12-UI-SPEC.md's locked "mirror the precedent exactly" default): flat
-    White background, EMPTY_INK text, identical vertical-centring formula.
-    `theme_id` and `runway_id` are both ignored - this screen is always
-    White/Black regardless of the currently configured theme, exactly like
-    the empty state and the quiet-hours screen.
+    Shipped by 12-02 as a near-verbatim copy of `_build_quiet_hours_canvas()`
+    (flat White, Bold heading), then revised on real glass in the 12-06
+    session - see the DIMMED_* constants above for the composition and the
+    reasoning. Now: the shared dimmed hold composition
+    (`_build_dimmed_hold_canvas()` - a dithered dark field over
+    DIMMED_FIELD_IDX, the Grey theme's recipe, white ink, the power ring, a
+    tracked Bold label over a short rule, then the two authored body lines),
+    the whole block vertically centred with the same formula the sibling
+    screens use.
+    `theme_id` and `runway_id` are both ignored - this screen is always the
+    same White/Black composition regardless of the configured theme, exactly
+    like the empty state and the quiet-hours screen.
 
     Unlike the quiet-hours screen, there is no `quiet_hours_until`
     parameter and no missing-value branch: DISPLAY_OFF_BODY_TEXT is a fixed
@@ -1914,45 +1947,270 @@ def _build_display_off_canvas(source_fault=False, battery_low=False):
     `battery_low`/`source_fault` (D-04/D-06, CFG-05) match
     `_build_empty_canvas()`'s/`_build_quiet_hours_canvas()`'s own
     precedent: both indicators are device/server-health facts independent
-    of this screen's content, drawn in EMPTY_INK.
+    of this screen's content - drawn in DIMMED_INK (white), the only ink
+    that reads on the dimmed field.
     """
-    canvas = pf.new_canvas(IDX_WHITE)
+    # 12-06 on-glass session: the shared dimmed composition, the power ring as
+    # its mark. Each authored sentence is passed separately so the break falls
+    # after "page." rather than wherever the measured width lands (the helper
+    # still wraps each one, so a line that cannot fit is broken, never spilled).
+    return _build_dimmed_hold_canvas(
+        draw_power_icon,
+        POWER_ICON_BAR_RISE_PX + POWER_ICON_DIAMETER_PX,
+        DISPLAY_OFF_HEADING_TEXT,
+        DISPLAY_OFF_BODY_LINES,
+        source_fault=source_fault,
+        battery_low=battery_low,
+    )
+
+
+# --- Display-off power glyph (Phase 12, 12-06 on-glass session) --------------
+# Drawn from primitives like every other panel mark (draw_battery_icon,
+# draw_source_fault_badge) - no vendored asset, so nothing to attribute.
+#
+# The universal power mark rather than a moon or "Zzz", which is what "sleep"
+# suggests first: QUIET HOURS is literally the night/curfew screen, so a
+# night-register glyph would pull DISPLAY OFF toward the one screen step A
+# exists to keep it distinct from. The power mark says "off" without borrowing
+# that vocabulary. Weighed explicitly with the developer mid-session, and kept
+# through the dimmed-field revision at the developer's request - in white ink,
+# where its 8px stroke is Bold-class and safe against the dither.
+POWER_ICON_DIAMETER_PX = 76
+POWER_ICON_STROKE_PX = 8
+POWER_ICON_GAP_DEGREES = 64  # the ring's opening, centred on 12 o'clock
+POWER_ICON_BAR_RISE_PX = 10  # how far the bar stands above the ring
+POWER_ICON_BAR_DROP_PX = 34  # how far it reaches down into the ring
+
+
+def draw_power_icon(draw, center_x, top_y, ink_idx):
+    """Draw the power mark centred on `center_x`, its topmost pixel at `top_y`,
+    and return the glyph's total height so the caller's vertical-centring
+    arithmetic can account for it exactly like a text block's own height.
+
+    `ImageDraw.arc()`'s angles run from 3 o'clock and increase clockwise, so
+    12 o'clock is 270. Drawing from `270 + half_gap` clockwise to
+    `270 - half_gap` wraps the long way round the ring and leaves the opening
+    at the top, which is what makes the mark read as a power symbol rather
+    than as a plain circle.
+    """
+    radius = POWER_ICON_DIAMETER_PX // 2
+    ring_top = top_y + POWER_ICON_BAR_RISE_PX
+    ring_box = (
+        center_x - radius,
+        ring_top,
+        center_x + radius,
+        ring_top + POWER_ICON_DIAMETER_PX,
+    )
+    half_gap = POWER_ICON_GAP_DEGREES / 2.0
+    draw.arc(ring_box, 270 + half_gap, 270 - half_gap, fill=ink_idx, width=POWER_ICON_STROKE_PX)
+
+    bar_left = center_x - POWER_ICON_STROKE_PX // 2
+    draw.rectangle(
+        (bar_left, top_y, bar_left + POWER_ICON_STROKE_PX - 1, ring_top + POWER_ICON_BAR_DROP_PX),
+        fill=ink_idx,
+    )
+    return POWER_ICON_BAR_RISE_PX + POWER_ICON_DIAMETER_PX
+
+
+# --- Quiet-hours crescent glyph (12-06 on-glass session) ---------------------
+# The moon belongs here, not on DISPLAY OFF: QUIET HOURS is the curfew screen,
+# so the night register is its own. Same 76px footprint and the same
+# Bold-class white as the power ring, so the two dark screens sit as a pair
+# and differ only by the mark - which is exactly what should tell them apart
+# from across the room. Drawn as a filled crescent: the region inside one disc
+# and outside a second disc shifted to the right, traced numerically so no
+# intersection geometry is hand-derived. Filled rather than outlined because
+# the bite would otherwise have to be painted over the dithered field with a
+# flat index, leaving a solid patch in an even grey.
+MOON_ICON_DIAMETER_PX = 76
+MOON_ICON_BITE_DIAMETER_PX = 68
+MOON_ICON_BITE_OFFSET_PX = 20  # the bite's centre, right of the disc's centre
+MOON_ICON_SAMPLES = 180
+
+
+def draw_moon_icon(draw, center_x, top_y, ink_idx):
+    """Draw a filled crescent centred on `center_x`, its disc's topmost pixel
+    at `top_y`, and return the glyph's height. The crescent is the set of
+    points inside the main disc and outside the bite disc; both arcs are
+    sampled and the two point runs joined into one polygon.
+    """
+    radius = MOON_ICON_DIAMETER_PX / 2.0
+    bite_radius = MOON_ICON_BITE_DIAMETER_PX / 2.0
+    cx = float(center_x)
+    cy = top_y + radius
+    bx = cx + MOON_ICON_BITE_OFFSET_PX
+
+    outer = []
+    for i in range(MOON_ICON_SAMPLES):
+        a = 2.0 * math.pi * i / MOON_ICON_SAMPLES
+        px, py = cx + radius * math.cos(a), cy + radius * math.sin(a)
+        if math.hypot(px - bx, py - cy) >= bite_radius:
+            outer.append((a, (px, py)))
+    inner = []
+    for i in range(MOON_ICON_SAMPLES):
+        a = 2.0 * math.pi * i / MOON_ICON_SAMPLES
+        px, py = bx + bite_radius * math.cos(a), cy + bite_radius * math.sin(a)
+        if math.hypot(px - cx, py - cy) <= radius:
+            inner.append((a, (px, py)))
+
+    # The lit limb runs over the left half, so its sampled angles straddle pi:
+    # sort by angle after unwrapping so the run is contiguous, then walk the
+    # inner arc back the other way to close the shape.
+    def _unwrap(run):
+        run = sorted(run, key=lambda t: t[0])
+        gap_at = max(range(1, len(run)), key=lambda k: run[k][0] - run[k - 1][0], default=0)
+        if gap_at and run[gap_at][0] - run[gap_at - 1][0] > math.pi:
+            run = run[gap_at:] + run[:gap_at]
+        return [p for _a, p in run]
+
+    points = _unwrap(outer) + list(reversed(_unwrap(inner)))
+    draw.polygon(points, fill=ink_idx)
+    return MOON_ICON_DIAMETER_PX
+
+
+def _build_hold_canvas(glyph_draw, glyph_height, label_text, sentences, field_idx, ink, dithered, source_fault=False, battery_low=False):
+    """The shared hold-screen composition (see the DIMMED_* constants above,
+    which also carry the type and spacing values the white variant reuses):
+    a field - `field_idx` dithered toward White when `dithered`, flat
+    otherwise - then one vertically-centred block in `ink`: `glyph_draw` (a
+    `draw_*_icon()` routine, `glyph_height` tall), a tracked Bold label, a
+    short rule, and the body. `sentences` are wrapped one by one so an
+    authored line break is honoured while `_wrap_text()` still catches a
+    line that cannot fit; an empty tuple omits the body and its spacing
+    entirely, which is how the quiet-hours screen handles a missing return
+    time.
+
+    Three screens draw through here, and the field is what sorts them:
+    DISPLAY OFF and QUIET HOURS are dimmed (the frame is resting on
+    purpose), the empty state is white (the frame is working). The 12-06
+    on-glass session gave all three the same composition so they read as
+    one family, and left the field to say which kind of screen it is.
+
+    The width of the tracked label is summed glyph-by-glyph the way
+    draw_tracked_text() advances, so the block is centred on what will be
+    drawn. Every part joins the same total the centring divides, so adding a
+    part moves the whole block, never the text alone.
+
+    `battery_low`/`source_fault` (D-04/D-06, CFG-05) follow the sibling
+    screens' precedent - device/server-health facts independent of the
+    screen's content - drawn in the screen's own `ink`.
+    """
+    canvas = dither.dithered_state_background(field_idx) if dithered else pf.new_canvas(field_idx)
     draw = ImageDraw.Draw(canvas)
-    heading_text = DISPLAY_OFF_HEADING_TEXT
-    body_font = _font(EMPTY_BODY_FONT)
     center_x = WIDTH // 2
     safe_width = SAFE_BOX[2] - SAFE_BOX[0]
 
-    heading_font = fit_text_size(PT_SERIF_BOLD, EMPTY_HEADING_FONT[1], heading_text, safe_width, EMPTY_HEADING_MIN_SIZE)
+    label_font = _font(DIMMED_LABEL_FONT)
+    tracking = DIMMED_LABEL_TRACKING_PX
+    label_width = sum(label_font.getlength(ch) for ch in label_text) + tracking * (len(label_text) - 1)
+    label_ascent, label_descent = label_font.getmetrics()
+    label_height = label_ascent + label_descent
 
-    heading_ascent, heading_descent = heading_font.getmetrics()
-    heading_height = heading_ascent + heading_descent
-
-    body_lines = _wrap_text(body_font, DISPLAY_OFF_BODY_TEXT, safe_width)
+    body_font = _font(DIMMED_BODY_FONT)
+    body_lines = []
+    for sentence in sentences:
+        body_lines.extend(_wrap_text(body_font, sentence, safe_width))
     body_ascent, body_descent = body_font.getmetrics()
-    body_line_height = body_ascent + body_descent
+    body_line_height = body_ascent + body_descent + DIMMED_BODY_LINE_GAP_PX
 
-    total_height = heading_height + (SPACE_SM + len(body_lines) * body_line_height if body_lines else 0)
+    total_height = (
+        glyph_height
+        + SPACE_MD
+        + label_height
+        + SPACE_MD
+        + DIMMED_RULE_HEIGHT_PX
+        + (SPACE_MD + len(body_lines) * body_line_height if body_lines else 0)
+    )
     start_y = (HEIGHT - total_height) // 2
 
-    heading_bbox = draw.textbbox((center_x, start_y), heading_text, font=heading_font, anchor="ma")
-    _assert_in_safe_box(heading_bbox, "display-off heading")
-    draw.text((center_x, start_y), heading_text, font=heading_font, fill=EMPTY_INK, anchor="ma")
+    half = max(POWER_ICON_DIAMETER_PX, MOON_ICON_DIAMETER_PX) // 2
+    _assert_in_safe_box((center_x - half, start_y, center_x + half, start_y + glyph_height), "dimmed-hold glyph")
+    glyph_draw(draw, center_x, start_y, ink)
 
-    y = start_y + heading_height + SPACE_SM
+    label_y = start_y + glyph_height + SPACE_MD
+    label_left = round(center_x - label_width / 2)
+    _assert_in_safe_box((label_left, label_y, round(label_left + label_width), label_y + label_height), "dimmed-hold label")
+    draw_tracked_text(draw, (label_left, label_y), label_text, label_font, ink, tracking=tracking)
+
+    rule_y = label_y + label_height + SPACE_MD
+    rule_left = center_x - DIMMED_RULE_WIDTH_PX // 2
+    draw.rectangle((rule_left, rule_y, rule_left + DIMMED_RULE_WIDTH_PX, rule_y + DIMMED_RULE_HEIGHT_PX - 1), fill=ink)
+
+    y = rule_y + DIMMED_RULE_HEIGHT_PX + SPACE_MD
     for line in body_lines:
         line_bbox = draw.textbbox((center_x, y), line, font=body_font, anchor="ma")
-        _assert_in_safe_box(line_bbox, "display-off body line")
-        draw.text((center_x, y), line, font=body_font, fill=EMPTY_INK, anchor="ma")
+        _assert_in_safe_box(line_bbox, "dimmed-hold body line")
+        draw.text((center_x, y), line, font=body_font, fill=ink, anchor="ma")
         y += body_line_height
 
     if source_fault:
-        draw_source_fault_badge(canvas, EMPTY_INK, weight="bold")
+        draw_source_fault_badge(canvas, ink, weight="bold")
 
     if battery_low:
-        draw_battery_icon(canvas, draw, EMPTY_INK)
+        draw_battery_icon(canvas, draw, ink)
 
     return canvas
+
+
+def _build_dimmed_hold_canvas(glyph_draw, glyph_height, label_text, sentences, source_fault=False, battery_low=False):
+    """The dimmed variant of `_build_hold_canvas()` - DISPLAY OFF and QUIET
+    HOURS: DIMMED_FIELD_IDX dithered toward White, DIMMED_INK for everything
+    drawn on it."""
+    return _build_hold_canvas(
+        glyph_draw, glyph_height, label_text, sentences,
+        DIMMED_FIELD_IDX, DIMMED_INK, True,
+        source_fault=source_fault, battery_low=battery_low,
+    )
+
+
+# --- Empty-state runway glyph (12-06 on-glass session) -----------------------
+# The developer, seeing the empty screen right after the two dimmed ones on
+# the panel, asked for it to get the same treatment and a mark of its own.
+# Its subject is the runway being watched, so the mark is a runway seen from
+# above: a strip with a dashed centreline and a threshold bar at each end,
+# drawn from rectangles like every other panel mark. Same 76px height as the
+# power ring and the crescent, so the three glyphs sit at one scale.
+RUNWAY_ICON_HEIGHT_PX = 76
+RUNWAY_ICON_WIDTH_PX = 48
+RUNWAY_ICON_STROKE_PX = 4
+RUNWAY_ICON_DASH_PX = 6
+RUNWAY_ICON_DASH_GAP_PX = 5
+RUNWAY_ICON_KEY_PX = 10  # the threshold "piano key" bars' height
+RUNWAY_ICON_KEY_W_PX = 4  # ... and width; two per end, either side of the centreline
+
+
+def draw_runway_icon(draw, center_x, top_y, ink_idx):
+    """Draw the runway mark centred on `center_x`, its top edge at `top_y`,
+    and return its height. A first pass used a solid bar at each end, which
+    read as a battery at glyph size; the threshold "piano keys" real runways
+    carry are what make the mark read as a runway, so it draws two short
+    bars at each end instead, either side of the dashed centreline.
+    """
+    left = center_x - RUNWAY_ICON_WIDTH_PX // 2
+    right = left + RUNWAY_ICON_WIDTH_PX
+    bottom = top_y + RUNWAY_ICON_HEIGHT_PX
+    s = RUNWAY_ICON_STROKE_PX
+    draw.rectangle((left, top_y, right - 1, bottom - 1), outline=ink_idx, width=s)
+
+    inner_top = top_y + s + 3
+    inner_bottom = bottom - s - 3
+    key_w = RUNWAY_ICON_KEY_W_PX
+    key_h = RUNWAY_ICON_KEY_PX
+    for kx in (center_x - 9 - key_w, center_x + 9):
+        draw.rectangle((kx, inner_top, kx + key_w - 1, inner_top + key_h - 1), fill=ink_idx)
+        draw.rectangle((kx, inner_bottom - key_h + 1, kx + key_w - 1, inner_bottom), fill=ink_idx)
+
+    dash_w = 4
+    span_top = inner_top + key_h + RUNWAY_ICON_DASH_GAP_PX
+    span_bottom = inner_bottom - key_h - RUNWAY_ICON_DASH_GAP_PX
+    step = RUNWAY_ICON_DASH_PX + RUNWAY_ICON_DASH_GAP_PX
+    n = max(1, (span_bottom - span_top + 1 + RUNWAY_ICON_DASH_GAP_PX) // step)
+    used = n * step - RUNWAY_ICON_DASH_GAP_PX
+    y = span_top + (span_bottom - span_top + 1 - used) // 2
+    for _ in range(n):
+        draw.rectangle((center_x - dash_w // 2, y, center_x + dash_w // 2 - 1, y + RUNWAY_ICON_DASH_PX - 1), fill=ink_idx)
+        y += step
+    return RUNWAY_ICON_HEIGHT_PX
 
 
 _LEGAL_PANEL_INDICES = {IDX_BLACK, IDX_WHITE, IDX_YELLOW, IDX_RED, IDX_BLUE, IDX_GREEN}

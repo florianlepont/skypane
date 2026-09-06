@@ -618,6 +618,153 @@ enabled.
   not exhaustively checked against every French/European airport
   `api.adsbdb.com` might return a compound municipality for.
 
+### Phase 12 On-Glass Verification (2026-09-05 → 06, plan 12-06)
+
+**This session put Phase 12's new DISPLAY OFF render state on the real
+deployed Spectra 6 panel for the first time, walked the full operator loop
+(off from the companion Settings page → dark frame → back on) with the
+poll timer live, and — because the developer read the shipped screen on
+the panel and asked for something more elegant — redesigned all three hold
+screens on glass, in session.** Driven interactively over SSH against the
+live production VPS (`ubuntu@92.222.92.167`), `skypane-poll.timer` stopped
+for every forced render in steps A–C and restarted for step D, per the
+method Phases 7/8/9 established. Each forced render was confirmed taken by
+the frame from `skypane-byos`'s journal (the `GET /img/<digest>.bin` line
+for that exact render's digest), never assumed from the clock. Method
+note, same standard as the entries above: uninstrumented visual judgments
+by one person, on one panel, under the room's own lighting — not
+measurement-grade. Timings below are journal timestamps, quoted as such.
+
+**Step A — the three hold screens, side by side, and what they became.**
+The screen as plan 12-02 shipped it (flat White, 72px Bold `DISPLAY OFF`,
+the quiet-hours shape) went up first. Developer, on the panel: *"c'est
+parfait ! mais ça manque peut-être d'un retour à la ligne après le 'page.'
+Et un petit logo sleep aussi au dessus du texte"*. Both applied in
+session — the body became two authored lines breaking after "page.", and
+a glyph went above the heading. The glyph choice was put to the developer
+explicitly: a moon (what "sleep" suggests) would pull DISPLAY OFF toward
+QUIET HOURS, the curfew screen this step exists to keep it distinct from;
+the developer's first answer was a misclick on the moon, the question was
+re-asked at their request, and the power ring was chosen. On glass: *"c'est
+cool ! mais je pense que ça pourrait être un peu plus élégant. tu as des
+propositions ?"* Five compositions were then sketched with `render.py`'s
+own primitives, each pushed through `_assert_legal_palette()` before being
+shown, and the developer asked for a blend of two — the editorial
+typography of one (tracked Bold label over a short rule, then the body) on
+the dimmed field of the other (Black dithered toward White, the Grey
+theme's on-glass-validated recipe, white ink) — keeping the power ring.
+That blend went up and was judged on the three points named in advance:
+
+1. **The dimmed field itself** — reads as a soft even grey on the ink, not
+   the grain the preview shows (Phase 7's finding about dithered fields,
+   reconfirmed): *validé*.
+2. **Regular white body text at 40px on a dithered field** — the first
+   time this project put Regular white on dither (the Grey theme only ever
+   shipped Bold): *validé*, holds.
+3. **The Bold-class label, rule and glyph** — crisp: *validé*. *"On
+   valide."*
+
+The developer then asked for QUIET HOURS *"travaillé avec sensiblement la
+même DA"*. It was reworked onto the same composition through one shared
+routine, with a filled crescent as its mark — the moon placed where the
+night register belongs. On glass, judged on the crescent, the one-line
+`Back at 07:00` in Regular white, and the two screens as a pair: *"c'est
+parfait je valide"*. Then the empty screen: *"cet écran n'a pas reçu les
+améliorations des 2 autres … et un icon aurait été cool aussi"* — reworked
+onto the same composition's white variant with a runway glyph (a first
+draft with solid threshold bars read as a battery at glyph size and was
+replaced by threshold "piano keys" before going up). On glass the
+developer asked for the body to break before "The display" (*"sauf à la
+ligne"*) and then for the Phase 2 em dash to go (*"tu as laissé le tiret
+moche, remplace par un point"*) — the session's only change to locked
+copy — and accepted that final fix from the preview alone by explicit
+choice (*"pas besoin de retester, tu valides direct"*).
+
+**What this settled.** The distinguishability question `12-UI-SPEC.md`
+flagged — three White/Black centred-text hold screens — was answered by
+construction, not wording: **dark means the frame is resting on purpose
+(DISPLAY OFF, QUIET HOURS), white means it is working (the empty state,
+the flight boards)**, all three now one composition, the two dark ones
+told apart by glyph. This revises `12-CONTEXT.md` D-03's "same shape as
+quiet hours" default by choice, on glass, not through the UI-SPEC's
+escalation ladder; recorded in `12-CONTEXT.md`, `12-UI-SPEC.md` and
+`10-UI-SPEC.md`. Tests 120, 129 and 64 retargeted to pin the new fields
+and the tracked label, not relaxed. Code: `4885206`, `84f3a62`,
+`ab4a3ec`, `24e2ef3`.
+
+**Step B — the body text.** DISPLAY OFF's body wraps to the two authored
+lines, centred, comfortably inside the safe box at 40px; tone judged in
+the same breath as the screen (*"c'est parfait"*), not read as an apology
+or a warning. Not judged as a separate item beyond that.
+
+**Step C — the indicators on the dimmed screen.** `--state display_off
+--battery-low --source-fault` forced in one render (taken by the frame
+21:18:46 UTC): battery-low icon bottom-left, source-fault badge bottom-
+centre, both in white on the dimmed field, clear of the centred block.
+Developer: *"c - approuver"*.
+
+**Step D — the real operator loop, timer live. This is the step that
+proves the phase.** Timer restarted 21:20:14 UTC; the poll loop held the
+last real board (`departing`, `state_source=held`, theme
+`band_red_field`, `panel_changed=False`) as expected with nothing on the
+runway. The developer then unchecked *Enable display* and saved. Journal
+timeline:
+
+- 21:32:25 — last board cycle. **21:32:56 — `hold_state=display_off
+  entered=True panel_changed=True`**: the server rendered DISPLAY OFF
+  once, on the first 30s cycle after the click.
+- 21:35:13 — the frame's next wake; fetched the entry render
+  (`53ee1f29…`) at 21:35:15, on the glass ≈21:35:47. **Off latency ≈ 3
+  min 07 s from the click** (D-02's "within about 5 minutes").
+- **Silent hold, overnight:** the developer went to bed with the display
+  off. Between the entry fetch (21:35:16) and the exit (05:27:51 next
+  morning) the frame checked in **93 times and fetched 0 images**, at a
+  steady **304 s** cadence (D-01's 300 s pin plus wake overhead — note the
+  configured `SKYPANE_SLEEP_S` was already 300, so the pin did not
+  *change* the cadence here, it held it); the server ran **920 hold
+  cycles**, every one `entered=False panel_changed=False`. That is D-07 in
+  production for 7 h 52 min: not one repaint. Battery 3918 mV at both
+  ends.
+- 05:27:35 — a check-in. The developer re-enabled the display ~16 s
+  later. **05:27:51 — `hold_exited=True panel_changed=True`**, the board
+  repainted on the first cycle after the click — onto a real flight,
+  `IBE05GC`, an Iberia A20N, corroborated.
+- 05:32:39 — the frame's next wake; fetched the board (`a7cd0abd…`) at
+  05:32:41, on the glass ≈05:33:13. **On latency ≈ 5 min 20 s** — the
+  worst possible phase alignment (the click landed just after a check-in,
+  so a full interval had to elapse), still inside "within about 5 minutes"
+  plus the panel's own ~31 s refresh. This is the honest upper bound and
+  it is what the Settings caption promises.
+
+**Step E — the overlap. Skipped.** The plan's optional step — with the
+toggle off, open a quiet-hours window and confirm no repaint at its start
+nor at its end — was not run. `quiet_hours_enabled` stayed `false` all
+night, so the overnight hold, long as it was, never exercised the two
+mechanisms together. Stated here so it is not mistaken for covered: this
+is the D-05/D-07 overlap, and its only evidence remains 12-03's and
+12-04's tests with their executed negative controls.
+
+**Step F — teardown, an acceptance criterion.** `display_enabled: true`
+(the developer's own re-enable), `skypane-poll.timer` active, real poll
+cycles observed after the exit (05:27:51, 05:28:21, 05:28:50). The frame
+was left on live detection, showing a real departure — exactly the state
+it was in before the session, timer included.
+
+**Not verified this session, stated plainly:**
+- **D-05's sleep axis** — `max(300, quiet_hours_remaining)` — did not run
+  on real hardware: `quiet_hours_enabled` was `false` overnight, so the
+  two mechanisms never overlapped. It remains covered by 12-03's tests and
+  their executed negative control only.
+- The QUIET HOURS screen's own operator loop (window entry/exit with the
+  new composition) was not walked; only its forced render was judged.
+- All three glyphs were judged at one size on one panel; the runway
+  glyph's final form was accepted with the empty screen's dash fix from
+  the preview, at the developer's explicit choice, not re-forced.
+- Production was updated for steps A–C by copying `render.py` over SSH
+  (the pipeline deploys only from `main`); a clean redeploy from `main`
+  after the PR merges is owed, so production stops depending on a
+  hand-copied file.
+
 ## Flashing Tooling
 
 `esptool` was installed via Homebrew (not pip), keeping Phase 1's
