@@ -16,6 +16,17 @@ __pycache__/
 *.pyc
 .venv/
 
+# --- Symlinked venv (phase 14 plan 14-01 Task 1) ---
+# server/.gitignore's `.venv/` pattern only matches a real directory; a
+# worktree that provisions server/.venv as a symlink to another
+# checkout's already-built venv (this phase's network-free bootstrap
+# route) is a symlink, not a directory, so that pattern silently misses
+# it and it shows as untracked in `git status`. This root-scoped,
+# no-trailing-slash pattern matches the entry by name regardless of
+# type, closing that gap without touching server/.gitignore (phase
+# boundary: no file under server/ is modified by this phase).
+/server/.venv
+
 # --- Tooling caches this phase introduces (plan 04-02) ---
 # Landed here before ruff/coverage ever run in the working tree, so
 # there is no window in which a cache file could land in git history.

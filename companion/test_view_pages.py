@@ -72,7 +72,11 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 54  # + 2 (quick 260903-peo Task 3: UIR-17's desktop
+EXPECTED_CHECK_COUNT = 55  # + 1 (phase 14 plan 14-01 Task 2: the new
+# reflection-driven _view_panel_attr_constants_all_classified() check -
+# _lightbox_dom_contract_three_file_guard() itself was restructured onto
+# three classified token tuples in place, still one check) = 55.
+# 54 = 52 + 2 (quick 260903-peo Task 3: UIR-17's desktop
 # copy-button reveal stylesheet contract — [data-copy-value]-scoped, opacity
 # + pointer-events only, both tr:hover/tr:focus-within named — and the
 # cross-file markup guard pinning the [data-copy-value] discriminator that
@@ -206,6 +210,54 @@ EXPECTED_CHECK_COUNT = 54  # + 2 (quick 260903-peo Task 3: UIR-17's desktop
 # (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+# --- lightbox DOM-contract token classification (phase 14 plan 14-01 Task 2) ---
+#
+# _lightbox_dom_contract_three_file_guard() below used to carry a single
+# inline `tokens` tuple. That worked while History and the Airlines
+# gallery rendered an identical vocabulary, but Airlines-only lightbox
+# markup (the replace form) already exists today and this phase is about
+# to add more server-rendered vocabulary that panel-lookup.js never
+# reads. Restructuring the guard's data into three explicitly-scoped
+# tuples, each with its own present/absent contract, lets the guard keep
+# growing without ever again silently degrading into "shared" coverage
+# for something that is provably not shared.
+#
+# _view_panel_attr_constants_all_classified() (below, in main()) enforces
+# by reflection that every airlines_page._VIEW_PANEL_*_ATTR constant's
+# *value* lives in exactly one of these three tuples - a constant left
+# out of all three, or placed in two at once, fails the harness by
+# construction rather than by someone remembering to update this list.
+
+# Must appear in companion/static/panel-lookup.js's source, in the
+# rendered History page, and in the rendered Airlines page - the
+# vocabulary every one of the three genuinely shares today.
+_LIGHTBOX_SHARED_TOKENS = (
+    history_page.LIGHTBOX_DIALOG_ID,
+    "data-view-panel-src",
+    "data-view-panel-caption",
+    "lightbox__image",
+    "lightbox__caption",
+    "lightbox__note",
+    "data-view-panel-close",
+)
+
+# Must appear in panel-lookup.js's source and in the rendered Airlines
+# page, and must be absent from the rendered History page - History
+# deliberately renders no replace form and never should (see
+# airlines_page.py's own comment on _VIEW_PANEL_REPLACE_ACTION_ATTR).
+_LIGHTBOX_AIRLINES_ONLY_TOKENS = (
+    "data-view-panel-replace-action",
+    "lightbox__replace",
+)
+
+# Server-rendered vocabulary the script does not read yet: asserted
+# present in the rendered Airlines page only, with no assertion at all
+# against panel-lookup.js. This tuple is a staging area for one wave at
+# most - plan 14-05 empties it again once panel-lookup.js learns to read
+# whatever gets classified here in the meantime. Seeded empty.
+_LIGHTBOX_RENDER_ONLY_TOKENS = ()
 
 
 # --- fixture helpers -----------------------------------------------------
@@ -1710,14 +1762,17 @@ def main():
         _view_panel_empty_gallery_zero_triggers_zero_dialog)
 
     def _lightbox_dom_contract_three_file_guard():
-        # Source/DOM-contract guard: LIGHTBOX_DIALOG_ID, the two trigger
-        # attribute names, and the three lightbox element class names
-        # must each appear in panel-lookup.js's source, and in the
-        # rendered markup of every page that shares this mechanism -
-        # since quick task 260902-tli that is both History and the
-        # Airlines gallery (widened from History-only). A drift in any
-        # of the three would leave the button silently doing nothing
-        # with no signal from any file in isolation.
+        # Source/DOM-contract guard, restructured (phase 14 plan 14-01
+        # Task 2) into three classified token tuples instead of one
+        # inline literal: _LIGHTBOX_SHARED_TOKENS must appear in
+        # panel-lookup.js's source and in both pages' rendered markup;
+        # _LIGHTBOX_AIRLINES_ONLY_TOKENS must appear in panel-lookup.js
+        # and in Airlines' rendered markup, and must be absent from
+        # History's; _LIGHTBOX_RENDER_ONLY_TOKENS is asserted present in
+        # Airlines' rendered markup only, with no claim at all against
+        # panel-lookup.js or History. A drift in any of the three would
+        # leave the button silently doing nothing with no signal from
+        # any file in isolation.
         js_path = os.path.join(HERE, "static", "panel-lookup.js")
         with open(js_path) as fh:
             js_source = fh.read()
@@ -1738,27 +1793,82 @@ def main():
         # render(ctx) signature.
         airlines_rendered = airlines_page.render({})
 
-        tokens = (
-            history_page.LIGHTBOX_DIALOG_ID,
-            "data-view-panel-src",
-            "data-view-panel-caption",
-            "lightbox__image",
-            "lightbox__caption",
-            "lightbox__note",
-        )
-        for token in tokens:
+        for token in _LIGHTBOX_SHARED_TOKENS:
             if token not in js_source:
-                return False, "expected %r to appear in companion/static/panel-lookup.js" % token
+                return False, "expected shared token %r to appear in companion/static/panel-lookup.js" % token
             if token not in history_rendered:
-                return False, "expected %r to appear in the rendered History page" % token
+                return False, "expected shared token %r to appear in the rendered History page" % token
             if token not in airlines_rendered:
-                return False, "expected %r to appear in the rendered Airlines page" % token
+                return False, "expected shared token %r to appear in the rendered Airlines page" % token
+
+        for token in _LIGHTBOX_AIRLINES_ONLY_TOKENS:
+            if token not in js_source:
+                return False, (
+                    "expected Airlines-only token %r to appear in companion/static/panel-lookup.js" % token)
+            if token not in airlines_rendered:
+                return False, "expected Airlines-only token %r to appear in the rendered Airlines page" % token
+            if token in history_rendered:
+                return False, "did not expect Airlines-only token %r in the rendered History page" % token
+
+        for token in _LIGHTBOX_RENDER_ONLY_TOKENS:
+            if token not in airlines_rendered:
+                return False, "expected render-only token %r to appear in the rendered Airlines page" % token
+
         return True, ""
     check(
-        "LIGHTBOX_DIALOG_ID, the two data-view-panel-* trigger attribute names, and the three "
-        "lightbox__* element class names each appear in companion/static/panel-lookup.js and in "
-        "the rendered markup of both History and the Airlines gallery (quick task 260902-tli)",
+        "the shared, Airlines-only and render-only lightbox token tuples each appear (or, for "
+        "Airlines-only, are absent from History) exactly where their own classification says they "
+        "must, across companion/static/panel-lookup.js and both pages' rendered markup",
         _lightbox_dom_contract_three_file_guard)
+
+    def _view_panel_attr_constants_all_classified():
+        # Reflection-driven coverage check (phase 14 plan 14-01 Task 2):
+        # enumerate every airlines_page module attribute matching the
+        # exact shape _VIEW_PANEL_...(_ATTR) and assert its *value*
+        # appears in exactly one of the three classified token tuples
+        # above. A hand-copied list here would be the same drift this
+        # guard exists to catch, one level up - so this walks
+        # dir(airlines_page) instead of restating a name list.
+        all_tuples = (
+            _LIGHTBOX_SHARED_TOKENS,
+            _LIGHTBOX_AIRLINES_ONLY_TOKENS,
+            _LIGHTBOX_RENDER_ONLY_TOKENS,
+        )
+
+        # The three tuples must never overlap - a token classified in
+        # two of them at once would carry contradictory expectations.
+        seen = {}
+        for tuple_name, tup in (
+            ("_LIGHTBOX_SHARED_TOKENS", _LIGHTBOX_SHARED_TOKENS),
+            ("_LIGHTBOX_AIRLINES_ONLY_TOKENS", _LIGHTBOX_AIRLINES_ONLY_TOKENS),
+            ("_LIGHTBOX_RENDER_ONLY_TOKENS", _LIGHTBOX_RENDER_ONLY_TOKENS),
+        ):
+            for token in tup:
+                if token in seen:
+                    return False, (
+                        "token %r is classified in both %s and %s - the three tuples must be "
+                        "pairwise disjoint" % (token, seen[token], tuple_name))
+                seen[token] = tuple_name
+
+        for name in dir(airlines_page):
+            if not (name.startswith("_VIEW_PANEL_") and name.endswith("_ATTR")):
+                continue
+            value = getattr(airlines_page, name)
+            memberships = [tup for tup in all_tuples if value in tup]
+            if len(memberships) == 0:
+                return False, (
+                    "airlines_page.%s = %r is not classified in any of _LIGHTBOX_SHARED_TOKENS, "
+                    "_LIGHTBOX_AIRLINES_ONLY_TOKENS or _LIGHTBOX_RENDER_ONLY_TOKENS" % (name, value))
+            if len(memberships) > 1:
+                return False, (
+                    "airlines_page.%s = %r is classified in more than one of the three token "
+                    "tuples" % (name, value))
+        return True, ""
+    check(
+        "every airlines_page._VIEW_PANEL_*_ATTR constant's value is classified in exactly one of "
+        "the three lightbox token tuples, discovered by reflection over dir(airlines_page) rather "
+        "than a hand-copied name list",
+        _view_panel_attr_constants_all_classified)
 
     def _airlines_lightbox_constants_match_history():
         # quick task 260902-tli: the dialog id and the three
