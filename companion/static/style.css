@@ -4337,7 +4337,21 @@ a.airline-card {
   box-shadow: var(--shadow-card-hover);
 }
 
-.lightbox__image {
+/* 14-08 on-glass fix follow-up (2026-09-06, code review CR-01): caught
+ * after the fact — this rule has the exact same author-CSS-beats-
+ * [hidden] specificity tie the "14-08 on-glass fix" comments above
+ * already document and fixed for .lightbox__replace/.lightbox__
+ * resolve-name/.lightbox__delete and .lightbox__replace-zone/.resolve-
+ * upload-zone, missed here because this element was never gap-mode's
+ * concern until D-02 added panel-lookup.js's `image.hidden = true`
+ * branch this same phase. `:not([hidden])` closes it the same way. No
+ * hard visible defect was observed in this session's own browser
+ * testing (an <img> with no src and no intrinsic size collapsed toward
+ * invisible regardless), but relying on that is exactly the kind of
+ * browser-implementation-defined behaviour this project does not
+ * accept elsewhere — fixed for the same correctness reason as its
+ * three siblings, not left as an inconsistent exception. */
+.lightbox__image:not([hidden]) {
   width: 100%;
   height: auto;
   display: block;
