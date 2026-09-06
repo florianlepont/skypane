@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 14
-status: Phase 14 plan 04/8 complete — gap-card rendering + page-order reversal
-stopped_at: Completed 14-04-PLAN.md (gap-card rendering and the gap block, D-01/D-02/D-04/D-05/D-06/D-07; resolve section moved to the true bottom of the page); status-pages 158/158, view-pages 55/55, full suite PASS at 93% coverage. Wave 3 (14-06) and the rest of wave 2 (14-05/14-07) next.
-last_updated: "2026-09-06T14:13:36.947Z"
+status: Phase 14 plan 05/8 complete — panel-lookup.js imageless open, form toggling, load-time auto-open
+stopped_at: Completed 14-05-PLAN.md (panel-lookup.js imageless open, mode/manual form toggling, <a> interception, location.search-driven load-time auto-open, D-02/D-03/D-09/D-12/D-13/D-14); test_companion_app.py 159/159, view-pages 63/63, status-pages 158/158, full suite PASS. Wave 3 (14-06) and the rest of wave 2 (14-07) next.
+last_updated: "2026-09-06T14:44:05.611Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
   completed_phases: 24
   total_plans: 139
-  completed_plans: 134
-  percent: 96
+  completed_plans: 135
+  percent: 97
 ---
 
 ---
@@ -344,6 +344,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 14 P02 | 55min | 3 tasks | 3 files |
 | Phase 14 P03 | 22min | 2 tasks | 4 files |
 | Phase 14 P04 | 45min | 2 tasks | 2 files |
+| Phase 14 P05 | 23min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -585,6 +586,9 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-04: kept the still-full-size manual-resolutions management table rendering ahead of resolve_html (14-06 replaces it with a summary line, not this plan) so the resolve section stays the page's true last element
 - [Phase 14]: 14-04: guarded _gap_rows_for_grid() against a falsy state_dir (poll_loop.load_poll_state(None) raises TypeError uncaught) since it is now called unconditionally by render(), unlike the resolve-prefix-gated unresolved_row_for_prefix()
 - [Phase 14]: 14-04: retargeted test_status_pages.py's _resolve_slice() onto the shared dialog's </dialog> marker during Task 1's own commit rather than deferring to Task 2, since Task 1's render()-reorder is what breaks it and Task 1's own acceptance criteria required a fully green suite
+- [Phase 14]: 14-05: Populated the resolve-name form's hidden prefix input and the resolve-context block's five per-field <dd> hooks even though the plan's own Task 1 text lists only six lookups - 14-UI-SPEC.md names this plan as the explicit consumer of both
+- [Phase 14]: 14-05: data-view-panel-scope is read but has nowhere to write (no page module renders .lightbox__resolve-scope yet) - documented as a known limitation, not fixed here since it requires touching airlines_page.py, outside this plan's file scope
+- [Phase 14]: 14-05: wrapped the load-time auto-open's querySelector([data-view-panel-resolve-prefix=...]) call in try/catch and placed it after the click listener is wired, so a malformed ?resolve= value can never break the rest of the script
 
 ### Pending Todos
 
@@ -672,12 +676,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T14:13:36.930Z
-Stopped at: Completed 14-04-PLAN.md (gap-card rendering and the gap block, D-01/D-02/D-04/D-05/D-06/D-07; resolve section moved to the true bottom of the page); status-pages 158/158, view-pages 55/55, full suite PASS at 93% coverage. Wave 3 (14-06) and the rest of wave 2 (14-05/14-07) next.
+Last session: 2026-09-06T14:44:05.593Z
+Stopped at: Completed 14-05-PLAN.md (panel-lookup.js imageless open, mode/manual form toggling, <a> interception, location.search-driven load-time auto-open, D-02/D-03/D-09/D-12/D-13/D-14); test_companion_app.py 159/159, view-pages 63/63, status-pages 158/158, full suite PASS. Wave 3 (14-06) and the rest of wave 2 (14-07) next.
 
 Resume file: 
 
-.planning/phases/14-resolve-an-unidentified-flight-from-the-gallery-lightbox-wit/14-04-SUMMARY.md
+None
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
