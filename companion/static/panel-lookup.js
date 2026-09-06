@@ -125,18 +125,13 @@
     return null;
   }
 
-  document.addEventListener("click", function (evt) {
-    var trigger = findTriggerAncestor(evt.target);
-    if (!trigger) {
-      return;
-    }
-    // Phase 14 (D-12): a gap/manual/needs-artwork trigger is a real
-    // <a href="/airlines?resolve={prefix}">, not a <button> — this
-    // navigation must never happen once JS is running the show. A
-    // plain <button> trigger's click has no default navigation to
-    // prevent, so this is a no-op for every existing art-card trigger.
-    evt.preventDefault();
-
+  // Phase 14 (14-05-PLAN.md Task 2, RESEARCH.md Pitfall 2, mandatory
+  // factoring): every read/write the click handler used to perform
+  // inline, from the image branch through showModal(), now lives here
+  // once — the single place both the click listener and the load-time
+  // auto-open below populate the dialog and open it. Never duplicate
+  // any of this logic at a second call site.
+  function openFromTrigger(trigger) {
     var src = trigger.getAttribute("data-view-panel-src") || "";
     var captionText = trigger.getAttribute("data-view-panel-caption") || "";
     // D-02/RESEARCH.md Pitfall 1: a gap card carries no image at all.
@@ -256,6 +251,20 @@
     }
 
     dialog.showModal();
+  }
+
+  document.addEventListener("click", function (evt) {
+    var trigger = findTriggerAncestor(evt.target);
+    if (!trigger) {
+      return;
+    }
+    // Phase 14 (D-12): a gap/manual/needs-artwork trigger is a real
+    // <a href="/airlines?resolve={prefix}">, not a <button> — this
+    // navigation must never happen once JS is running the show. A
+    // plain <button> trigger's click has no default navigation to
+    // prevent, so this is a no-op for every existing art-card trigger.
+    evt.preventDefault();
+    openFromTrigger(trigger);
   });
 
   var closeButton = dialog.querySelector("[data-view-panel-close]");
@@ -270,6 +279,54 @@
   // close, a backdrop, and focus-trap semantics for free — exactly why
   // UI-SPEC §8.3 chose <dialog> over a hand-rolled overlay <div>. Do not
   // add a redundant handler later.
+
+  // ES5-safe (no browser query-string-parsing API, matching this file's
+  // own hand-rolled style) extraction of a single query-string key's
+  // decoded value, or "" when absent — "search" is passed in rather
+  // than read here, so location.search itself is referenced exactly
+  // once, at the one call site below.
+  function resolveParamFromSearch(search) {
+    var query = search.charAt(0) === "?" ? search.slice(1) : search;
+    var pairs = query ? query.split("&") : [];
+    for (var i = 0; i < pairs.length; i += 1) {
+      var pair = pairs[i].split("=");
+      if (pair[0] === "resolve") {
+        try {
+          return decodeURIComponent(pair[1] || "");
+        } catch (err) {
+          return "";
+        }
+      }
+    }
+    return "";
+  }
+
+  // Phase 14 (14-05-PLAN.md Task 2, D-13/D-14, RESEARCH.md Pitfall 2):
+  // the first non-click entry point into this script since it shipped.
+  // Placed after the click listener above is already wired, so a
+  // malformed value here can never prevent every other click on the
+  // page from working. Reads location.search once; if a "resolve"
+  // value is present and a matching trigger already exists in the
+  // rendered DOM, runs the identical population-and-open logic a click
+  // would run. Never re-validates the prefix itself (RESEARCH.md
+  // Pattern 3) — a non-matching value, or one that is not even a
+  // syntactically valid attribute-selector value, is silently ignored:
+  // no error, no dialog. The page's own server-rendered fallback
+  // section already tells the honest story for a stale or
+  // already-fully-resolved prefix.
+  var resolveValue = resolveParamFromSearch(location.search);
+  if (resolveValue) {
+    var autoTrigger = null;
+    try {
+      autoTrigger = document.querySelector(
+        '[data-view-panel-resolve-prefix="' + resolveValue + '"]');
+    } catch (err) {
+      autoTrigger = null;
+    }
+    if (autoTrigger) {
+      openFromTrigger(autoTrigger);
+    }
+  }
 
   // No DOMContentLoaded wrapper is needed: the <script> tag
   // companion/layout.py's page_shell() emits carries the defer
