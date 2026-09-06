@@ -8,22 +8,12 @@ updated: 2026-09-06T16:52:00Z
 
 ## Current Test
 
-number: 3
-name: Visual and keyboard sign-off with JavaScript genuinely disabled
+number: 4
+name: Security pass over the two new rules routes and the rules registry
 expected: |
-  The six mechanical behaviours below are already confirmed against a running
-  server and a real browser (tests 1 and 2). What is left is the part a machine
-  should not certify for this project: load Settings in your own browser with
-  JavaScript actually turned off, and confirm it looks and feels right.
-
-  Specifically worth your eyes:
-  - The arrivals grid reveal and the rules section read well at your window
-    size, and the page is not uncomfortably long now that Theme can show two
-    18-chip grids at once.
-  - Tabbing through the arrivals checkbox, both grids, and the rules form
-    lands somewhere sensible each time, and the focus ring is clearly visible.
-  - The rules list and its Delete control are legible and not cramped.
-awaiting: user response
+  /gsd-secure-phase 14 confirms the STRIDE threat registers recorded across the
+  five plans are honestly mitigated in the shipped code.
+awaiting: secure-phase dispatch
 
 ## Tests
 
@@ -70,7 +60,9 @@ evidence: |
 
 ### 3. Visual and keyboard sign-off with JavaScript genuinely disabled
 expected: Loaded in your own browser with JavaScript actually disabled, the Settings page reads well: the arrivals reveal and the rules section are comfortable at your window size, tab order through both grids and the rules form is sensible, and the focus ring is clearly visible throughout.
-result: [pending]
+result: pass
+source: human
+verified: 2026-09-06 by the developer, in their own Chrome against a local instance of the phase's code (port 8655, isolated state dir, pre-seeded with one hex rule so the list rendered populated). Confirmed with no qualifications.
 why_human: |
   Tests 1 and 2 ran with JavaScript enabled, and prove the mechanism is CSS-only
   rather than proving the page under a browser with scripting switched off.
@@ -85,9 +77,9 @@ result: [pending]
 ## Summary
 
 total: 4
-passed: 2
+passed: 3
 issues: 0
-pending: 2
+pending: 1
 skipped: 0
 blocked: 0
 
