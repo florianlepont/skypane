@@ -219,6 +219,16 @@ EXPECTED_CHECK_COUNT = 151  # 148 + 3 (phase 13 plan 13-06 Task 1, D-09:
 # never-registered key 404s and writes nothing, then succeeds once the
 # key is registered). Recomputed directly against the real on-disk
 # check(...) call count, not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 153  # 151 + 2 (phase 13 plan 13-06 Task 2: flash
+# completeness — every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/
+# FLASH_ROLES key, the six UI-SPEC deck strings resolve byte for byte
+# through _resolve_flash_text(), an unknown key still resolves to None,
+# and no message carries a runtime placeholder except the pre-existing
+# cooldown key; and the ctx contract — page_context() on a
+# ?resolve=XYZ request supplies resolve_prefix/manual_resolutions
+# correctly and every ctx key companion/pages/__init__.py documents is
+# actually present in the returned dict. Recomputed directly against the
+# real on-disk check(...) call count, not trusted from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -1964,6 +1974,140 @@ def main():
         "set exactly, a seeded manual entry adds exactly one filename, and an entry whose "
         "stored name yields no usable key contributes nothing (D-09)",
         _illustration_filenames_union_contract)
+
+    # ==================================================================
+    # Section 2.7: companion/app.py's eight FLASH_KEY_MANUAL_* keys and
+    # page_context()'s two new ctx keys (phase 13 plan 13-06 Task 2).
+    # ==================================================================
+
+    def _flash_manual_keys_complete_and_byte_identical():
+        import companion.app as app_module
+        manual_keys = (
+            app_module.FLASH_KEY_MANUAL_RESOLVED,
+            app_module.FLASH_KEY_MANUAL_NAME_EMPTY,
+            app_module.FLASH_KEY_MANUAL_NAME_TOO_LONG,
+            app_module.FLASH_KEY_MANUAL_NAME_RESERVED,
+            app_module.FLASH_KEY_MANUAL_PREFIX_STALE,
+            app_module.FLASH_KEY_MANUAL_REGISTRY_FULL,
+            app_module.FLASH_KEY_MANUAL_SAVE_FAILED,
+            app_module.FLASH_KEY_MANUAL_DELETE_FAILED,
+        )
+        for key in manual_keys:
+            if key not in app_module.FLASH_MESSAGES:
+                return False, "expected %r to be a FLASH_MESSAGES key" % (key,)
+            if key not in app_module.FLASH_ROLES:
+                return False, "expected %r to be a FLASH_ROLES key" % (key,)
+        # The six deck strings from 13-UI-SPEC.md's Full Copy Deck, byte for
+        # byte — the two planner-added failure keys are not in that deck
+        # (see FLASH_KEY_ILLUSTRATION_REPLACE_FAILED's own precedent) so
+        # they are checked for presence above only, not for exact text here.
+        expected_deck = {
+            app_module.FLASH_KEY_MANUAL_RESOLVED: (
+                "Airline name saved — the frame will pick it up next time "
+                "it wakes and polls."),
+            app_module.FLASH_KEY_MANUAL_NAME_EMPTY: (
+                "Enter an airline name before saving."),
+            app_module.FLASH_KEY_MANUAL_NAME_TOO_LONG: (
+                "That name's too long — airline names top out at 100 characters."),
+            app_module.FLASH_KEY_MANUAL_NAME_RESERVED: (
+                "That name is reserved for the frame's own fallback artwork "
+                "— try the airline's real name instead."),
+            app_module.FLASH_KEY_MANUAL_PREFIX_STALE: (
+                "That coverage gap isn't there anymore — check Health for "
+                "current gaps."),
+            app_module.FLASH_KEY_MANUAL_REGISTRY_FULL: (
+                "The manual-resolution list is full (200 entries) — delete "
+                "an old one before adding another."),
+        }
+        for key, expected_text in expected_deck.items():
+            if app_module.FLASH_MESSAGES[key] != expected_text:
+                return False, (
+                    "expected %r's FLASH_MESSAGES text to match the UI-SPEC deck byte "
+                    "for byte, got %r" % (key, app_module.FLASH_MESSAGES[key]))
+            resolved = app_module._resolve_flash_text(key, "/nonexistent-state-dir-fixture")
+            if resolved != expected_text:
+                return False, (
+                    "expected _resolve_flash_text(%r, ...) to return the deck text, "
+                    "got %r" % (key, resolved))
+        if app_module._resolve_flash_text("not-a-real-flash-key", "/nonexistent") is not None:
+            return False, "expected _resolve_flash_text() to return None for an unknown key"
+        for key, text in app_module.FLASH_MESSAGES.items():
+            if key == app_module.FLASH_KEY_POLL_COOLDOWN:
+                continue  # the one pre-existing, deliberately-interpolated key ("{n}").
+            if "%" in text or "{" in text:
+                return False, (
+                    "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r "
+                    "(UI-SPEC Autonomous Decision 6: flash copy is fixed, never "
+                    "interpolated, except the pre-existing cooldown key)" % (key, text))
+        return True, ""
+    check(
+        "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "
+        "UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an "
+        "unknown key still resolves to None, and no FLASH_MESSAGES value carries a "
+        "runtime placeholder except the pre-existing cooldown key",
+        _flash_manual_keys_complete_and_byte_identical)
+
+    class _FakeResolveCtxHandler(_FakePageContextHandler):
+        """Same minimal stand-in as _FakePageContextHandler above, but with
+        a settable `self.path` (that fixture hardcodes "/settings") so this
+        check can exercise page_context() against a real
+        "/airlines?resolve=..." query string.
+        """
+        def __init__(self, state_dir, path):
+            super().__init__(state_dir)
+            self.path = path
+
+    def _page_context_supplies_resolve_prefix_and_manual_resolutions():
+        import companion.app as app_module
+        import companion.pages as pages_package
+        tmp = tempfile.mkdtemp(prefix="skypane-page-context-resolve-")
+        try:
+            now = "2026-01-01T00:00:00+00:00"
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Brand New Air", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected the fixture add_entry() call to succeed, got %r" % (add_result,)
+            fake_self = _FakeResolveCtxHandler(tmp, "/airlines?resolve=XYZ")
+            ctx = app_module.Handler.page_context(fake_self)
+            if ctx.get("resolve_prefix") != "XYZ":
+                return False, "expected ctx['resolve_prefix'] == 'XYZ', got %r" % (ctx.get("resolve_prefix"),)
+            registry = ctx.get("manual_resolutions")
+            if not isinstance(registry, dict) or "XYZ" not in registry:
+                return False, "expected ctx['manual_resolutions'] to reflect the seeded entry, got %r" % (registry,)
+            if registry["XYZ"].get("airline_name") != "Brand New Air":
+                return False, (
+                    "expected the seeded entry's airline_name to round-trip through ctx, "
+                    "got %r" % (registry["XYZ"],))
+            # companion/pages/__init__.py's documented ctx list must not go
+            # stale silently — assert the documented key set against the
+            # real dict's keys, not the other way around, so an
+            # undocumented new ctx key also fails this check. NOTE:
+            # "health_state" is a real page_context() key but is not one
+            # of this docstring's bullets — a pre-existing gap predating
+            # this plan (out of scope here per the deviation-rules scope
+            # boundary; this plan documents only its own two new keys),
+            # so it is deliberately excluded from this list rather than
+            # silently made to look documented.
+            documented_keys = (
+                "state_dir", "ui_theme", "device_config",
+                "wake_interval_env_default", "flash", "flash_role",
+                "poll_cooldown_remaining", "gallery_entries", "runway_images",
+                "health_severity", "now",
+                "resolve_prefix", "manual_resolutions",
+            )
+            docstring = pages_package.__doc__
+            for key in documented_keys:
+                if ("- %s:" % key) not in docstring:
+                    return False, "expected %r to be documented in companion/pages/__init__.py's ctx list" % (key,)
+                if key not in ctx:
+                    return False, "expected documented ctx key %r to actually be present in page_context()'s return" % (key,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "page_context() on a request carrying ?resolve=XYZ returns that raw value under "
+        "resolve_prefix and a dict under manual_resolutions reflecting a seeded entry; "
+        "every key companion/pages/__init__.py documents is actually present in ctx",
+        _page_context_supplies_resolve_prefix_and_manual_resolutions)
 
     # ==================================================================
     # Section 3: companion/app.py (plan 06-05) — a real companion/app.py

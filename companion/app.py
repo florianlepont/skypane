@@ -174,6 +174,18 @@ FLASH_KEY_POLL_ALREADY_RUNNING = config_page.FLASH_POLL_ALREADY_RUNNING
 FLASH_KEY_ILLUSTRATION_REPLACED = airlines_page.FLASH_ILLUSTRATION_REPLACED
 FLASH_KEY_ILLUSTRATION_REJECTED = airlines_page.FLASH_ILLUSTRATION_REJECTED
 FLASH_KEY_ILLUSTRATION_REPLACE_FAILED = airlines_page.FLASH_ILLUSTRATION_REPLACE_FAILED
+# Phase 13 plan 13-06: the eight manual-resolution flash keys are defined
+# once in companion/pages/airlines_page.py, for the identical reason the
+# three FLASH_ILLUSTRATION_* keys above are — mirroring that same
+# rebinding pattern exactly.
+FLASH_KEY_MANUAL_RESOLVED = airlines_page.FLASH_MANUAL_RESOLVED
+FLASH_KEY_MANUAL_NAME_EMPTY = airlines_page.FLASH_MANUAL_NAME_EMPTY
+FLASH_KEY_MANUAL_NAME_TOO_LONG = airlines_page.FLASH_MANUAL_NAME_TOO_LONG
+FLASH_KEY_MANUAL_NAME_RESERVED = airlines_page.FLASH_MANUAL_NAME_RESERVED
+FLASH_KEY_MANUAL_PREFIX_STALE = airlines_page.FLASH_MANUAL_PREFIX_STALE
+FLASH_KEY_MANUAL_REGISTRY_FULL = airlines_page.FLASH_MANUAL_REGISTRY_FULL
+FLASH_KEY_MANUAL_SAVE_FAILED = airlines_page.FLASH_MANUAL_SAVE_FAILED
+FLASH_KEY_MANUAL_DELETE_FAILED = airlines_page.FLASH_MANUAL_DELETE_FAILED
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -203,6 +215,37 @@ FLASH_MESSAGES = {
     FLASH_KEY_ILLUSTRATION_REPLACE_FAILED: (
         "Couldn't replace the illustration — please try again. If this "
         "keeps happening, check the companion service logs."),
+    # Phase 13 plan 13-06: 13-UI-SPEC.md's Full Copy Deck, byte-identical.
+    # The success string is this phase's latency-honesty obligation,
+    # carried over from the Phase 12 precedent (FLASH_KEY_SAVED above): it
+    # must not imply the frame changes instantly. The frame only ever
+    # picks up a manual resolution on its next wake/poll, bounded by
+    # `wake_interval_s` (device_config.py) — never sooner, whatever the
+    # copy might otherwise suggest.
+    FLASH_KEY_MANUAL_RESOLVED: (
+        "Airline name saved — the frame will pick it up next time it "
+        "wakes and polls."),
+    FLASH_KEY_MANUAL_NAME_EMPTY: "Enter an airline name before saving.",
+    FLASH_KEY_MANUAL_NAME_TOO_LONG: (
+        "That name's too long — airline names top out at 100 characters."),
+    FLASH_KEY_MANUAL_NAME_RESERVED: (
+        "That name is reserved for the frame's own fallback artwork — "
+        "try the airline's real name instead."),
+    FLASH_KEY_MANUAL_PREFIX_STALE: (
+        "That coverage gap isn't there anymore — check Health for "
+        "current gaps."),
+    FLASH_KEY_MANUAL_REGISTRY_FULL: (
+        "The manual-resolution list is full (200 entries) — delete an "
+        "old one before adding another."),
+    # Two planner-added failure keys (not in the UI-SPEC deck — that deck
+    # covers the six operator-facing rejections only), written in
+    # FLASH_KEY_ILLUSTRATION_REPLACE_FAILED's own established voice above.
+    FLASH_KEY_MANUAL_SAVE_FAILED: (
+        "Couldn't save that resolution — the frame's state directory "
+        "may not be writable."),
+    FLASH_KEY_MANUAL_DELETE_FAILED: (
+        "Couldn't delete that entry — the frame's state directory may "
+        "not be writable."),
 }
 
 # 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
@@ -227,6 +270,18 @@ FLASH_ROLES = {
     FLASH_KEY_ILLUSTRATION_REPLACED: "status",
     FLASH_KEY_ILLUSTRATION_REJECTED: "status",
     FLASH_KEY_ILLUSTRATION_REPLACE_FAILED: "alert",
+    # Phase 13 plan 13-06: "status" for the one success outcome, "alert"
+    # for every rejection/failure — matching the plan's own explicit role
+    # assignment (13-UI-SPEC.md's copy deck), not this dict's usual
+    # success/rejection-both-status split above.
+    FLASH_KEY_MANUAL_RESOLVED: "status",
+    FLASH_KEY_MANUAL_NAME_EMPTY: "alert",
+    FLASH_KEY_MANUAL_NAME_TOO_LONG: "alert",
+    FLASH_KEY_MANUAL_NAME_RESERVED: "alert",
+    FLASH_KEY_MANUAL_PREFIX_STALE: "alert",
+    FLASH_KEY_MANUAL_REGISTRY_FULL: "alert",
+    FLASH_KEY_MANUAL_SAVE_FAILED: "alert",
+    FLASH_KEY_MANUAL_DELETE_FAILED: "alert",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -812,6 +867,28 @@ class Handler(BaseHTTPRequestHandler):
             "health_severity": health_state["severity"] if health_state else "ok",
             "health_state": health_state,
             "now": now,
+            # Phase 13 plan 13-06: the raw `?resolve=` query value, or
+            # None — deliberately unvalidated here. Validation belongs to
+            # `airlines_page.unresolved_row_for_prefix()`, which is the
+            # single D-11 membership test shared by the render path
+            # (airlines_page.render()) and the write path
+            # (Handler._handle_manual_resolve_post()); passing the raw
+            # value through ctx and validating at the point of use is
+            # what keeps those two from drifting apart. No illustration
+            # key ever travels in a URL under any name — the resolve
+            # section derives Step A versus Step B from server state
+            # alone (plan 13-04), and that absence is a deliberate part
+            # of this phase's threat posture.
+            "resolve_prefix": params.get(
+                airlines_page.RESOLVE_QUERY_PARAM, [None])[0],
+            # Read fresh per request, exactly like device_config.load_
+            # device_config(state_dir) above — never the process-scoped
+            # cache set_manual_registry_state_dir()/airline_name_for_
+            # prefix() expose, which exists only for the poll cycle's own
+            # once-per-cycle read. This service is a long-running
+            # ThreadingHTTPServer, so it must never read a manual
+            # resolution through that cache.
+            "manual_resolutions": manual_resolutions.load_manual_resolutions(state_dir),
         }
 
     # --- shared page fragments -------------------------------------------
