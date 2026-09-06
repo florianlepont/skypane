@@ -133,3 +133,13 @@ None - no external service configuration required.
 ---
 *Phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link*
 *Completed: 2026-09-06*
+
+## Self-Check: PASSED
+
+- FOUND: server/plane/colour_rules.py
+- FOUND: server/test_colour_rules.py
+- FOUND: .planning/phases/14-per-direction-themes-per-flight-colour-rules-and-roster-link/14-01-SUMMARY.md
+- FOUND commit: 658134a
+- FOUND commit: 2cd8908
+- FOUND commit: 309fffc
+- FOUND commit: e7ba0b9
