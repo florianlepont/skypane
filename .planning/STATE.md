@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 14
-status: "Phase 14 plan 01/8 complete — Wave 0 validation scaffolding"
-stopped_at: Completed 14-01-PLAN.md (Wave 0 validation scaffolding); view-pages 55/55, status-pages 150/150, companion-app 159/159, full suite PASS at 93% coverage. Waves 1-3 next.
-last_updated: "2026-09-06T12:46:55.219Z"
+status: "Phase 14 plan 02/8 complete — shared rendering machinery"
+stopped_at: Completed 14-02-PLAN.md (shared rendering machinery); view-pages 55/55, status-pages 150/150, companion-app 159/159, full suite PASS at 93% coverage. Waves 2-3 next.
+last_updated: "2026-09-06T13:19:30.968Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
   completed_phases: 24
   total_plans: 139
-  completed_plans: 131
-  percent: 94
+  completed_plans: 132
+  percent: 95
 ---
 
 ---
@@ -341,6 +341,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 13 P05 | 45min | 2 tasks | 2 files |
 | Phase 13 P06 | 22min | 3 tasks | 3 files |
 | Phase 14 P01 | 30min | 3 tasks | 3 files |
+| Phase 14 P02 | 55min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -575,6 +576,8 @@ Recent decisions affecting current work:
 - [Phase 14]: server/.venv symlinked to the main checkout's already-provisioned venv (network-free bootstrap), with a repo-root .gitignore fix (/server/.venv, no trailing slash) since git's existing .venv/ directory-only pattern silently misses a symlink
 - [Phase 14]: Lightbox DOM-contract guard restructured onto three classified token tuples (_LIGHTBOX_SHARED_TOKENS/_LIGHTBOX_AIRLINES_ONLY_TOKENS/_LIGHTBOX_RENDER_ONLY_TOKENS) plus a reflection-driven _view_panel_attr_constants_all_classified() check, so any future _VIEW_PANEL_*_ATTR constant must be classified or the harness fails by construction
 - [Phase 14]: One sanctioned manual-registry seeding fixture, _seed_manual_resolutions(), writes exclusively through manual_resolutions.add_entry() and raises loudly on any non-ADD_OK result; Waves 1-3 must reuse it rather than inventing a second seeding path
+- [Phase 14]: Applied LIGHTBOX_RESOLVE_NAME_CLASS/LIGHTBOX_DELETE_CLASS to the shared forms' own <form> tags in both call sites since a shared function cannot render two wrapper shapes for the same output
+- [Phase 14]: Retargeted three brittle test-status-pages assertions after Task 3 widened the trigger vocabulary
 
 ### Pending Todos
 
@@ -662,8 +665,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T12:46:55.201Z
-Stopped at: Completed 14-01-PLAN.md (Wave 0 validation scaffolding); view-pages 55/55, status-pages 150/150, companion-app 159/159, full suite PASS at 93% coverage. Waves 1-3 next.
+Last session: 2026-09-06T13:19:30.950Z
+Stopped at: Completed 14-02-PLAN.md shared rendering machinery; view-pages 55/55, status-pages 150/150, companion-app 159/159, full suite PASS
 
 Resume file: 
 

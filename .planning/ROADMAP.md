@@ -809,13 +809,13 @@ Plans:
 **Requirements**: None expected — a presentation-layer follow-up to an unmapped phase, matching the Phase 10-13 precedent.
 **Depends on:** Phase 13 (merged as `8f45385`, PR #51) — this phase re-presents that machinery and changes none of it. Also Phase 06.6.4.1, which established the shared lightbox and reborn Airlines as the illustration gallery.
 **Closes with:** a real-browser pass, since the whole phase is interaction design and the dialog's behaviour is browser-owned. This also closes Phase 13's two open UAT gaps, which live in exactly this surface: **G-02** (the `<datalist>` popup was never verified in a browser) and **G-01** (a rejected airline name is reported to the operator as an empty one).
-**Plans:** 1/8 plans executed
+**Plans:** 2/8 plans executed
 
 Plans:
 **Wave 1**
 
 - [x] 14-01-PLAN.md — Validation scaffolding: self-enforcing cross-file dialog contract guard, manual-registry fixture helper
-- [ ] 14-02-PLAN.md — Shared rendering machinery: copy deck, trigger attribute vocabulary, one-definition-two-call-sites resolve/upload/delete forms, extended dialog, no-JS delete (D-09 amendment)
+- [x] 14-02-PLAN.md — Shared rendering machinery: copy deck, trigger attribute vocabulary, one-definition-two-call-sites resolve/upload/delete forms, extended dialog, no-JS delete (D-09 amendment)
 - [ ] 14-03-PLAN.md — `list-filter.js`'s programmatic filter hook (D-11's mechanism) and every new CSS selector (gap placeholder, `a.airline-card`, dialog form spacing, summary line)
 
 **Wave 2** *(blocked on Wave 1 completion)*
