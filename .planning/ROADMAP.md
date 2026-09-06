@@ -828,9 +828,16 @@ Plans:
 **Plans:** 5 plans — planned 2026-09-06 (`14-CONTEXT.md`, D-01…D-13), in 3 waves
 
 Plans:
+**Wave 1**
 
 - [ ] 14-01-PLAN.md — `server/plane/colour_rules.py`: the rules registry (D-08/D-09/D-12) and the D-13 effective-theme resolver, plus the new `server/test_colour_rules.py` harness and its suite registration (both Wave 0 items) [wave 1]
 - [ ] 14-02-PLAN.md — `server/device_config.py`: the optional `theme_arriving` key, its degrade-to-`None` normaliser and the `CLEAR_THEME_ARRIVING` sentinel that makes it genuinely clearable (D-04) [wave 1]
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 14-03-PLAN.md — `server/poll_loop.py`: one cache-priming call plus the resolver at exactly the two `build_canvas()` call sites that display a flight, leaving the other four on the bare base theme (D-13/D-06) [wave 2]
 - [ ] 14-04-PLAN.md — Settings Theme group: the arrivals checkbox, the second chip grid, the CSS-only `:has()` reveal and the unchecked-clears-the-override save path (D-05) [wave 2]
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 14-05-PLAN.md — Settings rules editor: add form, list with per-row delete, and the two immediate POST routes outside the dirty bar (D-10/D-11); carries the closing no-JS browser check [wave 3]

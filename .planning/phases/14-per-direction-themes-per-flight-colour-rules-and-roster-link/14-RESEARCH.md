@@ -389,7 +389,12 @@ Not applicable in the usual "library X superseded library Y" sense — no librar
 
 **If this table is empty:** N/A — see above; every item here is Claude's Discretion by CONTEXT.md's own explicit designation, not an unverified factual claim about the external world (no external library, API, or security-standard claim in this research was left unverified).
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> Both questions below were answered by `/gsd-plan-phase 14`: the exact-callsign shape
+> regex is specified in `14-01-PLAN.md` Task 1, and the two resolver call sites stay
+> explicit rather than sharing a helper, per `14-03-PLAN.md` Task 1. Retained as a record
+> of what was open at research time.
 
 1. **Should `colour_rules.py` re-export/duplicate `enrich.normalise_callsign()`'s exact regex, or define an intentionally slightly different one?**
    - What we know: `enrich.normalise_callsign()` itself does no shape validation at all (just strip+upper, returning `None` only for non-string/falsy input) — the shape gate (`_CALLSIGN_SAFE_RE`, `_AIRLINE_PREFIX_SHAPE_RE`) lives in separate, adjacent functions in `enrich.py`, not in `normalise_callsign()` itself.

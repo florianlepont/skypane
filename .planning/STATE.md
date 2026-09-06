@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 13
-status: Phases 12 and 13 shipped — v1 roadmap complete except DEVICE-05
-stopped_at: Phase 14 UI-SPEC approved
-last_updated: "2026-09-06T12:04:48.080Z"
+current_phase: 14
+status: "Phase 14 planned — 5 plans in 3 waves, ready to execute"
+stopped_at: "Phase 14 planned end to end on 2026-09-06: promoted from SEED-003, discussed (D-01..D-13), UI-SPEC approved 6/6, researched, pattern-mapped, 5 plans in 3 waves verified by the plan-checker, decision-coverage gate 12/12. Ready for /gsd-execute-phase 14."
+last_updated: "2026-09-06T12:58:02.433Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
   completed_phases: 24
-  total_plans: 131
+  total_plans: 136
   completed_plans: 130
-  percent: 89
+  percent: 96  # completed_plans/total_plans (130/136), per this file's own convention — NOT completed_phases/total_phases, which is the recurring gsd-tools miscomputation this field has been hand-corrected against all project long. total_plans rose 131 -> 136 with Phase 14's 5 new plans; completed_plans is state.sync's disk-derived count, one below the 131 this file previously carried by hand.
 ---
 
 ---

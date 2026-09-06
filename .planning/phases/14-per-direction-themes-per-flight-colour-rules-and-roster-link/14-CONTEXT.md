@@ -27,7 +27,7 @@ Promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calend
 
 - **D-02:** **Nothing anticipatory is built for the roster half.** Rules are purely manual; no reserved "origin"/"source" field, no dormant code path. The one constraint this leaves for the planner: the rule record's shape must stay *extensible* (a future entry will carry an origin other than "manual"), which is a documentation obligation on the store's module docstring, not a field.
 
-- **D-03:** **The developer's intent for the roster half was captured now, as notes** (see `<deferred>`), so the future phase starts from a design conversation rather than from a cold seed — but none of it binds Phase 14.
+- **D-03 [informational]:** **The developer's intent for the roster half was captured now, as notes** (see `<deferred>`), so the future phase starts from a design conversation rather than from a cold seed — but none of it binds Phase 14. Tagged `[informational]` on 2026-09-06 at the plan-phase decision-coverage gate: this decision governs what this document records, not what any plan builds, so it is deliberately not trackable to a plan. Its one buildable consequence is D-02, which is covered.
 
 ### Per-direction theme
 
