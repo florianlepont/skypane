@@ -809,8 +809,15 @@ Plans:
 **Requirements**: None expected — a presentation-layer follow-up to an unmapped phase, matching the Phase 10-13 precedent.
 **Depends on:** Phase 13 (merged as `8f45385`, PR #51) — this phase re-presents that machinery and changes none of it. Also Phase 06.6.4.1, which established the shared lightbox and reborn Airlines as the illustration gallery.
 **Closes with:** a real-browser pass, since the whole phase is interaction design and the dialog's behaviour is browser-owned. This also closes Phase 13's two open UAT gaps, which live in exactly this surface: **G-02** (the `<datalist>` popup was never verified in a browser) and **G-01** (a rejected airline name is reported to the operator as an empty one).
-**Plans:** 0 plans
+**Plans:** 8 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 14 to break down)
+- [ ] 14-01-PLAN.md — Validation scaffolding: self-enforcing cross-file dialog contract guard, manual-registry fixture helper
+- [ ] 14-02-PLAN.md — Shared rendering machinery: copy deck, trigger attribute vocabulary, one-definition-two-call-sites resolve/upload/delete forms, extended dialog, no-JS delete (D-09 amendment)
+- [ ] 14-03-PLAN.md — `list-filter.js`'s programmatic filter hook (D-11's mechanism) and every new CSS selector (gap placeholder, `a.airline-card`, dialog form spacing, summary line)
+- [ ] 14-04-PLAN.md — Gap-card rendering and the gap block: empty imageless cards, sighting-count sort, threshold/cap, overflow line, page reorder (resolve section to the bottom)
+- [ ] 14-05-PLAN.md — `panel-lookup.js`: imageless open, per-mode/manual form toggling, `<a>` interception, load-time auto-open on `?resolve=`
+- [ ] 14-06-PLAN.md — Manual-resolution absorption: chip + superseded-state cards, trigger-tag generalisation, grid injection, summary line, management-table removal
+- [ ] 14-07-PLAN.md — G-01 fix: a distinct flash key for a supplied-but-unusable airline name
+- [ ] 14-08-PLAN.md — Blocking real-browser verification of every manual-only behavior, closing G-02
