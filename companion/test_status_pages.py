@@ -283,7 +283,13 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 157  # 152 + 5 (phase 14 plan 14-04 Task 1: the
+EXPECTED_CHECK_COUNT = 158  # 157 + 1 (phase 14 plan 14-04 Task 2: the
+# _page_composition_order_matches_ui_spec() check, the one direct proof
+# that the resolve section now renders last, behind the shared dialog —
+# _resolve_slice() itself was retargeted IN PLACE as part of Task 1's
+# own render()-reorder fix, contributing zero to this count). Re-derived
+# by RUNNING the harness, not by arithmetic.
+# 157 = 152 + 5 (phase 14 plan 14-04 Task 1: the
 # coverage-gap block's threshold/sort/cap/overflow-count check, the gap
 # card's markup-shape/attribute-vocabulary check, the data-filter-group
 # format/no-collision check, the overflow-line templating check, and
@@ -6799,6 +6805,47 @@ def main():
         "re-added name (D-07's delete-and-re-add path), and still renders the stale sentence only once "
         "neither a live gap nor a manual entry exists for the prefix",
         _resolve_section_step_b_reachable_after_gap_cleared)
+
+    def _page_composition_order_matches_ui_spec():
+        # Phase 14 (14-04-PLAN.md Task 2): the one direct, permanent
+        # proof that UI-SPEC's new top-to-bottom order actually shipped
+        # — independent of what any individual section's own
+        # content-focused check already covers. Seeds both a real gap
+        # (so resolve_prefix reaches a live Step-A render) and relies on
+        # the always-present curated gallery.
+        tmp = _mkstate("a-page-composition-order")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            ctx = _ctx(tmp)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        try:
+            filter_bar_index = rendered.index('class="filter-bar')
+            grid_index = rendered.index('class="illustration-grid', filter_bar_index)
+            dialog_open_index = rendered.index(
+                'id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID, grid_index)
+            dialog_close_index = rendered.index("</dialog>", dialog_open_index)
+            back_link_index = rendered.index(
+                airlines_page.RESOLVE_BACK_LINK_TEXT, dialog_close_index)
+        except ValueError as exc:
+            return False, "expected all five order markers to be present, in order: %s" % (exc,)
+        markers = (filter_bar_index, grid_index, dialog_open_index, dialog_close_index, back_link_index)
+        if list(markers) != sorted(markers):
+            return False, "expected strictly increasing marker positions, got %r" % (markers,)
+        return True, ""
+    check(
+        "the page's own top-to-bottom order is filter-bar, then illustration-grid, then the shared dialog's "
+        "opening tag, then its closing tag, then (last) the resolve section's own back-link text — proving "
+        "UI-SPEC's new page composition (resolve section moved to the bottom, behind the shared dialog) "
+        "shipped for real",
+        _page_composition_order_matches_ui_spec)
 
     # ------------------------------------------------------------------
     # Phase 13 (13-04-PLAN.md Task 2): the manual-resolutions management
