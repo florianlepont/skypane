@@ -3,16 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 14
-status: "Phase 14 planned — 5 plans in 3 waves, ready to execute"
+current_phase_name: per-direction-themes-per-flight-colour-rules-and-roster-link
+status: executing
 stopped_at: "Phase 14 planned end to end on 2026-09-06: promoted from SEED-003, discussed (D-01..D-13), UI-SPEC approved 6/6, researched, pattern-mapped, 5 plans in 3 waves verified by the plan-checker, decision-coverage gate 12/12. Ready for /gsd-execute-phase 14."
-last_updated: "2026-09-06T12:58:02.433Z"
+last_updated: "2026-09-06T14:32:36.954Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
   completed_phases: 24
   total_plans: 136
   completed_plans: 130
-  percent: 96  # completed_plans/total_plans (130/136), per this file's own convention — NOT completed_phases/total_phases, which is the recurring gsd-tools miscomputation this field has been hand-corrected against all project long. total_plans rose 131 -> 136 with Phase 14's 5 new plans; completed_plans is state.sync's disk-derived count, one below the 131 this file previously carried by hand.
+  percent: 96  # completed_plans/total_plans (130/136) — NOT completed_phases/total_phases, the recurring gsd-tools miscomputation this field is hand-corrected against every session
 ---
 
 ---
@@ -21,7 +22,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phase 13 shipped — PR #51
+status: Executing Phase 14
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -40,11 +41,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-04)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 11 (Web-configurable wake interval) is complete, as is the sibling phase 06.6.4.1.1 (Settings theme picker + typography/spacing direction pass), merged in from a separate branch. Phase 06.6.4.1 itself remains open — 8/9 plans executed, only its closing Task 2 (the blocking 28-item developer verification checklist) is outstanding.
+**Current focus:** Phase 14 — per-direction-themes-per-flight-colour-rules-and-roster-link
 
 ## Current Position
 
-Phase: 13
+Phase: 14 (per-direction-themes-per-flight-colour-rules-and-roster-link) — EXECUTING
 
 **11-04 executed (2026-09-04), wave 3 (depends on 11-01, 11-03) — the closing plan of Phase 11, implementing D-07's locked pre-fill mechanism: `companion/app.py` reads `SKYPANE_SLEEP_S` from its own process environment.** Task 1 added `SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"` and `env_wake_interval_default()`, mirroring `auth.configured_password()`'s per-call `os.environ.get()` shape but fail-open (returns `None` on any failure) rather than fail-closed, since its absence has a designed empty state (the Wake interval field's placeholder) rather than an auth boundary to guard; the `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` range check is a Denial-of-Service guard, not belt-and-braces — an out-of-range `value` attribute on a `min`/`max`-bounded number input fails HTML5 constraint validation and blocks submission of the whole Settings form, which is exactly the shape of `deploy/skypane.env.example`'s shipped `SKYPANE_SLEEP_S=30`. `page_context()` now returns `"wake_interval_env_default": env_wake_interval_default()` alongside `"device_config"`, and `companion/pages/__init__.py`'s documented `ctx` contract names the new key, its type, its source, and its sole consumer (`config_page.render()`'s pre-fill fallback, wired in plan 11-03). `deploy/skypane.env.example`'s `SKYPANE_SLEEP_S` comment was corrected to describe it as an overridable fallback rather than the sole cadence source — no value or unit-file change; `git diff --quiet deploy/skypane-companion.service deploy/skypane-byos.service` confirmed both systemd units unchanged, the mechanism resting entirely on their pre-existing identical `EnvironmentFile=/opt/skypane/skypane.env` directives. Task 2 added 4 new checks to `companion/test_companion_app.py`: a full-input-space unit check on `env_wake_interval_default()` (unset, empty, non-numeric, whitespace-padded, in-range/out-of-range including the shipped below-floor `30`, verified against the exact `[None, None, 900, None, None, None, None, None, None, 60, 3600, 900]` output vector), a `page_context()`-threading check calling the real unbound `Handler.page_context` method against a minimal hand-built stand-in object (proving the key is always present, never conditionally omitted, rather than mocking/reimplementing the method), and two real-HTTP end-to-end checks over dedicated `Harness` instances (on-disk `wake_interval_s=120` always wins over a `SKYPANE_SLEEP_S=900` pre-fill; a below-floor `SKYPANE_SLEEP_S=30` degrades to the placeholder, never a value attribute the form could not submit); `EXPECTED_CHECK_COUNT` 125 → 129, harness passes 129/129. No deviations — both tasks' acceptance criteria commands (the exact twelve-case env-conversion output, both harness exit codes, `ruff check`, every named grep, and the unchanged unit files) ran verbatim and passed. `scripts/run-all-tests.sh` at plan close: `Result: PASS`; sole non-zero note is the same pre-existing, already-accepted macOS Pillow/FreeType `panel.bin` digest mismatch documented throughout this file's history, confirmed unrelated. This plan has `requirements: []` (unmapped backlog phase promoted from SEED-002, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. `state.advance-plan` was not attempted (this is Phase 11's last plan — advancing within-phase has no target; the phase-level transition is left to the orchestrating workflow). `state.update-progress` again wrote `percent: 87` (`completed_phases/total_phases` = 20/23, the same recurring wrong-ratio bug documented throughout this file's history) despite its own returned JSON correctly reporting `completed: 111, total: 113, percent: 98` — corrected `percent` to `98` by hand per this file's own established precedent. `roadmap.update-plan-progress "11"` confirmed `plan_count: 4, summary_count: 4, status: "Complete"` — Phase 11 is now fully summarized; the phase-level transition itself (ROADMAP.md phase status / next-phase selection, `/gsd-transition`) is left to the orchestrating workflow, not this plan executor. This plan's `<threat_model>` disposed all four of its own threat entries as `mitigate`/`accept` with no `block`; the Threat Flags section of `11-04-SUMMARY.md` records none new beyond what that threat model already enumerated.
 
