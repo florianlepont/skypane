@@ -1761,11 +1761,43 @@ def render(ctx):
     # below. Only the FIRST occurrence of a given display name is kept
     # (manual_rows arrive prefix-ascending, so lowest-prefix wins —
     # UI-SPEC's documented "Known limitation").
+    # Code review fix (2026-09-06, WR-04): a manual entry only earns an
+    # injected card when its own stored name still resolves to a usable
+    # illustration key. `add_entry()` already requires
+    # `manual_resolutions.illustration_key_for_name()` to succeed before
+    # persisting, so this can never fail for a row at the moment it is
+    # written — the review raised a LATER-drift scenario instead: a
+    # future change to `illustrations.py`'s reserved-name list or
+    # slugging rules making an already-persisted name stop resolving.
+    #
+    # Traced through before applying this fix: `registry` (this
+    # function's own parameter, and `_gap_rows_for_grid()`'s
+    # `manual_registry` above — both always the SAME dict in `render()`,
+    # by construction) is only ever populated one way in this codebase,
+    # `manual_resolutions.load_manual_resolutions(state_dir)`
+    # (`companion/app.py`'s `page_context()` is the sole `ctx
+    # ["manual_resolutions"]` writer) — and that loader's own contract
+    # already re-validates `illustration_key_for_name()` on EVERY load,
+    # dropping any entry that fails it, "not only against one submitted
+    # through add_entry()". So the drift scenario the review named
+    # cannot actually reach this loop or `_gap_rows_for_grid()`'s own
+    # exclusion through any real path: the entry would already be gone
+    # from `registry` by the time either function sees it, and
+    # `_gap_rows_for_grid()`'s `if prefix in manual_registry` check is
+    # therefore already safe without a matching change there. This
+    # guard stays anyway as explicit defence in depth — the same
+    # posture `illustrations.py`'s own path-safety functions take
+    # ("so the boundary holds even if a future caller forgets") — for a
+    # hand-built or differently-sourced registry dict this loop cannot
+    # rule out forever, not because the reviewed scenario is reachable
+    # today.
     curated_names = {name for name, _shapes in pairs}
     manual_info_by_name = {}
     injected_pairs = []
     injected_names = set()
     for prefix, airline_name, _created_at, superseded, needs_artwork in manual_rows:
+        if not superseded and not manual_resolutions.illustration_key_for_name(airline_name):
+            continue
         display_name = (
             enrich.static_airline_name_for_prefix(prefix) if superseded else airline_name)
         if display_name and display_name not in manual_info_by_name:
