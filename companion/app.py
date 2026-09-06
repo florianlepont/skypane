@@ -64,6 +64,12 @@ from companion.pages import (  # noqa: E402
     health_page,
     history_page,
 )
+# Phase 13 plan 13-06: the module is already imported above
+# (airlines_page); this named import reuses its D-11 membership test
+# rather than re-implementing it, so the render path
+# (airlines_page.render()) and the write path
+# (Handler._handle_manual_resolve_post() below) can never diverge.
+from companion.pages.airlines_page import unresolved_row_for_prefix  # noqa: E402
 from server import device_config, history_db  # noqa: E402
 from server.plane import illustrations, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
@@ -1316,6 +1322,145 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError:
                     pass
 
+    def _handle_manual_resolve_post(self):
+        """POST /airlines/resolve — Step A of the two-step resolve flow
+        (phase 13, D-03/D-07/D-11). An `app.py`-owned handler, sibling to
+        `_handle_poll_now()` and `_handle_illustration_replace()` above
+        rather than a page module's `handle_post()`, because it must
+        choose between two redirect targets and the documented
+        `handle_post(form, ctx) -> flash_key` contract
+        (companion/pages/__init__.py) returns only a flash key. Body runs
+        in this exact order:
+
+        1. Read the form and the state dir.
+        2. `unresolved_row_for_prefix()` — D-11's single membership test,
+           re-run here rather than trusted from the hidden `prefix`
+           field, exactly matching `server/device_config.py`'s own
+           re-validate-on-write discipline (`save_device_config()`). A
+           `None` result means the prefix is not a live member of the
+           unresolved-callsign-prefix registry right now — nothing is
+           written and nothing else runs; the operator lands back on
+           Airlines with the stale flash. Every value used downstream
+           (the write, both possible redirects) comes from the validated
+           tuple's own `row[0]`, never the raw form string (T-13-08).
+        3. `manual_resolutions.add_entry()` — the module's own full
+           validation ladder (prefix shape was already proven by step 2;
+           this call re-validates the name: empty, over-length, reserved,
+           and the registry cap).
+        4. Map the result to a flash key with an explicit branch per
+           value — never a dict-driven lookup, so an unrecognised result
+           cannot silently pass through with no flash at all; anything
+           unrecognised falls to `FLASH_KEY_MANUAL_SAVE_FAILED`. Any
+           non-`ADD_OK` result redirects to `AIRLINES_ROUTE` with
+           `?resolve={validated prefix}&flash={key}`, returning the
+           operator to the form with their context intact.
+        5. On `ADD_OK`: recompute the illustration key server-side from
+           the name that was JUST persisted (re-read via `load_manual_
+           resolutions()`, never the form value — the stored value is the
+           authority, T-13-08). When `illustrations.resolved_illustration_
+           path()` already resolves for that key (D-03: the named airline
+           already has artwork, so no upload is ever asked for), redirect
+           to `AIRLINES_ROUTE?flash=manual_resolved`; otherwise redirect
+           to `AIRLINES_ROUTE?resolve={prefix}&flash=manual_resolved` so
+           the page renders Step B. Both branches carry the success
+           flash, which tells the operator the change reaches the frame
+           at its next wake, never that it is instant (13-UI-SPEC.md's
+           latency-honesty obligation).
+
+        Every interpolated value in a redirect `Location` passes through
+        `quote()`, matching the existing `quote(FLASH_KEY_...)` discipline
+        at every other redirect in this file.
+
+        No CSRF token: the session cookie's `SameSite=Strict` flag is this
+        site's documented CSRF control for every state-changing POST
+        (companion/auth.py:132) — this route follows that same,
+        already-established posture (matching `POST /settings`,
+        `POST /poll-now`, and `POST /illustration/{key}.png`) rather than
+        inventing a second mechanism for itself alone (T-13-07, accepted
+        risk).
+        """
+        form = self.read_form()
+        state_dir = self.args.state_dir
+
+        row = unresolved_row_for_prefix(
+            state_dir, manual_resolutions.normalise_prefix(form.get("prefix")))
+        if row is None:
+            return self.redirect(
+                "%s?flash=%s"
+                % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
+        prefix = row[0]
+
+        result = manual_resolutions.add_entry(state_dir, prefix, form.get("airline_name"))
+
+        if result == manual_resolutions.ADD_OK:
+            registry = manual_resolutions.load_manual_resolutions(state_dir)
+            entry = registry.get(prefix) or {}
+            key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
+            if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
+                return self.redirect(
+                    "%s?flash=%s"
+                    % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_RESOLVED)))
+            return self.redirect(
+                "%s?resolve=%s&flash=%s"
+                % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""),
+                   quote(FLASH_KEY_MANUAL_RESOLVED)))
+
+        if result in (manual_resolutions.ADD_REJECTED_PREFIX,
+                      manual_resolutions.ADD_REJECTED_NAME_EMPTY):
+            flash_key = FLASH_KEY_MANUAL_NAME_EMPTY
+        elif result == manual_resolutions.ADD_REJECTED_NAME_TOO_LONG:
+            flash_key = FLASH_KEY_MANUAL_NAME_TOO_LONG
+        elif result == manual_resolutions.ADD_REJECTED_NAME_RESERVED:
+            flash_key = FLASH_KEY_MANUAL_NAME_RESERVED
+        elif result == manual_resolutions.ADD_REJECTED_FULL:
+            flash_key = FLASH_KEY_MANUAL_REGISTRY_FULL
+        elif result == manual_resolutions.ADD_FAILED:
+            flash_key = FLASH_KEY_MANUAL_SAVE_FAILED
+        else:
+            # An unrecognised result must still speak, never fall through
+            # to no flash at all.
+            flash_key = FLASH_KEY_MANUAL_SAVE_FAILED
+        return self.redirect(
+            "%s?resolve=%s&flash=%s"
+            % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""), quote(flash_key)))
+
+    def _handle_manual_resolution_delete(self, key):
+        """POST /airlines/manual-resolutions/{prefix}/delete (phase 13,
+        D-08). Deliberately does NOT membership-test `key` against the
+        unresolved-prefix registry the way `_handle_manual_resolve_post()`
+        above does: D-14 removes a prefix from that registry as soon as it
+        resolves, so gating delete on it would make an entry undeletable
+        the moment it started working — the exact opposite of D-08's
+        recoverability goal. The safety property here is different and
+        sufficient: `key` is normalised and used only as a dict key into
+        `manual_resolutions.json`, never joined into a filesystem path,
+        and `delete_entry()` touches nothing but that one JSON file (D-08)
+        — it cannot reach, and never reaches, the illustration override
+        directory (T-13-10).
+
+        A malformed prefix (fails `normalise_prefix()`) 404s without
+        touching the registry. Deleting an already-absent prefix is a
+        success, not an error — idempotent double-submission tolerance,
+        matching this codebase's existing posture — so no flash on a
+        second, identical POST either. Only a genuine write failure on a
+        prefix that WAS present gets `FLASH_KEY_MANUAL_DELETE_FAILED`; the
+        row's disappearance from the management list is otherwise the
+        only confirmation (13-UI-SPEC.md's copy deck has no delete-success
+        string by design).
+        """
+        prefix = manual_resolutions.normalise_prefix(key)
+        if prefix is None:
+            return self.send_html(404, self._not_found_page())
+
+        state_dir = self.args.state_dir
+        existed = prefix in manual_resolutions.load_manual_resolutions(state_dir)
+        deleted = manual_resolutions.delete_entry(state_dir, prefix)
+        if not deleted and existed:
+            return self.redirect(
+                "%s?flash=%s"
+                % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_DELETE_FAILED)))
+        return self.redirect(airlines_page.AIRLINES_ROUTE)
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -1581,6 +1726,26 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == LOGOUT_ROUTE:
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())
+
+        # Phase 13 plan 13-06: Step A of the two-step resolve flow (D-03,
+        # D-11) — the session gate runs first, before any registry read or
+        # write, matching every other authenticated branch here.
+        if path == airlines_page.RESOLVE_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_manual_resolve_post()
+
+        # Phase 13 plan 13-06 (D-08): mirrors the illustration-prefix
+        # branch's own slice-arithmetic shape below, but with a prefix AND
+        # a suffix (the prefix segment is a dict key, not a filename).
+        if path.startswith(airlines_page.MANUAL_DELETE_ROUTE_PREFIX) and path.endswith(
+                airlines_page.MANUAL_DELETE_ROUTE_SUFFIX):
+            if not self.require_session():
+                return None
+            key = path[
+                len(airlines_page.MANUAL_DELETE_ROUTE_PREFIX):
+                -len(airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)]
+            return self._handle_manual_resolution_delete(key)
 
         # quick task 260902-v26: mirrors the GET dispatch's own
         # ILLUSTRATION_IMAGE_ROUTE_PREFIX branch above byte for byte — same
