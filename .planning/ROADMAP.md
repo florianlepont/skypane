@@ -36,7 +36,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 9: Diagonal band theme** - A new dedicated theme (additive to Phase 8's 11) adding a diagonal decorative trapezoid band behind the aircraft illustration in 5 colours (blue/blue-light-dithered/green-light-dithered/red/black), a split top-label tag, a three-tier flight-identifier hierarchy centred inside the band for both the main and previous cards, band-aware ink colour, and a required on-glass verification pass — implements spike `.planning/spikes/003-diagonal-band-theme/`. Planned 2026-09-02: 4 plans across 4 waves (0/4 executed). (completed 2026-09-02)
 - [x] **Phase 10: Scheduled quiet hours** - Pause the frame's wake/poll/display cycle during a configurable window (curfew), via a server-side skip of the display refresh — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md` at the developer's request (2026-09-02). Not yet planned. (completed 2026-09-03)
 - [x] **Phase 11: Web-configurable wake interval** - Make `SKYPANE_SLEEP_S` configurable through the companion web interface instead of SSH-only env-file edits — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md` at the developer's request (2026-09-02). Planned 2026-09-04: 4 plans across 3 waves (3/4 executed). (completed 2026-09-04)
-- [ ] **Phase 12: Remote display on/off toggle** - Turn the e-ink panel dark on demand from the companion Settings page, and bring it back, without touching hardware — the manual, immediate sibling of Phase 10's scheduled quiet hours. Promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request (2026-09-05). Not yet discussed or planned.
+- [x] **Phase 12: Remote display on/off toggle** - Turn the e-ink panel dark on demand from the companion Settings page, and bring it back, without touching hardware — the manual, immediate sibling of Phase 10's scheduled quiet hours. Promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request (2026-09-05). Discussed and planned 2026-09-05 (6 plans, 3 waves); waves 1-2 executed the same day; the 12-06 on-glass checkpoint ran 2026-09-05 → 06 and redesigned all three hold screens on the panel (dark = resting, white = working). Merged as PR #49 + #50. (completed 2026-09-06)
 - [x] **Phase 13: Add an illustration for an unidentified flight from the companion web interface** - Let the operator close a coverage gap from the two pages that already surface it (Health's unresolved-prefix registry, the Airlines gallery) instead of leaving the web UI for the manual runbook — promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` at the developer's request (2026-09-05). The hardened upload path already shipped (`260902-v26`/`260903-df3`); the open questions are how an unidentified flight mints a key without reopening threat `T-v26-02-01`, and whether uploading also resolves the airline. Not yet discussed or planned. (completed 2026-09-06)
 
 ## Phase Details
@@ -723,16 +723,16 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phase 10's and Phase 11's own precedent (`REQUIREMENTS.md` has no display-toggle requirement ID). To be confirmed at discuss time; if promoted to a requirement it would be a new CFG-13-style entry.
 **Depends on:** Phase 10 (the render state, the poll-loop gate pattern and the `sleep_s` seam this extends) and Phase 11 (`wake_interval_s`'s 60-3600s bounds, the natural reference for the new bound's own range)
 **Closes with:** a blocking on-glass verification, same D-13 precedent as Phases 8, 9 and 10 — this phase ships a new render state, and no render state has ever been trusted on this project until it has been seen on real Spectra 6 ink.
-**Plans:** 4/6 plans executed
+**Plans:** 6/6 plans complete — phase closed on glass 2026-09-06 (`12-06-SUMMARY.md`, `hardware/BRINGUP-LOG.md` Phase 12 section). Step E of 12-06 (the quiet-hours overlap) was skipped and is recorded as such.
 
 Plans:
 
 - [x] 12-01-PLAN.md — `display_enabled` registry field (D-08/D-09) and the `DISPLAY_OFF_SLEEP_S = 300` constant (D-01) in `server/device_config.py`
 - [x] 12-02-PLAN.md — the DISPLAY OFF panel render state with its locked no-return-time copy (D-03/D-04)
 - [x] 12-03-PLAN.md — the vendored server's 300s off-state `sleep_s` pin, composed inside the quiet-hours extension so the longest sleep wins (D-01/D-05 sleep axis) + VENDOR.md entry
-- [ ] 12-04-PLAN.md — the poll-loop gate ahead of detection and the hold-state latch generalisation (D-05 display axis / D-06 / D-07)
+- [x] 12-04-PLAN.md — the poll-loop gate ahead of detection and the hold-state latch generalisation (D-05 display axis / D-06 / D-07)
 - [x] 12-05-PLAN.md — the companion Settings Display checkbox, sixth and last group (D-02/D-08/D-09)
-- [ ] 12-06-PLAN.md — blocking on-glass verification against both sibling hold screens plus the full off-and-back-on operator loop
+- [x] 12-06-PLAN.md — blocking on-glass verification against both sibling hold screens plus the full off-and-back-on operator loop
 
 ### Phase 13: Add an illustration for an unidentified flight from the companion web interface
 
