@@ -138,6 +138,48 @@ LIGHTBOX_REPLACE_ZONE_CLASS = "lightbox__replace-zone"
 REPLACE_HINT_CLASS = "lightbox__replace-hint"
 REPLACE_ICON_CLASS = "lightbox__replace-icon"
 
+# Phase 14 (14-02-PLAN.md Task 1, 14-UI-SPEC.md § Interaction Contract
+# "Attribute vocabulary"): the eleven new `data-view-panel-*` names
+# every trigger's widened vocabulary carries, joining the four existing
+# _VIEW_PANEL_*_ATTR constants above. Every one of these is read by
+# companion/static/panel-lookup.js only from plan 14-05 onward — until
+# then they are server-rendered vocabulary the script does not yet
+# consume, classified into companion/test_view_pages.py's
+# _LIGHTBOX_RENDER_ONLY_TOKENS tuple by this same plan's Task 3.
+_VIEW_PANEL_HEADING_ATTR = "data-view-panel-heading"
+_VIEW_PANEL_MODE_ATTR = "data-view-panel-mode"
+_VIEW_PANEL_MANUAL_ATTR = "data-view-panel-manual"
+_VIEW_PANEL_SCOPE_ATTR = "data-view-panel-scope"
+_VIEW_PANEL_RESOLVE_PREFIX_ATTR = "data-view-panel-resolve-prefix"
+_VIEW_PANEL_FIRST_SEEN_ATTR = "data-view-panel-first-seen"
+_VIEW_PANEL_LAST_SEEN_ATTR = "data-view-panel-last-seen"
+_VIEW_PANEL_COUNT_ATTR = "data-view-panel-count"
+_VIEW_PANEL_UPLOAD_ACTION_ATTR = "data-view-panel-upload-action"
+_VIEW_PANEL_DELETE_ACTION_ATTR = "data-view-panel-delete-action"
+_VIEW_PANEL_MANUAL_NOTE_ATTR = "data-view-panel-manual-note"
+
+# Value vocabularies (14-UI-SPEC.md § Interaction Contract): no
+# mode/manual string is ever a bare literal at a call site.
+_VIEW_PANEL_MODE_ART = "art"
+_VIEW_PANEL_MODE_GAP = "gap"
+_VIEW_PANEL_MODE_NEEDS_ARTWORK = "needs-artwork"
+_VIEW_PANEL_MANUAL_ACTIVE = "active"
+_VIEW_PANEL_MANUAL_SUPERSEDED = "superseded"
+
+# Phase 14 dialog element classes (14-UI-SPEC.md § Component Inventory
+# "New CSS" table — plan 14-03 adds the actual CSS rules; this plan only
+# declares the constants and wires them into markup).
+LIGHTBOX_HEADING_CLASS = "lightbox__heading"
+LIGHTBOX_MANUAL_NOTE_CLASS = "lightbox__manual-note"
+LIGHTBOX_RESOLVE_NAME_CLASS = "lightbox__resolve-name"
+LIGHTBOX_DELETE_CLASS = "lightbox__delete"
+
+# Promoted from bare literals already used below (existing values
+# unchanged) so this phase's guard can pin them and no second literal
+# source of truth survives.
+RESOLVE_UPLOAD_ZONE_CLASS = "resolve-upload-zone"
+RESOLVE_CONTEXT_CLASS = "resolve-context"
+
 ZOOM_LABEL_TEMPLATE = "Enlarge %s illustration"
 
 # quick task 260902-tli: went through two rounds of live developer
@@ -205,6 +247,26 @@ FLASH_MANUAL_SAVE_FAILED = "manual_save_failed"
 # needs no flash — the row is simply already gone).
 FLASH_MANUAL_DELETE_FAILED = "manual_delete_failed"
 
+# Phase 14 (14-02-PLAN.md Task 1, closing 13-UAT.md's gap G-01): a name
+# the operator genuinely typed but which manual_resolutions.py's own
+# key-slugger cannot turn into a usable illustration key (e.g. a name
+# that slugs to the empty string). (a) This key is declared here,
+# beside every other manual flash key this module owns, but is wired
+# into companion/app.py's FLASH_KEY_* rebinding and FLASH_MESSAGES/
+# FLASH_ROLES by plan 14-07, not by this plan. (b) It closes
+# 13-UAT.md's G-01, where such a name was reported back to the operator
+# as though they had submitted an EMPTY name (FLASH_MANUAL_NAME_EMPTY)
+# — technically accurate about the downstream failure mode, but false
+# about what the operator actually did, which 13-CONTEXT.md's governing
+# constraint (never silently mislead the operator) forbids. (c) It is a
+# deliberate, recorded extension of 14-UI-SPEC.md's Copywriting
+# Contract, whose Error-state row scoped this phase to "no new flash
+# key" before 14-CONTEXT.md's Deferred Ideas elevated G-01 into this
+# phase's scope. Declaring it here and wiring it in 14-07 (a different
+# wave) is what lets G-01 be fixed without two plans contending for
+# this file in the same wave.
+FLASH_MANUAL_NAME_UNUSABLE = "manual_name_unusable"
+
 # Deleting a manual resolution deliberately produces NO success flash:
 # 13-UI-SPEC.md's Full Copy Deck has none, and the row disappearing from
 # the management list (Task 2) is the confirmation. Only the failure path
@@ -229,11 +291,27 @@ RESOLVE_STALE_BODY = (
     "That coverage gap isn’t there anymore — it may already be "
     "resolved. Check Health for current gaps.")
 RESOLVE_HEADING = "Resolve an unidentified flight"
+# Phase 14 (14-02-PLAN.md Task 1, D-01) reworded this template in place,
+# replacing its Phase 13 wording: one template with no callsign clause,
+# so it stays true on the CR-02 row-gone path where no sighting data
+# survives. This wording is what discharges D-01's obligation that the
+# dialog state the per-prefix scope at the moment of acting.
 RESOLVE_CAPTION_TEMPLATE = (
-    "Prefix %s has been detected but never matched a known airline. "
-    "Give it a name below.")
+    "Every flight using prefix %s will show as this airline once you "
+    "save a name.")
 RESOLVE_CONTEXT_LABELS = (
     "Prefix", "First seen", "Last seen", "Times seen", "Example callsign")
+# Phase 14 (14-02-PLAN.md Task 1): the five per-<dd> hook classes
+# 14-UI-SPEC.md's Component Inventory requires, a 5-tuple aligned 1:1
+# with RESOLVE_CONTEXT_LABELS above so the two can only ever be zipped,
+# never mismatched.
+RESOLVE_CONTEXT_DD_CLASSES = (
+    "resolve-context__prefix",
+    "resolve-context__first-seen",
+    "resolve-context__last-seen",
+    "resolve-context__count",
+    "resolve-context__callsign",
+)
 NAME_LABEL_TEXT = "Airline name"
 NAME_HINT_TEXT = (
     "Start typing — pick a suggestion if the airline already has "
@@ -281,6 +359,33 @@ SUPERSEDED_CAPTION = (
     "to point it somewhere else.")
 DELETE_BUTTON_TEXT = "Delete"
 SUPERSEDED_STATUS_CLASS = "manual-resolution__status--superseded"
+
+# Phase 14 (14-02-PLAN.md Task 1, 14-UI-SPEC.md's Full Copy Deck): new
+# copy for the gap card, the dialog's manual-state chip/note, the
+# shared delete form's caption, the gap-overflow line and the
+# manual-resolutions summary line. Every constant here is read by both
+# the no-JS fallback and the dialog's static markup, through the shared
+# rendering functions plan 14-02's Task 2 introduces.
+GAP_CARD_ARIA_TEMPLATE = "Resolve prefix %s — example callsign %s"
+MANUAL_CHIP_ACTIVE_TEXT = "Resolved by hand"
+MANUAL_DELETE_CAPTION = (
+    "Deleting removes only this manual name — any uploaded artwork "
+    "stays in place.")
+# %s arity: prefix, built-in name, operator's name, built-in name again.
+MANUAL_SUPERSEDED_NOTE_TEMPLATE = (
+    "SkyPane’s built-in list now recognizes prefix %s as “%s” — its "
+    "entry wins over the name you gave it (“%s”), so that artwork is "
+    "no longer shown. Add artwork for “%s” below, or delete this "
+    "entry.")
+# Two constants, not one: only the tail is the <a>'s own text; their
+# concatenation must equal 14-UI-SPEC.md's single deck string
+# byte-for-byte (asserted in plan 14-04's own harness check).
+MANUAL_OVERFLOW_TEMPLATE = "%d other unresolved prefixes — "
+MANUAL_OVERFLOW_LINK_TEXT = "see the full list"
+# With-superseded and no-superseded forms (D-11) — %d arity: manual
+# count, then superseded count (with-superseded form only).
+MANUAL_SUMMARY_TEMPLATE = "%d manual resolutions, %d superseded"
+MANUAL_SUMMARY_TEMPLATE_NONE = "%d manual resolutions"
 
 # CR-02 fix (13-REVIEW.md): the only route into Step B is
 # ?resolve={prefix}, and D-14 clears a resolved prefix from the live gap
@@ -648,7 +753,10 @@ def _lightbox_html():
 # constraint, so the Clear control below is a real <button>, matching
 # History's variant rather than the old Airlines page's anchor-link one.
 _FILTER_INPUT_ID = "airlines-gallery-filter-input"
-_FILTER_LABEL_TEXT = "Filter by airline name"
+# Phase 14 (14-02-PLAN.md Task 1) reworded this label in place: the
+# search behaviour genuinely broadens once gap cards are filterable by
+# callsign/prefix too (14-UI-SPEC.md Autonomous Decision #2).
+_FILTER_LABEL_TEXT = "Filter by airline or callsign"
 _FILTER_EMPTY_HEADING = "No matching airlines"
 _FILTER_EMPTY_BODY_TEMPLATE = (
     "Try a different search, or Clear filter to see all %d airlines.")
@@ -759,8 +867,9 @@ def unresolved_row_for_prefix(state_dir, prefix):
 
 
 def _resolve_context_html(row, now):
-    """The five-row `<dl class="resolve-context">` sighting-context block
-    shared by Step A and Step B (D-12): one `dt`/`dd` pair per
+    """The five-row `<dl>` sighting-context block (its class is
+    RESOLVE_CONTEXT_CLASS) shared by Step A and Step B (D-12): one
+    `dt`/`dd` pair per
     `RESOLVE_CONTEXT_LABELS` entry, sourced entirely from `row` (the
     tuple `unresolved_row_for_prefix()` returned), never from a raw
     query-string value.
@@ -787,7 +896,7 @@ def _resolve_context_html(row, now):
         '<dt class="text-label">%s</dt>%s' % (escape_html(label), dd)
         for label, dd in zip(RESOLVE_CONTEXT_LABELS, pairs)
     )
-    return '<dl class="resolve-context">%s</dl>' % items
+    return '<dl class="%s">%s</dl>' % (RESOLVE_CONTEXT_CLASS, items)
 
 
 def _known_airlines_datalist_html():
@@ -918,7 +1027,7 @@ def _resolve_section_html(ctx):
         icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
         upload_zone = (
-            '<div class="resolve-upload-zone">'
+            '<div class="%s">'
             "%s"
             '<label for="%s">Choose an image</label>'
             '<p class="%s">%s</p>'
@@ -928,6 +1037,7 @@ def _resolve_section_html(ctx):
             "</form>"
             "</div>"
         ) % (
+            RESOLVE_UPLOAD_ZONE_CLASS,
             icon_html,
             MANUAL_UPLOAD_INPUT_ID,
             REPLACE_HINT_CLASS, REPLACE_HINT_TEXT,
