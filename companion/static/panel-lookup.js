@@ -74,6 +74,42 @@
   // not a missing-element error.
   var replaceForm = dialog.querySelector(".lightbox__replace");
 
+  // Phase 14 (14-05-PLAN.md Task 1, D-03/D-09): three more optional
+  // dialog forms, looked up the exact same way replaceForm already is
+  // — outside the mandatory image/caption/note guard above, each
+  // guarded independently at its own point of use below. History's
+  // page never renders any of these three either.
+  var resolveNameForm = dialog.querySelector(".lightbox__resolve-name");
+  var resolveUploadZone = dialog.querySelector(".resolve-upload-zone");
+  var deleteForm = dialog.querySelector(".lightbox__delete");
+
+  // These three are unconditionally present in the dialog's static
+  // markup after 14-02 (companion/pages/airlines_page.py's
+  // _lightbox_html() always emits them) — still looked up in this same
+  // optional style for consistency with the file's own idiom, and so a
+  // future History-only reader of this file is not misled into
+  // thinking they are guaranteed.
+  var heading = dialog.querySelector(".lightbox__heading");
+  var manualNote = dialog.querySelector(".lightbox__manual-note");
+  var resolveContext = dialog.querySelector(".resolve-context");
+
+  // 14-UI-SPEC.md's Component Inventory names these two as this
+  // script's own JS hooks: the resolve-name form's hidden prefix field
+  // ("JS fills the hidden prefix input's .value at click time") and the
+  // resolve-context block's five per-field classes ("each <dd>
+  // additionally carries one of five new classes ... so the dialog's
+  // copy has stable JS hooks (plan 14-05)"). Looked up the same
+  // optional way as everything above — null on History and on any
+  // trigger shape that never carries a resolve prefix.
+  var resolvePrefixInput = resolveNameForm
+    ? resolveNameForm.querySelector('input[name="prefix"]')
+    : null;
+  var contextPrefix = dialog.querySelector(".resolve-context__prefix");
+  var contextFirstSeen = dialog.querySelector(".resolve-context__first-seen");
+  var contextLastSeen = dialog.querySelector(".resolve-context__last-seen");
+  var contextCount = dialog.querySelector(".resolve-context__count");
+  var contextCallsign = dialog.querySelector(".resolve-context__callsign");
+
   // ES5-safe manual ancestor walk (no Element.closest, matching this
   // codebase's transpiler-free constraint) — finds the nearest ancestor
   // of "target" (inclusive) carrying the data-view-panel-src attribute,
@@ -94,13 +130,109 @@
     if (!trigger) {
       return;
     }
+    // Phase 14 (D-12): a gap/manual/needs-artwork trigger is a real
+    // <a href="/airlines?resolve={prefix}">, not a <button> — this
+    // navigation must never happen once JS is running the show. A
+    // plain <button> trigger's click has no default navigation to
+    // prevent, so this is a no-op for every existing art-card trigger.
+    evt.preventDefault();
+
     var src = trigger.getAttribute("data-view-panel-src") || "";
     var captionText = trigger.getAttribute("data-view-panel-caption") || "";
-    image.src = src;
-    // The caption text also becomes the image's alt text, so the modal
-    // is never an unlabelled image.
-    image.alt = captionText;
+    // D-02/RESEARCH.md Pitfall 1: a gap card carries no image at all.
+    // Setting the image element's src to an empty string is the one
+    // assignment this file must never make again — Safari/Chrome/IE all
+    // resolve an empty src against the current document URL and issue a
+    // spurious GET, exactly the kind of network call this script's own
+    // header comment forbids. removeAttribute (never an empty-string
+    // src) is what avoids it.
+    if (src) {
+      image.hidden = false;
+      image.src = src;
+      // The caption text also becomes the image's alt text, so the
+      // modal is never an unlabelled image.
+      image.alt = captionText;
+    } else {
+      image.hidden = true;
+      image.removeAttribute("src");
+      image.removeAttribute("alt");
+    }
     caption.textContent = captionText;
+
+    // 14-UI-SPEC.md's Interaction Contract "Correctness rule": every
+    // one of these is read and (where a dialog element exists to
+    // receive it) written on every single open, unconditionally, using
+    // the existing attr || "" idiom — never gated behind a condition on
+    // the attribute's own presence. The dialog's DOM is reused across
+    // clicks; skipping a write when an attribute is absent would leak
+    // the previous click's content onto an unrelated card.
+    var headingText = trigger.getAttribute("data-view-panel-heading") || "";
+    if (heading) {
+      heading.textContent = headingText;
+    }
+
+    var mode = trigger.getAttribute("data-view-panel-mode") || "";
+    // Visibility toggle table (14-UI-SPEC.md): governed by mode alone,
+    // independent of manual below. Every hidden assignment below runs
+    // before this function's own dialog.showModal() call, further
+    // down — RESEARCH.md Pitfall 3's whole point: showModal()'s
+    // one-time autofocus placement is synchronous and only ever sees
+    // the dialog's final, already-toggled subtree.
+    if (resolveNameForm) {
+      resolveNameForm.hidden = (mode !== "gap");
+    }
+    if (resolveUploadZone) {
+      resolveUploadZone.hidden = (mode !== "needs-artwork");
+    }
+    if (replaceForm) {
+      replaceForm.hidden = (mode !== "art");
+    }
+
+    var manual = trigger.getAttribute("data-view-panel-manual") || "";
+    // Orthogonal to mode — governs only the delete form and the
+    // manual-note text, never folded into the mode branch above.
+    if (deleteForm) {
+      deleteForm.hidden = (manual === "");
+    }
+    var manualNoteText = trigger.getAttribute("data-view-panel-manual-note") || "";
+    if (manualNote) {
+      manualNote.textContent = manualNoteText;
+    }
+
+    // 14-UI-SPEC.md's Copy Deck names .lightbox__resolve-scope as this
+    // value's destination, but no page module renders that element yet
+    // — read here anyway so the correctness rule's "read every one of
+    // these on every open" half holds regardless; a future plan that
+    // adds the element only needs one more assignment line, not a new
+    // lookup or a new read.
+    trigger.getAttribute("data-view-panel-scope");
+
+    var resolvePrefix = trigger.getAttribute("data-view-panel-resolve-prefix") || "";
+    var firstSeen = trigger.getAttribute("data-view-panel-first-seen") || "";
+    var lastSeen = trigger.getAttribute("data-view-panel-last-seen") || "";
+    var count = trigger.getAttribute("data-view-panel-count") || "";
+    if (resolveContext) {
+      resolveContext.hidden = !count;
+    }
+    if (resolvePrefixInput) {
+      resolvePrefixInput.value = resolvePrefix;
+    }
+    if (contextPrefix) {
+      contextPrefix.textContent = resolvePrefix;
+    }
+    if (contextFirstSeen) {
+      contextFirstSeen.textContent = firstSeen;
+    }
+    if (contextLastSeen) {
+      contextLastSeen.textContent = lastSeen;
+    }
+    if (contextCount) {
+      contextCount.textContent = count;
+    }
+    if (contextCallsign) {
+      contextCallsign.textContent = captionText;
+    }
+
     // Quick task 260903-btu: when a replace form is present (Airlines
     // only), point it at this trigger's own upload target. setAttribute
     // is used rather than the form.action property: that property
@@ -111,6 +243,18 @@
       var replaceAction = trigger.getAttribute("data-view-panel-replace-action") || "";
       replaceForm.setAttribute("action", replaceAction);
     }
+    if (resolveUploadZone) {
+      var uploadAction = trigger.getAttribute("data-view-panel-upload-action") || "";
+      var uploadForm = resolveUploadZone.querySelector("form");
+      if (uploadForm) {
+        uploadForm.setAttribute("action", uploadAction);
+      }
+    }
+    if (deleteForm) {
+      var deleteAction = trigger.getAttribute("data-view-panel-delete-action") || "";
+      deleteForm.setAttribute("action", deleteAction);
+    }
+
     dialog.showModal();
   });
 
