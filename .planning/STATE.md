@@ -3,16 +3,16 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 13
-status: "Phases 12 and 13 shipped — v1 roadmap complete except DEVICE-05"
-stopped_at: "Close-out pass of 2026-09-06: Phase 12 ticked in ROADMAP (12-04/12-06 boxes, 6/6 plans — it had closed on glass via PRs #49/#50 but the bookkeeping lagged behind the Phase 13 branch), SEED-005 moved to fulfilled, PROJECT.md's four stale Active lines reconciled. No open phase remains; the only open work item is DEVICE-05 (05-01 Tasks 2-3)."
-last_updated: "2026-09-06T06:49:01.292Z"
+status: Phases 12 and 13 shipped — v1 roadmap complete except DEVICE-05
+stopped_at: Phase 14 context gathered
+last_updated: "2026-09-06T10:30:45.600Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
   completed_phases: 24
   total_plans: 131
-  completed_plans: 131
-  percent: 100  # completed_plans/total_plans, per this file's own convention; 05-01 counts as executed although DEVICE-05's Tasks 2-3 remain open, so Phase 5 is still the one incomplete phase
+  completed_plans: 130
+  percent: 89
 ---
 
 ---
@@ -659,12 +659,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T00:58:07.908Z
-Stopped at: Completed 13-06-PLAN.md (widened illustration membership set, resolve/delete routes wired, 157/157 checks, 17/17 harnesses)
+Last session: 2026-09-06T10:30:45.583Z
+Stopped at: Phase 14 context gathered
 
 Resume file: 
 
-None
+.planning/phases/14-per-direction-themes-per-flight-colour-rules-and-roster-link/14-CONTEXT.md
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
