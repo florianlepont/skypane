@@ -282,6 +282,25 @@ SUPERSEDED_CAPTION = (
 DELETE_BUTTON_TEXT = "Delete"
 SUPERSEDED_STATUS_CLASS = "manual-resolution__status--superseded"
 
+# CR-02 fix (13-REVIEW.md): the only route into Step B is
+# ?resolve={prefix}, and D-14 clears a resolved prefix from the live gap
+# registry on the very next poll cycle — including the cycle right
+# after Step A itself saves a name for it. Health's per-row deep link
+# (D-10) is gone by the time an operator would look for it again, and
+# without an entry point here an active entry with no artwork became a
+# dead end (and, per D-07, so did the delete-and-re-add correction
+# path — POST /airlines/resolve for a prefix no longer in the gap
+# registry returns manual_prefix_stale). This management list already
+# renders every manual entry (D-07), so it gets the entry point: a
+# per-row link into the identical ?resolve={prefix} URL
+# `_resolve_section_html()` now serves this state from regardless of
+# live-gap membership (see that function's own CR-02 docstring
+# paragraph). Rendered only for an ACTIVE entry whose key currently has
+# no resolved artwork — never for a superseded entry, and never
+# alongside the Superseded marker (the status cell holds exactly one of:
+# nothing, this link, or that marker).
+ADD_ARTWORK_LINK_TEXT = "Add artwork"
+
 # quick task 260902-v26 (D-04 is explicitly a negative requirement: no
 # revert-to-original control is in scope, anywhere, for this feature).
 # The replace-image control's own copy, each its own module-level
@@ -789,14 +808,36 @@ def _known_airlines_datalist_html():
 
 def _resolve_section_html(ctx):
     """The conditional resolve section (D-03, D-10 through D-13):
-    `""` when `ctx.get("resolve_prefix")` is falsy, otherwise one of four
-    server-derived states. Every branch below reads `state_dir`/`now`
+    `""` when `ctx.get("resolve_prefix")` is falsy, otherwise one of the
+    server-derived states below. Every branch reads `state_dir`/`now`
     from `ctx` but decides which state to render from server-side data
     alone (`unresolved_row_for_prefix()`,
     `manual_resolutions.load_manual_resolutions()`,
     `illustrations.resolved_illustration_path()`) — never from the raw
     `resolve_prefix` query-string value once past the first membership
     check (D-12).
+
+    CR-02 fix: `unresolved_row_for_prefix()` returning `None` no longer
+    means "render the stale sentence and stop". D-14's
+    `enrich.clear_resolved_unresolved_prefix()` deletes a prefix from the
+    LIVE gap registry on the very next poll cycle after it resolves —
+    including via a manual entry Step A itself just saved — so the gap
+    being gone is the *expected*, immediate outcome of a successful
+    Step A, not evidence there is nothing left to do. Losing the live
+    row must not also lose reachability of Step B (upload artwork) or of
+    D-07's delete-and-re-add correction path. When the row is absent,
+    this function instead re-validates `resolve_prefix` on its own
+    (`manual_resolutions.normalise_prefix()` — the identical D-11 shape
+    gate `unresolved_row_for_prefix()` itself applies, so this remains
+    validate-then-join over server-side state, never a query-string
+    value used unchecked) and falls through to the same manual-registry-
+    driven Step A/Step B/already-done derivation used when the row is
+    still live — the only difference is there is no sighting context
+    left to show (the gap entry that carried first-seen/last-seen/count
+    is gone), so `context_html` is the empty string on this path rather
+    than `_resolve_context_html()`'s `<dl>`. A prefix with neither a live
+    gap NOR a manual entry still renders the stale sentence — there is
+    genuinely nothing to resolve.
     """
     prefix_raw = ctx.get("resolve_prefix")
     if not prefix_raw:
@@ -806,18 +847,28 @@ def _resolve_section_html(ctx):
     back_link = '<a class="text-label" href="/health">%s</a>' % RESOLVE_BACK_LINK_TEXT
 
     row = unresolved_row_for_prefix(state_dir, prefix_raw)
-    if row is None:
+    if row is not None:
+        prefix = row[0]
+        context_html = _resolve_context_html(row, now)
+    else:
+        prefix = manual_resolutions.normalise_prefix(prefix_raw)
+        context_html = ""
+
+    if prefix is None:
         body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
         return '<div class="page-section">%s%s</div>' % (back_link, body)
 
-    prefix = row[0]
     escaped_prefix = escape_html(prefix)
-    context_html = _resolve_context_html(row, now)
 
     registry = manual_resolutions.load_manual_resolutions(state_dir)
     entry = registry.get(prefix)
 
     if entry is None:
+        if row is None:
+            # No live gap AND no manual entry for this prefix: genuinely
+            # nothing to resolve here.
+            body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
+            return '<div class="page-section">%s%s</div>' % (back_link, body)
         # Step A — name not yet saved.
         heading = '<h2 class="text-heading">%s</h2>' % RESOLVE_HEADING
         caption = '<p class="text-label section-caption">%s</p>' % (
@@ -924,35 +975,74 @@ def _manual_superseded_marker_html():
     )
 
 
+def _manual_add_artwork_link_html(prefix):
+    """CR-02's management-list entry point into Step B: a plain `<a>`
+    into the same `?resolve={prefix}` URL Health's per-row deep link
+    (D-10) already uses. `_resolve_section_html()`'s own CR-02 fix
+    renders Step B for a manual entry with no artwork yet regardless of
+    whether `prefix` is still a live gap-registry member, so this link
+    stays live even after D-14 clears the gap. No illustration key
+    travels in this URL — only the prefix, exactly like every other
+    resolve deep link in this app.
+    """
+    return '<a href="%s?%s=%s">%s</a>' % (
+        AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, escape_html(prefix), ADD_ARTWORK_LINK_TEXT)
+
+
 def _manual_resolution_rows(state_dir, registry):
-    """`(prefix, airline_name, created_at, superseded)` tuples from an
-    already-loaded `registry` dict, via `manual_resolutions.entry_rows()`
-    (prefix-ascending), with `superseded` set from
-    `enrich.static_airline_name_for_prefix(prefix)` — D-06's oracle: the
-    static table has caught up, so its entry wins at runtime and the
-    operator's uploaded art is no longer reachable under this prefix.
-    Nothing here mutates the registry — flagging is the whole of D-06's
-    UI obligation; repairing is delete-and-re-add.
+    """`(prefix, airline_name, created_at, superseded, needs_artwork)`
+    tuples from an already-loaded `registry` dict, via
+    `manual_resolutions.entry_rows()` (prefix-ascending).
+
+    `superseded` is set from `enrich.static_airline_name_for_prefix(prefix)`
+    — D-06's oracle: the static table has caught up, so its entry wins at
+    runtime and the operator's uploaded art is no longer reachable under
+    this prefix. Nothing here mutates the registry — flagging is the
+    whole of D-06's UI obligation; repairing is delete-and-re-add.
+
+    `needs_artwork` (CR-02) is `True` for an ACTIVE (non-superseded)
+    entry whose stored name's illustration key currently has no
+    resolved artwork (`illustrations.resolved_illustration_path()`
+    returns `None`) — this is what drives the per-row "Add artwork" link
+    (`_manual_add_artwork_link_html()`), the management list's own entry
+    point into Step B now that a resolved prefix's live-gap deep link
+    (D-10/Health) can be gone (D-14) before the operator ever uploads
+    anything. Always `False` for a superseded entry (the built-in table
+    already owns that prefix; uploading under the operator's own name
+    would not change what the frame displays) and for a name whose key
+    no longer slugs (corrupt-file defence, mirrors
+    `_resolve_section_html()`'s own guard).
     """
     rows = []
     for prefix, airline_name, created_at in manual_resolutions.entry_rows(registry):
         superseded = bool(enrich.static_airline_name_for_prefix(prefix))
-        rows.append((prefix, airline_name, created_at, superseded))
+        needs_artwork = False
+        if not superseded:
+            key = manual_resolutions.illustration_key_for_name(airline_name)
+            needs_artwork = bool(key) and illustrations.resolved_illustration_path(key, state_dir) is None
+        rows.append((prefix, airline_name, created_at, superseded, needs_artwork))
     return rows
 
 
-def _manual_resolution_row_html(index, prefix, airline_name, created_at, superseded, now):
+def _manual_resolution_row_html(index, prefix, airline_name, created_at, superseded, needs_artwork, now):
     """One `<tr>` for the management table: `row`/`row-alt` by index
     parity, prefix/name/added/status/delete cells. `created_at` renders
     through `layout.concise_timestamp_html()`, interpolated verbatim as
     already-safe markup — never re-escaped, matching this module's own
-    `_resolve_context_html()` discipline. The status cell is empty for
-    an active entry (the normal state gets no visual noise, matching
-    `layout.card_status_class()`'s own documented "absence is the
-    signal" discipline) or the superseded marker.
+    `_resolve_context_html()` discipline. The status cell holds exactly
+    one of: nothing (an active entry with artwork — the normal state
+    gets no visual noise, matching `layout.card_status_class()`'s own
+    documented "absence is the signal" discipline), the superseded
+    marker, or (CR-02) the "Add artwork" link for an active entry still
+    missing it.
     """
     row_class = "row-alt" if index % 2 else "row"
-    status_html = _manual_superseded_marker_html() if superseded else ""
+    if superseded:
+        status_html = _manual_superseded_marker_html()
+    elif needs_artwork:
+        status_html = _manual_add_artwork_link_html(prefix)
+    else:
+        status_html = ""
     delete_form = (
         '<form method="post" action="%s">'
         '<button type="submit">%s</button>'
@@ -976,8 +1066,8 @@ def _manual_resolution_table_html(rows, now):
     header_cells = "".join(
         "<th>%s</th>" % escape_html(h) for h in MANUAL_RESOLUTION_HEADERS)
     body_rows = [
-        _manual_resolution_row_html(index, prefix, airline_name, created_at, superseded, now)
-        for index, (prefix, airline_name, created_at, superseded) in enumerate(rows)
+        _manual_resolution_row_html(index, prefix, airline_name, created_at, superseded, needs_artwork, now)
+        for index, (prefix, airline_name, created_at, superseded, needs_artwork) in enumerate(rows)
     ]
     return (
         '<div class="data-table-wrap">'
@@ -1001,8 +1091,13 @@ def _manual_resolution_cards_html(rows, now):
     if not rows:
         return ""
     items = []
-    for prefix, airline_name, created_at, superseded in rows:
-        marker_html = _manual_superseded_marker_html() if superseded else ""
+    for prefix, airline_name, created_at, superseded, needs_artwork in rows:
+        if superseded:
+            marker_html = _manual_superseded_marker_html()
+        elif needs_artwork:
+            marker_html = _manual_add_artwork_link_html(prefix)
+        else:
+            marker_html = ""
         primary = (
             '<div class="data-card__primary">'
             '<span class="cell-primary mono">%s</span>'

@@ -282,7 +282,11 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 146  # 143 + 3 (phase 13 plan 04 Task 2: the
+EXPECTED_CHECK_COUNT = 148  # 146 + 2 (13-REVIEW.md CR-02 fix: the
+# resolve section's Step-B-stays-reachable-after-D-14-clears-the-gap
+# check, and the management list's Add-artwork-link check). Re-derived
+# by RUNNING the harness, not by arithmetic.
+# 146 = 143 + 3 (phase 13 plan 04 Task 2: the
 # management list's empty/populated-states check, the supersession-
 # contract check, and the delete-control/design-system contract check —
 # D-06/D-07/D-08). Re-derived by RUNNING the harness, not by arithmetic.
@@ -6426,6 +6430,87 @@ def main():
         "normalises to the identical prefix and renders the identical resolve section (WR-04/D-12)",
         _resolve_section_escapes_hostile_values_and_distrusts_query_string)
 
+    def _resolve_section_step_b_reachable_after_gap_cleared():
+        tmp = _mkstate("a-resolve-cr02-step-b")
+        try:
+            now = _iso(_now())
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Brand New Air", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "setup failure: add_entry() returned %r" % (add_result,)
+
+            # CR-02: simulate D-14 — the poll loop has since cleared the
+            # now-resolved prefix from the live gap registry, exactly as
+            # it would on the very next cycle after Step A saved a name.
+            _seed_unresolved_prefixes(tmp, {})
+
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            if airlines_page.RESOLVE_STALE_BODY in section:
+                return False, (
+                    "CR-02: Step B must stay reachable once D-14 clears the live gap, got the "
+                    "stale sentence instead")
+            expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Brand New Air"
+            if expected_heading not in section:
+                return False, (
+                    "expected the Step B heading naming the stored airline even with no live "
+                    "gap, got a render missing %r" % (expected_heading,))
+            if '<input type="file"' not in section:
+                return False, "expected a file input at Step B even with no live gap"
+            if 'class="resolve-context"' in section:
+                return False, (
+                    "expected no sighting-context <dl> once the gap entry that carried it is "
+                    "gone — there is genuinely no data left to show")
+            if airlines_page.STEP_B_SKIP_TEXT not in section:
+                return False, "expected the Skip link to still render at Step B with no live gap"
+
+            # D-07's delete-and-re-add correction path must also still
+            # work with the gap gone: re-adding under a name that
+            # already has artwork must reach the already-done state, not
+            # a dead end.
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Air France", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "setup failure: add_entry() (Air France) returned %r" % (add_result,)
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            expected_done = airlines_page.RESOLVE_ALREADY_DONE_TEMPLATE % "Air France"
+            if expected_done not in section:
+                return False, (
+                    "expected the already-resolved sentence even with no live gap, got a "
+                    "render missing %r" % (expected_done,))
+
+            # With neither a live gap NOR a manual entry, the prefix is
+            # genuinely stale — this must not regress into always
+            # showing Step B/already-done for any well-shaped prefix.
+            manual_resolutions.delete_entry(tmp, "XYZ")
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            if airlines_page.RESOLVE_STALE_BODY not in section:
+                return False, (
+                    "expected the stale sentence once neither a live gap nor a manual entry "
+                    "exists for the prefix")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CR-02: once D-14 clears a resolved prefix from the live gap registry, the resolve section still "
+        "reaches Step B for a manual entry with no artwork yet (heading, file input, Skip link, no "
+        "sighting-context <dl>), still reaches the already-resolved state once artwork exists under the "
+        "re-added name (D-07's delete-and-re-add path), and still renders the stale sentence only once "
+        "neither a live gap nor a manual entry exists for the prefix",
+        _resolve_section_step_b_reachable_after_gap_cleared)
+
     # ------------------------------------------------------------------
     # Phase 13 (13-04-PLAN.md Task 2): the manual-resolutions management
     # list (D-06, D-07, D-08).
@@ -6512,6 +6597,57 @@ def main():
         "its title explanation, and exactly one trailing explanatory caption; an entry whose prefix is not "
         "renders neither, and the caption is absent entirely when no row is superseded (D-06)",
         _manual_section_supersession_contract)
+
+    def _manual_section_add_artwork_link_contract():
+        tmp = _mkstate("a-manual-add-artwork")
+        try:
+            # ZZZ names a fresh airline with no existing artwork —
+            # CR-02's status cell must offer the "Add artwork" link,
+            # pointing at the identical ?resolve={prefix} URL the
+            # resolve section itself now serves Step B from regardless
+            # of live-gap membership.
+            manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
+            # OLD names a target airline that already has real vendored
+            # artwork (Air France) — no link, nothing left to add.
+            manual_resolutions.add_entry(tmp, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
+            # AFR is a real static-table prefix, so this entry is
+            # superseded (D-06) — no link even though "Some Other
+            # Airline" itself has no artwork, since the built-in table
+            # now owns AFR and uploading under the operator's own name
+            # would not change what the frame displays.
+            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+
+            expected_link = '<a href="%s?%s=%s">%s</a>' % (
+                airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM, "ZZZ",
+                airlines_page.ADD_ARTWORK_LINK_TEXT)
+            if section.count(expected_link) != 2:
+                # Rendered once in the desktop <tr>, once in the mobile <li>.
+                return False, (
+                    "expected the Add-artwork link for ZZZ to appear exactly twice (desktop + "
+                    "mobile), got %d: %r" % (section.count(expected_link), expected_link))
+
+            old_link = '?%s=OLD' % airlines_page.RESOLVE_QUERY_PARAM
+            if old_link in section:
+                return False, "expected NO Add-artwork link for OLD — Air France already has artwork"
+
+            afr_link = '?%s=AFR' % airlines_page.RESOLVE_QUERY_PARAM
+            if afr_link in section:
+                return False, "expected NO Add-artwork link for AFR — a superseded entry must not offer it"
+            if airlines_page.SUPERSEDED_MARKER_TEXT not in section:
+                return False, "expected AFR to still render the Superseded marker"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CR-02: the management list's status cell offers an 'Add artwork' link (into the identical "
+        "?resolve={prefix} URL the resolve section serves Step B from) for an active entry whose stored "
+        "name has no artwork yet, in both the desktop table and the mobile card; renders no such link for "
+        "an entry whose name already has artwork, nor for a superseded entry (which keeps its Superseded "
+        "marker instead)",
+        _manual_section_add_artwork_link_contract)
 
     def _manual_section_delete_control_and_design_system_contract():
         tmp = _mkstate("a-manual-delete-contract")
