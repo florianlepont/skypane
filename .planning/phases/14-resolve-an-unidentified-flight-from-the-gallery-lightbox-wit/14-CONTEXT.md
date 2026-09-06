@@ -79,6 +79,16 @@ Fold Phase 13's resolve flow into the interaction pattern the Airlines gallery a
 
   Accepted cost: **a second rendering path to maintain and test.**
 
+- **D-09 amendment (2026-09-06, after `gsd-ui-checker` blocked the first UI-SPEC): the delete form is rendered in BOTH places, exactly like the resolve form.** In the dialog when JS is available, and in the no-JS fallback section otherwise.
+
+  `gsd-ui-checker` caught that D-09 as originally written contradicted D-12: Phase 13's management table carried a delete control that worked with no JavaScript at all, so moving delete into the dialog would lose a capability D-12 explicitly promised would survive. Put to the developer, who chose to keep the promise literal rather than narrow it.
+
+  The fix is cheap and needs no new mechanism: the card's trigger is already `<a href="/airlines?resolve={prefix}">` (D-12), so without JS a click already lands on the fallback section — the section simply also emits the delete form. Enumeration was never at risk: gap cards, manual cards and their chips are all server-rendered, so a JS-disabled operator can already *see* every manual resolution in the grid; only the action needed a home.
+
+  **Both forms — resolve and delete — must come from the same rendering function used in both places.** Two independent copies of either is a defect, not a shortcut.
+
+  Rejected: **narrowing D-12** to accept that delete requires JS — honest and smaller, but it trades away a promise for no real gain now that the fallback path exists anyway. Rejected: **moving delete back onto the card** — it would also work without JS, but the developer had already rejected a destructive control in a dense grid whose neighbouring click is "enlarge", and nothing here changes that reasoning.
+
   Rejected: **simply inheriting the dependency** (a `<button>`, nothing opens without JS) — one rendering path, the Phase 13 section genuinely deleted, and consistent with illustration replacement which already requires JS. Rejected because resolving would become impossible without JS, a real regression from Phase 13.
 
 - **D-13:** **`?resolve={prefix}` in the URL opens the dialog on page load, wherever the navigation came from.** Clicking *Resolve* on Health therefore lands the operator straight in the pop-up — the developer's original expectation, answered directly.
