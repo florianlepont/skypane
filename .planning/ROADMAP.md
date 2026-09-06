@@ -809,7 +809,7 @@ Plans:
 **Requirements**: None expected — a presentation-layer follow-up to an unmapped phase, matching the Phase 10-13 precedent.
 **Depends on:** Phase 13 (merged as `8f45385`, PR #51) — this phase re-presents that machinery and changes none of it. Also Phase 06.6.4.1, which established the shared lightbox and reborn Airlines as the illustration gallery.
 **Closes with:** a real-browser pass, since the whole phase is interaction design and the dialog's behaviour is browser-owned. This also closes Phase 13's two open UAT gaps, which live in exactly this surface: **G-02** (the `<datalist>` popup was never verified in a browser) and **G-01** (a rejected airline name is reported to the operator as an empty one).
-**Plans:** 3/8 plans executed
+**Plans:** 4/8 plans executed
 
 Plans:
 **Wave 1**
@@ -820,7 +820,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 14-04-PLAN.md — Gap-card rendering and the gap block: empty imageless cards, sighting-count sort, threshold/cap, overflow line, page reorder (resolve section to the bottom)
+- [x] 14-04-PLAN.md — Gap-card rendering and the gap block: empty imageless cards, sighting-count sort, threshold/cap, overflow line, page reorder (resolve section to the bottom)
 - [ ] 14-05-PLAN.md — `panel-lookup.js`: imageless open, per-mode/manual form toggling, `<a>` interception, load-time auto-open on `?resolve=`
 - [ ] 14-07-PLAN.md — G-01 fix: a distinct flash key for a supplied-but-unusable airline name
 
