@@ -31,8 +31,8 @@
   374 commits en retard, et une autre session peut travailler dans le même
   checkout (voir la note Phase 13 ci-dessous).
 
-  Dernière génération : 2026-09-06, main @ c5a4de5, Phase 13 lue sur sa
-  branche claude/phase-13-illustration-for-unidentified-flights.
+  Dernière génération : 2026-09-06, passe de clôture, main @ f12ab47
+  (Phases 12 et 13 mergées : #49/#50 et #51).
 -->
 <title>Tour de contrôle SkyPane</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
@@ -338,7 +338,7 @@
     <div>
       <p class="eyebrow">SkyPane · rapport d'état</p>
       <h1>Tour de contrôle</h1>
-      <p class="masthead-sub">Roadmap, backlog v2, seeds et bugs — consolidé depuis <code>.planning/</code> sur <code>main</code> @ <code>c5a4de5</code>, Phase 13 lue sur sa branche.</p>
+      <p class="masthead-sub">Roadmap, backlog v2, seeds et bugs — consolidé depuis <code>.planning/</code> sur <code>main</code> — passe de clôture du 6 septembre.</p>
     </div>
     <div class="masthead-meta">
       <strong>Synthèse</strong>
@@ -348,9 +348,9 @@
 
   <div class="stats">
     <div class="stat">
-      <div class="stat-value good">24/25</div>
+      <div class="stat-value good">25/26</div>
       <div class="stat-label">Phases terminées</div>
-      <div class="stat-note">12 principales + 13 insérées · Phase 13 terminée sur sa branche</div>
+      <div class="stat-note">13 principales + 13 insérées · toutes sur <code>main</code></div>
     </div>
     <div class="stat">
       <div class="stat-value warn">1</div>
@@ -373,9 +373,9 @@
   <section class="board">
     <div class="board-head">
       <h2>Roadmap v1</h2>
-      <span class="count">25 phases · 2026-08-26 → 2026-09-06</span>
+      <span class="count">26 phases · 2026-08-26 → 2026-09-06</span>
     </div>
-    <p class="board-intro">Douze phases principales, treize insérées en cours de route. Tout est terminé sauf un point, volontairement gardé pour la fin — et une phase attend encore sa PR.</p>
+    <p class="board-intro">Treize phases principales, treize insérées en cours de route. Tout est terminé et sur <code>main</code>, sauf un point volontairement gardé pour la fin.</p>
 
     <div class="rows">
       <div class="row">
@@ -512,7 +512,7 @@
         <div class="row-main">
           <p class="row-title">Écran allumable/éteignable à distance</p>
           <p class="row-desc">Case « Enable display » dans Settings ; éteint = check-in fixe à 300 s sans rendu, verrou de maintien généralisé (aucune repeinture entre deux états de maintien), <code>max(300, heures calmes)</code> pour le sommeil. Vérifié sur le verre : extinction en ≈ 3 min, maintien silencieux 7 h 52 (93 check-ins, 0 image), rallumage en ≈ 5 min 20. Au passage, les trois écrans de maintien ont été refaits sur le verre : <strong>sombre = le cadre se repose, blanc = il travaille</strong>.</p>
-          <p class="row-note">Case ROADMAP encore décochée sur <code>main</code> — clôture administrative reportée après la Phase 13 (choix du 6 sept.). Étape E (chevauchement heures calmes) sautée : cet axe n'a que ses tests comme preuve.</p>
+          <p class="row-note">Étape E (chevauchement heures calmes) sautée : cet axe n'a que ses tests comme preuve.</p>
           <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-004 · PR #49 + #50.</p>
         </div>
         <span class="pill good">Terminé</span>
@@ -524,10 +524,9 @@
         <div class="row-main">
           <p class="row-title">Ajouter l'illustration d'un vol non identifié depuis le web</p>
           <p class="row-desc">Registre de résolutions manuelles préfixe → compagnie, lien « Resolve » par ligne sur Health, section de résolution sur Airlines avec <code>&lt;datalist&gt;</code>, chargement par cycle dans le poll-loop, routes d'upload élargies aux nouvelles clés. 6/6 plans, vérification, UAT et revue sécurité présents.</p>
-          <p class="row-note">Terminée sur la branche <code>claude/phase-13-…</code> par une autre session — <strong>pas encore sur <code>main</code></strong>, PR à ouvrir. Le fichier SEED-005 est encore marqué <code>dormant</code>.</p>
-          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-005.</p>
+          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-005 · PR #51 (menée par une session parallèle).</p>
         </div>
-        <span class="pill accent">Sur branche</span>
+        <span class="pill good">Terminé</span>
         <span class="row-date">6 sept.</span>
       </div>
     </div>
@@ -546,7 +545,7 @@
       <h2>Seeds</h2>
       <span class="count">.planning/seeds/ · 10 fichiers</span>
     </div>
-    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Quatre ont été promues en phases en cinq jours (10, 11, 12, 13) — c'est le mécanisme qui fonctionne.</p>
+    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Quatre ont été promues en phases en cinq jours (10, 11, 12, 13), toutes livrées — c'est le mécanisme qui fonctionne.</p>
 
     <div class="seed-grid">
       <div class="seed-card fresh">
@@ -598,10 +597,9 @@
       <div class="seed-card done">
         <div class="seed-top">
           <p class="seed-title">SEED-005 — Illustration d'un vol non identifié depuis le web</p>
-          <span class="pill good">Réalisée*</span>
+          <span class="pill good">Réalisée</span>
         </div>
-        <p class="seed-body">Promue et livrée comme Phase 13, sur sa branche.</p>
-        <p class="seed-warn-flag">* Le fichier de la seed dit encore <code>dormant</code> — à basculer en <code>fulfilled</code> à la clôture, avec la PR Phase 13.</p>
+        <p class="seed-body">Promue et livrée comme Phase 13, mergée sur <code>main</code> (#51) — résolutions manuelles préfixe → compagnie depuis Health et Airlines.</p>
       </div>
 
       <div class="seed-card done">
@@ -661,7 +659,7 @@
     <div class="backlog-item"><span class="rid">VIS-01</span><span>Photo personnelle en fond de la vue avion, rendue en dithering</span></div>
     <div class="backlog-item"><span class="rid">DEVICE-06</span><span>Écran de repli local après 2+ polls échoués (moitié device de l'icône de défaut)</span></div>
 
-    <p class="note-box"><strong>Un décalage documentaire à corriger un jour :</strong> quatre lignes de <code>PROJECT.md</code> (cycle wake/poll/sleep, indicateur batterie faible, fonctionnement sur batterie, ingestion serveur) sont toujours cochées « Active » sans étiquette v2, alors que les phases 1, 2 et 5 qui les livrent sont closes. Le passage Active → Validated n'a jamais été rejoué — ce n'est pas du reste à faire. Bon candidat pour la même passe de clôture que la Phase 12.</p>
+    <p class="note-box"><strong>Décalage documentaire corrigé le 6 sept. :</strong> les quatre lignes de <code>PROJECT.md</code> restées « Active » ont été rapprochées de leurs phases — trois validées (Phases 1, 2, 5), et la ligne serveur scindée pour que sa clause « fetches RER data » reste en v2 au lieu d'être cochée avec la moitié ADS-B livrée. La batterie est validée comme contrainte tenue au quotidien, pas comme la mesure que DEVICE-05 doit encore.</p>
   </section>
 
   <!-- ===================== BUGS ===================== -->
@@ -705,7 +703,7 @@
   </section>
 
   <footer>
-    <span>Sources : <code>ROADMAP.md</code> · <code>STATE.md</code> · <code>REQUIREMENTS.md</code> · <code>seeds/</code> · <code>debug/</code> · 54 quick tasks · branche Phase 13</span>
+    <span>Sources : <code>ROADMAP.md</code> · <code>STATE.md</code> · <code>REQUIREMENTS.md</code> · <code>seeds/</code> · <code>debug/</code> · 54 quick tasks</span>
     <span>* dernière date de plan livré — DEVICE-05 reste ouvert</span>
   </footer>
 
