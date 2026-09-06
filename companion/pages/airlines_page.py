@@ -661,13 +661,36 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None):
     # deliberately overrides the inner image's alt for the button's own
     # accessible name, so a screen reader announces the action ("Enlarge
     # ... illustration"), not just the picture.
+    #
+    # Phase 14 (14-02-PLAN.md Task 3, 14-UI-SPEC.md's Interaction
+    # Contract "Correctness rule"): every trigger carries the full
+    # fifteen-attribute data-view-panel-* vocabulary, not just the four
+    # this card actually uses. A plain curated art card sets
+    # mode="art" and leaves the other ten new attributes present but
+    # EMPTY rather than omitted — an omitted attribute is precisely how
+    # a stale value from the previous click would leak onto this one,
+    # since panel-lookup.js's `attr || ""` idiom (plan 14-05) copies
+    # every attribute on every open.
     zoom_html = (
-        '<button type="button" class="airline-card__zoom" %s="%s" %s="%s" %s="%s" '
+        '<button type="button" class="airline-card__zoom" '
+        '%s="%s" %s="%s" %s="%s" %s="%s" '
+        '%s="" %s="" %s="" %s="" %s="" %s="" %s="" %s="" %s="" %s="" '
         'aria-label="%s">%s</button>'
     ) % (
         _VIEW_PANEL_SRC_ATTR, busted_image_url,
         _VIEW_PANEL_CAPTION_ATTR, escape_html(CARD_IMAGE_ALT_TEMPLATE % airline_name),
+        _VIEW_PANEL_MODE_ATTR, _VIEW_PANEL_MODE_ART,
         _VIEW_PANEL_REPLACE_ACTION_ATTR, image_url,
+        _VIEW_PANEL_HEADING_ATTR,
+        _VIEW_PANEL_MANUAL_ATTR,
+        _VIEW_PANEL_SCOPE_ATTR,
+        _VIEW_PANEL_RESOLVE_PREFIX_ATTR,
+        _VIEW_PANEL_FIRST_SEEN_ATTR,
+        _VIEW_PANEL_LAST_SEEN_ATTR,
+        _VIEW_PANEL_COUNT_ATTR,
+        _VIEW_PANEL_UPLOAD_ACTION_ATTR,
+        _VIEW_PANEL_DELETE_ACTION_ATTR,
+        _VIEW_PANEL_MANUAL_NOTE_ATTR,
         escape_html(ZOOM_LABEL_TEMPLATE % airline_name),
         image_html,
     )
@@ -708,38 +731,76 @@ def _lightbox_html():
     260902-tli), emitted once per page — never once per card — by
     `render()`, only when at least one card actually carries a zoom
     trigger. Mirrors `history_page._lightbox_html()` element-for-element
-    and class-for-class (same order, same three `lightbox__*` elements,
-    same close-attribute button), with exactly three differences: this
-    dialog also carries the `lightbox--wide` class (the enlarged
-    illustration needs more room than History's 480px default); the note
-    is this module's own `LIGHTBOX_NOTE`; and this dialog carries the
-    replace form `_lightbox_replace_form_html()` returns, which History
-    deliberately never renders (quick task 260903-btu).
+    and class-for-class for its image/caption/note prefix (same order,
+    same three `lightbox__*` elements, same close-attribute button),
+    with the `lightbox--wide` class (the enlarged illustration needs
+    more room than History's 480px default) and this module's own
+    `LIGHTBOX_NOTE`, then (Phase 14, 14-02-PLAN.md Task 3) every
+    element the three view modes (art/gap/needs-artwork) plus the
+    orthogonal manual state (active/superseded) can need, all
+    server-rendered once through the same shared functions
+    `_resolve_section_html()` (the no-JS fallback) also calls —
+    Claude's Discretion #1, one definition per form, two call sites.
 
-    Element order inside the dialog: image, then caption, then note,
-    then the replace form, then the Close button. Close stays last so
+    Element order inside the dialog: image, caption, note, heading,
+    manual-note, resolve-context, resolve-name form, resolve-upload
+    zone, replace form, delete form, then Close. Close stays last so
     the dismissal affordance is the stable bottom-most control and the
     tab order reads "look, act, dismiss" — `panel-lookup.js` finds the
     close button by attribute, not by position, so this order matters
     only to a human, never to the script.
 
+    Every optional child here is a real, present placeholder — heading
+    and manual-note are emitted empty (their own `:empty` CSS collapse
+    rule is plan 14-03's job, not this function's); the resolve-context
+    `<dl>` is built from `row=None` (five empty `<dd>`s); the
+    resolve-name/resolve-upload/delete forms all carry `id_suffix=
+    "-dialog"` (or, for the id-less delete form, just `action=""`) so
+    their ids never collide with the no-JS fallback section's own
+    identically-shaped, unsuffixed ids when both render at once. No
+    element is emitted `hidden` from the server — the initial
+    visibility state is `panel-lookup.js`'s to set (plan 14-05), and
+    RESEARCH.md Pitfall 3 requires that state be final *before*
+    `showModal()` runs, a runtime ordering concern this function does
+    not own. Every optional form's own primary control keeps whatever
+    `autofocus` attribute the shared function itself emits — neither
+    stripped nor duplicated — so the no-JS fallback path's own focus
+    behaviour is untouched.
+
     `companion/static/panel-lookup.js` writes the image src/alt, the
-    caption text, and this form's `action` attribute on click; this
-    function only emits the static note and the form's `action=""`
-    placeholder, neither of which the script writes on page load — only
-    on the next click.
+    caption text, and the replace form's `action` attribute on click
+    today; this function only emits the static note and every form's
+    `action=""`/empty placeholder, none of which the script writes on
+    page load — only on the next click (and, from plan 14-05 onward,
+    every other attribute in the vocabulary too).
     """
+    resolve_context_html = _resolve_context_html(None, None, id_suffix="-dialog")
+    resolve_name_html = _resolve_name_form_html("", "-dialog")
+    resolve_upload_html = _resolve_upload_form_html("", "-dialog")
+    delete_html = _manual_delete_form_html("")
     return (
         '<dialog class="lightbox lightbox--wide" id="%s">'
         '<img class="lightbox__image" src="" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
         '<p class="lightbox__note text-body">%s</p>'
+        '<h2 class="%s"></h2>'
+        '<p class="%s text-body"></p>'
+        "%s"
+        "%s"
+        "%s"
+        "%s"
         "%s"
         '<button type="button" %s>Close</button>'
         "</dialog>"
     ) % (
         LIGHTBOX_DIALOG_ID, escape_html(LIGHTBOX_NOTE),
+        LIGHTBOX_HEADING_CLASS,
+        LIGHTBOX_MANUAL_NOTE_CLASS,
+        resolve_context_html,
+        resolve_name_html,
+        resolve_upload_html,
         _lightbox_replace_form_html(),
+        delete_html,
         _VIEW_PANEL_CLOSE_ATTR,
     )
 

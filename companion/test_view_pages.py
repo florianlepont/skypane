@@ -256,8 +256,33 @@ _LIGHTBOX_AIRLINES_ONLY_TOKENS = (
 # present in the rendered Airlines page only, with no assertion at all
 # against panel-lookup.js. This tuple is a staging area for one wave at
 # most - plan 14-05 empties it again once panel-lookup.js learns to read
-# whatever gets classified here in the meantime. Seeded empty.
-_LIGHTBOX_RENDER_ONLY_TOKENS = ()
+# whatever gets classified here in the meantime.
+#
+# Phase 14 plan 14-02 Task 3 populates this: the eleven new
+# data-view-panel-* attribute values (14-01 seeded this tuple empty),
+# plus the four new/promoted dialog class tokens
+# (lightbox__heading/manual-note/resolve-name/delete), plus
+# resolve-context/resolve-upload-zone - the dialog now renders both of
+# those two (previously fallback-only) classes too.
+_LIGHTBOX_RENDER_ONLY_TOKENS = (
+    airlines_page._VIEW_PANEL_HEADING_ATTR,
+    airlines_page._VIEW_PANEL_MODE_ATTR,
+    airlines_page._VIEW_PANEL_MANUAL_ATTR,
+    airlines_page._VIEW_PANEL_SCOPE_ATTR,
+    airlines_page._VIEW_PANEL_RESOLVE_PREFIX_ATTR,
+    airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR,
+    airlines_page._VIEW_PANEL_LAST_SEEN_ATTR,
+    airlines_page._VIEW_PANEL_COUNT_ATTR,
+    airlines_page._VIEW_PANEL_UPLOAD_ACTION_ATTR,
+    airlines_page._VIEW_PANEL_DELETE_ACTION_ATTR,
+    airlines_page._VIEW_PANEL_MANUAL_NOTE_ATTR,
+    airlines_page.LIGHTBOX_HEADING_CLASS,
+    airlines_page.LIGHTBOX_MANUAL_NOTE_CLASS,
+    airlines_page.LIGHTBOX_RESOLVE_NAME_CLASS,
+    airlines_page.LIGHTBOX_DELETE_CLASS,
+    airlines_page.RESOLVE_CONTEXT_CLASS,
+    airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
+)
 
 
 # --- fixture helpers -----------------------------------------------------

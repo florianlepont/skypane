@@ -5953,23 +5953,34 @@ def main():
 
     def _replace_form_file_input_id_is_unique_and_labelled():
         # retargeted from the per-card disclosure onto the lightbox
-        # contract: now exactly one file input on the whole page, whose
-        # id is the static REPLACE_INPUT_ID. quick task 260903-df3
-        # extends this further: the label and the file input must both
-        # live *inside* the framed zone wrapper, so a future change that
-        # lifts either back out of the frame fails loudly here rather
-        # than silently.
+        # contract: exactly one file input on the whole page carries the
+        # static REPLACE_INPUT_ID. quick task 260903-df3 extends this
+        # further: the label and the file input must both live *inside*
+        # the framed zone wrapper, so a future change that lifts either
+        # back out of the frame fails loudly here rather than silently.
+        #
+        # Phase 14 (14-02-PLAN.md Task 3) retargeted the file-input-
+        # count portion of this check in place (no EXPECTED_CHECK_COUNT
+        # change — same check, re-scoped): the shared dialog now also
+        # renders its own resolve-upload form's file input
+        # (MANUAL_UPLOAD_INPUT_ID + "-dialog"), so "exactly one file
+        # input on the whole page" is no longer this check's own
+        # subject — REPLACE_INPUT_ID's own uniqueness among file-input
+        # ids is.
         tmp = _mkstate("a-replace-input-ids")
         try:
             rendered = airlines_page.render(_ctx(tmp))
             input_ids = re.findall(r'<input type="file" id="([^"]+)"', rendered)
-            if len(input_ids) != 1:
-                return False, "expected exactly one file input, got %d" % len(input_ids)
-            if input_ids[0] != airlines_page.REPLACE_INPUT_ID:
-                return False, "expected the file input's id to equal REPLACE_INPUT_ID, got %r" % (input_ids[0],)
+            replace_ids = [i for i in input_ids if i == airlines_page.REPLACE_INPUT_ID]
+            if len(replace_ids) != 1:
+                return False, (
+                    "expected exactly one file input carrying REPLACE_INPUT_ID, got %d (all file "
+                    "input ids: %r)" % (len(replace_ids), input_ids))
             label_fors = set(re.findall(r'<label for="([^"]+)">', rendered))
-            if input_ids[0] not in label_fors:
-                return False, "expected a <label for=\"%s\"> matching the file input's id" % (input_ids[0],)
+            if airlines_page.REPLACE_INPUT_ID not in label_fors:
+                return False, (
+                    "expected a <label for=\"%s\"> matching the file input's id" % (
+                        airlines_page.REPLACE_INPUT_ID,))
             zone_match = re.search(
                 r'<div class="%s">.*?</div>' % re.escape(airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS),
                 rendered, re.DOTALL)
@@ -5984,7 +5995,7 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the whole rendered page carries exactly one <input type=\"file\">, whose id equals "
+        "the whole rendered page carries exactly one <input type=\"file\"> whose id equals "
         "airlines_page.REPLACE_INPUT_ID and is the target of a label's for attribute, and both the label and "
         "the file input live inside the framed zone wrapper (quick task 260903-df3) — the accessibility "
         "contract the move from per-card to shared must not lose",
@@ -6203,9 +6214,16 @@ def main():
             rendered = airlines_page.render(_ctx(tmp))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+        # Phase 14 (14-02-PLAN.md Task 3) retargeted this count in place
+        # (no EXPECTED_CHECK_COUNT change — same check, re-scoped): the
+        # shared dialog now also renders its own resolve-upload form
+        # (_resolve_upload_form_html(), id_suffix="-dialog"), which
+        # reuses the identical icon-upload glyph via the same
+        # layout.icon_html() call, so two occurrences are now expected,
+        # not one.
         use_tag = "<use href=" + '"#icon-upload"'
-        if rendered.count(use_tag) != 1:
-            return False, "expected exactly one %r in the rendered page, got %d" % (
+        if rendered.count(use_tag) != 2:
+            return False, "expected exactly two %r in the rendered page, got %d" % (
                 use_tag, rendered.count(use_tag))
         source_path = os.path.join(HERE, "pages", "airlines_page.py")
         with open(source_path) as fh:
@@ -6387,6 +6405,15 @@ def main():
         _resolve_section_four_states_render_correctly)
 
     def _resolve_section_datalist_contract():
+        # Phase 14 (14-02-PLAN.md Task 3) retargeted this check onto
+        # _resolve_slice(rendered) in place (no EXPECTED_CHECK_COUNT
+        # change — same check, re-scoped): the shared dialog now
+        # unconditionally renders its own copy of this datalist too
+        # (_resolve_name_form_html("", "-dialog"), id "known-airlines-
+        # dialog"), so a full-page option count would double to 54.
+        # This check's own subject is the no-JS fallback's datalist, so
+        # it slices down to that section exactly like every sibling
+        # resolve-section check already does.
         tmp = _mkstate("a-resolve-datalist")
         try:
             _seed_unresolved_prefixes(tmp, {
@@ -6398,20 +6425,21 @@ def main():
             ctx = _ctx(tmp)
             ctx["resolve_prefix"] = "XYZ"
             rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
             names = illustrations.target_airline_names()
-            option_count = rendered.count("<option value=")
+            option_count = section.count("<option value=")
             if option_count != len(names):
                 return False, "expected %d <option> elements (one per target airline), got %d" % (
                     len(names), option_count)
-            datalist_match = re.search(r'<datalist id="([^"]+)">', rendered)
+            datalist_match = re.search(r'<datalist id="([^"]+)">', section)
             if not datalist_match:
                 return False, "expected a <datalist id=\"...\"> element"
-            list_attr_match = re.search(r'list="([^"]+)"', rendered)
+            list_attr_match = re.search(r'list="([^"]+)"', section)
             if not list_attr_match or list_attr_match.group(1) != datalist_match.group(1):
                 return False, "expected the name input's list attribute to equal the datalist's own id"
             for name in names:
                 expected_option = '<option value="%s">' % layout.escape_html(name)
-                if expected_option not in rendered:
+                if expected_option not in section:
                     return False, "expected an escaped %r for airline %r" % (expected_option, name)
             return True, ""
         finally:
@@ -7001,13 +7029,39 @@ def main():
                             return False, (
                                 "expected no data-view-panel-replace-action value to carry a cache buster "
                                 "in the real /airlines HTTP response body, found one on %r" % (action,))
-                    if body_text.count('action=""') != 1:
+                    # Phase 14 (14-02-PLAN.md Task 3) retargeted these two
+                    # assertions in place (no count change to
+                    # EXPECTED_CHECK_COUNT — this is the same check,
+                    # re-scoped): a bare substring count of 'action=""'
+                    # is no longer unambiguous now that every trigger
+                    # carries the full data-view-panel-* vocabulary,
+                    # including data-view-panel-upload-action="" and
+                    # data-view-panel-delete-action="" on every plain
+                    # curated card — both contain the literal substring
+                    # 'action=""' without being a real HTML `action`
+                    # attribute at all. A leading space isolates the
+                    # real attribute (`<form ... action="">`) from a
+                    # hyphenated data-attribute name ending in
+                    # "-action" (which has no space immediately before
+                    # "action"). The expected count is 3, not 1: the
+                    # shared dialog now carries three real empty-action
+                    # forms (replace, resolve-upload, delete) — the
+                    # resolve-name form's own action is never empty (it
+                    # always posts to RESOLVE_ROUTE, in both the dialog
+                    # and the no-JS fallback).
+                    if body_text.count(' action=""') != 3:
                         return False, (
-                            "expected action=\"\" exactly once in the real /airlines HTTP response body, "
-                            "got %d" % body_text.count('action=""'))
-                    if body_text.count('<input type="file"') != 1:
+                            "expected ' action=\"\"' exactly 3 times (replace/resolve-upload/delete "
+                            "forms) in the real /airlines HTTP response body, "
+                            "got %d" % body_text.count(' action=""'))
+                    # Phase 14 (14-02-PLAN.md Task 3) retargeted: the
+                    # dialog now also carries the resolve-upload form's
+                    # own file input, alongside the pre-existing replace
+                    # form's, so the expected count is 2, not 1.
+                    if body_text.count('<input type="file"') != 2:
                         return False, (
-                            "expected <input type=\"file\" exactly once in the real /airlines HTTP response "
+                            "expected <input type=\"file\" exactly twice (replace form, resolve-upload "
+                            "form) in the real /airlines HTTP response "
                             "body, got %d" % body_text.count('<input type="file"'))
 
                 elif path == "/history":
