@@ -161,7 +161,7 @@ ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 # companion/pages/config_page.py, for the Settings theme picker's own
 # markup — see theme_preview.py's module docstring for the full reasoning.
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
-# Phase 14 D-10 (14-05-PLAN.md): single definition site is companion/
+# Phase 15 D-10 (15-05-PLAN.md): single definition site is companion/
 # pages/config_page.py (app.py imports that module, so the reverse import
 # would be a cycle) — rebound here exactly like RUNWAY_IMAGE_ROUTE_PREFIX/
 # SETTINGS_ROUTE above.
@@ -199,7 +199,7 @@ FLASH_KEY_MANUAL_PREFIX_STALE = airlines_page.FLASH_MANUAL_PREFIX_STALE
 FLASH_KEY_MANUAL_REGISTRY_FULL = airlines_page.FLASH_MANUAL_REGISTRY_FULL
 FLASH_KEY_MANUAL_SAVE_FAILED = airlines_page.FLASH_MANUAL_SAVE_FAILED
 FLASH_KEY_MANUAL_DELETE_FAILED = airlines_page.FLASH_MANUAL_DELETE_FAILED
-# Phase 14 D-10 (14-05-PLAN.md): the seven rule-editor flash keys are
+# Phase 15 D-10 (15-05-PLAN.md): the seven rule-editor flash keys are
 # defined once in companion/pages/config_page.py, for the identical
 # reason FLASH_KEY_SAVED/etc. above are — mirroring that same rebinding
 # pattern exactly.
@@ -270,7 +270,7 @@ FLASH_MESSAGES = {
     FLASH_KEY_MANUAL_DELETE_FAILED: (
         "Couldn't delete that entry — the frame's state directory may "
         "not be writable."),
-    # Phase 14 D-10 (14-05-PLAN.md, 14-UI-SPEC.md's Flash Messages table,
+    # Phase 15 D-10 (15-05-PLAN.md, 15-UI-SPEC.md's Flash Messages table,
     # byte-identical). rule_replaced's copy is a template: the {key}
     # placeholder is filled in by _resolve_flash_text()'s own second
     # special case below, never interpolated here.
@@ -335,7 +335,7 @@ FLASH_ROLES = {
     FLASH_KEY_MANUAL_REGISTRY_FULL: "alert",
     FLASH_KEY_MANUAL_SAVE_FAILED: "alert",
     FLASH_KEY_MANUAL_DELETE_FAILED: "alert",
-    # Phase 14 D-10: added/replaced/deleted are "status" (an outcome of a
+    # Phase 15 D-10: added/replaced/deleted are "status" (an outcome of a
     # normal add/delete flow); key-invalid/registry-full/save-failed/
     # delete-failed are "alert" (a rejection or a genuine failure) —
     # matching this dict's usual success/rejection split above.
@@ -432,14 +432,14 @@ def _validated_next_route(candidate):
 
 
 def _resolve_flash_text(flash_key, state_dir, rule_key=None):
-    """`rule_key` (Phase 14 D-10, 14-05-PLAN.md) is the second special
+    """`rule_key` (Phase 15 D-10, 15-05-PLAN.md) is the second special
     case this function carries, mirroring FLASH_KEY_POLL_COOLDOWN's own
     runtime-value-interpolation shape immediately below: FLASH_KEY_RULE_
     REPLACED's template names the key the operator just typed
     (`page_context()` passes the raw `rule=` query value through this
     parameter).
 
-    T-14-14: `rule_key` is re-normalised through `colour_rules.
+    T-15-14: `rule_key` is re-normalised through `colour_rules.
     normalise_rule_callsign()` before it is ever interpolated — never
     trusted from the request unvalidated. That normaliser's charset
     (`[A-Z0-9]{2,8}`) is a strict superset of the hex and prefix
@@ -898,11 +898,11 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         params = parse_qs(parsed.query)
         flash_key = params.get("flash", [None])[0]
-        # Phase 14 D-10: the raw `rule=` query value, read alongside the
+        # Phase 15 D-10: the raw `rule=` query value, read alongside the
         # existing flash-key read — for FLASH_KEY_RULE_REPLACED's own
         # "Updated the rule for {key}" copy. Passed straight through to
         # _resolve_flash_text(), which is the sole place it is
-        # re-normalised before ever being interpolated (T-14-14).
+        # re-normalised before ever being interpolated (T-15-14).
         rule_key = params.get("rule", [None])[0]
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
@@ -984,7 +984,7 @@ class Handler(BaseHTTPRequestHandler):
             # ThreadingHTTPServer, so it must never read a manual
             # resolution through that cache.
             "manual_resolutions": manual_resolutions.load_manual_resolutions(state_dir),
-            # Phase 14 D-10 (14-05-PLAN.md): read fresh per request,
+            # Phase 15 D-10 (15-05-PLAN.md): read fresh per request,
             # exactly like manual_resolutions above and for the identical
             # reason — never the poll cycle's own once-per-cycle
             # process-scoped registry cache (see server/plane/
@@ -1560,7 +1560,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.redirect(airlines_page.AIRLINES_ROUTE)
 
     def _handle_rule_add_post(self):
-        """POST /settings/rules/add (Phase 14 D-10, D-11, 14-05-PLAN.md):
+        """POST /settings/rules/add (Phase 15 D-10, D-11, 15-05-PLAN.md):
         the per-flight colour-rules editor's immediate add route,
         following `_handle_manual_resolve_post()`'s shape above — an
         immediate action outside SETTINGS_ROUTE and the settings form's
@@ -1582,14 +1582,14 @@ class Handler(BaseHTTPRequestHandler):
         `rule_theme_id` (the rejected-kind/rejected-theme results) is a
         hostile-request shape, not a genuine user mistake, and reuses
         the generic save-failed key rather than earning its own message
-        (14-UI-SPEC.md's own explicit asymmetry) — the failed result and
+        (15-UI-SPEC.md's own explicit asymmetry) — the failed result and
         any other unrecognised result map to the same generic key.
 
         No CSRF token: the session cookie's `SameSite=Strict` flag is
         this site's documented CSRF control for every state-changing
         POST (companion/auth.py:132), matching every other route in
         this file rather than inventing a second mechanism for this
-        route pair alone (T-14-13, accepted risk).
+        route pair alone (T-15-13, accepted risk).
         """
         form = self.read_form()
         state_dir = self.args.state_dir
@@ -1608,7 +1608,7 @@ class Handler(BaseHTTPRequestHandler):
             # Both segments are already known-valid at this point (that is
             # exactly why add_rule() returned ADD_OK_REPLACED rather than
             # a rejection) — re-derived here, never trusted from the raw
-            # form value, matching T-14-14's validate-then-echo discipline.
+            # form value, matching T-15-14's validate-then-echo discipline.
             normalised_kind = colour_rules.normalise_rule_kind(submitted_kind)
             normalised_value = colour_rules.normalise_rule_value(
                 normalised_kind, submitted_key)
@@ -1628,15 +1628,15 @@ class Handler(BaseHTTPRequestHandler):
         return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
 
     def _handle_rule_delete(self, kind, value):
-        """POST /settings/rules/{kind}/{value}/delete (Phase 14 D-10,
-        T-14-01, 14-05-PLAN.md): mirrors `_handle_manual_resolution_
+        """POST /settings/rules/{kind}/{value}/delete (Phase 15 D-10,
+        T-15-01, 15-05-PLAN.md): mirrors `_handle_manual_resolution_
         delete()`'s shape above, with the one extra normalisation step
         this route's two-segment path needs. Both `kind` and `value` are
         re-normalised through `colour_rules.normalise_rule_kind()`/
         `normalise_rule_value()` BEFORE either is ever used as a registry
         lookup — an unrecognised kind or a malformed value 404s without
         touching the registry, never a lookup against a request-supplied
-        string (T-14-01).
+        string (T-15-01).
 
         Deleting an already-absent `(kind, value)` is success, not an
         error — idempotent double-submission tolerance, matching
@@ -1959,7 +1959,7 @@ class Handler(BaseHTTPRequestHandler):
             key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
             return self._handle_illustration_replace(key)
 
-        # Phase 14 D-10 (14-05-PLAN.md): the rules editor's two immediate
+        # Phase 15 D-10 (15-05-PLAN.md): the rules editor's two immediate
         # POST routes, behind the same require_session() gate as every
         # other state-changing route above — no new auth mechanism and no
         # CSRF token, inheriting the site-wide session gate and the

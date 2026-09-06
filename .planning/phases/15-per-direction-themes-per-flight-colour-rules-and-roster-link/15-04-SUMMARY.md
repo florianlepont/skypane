@@ -1,17 +1,17 @@
 ---
-phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link
+phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link
 plan: 04
 subsystem: ui
 tags: [settings-page, css-only-reveal, checkbox, chip-grid, form-validation, python-stdlib]
 
 requires:
-  - phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link (plan 02)
+  - phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link (plan 02)
     provides: "device_config.CLEAR_THEME_ARRIVING sentinel, theme_arriving config key, save_device_config()'s three-state theme_arriving contract"
 provides:
   - "The Settings page's Theme group renders a settings-checkbox toggle plus a second, identical 18-chip grid for the arrivals theme override, both always present in the HTML"
   - "A CSS-only :has() reveal (inside @supports selector(:has(*))) hides the second grid/label when the checkbox is unchecked, with a no-JS/no-:has() fallback that always shows both"
   - "handle_post() genuinely clears theme_arriving back to None when the arrivals checkbox is unchecked, keyed on the checkbox field alone, never on theme_arriving's presence"
-affects: [14-05, settings-page-verification]
+affects: [15-05, settings-page-verification]
 
 tech-stack:
   added: []
@@ -29,7 +29,7 @@ key-files:
 key-decisions:
   - "theme_fieldset()'s new current_theme_arriving parameter defaults to None so every pre-Phase-14 call site (including test call sites) keeps working unchanged, rather than requiring every caller to pass two args"
   - "The second grid pre-selects the EFFECTIVE arrivals theme (the stored override if set, otherwise the same theme the first grid has selected) so ticking the checkbox starts from the theme already in use, not from nothing"
-  - "handle_post() branches on the theme_arriving_enabled checkbox field, never on theme_arriving's own presence, and passes CLEAR_THEME_ARRIVING (not None) when unchecked — the two failure modes 14-RESEARCH.md's Pitfalls 2/3 warned about"
+  - "handle_post() branches on the theme_arriving_enabled checkbox field, never on theme_arriving's own presence, and passes CLEAR_THEME_ARRIVING (not None) when unchecked — the two failure modes 15-RESEARCH.md's Pitfalls 2/3 warned about"
 
 requirements-completed: []
 
@@ -52,10 +52,10 @@ coverage:
     description: "handle_post() genuinely clears a previously-set theme_arriving override back to None when the arrivals checkbox is unchecked, even though theme_arriving itself is still present with a valid id"
     verification:
       - kind: unit
-        ref: "companion/test_config_page.py#_theme_arriving_clearable_contract_full_round_trip (14-VALIDATION.md row 7)"
+        ref: "companion/test_config_page.py#_theme_arriving_clearable_contract_full_round_trip (15-VALIDATION.md row 7)"
         status: pass
       - kind: integration
-        ref: "companion/test_config_page.py#_settings_form_raw_post_no_js_clears_and_sets_theme_arriving (14-VALIDATION.md row 11)"
+        ref: "companion/test_config_page.py#_settings_form_raw_post_no_js_clears_and_sets_theme_arriving (15-VALIDATION.md row 11)"
         status: pass
     human_judgment: false
   - id: D4
@@ -74,7 +74,7 @@ completed: 2026-09-06
 status: complete
 ---
 
-# Phase 14 Plan 04: Arrivals-Theme Checkbox and Clearable Override Summary
+# Phase 15 Plan 04: Arrivals-Theme Checkbox and Clearable Override Summary
 
 **The Settings page's Theme group gains a CSS-only-revealed second chip grid for the arrivals theme, and `handle_post()` now genuinely clears the override on uncheck instead of silently carrying it forward.**
 
@@ -89,14 +89,14 @@ status: complete
 
 - Extracted `theme_fieldset()`'s inline chip loop into a shared `_theme_chip_grid_html()` helper, called twice (departures grid unchanged, arrivals grid new) so the two markups can never drift apart
 - Added the `settings-checkbox`-wrapped arrivals toggle, the "Arrivals theme" label, and the second 18-chip grid — both grids and the checkbox always render in the HTML; a new, separate `@supports selector(:has(*))` block in `companion/static/style.css` hides the second grid/label only when the toggle is unchecked and `:has()` is supported
-- Extended `handle_post()` with `theme_arriving`/`theme_arriving_enabled`, validated by the same membership test `theme` uses, then branched on the checkbox field alone — passing `device_config.CLEAR_THEME_ARRIVING` (never `None`) when unchecked, closing the exact two failure modes `14-RESEARCH.md`'s Pitfalls 2/3 warned about
+- Extended `handle_post()` with `theme_arriving`/`theme_arriving_enabled`, validated by the same membership test `theme` uses, then branched on the checkbox field alone — passing `device_config.CLEAR_THEME_ARRIVING` (never `None`) when unchecked, closing the exact two failure modes `15-RESEARCH.md`'s Pitfalls 2/3 warned about
 - Repaired five pre-existing count-shaped assertions in `companion/test_config_page.py` that the second grid legitimately doubled, and added 9 new checks (markup, pre-selection, one per Task 2 behavior bullet, the named clearable-contract round trip, and a raw no-JS HTTP POST), raising `EXPECTED_CHECK_COUNT` from 92 to 101
 
 ## Task Commits
 
 1. **Task 1: Add the arrivals checkbox and the second chip grid to the Theme group, plus their CSS (D-05)** - `8027a70` (feat)
 2. **Task 2: Make the unchecked checkbox genuinely clear theme_arriving in handle_post() (D-04/D-05)** - `0f83a00` (feat)
-3. **Task 3: Extend companion/test_config_page.py with the arrivals-override checks (14-VALIDATION.md row 7)** - `72235aa` (test)
+3. **Task 3: Extend companion/test_config_page.py with the arrivals-override checks (15-VALIDATION.md row 7)** - `72235aa` (test)
 
 _Note: Task 1 and Task 2 both touch `companion/pages/config_page.py` but in disjoint regions (the markup helpers/`theme_fieldset()`/`render()` wiring vs. `handle_post()`'s validation branch); each commit was constructed to contain exactly its own task's hunks._
 
@@ -128,7 +128,7 @@ None — no external service configuration required.
 
 ## Next Phase Readiness
 
-This plan is independent of 14-01/14-03 and depends only on 14-02 (already landed in wave 1). Plan 14-05 (per-flight colour rules) can proceed without waiting on this plan's own artifacts, per the phase's dependency map. The Theme group's markup, CSS, and `handle_post()` contract are all stable and fully covered by the 101-check harness; no follow-up work is implied.
+This plan is independent of 15-01/15-03 and depends only on 15-02 (already landed in wave 1). Plan 15-05 (per-flight colour rules) can proceed without waiting on this plan's own artifacts, per the phase's dependency map. The Theme group's markup, CSS, and `handle_post()` contract are all stable and fully covered by the 101-check harness; no follow-up work is implied.
 
 ## Self-Check: PASSED
 
@@ -140,5 +140,5 @@ This plan is independent of 14-01/14-03 and depends only on 14-02 (already lande
 - FOUND: commit `72235aa` (Task 3)
 
 ---
-*Phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link*
+*Phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link*
 *Completed: 2026-09-06*

@@ -191,14 +191,14 @@ EXPECTED_CHECK_COUNT = 87  # merge of HEAD (79: Phase 10/11's Quiet hours +
 # call count at execution time (92/92 pass), not trusted from arithmetic
 # alone.
 EXPECTED_CHECK_COUNT = 92
-# 14-04-PLAN.md (D-04/D-05): +9 (the arrivals-checkbox/second-grid markup
+# 15-04-PLAN.md (D-04/D-05): +9 (the arrivals-checkbox/second-grid markup
 # check, the "override stored" pre-selection check, one check per Task 2
 # <behavior> bullet — checked persists, checkbox-absent clears, crafted
 # checkbox value rejected, non-member theme_arriving rejected across
 # three adversarial payloads, and a partial post still carries theme/
 # runway forward — the named clearable-contract full round trip
-# (14-VALIDATION.md row 7), and the raw no-JS HTTP POST check
-# (14-VALIDATION.md row 11, the Settings-form half)). Five pre-existing
+# (15-VALIDATION.md row 7), and the raw no-JS HTTP POST check
+# (15-VALIDATION.md row 11, the Settings-form half)). Five pre-existing
 # checks were retargeted in place with no count change, per this file's
 # own established retarget-without-recounting discipline: the
 # theme_fieldset() default-selection and current-theme-and-runway checks
@@ -213,7 +213,7 @@ EXPECTED_CHECK_COUNT = 92
 # the real on-disk check(...) call count at execution time (101/101
 # pass), not trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 101
-# 14-05-PLAN.md Task 3 (D-10/D-11): +8 (the rules-section-placement
+# 15-05-PLAN.md Task 3 (D-10/D-11): +8 (the rules-section-placement
 # check, the empty-state-then-list check, the cards-before-table DOM-
 # order check, the escaped-verbatim copy check, the kind-cell/add-form-
 # option shared-mapping check, the computed-swatch check, the
@@ -1059,7 +1059,7 @@ def main():
         _theme_fieldset_covers_every_registered_theme_with_own_id_and_label)
 
     def _theme_fieldset_default_selects_exactly_the_white_option():
-        # Phase 14 D-05: theme_fieldset() now always renders a second
+        # Phase 15 D-05: theme_fieldset() now always renders a second
         # (arrivals) chip grid alongside the first (departures) one, called
         # here with no explicit theme_arriving override (the default), so
         # the second grid pre-selects the SAME effective theme as the
@@ -1082,7 +1082,7 @@ def main():
         return True, ""
     check(
         "theme_fieldset() rendered with the new default theme id and no arrivals override marks exactly one option "
-        "selected PER grid (Phase 14 D-05 doubles this from 1 to 2), and both are White",
+        "selected PER grid (Phase 15 D-05 doubles this from 1 to 2), and both are White",
         _theme_fieldset_default_selects_exactly_the_white_option)
 
     def _runway_fieldset_exactly_three_radios():
@@ -1244,7 +1244,7 @@ def main():
         # use — its control marker is "theme-chip-grid", not the retired
         # radio-list's bare "options" skip-marker.
         #
-        # Phase 14 D-05: theme_fieldset() now emits a SECOND <p> — the
+        # Phase 15 D-05: theme_fieldset() now emits a SECOND <p> — the
         # "Arrivals theme" label (.theme-direction-label) above the
         # revealed second grid — which is a real, deliberate addition, not
         # a regression of the one-caption-per-section rule: that rule
@@ -1348,7 +1348,7 @@ def main():
             return False, "expected exactly one runway-card--selected modifier"
         if 'value="black" class="visually-hidden" checked' not in rendered:
             return False, "expected the saved theme (black) to be marked selected via its radio input"
-        # Phase 14 D-05: with no theme_arriving override in device_config,
+        # Phase 15 D-05: with no theme_arriving override in device_config,
         # theme_fieldset()'s second (arrivals) grid pre-selects the SAME
         # effective theme as the first (departures) grid — doubling this
         # count from 1 to 2, one per grid, both landing on "black".
@@ -1356,7 +1356,7 @@ def main():
             return False, "expected exactly two theme-chip--selected modifiers (one per grid), got %d" % rendered.count("theme-chip--selected")
         return True, ""
     check(
-        "the currently-saved theme is shown current in both chip grids (Phase 14 D-05 doubles this from 1 to 2 "
+        "the currently-saved theme is shown current in both chip grids (Phase 15 D-05 doubles this from 1 to 2 "
         "absent an arrivals override) and the (non-default) saved runway card is the one marked selected",
         _current_theme_and_runway_are_selected)
 
@@ -1616,11 +1616,11 @@ def main():
             # silently kept the prior/default value instead; the merged
             # Phase 8 registry (19 real entries) makes "black" valid, so
             # it now persists as posted.
-            # Phase 14 (14-02): load_device_config() now always returns
+            # Phase 15 (15-02): load_device_config() now always returns
             # theme_arriving too. It is None here because this post carries no
             # arrivals override, and None means "same theme as departures" —
             # never DEFAULT_THEME_ID. Added to this full-dict equality the same
-            # mechanical way 14-02 updated its 9 siblings in
+            # mechanical way 15-02 updated its 9 siblings in
             # server/test_config_history.py; the assertion stays an exact-dict
             # comparison rather than being loosened to a subset check.
             if on_disk != {"theme": "black", "theme_arriving": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": False}:
@@ -2412,7 +2412,7 @@ def main():
         # _palette_hex() against the theme's own departing_index/
         # arriving_index — real panel palette colours, never hardcoded.
         #
-        # Phase 14 D-05: theme_fieldset() now renders TWO chip grids (one
+        # Phase 15 D-05: theme_fieldset() now renders TWO chip grids (one
         # per THEME_IDS entry each), doubling this count from *2 to *4 —
         # 2 dots per chip, 2 grids.
         rendered = config_page.theme_fieldset("white")
@@ -2432,7 +2432,7 @@ def main():
     check(
         "every theme chip in both grids carries exactly two .theme-chip__dot swatches whose inline background "
         "values equal _palette_hex() computed from that theme's own departing_index/arriving_index (06.6.4.1.1-05, "
-        "doubled to *4 by Phase 14 D-05's second grid)",
+        "doubled to *4 by Phase 15 D-05's second grid)",
         _theme_chip_swatch_dots_carry_real_palette_hex_values)
 
     def _theme_chip_radio_hidden_and_check_glyph_present_on_every_chip():
@@ -2443,7 +2443,7 @@ def main():
         # "Selected" text, present on all 16 chips regardless of which one
         # is actually selected.
         #
-        # Phase 14 D-05: theme_fieldset() now renders TWO chip grids, so
+        # Phase 15 D-05: theme_fieldset() now renders TWO chip grids, so
         # the check-glyph and "Selected" text counts double from
         # theme_count to theme_count * 2 (the name="theme" radio count
         # itself stays scoped to the first grid only, since the second
@@ -2467,13 +2467,13 @@ def main():
     check(
         "every theme chip's radio carries class=\"visually-hidden\" (never display:none) and every chip in both "
         "grids carries a .theme-chip__check glyph with visually-hidden \"Selected\" text, present on all chips "
-        "regardless of selection (06.6.4.1.1-05, doubled by Phase 14 D-05's second grid)",
+        "regardless of selection (06.6.4.1.1-05, doubled by Phase 15 D-05's second grid)",
         _theme_chip_radio_hidden_and_check_glyph_present_on_every_chip)
 
     # ------------------------------------------------------------------
-    # 14-04-PLAN.md (D-04/D-05): the arrivals-override checkbox, its
+    # 15-04-PLAN.md (D-04/D-05): the arrivals-override checkbox, its
     # revealed second chip grid, and handle_post()'s clearable-checkbox
-    # contract (14-VALIDATION.md row 7).
+    # contract (15-VALIDATION.md row 7).
     # ------------------------------------------------------------------
 
     def _theme_arriving_markup_both_grids_copy_and_checkbox_present():
@@ -2531,7 +2531,7 @@ def main():
         "the rendered Settings page carries both theme chip grids (the plain .theme-chip-grid and its "
         ".theme-chip-grid--arrivals/[data-arrival-grid] sibling), the arrivals checkbox nested in a "
         "settings-checkbox label with id=theme-arriving-toggle, both new copy strings escaped-verbatim, and "
-        "exactly 2*len(THEME_IDS) theme-chip__preview images (Phase 14 D-05)",
+        "exactly 2*len(THEME_IDS) theme-chip__preview images (Phase 15 D-05)",
         _theme_arriving_markup_both_grids_copy_and_checkbox_present)
 
     def _theme_arriving_override_preselects_second_grid_and_checks_the_box():
@@ -2553,7 +2553,7 @@ def main():
         return True, ""
     check(
         "theme_fieldset() with a stored theme_arriving override checks the arrivals checkbox and pre-selects "
-        "the OVERRIDE (not the departures theme) in the second grid (Phase 14 D-05)",
+        "the OVERRIDE (not the departures theme) in the second grid (Phase 15 D-05)",
         _theme_arriving_override_preselects_second_grid_and_checks_the_box)
 
     def _handle_post_theme_arriving_checked_persists_chosen_id():
@@ -2699,7 +2699,7 @@ def main():
         _handle_post_theme_arriving_partial_post_still_carries_other_fields)
 
     def _theme_arriving_clearable_contract_full_round_trip():
-        # 14-VALIDATION.md row 7 - the acceptance criterion the whole plan
+        # 15-VALIDATION.md row 7 - the acceptance criterion the whole plan
         # exists for. Named so a failure says plainly that unchecking the
         # box failed to clear the override. Proves the full sequence: save
         # with the box checked and a chosen arrivals theme (confirm it
@@ -2750,7 +2750,7 @@ def main():
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
     check(
-        "the clearable contract (14-VALIDATION.md row 7): a checked save with a chosen arrivals theme persists it, "
+        "the clearable contract (15-VALIDATION.md row 7): a checked save with a chosen arrivals theme persists it, "
         "then an unchecked save (with theme_arriving still present) clears it back to None while every other "
         "setting survives unchanged - fails loudly if unchecking stops clearing the override",
         _theme_arriving_clearable_contract_full_round_trip)
@@ -2855,7 +2855,7 @@ def main():
         # positive restore rule rather than a re-scoped guard.
         source = _read_static("style.css")
 
-        # Phase 14 D-05 adds a SECOND @supports selector(:has(*)) block —
+        # Phase 15 D-05 adds a SECOND @supports selector(:has(*)) block —
         # the arrivals-checkbox CSS-only reveal — placed after this one
         # (the live-selection-state block quick task 260904-bbi added).
         # index() below still resolves to this block's own opening brace
@@ -2865,7 +2865,7 @@ def main():
         supports_marker = "@supports selector(:has(*)) {"
         if source.count(supports_marker) != 2:
             return False, (
-                "expected exactly two %r blocks (this live-selection-state one, plus Phase 14 D-05's "
+                "expected exactly two %r blocks (this live-selection-state one, plus Phase 15 D-05's "
                 "arrivals-reveal one), got %d" % (supports_marker, source.count(supports_marker)))
         supports_idx = source.index(supports_marker)
 
@@ -3157,7 +3157,7 @@ def main():
         _dirty_state_js_still_has_no_network_or_timer_sinks)
 
     # ==================================================================
-    # 14-05-PLAN.md Task 3 (D-10, D-11, 14-VALIDATION.md row 10): the
+    # 15-05-PLAN.md Task 3 (D-10, D-11, 15-VALIDATION.md row 10): the
     # per-flight colour-rules editor's markup/copy checks.
     # ==================================================================
 
@@ -3176,7 +3176,7 @@ def main():
                 % (form_end, rules_pos, poll_pos))
         return True, ""
     check(
-        "render() places the rules section between the settings </form> and the Poll section (Phase 14 D-10)",
+        "render() places the rules section between the settings </form> and the Poll section (Phase 15 D-10)",
         _rules_section_renders_between_form_and_poll_section)
 
     def _rules_section_empty_state_then_list_once_a_rule_exists():
@@ -3220,7 +3220,7 @@ def main():
         return True, ""
     check(
         "the rules section renders the empty state with no rules, and the empty state is replaced by "
-        "the cards-then-table list once a rule exists (Phase 14 D-10)",
+        "the cards-then-table list once a rule exists (Phase 15 D-10)",
         _rules_section_empty_state_then_list_once_a_rule_exists)
 
     def _rules_list_cards_precede_table_in_dom_order():
@@ -3278,13 +3278,13 @@ def main():
         return True, ""
     check(
         "every rules-section copy string (heading, caption, field labels, kind labels, value hint, "
-        "empty-state heading/body) appears escaped-verbatim, matching 14-UI-SPEC.md's Copywriting "
+        "empty-state heading/body) appears escaped-verbatim, matching 15-UI-SPEC.md's Copywriting "
         "Contract byte for byte",
         _rules_copy_appears_escaped_verbatim)
 
     def _rules_section_heading_locked_verbatim():
         # Exact equality is a stronger gate than a substring check, and
-        # pins the section heading against 14-UI-SPEC.md's Copywriting
+        # pins the section heading against 15-UI-SPEC.md's Copywriting
         # Contract literally — "Per-flight colour rules" — rather than
         # only via the RULES_SECTION_HEADING constant every check above
         # already reuses.
@@ -3294,7 +3294,7 @@ def main():
                 % (config_page.RULES_SECTION_HEADING,))
         return True, ""
     check(
-        "RULES_SECTION_HEADING equals 14-UI-SPEC.md's locked \"Per-flight colour rules\" heading exactly",
+        "RULES_SECTION_HEADING equals 15-UI-SPEC.md's locked \"Per-flight colour rules\" heading exactly",
         _rules_section_heading_locked_verbatim)
 
     def _rules_kind_cell_and_add_form_option_share_one_mapping():
@@ -3504,7 +3504,7 @@ def main():
             _settings_post_empty_body_persists_led_false_and_renders_unchecked)
 
         def _settings_form_raw_post_no_js_clears_and_sets_theme_arriving():
-            # 14-VALIDATION.md row 11 (the Settings-form half this plan
+            # 15-VALIDATION.md row 11 (the Settings-form half this plan
             # owns): a raw, URL-encoded POST to the live SETTINGS_ROUTE -
             # no client script involved - once with the arrivals checkbox
             # key present, once with it absent, proving the set/clear
@@ -3541,7 +3541,7 @@ def main():
         check(
             "a raw, URL-encoded no-JS POST to SETTINGS_ROUTE sets theme_arriving when the arrivals checkbox key "
             "is present and clears it back to None when the checkbox key is simply absent, over the real HTTP "
-            "path (14-VALIDATION.md row 11, the Settings-form half)",
+            "path (15-VALIDATION.md row 11, the Settings-form half)",
             _settings_form_raw_post_no_js_clears_and_sets_theme_arriving)
 
         def _settings_post_unauthenticated_redirects_to_login_and_writes_nothing():

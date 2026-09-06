@@ -1,5 +1,5 @@
 ---
-phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link
+phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link
 plan: 02
 subsystem: server-config
 tags: [config, theme, sentinel, tdd-adjacent]
@@ -12,9 +12,9 @@ dependency-graph:
     - "device_config.json theme_arriving key"
     - "save_device_config(theme_arriving=...) three-state contract"
   affects:
-    - companion/pages/config_page.py (plan 14-04, not yet wired)
-    - server/plane/colour_rules.py (plan 14-01, reads theme_arriving via .get())
-    - server/poll_loop.py (plan 14-03, not yet wired)
+    - companion/pages/config_page.py (plan 15-04, not yet wired)
+    - server/plane/colour_rules.py (plan 15-01, reads theme_arriving via .get())
+    - server/poll_loop.py (plan 15-03, not yet wired)
 tech-stack:
   added: []
   patterns:
@@ -33,7 +33,7 @@ metrics:
   completed: 2026-09-06
 ---
 
-# Phase 14 Plan 02: theme_arriving config field with a clearable sentinel Summary
+# Phase 15 Plan 02: theme_arriving config field with a clearable sentinel Summary
 
 Added `theme_arriving`, the optional per-direction theme override (D-04), to `server/device_config.py` — including the phase's hardest design point: a `CLEAR_THEME_ARRIVING` sentinel that lets `save_device_config()` genuinely clear a previously-set override, something `None`'s existing "carry forward" meaning cannot express.
 
@@ -62,7 +62,7 @@ Added `theme_arriving`, the optional per-direction theme override (D-04), to `se
 
 **`companion/test_config_page.py` line ~1555** ("a post with a valid theme and runway writes both and returns the saved flash key") does a full-dict equality against `load_device_config()`'s output without the new `theme_arriving` key, so it now fails (`scripts/run-all-tests.sh` reports this single harness as FAILED; every other of the 17 harnesses passes, including `server/test_config_history.py` at 54/54 and `server/test_render.py`'s unedited D-07 gate at 134/134).
 
-This is the same class of break Task 1 fixed in `server/test_config_history.py`, but `companion/pages/config_page.py` and its test file are explicitly owned by sibling plan 14-04 (see this plan's own `<verification>`: `git diff -- server/poll_loop.py companion/` must be empty for 14-02's commits, and the artifacts table lists `config_page.py`'s `theme_arriving`-related symbols as "produced by sibling plans ... do not create here"). Modifying `companion/` here would violate that explicit boundary. Plan 14-04 will need the identical one-line fix (`"theme_arriving": None,` added to the expected dict literal at that assertion) when it wires up the arrivals-theme-override checkbox — flagging this explicitly so it isn't mistaken for new work when 14-04 lands.
+This is the same class of break Task 1 fixed in `server/test_config_history.py`, but `companion/pages/config_page.py` and its test file are explicitly owned by sibling plan 15-04 (see this plan's own `<verification>`: `git diff -- server/poll_loop.py companion/` must be empty for 15-02's commits, and the artifacts table lists `config_page.py`'s `theme_arriving`-related symbols as "produced by sibling plans ... do not create here"). Modifying `companion/` here would violate that explicit boundary. Plan 15-04 will need the identical one-line fix (`"theme_arriving": None,` added to the expected dict literal at that assertion) when it wires up the arrivals-theme-override checkbox — flagging this explicitly so it isn't mistaken for new work when 15-04 lands.
 
 No auth gates encountered.
 

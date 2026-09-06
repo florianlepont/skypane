@@ -151,8 +151,8 @@ together — but they don't have to ship together.
 
 **Partially promoted 2026-09-06 ("Lancement SEED 3"):** sub-ideas 1 and 2 —
 per-direction themes and callsign/hex/prefix colour rules — were promoted as
-**Phase 14** and discussed the same day (see
-`.planning/phases/14-per-direction-themes-per-flight-colour-rules-and-roster-link/14-CONTEXT.md`,
+**Phase 15** and discussed the same day (see
+`.planning/phases/15-per-direction-themes-per-flight-colour-rules-and-roster-link/15-CONTEXT.md`,
 D-01 through D-13). **Sub-idea 3, the roster half, stays here, dormant**, by
 the split decision (D-01): it depends on two answers only K Stewart can give
 (the roster app's export format, and their explicit consent). The developer's
@@ -162,6 +162,6 @@ an iCal subscription URL as the source; rendering by a dedicated theme only
 matching on flight number + day via `callsign_iata`; the URL kept as an
 environment-variable secret in `skypane.env`, never in `state_dir` — so
 re-promoting it starts from a design conversation, not from a cold seed.
-Phase 14 builds the rule store a roster match will later write into, and
+Phase 15 builds the rule store a roster match will later write into, and
 deliberately reserves nothing for it (D-02). Status unchanged: dormant, for
 the roster half. Trigger for that half: the two answers above, in hand.

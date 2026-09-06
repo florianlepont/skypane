@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Contract harness for server/plane/colour_rules.py - the phase 14
+"""Contract harness for server/plane/colour_rules.py - the phase 15
 per-flight colour-rule registry and D-13 resolver
-(14-VALIDATION.md Wave 0 item 1).
+(15-VALIDATION.md Wave 0 item 1).
 
 Stdlib-only, plus the module under test (server.plane.colour_rules) and
 its own dependency (server.device_config). Every fixture is a
@@ -30,7 +30,7 @@ REPO_ROOT = os.path.dirname(HERE)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-# Initial value for this file, introduced by phase 14 plan 01. Re-derived
+# Initial value for this file, introduced by phase 15 plan 01. Re-derived
 # by RUNNING the harness (not by arithmetic), per this repo's own
 # documented discipline (see the ledger comment above
 # companion/test_status_pages.py's own EXPECTED_CHECK_COUNT and
@@ -269,7 +269,7 @@ def main():
         return True, ""
     check("set_colour_rules_state_dir(None) clears the cache and resolve_effective_theme_id() falls through to the base theme", _cache_reset_to_none)
 
-    # 15. T-14-01 hostile-input sweep: every hostile value must be rejected
+    # 15. T-15-01 hostile-input sweep: every hostile value must be rejected
     #     by add_rule() with some ADD_REJECTED_* value (write-side), and the
     #     same shapes written directly to disk must be dropped by
     #     load_colour_rules() (read-side) — the allowlist re-applied on
@@ -309,7 +309,7 @@ def main():
             return False, "registry not empty after the read-side hostile-input sweep: %r" % (registry_from_disk,)
 
         return True, ""
-    check("add_rule() rejects every hostile value in the sweep (write-side) and load_colour_rules() drops the same shapes written directly to disk (read-side), for all three kinds (T-14-01)", _hostile_input_sweep)
+    check("add_rule() rejects every hostile value in the sweep (write-side) and load_colour_rules() drops the same shapes written directly to disk (read-side), for all three kinds (T-15-01)", _hostile_input_sweep)
 
     # 16. D-09 added-versus-replaced: the first add returns ADD_OK_NEW, a
     #     second add for the same (kind, value) returns ADD_OK_REPLACED with
@@ -356,7 +356,7 @@ def main():
         return True, ""
     check("add_rule() distinguishes ADD_OK_NEW from ADD_OK_REPLACED (a replace is not growth) and enforces COLOUR_RULE_MAX_ENTRIES only against new keys (D-09)", _added_versus_replaced_and_cap_enforcement)
 
-    # 17. T-14-02 atomicity: after a successful add_rule() and after a
+    # 17. T-15-02 atomicity: after a successful add_rule() and after a
     #     successful delete_rule(), no colour_rules.json*.tmp file remains
     #     in the state dir.
     def _no_stray_tmp_file_after_add_and_delete():
@@ -376,7 +376,7 @@ def main():
         return True, ""
     check("no colour_rules.json.tmp file remains after a successful add_rule() or delete_rule() (atomicity proof)", _no_stray_tmp_file_after_add_and_delete)
 
-    # 18. T-14-02 concurrency proof: several concurrent add_rule() calls for
+    # 18. T-15-02 concurrency proof: several concurrent add_rule() calls for
     #     distinct keys (companion/app.py's real ThreadingHTTPServer
     #     concurrency shape) must all persist durably under _WRITE_LOCK - no
     #     lost update from an unsynchronised load-modify-write race - which
@@ -415,7 +415,7 @@ def main():
         return True, ""
     check(
         "20 concurrent add_rule() calls for 20 distinct prefixes (ThreadingHTTPServer's real concurrency "
-        "shape) all persist durably with no lost update and no stray .tmp file left behind (T-14-02)",
+        "shape) all persist durably with no lost update and no stray .tmp file left behind (T-15-02)",
         _concurrent_add_rule_calls_lose_no_updates)
 
     # 19-25. D-13 resolver truth table, all seven rows, each its own check
@@ -505,7 +505,7 @@ def main():
         return True, ""
     check("resolve_effective_theme_id() never raises for flight=None/{}/non-dict, a None callsign/hex, or a device_cfg with no theme_arriving key, falling through to the base theme", _resolver_never_raises_on_defensive_inputs)
 
-    # 27. T-14-05: a cached entry whose theme_id is not a member of
+    # 27. T-15-05: a cached entry whose theme_id is not a member of
     #     device_config.THEMES is ignored by the resolver rather than
     #     returned, even though the entry is present in the cache (injected
     #     by writing the file, priming the cache, then mutating the cache
@@ -527,7 +527,7 @@ def main():
         finally:
             c.set_colour_rules_state_dir(None)
         return True, ""
-    check("resolve_effective_theme_id() ignores a cached entry whose theme_id is not a member of device_config.THEMES rather than returning it (T-14-05)", _tampered_cache_theme_id_ignored)
+    check("resolve_effective_theme_id() ignores a cached entry whose theme_id is not a member of device_config.THEMES rather than returning it (T-15-05)", _tampered_cache_theme_id_ignored)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

@@ -1,5 +1,5 @@
 ---
-phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link
+phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link
 plan: 01
 subsystem: api
 tags: [python, colour-rules, json-registry, threading-lock, theme-resolution]
@@ -11,7 +11,7 @@ provides:
   - "resolve_effective_theme_id(state, flight, device_cfg): the single D-13 resolution function (callsign rule > hex rule > prefix rule > arrivals override > base theme)"
   - "server/test_colour_rules.py: 27-check contract harness proving the registry and resolver contract"
   - "scripts/run-all-tests.sh registers the new harness (18 total harnesses)"
-affects: [14-02, 14-03, 14-05]
+affects: [15-02, 15-03, 15-05]
 
 # Tech tracking
 tech-stack:
@@ -28,7 +28,7 @@ key-files:
     - scripts/run-all-tests.sh
 
 key-decisions:
-  - "Registry JSON nests by kind ({\"callsign\": {...}, \"hex\": {...}, \"prefix\": {...}}) rather than flattening (kind, value) into one composite string key, per 14-RESEARCH.md's discretion recommendation (Assumption A5)"
+  - "Registry JSON nests by kind ({\"callsign\": {...}, \"hex\": {...}, \"prefix\": {...}}) rather than flattening (kind, value) into one composite string key, per 15-RESEARCH.md's discretion recommendation (Assumption A5)"
   - "ICAO24 hex rule values canonicalise to UPPERCASE (matching UI-SPEC's rendered example), even though live ADS-B hex values arrive lowercase from detect._normalise_selection() — the resolver uppercases the live value before lookup"
   - "add_rule()'s validation-before-write order is kind -> key -> theme id, matching Task 1's exact acceptance-criteria ordering"
 
@@ -65,7 +65,7 @@ completed: 2026-09-06
 status: complete
 ---
 
-# Phase 14 Plan 01: colour_rules.py Registry and D-13 Resolver Summary
+# Phase 15 Plan 01: colour_rules.py Registry and D-13 Resolver Summary
 
 **New leaf module `server/plane/colour_rules.py` — a state_dir-backed per-flight colour-rule registry keyed on exact callsign/ICAO24 hex/3-letter prefix, plus the single `resolve_effective_theme_id()` function every displayed-flight render will consult, with a 27-check contract harness and suite registration.**
 
@@ -79,7 +79,7 @@ status: complete
 
 ## Accomplishments
 - `server/plane/colour_rules.py`: the rules registry (`load_colour_rules()`, `add_rule()`, `delete_rule()`, `rule_rows()`, `set_colour_rules_state_dir()`) and the D-13 resolver (`resolve_effective_theme_id()`), copying `manual_resolutions.py`'s atomic-write/never-raise/write-lock contract exactly, with the `ADD_OK_NEW`/`ADD_OK_REPLACED` split as the one deliberate extension.
-- `server/test_colour_rules.py`: 27 checks — full registry contract coverage, the T-14-01 hostile-input sweep (write- and read-side, all three kinds), the D-09 added-versus-replaced-plus-cap proof, the T-14-02 atomicity/20-thread-concurrency proof, and all seven rows of the D-13 resolver truth table plus two defence-in-depth checks (never-raises on defensive inputs, tampered-cache theme_id ignored).
+- `server/test_colour_rules.py`: 27 checks — full registry contract coverage, the T-15-01 hostile-input sweep (write- and read-side, all three kinds), the D-09 added-versus-replaced-plus-cap proof, the T-15-02 atomicity/20-thread-concurrency proof, and all seven rows of the D-13 resolver truth table plus two defence-in-depth checks (never-raises on defensive inputs, tampered-cache theme_id ignored).
 - `scripts/run-all-tests.sh` now runs 18 harnesses (was 17), with the header and array comment updated to match.
 
 ## Task Commits
@@ -98,9 +98,9 @@ _Note: no TDD gate applies to this plan's frontmatter (tdd="true" is set on Task
 - `scripts/run-all-tests.sh` - `HARNESSES` array gains `server/test_colour_rules.py`; header/comment counts updated 17 -> 18.
 
 ## Decisions Made
-- Registry JSON shape nests by kind (`{"callsign": {...}, "hex": {...}, "prefix": {...}}`), following 14-RESEARCH.md's discretionary recommendation (Assumption A5) rather than a flattened composite key.
+- Registry JSON shape nests by kind (`{"callsign": {...}, "hex": {...}, "prefix": {...}}`), following 15-RESEARCH.md's discretionary recommendation (Assumption A5) rather than a flattened composite key.
 - ICAO24 hex rule values canonicalise to uppercase on both write and read; the resolver uppercases the live (lowercase) ADS-B `hex` field before lookup, since no prior normaliser for this field existed in the codebase.
-- The `run-all-tests.sh` array comment describing the phase 14 addition intentionally avoids restating the literal string `server/test_colour_rules.py` a second time (it says "the new colour-rules harness below" instead), so `grep -c "server/test_colour_rules.py" scripts/run-all-tests.sh` stays at exactly 1, matching Task 3's acceptance criteria while still recording the addition in the enumeration's ledger-comment style.
+- The `run-all-tests.sh` array comment describing the phase 15 addition intentionally avoids restating the literal string `server/test_colour_rules.py` a second time (it says "the new colour-rules harness below" instead), so `grep -c "server/test_colour_rules.py" scripts/run-all-tests.sh` stays at exactly 1, matching Task 3's acceptance criteria while still recording the addition in the enumeration's ledger-comment style.
 
 ## Deviations from Plan
 
@@ -120,25 +120,25 @@ _Note: no TDD gate applies to this plan's frontmatter (tdd="true" is set on Task
 **Impact on plan:** No scope creep; purely a local test-execution environment fix required because a fresh worktree has no venv of its own.
 
 ## Issues Encountered
-- Task 3's acceptance criteria (`grep -c "server/test_colour_rules.py" scripts/run-all-tests.sh` returns `1`) is in tension with the task's own `<action>` instruction to add a comment mention "matching the way it already records the earlier additions" (which, for `server/test_manual_resolutions.py`, appears twice — once in the comment, once in the array). Resolved by keeping the array entry as the sole literal occurrence of the full path and phrasing the new comment clause without repeating that exact string, satisfying the acceptance criterion while still recording the phase 14 plan 01 addition in the ledger-comment style.
+- Task 3's acceptance criteria (`grep -c "server/test_colour_rules.py" scripts/run-all-tests.sh` returns `1`) is in tension with the task's own `<action>` instruction to add a comment mention "matching the way it already records the earlier additions" (which, for `server/test_manual_resolutions.py`, appears twice — once in the comment, once in the array). Resolved by keeping the array entry as the sole literal occurrence of the full path and phrasing the new comment clause without repeating that exact string, satisfying the acceptance criterion while still recording the phase 15 plan 01 addition in the ledger-comment style.
 
 ## User Setup Required
 None - no external service configuration required.
 
 ## Next Phase Readiness
-- `server/plane/colour_rules.py`'s full public surface (13 functions + all constants) is available for plan 14-03 (poll_loop cache-priming + the two `resolve_effective_theme_id()` call sites) and plan 14-05 (companion Settings UI add/delete routes and rules list rendering).
+- `server/plane/colour_rules.py`'s full public surface (13 functions + all constants) is available for plan 15-03 (poll_loop cache-priming + the two `resolve_effective_theme_id()` call sites) and plan 15-05 (companion Settings UI add/delete routes and rules list rendering).
 - `server/plane/manual_resolutions.py`, `server/plane/enrich.py`, and `server/plane/render.py` are byte-for-byte unchanged (D-07 standing gate verified via `git diff --stat` and `test_render.py`'s unedited `EXPECTED_CHECK_COUNT`).
-- No blockers for 14-02/14-03/14-05.
+- No blockers for 15-02/15-03/15-05.
 
 ---
-*Phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link*
+*Phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link*
 *Completed: 2026-09-06*
 
 ## Self-Check: PASSED
 
 - FOUND: server/plane/colour_rules.py
 - FOUND: server/test_colour_rules.py
-- FOUND: .planning/phases/14-per-direction-themes-per-flight-colour-rules-and-roster-link/14-01-SUMMARY.md
+- FOUND: .planning/phases/15-per-direction-themes-per-flight-colour-rules-and-roster-link/15-01-SUMMARY.md
 - FOUND commit: 658134a
 - FOUND commit: 2cd8908
 - FOUND commit: 309fffc

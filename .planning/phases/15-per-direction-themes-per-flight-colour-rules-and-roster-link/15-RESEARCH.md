@@ -1,4 +1,4 @@
-# Phase 14: Per-direction themes, per-flight colour rules and roster-linked highlighting - Research
+# Phase 15: Per-direction themes, per-flight colour rules and roster-linked highlighting - Research
 
 **Researched:** 2026-09-06
 **Domain:** Server-side configuration/resolution logic (Python stdlib), companion web-form plumbing — no new render code, no new external dependency, no on-glass surface
@@ -9,9 +9,9 @@
 
 ### Locked Decisions
 
-- **D-01:** Phase 14 = the resolution seam + per-direction theme + per-flight rules. The roster half is deferred, not dropped. It stays in SEED-003 as the explicitly deferred third step and is re-promoted as its own phase once export format and consent are in hand. A roster match will be a rule sourced automatically instead of typed.
+- **D-01:** Phase 15 = the resolution seam + per-direction theme + per-flight rules. The roster half is deferred, not dropped. It stays in SEED-003 as the explicitly deferred third step and is re-promoted as its own phase once export format and consent are in hand. A roster match will be a rule sourced automatically instead of typed.
 - **D-02:** Nothing anticipatory is built for the roster half. Rules are purely manual; no reserved "origin"/"source" field, no dormant code path. The rule record's shape must stay *extensible* (documentation obligation on the store's module docstring, not a field).
-- **D-03:** The developer's intent for the roster half was captured now, as notes (see Deferred Ideas), but none of it binds Phase 14.
+- **D-03:** The developer's intent for the roster half was captured now, as notes (see Deferred Ideas), but none of it binds Phase 15.
 - **D-04:** One theme plus an optional arrivals override — not two symmetric fields. `"theme"` keeps its meaning (frame's theme: departures, empty state, quiet-hours/display-off hold screens, Settings previews, anything not an arrival render). A second, optional key (name Claude's discretion, e.g. `theme_arriving`) holds the arrivals theme; unset means "same as `theme`". Consequences: existing `device_config.json` stays valid byte-for-byte with no migration; `load_device_config()` keeps returning every key; the new key joins `wake_interval_s` as the second key whose valid value set includes `None`; its `normalise_*` helper never raises and degrades an unrecognised id to `None` (= same as `theme`), NOT to `DEFAULT_THEME_ID`; `save_device_config()` gains the field with the same carry-forward-on-`None` contract, and — unlike `wake_interval_s` — this field **must** be clearable from the form (D-05), so an explicit "clear" path is needed, not only "carry forward".
 - **D-05:** Settings: a checkbox under the Theme group reveals a second, identical chip grid. Locked-English module constants; wording Claude's discretion ("Use a different theme for arrivals"). Checked reveals a second `.theme-chip-grid` of the same 18 chips with the same rendered previews (`/theme-preview/{id}.png`, per theme id, not per direction). Unchecked at save time clears the override. The second grid is always present in HTML, hidden by the checkbox's state (no-JS-safe); checkbox follows existing `settings-checkbox` normalisation and absent-means-off semantics. Both values travel in the one existing Settings form/save bar.
 - **D-06 (derived):** The override is the whole theme, for the whole panel, for arrival renders only. Empty/hold screens always use `theme`.
@@ -26,14 +26,14 @@
 ### Claude's Discretion
 
 - Field and file names (`theme_arriving`, the rules file name, the rule record's field names), the rules cap, the hex normalisation details, and where exactly the resolver function lives (in `device_config.py` or a sibling leaf module).
-- All user-facing copy for the new checkbox, the rules form, the list's empty state and the flash messages — locked-English constants (settled by 14-UI-SPEC.md already; see that file for the final copy deck).
+- All user-facing copy for the new checkbox, the rules form, the list's empty state and the flash messages — locked-English constants (settled by 15-UI-SPEC.md already; see that file for the final copy deck).
 - Whether the poll loop's log line and `run_once()`'s result dict report the effective theme id (recommended: yes) and whether History/Health surface that a rule fired (no requirement either way).
 - Whether the second chip grid's previews reuse the on-disk cache as-is (recommended: yes).
 - Test strategy, following the codebase's own harnesses (`server/test_config_history.py`-style device-config tests, `companion/test_config_page.py`, `server/test_poll_loop.py`, `server/test_pipeline_e2e.py`).
 
 ### Deferred Ideas (OUT OF SCOPE)
 
-The roster half of SEED-003 (deferred by D-01; intent captured for a future phase — iCal subscription URL, theme-only rendering, flight-number+day match via `callsign_iata`, secret as an env var). Registration (tail number) as a rule key. A visible trace on History/Health that a rule/override fired. **None of this is to be researched, planned, or built in Phase 14.**
+The roster half of SEED-003 (deferred by D-01; intent captured for a future phase — iCal subscription URL, theme-only rendering, flight-number+day match via `callsign_iata`, secret as an env var). Registration (tail number) as a rule key. A visible trace on History/Health that a rule/override fired. **None of this is to be researched, planned, or built in Phase 15.**
 </user_constraints>
 
 <phase_requirements>
@@ -59,7 +59,7 @@ This phase adds zero new dependencies and zero new render code. Its entire risk 
 | Effective-theme resolution (rule → arrivals override → base theme) | API/Backend (`server/poll_loop.py` + new `server/plane/colour_rules.py`) | — | Pure server-side decision logic; nothing here touches the panel's pixel composition, which stays `render.build_canvas()`'s job unchanged |
 | Per-direction theme storage | API/Backend (`server/device_config.py`) | — | Same file/module that already owns `theme`, `tracked_runway`, etc. — this is a new key in an existing config store, not a new store |
 | Per-flight rule storage | API/Backend (new `server/plane/colour_rules.py`, `state_dir` JSON) | — | Mirrors `manual_resolutions.py`'s precedent exactly: a runtime-writable registry the poll pipeline reads and the companion writes, never database-backed (this project has no general-purpose DB beyond `history_db.py`'s SQLite, which is CFG-06/08 history data, not config) |
-| Settings UI (checkbox + second grid, rules add/delete forms) | Frontend Server (companion, `companion/pages/config_page.py`) | — | Already-settled by 14-UI-SPEC.md; server-rendered HTML, no client JS beyond the existing CSS `:has()` reveal |
+| Settings UI (checkbox + second grid, rules add/delete forms) | Frontend Server (companion, `companion/pages/config_page.py`) | — | Already-settled by 15-UI-SPEC.md; server-rendered HTML, no client JS beyond the existing CSS `:has()` reveal |
 | Rules add/delete routes | API/Backend (`companion/app.py`) | — | Immediate POST routes outside the dirty-bar form, mirroring Phase 13's `RESOLVE_ROUTE`/`MANUAL_DELETE_ROUTE_PREFIX` shape |
 | Panel rendering | Database/Storage boundary N/A; Rendering tier (`server/plane/render.py`) | — | **Untouched.** `build_canvas(theme_id=...)` already accepts any registered theme id at every call site; this phase only changes *which* id is passed in, never the function's signature or body |
 
@@ -237,7 +237,7 @@ This is the ONLY place in the whole write path that needs to know the sentinel e
 - [ ] Result-code constants (`ADD_OK`, `ADD_REJECTED_*`, `ADD_FAILED`) that are **not** flash keys themselves — the HTTP layer maps them onto its own flash-key vocabulary, keeping the registry module ignorant of companion-specific presentation concerns.
 - [ ] **The import-cycle rule, stated explicitly in `manual_resolutions.py`'s own module docstring:** it imports `server.plane.illustrations` (a dependency it needs) but documents that it must **never** import `server.plane.enrich` — that direction is reserved for `enrich` to import `manual_resolutions`; the reverse would be a cycle. **The equivalent rule for `colour_rules.py` (D-13):** it may import `server.device_config` (for `THEME_IDS` membership validation) but must **never** import `server.plane.enrich`, `server.plane.detect`, `server.plane.illustrations`, `server.plane.manual_resolutions`, or `server.plane.render` — `poll_loop.py` already imports all of those plus the new module, and none of them may import back into it, or `poll_loop → colour_rules → X → poll_loop` becomes a real cycle risk the moment any of those modules' own import graphs shift.
 
-**The deliberate extension `manual_resolutions.py` does NOT have, that `colour_rules.py` DOES need:** Phase 13's `add_entry()` always returns `ADD_OK` on success — Phase 13's UI has no "this replaced something" flash message. Phase 14's UI-SPEC explicitly requires two distinct success flashes (`rule_added` vs `rule_replaced`, D-09's "make replaced legible" requirement). This means `add_rule()`'s result vocabulary must extend beyond a literal copy of `manual_resolutions.py`'s `ADD_*` constants — e.g. `ADD_OK_NEW` / `ADD_OK_REPLACED` instead of a single `ADD_OK`, computed by checking `(kind, value) in registry` **before** the mutation, inside the same `_WRITE_LOCK`-held critical section `manual_resolutions.add_entry()` already uses for its own pre-cap membership check. This is the single most important deviation from "copy the file exactly" — call it out explicitly in the plan so it is not lost as an unstated implementation detail.
+**The deliberate extension `manual_resolutions.py` does NOT have, that `colour_rules.py` DOES need:** Phase 13's `add_entry()` always returns `ADD_OK` on success — Phase 13's UI has no "this replaced something" flash message. Phase 15's UI-SPEC explicitly requires two distinct success flashes (`rule_added` vs `rule_replaced`, D-09's "make replaced legible" requirement). This means `add_rule()`'s result vocabulary must extend beyond a literal copy of `manual_resolutions.py`'s `ADD_*` constants — e.g. `ADD_OK_NEW` / `ADD_OK_REPLACED` instead of a single `ADD_OK`, computed by checking `(kind, value) in registry` **before** the mutation, inside the same `_WRITE_LOCK`-held critical section `manual_resolutions.add_entry()` already uses for its own pre-cap membership check. This is the single most important deviation from "copy the file exactly" — call it out explicitly in the plan so it is not lost as an unstated implementation detail.
 
 **Registry shape recommendation (Claude's Discretion, not locked):** nest by kind rather than flattening `(kind, value)` into one string key, so "most specific wins" lookup is a simple three-step chain with no risk of cross-kind key collision:
 
@@ -263,9 +263,9 @@ This is the ONLY place in the whole write path that needs to know the sentinel e
 
 Confirmed from a direct read of `companion/app.py` (lines ~1330-1460) and `companion/pages/airlines_page.py`:
 
-- **Route dispatch:** `Handler.do_POST()`'s flat `if path == X: return self._handle_Y()` chain (companion/app.py ~1707-1747). Phase 14 adds two more branches: `if path == RULES_ADD_ROUTE: return self._handle_rule_add()` and a prefix/suffix match exactly like the existing `if path.startswith(airlines_page.MANUAL_DELETE_ROUTE_PREFIX) and path.endswith(airlines_page.MANUAL_DELETE_ROUTE_SUFFIX):` pattern — except Phase 14's delete route needs **two** path segments (`{kind}/{value}`), not one, since the store key is a `(kind, value)` pair (D-09). Recommend a route shape of `/settings/rules/{kind}/{value}/delete` with a prefix of `/settings/rules/` and a suffix-check via `.endswith("/delete")`, then split the middle segment on `/` once (matching the UI-SPEC's own stated route shape).
-- **Auth gate:** every state-changing POST route in this file is reached only after `require_session()` runs earlier in `do_POST()` — a single whole-site gate, not a per-route decorator. Phase 14's two new routes need no new gate; they fall under the same existing check.
-- **Flash round-trip:** every add/delete route redirects with `?flash={key}` (occasionally `&resolve={value}` for Phase 13's specific case, not needed here), and `page_context()` resolves `flash_key` into `ctx["flash"]`/`ctx["flash_role"]` via `_resolve_flash_text()`/`FLASH_ROLES.get(flash_key, "status")` — Phase 14 needs 7 new entries in `FLASH_MESSAGES` and `FLASH_ROLES` (per 14-UI-SPEC.md's exact copy deck: `rule_added`, `rule_replaced`, `rule_key_invalid`, `rule_registry_full`, `rule_save_failed`, `rule_deleted`, `rule_delete_failed`).
+- **Route dispatch:** `Handler.do_POST()`'s flat `if path == X: return self._handle_Y()` chain (companion/app.py ~1707-1747). Phase 15 adds two more branches: `if path == RULES_ADD_ROUTE: return self._handle_rule_add()` and a prefix/suffix match exactly like the existing `if path.startswith(airlines_page.MANUAL_DELETE_ROUTE_PREFIX) and path.endswith(airlines_page.MANUAL_DELETE_ROUTE_SUFFIX):` pattern — except Phase 15's delete route needs **two** path segments (`{kind}/{value}`), not one, since the store key is a `(kind, value)` pair (D-09). Recommend a route shape of `/settings/rules/{kind}/{value}/delete` with a prefix of `/settings/rules/` and a suffix-check via `.endswith("/delete")`, then split the middle segment on `/` once (matching the UI-SPEC's own stated route shape).
+- **Auth gate:** every state-changing POST route in this file is reached only after `require_session()` runs earlier in `do_POST()` — a single whole-site gate, not a per-route decorator. Phase 15's two new routes need no new gate; they fall under the same existing check.
+- **Flash round-trip:** every add/delete route redirects with `?flash={key}` (occasionally `&resolve={value}` for Phase 13's specific case, not needed here), and `page_context()` resolves `flash_key` into `ctx["flash"]`/`ctx["flash_role"]` via `_resolve_flash_text()`/`FLASH_ROLES.get(flash_key, "status")` — Phase 15 needs 7 new entries in `FLASH_MESSAGES` and `FLASH_ROLES` (per 15-UI-SPEC.md's exact copy deck: `rule_added`, `rule_replaced`, `rule_key_invalid`, `rule_registry_full`, `rule_save_failed`, `rule_deleted`, `rule_delete_failed`).
 - **`page_context()` plumbing:** exactly one new key, `ctx["colour_rules"] = colour_rules.load_colour_rules(state_dir)`, read **fresh per request** — never the poll-cycle cache — mirroring `ctx["manual_resolutions"] = manual_resolutions.load_manual_resolutions(state_dir)`'s own comment: *"Read fresh per request... never the process-scoped cache... This service is a long-running ThreadingHTTPServer."* `companion/pages/__init__.py`'s documented `ctx` contract docstring must be updated to name this new key (matching the discipline every prior key addition there followed).
 - **No CSRF token needed:** this app's documented CSRF control is the session cookie's `SameSite=Strict` flag (companion/auth.py:132), applied uniformly to every state-changing POST — the two new rules routes inherit this for free, no new mechanism.
 
@@ -308,8 +308,8 @@ Confirmed from a direct read of `companion/app.py` (lines ~1330-1460) and `compa
 **How to avoid:** Do the added-vs-replaced membership check inside `colour_rules.add_rule()`, inside the same lock, before mutating — return a result code that already encodes the answer.
 
 ### Pitfall 5: The pre-existing `test_poll_loop.py` digest-pin note
-**What goes wrong (not a Phase 14 defect, but will be encountered):** `server/test_poll_loop.py` pins an expected SHA-256 digest of the rendered `panel.bin` for a fixed fixture, produced on Linux CI. Running the suite locally on macOS is documented, throughout this project's history, to produce a *different but expected* digest due to Pillow/FreeType font-rendering variance between platforms — the harness's own `_digest_verdict()` classifies this as a soft NOTE, not a hard FAIL, and `scripts/run-all-tests.sh` still reports overall `Result: PASS` when only this note fires.
-**How to avoid blaming Phase 14 for it:** Confirm, before starting Phase 14 work, whether this note is already present on a clean checkout (it has been present intermittently since Phase 6.3 per STATE.md's own repeated documentation of it). If it is, it is pre-existing and environment-specific, not introduced by this phase's changes — do not attempt to "fix" it as part of this phase's verification.
+**What goes wrong (not a Phase 15 defect, but will be encountered):** `server/test_poll_loop.py` pins an expected SHA-256 digest of the rendered `panel.bin` for a fixed fixture, produced on Linux CI. Running the suite locally on macOS is documented, throughout this project's history, to produce a *different but expected* digest due to Pillow/FreeType font-rendering variance between platforms — the harness's own `_digest_verdict()` classifies this as a soft NOTE, not a hard FAIL, and `scripts/run-all-tests.sh` still reports overall `Result: PASS` when only this note fires.
+**How to avoid blaming Phase 15 for it:** Confirm, before starting Phase 15 work, whether this note is already present on a clean checkout (it has been present intermittently since Phase 6.3 per STATE.md's own repeated documentation of it). If it is, it is pre-existing and environment-specific, not introduced by this phase's changes — do not attempt to "fix" it as part of this phase's verification.
 
 ## Code Examples
 
@@ -375,7 +375,7 @@ held_canvas = render.build_canvas(
 
 ## State of the Art
 
-Not applicable in the usual "library X superseded library Y" sense — no library is involved. The one relevant "state of the art" fact is internal to this codebase: `save_device_config()`'s "None means carry forward" contract was deliberately chosen in Phase 11 as *permanent, not provisional* ("there is no way to clear... through this function... not an oversight," per that module's own docstring) — Phase 14 does not reopen or contradict that decision; it adds a second, independently-gated mechanism (the sentinel) that coexists with it for exactly one field.
+Not applicable in the usual "library X superseded library Y" sense — no library is involved. The one relevant "state of the art" fact is internal to this codebase: `save_device_config()`'s "None means carry forward" contract was deliberately chosen in Phase 11 as *permanent, not provisional* ("there is no way to clear... through this function... not an oversight," per that module's own docstring) — Phase 15 does not reopen or contradict that decision; it adds a second, independently-gated mechanism (the sentinel) that coexists with it for exactly one field.
 
 ## Assumptions Log
 
@@ -391,9 +391,9 @@ Not applicable in the usual "library X superseded library Y" sense — no librar
 
 ## Open Questions (RESOLVED)
 
-> Both questions below were answered by `/gsd-plan-phase 14`: the exact-callsign shape
-> regex is specified in `14-01-PLAN.md` Task 1, and the two resolver call sites stay
-> explicit rather than sharing a helper, per `14-03-PLAN.md` Task 1. Retained as a record
+> Both questions below were answered by `/gsd-plan-phase 15`: the exact-callsign shape
+> regex is specified in `15-01-PLAN.md` Task 1, and the two resolver call sites stay
+> explicit rather than sharing a helper, per `15-03-PLAN.md` Task 1. Retained as a record
 > of what was open at research time.
 
 1. **Should `colour_rules.py` re-export/duplicate `enrich.normalise_callsign()`'s exact regex, or define an intentionally slightly different one?**
@@ -483,8 +483,8 @@ Skipped — this phase has no external tool, service, runtime, or CLI dependency
 - `server/plane/render.py` (`build_canvas()`'s signature, confirming `theme_id` is an ordinary keyword arg needing no signature change)
 - `scripts/run-all-tests.sh` (the canonical 17→18-harness list, the venv/coverage invocation)
 - `server/test_manual_resolutions.py` (the `check()`/`EXPECTED_CHECK_COUNT` harness pattern)
-- `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md` (Phase 14 section + pre-discussion framing), `.planning/STATE.md` (Decisions log for Phases 10-13, the Blockers/Concerns section, the digest-mismatch documentation trail)
-- `.planning/phases/14-.../14-CONTEXT.md`, `14-UI-SPEC.md` — this phase's own locked decisions and settled UI contract
+- `.planning/REQUIREMENTS.md`, `.planning/ROADMAP.md` (Phase 15 section + pre-discussion framing), `.planning/STATE.md` (Decisions log for Phases 10-13, the Blockers/Concerns section, the digest-mismatch documentation trail)
+- `.planning/phases/14-.../15-CONTEXT.md`, `15-UI-SPEC.md` — this phase's own locked decisions and settled UI contract
 
 ### Secondary (MEDIUM confidence)
 None — no web search or external documentation lookup was needed for this phase; every claim traces to a direct read of this repository's own code or planning documents.

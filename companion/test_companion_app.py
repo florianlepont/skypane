@@ -254,7 +254,7 @@ EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
 # anywhere before this, which is exactly why CR-01 shipped. Recomputed
 # directly against the real on-disk check(...) call count, not trusted
 # from arithmetic alone.
-# 14-05-PLAN.md Task 3 (D-10/D-11, 14-VALIDATION.md rows 10/11): +6 (the
+# 15-05-PLAN.md Task 3 (D-10/D-11, 15-VALIDATION.md rows 10/11): +6 (the
 # unauthenticated-writes-nothing check for both new routes, the
 # add/delete-forms-sit-outside-the-settings-form check, the raw no-JS
 # added-then-replaced check, the rejection-paths check covering
@@ -2076,7 +2076,7 @@ def main():
                     "got %r" % (key, resolved))
         if app_module._resolve_flash_text("not-a-real-flash-key", "/nonexistent") is not None:
             return False, "expected _resolve_flash_text() to return None for an unknown key"
-        # Phase 14 D-10 (14-05-PLAN.md): FLASH_KEY_RULE_REPLACED joins
+        # Phase 15 D-10 (15-05-PLAN.md): FLASH_KEY_RULE_REPLACED joins
         # FLASH_KEY_POLL_COOLDOWN as the second deliberately-interpolated
         # key ("{key}", D-09's "make replaced legible" requirement) —
         # widened in place, not loosened: every other FLASH_MESSAGES value
@@ -2096,7 +2096,7 @@ def main():
         "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "
         "UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an "
         "unknown key still resolves to None, and no FLASH_MESSAGES value carries a "
-        "runtime placeholder except the cooldown and rule_replaced keys (Phase 14 D-10 "
+        "runtime placeholder except the cooldown and rule_replaced keys (Phase 15 D-10 "
         "widened this in place, not loosened)",
         _flash_manual_keys_complete_and_byte_identical)
 
@@ -4033,8 +4033,8 @@ def main():
             _manual_resolution_delete_post_delete_failed_on_unwritable_state_dir)
 
         # --- POST /settings/rules/add and POST /settings/rules/{kind}/
-        # {value}/delete (Phase 14 D-10, D-11, 14-05-PLAN.md Task 3,
-        # 14-VALIDATION.md rows 10/11) — each check below spins up its
+        # {value}/delete (Phase 15 D-10, D-11, 15-05-PLAN.md Task 3,
+        # 15-VALIDATION.md rows 10/11) — each check below spins up its
         # own isolated Harness(), matching the manual-resolution checks
         # above, since these routes write a real colour_rules.json. The
         # add route's three form fields are rule_kind, rule_key and
@@ -4157,7 +4157,7 @@ def main():
             "the rules add form and each delete form sit outside <form id=SETTINGS_FORM_ID> "
             "(D-10): neither carries the settings form's id nor a form= attribute pointing at "
             "it, and a rule add followed by an unrelated settings-form save leaves both the "
-            "rule and every device-config setting intact (14-VALIDATION.md row 10)",
+            "rule and every device-config setting intact (15-VALIDATION.md row 10)",
             _rules_add_and_delete_forms_sit_outside_settings_form)
 
         def _rules_add_route_no_js_added_then_replaced():
@@ -4210,7 +4210,7 @@ def main():
                 rules_harness.stop()
                 rules_harness.cleanup()
         check(
-            "raw URL-encoded no-JS POSTs to the rules add route (14-VALIDATION.md row 11): a "
+            "raw URL-encoded no-JS POSTs to the rules add route (15-VALIDATION.md row 11): a "
             "first add flashes rule_added, a second add for the same key (case-insensitive "
             "input) flashes rule_replaced and echoes the normalised key back, and the "
             "registry holds exactly one entry with the second theme",

@@ -36,7 +36,7 @@ if REPO_ROOT not in sys.path:
 # 12-01: +4 (display_enabled registry field: normalise bool-only gotcha,
 # hostile-on-disk-value fail-open degradation, save round-trip +
 # carry-forward, save-rejects-non-bool with byte-identical-on-rejection)
-# 14-02: 49 -> 54, +5 (D-04/D-05 theme_arriving: normalise degrade-to-None
+# 15-02: 49 -> 54, +5 (D-04/D-05 theme_arriving: normalise degrade-to-None
 # never DEFAULT_THEME_ID, CLEAR_THEME_ARRIVING sentinel distinctness, the
 # hand-written hostile-value degrade proof, the pre-Phase-14 no-migration
 # proof, and the full three-state write contract - set / carry-forward-on-
@@ -874,13 +874,13 @@ def main():
         _wake_interval_s_carries_forward_on_unrelated_save,
     )
 
-    # --- theme_arriving (14-02, D-04/D-05) --------------------------------
+    # --- theme_arriving (15-02, D-04/D-05) --------------------------------
     #
     # theme_arriving behaves like wake_interval_s on READ - the second key
     # in this module whose valid value set includes None - but deliberately
     # diverges from it on WRITE: it must be genuinely clearable via the
     # CLEAR_THEME_ARRIVING sentinel, which wake_interval_s's contract
-    # explicitly does not offer (14-RESEARCH.md Assumption A1). The check
+    # explicitly does not offer (15-RESEARCH.md Assumption A1). The check
     # names below are deliberately explicit about which half of that split
     # each one is proving.
 
@@ -913,7 +913,7 @@ def main():
     )
 
     def _hand_written_hostile_theme_arriving_yields_none_never_default():
-        # The degrade proof (14-VALIDATION.md row 6): a hand-edited on-disk
+        # The degrade proof (15-VALIDATION.md row 6): a hand-edited on-disk
         # theme_arriving degrades to None on read, matching
         # normalise_theme_arriving()'s own contract, and is a real
         # save-then-hand-edit-then-load round trip against a temp state
@@ -941,7 +941,7 @@ def main():
     )
 
     def _pre_phase_14_file_has_no_theme_arriving_migration():
-        # The no-migration proof (14-VALIDATION.md row 6): a
+        # The no-migration proof (15-VALIDATION.md row 6): a
         # device_config.json written before this phase - one that has never
         # carried theme_arriving at all - round-trips every stored key
         # unchanged, resolves theme_arriving to None, and load_device_config()
@@ -978,7 +978,7 @@ def main():
     )
 
     def _theme_arriving_three_state_write_contract():
-        # The three-state write proof (14-VALIDATION.md row 6): set,
+        # The three-state write proof (15-VALIDATION.md row 6): set,
         # carry-forward-on-omission, CLEAR_THEME_ARRIVING clears to None
         # without disturbing an unrelated key, and a non-member value raises
         # ValueError leaving the file byte-identical - the full D-04/D-05

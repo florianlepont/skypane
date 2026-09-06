@@ -91,7 +91,7 @@ DISPLAY_OFF_SLEEP_S = 300
 # process's argparse namespace and is not knowable here (D-07, 11-RESEARCH.md Pattern 1).
 # Do not "restore consistency" by inventing a default; there isn't one to invent.
 
-# D-04/D-05 (14-CONTEXT.md): the one sentinel in this module that widens what a
+# D-04/D-05 (15-CONTEXT.md): the one sentinel in this module that widens what a
 # save_device_config() argument can mean. For every field including
 # theme_arriving, `None` keeps its single existing meaning - "the caller
 # didn't supply this parameter, carry the current on-disk value forward" -
@@ -102,7 +102,7 @@ DISPLAY_OFF_SLEEP_S = 300
 # companion/pages/health_page.py's `_DB_UNAVAILABLE` module-level `object()`
 # sentinel - the existing in-codebase idiom for a state plain `None` cannot
 # carry - rather than inventing a new pattern. The alternative considered and
-# rejected (14-RESEARCH.md Assumption A1) was a second boolean parameter
+# rejected (15-RESEARCH.md Assumption A1) was a second boolean parameter
 # `clear_theme_arriving=False`: that would give exactly one field an
 # asymmetric extra argument while every other field keeps identical arity.
 # `load_device_config()` never sees this sentinel - it exists only in

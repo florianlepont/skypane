@@ -98,7 +98,7 @@ if REPO_ROOT not in sys.path:
 # 13-05 Task 2: +2 (D-14's clear_resolved_unresolved_prefix() cleanup call:
 # removing a now-resolvable prefix's entry, and doing so independently of
 # route_source - the fresh_hit case Pitfall 2 warns about) - 62 + 2.
-# 14-03 Task 2: +6 (wiring colour_rules.resolve_effective_theme_id() into
+# 15-03 Task 2: +6 (wiring colour_rules.resolve_effective_theme_id() into
 # run_once()'s two flight-displaying render branches, D-13: the
 # both-branches battery-transition invariant; the three flight-less call
 # sites - nothing-ever-detected, the held branch's own empty-state site,
@@ -2644,9 +2644,9 @@ def main():
                 _clear_resolved_unresolved_prefix_is_independent_of_route_source,
             )
 
-            # --- plan 14-03: wire colour_rules.resolve_effective_theme_id()
+            # --- plan 15-03: wire colour_rules.resolve_effective_theme_id()
             # into run_once()'s two flight-displaying render branches (D-13),
-            # and prime the registry cache once per cycle. 14-VALIDATION.md
+            # and prime the registry cache once per cycle. 15-VALIDATION.md
             # rows 8 and 9. -----------------------------------------------
 
             # 51. The both-branches invariant (row 8) - the plan's headline
@@ -2737,7 +2737,7 @@ def main():
                 "a battery-icon repaint of the same flight (the held/re-render branch) reports the identical "
                 "effective_theme the flight-detected branch already reported, and both are the matching rule's "
                 "theme rather than the base theme - proving a battery-icon repaint can never flip the panel's "
-                "colour (D-13, 14-VALIDATION.md row 8)",
+                "colour (D-13, 15-VALIDATION.md row 8)",
                 _battery_transition_never_flips_effective_theme_for_the_same_flight,
             )
 
@@ -2765,7 +2765,7 @@ def main():
                     shutil.rmtree(b1_dir, ignore_errors=True)
             check(
                 "the nothing-ever-detected empty-state call site reports effective_theme == the base theme, "
-                "never consulting a configured rule or the arrivals override (D-09, 14-VALIDATION.md row 9)",
+                "never consulting a configured rule or the arrivals override (D-09, 15-VALIDATION.md row 9)",
                 _nothing_ever_detected_ignores_rule_and_override,
             )
 
@@ -2815,7 +2815,7 @@ def main():
             check(
                 "the held branch's own empty-state call site (a persisted flight whose confirmed_state never "
                 "resolved) reports effective_theme == the base theme, even though a rule configured to match "
-                "that flight's own callsign is present (D-09, 14-VALIDATION.md row 9)",
+                "that flight's own callsign is present (D-09, 15-VALIDATION.md row 9)",
                 _held_branch_with_no_confirmed_state_ignores_rule_and_override,
             )
 
@@ -2851,7 +2851,7 @@ def main():
             check(
                 "the hold early-return's result dict reports effective_theme == the base theme under "
                 "display-off, even with a matching rule, an arrivals override, and a pre-hold flight persisted "
-                "in poll_state.json (D-09, 14-VALIDATION.md row 9)",
+                "in poll_state.json (D-09, 15-VALIDATION.md row 9)",
                 _hold_early_return_ignores_rule_and_override,
             )
 
@@ -2904,7 +2904,7 @@ def main():
             # run_once() cycle is picked up by the very NEXT cycle - proving
             # colour_rules.set_colour_rules_state_dir() runs every cycle
             # rather than once per process, the failure mode a module-level
-            # cache populated only at import time would invite (T-14-02).
+            # cache populated only at import time would invite (T-15-02).
             def _colour_rules_registry_reloaded_every_cycle_from_its_own_state_dir():
                 d_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d13-priming-")
                 try:
@@ -2931,7 +2931,7 @@ def main():
             check(
                 "a colour rule added to the state dir AFTER one run_once() cycle is picked up by the very next "
                 "cycle - proving the registry is primed every cycle, not cached once per process "
-                "(D-13/T-14-02)",
+                "(D-13/T-15-02)",
                 _colour_rules_registry_reloaded_every_cycle_from_its_own_state_dir,
             )
 

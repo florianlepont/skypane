@@ -48,7 +48,7 @@ from server import device_config
 
 COLOUR_RULES_FILENAME = "colour_rules.json"
 
-# T-14-04: a hard reject at the cap, never weakest-entry eviction, following
+# T-15-04: a hard reject at the cap, never weakest-entry eviction, following
 # manual_resolutions.MANUAL_RESOLUTION_MAX_ENTRIES (200)'s precedent and
 # its same policy: this registry is authenticated-human-curated one entry
 # at a time, with no "weakest entry" concept to evict. This count is
@@ -68,7 +68,7 @@ RULE_KINDS = (RULE_KIND_CALLSIGN, RULE_KIND_HEX, RULE_KIND_PREFIX)
 # The one render state the arrivals override applies to (D-04/D-06).
 ARRIVING_STATE = "arriving"
 
-# T-14-01's three positive-allowlist regexes, each compiled once, each this
+# T-15-01's three positive-allowlist regexes, each compiled once, each this
 # module's share of the defence against a hand-edited or corrupted file
 # smuggling a crafted key into a live comparison.
 #
@@ -87,7 +87,7 @@ _HEX_RULE_RE = re.compile(r"^[0-9A-F]{6}$")
 _PREFIX_RE = re.compile(r"^[A-Z]{3}$")
 
 # Result constants returned by add_rule(). These are NOT flash keys —
-# companion/app.py (plan 14-05) maps them onto its own flash vocabulary;
+# companion/app.py (plan 15-05) maps them onto its own flash vocabulary;
 # this module must not know flashes exist.
 #
 # The ADD_OK_NEW/ADD_OK_REPLACED split is this module's one deliberate
@@ -104,7 +104,7 @@ ADD_REJECTED_THEME = "rejected_theme"
 ADD_REJECTED_FULL = "rejected_full"
 ADD_FAILED = "failed"
 
-# WR-02-style fix, applied from day one here (T-14-02): add_rule()/
+# WR-02-style fix, applied from day one here (T-15-02): add_rule()/
 # delete_rule() are both a load-modify-write whole-file cycle, and
 # companion/app.py runs under ThreadingHTTPServer — a real deployment.
 # This single process-wide lock serialises the ENTIRE load-check-mutate-
@@ -220,12 +220,12 @@ def load_colour_rules(state_dir):
     is `None`, or `value.get("created_at")` is not a string. This is
     defence in depth against a hand-edited file: the same allowlist
     `add_rule()` applies before persisting is re-applied here on every
-    read (T-14-01), and the same THEMES membership check `add_rule()`
-    applies is re-applied here too (T-14-05).
+    read (T-15-01), and the same THEMES membership check `add_rule()`
+    applies is re-applied here too (T-15-05).
 
     Stops once `COLOUR_RULE_MAX_ENTRIES` surviving entries have been
     accumulated across all kinds, so a hand-edited oversized file cannot
-    make a page render or a poll cycle unbounded (T-14-04). When the raw
+    make a page render or a poll cycle unbounded (T-15-04). When the raw
     file held more entries than survived, prints (never raises) a
     one-line warning naming the drop count.
     """
@@ -306,7 +306,7 @@ def add_rule(state_dir, kind, value, theme_id, now=None):
     `manual_resolutions.py`'s tmp-write-then-`os.replace()` idiom: the
     temp filename embeds both `os.getpid()` and `threading.get_ident()`
     so two concurrent companion writers can never interleave into the
-    same temp path (T-14-02). Any exception during the write is caught,
+    same temp path (T-15-02). Any exception during the write is caught,
     the stray temp file is removed if present, and `ADD_FAILED` is
     returned rather than re-raised — the caller is an HTTP route handler
     that needs a flash key, not a traceback.
@@ -450,7 +450,7 @@ def set_colour_rules_state_dir(state_dir):
 def _rule_theme_from_cache(cache, kind, key):
     """Defensive nested lookup used only by `resolve_effective_theme_id()`
     below — never raises regardless of `cache`'s shape (a tampered cache
-    dict is exactly what T-14-05's ninth harness check injects).
+    dict is exactly what T-15-05's ninth harness check injects).
     """
     if key is None:
         return None
@@ -475,7 +475,7 @@ def resolve_effective_theme_id(state, flight, device_cfg):
     Ordering trap this module cannot enforce on its own: this function
     must be called only where `render_state` and `current_flight` are
     already settled, never hoisted beside `poll_loop`'s top-of-cycle
-    config read — plan 14-03 owns that placement.
+    config read — plan 15-03 owns that placement.
     """
     cache = _cached_rules if isinstance(_cached_rules, dict) else {}
 

@@ -1,14 +1,14 @@
 ---
-phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link
+phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link
 plan: 05
 subsystem: ui
 tags: [companion, http-server, forms, colour-rules, settings-page, no-js]
 
 # Dependency graph
 requires:
-  - phase: 14-01
+  - phase: 15-01
     provides: "server/plane/colour_rules.py — the registry (add_rule/delete_rule/rule_rows/load_colour_rules), COLOUR_RULE_MAX_ENTRIES, and the ADD_* result vocabulary this plan's routes map onto flash keys"
-  - phase: 14-04
+  - phase: 15-04
     provides: "companion/pages/config_page.py and companion/static/style.css as extended for the arrivals-theme checkbox/second chip grid, which this plan re-enters and extends further"
 provides:
   - "The per-flight colour-rules editor on Settings: an add form (kind/value/theme) and a cards-then-table list with a plain per-row Delete button, rendered between the settings </form> and the Poll section"
@@ -36,7 +36,7 @@ key-files:
     - companion/test_companion_app.py
 
 key-decisions:
-  - "Confirmed 14-UI-SPEC.md's Open Question 1 recommended option: the rules <section> takes the slot Poll used to occupy, immediately after </form> closes, rather than restructuring every settings group to submit via a form= attribute"
+  - "Confirmed 15-UI-SPEC.md's Open Question 1 recommended option: the rules <section> takes the slot Poll used to occupy, immediately after </form> closes, rather than restructuring every settings group to submit via a form= attribute"
   - "The rule=<value> query parameter's kind is not carried in the redirect (only the already-normalised value is), so the replaced flash's echo validation uses the callsign normaliser's charset ([A-Z0-9]{2,8}) as a superset check covering all three kinds, rather than threading the kind through the URL too"
   - "Deleting an already-absent (kind, value) redirects with no flash at all, matching the manual-resolutions delete precedent, rather than reusing the 'deleted' flash for a no-op"
 
@@ -101,9 +101,9 @@ completed: 2026-09-06
 status: complete
 ---
 
-# Phase 14 Plan 05: Per-Flight Colour Rules Editor Summary
+# Phase 15 Plan 05: Per-Flight Colour Rules Editor Summary
 
-**Per-flight colour-rules editor on Settings (add form + cards-then-table list) backed by two immediate authenticated POST routes, with D-09's replace-on-add legibility and T-14-01's re-validate-on-every-boundary discipline.**
+**Per-flight colour-rules editor on Settings (add form + cards-then-table list) backed by two immediate authenticated POST routes, with D-09's replace-on-add legibility and T-15-01's re-validate-on-every-boundary discipline.**
 
 ## Performance
 
@@ -115,7 +115,7 @@ status: complete
 ## Accomplishments
 
 - Rendered the per-flight colour-rules editor on the Settings page: an add form (kind/value/theme selects), an empty state, and a cards-then-table list with a plain per-row Delete button — inserted immediately after the settings `</form>` closes (Poll moved one slot later) since the add form and every delete row are real `<form>` elements that cannot nest inside another `<form>`.
-- Added `POST /settings/rules/add` and `POST /settings/rules/{kind}/{value}/delete`, both authenticated immediate actions outside the settings form's dirty-bar tracking, with seven flash messages (added/replaced/key-invalid/registry-full/save-failed/deleted/delete-failed) matching 14-UI-SPEC.md's Copywriting Contract byte for byte.
+- Added `POST /settings/rules/add` and `POST /settings/rules/{kind}/{value}/delete`, both authenticated immediate actions outside the settings form's dirty-bar tracking, with seven flash messages (added/replaced/key-invalid/registry-full/save-failed/deleted/delete-failed) matching 15-UI-SPEC.md's Copywriting Contract byte for byte.
 - Threaded `colour_rules.load_colour_rules(state_dir)` into `page_context()` as `ctx["colour_rules"]`, read fresh on every request (never the poll-cycle's process-scoped cache), and documented the new ctx key in `companion/pages/__init__.py`.
 - Extended both companion harnesses with 8 new checks in `test_config_page.py` (101 → 109) and 6 new checks in `test_companion_app.py` (159 → 165); full suite is 18/18 harnesses green at 93% coverage (`config_page.py` alone rose from 91% to 99%).
 
@@ -123,7 +123,7 @@ status: complete
 
 1. **Task 1: Render the rules section on Settings — add form, list, delete rows, and its CSS (D-10, D-11)** - `2581200` (feat)
 2. **Task 2: Add the two immediate POST routes, their flash vocabulary and the ctx key (D-10)** - `7ea3c3f` (feat)
-3. **Task 3: Extend both companion harnesses with the rules-editor checks (14-VALIDATION.md rows 10 and 11)** - `9f14b97` (test)
+3. **Task 3: Extend both companion harnesses with the rules-editor checks (15-VALIDATION.md rows 10 and 11)** - `9f14b97` (test)
 
 ## Files Created/Modified
 
@@ -136,8 +136,8 @@ status: complete
 
 ## Decisions Made
 
-- Confirmed 14-UI-SPEC.md's Open Question 1 recommended option (Rules section takes Poll's old slot, immediately after `</form>` closes) rather than the alternative of threading `form=` attributes through every existing settings group.
-- Since the `rule=` redirect query parameter carries only the already-normalised value (not its kind), the replaced-flash echo is validated through `colour_rules.normalise_rule_callsign()` — the broadest of the three per-kind allowlists (`[A-Z0-9]{2,8}`, a strict superset of the hex and prefix charsets) — rather than threading the kind through the URL as well. This still guarantees only safe uppercase-alphanumeric text can ever reach the interpolated flash string (T-14-14).
+- Confirmed 15-UI-SPEC.md's Open Question 1 recommended option (Rules section takes Poll's old slot, immediately after `</form>` closes) rather than the alternative of threading `form=` attributes through every existing settings group.
+- Since the `rule=` redirect query parameter carries only the already-normalised value (not its kind), the replaced-flash echo is validated through `colour_rules.normalise_rule_callsign()` — the broadest of the three per-kind allowlists (`[A-Z0-9]{2,8}`, a strict superset of the hex and prefix charsets) — rather than threading the kind through the URL as well. This still guarantees only safe uppercase-alphanumeric text can ever reach the interpolated flash string (T-15-14).
 - Deleting an already-absent `(kind, value)` redirects with no flash at all, mirroring the manual-resolutions delete route's own idempotent-no-flash precedent, rather than reusing the "deleted" flash for a no-op.
 
 ## Deviations from Plan
@@ -168,11 +168,11 @@ None - no external service configuration required.
 ## Next Phase Readiness
 
 - This is the phase's closing plan. All three of this plan's tasks are committed, and the full `scripts/run-all-tests.sh` suite passes 18/18 harnesses at 93% coverage with zero `server/` changes (D-07's render.py/test_render.py standing gate holds; the D-01/D-02/D-03 scope-fence grep over this plan's own diff finds no roster/iCal/crew content).
-- **Open item, deliberately deferred to end-of-phase per `human_verify_mode: end-of-phase`:** the no-JS real-browser confirmation (14-VALIDATION.md's Manual-Only Verifications: arrivals-grid reveal/hide, unsaved-changes-bar non-interference, rule add/replace/delete via native form submission, and keyboard tab order through the Theme card into the revealed grid). The plan's own `<verification>` section also names the phase close-out step `/gsd-secure-phase 14` over the two new rules routes and the registry — both are phase-level closing actions, not plan-level ones, and are recorded here as the phase's one remaining obligation before it can close.
+- **Open item, deliberately deferred to end-of-phase per `human_verify_mode: end-of-phase`:** the no-JS real-browser confirmation (15-VALIDATION.md's Manual-Only Verifications: arrivals-grid reveal/hide, unsaved-changes-bar non-interference, rule add/replace/delete via native form submission, and keyboard tab order through the Theme card into the revealed grid). The plan's own `<verification>` section also names the phase close-out step `/gsd-secure-phase 15` over the two new rules routes and the registry — both are phase-level closing actions, not plan-level ones, and are recorded here as the phase's one remaining obligation before it can close.
 - No on-glass verification is in scope for this plan (D-07): every rule and override resolves to an already-registered theme id, so nothing new reaches the physical panel.
 
 ---
-*Phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link*
+*Phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link*
 *Completed: 2026-09-06*
 
 ## Self-Check: PASSED

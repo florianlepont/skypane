@@ -1,10 +1,10 @@
-# Phase 14: Per-direction themes, per-flight colour rules and roster-linked highlighting - Discussion Log
+# Phase 15: Per-direction themes, per-flight colour rules and roster-linked highlighting - Discussion Log
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
 **Date:** 2026-09-06
-**Phase:** 14-per-direction-themes-per-flight-colour-rules-and-roster-link
+**Phase:** 15-per-direction-themes-per-flight-colour-rules-and-roster-link
 **Areas discussed:** Découpage de la phase, Thème par direction, Règles par vol, Volet roster K Stewart
 **Participants:** developer + Claude (Fable 5.1); questions and options were presented in French, the developer's working language, and selected all four proposed areas.
 
@@ -12,7 +12,7 @@
 
 ## Pre-discussion findings
 
-Carried in from the promotion entry (`.planning/ROADMAP.md` §Phase 14), established by reading the code before the discussion and presented as "not re-asked":
+Carried in from the promotion entry (`.planning/ROADMAP.md` §Phase 15), established by reading the code before the discussion and presented as "not re-asked":
 
 1. Every one of the 18 registered themes already has `departing_index == arriving_index` (Phase 8 D-02 plus the retirement of "Sky" in 08-06), so the seed's "reconcile the existing pair mechanism" question has no object — sub-idea 1 reduces to a second theme selection.
 2. A rule that resolves to a theme id reuses every on-glass-verified pairing; a rule carrying a raw colour would not.
@@ -24,7 +24,7 @@ Carried in from the promotion entry (`.planning/ROADMAP.md` §Phase 14), establi
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Socle + volets 1 et 2, roster différé (Recommended) | Phase 14 delivers the seam, per-direction themes and per-flight rules; the roster half stays in SEED-003 until export format and consent are known; a roster match will write into the same rule store | ✓ |
+| Socle + volets 1 et 2, roster différé (Recommended) | Phase 15 delivers the seam, per-direction themes and per-flight rules; the roster half stays in SEED-003 until export format and consent are known; a roster match will write into the same rule store | ✓ |
 | Une seule phase, les trois volets | Planned in waves; the roster half cannot be planned until K Stewart answers, so the phase risks not closing | |
 | Trois phases, une par volet | Cleanest bookkeeping, but sub-ideas 1 and 2 share the seam and Settings work too closely | |
 
@@ -40,7 +40,7 @@ Carried in from the promotion entry (`.planning/ROADMAP.md` §Phase 14), establi
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| Capturer l'intention maintenant (Recommended) | A few questions on the roster half, recorded as notes for the future phase, not as Phase 14 decisions | ✓ |
+| Capturer l'intention maintenant (Recommended) | A few questions on the roster half, recorded as notes for the future phase, not as Phase 15 decisions | ✓ |
 | Ne pas en parler aujourd'hui | Area dropped; the seed keeps its open questions as they are | |
 
 **User's choice:** Capturer l'intention maintenant.
@@ -118,7 +118,7 @@ Carried in from the promotion entry (`.planning/ROADMAP.md` §Phase 14), establi
 
 ---
 
-## Volet roster K Stewart (intent for the deferred phase — not Phase 14 decisions)
+## Volet roster K Stewart (intent for the deferred phase — not Phase 15 decisions)
 
 | Option | Description | Selected |
 |--------|-------------|----------|

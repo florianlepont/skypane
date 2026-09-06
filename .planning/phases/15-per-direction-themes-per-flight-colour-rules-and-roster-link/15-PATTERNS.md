@@ -1,4 +1,4 @@
-# Phase 14: Per-direction themes, per-flight colour rules and roster-linked highlighting - Pattern Map
+# Phase 15: Per-direction themes, per-flight colour rules and roster-linked highlighting - Pattern Map
 
 **Mapped:** 2026-09-06
 **Files analyzed:** 9 (new + modified)
@@ -76,7 +76,7 @@ ADD_REJECTED_NAME_RESERVED = "rejected_name_reserved"
 ADD_REJECTED_FULL = "rejected_full"
 ADD_FAILED = "failed"
 ```
-`colour_rules.py`'s vocabulary must extend this shape with `ADD_OK_NEW` / `ADD_OK_REPLACED` in place of the single `ADD_OK` (RESEARCH.md's named deliberate extension, needed for the `rule_added`/`rule_replaced` flash split in 14-UI-SPEC.md). Plus `ADD_REJECTED_KIND`, `ADD_REJECTED_KEY`, `ADD_REJECTED_THEME`, `ADD_REJECTED_FULL`, `ADD_FAILED` for the three-field validation ladder (kind, key/value, theme id). These are NOT flash keys themselves — the HTTP layer maps them (see `companion/app.py` pattern below).
+`colour_rules.py`'s vocabulary must extend this shape with `ADD_OK_NEW` / `ADD_OK_REPLACED` in place of the single `ADD_OK` (RESEARCH.md's named deliberate extension, needed for the `rule_added`/`rule_replaced` flash split in 15-UI-SPEC.md). Plus `ADD_REJECTED_KIND`, `ADD_REJECTED_KEY`, `ADD_REJECTED_THEME`, `ADD_REJECTED_FULL`, `ADD_FAILED` for the three-field validation ladder (kind, key/value, theme id). These are NOT flash keys themselves — the HTTP layer maps them (see `companion/app.py` pattern below).
 
 **tmp-write-then-`os.replace()` block with `except` cleanup** (lines 375-390, inside `add_entry`):
 ```python
@@ -398,7 +398,7 @@ never a shared/real state dir. Exits 0 only when every check below
 passes; any failure (or exception) exits 1.
 """
 ...
-# Initial value for this file, introduced by phase 14. Re-derived by
+# Initial value for this file, introduced by phase 15. Re-derived by
 # RUNNING the harness (not by arithmetic), per this repo's own documented
 # discipline.
 EXPECTED_CHECK_COUNT = <N>
@@ -453,7 +453,7 @@ Add `server/test_colour_rules.py` as a new line in this array (alphabetical posi
 
 ### Locked-English module constants, one caption per section
 **Source:** `companion/pages/config_page.py`'s `THEME_SECTION_CAPTION`/`QUIET_HOURS_SECTION_CAPTION`/etc.; `companion/pages/airlines_page.py`'s `MANUAL_SECTION_CAPTION`/`MANUAL_EMPTY_HEADING`/etc.
-**Apply to:** every new copy string this phase introduces — `RULES_SECTION_HEADING`, `RULES_SECTION_CAPTION`, `RULE_VALUE_HINT`, `RULES_EMPTY_HEADING`, `RULES_EMPTY_BODY`, the checkbox label, and all 7 flash message templates — verbatim text is already locked in `14-UI-SPEC.md`'s Copywriting Contract table; do not paraphrase it.
+**Apply to:** every new copy string this phase introduces — `RULES_SECTION_HEADING`, `RULES_SECTION_CAPTION`, `RULE_VALUE_HINT`, `RULES_EMPTY_HEADING`, `RULES_EMPTY_BODY`, the checkbox label, and all 7 flash message templates — verbatim text is already locked in `15-UI-SPEC.md`'s Copywriting Contract table; do not paraphrase it.
 
 ## No Analog Found
 

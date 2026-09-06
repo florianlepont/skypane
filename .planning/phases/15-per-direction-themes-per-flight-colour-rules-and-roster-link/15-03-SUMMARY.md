@@ -1,20 +1,20 @@
 ---
-phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link
+phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link
 plan: 03
 subsystem: api
 tags: [python, poll-loop, colour-rules, theme-resolution, d-13]
 
 # Dependency graph
 requires:
-  - phase: 14-01
+  - phase: 15-01
     provides: "server/plane/colour_rules.py - the rule registry and resolve_effective_theme_id() resolver"
-  - phase: 14-02
+  - phase: 15-02
     provides: "device_config.py's theme_arriving key and CLEAR_THEME_ARRIVING sentinel"
 provides:
   - "run_once() wired to colour_rules.resolve_effective_theme_id() at exactly its two flight-displaying build_canvas() call sites"
   - "effective_theme in both of run_once()'s result dicts and in its per-cycle log line"
   - "the D-13 both-branches invariant proven live: a battery-icon repaint of a rule-matched flight can never change its rendered theme"
-affects: [14-04, 14-05]
+affects: [15-04, 15-05]
 
 # Tech tracking
 tech-stack:
@@ -31,7 +31,7 @@ key-files:
 
 key-decisions:
   - "The hold early-return's build_canvas() call, which never previously passed theme_id (the parameter is documented as ignored for quiet_hours/display_off states), now passes theme_id=theme_id explicitly - a behaviourally-inert addition made so the acceptance criteria's exact-count check (4 flight-less call sites, all literally theme_id=theme_id) holds and the 'every non-flight call site passes the bare base theme, explicitly' pattern reads uniformly across all four sites."
-  - "The both-branches invariant check (14-VALIDATION.md row 8) spies on the real render.build_canvas() call and asserts the captured theme_id kwarg, not just run_once()'s returned effective_theme field - a metadata/render divergence (correct resolver call, but a stray theme_id=theme_id at the actual build_canvas() call) would otherwise pass a dict-only check while still painting the wrong colour."
+  - "The both-branches invariant check (15-VALIDATION.md row 8) spies on the real render.build_canvas() call and asserts the captured theme_id kwarg, not just run_once()'s returned effective_theme field - a metadata/render divergence (correct resolver call, but a stray theme_id=theme_id at the actual build_canvas() call) would otherwise pass a dict-only check while still painting the wrong colour."
 
 requirements-completed: []
 
@@ -73,7 +73,7 @@ completed: 2026-09-06
 status: complete
 ---
 
-# Phase 14 Plan 03: D-13 Resolver Wiring Summary
+# Phase 15 Plan 03: D-13 Resolver Wiring Summary
 
 **Wired `colour_rules.resolve_effective_theme_id()` into `run_once()`'s two flight-displaying render branches, proving a battery-icon repaint can never flip a displayed flight's colour.**
 
@@ -139,8 +139,8 @@ None - no external service configuration required.
 
 ## Next Phase Readiness
 
-- The D-13 resolution seam is live in `run_once()`: any rule saved through the (not-yet-built) companion UI, and the `theme_arriving` override delivered by 14-02, now reach the panel for a displayed flight, and only for a displayed flight.
-- Plans 14-04 (Settings UI for `theme_arriving`) and 14-05 (Settings UI for the rules registry) can build directly on this wiring - no further `poll_loop.py` changes are needed for either to take visible effect on the next poll cycle.
+- The D-13 resolution seam is live in `run_once()`: any rule saved through the (not-yet-built) companion UI, and the `theme_arriving` override delivered by 15-02, now reach the panel for a displayed flight, and only for a displayed flight.
+- Plans 15-04 (Settings UI for `theme_arriving`) and 15-05 (Settings UI for the rules registry) can build directly on this wiring - no further `poll_loop.py` changes are needed for either to take visible effect on the next poll cycle.
 - `server/test_poll_loop.py`'s `EXPECTED_CHECK_COUNT` is now 70; any future plan extending this harness must re-derive the count by running it, not by arithmetic.
 - Full suite verified green: `scripts/run-all-tests.sh` exits 0, 18/18 harnesses, coverage 92% (unchanged from the wave-1 baseline).
 
@@ -148,11 +148,11 @@ None - no external service configuration required.
 
 - FOUND: server/poll_loop.py
 - FOUND: server/test_poll_loop.py
-- FOUND: .planning/phases/14-per-direction-themes-per-flight-colour-rules-and-roster-link/14-03-SUMMARY.md
+- FOUND: .planning/phases/15-per-direction-themes-per-flight-colour-rules-and-roster-link/15-03-SUMMARY.md
 - FOUND commit: 052ce6f
 - FOUND commit: a942432
 - FOUND commit: 480d1d9
 
 ---
-*Phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link*
+*Phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link*
 *Completed: 2026-09-06*

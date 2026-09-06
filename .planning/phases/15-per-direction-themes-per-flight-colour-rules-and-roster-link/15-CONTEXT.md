@@ -1,4 +1,4 @@
-# Phase 14: Per-direction themes, per-flight colour rules and roster-linked highlighting - Context
+# Phase 15: Per-direction themes, per-flight colour rules and roster-linked highlighting - Context
 
 **Gathered:** 2026-09-06
 **Status:** Ready for planning
@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Something more specific than "the one active theme" decides what the frame looks like for a given render. Phase 14 delivers the first two of SEED-003's three escalating levels, plus the seam they share:
+Something more specific than "the one active theme" decides what the frame looks like for a given render. Phase 15 delivers the first two of SEED-003's three escalating levels, plus the seam they share:
 
 1. **A resolution step ahead of the theme lookup** in `server/poll_loop.py`'s `run_once()` — one function, one documented order, applied identically to every render of a displayed flight.
 2. **A theme per direction** — the operator can give arrivals a different theme from the rest of the frame.
@@ -23,11 +23,11 @@ Promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calend
 
 ### Split and scope
 
-- **D-01:** **Phase 14 = the resolution seam + per-direction theme + per-flight rules. The roster half is deferred, not dropped.** Chosen over "one phase, all three sub-ideas" (which could not close until two questions only K Stewart can answer — export format and consent — are answered) and over "three phases, one per sub-idea" (sub-ideas 1 and 2 share the seam and the Settings work too closely; separating them would build the seam twice). The roster half stays in SEED-003 as its explicitly deferred third step and is re-promoted as its own phase once the export format and the consent are in hand. A roster match will be *a rule sourced automatically instead of typed*, so the rule store this phase builds is what that future phase writes into.
+- **D-01:** **Phase 15 = the resolution seam + per-direction theme + per-flight rules. The roster half is deferred, not dropped.** Chosen over "one phase, all three sub-ideas" (which could not close until two questions only K Stewart can answer — export format and consent — are answered) and over "three phases, one per sub-idea" (sub-ideas 1 and 2 share the seam and the Settings work too closely; separating them would build the seam twice). The roster half stays in SEED-003 as its explicitly deferred third step and is re-promoted as its own phase once the export format and the consent are in hand. A roster match will be *a rule sourced automatically instead of typed*, so the rule store this phase builds is what that future phase writes into.
 
 - **D-02:** **Nothing anticipatory is built for the roster half.** Rules are purely manual; no reserved "origin"/"source" field, no dormant code path. The one constraint this leaves for the planner: the rule record's shape must stay *extensible* (a future entry will carry an origin other than "manual"), which is a documentation obligation on the store's module docstring, not a field.
 
-- **D-03 [informational]:** **The developer's intent for the roster half was captured now, as notes** (see `<deferred>`), so the future phase starts from a design conversation rather than from a cold seed — but none of it binds Phase 14. Tagged `[informational]` on 2026-09-06 at the plan-phase decision-coverage gate: this decision governs what this document records, not what any plan builds, so it is deliberately not trackable to a plan. Its one buildable consequence is D-02, which is covered.
+- **D-03 [informational]:** **The developer's intent for the roster half was captured now, as notes** (see `<deferred>`), so the future phase starts from a design conversation rather than from a cold seed — but none of it binds Phase 15. Tagged `[informational]` on 2026-09-06 at the plan-phase decision-coverage gate: this decision governs what this document records, not what any plan builds, so it is deliberately not trackable to a plan. Its one buildable consequence is D-02, which is covered.
 
 ### Per-direction theme
 
@@ -80,7 +80,7 @@ Promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calend
 
 ### Origin and pre-discussion framing
 - `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calendar-highlighting.md` — the seed; sub-ideas 1 and 2 are this phase, sub-idea 3 stays here (D-01) with the intent notes in `<deferred>` below
-- `.planning/ROADMAP.md` §"Phase 14" — the promotion entry: the three corrections to the seed (no departing/arriving pair mechanism left to reconcile; rules resolve to theme ids; hex not registration), the security flags for `/gsd-secure-phase 14`, and the expected surface
+- `.planning/ROADMAP.md` §"Phase 15" — the promotion entry: the three corrections to the seed (no departing/arriving pair mechanism left to reconcile; rules resolve to theme ids; hex not registration), the security flags for `/gsd-secure-phase 15`, and the expected surface
 
 ### Theme model this phase extends
 - `.planning/phases/08-panel-theme-rework-white-default-theme-black-yellow-red-blue/08-CONTEXT.md` — D-01/D-02 (every theme is one flat colour), D-04 (theme labels), D-09 (`callsign_iata` as the tier-1 identifier — the future roster phase's match key), D-13 (nothing is trusted until seen on glass — why D-07 matters)
@@ -136,7 +136,7 @@ Promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calend
 
 - The developer chose the *sober* option every time a denser one was offered: an optional override rather than two symmetric fields, a checkbox-revealed second grid rather than two grids or a switch, a native `<select>` rather than a third chip grid, and Settings rather than a new tab. Plan and build in that register.
 - "One rule per key, adding replaces" is the developer's chosen answer to both precedence-within-a-kind and editing: there is no edit affordance and no ordering affordance by design.
-- Every option that would have put something new on the glass was rejected (raw colours, a named marker for the roster phase): the phase's on-glass footprint is zero by construction, and `Closes with` in the roadmap should be updated accordingly at plan time (no on-glass verification; a `/gsd-secure-phase 14` pass over the rules routes and store).
+- Every option that would have put something new on the glass was rejected (raw colours, a named marker for the roster phase): the phase's on-glass footprint is zero by construction, and `Closes with` in the roadmap should be updated accordingly at plan time (no on-glass verification; a `/gsd-secure-phase 15` pass over the rules routes and store).
 
 </specifics>
 
@@ -145,22 +145,22 @@ Promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calend
 
 ### The roster half of SEED-003 — deferred by D-01, intent captured 2026-09-06 for its own future phase
 
-Not decisions of Phase 14. Recorded so the future phase starts from what the developer actually wants:
+Not decisions of Phase 15. Recorded so the future phase starts from what the developer actually wants:
 
 - **Source: an iCal subscription URL to K Stewart's crew roster**, re-read periodically by the server. Chosen over weekly manual entry (a chore, and no longer "automatic") and over uploading an exported `.ics` each roster publication. Conditional on the roster app actually exposing such a URL and on what a duty event carries (plain flight number vs internal duty code) — **the single blocking unknown; ask K Stewart first.**
 - **Rendering: a dedicated theme only.** A roster match behaves as an automatic rule imposing one of the 18 registered themes the developer will choose — nothing new on the glass. A named marker on the panel (initial, first name, pictogram) was considered and rejected for now: a new render element to verify on glass, and a first name displayed on a wall.
 - **Match: flight number + day.** The displayed flight's `route["callsign_iata"]` (adsbdb, Phase 8 D-09 — so matching runs *after* enrichment, never on the raw callsign) equals the number of a roster duty dated the same day. Chosen over "flight number alone" (would highlight the days K Stewart does not fly that service). The rotating-callsign carriers in `aerodatabox-destination-lookup-rotating-callsigns.md` remain a known gap.
 - **Secret: an environment variable in `skypane.env`, the same class as `SKYPANE_COMPANION_PASSWORD`** — entered once over SSH, never written to `state_dir`, never shown by a page; Settings would only show "roster configured / not configured". Chosen over a Settings field stored in a dedicated file (which would have been the project's first runtime-written secret).
 - **Prerequisites before that phase can be discussed for real:** (1) the export format, from K Stewart; (2) their explicit agreement to their work schedule being stored and polled on the VPS — a prerequisite, not a courtesy; (3) the fetch cadence and failure behaviour (the server has no long-running process — `deploy/skypane-poll.timer` fires a 30 s oneshot — so a throttled fetch inside the oneshot, persisted to `state_dir`, never delaying the render on a slow upstream, is the expected shape); (4) the outbound-egress gate for an operator-controlled URL (HTTPS only, no private ranges, bounded size and timeout).
-- **Registration (tail number) as a rule key** — out of Phase 14 (D-08); would need `detect._normalise_selection()` to carry the aggregators' `r` field. Revisit only if hex proves too opaque in daily use.
+- **Registration (tail number) as a rule key** — out of Phase 15 (D-08); would need `detect._normalise_selection()` to carry the aggregators' `r` field. Revisit only if hex proves too opaque in daily use.
 - **A visible trace on History/Health that a rule or the arrivals override fired** — offered as a possible extra area, not selected; not in scope.
 
 ### Reviewed Todos (not folded)
-None — `todo.match-phase 14` returned zero matches.
+None — `todo.match-phase 15` returned zero matches.
 
 </deferred>
 
 ---
 
-*Phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link*
+*Phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link*
 *Context gathered: 2026-09-06*

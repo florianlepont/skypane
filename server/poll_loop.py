@@ -736,7 +736,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # state dir of its own; it keeps resolving vendored art only.
     illustrations.set_override_state_dir(state_dir)
     manual_resolutions.set_manual_registry_state_dir(state_dir)
-    # D-13 (phase 14, plan 14-03): prime the per-flight colour-rule registry
+    # D-13 (phase 15, plan 15-03): prime the per-flight colour-rule registry
     # cache from THIS cycle's own state_dir, for the identical reason the two
     # priming calls above already give - a companion-side rule save (add or
     # delete) landing mid-cycle must never split one rendered panel across
@@ -769,7 +769,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # pacing/promotion logic runs. Calling the resolver here would either
     # raise (both are undefined this early) or, worse if written
     # defensively, silently resolve against the PREVIOUS cycle's stale
-    # values (14-RESEARCH.md Pitfall 1).
+    # values (15-RESEARCH.md Pitfall 1).
     effective_theme_id = theme_id
     tracked_runway_id = device_cfg["tracked_runway"]
     # D-04/D-05/D-07 (10-CONTEXT.md): the once-per-cycle quiet-hours

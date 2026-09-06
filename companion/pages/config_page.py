@@ -16,7 +16,7 @@ import json
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
-# Phase 14 D-10 (14-05-PLAN.md): the one deliberate exception to this
+# Phase 15 D-10 (15-05-PLAN.md): the one deliberate exception to this
 # package's own page-module-isolation convention (companion/pages/
 # __init__.py; see airlines_page.py's own precedent comment for the same
 # convention applied to server.plane imports). DELETE_BUTTON_TEXT is a
@@ -79,7 +79,7 @@ QUIET_HOURS_CHECKBOX_VALUE = "on"
 # handle_post()'s validator so the two can never drift apart.
 DISPLAY_CHECKBOX_VALUE = "on"
 
-# Phase 14 D-05 (14-UI-SPEC.md Copywriting Contract): the arrivals-theme-
+# Phase 15 D-05 (15-UI-SPEC.md Copywriting Contract): the arrivals-theme-
 # override checkbox's sole accepted submitted value - a fourth consumer of
 # the same absent-means-off idiom LED_CHECKBOX_VALUE/
 # QUIET_HOURS_CHECKBOX_VALUE/DISPLAY_CHECKBOX_VALUE already establish,
@@ -95,7 +95,7 @@ THEME_ARRIVING_TOGGLE_ID = "theme-arriving-toggle"
 # grid, following this app's existing data-dirty-section/
 # data-static-save-fallback/data-filter-group convention.
 ARRIVAL_GRID_ATTR = "data-arrival-grid"
-# Locked-English copy (14-UI-SPEC.md Copywriting Contract) - do not
+# Locked-English copy (15-UI-SPEC.md Copywriting Contract) - do not
 # paraphrase.
 THEME_ARRIVING_CHECKBOX_LABEL = "Use a different theme for arrivals"
 THEME_DIRECTION_LABEL = "Arrivals theme"
@@ -257,7 +257,7 @@ FLASH_POLL_FAILED = "poll_failed"
 # cooldown and both call `poll_loop.run_once()`.
 FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
 
-# Phase 14 D-10/D-11 (14-05-PLAN.md): the per-flight colour-rules editor's
+# Phase 15 D-10/D-11 (15-05-PLAN.md): the per-flight colour-rules editor's
 # route constants, mirroring how airlines_page.py owns RESOLVE_ROUTE/
 # MANUAL_DELETE_ROUTE_PREFIX/_SUFFIX and companion/app.py rebinds them
 # rather than re-typing the literals. Add and delete are immediate POSTs
@@ -268,7 +268,7 @@ RULES_ADD_ROUTE = "/settings/rules/add"
 RULES_DELETE_ROUTE_PREFIX = "/settings/rules/"
 RULES_DELETE_ROUTE_SUFFIX = "/delete"
 
-# Locked-English copy (14-UI-SPEC.md Copywriting Contract, Rules
+# Locked-English copy (15-UI-SPEC.md Copywriting Contract, Rules
 # section) - verbatim, do not paraphrase.
 RULES_SECTION_HEADING = "Per-flight colour rules"
 RULES_SECTION_CAPTION = (
@@ -283,7 +283,7 @@ RULE_THEME_FIELD_LABEL = "Theme"
 RULE_ADD_BUTTON_TEXT = "Add rule"
 # An ordered mapping from each colour_rules.RULE_KINDS member to its
 # label - used by BOTH the add form's <option> text and the list's Kind
-# cell, so the two can never disagree (14-UI-SPEC.md: "never abbreviated
+# cell, so the two can never disagree (15-UI-SPEC.md: "never abbreviated
 # differently in the list than in the form").
 RULE_KIND_LABELS = {
     colour_rules.RULE_KIND_CALLSIGN: "Callsign",
@@ -328,7 +328,7 @@ def _palette_hex(index):
 
 
 def _theme_chip_grid_html(field_name, selected_theme_id, extra_class="", extra_attr=""):
-    """Phase 14 D-05: the chip-grid renderer `theme_fieldset()` calls
+    """Phase 15 D-05: the chip-grid renderer `theme_fieldset()` calls
     TWICE — once for the always-present departures grid
     (`field_name="theme"`, no `extra_class`/`extra_attr`, so it renders
     byte-identical to the pre-Phase-14 markup: `<div class=
@@ -430,7 +430,7 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None):
     image arrives, and `loading="lazy"` keeps below-the-fold chips off
     the critical path (mirroring the Airlines gallery's own precedent).
 
-    Phase 14 D-05: `current_theme_arriving` (an id or `None`, defaulting
+    Phase 15 D-05: `current_theme_arriving` (an id or `None`, defaulting
     to `None` so every pre-Phase-14 call site keeps working unchanged)
     extends the multi-theme branch with a `settings-checkbox` toggle plus
     a SECOND, identical chip grid for the arrivals override — both always
@@ -487,7 +487,7 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None):
     # checkbox's own "...for arrivals" wording already disambiguate the
     # first grid as the default/departures one — a second "Departures"
     # label on the first grid would be an extra line of chrome that
-    # wording already makes redundant (14-UI-SPEC.md Section Anatomy §1).
+    # wording already makes redundant (15-UI-SPEC.md Section Anatomy §1).
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">Theme</h2>'
@@ -1033,7 +1033,7 @@ def poll_trigger_section(cooldown_remaining):
 
 
 # ---------------------------------------------------------------------
-# Phase 14 D-10/D-11 (14-05-PLAN.md): the per-flight colour-rules editor —
+# Phase 15 D-10/D-11 (15-05-PLAN.md): the per-flight colour-rules editor —
 # an add form (its own immediate POST route) plus an always-present list
 # (empty state, or a cards-then-table pairing) with a plain per-row Delete
 # button (its own immediate POST route). Mirrors airlines_page.py's own
@@ -1063,7 +1063,7 @@ def _rule_delete_action(kind, value):
 
 
 def _rule_add_form_html():
-    """The add form (D-10, D-11, 14-UI-SPEC.md's Add-Form Shape): a
+    """The add form (D-10, D-11, 15-UI-SPEC.md's Add-Form Shape): a
     `<form method="post">` targeting `RULES_ADD_ROUTE`, three
     `<div class="rule-add-form__field">` blocks in Match-by/Value/Theme
     order and a submit button — a column stack on every viewport, no
@@ -1237,7 +1237,7 @@ def _rules_section_html(ctx):
     then either `layout.empty_state()` or the card list followed by the
     table wrapper.
 
-    **Placement decision** (14-UI-SPEC.md Section Anatomy §2's Open
+    **Placement decision** (15-UI-SPEC.md Section Anatomy §2's Open
     Question 1, confirmed at plan time): this section renders immediately
     after `</form>` closes, taking the slot the Poll section used to
     occupy — Poll itself moves one slot later. HTML forbids nesting a
@@ -1285,7 +1285,7 @@ def _rules_section_html(ctx):
 def render(ctx):
     device_cfg = ctx.get("device_config") or {}
     current_theme_id = device_cfg.get("theme", device_config.DEFAULT_THEME_ID)
-    # Phase 14 D-04: an explicit `.get()` with no `or` fallback and no
+    # Phase 15 D-04: an explicit `.get()` with no `or` fallback and no
     # default — `None` is a meaningful value here (no arrivals-theme
     # override, same as the departures theme), the same reasoning
     # current_wake_interval_s's own read below already carries.
@@ -1364,7 +1364,7 @@ def render(ctx):
         "</div>"
     ) % (escape_html(DIRTY_BAR_INITIAL_TEXT), SETTINGS_FORM_ID)
 
-    # Phase 14 D-10 (14-05-PLAN.md, 14-UI-SPEC.md Section Anatomy §2's
+    # Phase 15 D-10 (15-05-PLAN.md, 15-UI-SPEC.md Section Anatomy §2's
     # Open Question 1, confirmed): the rules section renders immediately
     # after </form> closes, taking the slot the Poll section used to
     # occupy — Poll itself moves one slot later, below. See
@@ -1516,7 +1516,7 @@ def handle_post(form, ctx):
     FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's/12-UI-SPEC.md's
     Copywriting Contract.
 
-    Phase 14 D-04/D-05 add two more form fields, `theme_arriving_enabled`
+    Phase 15 D-04/D-05 add two more form fields, `theme_arriving_enabled`
     (the arrivals-override checkbox) and `theme_arriving` (the second
     grid's selected theme id), with a genuinely different resolution from
     every other checkbox above: `theme_arriving` is validated by the same
@@ -1550,7 +1550,7 @@ def handle_post(form, ctx):
         return FLASH_SAVE_FAILED
     if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
         return FLASH_SAVE_FAILED
-    # Phase 14 D-05: keyed on the CHECKBOX field, never on
+    # Phase 15 D-05: keyed on the CHECKBOX field, never on
     # theme_arriving's presence. D-05 requires the second (arrivals) grid
     # to always be rendered for no-JS correctness, which means
     # theme_arriving is essentially ALWAYS present in a real browser

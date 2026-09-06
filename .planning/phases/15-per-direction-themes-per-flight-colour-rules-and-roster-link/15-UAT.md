@@ -1,7 +1,7 @@
 ---
 status: complete
-phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link
-source: [14-VERIFICATION.md]
+phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link
+source: [15-VERIFICATION.md]
 started: 2026-09-06T16:35:00Z
 updated: 2026-09-06T17:05:00Z
 ---
@@ -66,10 +66,10 @@ why_human: |
   visibility and tab-order feel are signed off by a person here, not asserted.
 
 ### 4. Security pass over the two new rules routes and the rules registry
-expected: `/gsd-secure-phase 14` confirms the STRIDE threat registers recorded across the five plans are honestly mitigated in the shipped code — the two new POST routes, the `colour_rules.json` registry, the per-kind allowlists applied at write and on read, the theme-id membership test, and the entry cap.
+expected: `/gsd-secure-phase 15` confirms the STRIDE threat registers recorded across the five plans are honestly mitigated in the shipped code — the two new POST routes, the `colour_rules.json` registry, the per-kind allowlists applied at write and on read, the theme-id membership test, and the entry cap.
 result: pass
 source: automated
-evidence: 15/15 threats closed, threats_open 0 at the `high` blocking threshold. See 14-SECURITY.md. The auditor went deeper than ASVS L1 on all five high-severity rows and on both non-mitigate dispositions: it confirmed the CSRF `transfer` genuinely covers both new routes by emitting the cookie header at runtime rather than reading a literal, and re-verified both `accept` rationales against shipped code. It also judged the code review's two concurrency warnings and found neither reopens a threat, recording one as an unregistered flag rather than silently absorbing it.
+evidence: 15/15 threats closed, threats_open 0 at the `high` blocking threshold. See 15-SECURITY.md. The auditor went deeper than ASVS L1 on all five high-severity rows and on both non-mitigate dispositions: it confirmed the CSRF `transfer` genuinely covers both new routes by emitting the cookie header at runtime rather than reading a literal, and re-verified both `accept` rationales against shipped code. It also judged the code review's two concurrency warnings and found neither reopens a threat, recording one as an unregistered flag rather than silently absorbing it.
 
 ## Summary
 

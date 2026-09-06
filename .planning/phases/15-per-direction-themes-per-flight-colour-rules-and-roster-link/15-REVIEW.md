@@ -1,5 +1,5 @@
 ---
-phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link
+phase: 15-per-direction-themes-per-flight-colour-rules-and-roster-link
 reviewed: 2026-09-06T16:37:49Z
 depth: deep
 files_reviewed: 8
@@ -20,7 +20,7 @@ findings:
 status: issues_found
 ---
 
-# Phase 14: Per-direction themes, per-flight colour rules and roster-linked highlighting Code Review Report
+# Phase 15: Per-direction themes, per-flight colour rules and roster-linked highlighting Code Review Report
 
 **Reviewed:** 2026-09-06T16:37:49Z
 **Depth:** deep
@@ -29,7 +29,7 @@ status: issues_found
 
 ## Summary
 
-This is a careful, well-scoped implementation. I traced the D-13 resolver end to end — both call sites in `poll_loop.run_once()`, the leaf-import discipline in `server/plane/colour_rules.py`, the three key-kind normalisers, the `CLEAR_THEME_ARRIVING` sentinel's three-state contract in `server/device_config.py`, and the two new companion routes — against the locked decisions in 14-CONTEXT.md and the threat patterns named in 14-RESEARCH.md (T-14-01, T-14-02, T-14-05, and the ordering trap). I did not find a defect in the resolver itself: it never raises for a flight dict missing `hex`/`callsign`, for a non-dict `flight`/`device_cfg`, for a `state` value that is neither `"departing"` nor `"arriving"`, or for a tampered/stale cache entry — every return path re-checks membership in `device_config.THEMES` before handing a value back, closing T-14-05 at the one place that matters. The two `build_canvas()` call sites that must share one effective id do so from the same `current_flight` dict written to `poll_state["last_flight"]`, so the battery-icon-repaint invariant (D-13's stated highest-risk property) holds by construction, not just by test. The ordering trap (hoisting the resolver to the top of `run_once()`) was avoided exactly as the research warned it could not be; only the registry-cache-priming call was hoisted.
+This is a careful, well-scoped implementation. I traced the D-13 resolver end to end — both call sites in `poll_loop.run_once()`, the leaf-import discipline in `server/plane/colour_rules.py`, the three key-kind normalisers, the `CLEAR_THEME_ARRIVING` sentinel's three-state contract in `server/device_config.py`, and the two new companion routes — against the locked decisions in 15-CONTEXT.md and the threat patterns named in 15-RESEARCH.md (T-15-01, T-15-02, T-15-05, and the ordering trap). I did not find a defect in the resolver itself: it never raises for a flight dict missing `hex`/`callsign`, for a non-dict `flight`/`device_cfg`, for a `state` value that is neither `"departing"` nor `"arriving"`, or for a tampered/stale cache entry — every return path re-checks membership in `device_config.THEMES` before handing a value back, closing T-15-05 at the one place that matters. The two `build_canvas()` call sites that must share one effective id do so from the same `current_flight` dict written to `poll_state["last_flight"]`, so the battery-icon-repaint invariant (D-13's stated highest-risk property) holds by construction, not just by test. The ordering trap (hoisting the resolver to the top of `run_once()`) was avoided exactly as the research warned it could not be; only the registry-cache-priming call was hoisted.
 
 I found two WARNING-level concurrency gaps, both worth fixing but neither a data-loss or security risk on the single-operator deployment this project targets, and one INFO-level inconsistency. No BLOCKER findings.
 
@@ -69,7 +69,7 @@ return self.redirect(SETTINGS_ROUTE)  # DELETE_ABSENT: idempotent, no flash
 ### WR-02: `save_device_config()` has no write lock, and this phase adds `theme_arriving` into that same unguarded read-modify-write
 
 **File:** `server/device_config.py:687-725`
-**Issue:** `save_device_config()` reads `current = load_device_config(state_dir)`, merges in the caller's supplied fields (now including `theme_arriving`, via the `CLEAR_THEME_ARRIVING` sentinel this phase adds), and writes the merged result — with no lock around the sequence. Two concurrent `POST /settings` requests (e.g. a double-submit, or two browser tabs) can each read the same `current` snapshot before either writes; the second write silently discards whatever the first request changed — a classic lost update, exactly T-14-02's threat class. This gap pre-dates Phase 14 (every other field already shared it), so it is not a new defect this phase introduced from scratch, but the phase's own research explicitly named T-14-02 as a threat to mitigate, and the phase *did* mitigate it correctly for the sibling `colour_rules.json` store (`_WRITE_LOCK` wraps the whole load-check-mutate-write sequence in `add_rule()`/`delete_rule()`) while leaving `device_config.json`'s save path — now carrying one more field — unguarded. A lost update here would silently revert an operator's just-set `theme_arriving` (or any other field) back to its pre-request value with no error surfaced anywhere.
+**Issue:** `save_device_config()` reads `current = load_device_config(state_dir)`, merges in the caller's supplied fields (now including `theme_arriving`, via the `CLEAR_THEME_ARRIVING` sentinel this phase adds), and writes the merged result — with no lock around the sequence. Two concurrent `POST /settings` requests (e.g. a double-submit, or two browser tabs) can each read the same `current` snapshot before either writes; the second write silently discards whatever the first request changed — a classic lost update, exactly T-15-02's threat class. This gap pre-dates Phase 15 (every other field already shared it), so it is not a new defect this phase introduced from scratch, but the phase's own research explicitly named T-15-02 as a threat to mitigate, and the phase *did* mitigate it correctly for the sibling `colour_rules.json` store (`_WRITE_LOCK` wraps the whole load-check-mutate-write sequence in `add_rule()`/`delete_rule()`) while leaving `device_config.json`'s save path — now carrying one more field — unguarded. A lost update here would silently revert an operator's just-set `theme_arriving` (or any other field) back to its pre-request value with no error surfaced anywhere.
 **Fix:** Wrap `save_device_config()`'s load-merge-write sequence in a module-level `threading.Lock()`, the same idiom `colour_rules.py` already uses:
 ```python
 _WRITE_LOCK = threading.Lock()
