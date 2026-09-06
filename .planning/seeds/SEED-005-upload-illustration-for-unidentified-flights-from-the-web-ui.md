@@ -1,13 +1,20 @@
 ---
 id: SEED-005
-status: dormant
+status: fulfilled
 planted: 2026-09-05
+resolved_date: 2026-09-06
 planted_during: "Post-Phase-11 (roadmap complete except DEVICE-05); quick task 260905-bba"
 trigger_when: "When the companion's coverage-gap surfaces (Health's unresolved-prefix registry, the Airlines gallery) are next opened for work — this seed's whole point is to make those two pages actionable rather than informational. Also revisit if the developer finds themselves repeatedly resolving coverage gaps by hand through the runbook, since that manual loop is exactly what this replaces. No hardware or battery-verdict dependency."
 scope: medium
 ---
 
 # SEED-005: Add an illustration for a not-yet-identified flight directly from the web interface
+
+## Fulfilled 2026-09-06
+
+This seed shipped as **Phase 13**, `.planning/phases/13-add-an-illustration-for-an-unidentified-flight-from-the-comp/`, plans `13-01` through `13-06`, merged to `main` as PR #51 (2026-09-06) — the seed is closed. Status recorded here in the close-out pass of the same day; the phase's own records (`13-VERIFICATION.md`, 14/14 must-haves; `13-UAT.md`; `13-SECURITY.md`; `13-REVIEW.md` with its remaining non-blocking warnings) are the evidence.
+
+Against this seed's own framing: the (a)/(b) fork resolved toward **(a)** — a runtime prefix → airline registry of manual resolutions (`server/plane/manual_resolutions.py`), so resolving from the web fixes the caption as well as the picture; Gap 1 (the membership-gated upload) was met not by lifting the gate but by widening the membership set to a per-request union of vendored and server-persisted manual keys, keeping threat `T-v26-02-01` closed under a wider closed set; Gap 2 (the deliberately read-only registry) was reopened as planned — Health's note was re-worded and each row gained a Resolve deep link into the new Airlines resolve section. Everything below is the original 2026-09-05 record, retained unchanged as history.
 
 ## Why This Matters
 
