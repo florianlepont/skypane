@@ -2,18 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 11
-status: executing
-stopped_at: Completed 12-05-PLAN.md
-last_updated: "2026-09-05T18:08:40.322Z"
-last_activity: 2026-09-04
-last_activity_desc: "Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence"
+current_phase: 13
+status: "Phase 13 shipped — PR #51"
+stopped_at: Completed 13-06-PLAN.md (widened illustration membership set, resolve/delete routes wired, 157/157 checks, 17/17 harnesses)
+last_updated: "2026-09-06T06:49:01.292Z"
+last_activity: 2026-09-06
 progress:
-  total_phases: 25
-  completed_phases: 22
-  total_plans: 125
-  completed_plans: 122
-  percent: 88
+  total_phases: 26
+  completed_phases: 23
+  total_plans: 131
+  completed_plans: 129
+  percent: 98
 ---
 
 ---
@@ -22,7 +21,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: executing
+status: Phase 13 shipped — PR #51
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -45,7 +44,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 11
+Phase: 13
 
 **11-04 executed (2026-09-04), wave 3 (depends on 11-01, 11-03) — the closing plan of Phase 11, implementing D-07's locked pre-fill mechanism: `companion/app.py` reads `SKYPANE_SLEEP_S` from its own process environment.** Task 1 added `SLEEP_ENV_VAR = "SKYPANE_SLEEP_S"` and `env_wake_interval_default()`, mirroring `auth.configured_password()`'s per-call `os.environ.get()` shape but fail-open (returns `None` on any failure) rather than fail-closed, since its absence has a designed empty state (the Wake interval field's placeholder) rather than an auth boundary to guard; the `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` range check is a Denial-of-Service guard, not belt-and-braces — an out-of-range `value` attribute on a `min`/`max`-bounded number input fails HTML5 constraint validation and blocks submission of the whole Settings form, which is exactly the shape of `deploy/skypane.env.example`'s shipped `SKYPANE_SLEEP_S=30`. `page_context()` now returns `"wake_interval_env_default": env_wake_interval_default()` alongside `"device_config"`, and `companion/pages/__init__.py`'s documented `ctx` contract names the new key, its type, its source, and its sole consumer (`config_page.render()`'s pre-fill fallback, wired in plan 11-03). `deploy/skypane.env.example`'s `SKYPANE_SLEEP_S` comment was corrected to describe it as an overridable fallback rather than the sole cadence source — no value or unit-file change; `git diff --quiet deploy/skypane-companion.service deploy/skypane-byos.service` confirmed both systemd units unchanged, the mechanism resting entirely on their pre-existing identical `EnvironmentFile=/opt/skypane/skypane.env` directives. Task 2 added 4 new checks to `companion/test_companion_app.py`: a full-input-space unit check on `env_wake_interval_default()` (unset, empty, non-numeric, whitespace-padded, in-range/out-of-range including the shipped below-floor `30`, verified against the exact `[None, None, 900, None, None, None, None, None, None, 60, 3600, 900]` output vector), a `page_context()`-threading check calling the real unbound `Handler.page_context` method against a minimal hand-built stand-in object (proving the key is always present, never conditionally omitted, rather than mocking/reimplementing the method), and two real-HTTP end-to-end checks over dedicated `Harness` instances (on-disk `wake_interval_s=120` always wins over a `SKYPANE_SLEEP_S=900` pre-fill; a below-floor `SKYPANE_SLEEP_S=30` degrades to the placeholder, never a value attribute the form could not submit); `EXPECTED_CHECK_COUNT` 125 → 129, harness passes 129/129. No deviations — both tasks' acceptance criteria commands (the exact twelve-case env-conversion output, both harness exit codes, `ruff check`, every named grep, and the unchanged unit files) ran verbatim and passed. `scripts/run-all-tests.sh` at plan close: `Result: PASS`; sole non-zero note is the same pre-existing, already-accepted macOS Pillow/FreeType `panel.bin` digest mismatch documented throughout this file's history, confirmed unrelated. This plan has `requirements: []` (unmapped backlog phase promoted from SEED-002, per its own frontmatter), so `requirements.mark-complete` was correctly skipped. `state.advance-plan` was not attempted (this is Phase 11's last plan — advancing within-phase has no target; the phase-level transition is left to the orchestrating workflow). `state.update-progress` again wrote `percent: 87` (`completed_phases/total_phases` = 20/23, the same recurring wrong-ratio bug documented throughout this file's history) despite its own returned JSON correctly reporting `completed: 111, total: 113, percent: 98` — corrected `percent` to `98` by hand per this file's own established precedent. `roadmap.update-plan-progress "11"` confirmed `plan_count: 4, summary_count: 4, status: "Complete"` — Phase 11 is now fully summarized; the phase-level transition itself (ROADMAP.md phase status / next-phase selection, `/gsd-transition`) is left to the orchestrating workflow, not this plan executor. This plan's `<threat_model>` disposed all four of its own threat entries as `mitigate`/`accept` with no `block`; the Threat Flags section of `11-04-SUMMARY.md` records none new beyond what that threat model already enumerated.
 
@@ -146,7 +145,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-04 - Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence
+Last activity: 2026-09-06
 Last activity: 2026-09-04 - Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence. Also merged in from origin/main: quick task 260904-e92 (Airlines gallery image weight, UIR-08) and Phase 06.6.4.1.1 (settings theme picker + typography/spacing direction pass, 6/6 plans complete).
 **08-01 executed (2026-08-31), the first of Wave 1's 2 parallel-safe plans.** `server/device_config.py`'s `THEMES` grew from the single `"sky"` entry to five: `white` (new `DEFAULT_THEME_ID`), `black`, `yellow`, `red` (all single-colour — `departing_index == arriving_index` — with contrast-correct ink: black ink on white/yellow, white ink on black/red, built only from `panel_format`'s named `IDX_*` constants) and the retained `sky` (unchanged Blue/Green, relabelled `"Sky"` from `"Sky (default)"`, no longer default). The flip silently propagated to `server/plane/render.py`'s `STATE_BACKGROUND`/`STATE_INK` module constants (evaluated from `DEFAULT_THEME_ID` at import time) with zero edit to `render.py` itself, confirming the registry's own extension contract. `server/test_config_history.py` grew 21→25 checks (five stale default-comparison literals corrected `"sky"`→`"white"` — not the plan's stated three, the real on-disk count was five; four new registry-contract checks added, one demonstrated failing via a deliberate ink-index swap then reverted before commit). `server/test_render.py` grew 76→78 (two dominant-nibble checks now expect White; the Sky-equals-default check rewritten as White-matches-default AND Sky-still-differs, so it can't pass if Sky were deleted; two new checks loop `THEME_IDS` for per-theme background dominance and ink-index agreement). `companion/test_config_page.py` grew 37→39, proving the CFG-01 picker absorbed all five themes with zero edit to `companion/pages/config_page.py`/`companion/app.py` (`git diff --stat` confirmed). One Rule 1 deviation outside the plan's stated `files_modified`: `server/test_pipeline_e2e.py`'s battery-icon-region check hardcoded the active-state ink nibble as White (0x1), true only under the retired Sky default's white ink — corrected to derive the expectation from `device_config.theme_ink_index()` for the theme `run_once()` actually reported. Full suite green except `server/test_poll_loop.py`'s pinned `panel.bin` digest (already stale pre-phase from an unrelated macOS/Linux FreeType difference, now additionally invalidated for real by the White-default flip — re-pin explicitly deferred to plan 08-05, not fixed here). None of the four new hues has been seen on real Spectra 6 ink yet — screen-confirmed only, same as Sky was before Phase 7; the registry's provenance comment now records this honestly, and plan 08-06's blocking on-glass session is where that check happens. `requirements.mark-complete D-01 D-02 D-03 D-04` returned all four as `not_found`, consistent with every prior 06.x-style decimal/CONTEXT-only phase's precedent — these are `08-CONTEXT.md` Decision IDs, not formal REQUIREMENTS.md entries. `roadmap.update-plan-progress "08"` confirmed `plan_count: 6, summary_count: 1, status: "In Progress"` (plans 02-06 remain). `state.advance-plan` again could not parse this file's prose-based Current Position section (same known limitation documented throughout this file's history) — `state.update-progress` computed `percent: 93` (64/69) correctly this time, no hand-correction needed.
 
@@ -199,7 +198,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 **Velocity:**
 
-- Total plans completed: 82 (re-derived at merge time from a real count of `.planning/phases/*/*-SUMMARY.md`, superseding both branches' own stale sub-counts)
+- Total plans completed: 88 (re-derived at merge time from a real count of `.planning/phases/*/*-SUMMARY.md`, superseding both branches' own stale sub-counts)
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -224,6 +223,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 09 | 4 | - | - |
 | 10 | 5 | - | - |
 | 11 | 4 | - | - |
+| 13 | 6 | - | - |
 
 **Recent Trend:**
 
@@ -334,11 +334,18 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 06.6.4.1.1 P06 | 55min | 3 tasks | 7 files |
 | Phase 12 P02 | 25min | 3 tasks | 2 files |
 | Phase 12 P05 | 15min | 2 tasks | 2 files |
+| Phase 13 P01 | 25min | 3 tasks | 3 files |
+| Phase 13 P02 | 20min | 2 tasks | 3 files |
+| Phase 13 P03 | 35min | 3 tasks | 2 files |
+| Phase 13 P04 | 31min | 2 tasks | 3 files |
+| Phase 13 P05 | 45min | 2 tasks | 2 files |
+| Phase 13 P06 | 22min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
 ### Roadmap Evolution
 
+- Phase 13 added (2026-09-05) — "Add an illustration for an unidentified flight from the companion web interface", promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` at the developer's request, chosen over the four other open seeds (SEED-003 per-theme scope/colour rules/calendar highlighting, AeroDataBox destination lookup, presence-adaptive poll cadence, and the local RTL-SDR backup — the last already recorded as not feasible on the frame's board in `.planning/notes/rtl-sdr-not-feasible-on-frame-board.md`). The selection round also answered a challenge from the developer that seeds were missing: verified they are not — HEAD's `.planning/` is byte-identical to `origin/main`, all ten seed files match, no seed file exists on any other remote branch, and no seed has ever been deleted (the project's own `260902-ipj` convention closes a seed with a `status` field and a dated addendum rather than removal). Unlike Phases 10-12, this seed has **no design conversation behind it at all** — the seed file says so itself, and its (a)/(b) fork (does uploading also resolve the airline via `enrich.py`'s `_AIRLINE_NAME_CORRECTIONS`, or is it image-only keyed on the callsign prefix as a fifth `select_illustration()` fallback tier?) is that file's own framing, never put to the developer. That makes `/gsd-discuss-phase 13` genuinely load-bearing rather than a formality. Two further items must be settled there: how a flight nobody has identified mints an upload key without reopening threat `T-v26-02-01` — `_handle_illustration_replace()` (`companion/app.py:1082`) tests `key` for registry membership *before* a path is built or a byte is read, so the endpoint structurally cannot serve this use case today, and lifting the gate would let a key originate in user input, which the current design forbids; and whether this phase changes `health_page.py:352`'s `_READ_ONLY_NOTE`, whose verbatim promise to the operator ("read-only by design") is decision D-11/D-12 from `06.6.4.1-04` — this phase reopens that decision rather than working around it. Added via `gsd-tools query phase.add`, which once again did not touch ROADMAP.md's top-level `## Phases` bullet list (the same documented CLI gap recorded for Phase 12 and, for `phase.insert`, in the Phase 6 entry below) — the bullet and the enriched Goal block were both written by hand.
 - Phase 12 added (2026-09-05) — "Remote display on/off toggle", promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request, chosen over the four other dormant seeds. The seed itself scoped this *small*, on the strength of Phase 10 having already built the render state and the poll-loop hold pattern. Investigation before promotion found that half right: those two do carry over, but `quiet_hours_sleep_s()`'s `max(base_sleep_s, remaining)` does not — it derives `remaining` from a window's end time, and a manual toggle has no end time. An open-ended off state needs a *bounded* sleep so the device still wakes to learn it was switched back on, and choosing that bound is a user-facing battery-versus-responsiveness trade-off rather than an implementation detail. That is why this was promoted as a phase (developer's explicit choice between phase-with-discussion, phase-without, and quick task) rather than run as a quick task, and why `/gsd-discuss-phase 12` must settle the bound, the precedence against quiet hours, and the off-state copy before planning. Added via `gsd-tools query phase.add`, which again did not touch ROADMAP.md's top-level `## Phases` bullet list (the same documented CLI gap already recorded for `phase.insert` in the Phase 6 entry below) — the bullet and the enriched Goal block were both written by hand.
 - Phase 4 added (2026-08-25), then renumbered to Phase 3 — "Visual Polish on Real Glass": user asked to split Phase 2 into a functional pass and a design-polish pass; since Phase 2 already built up from basic to polished internally across its 5 plans (02-01 bare flight number → 02-04 route/airline captions) and its only remaining plan (02-05) is pure deployment infra with no visual work, the agreed split instead adds a new phase after real hardware exists, dedicated to refining the already-built design against actual Spectra 6 output — closing the hardware-verified-legibility items every Phase 2 SUMMARY.md carried forward rather than guessed at. Old Phase 3 (Low-Battery Indicator) renumbered to Phase 4.
 - 01-08 (battery-life measurement, DEVICE-05) moved from Phase 1 to Phase 4 (2026-08-26), becoming 04-01: user wants the unattended multi-day (up to 21-day) discharge run scheduled at the end of the project, once other phases no longer need this Mac to stay awake continuously, rather than mid-Phase-1. Phase 1's goal/success-criteria trimmed to drop the on-battery-viability criterion (now Phase 4's job); Phase 1 is now 7/7 plans executed. Phase 4 renamed "Battery Life & Low-Battery Indicator", gained requirement DEVICE-05 alongside DEVICE-04 and a new success criterion for the measured mAh-per-cycle figure. Task 1 (checker + pre-registered protocol) was already done under the old numbering and carries over unchanged; only the phase/plan numbers and cross-references were updated. REQUIREMENTS.md's DEVICE-05 checkbox corrected from a stale pre-existing `[x] Complete` (predating this move, predating the actual measurement) to `[ ]` — only Task 1 of 3 is done.
@@ -554,6 +561,15 @@ Recent decisions affecting current work:
 - [Phase ?]: Placed display_off dispatch branch above both quiet_hours and empty in build_canvas(), closing the same silent-fallback trap plan 10-02 documented
 - [Phase ?]: display_group() mirrors led_group()'s markup shape (lone checkbox, no dependent fields), not quiet_hours_group()'s
 - [Phase ?]: DISPLAY_SECTION_CAPTION states its own ~5-minute apply latency (D-02) instead of the generic next-scheduled-poll clause, because D-01 pins the off-state check-in to a fixed 300s cadence independent of wake_interval_s/quiet hours
+- [Phase 13]: Added a raw-input _HOSTILE_NAME_RE check inside illustration_key_for_name() (mirroring illustrations.py's _UNSAFE_KEY_RE), since normalise_airline_key()'s total ASCII-slug transform reduces a path-traversal-shaped name to an already-safe-looking slug that the plan's own _SAFE_KEY_RE-on-the-slug check could not catch — 13-01 Task 1/2's own behavior spec and hostile-input sweep require rejection of these exact inputs
+- [Phase 13-02]: Health's per-row Resolve link reuses one escape_html() call per representation for both href and aria-label interpolation points, rather than two separate calls — Every interpolation point still passes through the escaping choke point exactly once (T-13-05); avoids a redundant second escape_html() call while keeping the same security guarantee
+- [Phase 13]: resolve_route() cleanup for a newly-resolved prefix is gated on airline_from_callsign() (either table), never on route_source, since adsbdb wins by construction and a resolved prefix can still show fresh_hit/cache_hit on any given cycle
+- [Phase 13]: airline_only and manual stay two distinct resolve_route() source values rather than merged, because health_page._SOURCE_ROWS' airline_only gloss names the static prefix table specifically
+- [Phase 13]: Manual-resolutions management list renders cards before the table in DOM order, matching health_page's own sibling-combinator toggle dependency (auto-fixed before shipping).
+- [Phase 13]: Real U+2019 apostrophes and U+2014 em dashes used in all new resolve-flow/management-list copy, per the plan's explicit instruction, even though 13-UI-SPEC.md's own source text uses plain ASCII apostrophes.
+- [Phase ?]: 13-05: Avoided repeating clear_resolved_unresolved_prefix's literal name a second time in the D-14 code comment so grep -c on it stays at exactly 1, per the plan's own acceptance criterion.
+- [Phase ?]: 13-05: Split Task 1 and Task 2's harness checks into two separate atomic commits (withholding Task 2's checks/EXPECTED_CHECK_COUNT bump until its own commit) even though both were drafted together, preserving the plan's task-by-task commit granularity.
+- [Phase 13]: Widened the illustration membership set to a per-request union of vendored and server-persisted manual keys (D-09), re-establishing T-v26-02-01 under a wider closed set rather than relaxing it
 
 ### Pending Todos
 
@@ -641,8 +657,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-05T18:08:40.306Z
-Stopped at: Completed 12-05-PLAN.md
+Last session: 2026-09-06T00:58:07.908Z
+Stopped at: Completed 13-06-PLAN.md (widened illustration membership set, resolve/delete routes wired, 157/157 checks, 17/17 harnesses)
 
 Resume file: 
 

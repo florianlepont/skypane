@@ -64,6 +64,7 @@ import server.panel_format as panel_format
 import server.plane.detect as detect
 import server.plane.enrich as enrich
 import server.plane.illustrations as illustrations
+import server.plane.manual_resolutions as manual_resolutions
 import server.plane.render as render
 import server.plane.runway_config as runway_config
 
@@ -699,22 +700,37 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     state_dir = state_dir or DEFAULT_STATE_DIR
     os.makedirs(state_dir, exist_ok=True)
 
-    # D-01/D-02 (quick task 260902-v26): configure the illustration override
-    # resolver from THIS cycle's own state_dir, here rather than in main() -
-    # run_once() is the single entry point both the systemd oneshot AND
-    # companion/app.py's POST /poll-now in-process trigger go through, so
-    # setting it here covers both without a second call site. Idempotent,
-    # and both callers pass the same state_dir, so this process-global
-    # assignment is safe under companion/app.py's ThreadingHTTPServer (the
-    # companion service passes its own --state-dir to run_once(), which is
-    # the same directory its own routes use). This is what lets an uploaded
-    # override reach render.py's select_illustration() calls without
-    # render.py itself gaining any state_dir awareness.
+    # D-01/D-02 (quick task 260902-v26; extended phase 13, D-01/D-02 for the
+    # manual-resolution registry below): configure the illustration override
+    # resolver AND the manual-resolution registry from THIS cycle's own
+    # state_dir, here rather than in main() - run_once() is the single entry
+    # point both the systemd oneshot AND companion/app.py's POST /poll-now
+    # in-process trigger go through, so setting both here covers both
+    # triggers without a second call site. Configuring from main() instead
+    # would silently skip the companion-triggered cycle - precisely the
+    # cycle an operator who just saved a manual resolution is waiting on.
+    # Idempotent, and both callers pass the same state_dir, so this
+    # process-global assignment is safe under companion/app.py's
+    # ThreadingHTTPServer (the companion service passes its own --state-dir
+    # to run_once(), which is the same directory its own routes use). This
+    # is what lets an uploaded override reach render.py's
+    # select_illustration() calls, and a manually-resolved prefix reach
+    # enrich.airline_from_callsign(), without either module gaining any
+    # state_dir awareness of its own.
+    #
+    # The manual registry is reloaded from disk here, once per cycle, for
+    # exactly the reason the CFG-01/CFG-12 comment below gives for
+    # device_cfg: a companion-side save landing between two separate reads
+    # would otherwise split one cycle across two registries. This is also
+    # the latency contract the operator is told about - a manual resolution
+    # reaches the glass at the next wake, up to wake_interval_s away, never
+    # instantly.
     #
     # server/plane/render.py's standalone CLI main() is deliberately NOT
     # wired - it renders ad-hoc previews from the command line and has no
     # state dir of its own; it keeps resolving vendored art only.
     illustrations.set_override_state_dir(state_dir)
+    manual_resolutions.set_manual_registry_state_dir(state_dir)
 
     # CFG-01/CFG-12: read the user's saved theme + tracked runway ONCE per
     # cycle, not once per call site - a mid-cycle save landing between two
@@ -1021,30 +1037,52 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             cache = poll_state.get("enrichment_cache")
             if not isinstance(cache, dict):
                 cache = {}
-            # D-05 (quick task 260827-hyy): a single seam now classifies
-            # four categories, not three - "fresh_hit"/"cache_hit" mean
-            # exactly what they always did (a cached *miss* is still a
-            # "miss" here, not a "cache hit" - "cache hit" means the cache
-            # spared us a request AND returned a usable route); the new
-            # fourth category, "airline_only", means adsbdb had no route
-            # this cycle but the callsign's ICAO prefix identified the
-            # carrier from a static in-repo table - no additional network
-            # call, no additional cache entry. Nothing derived from the
-            # adsbdb response body is ever logged, on any of the four paths.
+            # D-05 (quick task 260827-hyy; extended phase 13, D-01/D-02): a
+            # single seam now classifies five categories, not three -
+            # "fresh_hit"/"cache_hit" mean exactly what they always did (a
+            # cached *miss* is still a "miss" here, not a "cache hit" -
+            # "cache hit" means the cache spared us a request AND returned a
+            # usable route); "airline_only" means adsbdb had no route this
+            # cycle but the callsign's ICAO prefix identified the carrier
+            # from the static in-repo table - no additional network call, no
+            # additional cache entry; "manual" (phase 13, D-01/D-02) means
+            # the same, except the carrier was identified via the runtime,
+            # operator-writable manual-resolution registry
+            # (server.plane.manual_resolutions) instead of the static
+            # table - the static table is always consulted first and wins
+            # on a collision (D-06), so a prefix present in both tables is
+            # reported as "airline_only", never "manual". Nothing derived
+            # from the adsbdb response body is ever logged, on any of the
+            # five paths.
             route, route_source = enrich.resolve_route(current_flight.get("callsign"), cache)
             enrich.trim_cache(cache)
             poll_state["enrichment_cache"] = cache
-            # quick task 260827-oz9: a "miss" means neither adsbdb nor the
-            # static prefix table resolved anything for a shape-valid
-            # callsign - exactly "unrecognized ICAO prefix". Record it into
-            # the same durable poll_state.json this cycle already writes,
-            # so the finding survives this oneshot's process boundary.
-            # Never called for "airline_only"/"fresh_hit"/"cache_hit" (a
-            # source resolved something) or "held"/"n/a" (no enrichment
-            # ran this cycle at all).
+            # quick task 260827-oz9: a "miss" means neither adsbdb, the
+            # static prefix table, nor (phase 13) the manual registry
+            # resolved anything for a shape-valid callsign - exactly
+            # "unrecognized ICAO prefix". Record it into the same durable
+            # poll_state.json this cycle already writes, so the finding
+            # survives this oneshot's process boundary. Never called for
+            # "airline_only"/"manual"/"fresh_hit"/"cache_hit" (a source
+            # resolved something) or "held"/"n/a" (no enrichment ran this
+            # cycle at all).
             unresolved_prefixes = poll_state.get("unresolved_prefixes")
             if not isinstance(unresolved_prefixes, dict):
                 unresolved_prefixes = {}
+            # D-14: unconditionally clear this callsign's prefix from the
+            # gap registry if it now resolves, BEFORE the miss-recording
+            # branch below and before trim_unresolved_prefixes()/the
+            # write-back - a deletion after either point would be
+            # discarded. Deliberately NOT gated on route_source:
+            # route_source describes only this cycle's adsbdb outcome for
+            # this one callsign and says nothing about whether the prefix
+            # as a whole is now resolvable (adsbdb wins by construction in
+            # resolve_route(), so a resolved prefix can still show
+            # "fresh_hit"/"cache_hit" here) - gating on it would leave a
+            # stale entry uncleaned every time adsbdb happened to answer.
+            # The helper below does its own resolvability check via
+            # airline_from_callsign() (enrich.py, phase 13 D-14).
+            enrich.clear_resolved_unresolved_prefix(current_flight.get("callsign"), unresolved_prefixes)
             if route_source == "miss":
                 unknown_prefix = enrich.note_unresolved_prefix(current_flight.get("callsign"), unresolved_prefixes)
             enrich.trim_unresolved_prefixes(unresolved_prefixes)

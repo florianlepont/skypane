@@ -69,6 +69,25 @@ Every page module in this package exposes:
           only when the on-disk wake_interval_s is None; a stored value
           always wins
         - now: a UTC ISO-8601 timestamp string for this request
+        - resolve_prefix: the raw `?resolve=` query value, or None —
+          added by plan 13-06 (D-11/D-12), deliberately unvalidated at
+          this point. companion/pages/airlines_page.py's render() is the
+          sole consumer; it re-validates this value on every use via
+          `unresolved_row_for_prefix()`, the same D-11 membership test
+          companion/app.py's `Handler._handle_manual_resolve_post()`
+          re-runs on the write path, so the two can never diverge
+        - manual_resolutions: `server.plane.manual_resolutions.load_
+          manual_resolutions(state_dir)`'s return value — the full
+          `{prefix: {"airline_name": ..., "created_at": ...}}` registry,
+          read fresh per request (added by plan 13-06, D-09/D-11).
+          companion/pages/airlines_page.py's render() is the sole
+          consumer, for both the resolve section's Step A/B state
+          machine and the always-rendered manual-resolutions management
+          list. Never the process-scoped cache `manual_resolutions.
+          set_manual_registry_state_dir()`/`airline_name_for_prefix()`
+          expose — that cache exists only for the poll cycle's own
+          once-per-cycle read, and this service is a long-running
+          `ThreadingHTTPServer`
 
     handle_post(form, ctx) -> str
         Only modules that accept a form (today: config_page) additionally

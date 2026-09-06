@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -27,7 +28,7 @@ FIXTURES_DIR = os.path.join(HERE, "fixtures")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-EXPECTED_CHECK_COUNT = 52
+EXPECTED_CHECK_COUNT = 59
 
 
 def load_fixture(name):
@@ -1120,6 +1121,282 @@ def main():
         "_parse_route()'s returned dict has no 'callsign'/'callsign_icao' key and no value equal to the raw ICAO "
         "callsign string - the raw callsign is structurally absent, not just unused by the renderer (D-08)",
         _raw_icao_callsign_never_smuggled_in,
+    )
+
+    # --- Phase 13 plan 13-03 (D-01/D-06): airline_source_from_callsign()/
+    # static_airline_name_for_prefix() - the provenance-aware seam
+    # airline_from_callsign() now wraps, and the manual-resolution
+    # registry's entry point into enrich.py. --------------------------------
+
+    from server.plane import manual_resolutions
+
+    # 51. Static-path parity: a known static prefix reports ("<name>",
+    #     "static"), an unknown one reports (None, None), and the full
+    #     existing 260827-hyy hostile-input battery (reused verbatim so the
+    #     two can never drift) all report (None, None) too, with no
+    #     registry configured.
+    def _airline_source_from_callsign_static_path_parity():
+        got = enrich.airline_source_from_callsign("TVF16VB")
+        if got != ("Transavia France", "static"):
+            return False, "airline_source_from_callsign('TVF16VB') = %r, expected ('Transavia France', 'static')" % (got,)
+        got = enrich.airline_source_from_callsign("ZZZ1234")
+        if got != (None, None):
+            return False, "airline_source_from_callsign('ZZZ1234') = %r, expected (None, None)" % (got,)
+        for case in ["ZZZ1234", "TVF", "", None, 42, "TVF/16VB"]:
+            got = enrich.airline_source_from_callsign(case)
+            if got != (None, None):
+                return False, "airline_source_from_callsign(%r) = %r, expected (None, None)" % (case, got)
+        return True, ""
+    check(
+        "airline_source_from_callsign() returns ('<name>', 'static') for a known static prefix, (None, None) for "
+        "an unknown one, and (None, None) for the full 260827-hyy hostile-input battery, with no registry "
+        "configured",
+        _airline_source_from_callsign_static_path_parity,
+    )
+
+    # 52. Manual-path resolution: a prefix with no static-table entry
+    #     resolves as "manual" through both airline_source_from_callsign()
+    #     and airline_from_callsign() once the registry is populated and
+    #     wired in; clearing the state dir restores (None, None). Resets
+    #     the process cache in a finally so it cannot leak into other
+    #     checks in this run.
+    def _airline_source_from_callsign_manual_path():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+                got = enrich.airline_source_from_callsign("ZZZ1234")
+                if got != ("Zephyr Air", "manual"):
+                    return False, "airline_source_from_callsign('ZZZ1234') = %r, expected ('Zephyr Air', 'manual')" % (got,)
+                if enrich.airline_from_callsign("ZZZ1234") != "Zephyr Air":
+                    return False, "airline_from_callsign('ZZZ1234') = %r, expected 'Zephyr Air'" % (
+                        enrich.airline_from_callsign("ZZZ1234"),
+                    )
+            manual_resolutions.set_manual_registry_state_dir(None)
+            got = enrich.airline_source_from_callsign("ZZZ1234")
+            if got != (None, None):
+                return False, "after clearing the state dir, airline_source_from_callsign('ZZZ1234') = %r, expected (None, None)" % (got,)
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "after manual_resolutions.set_manual_registry_state_dir(tmp) with a ZZZ->'Zephyr Air' entry, "
+        "airline_source_from_callsign('ZZZ1234') returns ('Zephyr Air', 'manual') and airline_from_callsign() "
+        "returns 'Zephyr Air'; clearing the state dir restores (None, None)",
+        _airline_source_from_callsign_manual_path,
+    )
+
+    # 53. D-06 collision + static_airline_name_for_prefix(): a manual entry
+    #     for a prefix already in the static table is never consulted - the
+    #     static name and source "static" win. static_airline_name_for_prefix()
+    #     returns the static name for that prefix, None for a manual-only
+    #     prefix, and handles a non-string and a wrong-length argument
+    #     without raising.
+    def _d06_collision_and_static_airline_name_for_prefix():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "TVF", "Some Operator Typo")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+                got = enrich.airline_source_from_callsign("TVF16VB")
+                if got != ("Transavia France", "static"):
+                    return False, (
+                        "D-06 violated: airline_source_from_callsign('TVF16VB') with a colliding manual entry = "
+                        "%r, expected ('Transavia France', 'static')" % (got,)
+                    )
+                if enrich.static_airline_name_for_prefix("TVF") != "Transavia France":
+                    return False, "static_airline_name_for_prefix('TVF') = %r, expected 'Transavia France'" % (
+                        enrich.static_airline_name_for_prefix("TVF"),
+                    )
+
+                result2 = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+                if result2 != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result2,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+                if enrich.static_airline_name_for_prefix("ZZZ") is not None:
+                    return False, "static_airline_name_for_prefix('ZZZ') should ignore the manual-only entry, got %r" % (
+                        enrich.static_airline_name_for_prefix("ZZZ"),
+                    )
+
+            for hostile in (None, 42, "af", "AFRX", ""):
+                try:
+                    got = enrich.static_airline_name_for_prefix(hostile)
+                except Exception as exc:
+                    return False, "static_airline_name_for_prefix(%r) raised %r" % (hostile, exc)
+                if got is not None:
+                    return False, "static_airline_name_for_prefix(%r) = %r, expected None" % (hostile, got)
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "a manual entry for a prefix already in the static table is never consulted (D-06): "
+        "airline_source_from_callsign() still reports the static name and source 'static'; "
+        "static_airline_name_for_prefix() returns the static name for that prefix, None for a manual-only prefix, "
+        "and handles non-string/wrong-length input without raising",
+        _d06_collision_and_static_airline_name_for_prefix,
+    )
+
+    # --- Phase 13 plan 13-03 Task 2 (D-02): resolve_route()'s fifth
+    # "manual" source. --------------------------------------------------
+
+    # 54. Manual source: a temp state dir holding a manual entry for a
+    #     prefix absent from the static table, with a transport stub
+    #     returning no route, yields source "manual" and an airline-only
+    #     route dict whose airline_name is the operator's name and whose
+    #     other five keys are None. Resets the process cache in a finally.
+    def _resolve_route_manual_source():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+                cache = {}
+                transport = make_transport(404, {"response": "unknown callsign"})
+                route, source = enrich.resolve_route("ZZZ1234", cache, transport=transport)
+                if source != "manual":
+                    return False, "expected source 'manual', got %r" % (source,)
+                if route is None or route.get("airline_name") != "Zephyr Air":
+                    return False, "expected an airline-only route with airline_name 'Zephyr Air', got %r" % (route,)
+                for key in route:
+                    if key != "airline_name" and route[key] is not None:
+                        return False, "expected route key %r to be None, got %r" % (key, route[key])
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "resolve_route() with a manual entry for a prefix absent from the static table and an adsbdb miss "
+        "returns source 'manual' and an airline-only route whose airline_name is the operator's name and whose "
+        "other five keys are None",
+        _resolve_route_manual_source,
+    )
+
+    # 55. Static/manual precedence and adsbdb precedence together: a manual
+    #     entry for a static-table prefix still yields "airline_only"; and
+    #     with a transport stub returning a full route, the source is
+    #     "fresh_hit" even though a manual entry exists for that prefix.
+    def _resolve_route_static_and_adsbdb_precedence_over_manual():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "TVF", "Some Operator Typo")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+
+                cache = {}
+                miss_transport = make_transport(404, {"response": "unknown callsign"})
+                route, source = enrich.resolve_route("TVF16VB", cache, transport=miss_transport)
+                if source != "airline_only" or route is None or route.get("airline_name") != "Transavia France":
+                    return False, (
+                        "D-06 violated: expected ('Transavia France', 'airline_only') for a static-table prefix "
+                        "with a colliding manual entry under an adsbdb miss, got (%r, %r)" % (route, source)
+                    )
+
+                cache2 = {}
+                route2, source2 = enrich.resolve_route("TVF16VB", cache2, transport=make_transport(200, hit_body))
+                if source2 != "fresh_hit":
+                    return False, "expected source 'fresh_hit' even with a manual entry present, got %r" % (source2,)
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "a manual entry for a static-table prefix still yields 'airline_only' under an adsbdb miss (D-06), and "
+        "adsbdb still wins by construction ('fresh_hit') even when a manual entry exists for that prefix",
+        _resolve_route_static_and_adsbdb_precedence_over_manual,
+    )
+
+    # --- Phase 13 plan 13-03 Task 3 (D-14): clear_resolved_unresolved_prefix()
+    # - note_unresolved_prefix()'s structural inverse. ---------------------
+
+    # 56. Happy path and idempotence: a registry entry for a
+    #     manually-resolved prefix is removed and the prefix returned; a
+    #     second call returns None; a still-unresolved prefix's entry
+    #     survives untouched (the exact entry dict, not merely present).
+    def _clear_resolved_unresolved_prefix_happy_path_and_idempotence():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                result = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+                if result != manual_resolutions.ADD_OK:
+                    return False, "setup failure: add_entry() = %r, expected ADD_OK" % (result,)
+                manual_resolutions.set_manual_registry_state_dir(tmp)
+
+                still_unresolved_entry = {
+                    "count": 3,
+                    "first_seen": "T1",
+                    "last_seen": "T3",
+                    "example_callsign": "YYY9999",
+                }
+                registry = {
+                    "ZZZ": {
+                        "count": 2,
+                        "first_seen": "T1",
+                        "last_seen": "T2",
+                        "example_callsign": "ZZZ1234",
+                    },
+                    "YYY": dict(still_unresolved_entry),
+                }
+
+                got = enrich.clear_resolved_unresolved_prefix("ZZZ1234", registry)
+                if got != "ZZZ":
+                    return False, "expected 'ZZZ' removed and returned, got %r" % (got,)
+                if "ZZZ" in registry:
+                    return False, "expected the 'ZZZ' entry to be removed from the registry, still present: %r" % (registry,)
+                if registry.get("YYY") != still_unresolved_entry:
+                    return False, "the still-unresolved 'YYY' entry must survive byte-identical, got %r" % (registry.get("YYY"),)
+
+                got2 = enrich.clear_resolved_unresolved_prefix("ZZZ1234", registry)
+                if got2 is not None:
+                    return False, "second call should return None (already cleared), got %r" % (got2,)
+                if registry.get("YYY") != still_unresolved_entry:
+                    return False, "the still-unresolved 'YYY' entry must survive the second call too, got %r" % (registry.get("YYY"),)
+            return True, ""
+        finally:
+            manual_resolutions.set_manual_registry_state_dir(None)
+    check(
+        "clear_resolved_unresolved_prefix() removes a manually-resolved prefix's entry and returns the prefix, a "
+        "second call returns None, and a still-unresolved prefix's entry survives byte-identical (D-14)",
+        _clear_resolved_unresolved_prefix_happy_path_and_idempotence,
+    )
+
+    # 57. Hostile-input sweep: non-dict registry, None, 42, "", "ZZ", "ZZZ",
+    #     "../x" - every one returns None, raises nothing, and leaves a
+    #     seeded registry byte-identical.
+    def _clear_resolved_unresolved_prefix_hostile_input_sweep():
+        seeded = {
+            "AFR": {
+                "count": 1,
+                "first_seen": "T1",
+                "last_seen": "T1",
+                "example_callsign": "AFR1234",
+            },
+        }
+        original = copy.deepcopy(seeded)
+        hostile = (None, 42, "", "ZZ", "ZZZ", "../x")
+        for bad in hostile:
+            try:
+                got = enrich.clear_resolved_unresolved_prefix(bad, seeded)
+            except Exception as exc:
+                return False, "clear_resolved_unresolved_prefix(%r, ...) raised %r instead of returning None" % (bad, exc)
+            if got is not None:
+                return False, "clear_resolved_unresolved_prefix(%r, ...) = %r, expected None" % (bad, got)
+            if seeded != original:
+                return False, "hostile input %r mutated the registry: %r" % (bad, seeded)
+
+        try:
+            got = enrich.clear_resolved_unresolved_prefix("AFR1234", "not-a-dict")
+        except Exception as exc:
+            return False, "a non-dict registry must be refused, not raise: %r" % (exc,)
+        if got is not None:
+            return False, "clear_resolved_unresolved_prefix('AFR1234', 'not-a-dict') = %r, expected None" % (got,)
+        return True, ""
+    check(
+        "clear_resolved_unresolved_prefix() returns None and mutates nothing for a non-dict registry, None, an "
+        "int, an empty string, a bare 3-letter callsign, and a path-separator payload - one check covering the "
+        "whole hostile-input sweep",
+        _clear_resolved_unresolved_prefix_hostile_input_sweep,
     )
 
     total = len(results)

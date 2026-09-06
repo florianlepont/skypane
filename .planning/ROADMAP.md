@@ -37,6 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 10: Scheduled quiet hours** - Pause the frame's wake/poll/display cycle during a configurable window (curfew), via a server-side skip of the display refresh — promoted from `.planning/seeds/SEED-001-scheduled-quiet-hours-curfew-pause.md` at the developer's request (2026-09-02). Not yet planned. (completed 2026-09-03)
 - [x] **Phase 11: Web-configurable wake interval** - Make `SKYPANE_SLEEP_S` configurable through the companion web interface instead of SSH-only env-file edits — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md` at the developer's request (2026-09-02). Planned 2026-09-04: 4 plans across 3 waves (3/4 executed). (completed 2026-09-04)
 - [ ] **Phase 12: Remote display on/off toggle** - Turn the e-ink panel dark on demand from the companion Settings page, and bring it back, without touching hardware — the manual, immediate sibling of Phase 10's scheduled quiet hours. Promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request (2026-09-05). Not yet discussed or planned.
+- [x] **Phase 13: Add an illustration for an unidentified flight from the companion web interface** - Let the operator close a coverage gap from the two pages that already surface it (Health's unresolved-prefix registry, the Airlines gallery) instead of leaving the web UI for the manual runbook — promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` at the developer's request (2026-09-05). The hardened upload path already shipped (`260902-v26`/`260903-df3`); the open questions are how an unidentified flight mints a key without reopening threat `T-v26-02-01`, and whether uploading also resolves the airline. Not yet discussed or planned. (completed 2026-09-06)
 
 ## Phase Details
 
@@ -732,3 +733,54 @@ Plans:
 - [ ] 12-04-PLAN.md — the poll-loop gate ahead of detection and the hold-state latch generalisation (D-05 display axis / D-06 / D-07)
 - [x] 12-05-PLAN.md — the companion Settings Display checkbox, sixth and last group (D-02/D-08/D-09)
 - [ ] 12-06-PLAN.md — blocking on-glass verification against both sibling hold screens plus the full off-and-back-on operator loop
+
+### Phase 13: Add an illustration for an unidentified flight from the companion web interface
+
+**Goal:** From the two companion pages that already surface a coverage gap — Health's unresolved-prefix registry and the Airlines gallery — the operator can add the missing artwork for a flight the frame could not dress, with enough of that flight's own information in view to know what they are dressing. Today the gap is visible but inert: `select_illustration()`'s four-tier fallback degrades correctly to a neutral shape, the interface reports the miss, and closing it means leaving the web UI entirely for the manual coverage-gap runbook.
+
+**Discussed 2026-09-05 — everything below this block is the PRE-DISCUSSION framing and is retained only as a record.** `13-CONTEXT.md` is authoritative; read it first and treat it as superseding this section wherever the two disagree. Three specific corrections, established by reading the code during `/gsd-discuss-phase 13`:
+
+1. **The (a)/(b) fork below is resolved, and its option (a) named the wrong table.** `_AIRLINE_NAME_CORRECTIONS` (`enrich.py:272`) is keyed `(prefix, existing_airline_name)` and cannot fire for a prefix carrying no name at all; the table that would need the entry is `_ICAO_AIRLINE_PREFIXES` (`enrich.py:461`), under a drift guard coupling it to `illustrations.target_airline_names()`. The settled design (D-01) is neither (a) nor (b) as written: a runtime "manual resolution" registry keyed on the prefix, carrying **name and image**, consulted after the static table, leaving both git-tracked tables and their drift guard untouched.
+2. **No fifth fallback tier, and `select_illustration()` is not modified** (D-09). `resolved_illustration_path()` (`illustrations.py:668`) already consults the override before the vendored file at every tier without requiring the key to be a known target, so the existing Tier 2 resolves the uploaded image once the prefix carries a name. The "(b) pulls an on-glass verification into scope" note below therefore no longer applies.
+3. **`_READ_ONLY_NOTE` / D-11/D-12 of `06.6.4.1-04` is NOT reopened** (D-10). The form lives on Airlines and Health gets a per-row deep link; Health's note is re-worded, not broken.
+
+**Closes with (revised):** a `/gsd-secure-phase` pass over the key-minting path. The on-glass verification named below is no longer in scope — no render-path change ships in this phase.
+
+**Note on origin (2026-09-05):** Promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` (planted the same day by quick task `260905-bba`) at the developer's request, chosen over the four other open seeds — SEED-003 (per-theme scope / colour rules / calendar highlighting), the AeroDataBox destination lookup, presence-adaptive poll cadence, and the local RTL-SDR backup, the last of which `.planning/notes/rtl-sdr-not-feasible-on-frame-board.md` already records as not feasible on the frame's board. The seed scoped it *medium* and, unusually, says so on the strength of code it actually read rather than a design conversation: **no design discussion has ever been held with the developer on this feature**, and the (a)/(b) fork below is the seed file's own framing, not a choice the developer has made. That makes `/gsd-discuss-phase 13` load-bearing here in a way it was not for Phases 10-12.
+
+**What already exists and must NOT be rebuilt.** The hard, security-sensitive half shipped in quick tasks `260902-v26` (the path) and `260903-df3` (its control surface), and this phase reuses it whole: `_handle_illustration_replace()` (`companion/app.py:1082`) bounded by `MAX_ILLUSTRATION_UPLOAD_BYTES` (4 MB, `app.py:83`); the strict single-part stdlib multipart parse `parse_single_uploaded_file()` (`app.py:464`); the write-to-temp-then-`validate_illustration_file()` gate that holds uploads to the same standard as every vendored illustration; the destination filename taken **only** from the validated URL key and never from the request; the native no-JS multipart form `_lightbox_replace_form_html()` (`airlines_page.py:270`); and the gap data itself, `unresolved_rows()` (`health_page.py:1843`). The question this phase answers is not "how do we accept a file safely" — that is settled — but "how does a flight nobody has identified yet acquire a key to upload against".
+
+**The central design decision — two namespaces that do not line up.** The unresolved registry keys on **callsign prefix**; illustrations key on **resolved airline name + aircraft-type shape bucket** (`illustrations.py:683` / `:556`). A prefix nobody has resolved has no airline name, so there is no illustration key to mint from it. That forces a fork, and everything else in the phase follows from it:
+
+- **(a) Uploading also resolves the airline** — the operator names the airline while uploading and the entry joins `enrich.py`'s `_AIRLINE_NAME_CORRECTIONS` table (`enrich.py:272`, applied at `:313`). More useful, because a resolved name fixes the *caption* as well as the picture — but it turns the feature into an airline-resolution editor and touches the render path's **data**, not just its assets.
+- **(b) Image only, keyed on the prefix itself** — a narrower fifth fallback tier consulted before the neutral shape. Much smaller, but the flight stays captioned as unidentified, which may make the upload feel half-done.
+
+**Settle (a) vs (b) first in `/gsd-discuss-phase 13`; do not assume a default.** Note that (b) changes what `select_illustration()` puts on glass, which pulls an on-glass verification into scope; (a) largely does not.
+
+**Also to settle in discussion:** (a) **the membership gate.** `_handle_illustration_replace()` tests `key` for registry membership *first*, before a path is constructed or a byte of the body is read — validate-then-join, threat `T-v26-02-01`. It can therefore only ever *replace* art for a key already known, so today the endpoint structurally cannot serve this use case. Lifting the gate would let a new key originate in user input, which is exactly what the current design forbids; any design must re-establish that safety another way, most plausibly by having the server mint the key from already-validated server-side state (the detected flight's own resolved fields) and never accepting a key from the form at all. (b) **the read-only promise.** `health_page.py:352`'s `_READ_ONLY_NOTE` tells the operator verbatim that the list is read-only *by design* — decision D-11/D-12 from `06.6.4.1-04`. This phase **reopens that decision** rather than working around it: decide whether the note's promise changes, or whether the affordance lands on Airlines only and Health keeps its word. (c) **what "see the flight's information" means** — the registry records first-seen/last-seen per prefix and History holds the real rows; whether the affordance shows a recent-flights excerpt inline or deep-links into History's existing filter is a UI question worth a `/gsd-sketch` before planning.
+
+**Expected surface** (to be confirmed at plan time): the key-minting path and the relaxed-but-re-secured handler in `companion/app.py`; the affordance and the fate of `_READ_ONLY_NOTE` in `companion/pages/health_page.py`; the existing replace form extended in `companion/pages/airlines_page.py`; then, depending on the fork, either a fifth fallback tier in `server/plane/illustrations.py` (branch b) or a correction-table write in `server/plane/enrich.py` (branch a).
+
+**Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10, 11 and 12's own precedent. To be confirmed at discuss time; if promoted it would be a new CFG-style entry alongside CFG-08, whose resolution statistics this phase makes actionable.
+**Depends on:** Phase 12 (numeric order only — no functional dependency), plus the already-shipped upload path from quick tasks `260902-v26` / `260903-df3` and Phase 06.6.4.1, which reborn Airlines as the illustration gallery this affordance extends.
+**Closes with:** a `/gsd-secure-phase` pass over the key-minting path — this is the first phase to deliberately reopen a documented threat model (`T-v26-02-01`) rather than inherit one — plus a blocking on-glass verification **if and only if** the discussion picks branch (b) or otherwise changes what `select_illustration()` renders.
+**Plans:** 6/6 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 13-01-PLAN.md — `server/plane/manual_resolutions.py`, the runtime prefix→airline registry (D-05/D-08/D-13), its new contract harness, and its `run-all-tests.sh` registration
+- [x] 13-02-PLAN.md — Health's re-worded read-only note, the per-row Resolve deep link in both representations, and the fifth `"manual"` source row (D-02/D-10)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 13-03-PLAN.md — `enrich.airline_source_from_callsign()` / `static_airline_name_for_prefix()` / `clear_resolved_unresolved_prefix()` and `resolve_route()`'s fifth source (D-01/D-02/D-06/D-14)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 13-04-PLAN.md — the Airlines resolve section with its native `<datalist>` and the manual-resolutions management list (D-03/D-07/D-11/D-12/D-13)
+- [x] 13-05-PLAN.md — the per-cycle registry load and the gap-registry cleanup in `poll_loop.run_once()` (D-01/D-14)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 13-06-PLAN.md — the widened per-request illustration membership union plus the two new POST routes (D-09/D-11 — reopens and re-establishes `T-v26-02-01`)

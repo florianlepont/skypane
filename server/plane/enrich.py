@@ -12,10 +12,21 @@ never depended on adsbdb in the first place: it is carried directly in the
 callsign's ICAO 3-letter prefix (`TVF` = Transavia France), stable
 standardised reference data. `airline_from_callsign()` resolves that prefix
 against a static, in-repo table (D-01); `resolve_route()` (D-05) layers it
-above an adsbdb miss as a fourth outcome, `"airline_only"` - the caller
-still learns the airline, even when adsbdb has nothing. This adds zero
-network calls, zero new dependencies, and zero cache entries of its own -
-it is a pure lookup, recomputed from the static table on every call.
+above an adsbdb miss as an additional outcome, `"airline_only"` - the
+caller still learns the airline, even when adsbdb has nothing. This adds
+zero network calls, zero new dependencies, and zero cache entries of its
+own - it is a lookup recomputed from the static table on every call.
+
+Phase 13 (`13-add-an-illustration-for-an-unidentified-flight-from-the-comp`,
+D-01/D-02) layers a DIFFERENT-in-kind outcome on top of the same seam:
+`airline_source_from_callsign()` consults `airline_from_callsign()`'s
+static table FIRST and, only when that misses, falls through to
+`server.plane.manual_resolutions`'s runtime, operator-writable registry -
+so `resolve_route()` now classifies into five distinct sources
+(`"fresh_hit"`/`"cache_hit"`/`"airline_only"`/`"manual"`/`"miss"`).
+`airline_from_callsign()` itself keeps its exact signature and behaviour
+for every static-table input; see its own docstring for what changed
+underneath it.
 
 Live-verified this session (02-RESEARCH.md) against all 38 distinct real
 callsigns observed in Phase 1's Orly-area sample: `api.adsbdb.com/v0/
@@ -55,7 +66,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(_HERE))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server.plane import runway_config
+from server.plane import manual_resolutions, runway_config
 
 ADSBDB_URL = "https://api.adsbdb.com/v0/callsign/{callsign}"
 
@@ -612,28 +623,116 @@ _ICAO_AIRLINE_PREFIXES = {
 }
 
 
+def static_airline_name_for_prefix(prefix):
+    """Return the STATIC-TABLE-ONLY airline name for a bare 3-letter ICAO
+    `prefix` (e.g. `"AFR"`), or `None`.
+
+    This is deliberately narrower than `airline_from_callsign()`: it never
+    consults `server.plane.manual_resolutions`'s runtime registry, only
+    `_ICAO_AIRLINE_PREFIXES`. Its one sanctioned consumer is the companion's
+    D-06 supersession check on the Airlines management list, which needs to
+    answer "has the built-in table caught up with this prefix yet?" - a
+    question `airline_from_callsign()` can no longer answer on its own once
+    the manual registry is in play, since a hit there would look identical
+    to a hit here from that caller's point of view.
+
+    Returns `None` for anything that is not exactly three uppercase ASCII
+    letters - non-string, wrong length, lowercase, or containing any
+    non-letter character. Never raises.
+    """
+    if not isinstance(prefix, str) or len(prefix) != 3 or not prefix.isalpha() or prefix != prefix.upper():
+        return None
+    return _ICAO_AIRLINE_PREFIXES.get(prefix)
+
+
+def airline_source_from_callsign(callsign):
+    """Return `(airline_name, source)` for `callsign`'s ICAO prefix (its
+    first three letters), where `source` is `"static"`, `"manual"`, or
+    `None`. This is the provenance-aware seam `airline_from_callsign()` now
+    wraps, and D-01/D-02's entry point for the phase 13 manual-resolution
+    registry.
+
+    Gate and lookup order (security-relevant - never reorder this):
+      1. `normalise_callsign(callsign)`; `None` -> `(None, None)`.
+      2. `_AIRLINE_PREFIX_SHAPE_RE` fails on the normalised callsign ->
+         `(None, None)` - this shape gate runs before any registry read, so
+         a hostile or malformed callsign never even reaches the manual
+         registry lookup.
+      3. `_ICAO_AIRLINE_PREFIXES.get(prefix)` - a hit returns
+         `(static_name, "static")` immediately. **The static table is
+         consulted first and always wins (D-06): a prefix present in both
+         tables can never report `"manual"`.**
+      4. Only once the static table misses,
+         `manual_resolutions.airline_name_for_prefix(prefix)` - a hit
+         returns `(manual_name, "manual")`.
+      5. Otherwise `(None, None)`.
+
+    Never raises (T-hyy-02): every gate above is a type/shape check before
+    either table is ever consulted, and
+    `manual_resolutions.airline_name_for_prefix()` itself never raises
+    (it reads a process-scoped dict populated by
+    `manual_resolutions.set_manual_registry_state_dir()`, never the disk).
+    """
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return None, None
+    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return None, None
+    prefix = normalised[:3]
+    static_name = _ICAO_AIRLINE_PREFIXES.get(prefix)
+    if static_name:
+        return static_name, "static"
+    manual_name = manual_resolutions.airline_name_for_prefix(prefix)
+    if manual_name:
+        return manual_name, "manual"
+    return None, None
+
+
 def airline_from_callsign(callsign):
     """Return the airline name for `callsign`'s ICAO prefix (its first
     three letters), or `None` for anything that does not resolve - an
     unknown prefix, a non-string, an int, an empty string, a bare 3-letter
     string with no flight suffix, or a callsign containing a path separator
-    or any other non-alphanumeric character. Never raises (T-hyy-02).
+    or any other non-alphanumeric character. Never raises (T-hyy-02), a
+    guarantee that now derives from `airline_source_from_callsign()`'s own
+    gates plus `manual_resolutions.airline_name_for_prefix()`'s own
+    never-raises contract.
 
-    Mirrors `illustrations.classify_aircraft_type()`'s security property
-    exactly (T-hyy-01): the only strings this function can ever return are
-    the fixed `_ICAO_AIRLINE_PREFIXES` table values, or `None` - never
-    anything derived from its argument, so a hostile callsign can never
-    reach `illustrations.py`'s path construction through this seam.
+    A one-line wrapper: `return airline_source_from_callsign(callsign)[0]`.
+    Its signature, name, and behaviour for every pre-existing (static-table)
+    input are unchanged - every one of its ~10 existing call sites and every
+    pre-phase-13 test continues to see exactly what it saw before.
 
-    Pure, no I/O, no network - a lookup against a static, in-repo table
-    (D-01), entirely independent of `lookup_route()`'s adsbdb call (D-04).
+    T-hyy-01, UPDATED (phase 13, D-01): before this phase, the only strings
+    this function could ever return were fixed `_ICAO_AIRLINE_PREFIXES`
+    table values, or `None`. That is no longer true. After D-01 the
+    returnable set additionally includes operator-supplied airline names
+    from `server.plane.manual_resolutions`'s runtime registry (see
+    `airline_source_from_callsign()` above for the static-first precedence
+    that governs which table answers). The property that used to protect
+    `illustrations.py`'s path construction - "this function can only ever
+    return a fixed-table value" - has moved upstream rather than
+    disappearing: `manual_resolutions.add_entry()` refuses at write time any
+    name whose `illustrations.normalise_airline_key()` slug fails its
+    `^[a-z0-9][a-z0-9-]*$` positive allowlist, and
+    `manual_resolutions.load_manual_resolutions()` re-applies that same
+    allowlist on every read, so a hostile or traversal-shaped name can never
+    be *stored* in the registry, let alone returned from here.
+    `illustrations._UNSAFE_KEY_RE`, `illustration_path_for_key()` and
+    `override_path_for_key()` are correctly understood as the defence-in-
+    depth *second* line against that threat now, not the first.
+    `illustrations.classify_aircraft_type()`, which this paragraph used to
+    cite as a mirror of this function's fixed-table-only property, still
+    holds that property itself and is no longer a mirror of this function.
+
+    This function performs no network access and opens no file of its own:
+    it reads a process-scoped dict that
+    `manual_resolutions.set_manual_registry_state_dir()` populates once per
+    poll cycle. A process that never calls that setter - every existing
+    test harness included - sees an empty registry here and therefore
+    exhibits exactly today's (pre-phase-13) behaviour.
     """
-    normalised = normalise_callsign(callsign)
-    if normalised is None:
-        return None
-    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
-        return None
-    return _ICAO_AIRLINE_PREFIXES.get(normalised[:3])
+    return airline_source_from_callsign(callsign)[0]
 
 
 def airline_only_route(airline_name):
@@ -662,18 +761,38 @@ def airline_only_route(airline_name):
 
 def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     """D-05's single resolution seam: classify `callsign`'s enrichment
-    outcome into one of four sources and return `(route, source)`.
+    outcome into one of FIVE sources (phase 13, D-02 - previously four) and
+    return `(route, source)`.
 
     `source` is one of:
       - `"fresh_hit"`: adsbdb resolved a full route this cycle (no cache
         entry existed for this callsign before the call).
       - `"cache_hit"`: the cache already held a resolved route for this
         callsign - the request was spared entirely.
-      - `"airline_only"` (new): adsbdb had no route (a fresh or a cached
-        miss), but the callsign's ICAO prefix identified the carrier via
-        `airline_from_callsign()` - a route carrying only the airline name,
-        the other four fields `None`.
-      - `"miss"`: neither adsbdb nor the prefix table resolved anything.
+      - `"airline_only"`: adsbdb had no route (a fresh or a cached miss),
+        but the callsign's ICAO prefix identified the carrier via the
+        **static** `_ICAO_AIRLINE_PREFIXES` prefix table - a route carrying
+        only the airline name, the other four fields `None`.
+      - `"manual"` (new, phase 13 D-01/D-02): adsbdb had no route AND the
+        static table missed too, but the prefix identified the carrier via
+        `server.plane.manual_resolutions`'s runtime, operator-writable
+        registry - the same airline-only route shape as `"airline_only"`,
+        just a different provenance.
+      - `"miss"`: neither adsbdb, the static table, nor the manual registry
+        resolved anything.
+
+    `"airline_only"` and `"manual"` are kept as two distinct source values
+    rather than folded into one (D-02), because `companion/pages/
+    health_page.py`'s `_SOURCE_ROWS` renders the `"airline_only"` bucket
+    with a gloss that names the static prefix table specifically - folding
+    a manually-resolved prefix into that bucket would make that sentence
+    false and would inflate the apparent "the static table already covers
+    this" resolution rate with results the static table had nothing to do
+    with. Both source values are built from the identical
+    `airline_only_route()` shape - see `airline_source_from_callsign()` for
+    which table wins when a prefix is present in both (D-06: the static
+    table always does, so `"manual"` is reported only when the static table
+    genuinely missed).
 
     `was_cached` is computed from the normalised callsign before delegating
     to `lookup_route()` (D-04: unchanged, not loosened), so the fresh/cache
@@ -681,17 +800,18 @@ def resolve_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT):
     `"cache_hit"` still means the cache spared a request *and* returned a
     usable route; a cached miss is still not a cache hit. The prefix
     resolution itself is never cached - it is recomputed from the static
-    table on every call, since it is cheaper than a dict lookup and adds no
-    state of its own. Never raises (T-hyy-02).
+    and manual tables on every call, since it is cheaper than a second cache
+    and adds no state of its own. Never raises (T-hyy-02).
     """
     normalised = normalise_callsign(callsign)
     was_cached = normalised is not None and normalised in cache
     route = lookup_route(callsign, cache, transport=transport, timeout=timeout)
     if route is not None:
         return route, ("cache_hit" if was_cached else "fresh_hit")
-    airline_name = airline_from_callsign(callsign)
+    airline_name, airline_source = airline_source_from_callsign(callsign)
     if airline_name:
-        return airline_only_route(airline_name), "airline_only"
+        source = "airline_only" if airline_source == "static" else "manual"
+        return airline_only_route(airline_name), source
     return None, "miss"
 
 
@@ -708,16 +828,17 @@ def trim_cache(cache, max_entries=CACHE_MAX_ENTRIES):
 
 # --- Unrecognized-ICAO-prefix recorder (quick task 260827-oz9) --------------
 #
-# `resolve_route()`'s `"miss"` outcome means neither adsbdb nor
-# `_ICAO_AIRLINE_PREFIXES` resolved anything for a shape-valid callsign -
-# which, because `airline_from_callsign()` is the only thing that can ever
-# turn a "miss" into an "airline_only", is exactly equivalent to "this
-# callsign's 3-letter ICAO prefix is not (yet) in the static table". No new
-# resolution logic is required to detect that condition; this section only
-# gives it somewhere durable to live.
+# `resolve_route()`'s `"miss"` outcome means neither adsbdb, the static
+# `_ICAO_AIRLINE_PREFIXES` table, nor (phase 13, D-01) the runtime manual
+# registry resolved anything for a shape-valid callsign - which, because
+# `airline_from_callsign()` is the single seam whose verdict decides both
+# `resolve_route()`'s `"airline_only"`/`"manual"` split AND this recorder's
+# gate, is exactly equivalent to "this callsign's 3-letter ICAO prefix is
+# absent from both tables". No new resolution logic is required to detect
+# that condition; this section only gives it somewhere durable to live.
 #
 # This is observability only: it does not change `resolve_route()`'s
-# contract, its four source values, or anything `render.py`/
+# contract, its five source values, or anything `render.py`/
 # `illustrations.py` ever sees. Nothing here can influence what the panel
 # displays.
 #
@@ -758,11 +879,17 @@ def note_unresolved_prefix(callsign, registry, now=None):
     Recording happens only when `callsign` passes `_AIRLINE_PREFIX_SHAPE_RE`
     (a real callsign shape, not empty/malformed/hostile input) AND
     `airline_from_callsign(callsign)` returns None (the prefix is genuinely
-    absent from `_ICAO_AIRLINE_PREFIXES`, not just a differently-shaped
-    string). Both decisions are derived from the single
+    absent from BOTH the static `_ICAO_AIRLINE_PREFIXES` table AND (phase
+    13, D-01) the runtime manual-resolution registry, not just a
+    differently-shaped string). Both decisions are derived from the single
     `airline_from_callsign()` call rather than a second, parallel lookup
-    against `_ICAO_AIRLINE_PREFIXES` - so this function can never drift from
-    that seam's resolve/None verdict as the table grows.
+    against either table - so this function can never drift from that
+    seam's resolve/None verdict as either table grows. This single-seam
+    derivation is now MORE load-bearing than it was before phase 13, not
+    less: `clear_resolved_unresolved_prefix()` (this module's structural
+    inverse of this function, defined immediately below) is gated on the
+    exact same `airline_from_callsign()` call, so the two functions can
+    never disagree about whether a prefix currently resolves.
 
     `registry` is a plain, JSON-serialisable dict (the caller persists it in
     `poll_state.json`'s `unresolved_prefixes` key) mapping a 3-letter prefix
@@ -814,6 +941,71 @@ def note_unresolved_prefix(callsign, registry, now=None):
         entry["last_seen"] = now
         entry["example_callsign"] = example
 
+    return prefix
+
+
+def clear_resolved_unresolved_prefix(callsign, registry):
+    """Remove `callsign`'s 3-letter ICAO prefix from `registry` if it is
+    present AND now resolves, returning the removed prefix; otherwise
+    return `None` and leave `registry` untouched. Never raises.
+
+    This is D-14's WHOLE implementation. `note_unresolved_prefix()` already
+    stops *recording* a prefix once it resolves (its own gate, unchanged by
+    this function) - but nothing in this module ever *removed* an entry
+    that predates the resolution, and a plain dict entry persists forever
+    until something deletes it. Without this function, a prefix added to
+    `_ICAO_AIRLINE_PREFIXES` or resolved via the manual registry would keep
+    showing up in `poll_state.json`'s `unresolved_prefixes` registry (and
+    therefore in `coverage_status()`'s gap report) as a phantom, permanently
+    stale gap that no longer exists (T-13-16).
+
+    Written as `note_unresolved_prefix()`'s structural inverse, with the
+    identical gate order, so the two functions can never drift apart:
+      1. `registry` is not a dict -> return `None`.
+      2. `normalise_callsign(callsign)` is `None` -> return `None`.
+      3. `_AIRLINE_PREFIX_SHAPE_RE` fails on the normalised callsign ->
+         return `None`.
+      4. the prefix is not a key of `registry` -> return `None` (nothing to
+         clear).
+      5. `airline_from_callsign(callsign)` is `None` (still unresolved) ->
+         return `None`, leaving the entry in place.
+      6. `del registry[prefix]`; return `prefix`.
+
+    The resolution test is `airline_from_callsign()` - i.e. a hit in
+    EITHER table (D-01) - and deliberately NEVER a `route_source` value.
+    `route_source` (`resolve_route()`'s return, e.g. `"fresh_hit"`,
+    `"airline_only"`, `"manual"`, `"miss"`) describes only this specific
+    cycle's specific callsign's adsbdb outcome, not whether the prefix as a
+    whole is now resolvable - gating cleanup on `route_source` would leave
+    a genuinely-resolved prefix's stale entry uncleaned on every cycle
+    where adsbdb happened to answer first (adsbdb wins by construction in
+    `resolve_route()`, so a resolved prefix can still show `"fresh_hit"`/
+    `"cache_hit"` instead of `"airline_only"`/`"manual"` on any given
+    cycle, even though `airline_from_callsign()` would say it resolves).
+
+    Ordering requirement for the caller (`server/poll_loop.py`'s
+    `run_once()`, the sole caller, wired by plan 13-05): this must run
+    BEFORE `trim_unresolved_prefixes()` and before the
+    `poll_state["unresolved_prefixes"]` write-back, so a newly-resolved
+    prefix is removed in the same cycle it stops mattering, rather than
+    surviving one extra trim/write cycle as a phantom entry.
+
+    Calling this twice in a row for the same callsign is safe: the second
+    call finds the prefix already absent (gate 4) and returns `None`.
+    """
+    if not isinstance(registry, dict):
+        return None
+    normalised = normalise_callsign(callsign)
+    if normalised is None:
+        return None
+    if not _AIRLINE_PREFIX_SHAPE_RE.match(normalised):
+        return None
+    prefix = normalised[:3]
+    if prefix not in registry:
+        return None
+    if airline_from_callsign(callsign) is None:
+        return None
+    del registry[prefix]
     return prefix
 
 

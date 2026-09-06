@@ -35,6 +35,7 @@ import hashlib
 import hmac
 import html
 import io
+import json
 import os
 import re
 import shutil
@@ -59,6 +60,9 @@ if REPO_ROOT not in sys.path:
 from companion import auth, layout, theme_preview  # noqa: E402
 from companion.pages import health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
+from server.plane import illustrations as server_illustrations  # noqa: E402
+from server.plane import manual_resolutions  # noqa: E402
+import server.poll_loop as poll_loop  # noqa: E402
 
 TEST_PASSWORD = "companion-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -206,6 +210,49 @@ EXPECTED_CHECK_COUNT = 148  # merge of HEAD (129: Phase 10/11's env-prefill
 # pre-existing NAV_TABS-redirect checks and the one POST /config redirect
 # check were updated in place for the new ?next= carrying behavior, not
 # counted as new).
+EXPECTED_CHECK_COUNT = 151  # 148 + 3 (phase 13 plan 13-06 Task 1, D-09:
+# _illustration_filenames()'s widened per-request union — the in-process
+# union contract (None/empty-state-dir both equal the static set, one
+# seeded manual entry adds exactly one filename, an unusable-slug entry
+# contributes nothing), the real-handler read-path state machine for a
+# manual key (404/404/200 across no-entry, entry-with-no-file, and
+# both-exist), and Pitfall 3's warning sign made executable (a POST for a
+# never-registered key 404s and writes nothing, then succeeds once the
+# key is registered). Recomputed directly against the real on-disk
+# check(...) call count, not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 153  # 151 + 2 (phase 13 plan 13-06 Task 2: flash
+# completeness — every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/
+# FLASH_ROLES key, the six UI-SPEC deck strings resolve byte for byte
+# through _resolve_flash_text(), an unknown key still resolves to None,
+# and no message carries a runtime placeholder except the pre-existing
+# cooldown key; and the ctx contract — page_context() on a
+# ?resolve=XYZ request supplies resolve_prefix/manual_resolutions
+# correctly and every ctx key companion/pages/__init__.py documents is
+# actually present in the returned dict. Recomputed directly against the
+# real on-disk check(...) call count, not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 157  # 153 + 4 (phase 13 plan 13-06 Task 3: the
+# auth gate on both new routes (unauthenticated POSTs redirect to /login
+# and write no manual_resolutions.json — state dir unchanged, not only
+# the status code); D-11 on the write path (a well-shaped but
+# unregistered prefix writes nothing and gets the stale flash, then
+# succeeds once the prefix is a live registry member); rejection mapping
+# (empty/too-long/reserved names and the registry cap each reach their
+# own distinct flash key) and the D-03 branch (a brand-new name redirects
+# with resolve=, an already-covered name redirects without it); and D-08
+# through the delete route (the entry is removed, the override PNG
+# survives, the redirect carries no flash, a second identical POST is a
+# no-op, and a malformed prefix 404s without touching the registry).
+# Recomputed directly against the real on-disk check(...) call count, not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
+# HTTP-level checks that POST /airlines/resolve and POST
+# /airlines/manual-resolutions/{prefix}/delete actually reach
+# FLASH_KEY_MANUAL_SAVE_FAILED / FLASH_KEY_MANUAL_DELETE_FAILED when
+# add_entry()/delete_entry() fail to write because the state dir is
+# read-only — the two planner-added failure flash keys had no test
+# anywhere before this, which is exactly why CR-01 shipped. Recomputed
+# directly against the real on-disk check(...) call count, not trusted
+# from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -376,6 +423,15 @@ def _login(harness, password=TEST_PASSWORD):
     if not cookie:
         raise AssertionError("expected a Set-Cookie header on successful login")
     return cookie
+
+
+def _seed_unresolved_prefixes(state_dir, registry):
+    """Write `registry` as `poll_state.json`'s `unresolved_prefixes` value
+    — mirrors companion/test_status_pages.py's own helper of the same
+    name exactly (phase 13 plan 13-06), since that is the exact D-11
+    membership set `unresolved_row_for_prefix()` reads.
+    """
+    poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
 
 
 def _sign_with_secret(payload, secret):
@@ -1897,6 +1953,196 @@ def main():
         _theme_preview_signature_changes_with_cache_version)
 
     # ==================================================================
+    # Section 2.6: companion/app.py's _illustration_filenames() (phase 13
+    # plan 13-06 Task 1, D-09) — pure in-process module checks against the
+    # widened per-request union helper, no subprocess needed.
+    # ==================================================================
+
+    def _illustration_filenames_union_contract():
+        import companion.app as app_module
+        baseline = frozenset(server_illustrations.target_filenames())
+        if app_module._illustration_filenames(None) != baseline:
+            return False, "expected _illustration_filenames(None) to equal the static target set"
+        tmp = tempfile.mkdtemp(prefix="skypane-illufn-")
+        try:
+            if app_module._illustration_filenames(tmp) != baseline:
+                return False, (
+                    "expected an empty state dir (no manual_resolutions.json yet) to "
+                    "contribute nothing beyond the static target set")
+            add_result = manual_resolutions.add_entry(tmp, "ZZZ", "Zephyr Air")
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected add_entry() to succeed for a fresh, valid entry, got %r" % (add_result,)
+            widened = app_module._illustration_filenames(tmp)
+            expected_key = manual_resolutions.illustration_key_for_name("Zephyr Air")
+            if widened != baseline | {expected_key + ".png"}:
+                return False, (
+                    "expected exactly one new filename (%r) added for the one seeded "
+                    "manual entry, got a diff of %r"
+                    % (expected_key + ".png", widened.symmetric_difference(baseline)))
+            # An entry whose stored name yields no usable key contributes nothing — hand-write
+            # a second, reserved-slug entry directly into the JSON file (past add_entry()'s
+            # own gate, which would refuse to persist it in the first place):
+            # load_manual_resolutions() already drops it on read, so the widened set here
+            # must stay exactly what it was above, unchanged.
+            path = manual_resolutions.manual_resolutions_path(tmp)
+            with open(path) as fh:
+                raw = json.load(fh)
+            raw["YYY"] = {
+                "airline_name": "Generic Fallback",
+                "created_at": "2026-01-01T00:00:00+00:00",
+            }
+            with open(path, "w") as fh:
+                json.dump(raw, fh)
+            unchanged = app_module._illustration_filenames(tmp)
+            if unchanged != widened:
+                return False, (
+                    "expected a reserved/unusable-slug entry to contribute nothing, "
+                    "got a diff of %r" % (unchanged.symmetric_difference(widened),))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_illustration_filenames() is the per-request union of the static target set and "
+        "server-persisted manual keys: None and an empty state dir both equal the static "
+        "set exactly, a seeded manual entry adds exactly one filename, and an entry whose "
+        "stored name yields no usable key contributes nothing (D-09)",
+        _illustration_filenames_union_contract)
+
+    # ==================================================================
+    # Section 2.7: companion/app.py's eight FLASH_KEY_MANUAL_* keys and
+    # page_context()'s two new ctx keys (phase 13 plan 13-06 Task 2).
+    # ==================================================================
+
+    def _flash_manual_keys_complete_and_byte_identical():
+        import companion.app as app_module
+        manual_keys = (
+            app_module.FLASH_KEY_MANUAL_RESOLVED,
+            app_module.FLASH_KEY_MANUAL_NAME_EMPTY,
+            app_module.FLASH_KEY_MANUAL_NAME_TOO_LONG,
+            app_module.FLASH_KEY_MANUAL_NAME_RESERVED,
+            app_module.FLASH_KEY_MANUAL_PREFIX_STALE,
+            app_module.FLASH_KEY_MANUAL_REGISTRY_FULL,
+            app_module.FLASH_KEY_MANUAL_SAVE_FAILED,
+            app_module.FLASH_KEY_MANUAL_DELETE_FAILED,
+        )
+        for key in manual_keys:
+            if key not in app_module.FLASH_MESSAGES:
+                return False, "expected %r to be a FLASH_MESSAGES key" % (key,)
+            if key not in app_module.FLASH_ROLES:
+                return False, "expected %r to be a FLASH_ROLES key" % (key,)
+        # The six deck strings from 13-UI-SPEC.md's Full Copy Deck, byte for
+        # byte — the two planner-added failure keys are not in that deck
+        # (see FLASH_KEY_ILLUSTRATION_REPLACE_FAILED's own precedent) so
+        # they are checked for presence above only, not for exact text here.
+        expected_deck = {
+            app_module.FLASH_KEY_MANUAL_RESOLVED: (
+                "Airline name saved — the frame will pick it up next time "
+                "it wakes and polls."),
+            app_module.FLASH_KEY_MANUAL_NAME_EMPTY: (
+                "Enter an airline name before saving."),
+            app_module.FLASH_KEY_MANUAL_NAME_TOO_LONG: (
+                "That name's too long — airline names top out at 100 characters."),
+            app_module.FLASH_KEY_MANUAL_NAME_RESERVED: (
+                "That name is reserved for the frame's own fallback artwork "
+                "— try the airline's real name instead."),
+            app_module.FLASH_KEY_MANUAL_PREFIX_STALE: (
+                "That coverage gap isn't there anymore — check Health for "
+                "current gaps."),
+            app_module.FLASH_KEY_MANUAL_REGISTRY_FULL: (
+                "The manual-resolution list is full (200 entries) — delete "
+                "an old one before adding another."),
+        }
+        for key, expected_text in expected_deck.items():
+            if app_module.FLASH_MESSAGES[key] != expected_text:
+                return False, (
+                    "expected %r's FLASH_MESSAGES text to match the UI-SPEC deck byte "
+                    "for byte, got %r" % (key, app_module.FLASH_MESSAGES[key]))
+            resolved = app_module._resolve_flash_text(key, "/nonexistent-state-dir-fixture")
+            if resolved != expected_text:
+                return False, (
+                    "expected _resolve_flash_text(%r, ...) to return the deck text, "
+                    "got %r" % (key, resolved))
+        if app_module._resolve_flash_text("not-a-real-flash-key", "/nonexistent") is not None:
+            return False, "expected _resolve_flash_text() to return None for an unknown key"
+        for key, text in app_module.FLASH_MESSAGES.items():
+            if key == app_module.FLASH_KEY_POLL_COOLDOWN:
+                continue  # the one pre-existing, deliberately-interpolated key ("{n}").
+            if "%" in text or "{" in text:
+                return False, (
+                    "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r "
+                    "(UI-SPEC Autonomous Decision 6: flash copy is fixed, never "
+                    "interpolated, except the pre-existing cooldown key)" % (key, text))
+        return True, ""
+    check(
+        "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "
+        "UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an "
+        "unknown key still resolves to None, and no FLASH_MESSAGES value carries a "
+        "runtime placeholder except the pre-existing cooldown key",
+        _flash_manual_keys_complete_and_byte_identical)
+
+    class _FakeResolveCtxHandler(_FakePageContextHandler):
+        """Same minimal stand-in as _FakePageContextHandler above, but with
+        a settable `self.path` (that fixture hardcodes "/settings") so this
+        check can exercise page_context() against a real
+        "/airlines?resolve=..." query string.
+        """
+        def __init__(self, state_dir, path):
+            super().__init__(state_dir)
+            self.path = path
+
+    def _page_context_supplies_resolve_prefix_and_manual_resolutions():
+        import companion.app as app_module
+        import companion.pages as pages_package
+        tmp = tempfile.mkdtemp(prefix="skypane-page-context-resolve-")
+        try:
+            now = "2026-01-01T00:00:00+00:00"
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Brand New Air", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected the fixture add_entry() call to succeed, got %r" % (add_result,)
+            fake_self = _FakeResolveCtxHandler(tmp, "/airlines?resolve=XYZ")
+            ctx = app_module.Handler.page_context(fake_self)
+            if ctx.get("resolve_prefix") != "XYZ":
+                return False, "expected ctx['resolve_prefix'] == 'XYZ', got %r" % (ctx.get("resolve_prefix"),)
+            registry = ctx.get("manual_resolutions")
+            if not isinstance(registry, dict) or "XYZ" not in registry:
+                return False, "expected ctx['manual_resolutions'] to reflect the seeded entry, got %r" % (registry,)
+            if registry["XYZ"].get("airline_name") != "Brand New Air":
+                return False, (
+                    "expected the seeded entry's airline_name to round-trip through ctx, "
+                    "got %r" % (registry["XYZ"],))
+            # companion/pages/__init__.py's documented ctx list must not go
+            # stale silently — assert the documented key set against the
+            # real dict's keys, not the other way around, so an
+            # undocumented new ctx key also fails this check. NOTE:
+            # "health_state" is a real page_context() key but is not one
+            # of this docstring's bullets — a pre-existing gap predating
+            # this plan (out of scope here per the deviation-rules scope
+            # boundary; this plan documents only its own two new keys),
+            # so it is deliberately excluded from this list rather than
+            # silently made to look documented.
+            documented_keys = (
+                "state_dir", "ui_theme", "device_config",
+                "wake_interval_env_default", "flash", "flash_role",
+                "poll_cooldown_remaining", "gallery_entries", "runway_images",
+                "health_severity", "now",
+                "resolve_prefix", "manual_resolutions",
+            )
+            docstring = pages_package.__doc__
+            for key in documented_keys:
+                if ("- %s:" % key) not in docstring:
+                    return False, "expected %r to be documented in companion/pages/__init__.py's ctx list" % (key,)
+                if key not in ctx:
+                    return False, "expected documented ctx key %r to actually be present in page_context()'s return" % (key,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "page_context() on a request carrying ?resolve=XYZ returns that raw value under "
+        "resolve_prefix and a dict under manual_resolutions reflecting a seeded entry; "
+        "every key companion/pages/__init__.py documents is actually present in ctx",
+        _page_context_supplies_resolve_prefix_and_manual_resolutions)
+
+    # ==================================================================
     # Section 3: companion/app.py (plan 06-05) — a real companion/app.py
     # subprocess, launched on a free local port, driven with
     # urllib.request. This section owns its own harness lifecycle
@@ -2950,6 +3196,115 @@ def main():
             "an unauthenticated GET /illustration/air-france.png redirects to /login, never returns image bytes",
             _illustration_unauthenticated_redirects_to_login)
 
+        # --- widened membership set: manual-resolution keys (phase 13 plan 13-06 Task 1, D-09) ---
+        # Both checks below spin up their own isolated Harness() (mirroring
+        # broken_harness/concurrent_harness above) rather than reusing the
+        # shared harness/state_dir: they write real files into
+        # illustration_overrides/, and the shared harness's state dir is
+        # asserted elsewhere (Section 3's D-03 round-trip check) to hold
+        # EXACTLY one file (air-france.png) — polluting it here would
+        # break that unrelated, correct assertion.
+
+        _VENDORED_ILLUSTRATIONS_DIR = os.path.join(
+            REPO_ROOT, "server", "assets", "icons", "illustrations")
+
+        def _illustration_manual_key_read_path_states():
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                manual_base = manual_harness.base_url()
+                manual_session = _login(manual_harness)
+                manual_prefix = "SWK"
+                manual_name = "Skyward Air"
+                manual_key = manual_resolutions.illustration_key_for_name(manual_name)
+                status, _headers, _body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, cookie=manual_session)
+                if status != 404:
+                    return False, "expected 404 with no manual entry registered, got %d" % status
+                add_result = manual_resolutions.add_entry(
+                    manual_harness.tmpdir, manual_prefix, manual_name)
+                if add_result != manual_resolutions.ADD_OK:
+                    return False, "expected add_entry() to succeed for a fresh entry, got %r" % (add_result,)
+                status, _headers, _body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, cookie=manual_session)
+                if status != 404:
+                    return False, (
+                        "expected 404 for a registered manual key with no override file yet — "
+                        "a member of the set with no bytes is a 404, indistinguishable from a "
+                        "non-member, got %d" % status)
+                override_dir = manual_harness.state_path("illustration_overrides")
+                os.makedirs(override_dir, exist_ok=True)
+                with open(os.path.join(_VENDORED_ILLUSTRATIONS_DIR, "vueling-airlines.png"), "rb") as fh:
+                    seed_bytes = fh.read()
+                with open(os.path.join(override_dir, manual_key + ".png"), "wb") as fh:
+                    fh.write(seed_bytes)
+                status, headers, body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, cookie=manual_session)
+                if status != 200:
+                    return False, (
+                        "expected 200 once both the manual entry and the override file exist, "
+                        "got %d" % status)
+                if headers.get("Content-Type") != "image/png":
+                    return False, "expected Content-Type image/png, got %r" % headers.get("Content-Type")
+                if not body:
+                    return False, "expected a non-empty response body"
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "GET /illustration/{key}.png for a manual key: 404 with no registry entry, 404 "
+            "with an entry but no override file, and 200/image/png once both exist",
+            _illustration_manual_key_read_path_states)
+
+        def _illustration_manual_key_post_unregistered_then_registered():
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                manual_base = manual_harness.base_url()
+                manual_session = _login(manual_harness)
+                manual_prefix = "BWX"
+                manual_name = "Boreal Wings"
+                manual_key = manual_resolutions.illustration_key_for_name(manual_name)
+                with open(os.path.join(_VENDORED_ILLUSTRATIONS_DIR, "vueling-airlines.png"), "rb") as fh:
+                    payload_bytes = fh.read()
+                body, content_type = _encode_multipart(payload_bytes, filename="x.png")
+                override_dir = manual_harness.state_path("illustration_overrides")
+                override_path = os.path.join(override_dir, manual_key + ".png")
+                before_entries = sorted(os.listdir(override_dir)) if os.path.isdir(override_dir) else []
+                status, _headers, _body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, method="POST", data=body,
+                    cookie=manual_session, content_type=content_type)
+                if status != 404:
+                    return False, "expected 404 for a never-registered manual key, got %d" % status
+                after_entries = sorted(os.listdir(override_dir)) if os.path.isdir(override_dir) else []
+                if after_entries != before_entries:
+                    return False, (
+                        "expected the override directory to gain nothing from a single-request "
+                        "upload of an unregistered key (Pitfall 3), before=%r after=%r"
+                        % (before_entries, after_entries))
+                add_result = manual_resolutions.add_entry(
+                    manual_harness.tmpdir, manual_prefix, manual_name)
+                if add_result != manual_resolutions.ADD_OK:
+                    return False, "expected add_entry() to succeed for a fresh entry, got %r" % (add_result,)
+                status, headers, _body = http_request(
+                    manual_base + "/illustration/%s.png" % manual_key, method="POST", data=body,
+                    cookie=manual_session, content_type=content_type)
+                if status != 303:
+                    return False, "expected a 303 redirect once the key is registered, got %d" % status
+                if not os.path.isfile(override_path):
+                    return False, "expected the override file to now exist at %r" % (override_path,)
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "Pitfall 3's warning sign made executable: POST /illustration/{key}.png for a "
+            "manual key that was never registered returns 404 and writes nothing to the "
+            "override directory; once the key is registered via add_entry(), the identical "
+            "POST succeeds",
+            _illustration_manual_key_post_unregistered_then_registered)
+
         # --- theme preview image route (06.6.4.1.1-01 Task 2) ---
 
         def _theme_preview_real_key_returns_png_for_every_theme():
@@ -3258,6 +3613,404 @@ def main():
             "an unauthenticated POST /illustration/tunisair.png redirects to /login and writes "
             "no override file",
             _illustration_unauthenticated_post_redirects_to_login_and_writes_nothing)
+
+        # --- POST /airlines/resolve and the manual-resolution delete route
+        # (phase 13 plan 13-06 Task 3, D-03/D-07/D-08/D-11) — each check
+        # below spins up its own isolated Harness(), matching the
+        # widened-membership-set checks above, since these routes write
+        # real manual_resolutions.json/poll_state.json/override files.
+
+        def _manual_resolve_and_delete_routes_require_auth_and_write_nothing():
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                mbase = manual_harness.base_url()
+                _seed_unresolved_prefixes(manual_harness.tmpdir, {
+                    "PQR": {
+                        "count": 1, "first_seen": "2026-01-01T00:00:00+00:00",
+                        "last_seen": "2026-01-01T00:00:00+00:00", "example_callsign": "PQR100"},
+                })
+                manual_resolutions_path = manual_resolutions.manual_resolutions_path(
+                    manual_harness.tmpdir)
+
+                resolve_data = urllib.parse.urlencode(
+                    {"prefix": "PQR", "airline_name": "Unauthorized Air"}).encode()
+                status, headers, _ = http_request(
+                    mbase + "/airlines/resolve", method="POST", data=resolve_data)
+                if status != 303:
+                    return False, (
+                        "expected a 303 redirect for an unauthenticated POST "
+                        "/airlines/resolve, got %d" % status)
+                if "/login" not in headers.get("Location", ""):
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location", "")
+                if os.path.exists(manual_resolutions_path):
+                    return False, (
+                        "expected no manual_resolutions.json to be written by an "
+                        "unauthenticated POST")
+
+                status, headers, _ = http_request(
+                    mbase + "/airlines/manual-resolutions/PQR/delete", method="POST")
+                if status != 303:
+                    return False, (
+                        "expected a 303 redirect for an unauthenticated delete POST, "
+                        "got %d" % status)
+                if "/login" not in headers.get("Location", ""):
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location", "")
+                if os.path.exists(manual_resolutions_path):
+                    return False, (
+                        "expected no manual_resolutions.json to exist after an "
+                        "unauthenticated delete POST")
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "unauthenticated POSTs to /airlines/resolve and "
+            "/airlines/manual-resolutions/{prefix}/delete both redirect to /login and write "
+            "no manual_resolutions.json — the state dir is unchanged, not only the status code",
+            _manual_resolve_and_delete_routes_require_auth_and_write_nothing)
+
+        def _manual_resolve_post_revalidates_prefix_against_live_registry():
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                mbase = manual_harness.base_url()
+                msession = _login(manual_harness)
+                manual_resolutions_path = manual_resolutions.manual_resolutions_path(
+                    manual_harness.tmpdir)
+
+                resolve_data = urllib.parse.urlencode(
+                    {"prefix": "XYZ", "airline_name": "Ghost Air"}).encode()
+                status, headers, _ = http_request(
+                    mbase + "/airlines/resolve", method="POST", data=resolve_data, cookie=msession)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=manual_prefix_stale" not in location:
+                    return False, "expected the stale flash key, got %r" % location
+                if os.path.exists(manual_resolutions_path):
+                    return False, (
+                        "expected no manual_resolutions.json for a prefix absent from the "
+                        "live registry — even though its shape is valid")
+
+                _seed_unresolved_prefixes(manual_harness.tmpdir, {
+                    "XYZ": {
+                        "count": 1, "first_seen": "2026-01-01T00:00:00+00:00",
+                        "last_seen": "2026-01-01T00:00:00+00:00", "example_callsign": "XYZ100"},
+                })
+                status, headers, _ = http_request(
+                    mbase + "/airlines/resolve", method="POST", data=resolve_data, cookie=msession)
+                if status != 303:
+                    return False, "expected a 303 redirect once the prefix is live, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=manual_resolved" not in location:
+                    return False, (
+                        "expected the resolved flash key once the prefix is a live "
+                        "registry member, got %r" % location)
+                registry = manual_resolutions.load_manual_resolutions(manual_harness.tmpdir)
+                if "XYZ" not in registry or registry["XYZ"].get("airline_name") != "Ghost Air":
+                    return False, (
+                        "expected the entry to be persisted once the prefix is live, "
+                        "got %r" % registry)
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "POST /airlines/resolve re-validates the prefix against the live "
+            "unresolved-prefix registry on write (D-11): a well-shaped but unregistered "
+            "prefix writes nothing and gets the stale flash; the identical POST succeeds "
+            "once the prefix is a live registry member",
+            _manual_resolve_post_revalidates_prefix_against_live_registry)
+
+        def _manual_resolve_post_rejection_mapping_and_d03_branch():
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                mbase = manual_harness.base_url()
+                msession = _login(manual_harness)
+
+                def _seed_gap(prefix):
+                    state = poll_loop.load_poll_state(manual_harness.tmpdir)
+                    registry = state.get("unresolved_prefixes")
+                    if not isinstance(registry, dict):
+                        registry = {}
+                    registry[prefix] = {
+                        "count": 1, "first_seen": "2026-01-01T00:00:00+00:00",
+                        "last_seen": "2026-01-01T00:00:00+00:00",
+                        "example_callsign": prefix + "100"}
+                    _seed_unresolved_prefixes(manual_harness.tmpdir, registry)
+
+                def _resolve_post(prefix, airline_name):
+                    data = urllib.parse.urlencode(
+                        {"prefix": prefix, "airline_name": airline_name}).encode()
+                    return http_request(
+                        mbase + "/airlines/resolve", method="POST", data=data, cookie=msession)
+
+                rejection_cases = (
+                    ("EMP", "", "flash=manual_name_empty"),
+                    ("TLN", "A" * 101, "flash=manual_name_too_long"),
+                    ("RSV", "Generic Fallback", "flash=manual_name_reserved"),
+                )
+                for prefix, airline_name, expected_flash in rejection_cases:
+                    _seed_gap(prefix)
+                    status, headers, _ = _resolve_post(prefix, airline_name)
+                    if status != 303:
+                        return False, "prefix %r: expected a 303 redirect, got %d" % (prefix, status)
+                    location = headers.get("Location", "")
+                    if expected_flash not in location:
+                        return False, (
+                            "prefix %r: expected %r in the redirect, got %r"
+                            % (prefix, expected_flash, location))
+                    registry = manual_resolutions.load_manual_resolutions(manual_harness.tmpdir)
+                    if prefix in registry:
+                        return False, (
+                            "prefix %r: expected the rejected entry to NOT be persisted" % (prefix,))
+
+                # D-03 branch: a brand-new name (no existing artwork)
+                # redirects WITH resolve= (Step B is offered); a name
+                # already covered by illustrations.target_airline_names()
+                # (Air France, real vendored artwork) redirects WITHOUT
+                # resolve= — no upload is ever asked for. Run BEFORE the
+                # cap-fill below, since once the registry is at its
+                # 200-entry cap no further distinct prefix can be added at
+                # all (that is the exact behaviour the cap-fill check
+                # exercises next).
+                _seed_gap("NEW")
+                status, headers, _ = _resolve_post("NEW", "Totally Novel Airline")
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "resolve=NEW" not in location or "flash=manual_resolved" not in location:
+                    return False, (
+                        "expected resolve=NEW and the resolved flash for a brand-new "
+                        "name, got %r" % location)
+
+                _seed_gap("OLD")
+                status, headers, _ = _resolve_post("OLD", "Air France")
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "resolve=" in location:
+                    return False, (
+                        "expected NO resolve= param when the named airline already has "
+                        "artwork, got %r" % location)
+                if "flash=manual_resolved" not in location:
+                    return False, "expected the resolved flash key, got %r" % location
+
+                # ADD_REJECTED_FULL: fill the registry to the cap with
+                # unrelated, already-valid entries directly through the
+                # module (mirroring server/test_manual_resolutions.py's
+                # own _cap_enforcement precedent), then attempt one more
+                # through the real route. NEW/OLD above already persisted
+                # two entries, so only top up the remainder to reach the
+                # cap exactly — filling past it would itself start
+                # returning ADD_REJECTED_FULL mid-setup.
+                existing_count = len(
+                    manual_resolutions.load_manual_resolutions(manual_harness.tmpdir))
+                needed = manual_resolutions.MANUAL_RESOLUTION_MAX_ENTRIES - existing_count
+                import string
+                cap_prefixes = []
+                count = 0
+                for a in string.ascii_uppercase:
+                    for b in string.ascii_uppercase:
+                        if count >= needed:
+                            break
+                        cap_prefixes.append("Y" + a + b)
+                        count += 1
+                    if count >= needed:
+                        break
+                for i, pfx in enumerate(cap_prefixes):
+                    result = manual_resolutions.add_entry(
+                        manual_harness.tmpdir, pfx, "Cap Filler %d" % i)
+                    if result != manual_resolutions.ADD_OK:
+                        return False, (
+                            "test setup failure filling the cap: add_entry(%r, ...) "
+                            "returned %r" % (pfx, result))
+                _seed_gap("CAP")
+                status, headers, _ = _resolve_post("CAP", "One Too Many Air")
+                if status != 303:
+                    return False, "expected a 303 redirect for the at-cap POST, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=manual_registry_full" not in location:
+                    return False, "expected the registry-full flash key, got %r" % location
+                registry = manual_resolutions.load_manual_resolutions(manual_harness.tmpdir)
+                if "CAP" in registry:
+                    return False, "expected the at-cap entry to NOT be persisted"
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "each add_entry() rejection reaches its own distinct flash key and persists "
+            "nothing (empty/too-long/reserved names, and the registry cap); the D-03 "
+            "branch: a brand-new name redirects with resolve= (Step B offered) while a "
+            "name already covered by existing artwork redirects without it",
+            _manual_resolve_post_rejection_mapping_and_d03_branch)
+
+        def _manual_resolution_delete_route_full_contract():
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                mbase = manual_harness.base_url()
+                msession = _login(manual_harness)
+
+                add_result = manual_resolutions.add_entry(
+                    manual_harness.tmpdir, "DEL", "Deletable Air")
+                if add_result != manual_resolutions.ADD_OK:
+                    return False, "test setup failure: add_entry() returned %r" % (add_result,)
+                key = manual_resolutions.illustration_key_for_name("Deletable Air")
+                override_dir = manual_harness.state_path("illustration_overrides")
+                os.makedirs(override_dir, exist_ok=True)
+                override_path = os.path.join(override_dir, key + ".png")
+                with open(override_path, "wb") as fh:
+                    fh.write(b"not a real png - only its continued existence is asserted here")
+
+                status, headers, _ = http_request(
+                    mbase + "/airlines/manual-resolutions/DEL/delete", method="POST",
+                    cookie=msession)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if location != "/airlines":
+                    return False, "expected a redirect to /airlines with no flash, got %r" % location
+                registry = manual_resolutions.load_manual_resolutions(manual_harness.tmpdir)
+                if "DEL" in registry:
+                    return False, "expected the DEL entry to be removed from the registry"
+                if not os.path.isfile(override_path):
+                    return False, "expected the override file to survive the delete (D-08)"
+
+                status, headers, _ = http_request(
+                    mbase + "/airlines/manual-resolutions/DEL/delete", method="POST",
+                    cookie=msession)
+                if status != 303:
+                    return False, (
+                        "expected a second, identical delete POST to also redirect "
+                        "(idempotent), got %d" % status)
+                location = headers.get("Location", "")
+                if location != "/airlines":
+                    return False, (
+                        "expected the same no-flash redirect on a second delete of an "
+                        "already-absent prefix, got %r" % location)
+
+                status, _headers, _body = http_request(
+                    mbase + "/airlines/manual-resolutions/not-three-letters/delete",
+                    method="POST", cookie=msession)
+                if status != 404:
+                    return False, "expected 404 for a malformed prefix, got %d" % status
+                if not os.path.isfile(override_path):
+                    return False, (
+                        "expected the override file to still exist after a 404'd "
+                        "malformed-prefix POST")
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "POST /airlines/manual-resolutions/{prefix}/delete removes the registry entry, "
+            "leaves the override PNG on disk (D-08), and redirects to /airlines with no "
+            "flash; a second identical POST is a no-op that also redirects without an "
+            "error flash; a malformed prefix 404s without touching the registry",
+            _manual_resolution_delete_route_full_contract)
+
+        def _manual_resolve_post_save_failed_on_unwritable_state_dir():
+            # WR-11: FLASH_KEY_MANUAL_SAVE_FAILED was added specifically
+            # because add_entry() can return ADD_FAILED on an unwritable
+            # state dir — CR-01 fixed the bug that made that path raise
+            # instead (a dropped connection, no flash at all); this proves
+            # the flash key itself is actually reached end to end.
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                mbase = manual_harness.base_url()
+                msession = _login(manual_harness)
+
+                state = poll_loop.load_poll_state(manual_harness.tmpdir)
+                registry = state.get("unresolved_prefixes")
+                if not isinstance(registry, dict):
+                    registry = {}
+                registry["FLD"] = {
+                    "count": 1, "first_seen": "2026-01-01T00:00:00+00:00",
+                    "last_seen": "2026-01-01T00:00:00+00:00", "example_callsign": "FLD100"}
+                poll_loop.save_poll_state(manual_harness.tmpdir, {"unresolved_prefixes": registry})
+
+                os.chmod(manual_harness.tmpdir, 0o500)
+                try:
+                    resolve_data = urllib.parse.urlencode(
+                        {"prefix": "FLD", "airline_name": "Unwritable Air"}).encode()
+                    status, headers, _ = http_request(
+                        mbase + "/airlines/resolve", method="POST", data=resolve_data,
+                        cookie=msession)
+                finally:
+                    os.chmod(manual_harness.tmpdir, 0o700)
+
+                if status != 303:
+                    return False, "expected a 303 redirect even on a write failure, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=manual_save_failed" not in location:
+                    return False, (
+                        "expected the manual_save_failed flash key when add_entry() fails to "
+                        "write, got %r" % location)
+                if "resolve=FLD" not in location:
+                    return False, (
+                        "expected the redirect to carry resolve=FLD so the operator lands back "
+                        "on the form, got %r" % location)
+                registry_after = manual_resolutions.load_manual_resolutions(manual_harness.tmpdir)
+                if "FLD" in registry_after:
+                    return False, "expected nothing persisted after a failed write"
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "POST /airlines/resolve redirects with the manual_save_failed flash key (never a "
+            "dropped connection) when add_entry() cannot write because the state dir is "
+            "read-only — the exact failure mode CR-01 fixed, exercised end to end (WR-11)",
+            _manual_resolve_post_save_failed_on_unwritable_state_dir)
+
+        def _manual_resolution_delete_post_delete_failed_on_unwritable_state_dir():
+            # WR-11's mirror case: FLASH_KEY_MANUAL_DELETE_FAILED for
+            # delete_entry() returning False after a genuine write
+            # failure (never for an already-absent prefix, which is a
+            # silent no-op by design).
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                mbase = manual_harness.base_url()
+                msession = _login(manual_harness)
+
+                add_result = manual_resolutions.add_entry(
+                    manual_harness.tmpdir, "DLF", "Undeletable Air")
+                if add_result != manual_resolutions.ADD_OK:
+                    return False, "test setup failure: add_entry() returned %r" % (add_result,)
+
+                os.chmod(manual_harness.tmpdir, 0o500)
+                try:
+                    status, headers, _ = http_request(
+                        mbase + "/airlines/manual-resolutions/DLF/delete", method="POST",
+                        cookie=msession)
+                finally:
+                    os.chmod(manual_harness.tmpdir, 0o700)
+
+                if status != 303:
+                    return False, "expected a 303 redirect even on a write failure, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=manual_delete_failed" not in location:
+                    return False, (
+                        "expected the manual_delete_failed flash key when delete_entry() fails "
+                        "to write, got %r" % location)
+                registry_after = manual_resolutions.load_manual_resolutions(manual_harness.tmpdir)
+                if "DLF" not in registry_after:
+                    return False, "expected the entry to survive a failed delete_entry() write"
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "POST /airlines/manual-resolutions/{prefix}/delete redirects with the "
+            "manual_delete_failed flash key, leaving the entry in place, when delete_entry() "
+            "cannot write because the state dir is read-only (WR-11)",
+            _manual_resolution_delete_post_delete_failed_on_unwritable_state_dir)
 
         # --- poll-trigger cooldown: server-global, not per-session ---
 

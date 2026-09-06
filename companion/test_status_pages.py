@@ -57,6 +57,7 @@ from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import history_db  # noqa: E402
 from server.plane import illustrations  # noqa: E402
+from server.plane import manual_resolutions  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
@@ -281,7 +282,28 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 136  # 135 + 1 (quick task 260904-e92). 135 itself =
+EXPECTED_CHECK_COUNT = 149  # 148 + 1 (13-REVIEW.md WR-06 fix: the
+# health_page.RESOLVE_LINK_HREF_TEMPLATE / airlines_page route-constant
+# cross-module equality check). Re-derived by RUNNING the harness, not
+# by arithmetic.
+# 148 = 146 + 2 (13-REVIEW.md CR-02 fix: the
+# resolve section's Step-B-stays-reachable-after-D-14-clears-the-gap
+# check, and the management list's Add-artwork-link check). Re-derived
+# by RUNNING the harness, not by arithmetic.
+# 146 = 143 + 3 (phase 13 plan 04 Task 2: the
+# management list's empty/populated-states check, the supersession-
+# contract check, and the delete-control/design-system contract check —
+# D-06/D-07/D-08). Re-derived by RUNNING the harness, not by arithmetic.
+# 143 = 140 + 3 (phase 13 plan 04 Task 1: the
+# resolve section's four-state state-machine check, the Step A datalist
+# contract check, and the hostile-value-escaping/query-string-distrust
+# check — D-03/D-11/D-12/D-13/T-13-05/T-13-08). Re-derived by RUNNING the
+# harness, not by arithmetic. 140 = 138 + 2 (phase 13 plan 02 Task 2: the
+# registry Resolve-link desktop/mobile pairing + hostile-prefix-escaping
+# check, and the no-form/exactly-one-<button-literal read-only-guard
+# check — D-10/T-13-05/T-13-13). 138 = 136 + 2 (phase 13 plan 02 Task 1:
+# the read-only-note reword check and the _SOURCE_ROWS fifth-entry/
+# "manual" check — D-10/D-02). 136 = 135 + 1 (quick task 260904-e92). 135 itself =
 # 133 + 2 (06.6.4.1.1-03 Task 1: the desktop-
 # padding/mobile-density pair guard for D-15's .page-section/.theme-status/
 # .battery-trend-section >= 960px padding override; Task 2: the mobile-only
@@ -2449,8 +2471,13 @@ def main():
             for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
                 if marker not in rendered:
                     return False, "expected the migrated filter bar's %r marker to survive the move" % marker
-            if health_page._READ_ONLY_NOTE not in rendered:
-                return False, "expected the read-only note to survive the move verbatim"
+            # phase 13 (D-10) reworded this note to include two
+            # apostrophes ("row's", "prefix's"), which escape_html()'s
+            # quote=True mode renders as &#x27; — compare against the
+            # escaped form, matching this module's own single-escaping-
+            # choke-point discipline, not the raw Python literal.
+            if layout.escape_html(health_page._READ_ONLY_NOTE) not in rendered:
+                return False, "expected the read-only note to survive the move verbatim (escaped)"
             section_start = rendered.index(
                 '<h2 class="text-heading">%s</h2>' % health_page.UNRESOLVED_SECTION_HEADING)
             section_slice = rendered[section_start:section_start + 4000]
@@ -2463,6 +2490,160 @@ def main():
         "the migrated Unresolved-prefixes card keeps its filter bar, read-only note, and non-button Clear "
         "control (D-12)",
         _registry_card_keeps_filter_bar_note_and_non_button_clear)
+
+    def _read_only_note_reworded_to_point_at_airlines_not_the_runbook():
+        # phase 13 (D-10): the note now tells the operator where
+        # resolution happens (the Airlines page, via the per-row Resolve
+        # link Task 2 adds) instead of pointing at the old manual
+        # runbook. The old note's closing phrase, recovered from git
+        # history, belongs only here — never back in health_page.py,
+        # since the acceptance gate greps the page module for its
+        # absence.
+        old_note_closing_phrase = "following the existing coverage-gap runbook."
+        expected_note = (
+            "This list is read-only here — each row's Resolve link opens "
+            "the Airlines page to name that prefix's airline (and add "
+            "artwork, if it needs one).")
+        if health_page._READ_ONLY_NOTE != expected_note:
+            return False, (
+                "expected _READ_ONLY_NOTE to equal the UI-SPEC's exact new "
+                "string, got %r" % (health_page._READ_ONLY_NOTE,))
+        tmp = _mkstate("h-read-only-note-reworded")
+        try:
+            rendered = health_page.render(_ctx(tmp))
+            # The note contains two apostrophes ("row's", "prefix's"),
+            # which escape_html()'s quote=True mode renders as &#x27; —
+            # compare against the escaped form, the module's own single
+            # escaping choke-point discipline.
+            if layout.escape_html(expected_note) not in rendered:
+                return False, "expected the rendered page to contain the new note verbatim (escaped)"
+            if old_note_closing_phrase in rendered:
+                return False, "expected the old runbook-pointing phrase to be fully gone from the render"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the read-only note is reworded to name Airlines as the resolution surface and no longer points at "
+        "the manual runbook (phase 13 D-10)",
+        _read_only_note_reworded_to_point_at_airlines_not_the_runbook)
+
+    def _source_rows_gains_fifth_manual_entry():
+        # phase 13 (D-02): _SOURCE_ROWS gains a fifth "manual" tuple so
+        # the resolution-rate breakdown never folds a hand-resolved
+        # prefix into the "airline_only" bucket, whose gloss says the
+        # static prefix table did the work.
+        if len(health_page._SOURCE_ROWS) != 5:
+            return False, "expected exactly 5 _SOURCE_ROWS entries, got %d" % len(health_page._SOURCE_ROWS)
+        if health_page._SOURCE_ROWS[4][0] != "manual":
+            return False, "expected the fifth _SOURCE_ROWS entry's key to be 'manual', got %r" % (
+                health_page._SOURCE_ROWS[4][0],)
+        tmp = _mkstate("h-source-rows-manual")
+        try:
+            now = _now()
+            _seed_runway_events(tmp, [
+                {"ts": _iso(now), "hex": "abc001", "route_source": "fresh_hit"},
+                {"ts": _iso(now), "hex": "abc002", "route_source": "manual"},
+                {"ts": _iso(now), "hex": "abc003", "route_source": "manual"},
+            ])
+            with history_db.open_db(tmp) as conn:
+                stats = health_page.resolution_stats(conn, health_page.RESOLUTION_WINDOW_DAYS)
+            if stats["total"] != 3:
+                return False, "expected the seeded 'manual' events to count toward the total, got %r" % (
+                    stats["total"],)
+            manual_rows = [row for row in stats["rows"] if row[0] == "Manual"]
+            if len(manual_rows) != 1 or manual_rows[0][2] != 2:
+                return False, "expected exactly one 'Manual' row with count 2, got %r" % (manual_rows,)
+
+            rendered = health_page.render(_ctx(tmp, now=_iso(now)))
+            if ">Manual<" not in rendered:
+                return False, "expected the rendered resolution-statistics table to contain a 'Manual' row label"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_SOURCE_ROWS has a fifth 'manual' entry, resolution_stats() folds a seeded 'manual' route_source "
+        "count into the total and a labelled row, and render() shows a 'Manual' row (phase 13 D-02)",
+        _source_rows_gains_fifth_manual_entry)
+
+    def _registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_input():
+        # phase 13 (D-10): each registry row's Resolve link is emitted
+        # twice — once in the desktop <tr>'s sixth <td>, once in the
+        # mobile card's .data-card__action block — sharing the identical
+        # href/aria-label, differing only in visible link text.
+        tmp = _mkstate("h-registry-resolve-link")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
+            })
+            rendered = health_page.render(_ctx(tmp))
+            expected_href = 'href="%s"' % (health_page.RESOLVE_LINK_HREF_TEMPLATE % "XYZ")
+            expected_aria = 'aria-label="%s"' % (health_page.RESOLVE_LINK_ARIA_TEMPLATE % "XYZ")
+            if rendered.count(expected_href) != 2:
+                return False, "expected %r exactly twice (table + card), got %d" % (
+                    expected_href, rendered.count(expected_href))
+            if rendered.count(expected_aria) != 2:
+                return False, "expected %r exactly twice (table + card), got %d" % (
+                    expected_aria, rendered.count(expected_aria))
+            if rendered.count(">%s</a>" % health_page.RESOLVE_LINK_TEXT) != 1:
+                return False, "expected the desktop anchor's link text 'Resolve' exactly once"
+            if rendered.count(">%s</a>" % health_page.RESOLVE_CARD_LINK_TEXT) != 1:
+                return False, "expected the mobile anchor's link text 'Resolve this prefix' exactly once"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        # Hostile prefix — must render fully escaped in both
+        # representations, no raw angle bracket or quote reaching output.
+        tmp_hostile = _mkstate("h-registry-resolve-link-hostile")
+        try:
+            hostile_prefix = '<x>"'
+            _seed_unresolved_prefixes(tmp_hostile, {
+                hostile_prefix: {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "X"},
+            })
+            rendered = health_page.render(_ctx(tmp_hostile))
+            escaped_prefix = layout.escape_html(hostile_prefix)
+            expected_href = 'href="%s"' % (health_page.RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix)
+            expected_aria = 'aria-label="%s"' % (health_page.RESOLVE_LINK_ARIA_TEMPLATE % escaped_prefix)
+            if rendered.count(expected_href) != 2:
+                return False, "expected the escaped href exactly twice, got %d" % rendered.count(expected_href)
+            if rendered.count(expected_aria) != 2:
+                return False, "expected the escaped aria-label exactly twice, got %d" % rendered.count(expected_aria)
+            if hostile_prefix in rendered:
+                return False, "expected no raw hostile prefix anywhere in the rendered page"
+            if "<x>" in rendered:
+                return False, "expected the hostile prefix's angle bracket to never reach the output raw"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_hostile, ignore_errors=True)
+    check(
+        "the registry's per-row Resolve link is paired identically (href/aria-label) across the desktop "
+        "table and mobile card, with distinct visible text per representation, and a hostile prefix renders "
+        "fully escaped in both (phase 13 D-10, T-13-05)",
+        _registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_input)
+
+    def _health_still_has_no_form_and_exactly_one_button_literal():
+        # phase 13 (D-10, T-13-13): the machine-readable form of the
+        # promise that adding the Resolve link does not reopen
+        # 06.6.4.1-04's D-11/D-12 — Health gains no state-changing
+        # control. Reads the module source directly, filters out
+        # nothing.
+        source_path = os.path.join(HERE, "pages", "health_page.py")
+        with open(source_path, encoding="utf-8") as fh:
+            source = fh.read()
+        form_count = source.count("<form")
+        button_count = source.count("<button")
+        if form_count != 0:
+            return False, "expected zero '<form' occurrences in health_page.py, got %d" % form_count
+        if button_count != 1:
+            return False, (
+                "expected exactly one '<button' occurrence (the pre-existing D-16 docstring mention), "
+                "got %d" % button_count)
+        return True, ""
+    check(
+        "companion/pages/health_page.py still contains zero HTML form elements and exactly one '<button' "
+        "literal (the pre-existing D-16 docstring mention) — Health gains no state-changing control "
+        "(phase 13 D-10, T-13-13)",
+        _health_still_has_no_form_and_exactly_one_button_literal)
 
     def _quick_260902_gjj_muted_captions_compose_section_caption():
         # quick task 260902-gjj (ISSUE 1): pins the markup pair (both
@@ -2482,7 +2663,10 @@ def main():
                     "expected the battery heading's trailing span to compose "
                     "text-label with section-caption, got %r" % heading_html)
 
-            note_at = rendered.index(health_page._READ_ONLY_NOTE)
+            # phase 13 (D-10): the reworded note contains apostrophes,
+            # which escape_html() renders as &#x27; — locate the escaped
+            # form, not the raw Python literal.
+            note_at = rendered.index(layout.escape_html(health_page._READ_ONLY_NOTE))
             note_open = rendered.rindex("<p", 0, note_at)
             note_tag = rendered[note_open:rendered.index(">", note_open) + 1]
             if 'class="text-body section-caption"' not in note_tag:
@@ -5348,20 +5532,30 @@ def main():
         "data-filter-group values has the same size as the card count",
         _every_card_carries_distinct_filter_text_and_group)
 
-    def _airlines_page_source_has_no_history_db_poll_loop_or_sqlite_import():
-        # D-17 non-goal: the gallery shows the full static curated list
-        # and performs no detection-history cross-reference — the page
-        # module opens no database and reads no poll state.
+    def _airlines_page_source_has_no_history_db_or_sqlite_import():
+        # D-17 non-goal (unchanged half): the gallery shows the full
+        # static curated list and performs no detection-history
+        # cross-reference — the page module opens no SQLite database of
+        # any kind. Phase 13 (13-04-PLAN.md Task 1) deliberately
+        # supersedes the OTHER half of this same D-17 sentence ("reads no
+        # poll state"): `unresolved_row_for_prefix()` now reads
+        # `server.poll_loop.load_poll_state()` as D-11's membership test,
+        # so `poll_loop` is no longer forbidden here — see
+        # airlines_page.py's own module docstring for the supersession
+        # note.
         with open(os.path.join(HERE, "pages", "airlines_page.py")) as fh:
             source = fh.read()
-        for needle in ("history_db", "poll_loop", "import sqlite3"):
+        for needle in ("history_db", "import sqlite3"):
             if needle in source:
                 return False, "airlines_page.py must not import %r (D-17 non-goal)" % needle
+        if "import server.poll_loop as poll_loop" not in source:
+            return False, "expected airlines_page.py to import poll_loop (phase 13 D-11 supersession)"
         return True, ""
     check(
-        "companion/pages/airlines_page.py imports no history-database module, no poll-state module, and no "
-        "sqlite module (D-17 non-goal: no detection-history cross-reference)",
-        _airlines_page_source_has_no_history_db_poll_loop_or_sqlite_import)
+        "companion/pages/airlines_page.py imports no history-database module and no sqlite module (D-17 "
+        "non-goal: no detection-history cross-reference), and imports poll_loop exactly the way phase 13's "
+        "D-11 membership test deliberately supersedes the OLDER half of that same non-goal",
+        _airlines_page_source_has_no_history_db_or_sqlite_import)
 
     def _airlines_page_no_longer_renders_registry_or_stats_headers():
         # D-13 non-goal: after this plan, exactly one page (Health)
@@ -6051,6 +6245,502 @@ def main():
         "element's text equals REPLACE_HINT_TEXT; and companion/static/style.css (read from disk) contains "
         "LIGHTBOX_REPLACE_ZONE_CLASS, REPLACE_HINT_CLASS, REPLACE_ICON_CLASS and a '::file-selector-button' rule",
         _replace_zone_markup_and_styling_contract)
+
+    # ------------------------------------------------------------------
+    # Phase 13 (13-04-PLAN.md Task 1): the conditional resolve section
+    # (D-03, D-10 through D-13).
+    # ------------------------------------------------------------------
+
+    def _resolve_slice(rendered):
+        """Isolate just the resolve section's own markup from a full
+        page render — the shared lightbox dialog (rendered later, once
+        per page regardless of resolve state) carries its own permanent
+        `<form>`/file input that must not contaminate a "no form"/"no
+        file input" assertion scoped to the resolve section alone.
+        """
+        return rendered[:rendered.index("filter-bar")]
+
+    def _resolve_section_four_states_render_correctly():
+        tmp = _mkstate("a-resolve-states")
+        try:
+            now = _iso(_now())
+
+            # State 1: the query prefix is not a member of the live
+            # registry at all -> the stale sentence, no form of any kind.
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "ZZZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            if airlines_page.RESOLVE_STALE_BODY not in section:
+                return False, "expected the stale sentence for a prefix absent from the registry"
+            if airlines_page.MANUAL_NAME_INPUT_ID in section:
+                return False, "expected no name input for a stale/absent prefix"
+            if "<form" in section:
+                return False, "expected no <form> inside the resolve section for a stale/absent prefix"
+
+            # Seed a real coverage gap, no manual entry recorded for it yet.
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            if airlines_page.RESOLVE_HEADING not in section:
+                return False, "expected the Step A heading for a seeded gap with no manual entry"
+            if ('id="%s"' % airlines_page.MANUAL_NAME_INPUT_ID) not in section:
+                return False, "expected the name input to render at Step A"
+            if '<input type="file"' in section:
+                return False, "expected no file input at Step A"
+
+            # Record a manual entry naming a fresh airline with no artwork.
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Brand New Air", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected add_entry() to accept a fresh, valid name, got %r" % (add_result,)
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Brand New Air"
+            if expected_heading not in section:
+                return False, "expected the Step B heading naming the stored airline, got a render missing %r" % (
+                    expected_heading,)
+            key = manual_resolutions.illustration_key_for_name("Brand New Air")
+            expected_action = 'action="%s%s.png"' % (airlines_page.ILLUSTRATION_ROUTE_PREFIX, key)
+            if expected_action not in section:
+                return False, "expected the upload form action to be %r" % (expected_action,)
+            if '<input type="file"' not in section:
+                return False, "expected a file input at Step B"
+
+            # Re-add the same prefix, this time naming a target airline
+            # that already has artwork.
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Air France", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected add_entry() to accept overwriting the same prefix, got %r" % (add_result,)
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            expected_done = airlines_page.RESOLVE_ALREADY_DONE_TEMPLATE % "Air France"
+            if expected_done not in section:
+                return False, "expected the already-resolved sentence naming Air France"
+            if '<input type="file"' in section:
+                return False, "expected no file input once artwork already resolves for the stored name"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the resolve section renders all four server-derived states and only the right controls in each: "
+        "absent-from-registry (stale sentence, no form at all), seeded-gap-no-entry (Step A heading, name "
+        "input, no file input), seeded-gap-with-artless-entry (Step B heading naming the stored airline, "
+        "upload form action ending /{key}.png, a file input), and seeded-gap-with-resolved-entry (the "
+        "already-resolved sentence, no file input) — D-03/D-11",
+        _resolve_section_four_states_render_correctly)
+
+    def _resolve_section_datalist_contract():
+        tmp = _mkstate("a-resolve-datalist")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            ctx = _ctx(tmp)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            names = illustrations.target_airline_names()
+            option_count = rendered.count("<option value=")
+            if option_count != len(names):
+                return False, "expected %d <option> elements (one per target airline), got %d" % (
+                    len(names), option_count)
+            datalist_match = re.search(r'<datalist id="([^"]+)">', rendered)
+            if not datalist_match:
+                return False, "expected a <datalist id=\"...\"> element"
+            list_attr_match = re.search(r'list="([^"]+)"', rendered)
+            if not list_attr_match or list_attr_match.group(1) != datalist_match.group(1):
+                return False, "expected the name input's list attribute to equal the datalist's own id"
+            for name in names:
+                expected_option = '<option value="%s">' % layout.escape_html(name)
+                if expected_option not in rendered:
+                    return False, "expected an escaped %r for airline %r" % (expected_option, name)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "Step A's rendered datalist carries exactly len(illustrations.target_airline_names()) (27 against "
+        "today's data) <option> elements, the datalist's id matches the name input's list attribute, and "
+        "every airline name appears as an escaped <option value=...> exactly once (D-13)",
+        _resolve_section_datalist_contract)
+
+    def _resolve_section_escapes_hostile_values_and_distrusts_query_string():
+        tmp = _mkstate("a-resolve-escaping")
+        try:
+            hostile_name = '<b>Evil & "quoted" name'
+            hostile_callsign = '<i>XYZ</i> & "call"'
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": hostile_callsign,
+                },
+            })
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", hostile_name)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "expected add_entry() to accept the hostile-but-slug-safe name, got %r" % (
+                    add_result,)
+
+            now = _iso(_now())
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+
+            if "<b>Evil" in rendered or "<i>XYZ</i>" in rendered:
+                return False, "found an unescaped hostile tag in the rendered page"
+            if re.search(r"&(?!amp;|lt;|gt;|quot;|#39;|#x27;)", rendered):
+                return False, "found a raw & that is not part of an HTML entity"
+            if 'value="<b>' in rendered or 'title="<b>' in rendered:
+                return False, "found an unescaped hostile value inside an attribute"
+
+            # WR-04: a resolve_prefix that differs from the stored
+            # registry key only in case or surrounding whitespace
+            # normalises (via unresolved_row_for_prefix()'s own
+            # manual_resolutions.normalise_prefix() call) to the
+            # identical prefix the write path (POST /airlines/resolve)
+            # already accepts — so it must render the exact same resolve
+            # section as the canonical upper-case value, never a
+            # different (stale) state derived from treating the raw,
+            # unnormalised query string as authoritative (D-12).
+            canonical_section = _resolve_slice(rendered)
+            for hostile_prefix in ("xyz", "XYZ ", " XYZ", "Xyz"):
+                ctx = _ctx(tmp, now=now)
+                ctx["resolve_prefix"] = hostile_prefix
+                variant_rendered = airlines_page.render(ctx)
+                variant_section = _resolve_slice(variant_rendered)
+                if variant_section != canonical_section:
+                    return False, (
+                        "expected resolve_prefix=%r to normalise to the same resolve "
+                        "section as the canonical 'XYZ', got a divergent render"
+                        % (hostile_prefix,))
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a stored airline name and example callsign both containing an angle bracket, a double quote and an "
+        "ampersand render fully escaped everywhere they appear (including inside an attribute value), and a "
+        "resolve_prefix differing from the stored registry key only in case or surrounding whitespace "
+        "normalises to the identical prefix and renders the identical resolve section (WR-04/D-12)",
+        _resolve_section_escapes_hostile_values_and_distrusts_query_string)
+
+    def _resolve_section_step_b_reachable_after_gap_cleared():
+        tmp = _mkstate("a-resolve-cr02-step-b")
+        try:
+            now = _iso(_now())
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 1, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Brand New Air", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "setup failure: add_entry() returned %r" % (add_result,)
+
+            # CR-02: simulate D-14 — the poll loop has since cleared the
+            # now-resolved prefix from the live gap registry, exactly as
+            # it would on the very next cycle after Step A saved a name.
+            _seed_unresolved_prefixes(tmp, {})
+
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            if airlines_page.RESOLVE_STALE_BODY in section:
+                return False, (
+                    "CR-02: Step B must stay reachable once D-14 clears the live gap, got the "
+                    "stale sentence instead")
+            expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Brand New Air"
+            if expected_heading not in section:
+                return False, (
+                    "expected the Step B heading naming the stored airline even with no live "
+                    "gap, got a render missing %r" % (expected_heading,))
+            if '<input type="file"' not in section:
+                return False, "expected a file input at Step B even with no live gap"
+            if 'class="resolve-context"' in section:
+                return False, (
+                    "expected no sighting-context <dl> once the gap entry that carried it is "
+                    "gone — there is genuinely no data left to show")
+            if airlines_page.STEP_B_SKIP_TEXT not in section:
+                return False, "expected the Skip link to still render at Step B with no live gap"
+
+            # D-07's delete-and-re-add correction path must also still
+            # work with the gap gone: re-adding under a name that
+            # already has artwork must reach the already-done state, not
+            # a dead end.
+            add_result = manual_resolutions.add_entry(tmp, "XYZ", "Air France", now=now)
+            if add_result != manual_resolutions.ADD_OK:
+                return False, "setup failure: add_entry() (Air France) returned %r" % (add_result,)
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            expected_done = airlines_page.RESOLVE_ALREADY_DONE_TEMPLATE % "Air France"
+            if expected_done not in section:
+                return False, (
+                    "expected the already-resolved sentence even with no live gap, got a "
+                    "render missing %r" % (expected_done,))
+
+            # With neither a live gap NOR a manual entry, the prefix is
+            # genuinely stale — this must not regress into always
+            # showing Step B/already-done for any well-shaped prefix.
+            manual_resolutions.delete_entry(tmp, "XYZ")
+            ctx = _ctx(tmp, now=now)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
+            if airlines_page.RESOLVE_STALE_BODY not in section:
+                return False, (
+                    "expected the stale sentence once neither a live gap nor a manual entry "
+                    "exists for the prefix")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CR-02: once D-14 clears a resolved prefix from the live gap registry, the resolve section still "
+        "reaches Step B for a manual entry with no artwork yet (heading, file input, Skip link, no "
+        "sighting-context <dl>), still reaches the already-resolved state once artwork exists under the "
+        "re-added name (D-07's delete-and-re-add path), and still renders the stale sentence only once "
+        "neither a live gap nor a manual entry exists for the prefix",
+        _resolve_section_step_b_reachable_after_gap_cleared)
+
+    # ------------------------------------------------------------------
+    # Phase 13 (13-04-PLAN.md Task 2): the manual-resolutions management
+    # list (D-06, D-07, D-08).
+    # ------------------------------------------------------------------
+
+    def _manual_section_slice(rendered):
+        """Isolate just the management list's own markup — everything
+        from its heading constant to the end of the page, since it is
+        always the last thing render() emits.
+        """
+        return rendered[rendered.index(airlines_page.MANUAL_SECTION_HEADING):]
+
+    def _manual_section_empty_and_populated_states():
+        tmp = _mkstate("a-manual-empty-populated")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+            if airlines_page.MANUAL_EMPTY_HEADING not in section:
+                return False, "expected the approved empty heading with no manual resolutions"
+            if airlines_page.MANUAL_EMPTY_BODY not in section:
+                return False, "expected the approved empty body with no manual resolutions"
+            if "<table" in section:
+                return False, "expected no <table> element when the registry is empty"
+
+            manual_resolutions.add_entry(tmp, "AAA", "Airline A", now="2026-01-01T00:00:00+00:00")
+            manual_resolutions.add_entry(tmp, "BBB", "Airline B", now="2026-01-02T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+            if "<table" not in section:
+                return False, "expected a <table> element once entries exist"
+            if "<ul class=\"data-cards\">" not in section:
+                return False, "expected a <ul class=\"data-cards\"> element once entries exist"
+            table_prefixes = re.findall(r'<td class="mono">([^<]+)</td>', section)
+            card_prefixes = re.findall(r'<span class="cell-primary mono">([^<]+)</span>', section)
+            if table_prefixes != ["AAA", "BBB"] or card_prefixes != ["AAA", "BBB"]:
+                return False, "expected both representations to cover [AAA, BBB] in prefix-ascending order, got "\
+                    "table=%r cards=%r" % (table_prefixes, card_prefixes)
+            cards_index = section.index('<ul class="data-cards">')
+            table_index = section.index("<table")
+            if cards_index >= table_index:
+                return False, "expected the .data-cards list to precede the <table> in DOM order (the sibling-"\
+                    "combinator toggle depends on this)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with no manual resolutions the management list renders the approved empty heading/body and no "
+        "<table>; with two entries it renders both representations (table and .data-cards, cards first in "
+        "DOM order) covering the same prefixes in the same prefix-ascending order",
+        _manual_section_empty_and_populated_states)
+
+    def _manual_section_supersession_contract():
+        tmp = _mkstate("a-manual-supersession")
+        try:
+            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES);
+            # ZZZ is not.
+            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+            if airlines_page.SUPERSEDED_MARKER_TEXT not in section:
+                return False, "expected the Superseded marker for a prefix the static table has caught up to"
+            if airlines_page.SUPERSEDED_MARKER_TITLE not in section:
+                return False, "expected the marker's title explanation"
+            if section.count(airlines_page.SUPERSEDED_CAPTION) != 1:
+                return False, "expected exactly one trailing explanatory caption, got %d" % (
+                    section.count(airlines_page.SUPERSEDED_CAPTION),)
+
+            tmp2 = _mkstate("a-manual-not-superseded")
+            try:
+                manual_resolutions.add_entry(tmp2, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
+                rendered2 = airlines_page.render(_ctx(tmp2))
+                section2 = _manual_section_slice(rendered2)
+                if airlines_page.SUPERSEDED_MARKER_TEXT in section2:
+                    return False, "expected no Superseded marker for a prefix absent from the static table"
+                if airlines_page.SUPERSEDED_CAPTION in section2:
+                    return False, "expected the explanatory caption absent entirely when nothing is superseded"
+            finally:
+                shutil.rmtree(tmp2, ignore_errors=True)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an entry whose prefix is a real member of the static prefix table renders the Superseded marker, "
+        "its title explanation, and exactly one trailing explanatory caption; an entry whose prefix is not "
+        "renders neither, and the caption is absent entirely when no row is superseded (D-06)",
+        _manual_section_supersession_contract)
+
+    def _manual_section_add_artwork_link_contract():
+        tmp = _mkstate("a-manual-add-artwork")
+        try:
+            # ZZZ names a fresh airline with no existing artwork —
+            # CR-02's status cell must offer the "Add artwork" link,
+            # pointing at the identical ?resolve={prefix} URL the
+            # resolve section itself now serves Step B from regardless
+            # of live-gap membership.
+            manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
+            # OLD names a target airline that already has real vendored
+            # artwork (Air France) — no link, nothing left to add.
+            manual_resolutions.add_entry(tmp, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
+            # AFR is a real static-table prefix, so this entry is
+            # superseded (D-06) — no link even though "Some Other
+            # Airline" itself has no artwork, since the built-in table
+            # now owns AFR and uploading under the operator's own name
+            # would not change what the frame displays.
+            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+
+            expected_link = '<a href="%s?%s=%s">%s</a>' % (
+                airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM, "ZZZ",
+                airlines_page.ADD_ARTWORK_LINK_TEXT)
+            if section.count(expected_link) != 2:
+                # Rendered once in the desktop <tr>, once in the mobile <li>.
+                return False, (
+                    "expected the Add-artwork link for ZZZ to appear exactly twice (desktop + "
+                    "mobile), got %d: %r" % (section.count(expected_link), expected_link))
+
+            old_link = '?%s=OLD' % airlines_page.RESOLVE_QUERY_PARAM
+            if old_link in section:
+                return False, "expected NO Add-artwork link for OLD — Air France already has artwork"
+
+            afr_link = '?%s=AFR' % airlines_page.RESOLVE_QUERY_PARAM
+            if afr_link in section:
+                return False, "expected NO Add-artwork link for AFR — a superseded entry must not offer it"
+            if airlines_page.SUPERSEDED_MARKER_TEXT not in section:
+                return False, "expected AFR to still render the Superseded marker"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "CR-02: the management list's status cell offers an 'Add artwork' link (into the identical "
+        "?resolve={prefix} URL the resolve section serves Step B from) for an active entry whose stored "
+        "name has no artwork yet, in both the desktop table and the mobile card; renders no such link for "
+        "an entry whose name already has artwork, nor for a superseded entry (which keeps its Superseded "
+        "marker instead)",
+        _manual_section_add_artwork_link_contract)
+
+    def _health_resolve_link_template_matches_airlines_route_constants():
+        # WR-06: airlines_page.py's own comment above RESOLVE_ROUTE/
+        # AIRLINES_ROUTE/RESOLVE_QUERY_PARAM/MANUAL_DELETE_ROUTE_PREFIX
+        # claims these are "pinned by a cross-module equality check in
+        # companion/test_status_pages.py" — no such check existed until
+        # this one. health_page.RESOLVE_LINK_HREF_TEMPLATE
+        # ("/airlines?resolve=%s") is a hand-written duplicate of
+        # AIRLINES_ROUTE + "?" + RESOLVE_QUERY_PARAM + "=%s"; renaming
+        # either constant without updating the other would silently break
+        # D-10's per-row deep link (the only entry point into the whole
+        # feature) behind a still-green suite. This check makes that
+        # drift fail loudly instead.
+        expected_template = "%s?%s=%%s" % (airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+        if health_page.RESOLVE_LINK_HREF_TEMPLATE != expected_template:
+            return False, (
+                "expected health_page.RESOLVE_LINK_HREF_TEMPLATE (%r) to equal %r, derived from "
+                "airlines_page.AIRLINES_ROUTE + airlines_page.RESOLVE_QUERY_PARAM"
+                % (health_page.RESOLVE_LINK_HREF_TEMPLATE, expected_template))
+        return True, ""
+    check(
+        "health_page.RESOLVE_LINK_HREF_TEMPLATE equals the template derived from "
+        "airlines_page.AIRLINES_ROUTE and airlines_page.RESOLVE_QUERY_PARAM — the cross-module equality "
+        "check airlines_page.py's own comment already claims exists (WR-06)",
+        _health_resolve_link_template_matches_airlines_route_constants)
+
+    def _manual_section_delete_control_and_design_system_contract():
+        tmp = _mkstate("a-manual-delete-contract")
+        try:
+            manual_resolutions.add_entry(tmp, "AAA", "Airline A", now="2026-01-01T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+            expected_action = "/airlines/manual-resolutions/AAA/delete"
+            form_match = re.search(
+                r'<form method="post" action="%s">(.*?)</form>' % re.escape(expected_action),
+                section, re.DOTALL)
+            if not form_match:
+                return False, "expected a delete form with action %r" % (expected_action,)
+            inner = form_match.group(1)
+            if "<button type=\"submit\">" not in inner:
+                return False, "expected the delete control to be a submit button inside its own form"
+            if "<a " in inner:
+                return False, "expected the delete control to never be an anchor"
+            if "data-filter-group=\"" in section:
+                return False, "expected the management list to emit no filter-group markup at all"
+            if section.count('class="filter-bar') != 0:
+                return False, "expected the management list to emit no filter-bar markup at all"
+            rendered_full = rendered
+            if rendered_full.count('class="filter-bar') != 3:
+                return False, "expected exactly 3 occurrences of class=\"filter-bar in the whole page — "\
+                    "unchanged from before this plan (the gallery's own filter bar is the page's only one), "\
+                    "got %d" % (rendered_full.count('class="filter-bar'),)
+
+            style_css_path = os.path.join(HERE, "static", "style.css")
+            with open(style_css_path) as fh:
+                style_css_source = fh.read()
+            if airlines_page.SUPERSEDED_STATUS_CLASS not in style_css_source:
+                return False, "expected %r to appear in companion/static/style.css" % (
+                    airlines_page.SUPERSEDED_STATUS_CLASS,)
+            rule_match = re.search(
+                r"\.%s\s*\{([^}]*)\}" % re.escape(airlines_page.SUPERSEDED_STATUS_CLASS),
+                style_css_source)
+            if not rule_match:
+                return False, "expected to find the .%s rule body" % (airlines_page.SUPERSEDED_STATUS_CLASS,)
+            label_match = re.search(r"\.data-card__label\s*\{([^}]*)\}", style_css_source)
+            if not label_match:
+                return False, "expected to find the .data-card__label rule body"
+
+            def declared_values(body):
+                return {
+                    line.strip()
+                    for line in body.strip().splitlines() if line.strip()
+                }
+            superseded_decls = declared_values(rule_match.group(1))
+            label_decls = declared_values(label_match.group(1))
+            if superseded_decls != label_decls:
+                return False, "expected .%s to declare the identical five label-voice values .data-card__label "\
+                    "declares, got %r vs %r" % (
+                        airlines_page.SUPERSEDED_STATUS_CLASS, superseded_decls, label_decls)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "each row's delete form action is exactly /airlines/manual-resolutions/{prefix}/delete, the delete "
+        "control is a submit button inside that form (never an anchor), the management list emits no "
+        "filter-bar/filter-group markup of its own (the gallery's own filter bar stays the page's only one), "
+        "and .manual-resolution__status--superseded declares the identical five label-voice values "
+        ".data-card__label declares (asserted so the two can never drift, D-08/UI-SPEC Autonomous Decision 3)",
+        _manual_section_delete_control_and_design_system_contract)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,

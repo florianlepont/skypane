@@ -1,12 +1,25 @@
 """companion/pages/airlines_page.py — an illustration gallery over the
-panel renderer's own airline art (D-13 through D-17, 06.6.4.1-CONTEXT.md).
+panel renderer's own airline art (D-13 through D-17, 06.6.4.1-CONTEXT.md),
+plus (phase 13, 13-04-PLAN.md) the operator-facing "resolve an
+unidentified flight" surface and its manual-resolutions management list.
 
-Presentation-only: reads exactly one public accessor,
-`server.plane.illustrations.target_variants_by_airline()`, and touches no
-database and no poll-state file — the gallery renders the full static
-curated list from `_ILLUSTRATION_TARGETS`, never a detection-history
-cross-reference (D-17: this module opens no database and reads no poll
-state).
+The gallery itself is still presentation-only over exactly one public
+accessor, `server.plane.illustrations.target_variants_by_airline()` — it
+renders the full static curated list from `_ILLUSTRATION_TARGETS`, never
+a detection-history cross-reference, and opens no SQLite database
+connection of any kind (06.6.4.1's own D-17 non-goal, unchanged).
+
+Phase 13 narrowly supersedes the OLDER half of that same D-17 sentence
+("reads no poll state"): `unresolved_row_for_prefix()` reads
+`server.poll_loop.load_poll_state()` — read-only, exactly once per
+render, gated behind the presence of `ctx["resolve_prefix"]` — as its
+D-11 membership test against the live unresolved-callsign-prefix
+registry (13-CONTEXT.md D-11/D-12). This is a deliberate, narrow, new
+capability this phase adds, not a reopening of the 06.6.4.1 registry-
+migration this module still otherwise honours: no history-database
+module and no `sqlite3` import are added, and the unresolved-prefix
+registry table/statistics breakdown themselves are still rendered
+exactly once, by `health_page.py` alone (D-13 below).
 
 Since quick task 260902-req-02, this page's `<img>` tags are no longer a
 bare pointer at the raw vendored PNG: `companion/app.py`'s
@@ -24,10 +37,14 @@ The unresolved-callsign-prefix registry (formerly CFG-04) and the
 resolution-rate statistics breakdown (formerly CFG-08) that used to live
 on this page moved to `companion/pages/health_page.py` in this same
 phase (06.6.4.1, plan 04, D-11/D-12) — that is now the one page in the
-app that renders them (D-13). A reader hunting for that content should
-look there, not here. This move is complete as of plan 06 Task 3: this
-module no longer imports the history-database module or the poll-state
-module, and opens no database connection of any kind.
+app that RENDERS them (D-13); this module still never shows that
+registry table or that statistics breakdown itself. This move is
+complete as of 06.6.4.1 plan 06 Task 3: this module still imports no
+history-database module and opens no SQLite connection of any kind.
+Phase 13 (13-04-PLAN.md Task 1) is the one addition to that otherwise-
+unchanged boundary: `import server.poll_loop as poll_loop`, used solely
+by `unresolved_row_for_prefix()`'s single read-only membership test —
+see that function's own docstring for the full D-11/D-12 reasoning.
 """
 import os
 import re
@@ -39,6 +56,17 @@ from companion.illustration_normalize import (
 from companion.layout import escape_html
 import companion.layout as layout
 from server.plane import illustrations
+# Phase 13 (D-01/D-06/D-11/D-12): `manual_resolutions` and `enrich` are the
+# runtime-writable-registry and provenance-seam modules the resolve section
+# below reads. `poll_loop` is imported the same way `health_page.py`
+# already imports it (`import server.poll_loop as poll_loop`) — that module
+# sanctions the crossing point, and `companion/pages/__init__.py` only
+# forbids a page module importing another page module, not this. None of
+# the three creates an import cycle: none of `manual_resolutions`, `enrich`
+# or `poll_loop` imports this page module.
+from server.plane import manual_resolutions
+from server.plane import enrich
+import server.poll_loop as poll_loop
 
 # D-15: this page's illustration image route mirrors companion/app.py's
 # own ILLUSTRATION_IMAGE_ROUTE_PREFIX exactly — duplicated, not imported,
@@ -150,6 +178,128 @@ FLASH_ILLUSTRATION_REJECTED = "illustration_rejected"
 # validation already passed) — mirrors FLASH_SAVE_FAILED's own
 # genuine-server-failure framing in config_page.py.
 FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
+
+# Phase 13 (D-11/D-12/D-13, 13-04-PLAN.md Task 1): the resolve-flow flash
+# keys. Same reasoning as the FLASH_ILLUSTRATION_* block above (app.py
+# already imports this page module, so the reverse import would be a
+# cycle) — companion/app.py (plan 13-06) rebinds these under FLASH_KEY_*
+# names and adds their copy/ARIA role, mirroring the existing
+# FLASH_ILLUSTRATION_* rebinding pattern exactly.
+FLASH_MANUAL_RESOLVED = "manual_resolved"
+FLASH_MANUAL_NAME_EMPTY = "manual_name_empty"
+FLASH_MANUAL_NAME_TOO_LONG = "manual_name_too_long"
+FLASH_MANUAL_NAME_RESERVED = "manual_name_reserved"
+FLASH_MANUAL_PREFIX_STALE = "manual_prefix_stale"
+FLASH_MANUAL_REGISTRY_FULL = "manual_registry_full"
+# Planner addition, not in 13-UI-SPEC.md's Full Copy Deck:
+# `manual_resolutions.add_entry()` returns ADD_FAILED on an unwritable
+# state dir and never raises. Without this key, that failure would
+# redirect with no message at all, and 13-CONTEXT.md's governing
+# constraint is that the operator is never silently misled. Mirrors
+# FLASH_ILLUSTRATION_REPLACE_FAILED's own genuine-server-failure-vs-
+# validation-rejection framing exactly.
+FLASH_MANUAL_SAVE_FAILED = "manual_save_failed"
+# Same justification as FLASH_MANUAL_SAVE_FAILED above, for
+# `manual_resolutions.delete_entry()` returning `False` after a write
+# failure (as opposed to `False` for an unknown/malformed prefix, which
+# needs no flash — the row is simply already gone).
+FLASH_MANUAL_DELETE_FAILED = "manual_delete_failed"
+
+# Deleting a manual resolution deliberately produces NO success flash:
+# 13-UI-SPEC.md's Full Copy Deck has none, and the row disappearing from
+# the management list (Task 2) is the confirmation. Only the failure path
+# above speaks.
+
+# Phase 13 (D-11/D-12/D-13): route constants for the resolve flow,
+# duplicated-not-imported exactly as ILLUSTRATION_ROUTE_PREFIX already is
+# above (companion/app.py imports this module, so the reverse import
+# would be a cycle) — pinned by a cross-module equality check in
+# companion/test_status_pages.py (plan 13-06).
+RESOLVE_ROUTE = "/airlines/resolve"
+MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
+MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
+AIRLINES_ROUTE = "/airlines"
+RESOLVE_QUERY_PARAM = "resolve"
+
+# Phase 13 copy constants, byte-identical to 13-UI-SPEC.md's Full Copy
+# Deck (real U+2014 em dashes, real U+2019 apostrophes, matching every
+# other string in this module).
+RESOLVE_BACK_LINK_TEXT = "← Back to Health"
+RESOLVE_STALE_BODY = (
+    "That coverage gap isn’t there anymore — it may already be "
+    "resolved. Check Health for current gaps.")
+RESOLVE_HEADING = "Resolve an unidentified flight"
+RESOLVE_CAPTION_TEMPLATE = (
+    "Prefix %s has been detected but never matched a known airline. "
+    "Give it a name below.")
+RESOLVE_CONTEXT_LABELS = (
+    "Prefix", "First seen", "Last seen", "Times seen", "Example callsign")
+NAME_LABEL_TEXT = "Airline name"
+NAME_HINT_TEXT = (
+    "Start typing — pick a suggestion if the airline already has "
+    "artwork, so this reuses it instead of asking for a new upload.")
+SAVE_BUTTON_TEXT = "Save airline name"
+STEP_B_HEADING_TEMPLATE = "Add an illustration for %s"
+STEP_B_CAPTION = (
+    "Saved. This airline doesn’t have artwork yet — add one "
+    "below, or skip for now.")
+STEP_B_SKIP_TEXT = "Skip — I’ll add artwork later"
+# Planner addition, not in 13-UI-SPEC.md's Full Copy Deck: the fourth
+# reachable state (a bookmark or a Back press landing on a prefix that is
+# still listed as a gap but is already fully resolved — a manual entry
+# names an airline that already has artwork). The deck enumerated three
+# states; this is the fourth. Saying "that gap isn't there anymore" here
+# (RESOLVE_STALE_BODY) would be false, and false is the one thing
+# 13-CONTEXT.md forbids.
+RESOLVE_ALREADY_DONE_TEMPLATE = (
+    "%s is already named for this prefix and has artwork — nothing "
+    "more to do here.")
+
+MANUAL_NAME_INPUT_ID = "manual-airline-name"
+MANUAL_UPLOAD_INPUT_ID = "manual-illustration-input"
+MANUAL_DATALIST_ID = "known-airlines"
+
+# Phase 13 (13-04-PLAN.md Task 2, D-06/D-07): the manual-resolutions
+# management list's copy constants, byte-identical to 13-UI-SPEC.md's
+# Full Copy Deck.
+MANUAL_SECTION_HEADING = "Manually resolved prefixes"
+MANUAL_SECTION_CAPTION = (
+    "Airlines you’ve named by hand for a prefix the frame couldn’t "
+    "otherwise identify.")
+MANUAL_EMPTY_HEADING = "No manual resolutions yet."
+MANUAL_EMPTY_BODY = (
+    "Resolve an unidentified flight from Health’s coverage-gap list "
+    "to add one here.")
+MANUAL_RESOLUTION_HEADERS = ("Prefix", "Airline name", "Added", "Status", "Delete")
+SUPERSEDED_MARKER_TEXT = "Superseded"
+SUPERSEDED_MARKER_TITLE = (
+    "The frame’s built-in airline list now also recognizes this "
+    "prefix — its entry wins, and this manual name is no longer used.")
+SUPERSEDED_CAPTION = (
+    "A prefix is marked Superseded once the frame’s built-in list "
+    "also recognizes it — the built-in entry wins. Delete and re-add "
+    "to point it somewhere else.")
+DELETE_BUTTON_TEXT = "Delete"
+SUPERSEDED_STATUS_CLASS = "manual-resolution__status--superseded"
+
+# CR-02 fix (13-REVIEW.md): the only route into Step B is
+# ?resolve={prefix}, and D-14 clears a resolved prefix from the live gap
+# registry on the very next poll cycle — including the cycle right
+# after Step A itself saves a name for it. Health's per-row deep link
+# (D-10) is gone by the time an operator would look for it again, and
+# without an entry point here an active entry with no artwork became a
+# dead end (and, per D-07, so did the delete-and-re-add correction
+# path — POST /airlines/resolve for a prefix no longer in the gap
+# registry returns manual_prefix_stale). This management list already
+# renders every manual entry (D-07), so it gets the entry point: a
+# per-row link into the identical ?resolve={prefix} URL
+# `_resolve_section_html()` now serves this state from regardless of
+# live-gap membership (see that function's own CR-02 docstring
+# paragraph). Rendered only for an ACTIVE entry whose key currently has
+# no resolved artwork — never for a superseded entry, and never
+# alongside the Superseded marker (the status cell holds exactly one of:
+# nothing, this link, or that marker).
+ADD_ARTWORK_LINK_TEXT = "Add artwork"
 
 # quick task 260902-v26 (D-04 is explicitly a negative requirement: no
 # revert-to-original control is in scope, anywhere, for this feature).
@@ -541,34 +691,530 @@ def _filter_bar_html(total):
     )
 
 
+# ---------------------------------------------------------------------
+# Phase 13 (13-04-PLAN.md Task 1): the conditional "resolve an
+# unidentified flight" section (D-03, D-10 through D-13).
+# ---------------------------------------------------------------------
+
+
+def unresolved_row_for_prefix(state_dir, prefix):
+    """D-11's whole membership test: is `prefix` a real, live member of
+    the unresolved-callsign-prefix registry right now? Public because
+    `companion/app.py`'s POST handler (plan 13-06) imports and re-runs
+    this exact function as its own D-11 check, rather than
+    re-implementing it — the read path (this function) and the write
+    path can never diverge.
+
+    This is validate-then-join over a closed, server-written set — the
+    identical shape `illustrations.py`'s `_serve_illustration_image()`
+    already uses against its own closed filename set — applied here to
+    the unresolved-prefix registry, which is server-written from
+    genuinely detected ADS-B traffic rather than a fixed table. Every
+    displayed value comes from the tuple this function returns, never
+    from the caller's own raw query-string value (D-12).
+
+    WR-04 fix: `prefix` is normalised through
+    `manual_resolutions.normalise_prefix()` (strip + upper-case + shape
+    check) right here, at this function's own boundary, rather than by
+    each caller separately — this is the single D-11 membership test the
+    render path and the write path both share, so normalising anywhere
+    else would risk the two answering differently for the same input
+    again. Callers must pass the raw value through unmodified.
+
+    Reads through `poll_loop.load_poll_state(state_dir)` — never a direct
+    file open, never a re-derivation of `server/plane/enrich.py`'s own
+    registry-writer's shape logic — mirroring
+    `health_page.unresolved_rows()`'s exact field-handling discipline,
+    just for one prefix instead of every row. Returns `None` unless:
+    `prefix` normalises to a real 3-letter prefix
+    (`manual_resolutions.normalise_prefix()`), the `unresolved_prefixes`
+    value is a dict, the entry for it is itself a dict, and its `count`
+    is an `int` that is not a `bool`. Otherwise returns the five-tuple
+    `(prefix, count, first_seen, last_seen, example_callsign)` — `prefix`
+    here is the NORMALISED value, not necessarily byte-identical to the
+    argument — with the last three defaulting to `""`. Never raises — a
+    missing or unreadable poll state, or a hand-edited malformed entry,
+    yields `None` rather than crashing a page render.
+    """
+    prefix = manual_resolutions.normalise_prefix(prefix)
+    if prefix is None:
+        return None
+    state = poll_loop.load_poll_state(state_dir)
+    registry = state.get("unresolved_prefixes")
+    if not isinstance(registry, dict):
+        return None
+    entry = registry.get(prefix)
+    if not isinstance(entry, dict):
+        return None
+    count = entry.get("count")
+    if not isinstance(count, int) or isinstance(count, bool):
+        return None
+    return (
+        prefix,
+        count,
+        entry.get("first_seen") or "",
+        entry.get("last_seen") or "",
+        entry.get("example_callsign") or "",
+    )
+
+
+def _resolve_context_html(row, now):
+    """The five-row `<dl class="resolve-context">` sighting-context block
+    shared by Step A and Step B (D-12): one `dt`/`dd` pair per
+    `RESOLVE_CONTEXT_LABELS` entry, sourced entirely from `row` (the
+    tuple `unresolved_row_for_prefix()` returned), never from a raw
+    query-string value.
+
+    First seen/Last seen render through
+    `layout.concise_timestamp_html(value, now, fallback="")`, whose
+    return value is already-safe markup and is interpolated verbatim,
+    never re-escaped — the same discipline
+    `health_page._registry_row_html()` documents for its own identical
+    call. Every other value (the prefix, the count, the example
+    callsign) goes through `escape_html()` exactly once.
+    """
+    prefix, count, first_seen, last_seen, example_callsign = row
+    first_seen_html = layout.concise_timestamp_html(first_seen, now, fallback="")
+    last_seen_html = layout.concise_timestamp_html(last_seen, now, fallback="")
+    pairs = (
+        ('<dd class="text-body mono">%s</dd>' % escape_html(prefix)),
+        ('<dd class="text-body">%s</dd>' % first_seen_html),
+        ('<dd class="text-body">%s</dd>' % last_seen_html),
+        ('<dd class="text-body">%s</dd>' % escape_html(count)),
+        ('<dd class="text-body mono">%s</dd>' % escape_html(example_callsign)),
+    )
+    items = "".join(
+        '<dt class="text-label">%s</dt>%s' % (escape_html(label), dd)
+        for label, dd in zip(RESOLVE_CONTEXT_LABELS, pairs)
+    )
+    return '<dl class="resolve-context">%s</dl>' % items
+
+
+def _known_airlines_datalist_html():
+    """D-13's whole mechanism, and it is native: a `<datalist>` offering
+    one `<option>` per `illustrations.target_airline_names()` (27 today),
+    each `value` escaped exactly once. Choosing a suggestion is what
+    guarantees the slug derived downstream from the stored name lands on
+    art the fallback ladder already ships; typing anything else stays
+    available for a genuinely new carrier. No script is involved and
+    none may be added.
+    """
+    options = "".join(
+        '<option value="%s">' % escape_html(name)
+        for name in illustrations.target_airline_names()
+    )
+    return '<datalist id="%s">%s</datalist>' % (MANUAL_DATALIST_ID, options)
+
+
+def _resolve_section_html(ctx):
+    """The conditional resolve section (D-03, D-10 through D-13):
+    `""` when `ctx.get("resolve_prefix")` is falsy, otherwise one of the
+    server-derived states below. Every branch reads `state_dir`/`now`
+    from `ctx` but decides which state to render from server-side data
+    alone (`unresolved_row_for_prefix()`,
+    `manual_resolutions.load_manual_resolutions()`,
+    `illustrations.resolved_illustration_path()`) — never from the raw
+    `resolve_prefix` query-string value once past the first membership
+    check (D-12).
+
+    CR-02 fix: `unresolved_row_for_prefix()` returning `None` no longer
+    means "render the stale sentence and stop". D-14's
+    `enrich.clear_resolved_unresolved_prefix()` deletes a prefix from the
+    LIVE gap registry on the very next poll cycle after it resolves —
+    including via a manual entry Step A itself just saved — so the gap
+    being gone is the *expected*, immediate outcome of a successful
+    Step A, not evidence there is nothing left to do. Losing the live
+    row must not also lose reachability of Step B (upload artwork) or of
+    D-07's delete-and-re-add correction path. When the row is absent,
+    this function instead re-validates `resolve_prefix` on its own
+    (`manual_resolutions.normalise_prefix()` — the identical D-11 shape
+    gate `unresolved_row_for_prefix()` itself applies, so this remains
+    validate-then-join over server-side state, never a query-string
+    value used unchecked) and falls through to the same manual-registry-
+    driven Step A/Step B/already-done derivation used when the row is
+    still live — the only difference is there is no sighting context
+    left to show (the gap entry that carried first-seen/last-seen/count
+    is gone), so `context_html` is the empty string on this path rather
+    than `_resolve_context_html()`'s `<dl>`. A prefix with neither a live
+    gap NOR a manual entry still renders the stale sentence — there is
+    genuinely nothing to resolve.
+    """
+    prefix_raw = ctx.get("resolve_prefix")
+    if not prefix_raw:
+        return ""
+    state_dir = ctx.get("state_dir")
+    now = ctx.get("now")
+    back_link = '<a class="text-label" href="/health">%s</a>' % RESOLVE_BACK_LINK_TEXT
+
+    row = unresolved_row_for_prefix(state_dir, prefix_raw)
+    if row is not None:
+        prefix = row[0]
+        context_html = _resolve_context_html(row, now)
+    else:
+        prefix = manual_resolutions.normalise_prefix(prefix_raw)
+        context_html = ""
+
+    if prefix is None:
+        body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
+        return '<div class="page-section">%s%s</div>' % (back_link, body)
+
+    escaped_prefix = escape_html(prefix)
+
+    registry = manual_resolutions.load_manual_resolutions(state_dir)
+    entry = registry.get(prefix)
+
+    if entry is None:
+        if row is None:
+            # No live gap AND no manual entry for this prefix: genuinely
+            # nothing to resolve here.
+            body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
+            return '<div class="page-section">%s%s</div>' % (back_link, body)
+        # Step A — name not yet saved.
+        heading = '<h2 class="text-heading">%s</h2>' % RESOLVE_HEADING
+        caption = '<p class="text-label section-caption">%s</p>' % (
+            RESOLVE_CAPTION_TEMPLATE % escaped_prefix)
+        datalist_html = _known_airlines_datalist_html()
+        name_field = (
+            '<div class="resolve-name-field">'
+            '<label for="%s">%s</label>'
+            '<input type="text" id="%s" name="airline_name" list="%s" '
+            'maxlength="100" required autocomplete="off" autofocus>'
+            "%s"
+            '<p class="text-label section-caption">%s</p>'
+            "</div>"
+        ) % (
+            MANUAL_NAME_INPUT_ID, NAME_LABEL_TEXT,
+            MANUAL_NAME_INPUT_ID, MANUAL_DATALIST_ID,
+            datalist_html,
+            NAME_HINT_TEXT,
+        )
+        form = (
+            '<form method="post" action="%s">'
+            '<input type="hidden" name="prefix" value="%s">'
+            "%s"
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (RESOLVE_ROUTE, escaped_prefix, name_field, SAVE_BUTTON_TEXT)
+        return '<div class="page-section">%s%s%s%s%s</div>' % (
+            back_link, heading, caption, context_html, form)
+
+    # Entry present. Recompute the key server-side from the *stored* name
+    # — never take a key from the query string, and never derive a slug
+    # locally (this module owns no slug logic of its own).
+    airline_name = entry.get("airline_name")
+    key = manual_resolutions.illustration_key_for_name(airline_name)
+    if not key:
+        # A stored entry whose name no longer slugs is a corrupt-file
+        # case that must not render a form.
+        body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
+        return '<div class="page-section">%s%s</div>' % (back_link, body)
+
+    escaped_name = escape_html(airline_name)
+    heading = '<h2 class="text-heading">%s</h2>' % (STEP_B_HEADING_TEMPLATE % escaped_name)
+
+    if illustrations.resolved_illustration_path(key, state_dir) is None:
+        # Step B — name already saved, no artwork exists yet.
+        caption = '<p class="text-label section-caption">%s</p>' % STEP_B_CAPTION
+        icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
+        upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
+        upload_zone = (
+            '<div class="resolve-upload-zone">'
+            "%s"
+            '<label for="%s">Choose an image</label>'
+            '<p class="%s">%s</p>'
+            '<form method="post" enctype="multipart/form-data" action="%s">'
+            '<input type="file" id="%s" name="image" accept="image/png" required>'
+            '<button type="submit">%s</button>'
+            "</form>"
+            "</div>"
+        ) % (
+            icon_html,
+            MANUAL_UPLOAD_INPUT_ID,
+            REPLACE_HINT_CLASS, REPLACE_HINT_TEXT,
+            upload_action,
+            MANUAL_UPLOAD_INPUT_ID,
+            REPLACE_BUTTON_TEXT,
+        )
+        skip_link = '<a class="text-label" href="%s">%s</a>' % (
+            AIRLINES_ROUTE, STEP_B_SKIP_TEXT)
+        return '<div class="page-section">%s%s%s%s%s%s</div>' % (
+            back_link, heading, caption, context_html, upload_zone, skip_link)
+
+    # Already resolved: a bookmark or a Back press landed on a prefix
+    # still listed as a gap, but a manual entry already names an airline
+    # that has artwork. No controls.
+    body = '<p class="text-body">%s</p>' % (RESOLVE_ALREADY_DONE_TEMPLATE % escaped_name)
+    return '<div class="page-section">%s%s%s</div>' % (back_link, heading, body)
+
+
+# ---------------------------------------------------------------------
+# Phase 13 (13-04-PLAN.md Task 2): the always-present manual-resolutions
+# management list (D-06, D-07, D-08).
+# ---------------------------------------------------------------------
+
+
+def _manual_delete_action(prefix):
+    """The delete form's `action` attribute for `prefix`, built once here
+    so the desktop `<tr>` and the mobile `<li>` can never diverge into
+    building two different strings for the same row.
+    """
+    return "%s%s%s" % (MANUAL_DELETE_ROUTE_PREFIX, escape_html(prefix), MANUAL_DELETE_ROUTE_SUFFIX)
+
+
+def _manual_superseded_marker_html():
+    """The `<span class="manual-resolution__status--superseded">`
+    marker, carrying text (`SUPERSEDED_MARKER_TEXT`) and a `title`
+    explanation (`SUPERSEDED_MARKER_TITLE`) — never colour alone, this
+    app's Label-voice convention and the UI-SPEC's no-colour-only-signal
+    rule.
+    """
+    return '<span class="%s" title="%s">%s</span>' % (
+        SUPERSEDED_STATUS_CLASS,
+        escape_html(SUPERSEDED_MARKER_TITLE),
+        escape_html(SUPERSEDED_MARKER_TEXT),
+    )
+
+
+def _manual_add_artwork_link_html(prefix):
+    """CR-02's management-list entry point into Step B: a plain `<a>`
+    into the same `?resolve={prefix}` URL Health's per-row deep link
+    (D-10) already uses. `_resolve_section_html()`'s own CR-02 fix
+    renders Step B for a manual entry with no artwork yet regardless of
+    whether `prefix` is still a live gap-registry member, so this link
+    stays live even after D-14 clears the gap. No illustration key
+    travels in this URL — only the prefix, exactly like every other
+    resolve deep link in this app.
+    """
+    return '<a href="%s?%s=%s">%s</a>' % (
+        AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, escape_html(prefix), ADD_ARTWORK_LINK_TEXT)
+
+
+def _manual_resolution_rows(state_dir, registry):
+    """`(prefix, airline_name, created_at, superseded, needs_artwork)`
+    tuples from an already-loaded `registry` dict, via
+    `manual_resolutions.entry_rows()` (prefix-ascending).
+
+    `superseded` is set from `enrich.static_airline_name_for_prefix(prefix)`
+    — D-06's oracle: the static table has caught up, so its entry wins at
+    runtime and the operator's uploaded art is no longer reachable under
+    this prefix. Nothing here mutates the registry — flagging is the
+    whole of D-06's UI obligation; repairing is delete-and-re-add.
+
+    `needs_artwork` (CR-02) is `True` for an ACTIVE (non-superseded)
+    entry whose stored name's illustration key currently has no
+    resolved artwork (`illustrations.resolved_illustration_path()`
+    returns `None`) — this is what drives the per-row "Add artwork" link
+    (`_manual_add_artwork_link_html()`), the management list's own entry
+    point into Step B now that a resolved prefix's live-gap deep link
+    (D-10/Health) can be gone (D-14) before the operator ever uploads
+    anything. Always `False` for a superseded entry (the built-in table
+    already owns that prefix; uploading under the operator's own name
+    would not change what the frame displays) and for a name whose key
+    no longer slugs (corrupt-file defence, mirrors
+    `_resolve_section_html()`'s own guard).
+    """
+    rows = []
+    for prefix, airline_name, created_at in manual_resolutions.entry_rows(registry):
+        superseded = bool(enrich.static_airline_name_for_prefix(prefix))
+        needs_artwork = False
+        if not superseded:
+            key = manual_resolutions.illustration_key_for_name(airline_name)
+            needs_artwork = bool(key) and illustrations.resolved_illustration_path(key, state_dir) is None
+        rows.append((prefix, airline_name, created_at, superseded, needs_artwork))
+    return rows
+
+
+def _manual_resolution_row_html(index, prefix, airline_name, created_at, superseded, needs_artwork, now):
+    """One `<tr>` for the management table: `row`/`row-alt` by index
+    parity, prefix/name/added/status/delete cells. `created_at` renders
+    through `layout.concise_timestamp_html()`, interpolated verbatim as
+    already-safe markup — never re-escaped, matching this module's own
+    `_resolve_context_html()` discipline. The status cell holds exactly
+    one of: nothing (an active entry with artwork — the normal state
+    gets no visual noise, matching `layout.card_status_class()`'s own
+    documented "absence is the signal" discipline), the superseded
+    marker, or (CR-02) the "Add artwork" link for an active entry still
+    missing it.
+    """
+    row_class = "row-alt" if index % 2 else "row"
+    if superseded:
+        status_html = _manual_superseded_marker_html()
+    elif needs_artwork:
+        status_html = _manual_add_artwork_link_html(prefix)
+    else:
+        status_html = ""
+    delete_form = (
+        '<form method="post" action="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (_manual_delete_action(prefix), DELETE_BUTTON_TEXT)
+    cells = (
+        '<td class="mono">%s</td>' % escape_html(prefix),
+        "<td>%s</td>" % escape_html(airline_name),
+        "<td>%s</td>" % layout.concise_timestamp_html(created_at, now, fallback=""),
+        "<td>%s</td>" % status_html,
+        "<td>%s</td>" % delete_form,
+    )
+    return '<tr class="%s">%s</tr>' % (row_class, "".join(cells))
+
+
+def _manual_resolution_table_html(rows, now):
+    """The management table, hand-rolled to match
+    `health_page._registry_table_html()`'s own `.data-table-wrap`/
+    `.data-table`/`thead`/`tbody` structure for visual consistency.
+    """
+    header_cells = "".join(
+        "<th>%s</th>" % escape_html(h) for h in MANUAL_RESOLUTION_HEADERS)
+    body_rows = [
+        _manual_resolution_row_html(index, prefix, airline_name, created_at, superseded, needs_artwork, now)
+        for index, (prefix, airline_name, created_at, superseded, needs_artwork) in enumerate(rows)
+    ]
+    return (
+        '<div class="data-table-wrap">'
+        '<table class="data-table">'
+        "<thead><tr>%s</tr></thead>"
+        "<tbody>%s</tbody>"
+        "</table>"
+        "</div>"
+    ) % (header_cells, "".join(body_rows))
+
+
+def _manual_resolution_cards_html(rows, now):
+    """The mobile `.data-cards` representation of the management list —
+    one `<li class="data-card">` per row, no `data-filter-text`/
+    `data-filter-group` attributes at all: this list has no filter bar
+    (UI-SPEC Autonomous Decision 3), and `list-filter.js`'s distinct-
+    group counting must not be invited to see a list it does not drive.
+    Returns `""` for an empty list, matching `_manual_resolution_table_
+    html()`'s own no-chrome-with-no-data rule.
+    """
+    if not rows:
+        return ""
+    items = []
+    for prefix, airline_name, created_at, superseded, needs_artwork in rows:
+        if superseded:
+            marker_html = _manual_superseded_marker_html()
+        elif needs_artwork:
+            marker_html = _manual_add_artwork_link_html(prefix)
+        else:
+            marker_html = ""
+        primary = (
+            '<div class="data-card__primary">'
+            '<span class="cell-primary mono">%s</span>'
+            '<span class="data-card__value">%s</span>'
+            "%s"
+            "</div>"
+        ) % (escape_html(prefix), escape_html(airline_name), marker_html)
+        secondary = (
+            '<div class="data-card__secondary">'
+            '<span class="data-card__label">%s</span>%s'
+            "</div>"
+        ) % (
+            escape_html(MANUAL_RESOLUTION_HEADERS[2]),
+            layout.concise_timestamp_html(created_at, now, fallback=""),
+        )
+        delete_form = (
+            '<form method="post" action="%s">'
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (_manual_delete_action(prefix), DELETE_BUTTON_TEXT)
+        items.append('<li class="data-card">%s%s%s</li>' % (primary, secondary, delete_form))
+    return '<ul class="data-cards">%s</ul>' % "".join(items)
+
+
+def _manual_resolutions_section_html(ctx):
+    """The always-present manual-resolutions management list (D-07): its
+    own `.page-section` card, heading, caption, then either
+    `layout.empty_state()` or the table/card-list pairing, plus — only
+    when at least one row is superseded — the trailing explanatory
+    caption. UI-SPEC Autonomous Decision 2: this list sits at the
+    bottom of the page (after the lightbox) because it is reference/
+    cleanup material, not the page's purpose.
+
+    Reads the registry from `ctx.get("manual_resolutions")` when
+    present (plan 13-06 threads this in), falling back to
+    `manual_resolutions.load_manual_resolutions(state_dir)` when the key
+    is absent and `state_dir` is truthy, and to `{}` otherwise — so
+    `render({})` still works.
+    """
+    state_dir = ctx.get("state_dir")
+    now = ctx.get("now")
+    registry = ctx.get("manual_resolutions")
+    if registry is None:
+        registry = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
+
+    heading = '<h2 class="text-heading">%s</h2>' % escape_html(MANUAL_SECTION_HEADING)
+    caption = '<p class="text-label section-caption">%s</p>' % escape_html(MANUAL_SECTION_CAPTION)
+
+    rows = _manual_resolution_rows(state_dir, registry)
+    if not rows:
+        body = layout.empty_state(MANUAL_EMPTY_HEADING, MANUAL_EMPTY_BODY)
+        return '<div class="page-section">%s%s%s</div>' % (heading, caption, body)
+
+    # Cards render before the table — style.css's `.data-cards ~
+    # .data-table-wrap` sibling-combinator toggle (the same mechanism
+    # health_page._registry_section() documents for itself) depends on
+    # this exact DOM order; do not reorder these two calls.
+    cards_html = _manual_resolution_cards_html(rows, now)
+    table_html = _manual_resolution_table_html(rows, now)
+    superseded_caption = ""
+    if any(row[3] for row in rows):
+        superseded_caption = '<p class="text-label section-caption">%s</p>' % escape_html(SUPERSEDED_CAPTION)
+    return '<div class="page-section">%s%s%s%s%s</div>' % (
+        heading, caption, cards_html, table_html, superseded_caption)
+
+
 def render(ctx):
-    """The Airlines gallery (D-13 through D-17): the page header, the
-    D-16 filter bar, then one card per airline in
-    `illustrations.target_variants_by_airline()` order, then the shared
-    click-to-enlarge lightbox dialog (quick task 260902-tli). `ctx` is
+    """The Airlines page (D-13 through D-17, extended by phase 13's
+    D-03/D-06/D-07/D-10 through D-13): the page header, the conditional
+    resolve section, the D-16 filter bar, one card per airline in
+    `illustrations.target_variants_by_airline()` order, the shared
+    click-to-enlarge lightbox dialog (quick task 260902-tli), then the
+    always-present manual-resolutions management list (D-07). `ctx` is
     accepted for call-site parity with every other page module's
-    `render(ctx)` signature; since quick task 260902-v26 it reads exactly
-    one optional key, `state_dir`, used only to resolve each card's
-    illustration-replace cache buster (see `_illustration_cache_buster()`)
-    — this page still opens no database and reads no poll state.
+    `render(ctx)` signature.
+
+    Since quick task 260902-v26 this reads `state_dir` (used to resolve
+    each card's illustration-replace cache buster, see
+    `_illustration_cache_buster()`, and by both new phase-13 sections
+    below as their own state-dir source). Phase 13 (13-04-PLAN.md) adds
+    three more `ctx.get()` reads: `resolve_prefix` (the `?resolve=
+    {prefix}` query value, presence-gating `_resolve_section_html()`),
+    `now` (threaded to every rendered timestamp in both new sections),
+    and `manual_resolutions` (an already-loaded registry dict,
+    `_manual_resolutions_section_html()`'s preferred source — plan
+    13-06 threads this in; absent, it falls back to loading fresh from
+    `state_dir`). Every one of these four keys is read with `ctx.get()`,
+    never `ctx[...]` — `companion/test_view_pages.py`'s existing
+    `render({})` call with a literal empty dict must keep rendering the
+    unchanged gallery, no resolve section, and the management list's own
+    empty state. This page still opens no database.
 
     The filter bar and the lightbox dialog both render only when there
     is at least one card — this codebase's consistent "no chrome with no
     data" rule — though with a static curated list that branch is
     unreachable today; it stays a genuine guard, not a claim that the
-    list can ever be empty.
+    list can ever be empty. The management list has its own,
+    independent empty state (`layout.empty_state()`) and is never
+    gated on the gallery having any cards — UI-SPEC Autonomous Decision
+    2: it is reference/cleanup material, not the page's purpose, so it
+    sits last, below the gallery.
     """
     # ctx.get(), never ctx["state_dir"]: companion/test_view_pages.py:1365
     # calls render({}) with a literal empty dict, and every other caller
     # of this page (companion/app.py's page_context()) does supply
     # state_dir, so this must stay tolerant of both.
     state_dir = ctx.get("state_dir")
+    resolve_html = _resolve_section_html(ctx)
     pairs = illustrations.target_variants_by_airline()
     filter_html = _filter_bar_html(len(pairs)) if pairs else ""
     lightbox_html = _lightbox_html() if pairs else ""
+    manual_section_html = _manual_resolutions_section_html(ctx)
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
+        + resolve_html
         + filter_html
         + _gallery_grid_html(pairs, state_dir)
         + lightbox_html
+        + manual_section_html
     )

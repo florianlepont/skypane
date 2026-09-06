@@ -2636,6 +2636,33 @@ button:disabled {
   margin-top: var(--space-sm);
 }
 
+/* Phase 13 (13-04-PLAN.md Task 1, D-12): the resolve section's own
+ * sighting-context definition list on Airlines. This file declares no
+ * `dl`/`dt`/`dd` rule of its own anywhere — Health's own registry
+ * disclosure (`.data-card__details dl`, immediately above) already
+ * renders its definition list on browser defaults, so matching that
+ * treatment here means adding nothing but this block's own bottom
+ * margin, from the existing `md` token. */
+.resolve-context {
+  margin: 0 0 var(--space-md);
+}
+
+/* Phase 13 (13-04-PLAN.md Task 1, D-13): the resolve section's Step A
+ * name field wrapper. Same token as the sighting-context block above,
+ * no other property. */
+.resolve-name-field {
+  margin-bottom: var(--space-md);
+}
+
+/* Phase 13 (D-10): Health's per-row Resolve deep link on the mobile
+ * registry card. The link inherits the page's default anchor styling
+ * deliberately — no colour, no size — so the project's exhaustive
+ * accent-reservation list (style.css's own header comment) is not
+ * extended for it. */
+.data-card__action {
+  margin-top: var(--space-xs);
+}
+
 /* Filter bar (06.6.3 D-20) — shared by History and Airlines, driven by
  * list-filter.js; inert without JS (the full unfiltered table/card list
  * stays completely usable if the script fails to load). */
@@ -3726,6 +3753,26 @@ summary::-webkit-details-marker {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* Phase 13 (13-04-PLAN.md Task 2, D-06): the manual-resolutions
+ * management list's "Superseded" status marker. Declares the project's
+ * unified label voice BY VALUE, not by selector reuse — matching
+ * .data-card__label's own five declarations exactly, per
+ * sketch-findings-skypane SKILL.md's own rule that these selectors are
+ * written out separately rather than consolidated into one rule (now a
+ * seventh consumer alongside .stat-tile__caption, .data-table th,
+ * .data-card__label, .filter-bar__count, .banner__pill and
+ * .airline-card__chip above). No background, no border, no new colour
+ * token, no icon: a superseded entry is an expected, harmless outcome
+ * of the built-in airline list catching up, not a fault, so it must not
+ * reach for a warn/error colour. */
+.manual-resolution__status--superseded {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
  * readout line. */
 
@@ -4375,7 +4422,14 @@ summary::-webkit-details-marker {
  * a light tint of the secondary surface, written with this file's own
  * WR-02 fallback idiom (a plain declaration immediately followed by the
  * color-mix() one, see `button` above). */
-.lightbox__replace-zone {
+/* Phase 13 (13-04-PLAN.md Task 1, D-03): Airlines' Step B upload-step
+ * zone is added as a second selector to this rule and the five below
+ * it, rather than a duplicated rule — it reuses the exact
+ * `.lightbox__replace-zone` visual treatment verbatim, per
+ * 13-UI-SPEC.md's own instruction. No declaration inside any of the six
+ * changes. */
+.lightbox__replace-zone,
+.resolve-upload-zone {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4394,7 +4448,8 @@ summary::-webkit-details-marker {
  * tinting it accent would require extending that list first. Size comes
  * from the existing `.icon` rule (20x20) plus icon_html()'s own
  * width/height attributes — no size restated here. */
-.lightbox__replace-zone .lightbox__replace-icon {
+.lightbox__replace-zone .lightbox__replace-icon,
+.resolve-upload-zone .lightbox__replace-icon {
   color: rgba(23, 25, 31, 0.55); /* fallback for browsers without color-mix() (WR-02) */
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
@@ -4407,7 +4462,8 @@ summary::-webkit-details-marker {
  * 0` is load-bearing: the global `label` rule's `margin-bottom:
  * var(--space-sm)` would otherwise stack on top of this zone's own flex
  * `gap`. */
-.lightbox__replace-zone label {
+.lightbox__replace-zone label,
+.resolve-upload-zone label {
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   color: var(--color-text);
@@ -4436,7 +4492,8 @@ summary::-webkit-details-marker {
  * (a long filename's intrinsic width pushing the dialog wider). This
  * also recolours the browser's own "no file chosen" status text via the
  * same 70%-muted value the hint above uses. */
-.lightbox__replace-zone input[type="file"] {
+.lightbox__replace-zone input[type="file"],
+.resolve-upload-zone input[type="file"] {
   background: transparent;
   border: 0;
   padding: 0;
@@ -4481,7 +4538,8 @@ summary::-webkit-details-marker {
  * dominant-diluted tint in both themes, unlike mixing toward
  * `--color-dominant`, which would only have made the dark-mode collapse
  * worse. */
-.lightbox__replace-zone input[type="file"]::file-selector-button {
+.lightbox__replace-zone input[type="file"]::file-selector-button,
+.resolve-upload-zone input[type="file"]::file-selector-button {
   height: 30px;
   padding: 0 12px;
   margin-right: var(--space-sm);
@@ -4498,7 +4556,8 @@ summary::-webkit-details-marker {
   transition: background-color .15s ease, border-color .15s ease;
 }
 
-.lightbox__replace-zone input[type="file"]::file-selector-button:hover {
+.lightbox__replace-zone input[type="file"]::file-selector-button:hover,
+.resolve-upload-zone input[type="file"]::file-selector-button:hover {
   background: var(--color-secondary); /* fallback for browsers without color-mix() (WR-02) */
   background: color-mix(in srgb, var(--color-text) 7%, var(--color-secondary));
 }

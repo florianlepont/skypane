@@ -92,7 +92,13 @@ if REPO_ROOT not in sys.path:
 # detection-skip, the display/quiet-hours overlap, both D-07 hold-to-hold
 # transition directions, exit-repaints-once-no-transition-screen, the
 # legacy poll_state.json migration, and toggle-enabled-is-inert) - 51 + 9.
-EXPECTED_CHECK_COUNT = 60
+# 13-05 Task 1: +2 (wiring D-01/D-02's manual_resolutions.
+# set_manual_registry_state_dir() call into run_once(): the per-cycle-
+# reload proof and the end-to-end route_source=="manual" case) - 60 + 2.
+# 13-05 Task 2: +2 (D-14's clear_resolved_unresolved_prefix() cleanup call:
+# removing a now-resolvable prefix's entry, and doing so independently of
+# route_source - the fresh_hit case Pitfall 2 warns about) - 62 + 2.
+EXPECTED_CHECK_COUNT = 64
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -481,6 +487,7 @@ def main():
         # unresolved-ICAO-prefix registry --------------------------------
 
         import server.plane.enrich as enrich
+        import server.plane.manual_resolutions as manual_resolutions
 
         # 6. The registry accumulates across separate poll cycles, read
         #    back from disk between cycles - the only assertion in this
@@ -2417,6 +2424,216 @@ def main():
             check(
                 "display_enabled=True takes the ordinary detection path - the display-off machinery costs nothing when unused",
                 _display_enabled_is_inert,
+            )
+
+            # --- plan 13-05: wire manual_resolutions.set_manual_registry_
+            # state_dir() into run_once() (D-01) and enrich.
+            # clear_resolved_unresolved_prefix() into the unresolved_
+            # prefixes block (D-14). --------------------------------------
+
+            # 47. Per-cycle load (Task 1, check 1): after a cycle against a
+            # state dir seeded with a manual entry, the process-wide cache
+            # resolves that prefix; a later cycle against a DIFFERENT state
+            # dir with no manual_resolutions.json at all leaves it
+            # unresolved again - proving the registry is reloaded from
+            # THIS cycle's own state_dir every time, not stuck to whatever
+            # the previous cycle happened to load.
+            def _manual_registry_loaded_once_per_cycle_from_its_own_state_dir():
+                original_transport = enrich.default_transport
+                enrich.default_transport = lambda callsign, timeout=None: (404, None)
+                try:
+                    seeded_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-manual-a-")
+                    empty_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-manual-b-")
+                    try:
+                        manual_resolutions.add_entry(seeded_dir, "ZZZ", "Zephyr Air")
+
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        poll_loop.run_once(snapshot=_snapshot("777777", "AAA1234", CLIMB), state_dir=seeded_dir, geofence=GEOFENCE_PATH)
+                        if enrich.airline_from_callsign("ZZZ1234") != "Zephyr Air":
+                            return False, (
+                                "after a cycle against a state dir seeded with ZZZ -> 'Zephyr Air', "
+                                "enrich.airline_from_callsign('ZZZ1234') = %r, expected 'Zephyr Air'"
+                                % (enrich.airline_from_callsign("ZZZ1234"),)
+                            )
+
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        poll_loop.run_once(snapshot=_snapshot("888888", "BBB1234", CLIMB), state_dir=empty_dir, geofence=GEOFENCE_PATH)
+                        if enrich.airline_from_callsign("ZZZ1234") is not None:
+                            return False, (
+                                "after a cycle against a DIFFERENT state dir with no manual_resolutions.json, "
+                                "enrich.airline_from_callsign('ZZZ1234') = %r, expected None (today's exact "
+                                "behaviour - the registry must be reloaded from THIS cycle's own state_dir, "
+                                "not left over from the previous cycle's)" % (enrich.airline_from_callsign("ZZZ1234"),)
+                            )
+                        return True, ""
+                    finally:
+                        manual_resolutions.set_manual_registry_state_dir(None)
+                        shutil.rmtree(seeded_dir, ignore_errors=True)
+                        shutil.rmtree(empty_dir, ignore_errors=True)
+                finally:
+                    enrich.default_transport = original_transport
+            check(
+                "run_once() configures the manual-resolution registry from THIS cycle's own state_dir every "
+                "cycle - a seeded prefix resolves after a cycle against its state dir, and a later cycle against "
+                "a different, registry-less state dir leaves it unresolved again (D-01)",
+                _manual_registry_loaded_once_per_cycle_from_its_own_state_dir,
+            )
+
+            # 48. End-to-end source (Task 1, check 2): a detected flight
+            # whose callsign carries a manually-registered prefix, with
+            # adsbdb returning nothing, records route_source == "manual"
+            # and a route whose airline_name is the operator's own name -
+            # proving the wiring reaches all the way through
+            # resolve_route() and into what gets persisted/logged, not
+            # just the process-wide cache checked above.
+            def _manual_resolution_reaches_route_source_end_to_end():
+                original_transport = enrich.default_transport
+                enrich.default_transport = lambda callsign, timeout=None: (404, None)
+                try:
+                    manual_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-manual-e2e-")
+                    try:
+                        manual_resolutions.add_entry(manual_dir, "MRZ", "Meridian Air")
+                        buf = io.StringIO()
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        with contextlib.redirect_stdout(buf):
+                            poll_loop.run_once(snapshot=_snapshot("999999", "MRZ1234", CLIMB), state_dir=manual_dir, geofence=GEOFENCE_PATH)
+                        line = [ln for ln in buf.getvalue().splitlines() if ln.startswith("poll_loop: ")][-1]
+                        if "route_source=manual" not in line:
+                            return False, "a manually-resolved-only callsign did not log route_source=manual: %s" % (line,)
+                        route = poll_loop.load_poll_state(manual_dir).get("last_route")
+                        if not isinstance(route, dict) or route.get("airline_name") != "Meridian Air":
+                            return False, "the persisted last_route = %r, expected airline_name='Meridian Air'" % (route,)
+                        return True, ""
+                    finally:
+                        manual_resolutions.set_manual_registry_state_dir(None)
+                        shutil.rmtree(manual_dir, ignore_errors=True)
+                finally:
+                    enrich.default_transport = original_transport
+            check(
+                "a detected flight whose callsign carries a manually-registered prefix, with adsbdb returning "
+                "nothing, is recorded with route_source == 'manual' and a route carrying the operator's airline "
+                "name (D-01/D-02, end to end through a real run_once() cycle)",
+                _manual_resolution_reaches_route_source_end_to_end,
+            )
+
+            # 49. Cleanup on a resolvable prefix (Task 2, check 3): a
+            # cycle detecting a flight whose prefix is now resolvable (via
+            # the manual registry) removes that prefix's entry from
+            # unresolved_prefixes and persists the removal, while a
+            # second, still-unresolvable prefix's entry stays byte-
+            # identical to what was seeded (D-14).
+            def _clear_resolved_unresolved_prefix_removes_resolvable_entry():
+                original_transport = enrich.default_transport
+                enrich.default_transport = lambda callsign, timeout=None: (404, None)
+                try:
+                    d14a_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d14-clear-")
+                    try:
+                        seeded_still_unresolved = {
+                            "count": 1,
+                            "first_seen": "2026-01-02T00:00:00+00:00",
+                            "last_seen": "2026-01-02T00:00:00+00:00",
+                            "example_callsign": "PPP5555",
+                        }
+                        poll_loop.save_poll_state(d14a_dir, {
+                            "unresolved_prefixes": {
+                                "NNN": {
+                                    "count": 3,
+                                    "first_seen": "2026-01-01T00:00:00+00:00",
+                                    "last_seen": "2026-01-01T00:10:00+00:00",
+                                    "example_callsign": "NNN4444",
+                                },
+                                "PPP": dict(seeded_still_unresolved),
+                            },
+                        })
+                        manual_resolutions.add_entry(d14a_dir, "NNN", "Novus Air")
+
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        poll_loop.run_once(snapshot=_snapshot("666666", "NNN7777", CLIMB), state_dir=d14a_dir, geofence=GEOFENCE_PATH)
+
+                        unresolved_after = poll_loop.load_poll_state(d14a_dir).get("unresolved_prefixes")
+                        if not isinstance(unresolved_after, dict) or "NNN" in unresolved_after:
+                            return False, "NNN is still present after being resolved via the manual registry: %r" % (unresolved_after,)
+                        if unresolved_after.get("PPP") != seeded_still_unresolved:
+                            return False, "the still-unresolvable PPP entry was not left byte-identical: %r" % (unresolved_after.get("PPP"),)
+                        return True, ""
+                    finally:
+                        manual_resolutions.set_manual_registry_state_dir(None)
+                        shutil.rmtree(d14a_dir, ignore_errors=True)
+                finally:
+                    enrich.default_transport = original_transport
+            check(
+                "a cycle detecting a flight whose prefix is now resolvable via the manual registry removes that "
+                "prefix's entry from unresolved_prefixes and persists the removal, leaving a still-unresolvable "
+                "prefix's entry byte-identical (D-14)",
+                _clear_resolved_unresolved_prefix_removes_resolvable_entry,
+            )
+
+            # 50. Independence from route_source (Task 2, check 4 -
+            # Pitfall 2 made executable): the SAME setup as check 49, but
+            # with the transport stub returning a FULL adsbdb route so
+            # this cycle's own route_source is "fresh_hit" - a cleanup
+            # implemented as a branch inside the miss handling would fail
+            # exactly this check and no other.
+            def _clear_resolved_unresolved_prefix_is_independent_of_route_source():
+                original_transport = enrich.default_transport
+                enrich.default_transport = lambda callsign, timeout=None: (200, {
+                    "response": {
+                        "flightroute": {
+                            "airline": {"name": "Full Route Air"},
+                            "origin": {"iata_code": "ORY", "municipality": "Paris"},
+                            "destination": {"iata_code": "JFK", "municipality": "New York"},
+                        }
+                    }
+                })
+                try:
+                    d14b_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d14-fresh-")
+                    try:
+                        seeded_still_unresolved = {
+                            "count": 1,
+                            "first_seen": "2026-01-03T00:00:00+00:00",
+                            "last_seen": "2026-01-03T00:00:00+00:00",
+                            "example_callsign": "TUV2222",
+                        }
+                        poll_loop.save_poll_state(d14b_dir, {
+                            "unresolved_prefixes": {
+                                "QRS": {
+                                    "count": 2,
+                                    "first_seen": "2026-01-01T00:00:00+00:00",
+                                    "last_seen": "2026-01-01T00:05:00+00:00",
+                                    "example_callsign": "QRS1111",
+                                },
+                                "TUV": dict(seeded_still_unresolved),
+                            },
+                        })
+                        manual_resolutions.add_entry(d14b_dir, "QRS", "Quorum Air")
+
+                        buf = io.StringIO()
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        with contextlib.redirect_stdout(buf):
+                            poll_loop.run_once(snapshot=_snapshot("555555", "QRS3333", CLIMB), state_dir=d14b_dir, geofence=GEOFENCE_PATH)
+                        line = [ln for ln in buf.getvalue().splitlines() if ln.startswith("poll_loop: ")][-1]
+                        if "route_source=fresh_hit" not in line:
+                            return False, "test setup did not produce route_source=fresh_hit as required: %s" % (line,)
+
+                        unresolved_after = poll_loop.load_poll_state(d14b_dir).get("unresolved_prefixes")
+                        if not isinstance(unresolved_after, dict) or "QRS" in unresolved_after:
+                            return False, (
+                                "QRS is still present after a fresh_hit cycle - the cleanup must not be gated on "
+                                "route_source: %r" % (unresolved_after,)
+                            )
+                        if unresolved_after.get("TUV") != seeded_still_unresolved:
+                            return False, "the still-unresolvable TUV entry was not left byte-identical: %r" % (unresolved_after.get("TUV"),)
+                        return True, ""
+                    finally:
+                        manual_resolutions.set_manual_registry_state_dir(None)
+                        shutil.rmtree(d14b_dir, ignore_errors=True)
+                finally:
+                    enrich.default_transport = original_transport
+            check(
+                "the D-14 cleanup removes a resolved prefix's entry even when this cycle's own route_source is "
+                "'fresh_hit' (adsbdb answered) - a route_source-gated implementation would fail exactly this "
+                "check and no other (13-RESEARCH.md Pitfall 2)",
+                _clear_resolved_unresolved_prefix_is_independent_of_route_source,
             )
 
         finally:
