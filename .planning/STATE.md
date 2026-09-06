@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 13
-status: Phase 14 plan 06/8 complete — chip/superseded/trigger-tag generalisation, D-11 summary line, management-table removal
-stopped_at: Completed 14-06-PLAN.md (chip/superseded/trigger-tag generalisation, D-11 summary line, management-table removal); test_status_pages.py 163/163, full suite PASS. 14-08 next.
-last_updated: "2026-09-06T15:39:35.831Z"
+current_phase: 14
+status: "Phase 14 complete — 8/8 plans, real-browser verification found and fixed 2 defects (D-03 CSS specificity, D-13/D-14 stale-gap dual-render); G-02 datalist popup remains open, needs a human hands-on look"
+stopped_at: "Completed 14-08-PLAN.md (real-browser verification: found and fixed 2 defects, G-02 datalist popup remains open)"
+last_updated: "2026-09-06T16:32:36.025Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
-  completed_phases: 24
+  completed_phases: 25
   total_plans: 139
-  completed_plans: 137
+  completed_plans: 138
   percent: 99
 ---
 
@@ -683,12 +683,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T15:39:27.830Z
-Stopped at: Completed 14-06-PLAN.md (chip/superseded/trigger-tag generalisation, D-11 summary line, management-table removal); test_status_pages.py 163/163, full suite PASS. 14-08 next.
+Last session: 2026-09-06T16:32:36.005Z
+Stopped at: Completed 14-08-PLAN.md (real-browser verification: found and fixed 2 defects, G-02 datalist popup remains open)
 
 Resume file: 
 
-None
+.planning/phases/14-resolve-an-unidentified-flight-from-the-gallery-lightbox-wit/14-08-SUMMARY.md
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).

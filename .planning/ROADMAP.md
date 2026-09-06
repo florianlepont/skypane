@@ -38,7 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 11: Web-configurable wake interval** - Make `SKYPANE_SLEEP_S` configurable through the companion web interface instead of SSH-only env-file edits — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md` at the developer's request (2026-09-02). Planned 2026-09-04: 4 plans across 3 waves (3/4 executed). (completed 2026-09-04)
 - [ ] **Phase 12: Remote display on/off toggle** - Turn the e-ink panel dark on demand from the companion Settings page, and bring it back, without touching hardware — the manual, immediate sibling of Phase 10's scheduled quiet hours. Promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request (2026-09-05). Not yet discussed or planned.
 - [x] **Phase 13: Add an illustration for an unidentified flight from the companion web interface** - Let the operator close a coverage gap from the two pages that already surface it (Health's unresolved-prefix registry, the Airlines gallery) instead of leaving the web UI for the manual runbook — promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` at the developer's request (2026-09-05). The hardened upload path already shipped (`260902-v26`/`260903-df3`); the open questions are how an unidentified flight mints a key without reopening threat `T-v26-02-01`, and whether uploading also resolves the airline. Not yet discussed or planned. (completed 2026-09-06)
-- [ ] **Phase 14: Resolve an unidentified flight from the gallery lightbox, with coverage gaps as empty cards** - Fold Phase 13's resolve flow into the interaction pattern the Airlines gallery already uses: a coverage gap becomes an empty card in the grid, clicking it opens the shared `<dialog>` every other card opens, and the standalone management table is absorbed into the cards rather than deleted. Raised by the developer on seeing Phase 13's real page (2026-09-06) — the page already hosts that dialog and already puts the replace-upload form inside it, so the page section Phase 13 shipped was inconsistent with its own surroundings. Presentation-layer only; no server-side change expected. Not yet discussed or planned.
+- [x] **Phase 14: Resolve an unidentified flight from the gallery lightbox, with coverage gaps as empty cards** - Fold Phase 13's resolve flow into the interaction pattern the Airlines gallery already uses: a coverage gap becomes an empty card in the grid, clicking it opens the shared `<dialog>` every other card opens, and the standalone management table is absorbed into the cards rather than deleted. Raised by the developer on seeing Phase 13's real page (2026-09-06) — the page already hosts that dialog and already puts the replace-upload form inside it, so the page section Phase 13 shipped was inconsistent with its own surroundings. Presentation-layer only; no server-side change expected. Not yet discussed or planned. (completed 2026-09-06)
 
 ## Phase Details
 
@@ -809,7 +809,7 @@ Plans:
 **Requirements**: None expected — a presentation-layer follow-up to an unmapped phase, matching the Phase 10-13 precedent.
 **Depends on:** Phase 13 (merged as `8f45385`, PR #51) — this phase re-presents that machinery and changes none of it. Also Phase 06.6.4.1, which established the shared lightbox and reborn Airlines as the illustration gallery.
 **Closes with:** a real-browser pass, since the whole phase is interaction design and the dialog's behaviour is browser-owned. This also closes Phase 13's two open UAT gaps, which live in exactly this surface: **G-02** (the `<datalist>` popup was never verified in a browser) and **G-01** (a rejected airline name is reported to the operator as an empty one).
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 **Wave 1**
@@ -830,4 +830,4 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 14-08-PLAN.md — Blocking real-browser verification of every manual-only behavior, closing G-02
+- [x] 14-08-PLAN.md — Blocking real-browser verification of every manual-only behavior, closing G-02
