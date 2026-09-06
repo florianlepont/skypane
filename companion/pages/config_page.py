@@ -69,6 +69,27 @@ QUIET_HOURS_CHECKBOX_VALUE = "on"
 # handle_post()'s validator so the two can never drift apart.
 DISPLAY_CHECKBOX_VALUE = "on"
 
+# Phase 14 D-05 (14-UI-SPEC.md Copywriting Contract): the arrivals-theme-
+# override checkbox's sole accepted submitted value - a fourth consumer of
+# the same absent-means-off idiom LED_CHECKBOX_VALUE/
+# QUIET_HOURS_CHECKBOX_VALUE/DISPLAY_CHECKBOX_VALUE already establish,
+# shared by theme_fieldset()'s markup and handle_post()'s validator so the
+# two can never drift apart.
+ARRIVING_CHECKBOX_VALUE = "on"
+# An element id, not a class - unlike the three checkboxes above, this one
+# is referenced by companion/static/style.css's `:has()` reveal selector,
+# which must target one specific control rather than a class three other
+# checkboxes on this page already share.
+THEME_ARRIVING_TOGGLE_ID = "theme-arriving-toggle"
+# The attribute-as-CSS-hook naming the revealed second (arrivals) chip
+# grid, following this app's existing data-dirty-section/
+# data-static-save-fallback/data-filter-group convention.
+ARRIVAL_GRID_ATTR = "data-arrival-grid"
+# Locked-English copy (14-UI-SPEC.md Copywriting Contract) - do not
+# paraphrase.
+THEME_ARRIVING_CHECKBOX_LABEL = "Use a different theme for arrivals"
+THEME_DIRECTION_LABEL = "Arrivals theme"
+
 # quick task 260901-re6: each settings group used to render a description
 # sentence above its control (THEME_SECTION_DESCRIPTION/
 # RUNWAY_SECTION_DESCRIPTION, D-02 06.6.4.1) AND a helper sentence below
@@ -238,7 +259,64 @@ def _palette_hex(index):
     return "#%02X%02X%02X" % (r, g, b)
 
 
-def theme_fieldset(current_theme_id):
+def _theme_chip_grid_html(field_name, selected_theme_id, extra_class="", extra_attr=""):
+    """Phase 14 D-05: the chip-grid renderer `theme_fieldset()` calls
+    TWICE — once for the always-present departures grid
+    (`field_name="theme"`, no `extra_class`/`extra_attr`, so it renders
+    byte-identical to the pre-Phase-14 markup: `<div class=
+    "theme-chip-grid">`), once for the revealed arrivals grid
+    (`field_name="theme_arriving"`, `extra_class="theme-chip-grid--
+    arrivals"`, `extra_attr=ARRIVAL_GRID_ATTR`). Factored out of
+    `theme_fieldset()`'s old single inline loop so the two grids can never
+    drift apart: they differ ONLY in the radio group's `name`, which chip
+    is marked `checked`/`--selected`, and this grid's own wrapper class/
+    attribute — everything else (the hidden-radio selectable-card idiom,
+    the `/theme-preview/{id}.png` source, the `_palette_hex()` swatch
+    dots, the check glyph) is one shared definition.
+    """
+    chips = []
+    for theme_id in device_config.THEME_IDS:
+        selected = theme_id == selected_theme_id
+        checked = " checked" if selected else ""
+        chip_class = (
+            "theme-chip theme-chip--selected" if selected else "theme-chip")
+        theme = device_config.THEMES[theme_id]
+        label = device_config.theme_label(theme_id)
+        escaped_id = escape_html(theme_id)
+        departing_hex = _palette_hex(theme["departing_index"])
+        arriving_hex = _palette_hex(theme["arriving_index"])
+        chips.append(
+            '<label class="%s">'
+            '<input type="radio" name="%s" value="%s" class="visually-hidden"%s>'
+            '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
+            'width="320" height="120" loading="lazy" style="background:%s">'
+            '<span class="theme-chip__body">'
+            '<span class="theme-chip__name">%s</span>'
+            '<span class="theme-chip__swatches" aria-hidden="true">'
+            '<span class="theme-chip__dot" style="background:%s"></span>'
+            '<span class="theme-chip__dot" style="background:%s"></span>'
+            "</span>"
+            "</span>"
+            '<span class="theme-chip__check">%s<span class="visually-hidden">Selected</span></span>'
+            "</label>"
+            % (
+                chip_class, escape_html(field_name), escaped_id, checked,
+                THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
+                escape_html(THEME_PREVIEW_ALT_TEMPLATE % label),
+                escape_html(departing_hex),
+                escape_html(label),
+                escape_html(departing_hex), escape_html(arriving_hex),
+                layout.icon_html("icon-check"),
+            )
+        )
+    grid_class = "theme-chip-grid"
+    if extra_class:
+        grid_class = grid_class + " " + extra_class
+    attr_html = (" %s" % extra_attr) if extra_attr else ""
+    return '<div class="%s"%s>%s</div>' % (grid_class, attr_html, "".join(chips))
+
+
+def theme_fieldset(current_theme_id, current_theme_arriving=None):
     """D-04: a read-only theme status block when exactly one theme is
     registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
     group has no real decision value. Falls back to the editable D-01
@@ -283,6 +361,20 @@ def theme_fieldset(current_theme_id):
     UIR-07's lesson) so the browser reserves the correct box before the
     image arrives, and `loading="lazy"` keeps below-the-fold chips off
     the critical path (mirroring the Airlines gallery's own precedent).
+
+    Phase 14 D-05: `current_theme_arriving` (an id or `None`, defaulting
+    to `None` so every pre-Phase-14 call site keeps working unchanged)
+    extends the multi-theme branch with a `settings-checkbox` toggle plus
+    a SECOND, identical chip grid for the arrivals override — both always
+    rendered in the HTML (the CSS-only `:has()` reveal in
+    companion/static/style.css hides the second grid when the box is
+    unchecked; a browser without `:has()` support just always shows both,
+    denser but never broken). The single-theme read-only branch above is
+    untouched: a one-option "choice" has no arrivals override worth
+    offering either. The second grid pre-selects the EFFECTIVE arrivals
+    theme — `current_theme_arriving` when set, otherwise the same
+    `current_theme_id` the first grid has selected — so an operator who
+    ticks the box starts from the theme already in use, not from nothing.
     """
     caption_html = (
         '<p class="text-label section-caption">%s</p>'
@@ -313,51 +405,41 @@ def theme_fieldset(current_theme_id):
             escape_html(device_config.theme_label(theme_id)),
         )
 
-    chips = []
-    for theme_id in device_config.THEME_IDS:
-        selected = theme_id == current_theme_id
-        checked = " checked" if selected else ""
-        chip_class = (
-            "theme-chip theme-chip--selected" if selected else "theme-chip")
-        theme = device_config.THEMES[theme_id]
-        label = device_config.theme_label(theme_id)
-        escaped_id = escape_html(theme_id)
-        departing_hex = _palette_hex(theme["departing_index"])
-        arriving_hex = _palette_hex(theme["arriving_index"])
-        chips.append(
-            '<label class="%s">'
-            '<input type="radio" name="theme" value="%s" class="visually-hidden"%s>'
-            '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
-            'width="320" height="120" loading="lazy" style="background:%s">'
-            '<span class="theme-chip__body">'
-            '<span class="theme-chip__name">%s</span>'
-            '<span class="theme-chip__swatches" aria-hidden="true">'
-            '<span class="theme-chip__dot" style="background:%s"></span>'
-            '<span class="theme-chip__dot" style="background:%s"></span>'
-            "</span>"
-            "</span>"
-            '<span class="theme-chip__check">%s<span class="visually-hidden">Selected</span></span>'
-            "</label>"
-            % (
-                chip_class, escaped_id, checked,
-                THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
-                escape_html(THEME_PREVIEW_ALT_TEMPLATE % label),
-                escape_html(departing_hex),
-                escape_html(label),
-                escape_html(departing_hex), escape_html(arriving_hex),
-                layout.icon_html("icon-check"),
-            )
-        )
+    first_grid = _theme_chip_grid_html("theme", current_theme_id)
+    checkbox_checked = " checked" if current_theme_arriving is not None else ""
+    effective_arriving = (
+        current_theme_arriving if current_theme_arriving is not None
+        else current_theme_id)
+    second_grid = _theme_chip_grid_html(
+        "theme_arriving", effective_arriving,
+        extra_class="theme-chip-grid--arrivals", extra_attr=ARRIVAL_GRID_ATTR)
+    # Only the revealed (second) grid gets a label: before the checkbox
+    # exists there is exactly one grid and it needs no label (unchanged
+    # today); once revealed, the <h2>Theme</h2> heading plus the
+    # checkbox's own "...for arrivals" wording already disambiguate the
+    # first grid as the default/departures one — a second "Departures"
+    # label on the first grid would be an extra line of chrome that
+    # wording already makes redundant (14-UI-SPEC.md Section Anatomy §1).
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">Theme</h2>'
         "%s"
-        '<div class="theme-chip-grid">%s</div>'
+        "%s"
+        '<label class="settings-checkbox">'
+        '<input type="checkbox" name="theme_arriving_enabled" id="%s" value="%s"%s> %s'
+        "</label>"
+        '<p class="text-label theme-direction-label">%s</p>'
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Theme"),
         caption_html,
-        "".join(chips),
+        first_grid,
+        escape_html(THEME_ARRIVING_TOGGLE_ID),
+        escape_html(ARRIVING_CHECKBOX_VALUE), checkbox_checked,
+        escape_html(THEME_ARRIVING_CHECKBOX_LABEL),
+        escape_html(THEME_DIRECTION_LABEL),
+        second_grid,
     )
 
 
@@ -885,6 +967,11 @@ def poll_trigger_section(cooldown_remaining):
 def render(ctx):
     device_cfg = ctx.get("device_config") or {}
     current_theme_id = device_cfg.get("theme", device_config.DEFAULT_THEME_ID)
+    # Phase 14 D-04: an explicit `.get()` with no `or` fallback and no
+    # default — `None` is a meaningful value here (no arrivals-theme
+    # override, same as the departures theme), the same reasoning
+    # current_wake_interval_s's own read below already carries.
+    current_theme_arriving = device_cfg.get("theme_arriving")
     current_runway_id = device_cfg.get(
         "tracked_runway", device_config.DEFAULT_RUNWAY_ID)
     current_led_enabled = device_cfg.get(
@@ -978,7 +1065,7 @@ def render(ctx):
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
-        theme_fieldset(current_theme_id),
+        theme_fieldset(current_theme_id, current_theme_arriving),
         runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
         led_group(current_led_enabled),
         quiet_hours_group(
