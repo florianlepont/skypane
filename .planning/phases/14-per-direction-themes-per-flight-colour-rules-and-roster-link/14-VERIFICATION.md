@@ -1,14 +1,16 @@
 ---
 phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link
 verified: 2026-09-06T16:29:53Z
-status: human_needed
+status: passed
 score: 27/27 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "End-of-phase no-JS browser confirmation (14-VALIDATION.md Manual-Only Verifications; human_verify_mode: end-of-phase). Load Settings with JavaScript disabled and confirm: (1) the arrivals grid is reachable/selectable and the checkbox reveals/hides it; (2) saving with the box unchecked clears a previously-set arrivals theme; (3) a rule can be added, and adding the same key again reports it replaced the previous one; (4) a rule can be deleted; (5) the unsaved-changes bar never claims unsaved changes because of a rule add/delete; (6) tabbing through the Theme card reaches the checkbox then, once checked, the revealed grid's radios in document order."
     expected: "All six behaviours hold in a real browser with scripting disabled; the automated HTTP-level tests below already prove the raw POST/markup semantics but cannot see CSS reveal timing, focus order, or screen-reader announcement."
     why_human: "Computed-style/markup assertions cannot observe real browser rendering, keyboard focus order, or a real `:has()` CSS reveal in practice — this project has a standing lesson (feedback_real_device_ui_verification) that computed-style checks alone missed a real mobile nav bug."
+
   - test: "Run `/gsd-secure-phase 14` over the two new rules routes (`/settings/rules/add`, `/settings/rules/{kind}/{value}/delete`) and the `colour_rules.json` registry, per the roadmap's revised 'Closes with' line for this phase."
     expected: "A retroactive security pass confirms the STRIDE threat registers recorded in each plan (T-14-01, T-14-02, T-14-04, T-14-05, T-14-06 through T-14-14) are honestly mitigated in the shipped code, not just documented in the plan."
     why_human: "This is a standing phase-closing gate this project runs as a separate workflow step, not something this verifier substitutes for."
