@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 14
 current_phase_name: per-direction-themes-per-flight-colour-rules-and-roster-link
-status: executing
-stopped_at: "Phase 14 planned end to end on 2026-09-06: promoted from SEED-003, discussed (D-01..D-13), UI-SPEC approved 6/6, researched, pattern-mapped, 5 plans in 3 waves verified by the plan-checker, decision-coverage gate 12/12. Ready for /gsd-execute-phase 14."
-last_updated: "2026-09-06T14:32:36.954Z"
+status: "Phase 14 executed — 5/5 plans, suite green; awaiting human verification + /gsd-secure-phase 14"
+stopped_at: "Phase 14 executed 2026-09-06: 5/5 plans across 3 waves merged, suite 18/18 at 93% coverage, verifier scored 27/27 must-haves. Status is human_needed, NOT passed — 14-UAT.md holds the two remaining obligations (no-JS browser confirmation, /gsd-secure-phase 14). Do not mark the phase complete until those pass. (state.sync had clobbered this field to a stale one-liner; restored by hand.)"
+last_updated: "2026-09-06T16:33:45.495Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
-  completed_phases: 24
+  completed_phases: 24  # Phase 14 is NOT complete — verification is human_needed; state.sync counted it because all 5 plans have summaries
   total_plans: 136
-  completed_plans: 130
-  percent: 96  # completed_plans/total_plans (130/136) — NOT completed_phases/total_phases, the recurring gsd-tools miscomputation this field is hand-corrected against every session
+  completed_plans: 135
+  percent: 99  # completed_plans/total_plans (135/136). gsd-tools' own state.update-progress REPORTED 99 this run and then wrote 93 (= completed_phases/total_phases, 25/27) into the file — the recurring miscomputation this field is hand-corrected against every session
 ---
 
 ---
