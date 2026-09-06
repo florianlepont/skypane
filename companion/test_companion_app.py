@@ -60,6 +60,7 @@ if REPO_ROOT not in sys.path:
 from companion import auth, layout, theme_preview  # noqa: E402
 from companion.pages import health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
+from server.plane import colour_rules  # noqa: E402
 from server.plane import illustrations as server_illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
@@ -253,6 +254,17 @@ EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
 # anywhere before this, which is exactly why CR-01 shipped. Recomputed
 # directly against the real on-disk check(...) call count, not trusted
 # from arithmetic alone.
+# 14-05-PLAN.md Task 3 (D-10/D-11, 14-VALIDATION.md rows 10/11): +6 (the
+# unauthenticated-writes-nothing check for both new routes, the
+# add/delete-forms-sit-outside-the-settings-form check, the raw no-JS
+# added-then-replaced check, the rejection-paths check covering
+# key-invalid/crafted-kind/crafted-theme/registry-full, the delete-route
+# full-contract check, and the fresh-per-request check — one check per
+# Task 3 route-behaviour bullet). No pre-existing check needed
+# retargeting. 159 + 6 = 165, recomputed directly against the real
+# on-disk check(...) call count at execution time (165/165 pass), not
+# trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 165
 
 
 def _ago_iso(seconds):
@@ -4019,6 +4031,387 @@ def main():
             "manual_delete_failed flash key, leaving the entry in place, when delete_entry() "
             "cannot write because the state dir is read-only (WR-11)",
             _manual_resolution_delete_post_delete_failed_on_unwritable_state_dir)
+
+        # --- POST /settings/rules/add and POST /settings/rules/{kind}/
+        # {value}/delete (Phase 14 D-10, D-11, 14-05-PLAN.md Task 3,
+        # 14-VALIDATION.md rows 10/11) — each check below spins up its
+        # own isolated Harness(), matching the manual-resolution checks
+        # above, since these routes write a real colour_rules.json. The
+        # add route's three form fields are rule_kind, rule_key and
+        # rule_theme_id (config_page.py's own field names); the delete
+        # route carries no form body at all, only its two path segments.
+
+        def _rules_routes_require_auth_and_write_nothing():
+            from companion.pages import config_page
+            rules_harness = Harness()
+            try:
+                rules_harness.start()
+                rbase = rules_harness.base_url()
+                rules_path = colour_rules.colour_rules_path(rules_harness.tmpdir)
+
+                add_data = urllib.parse.urlencode(
+                    {"rule_kind": "callsign", "rule_key": "AFR1234",
+                     "rule_theme_id": "white"}).encode()
+                status, headers, _ = http_request(
+                    rbase + config_page.RULES_ADD_ROUTE, method="POST", data=add_data)
+                if status != 303:
+                    return False, (
+                        "expected a 303 redirect for an unauthenticated add POST, "
+                        "got %d" % status)
+                if "/login" not in headers.get("Location", ""):
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location", "")
+                if os.path.exists(rules_path):
+                    return False, (
+                        "expected no colour_rules.json to be written by an "
+                        "unauthenticated POST")
+
+                delete_path = "%scallsign/AFR1234%s" % (
+                    config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
+                status, headers, _ = http_request(rbase + delete_path, method="POST")
+                if status != 303:
+                    return False, (
+                        "expected a 303 redirect for an unauthenticated delete POST, "
+                        "got %d" % status)
+                if "/login" not in headers.get("Location", ""):
+                    return False, "expected a redirect to /login, got %r" % headers.get("Location", "")
+                if os.path.exists(rules_path):
+                    return False, (
+                        "expected no colour_rules.json to exist after an unauthenticated "
+                        "delete POST")
+                return True, ""
+            finally:
+                rules_harness.stop()
+                rules_harness.cleanup()
+        check(
+            "unauthenticated POSTs to /settings/rules/add and "
+            "/settings/rules/{kind}/{value}/delete both redirect to /login and write no "
+            "colour_rules.json — the state dir is unchanged, not only the status code",
+            _rules_routes_require_auth_and_write_nothing)
+
+        def _rules_add_and_delete_forms_sit_outside_settings_form():
+            from companion.pages import config_page
+            rules_harness = Harness()
+            try:
+                rules_harness.start()
+                rbase = rules_harness.base_url()
+                rsession = _login(rules_harness)
+
+                add_result = colour_rules.add_rule(
+                    rules_harness.tmpdir, "callsign", "AFR9001", "white")
+                if add_result != colour_rules.ADD_OK_NEW:
+                    return False, "test setup failure: add_rule() returned %r" % (add_result,)
+
+                status, _headers, body = http_request(rbase + "/settings", cookie=rsession)
+                if status != 200:
+                    return False, "expected 200 GET /settings, got %d" % status
+                page = body.decode("utf-8")
+
+                add_form_marker = 'action="%s"' % config_page.RULES_ADD_ROUTE
+                add_tag_start = page.rindex("<form", 0, page.index(add_form_marker))
+                add_tag_end = page.index(">", add_tag_start)
+                add_form_tag = page[add_tag_start:add_tag_end + 1]
+
+                # An exact expected delete action (not a prefix search) —
+                # RULES_ADD_ROUTE itself starts with RULES_DELETE_ROUTE_
+                # PREFIX ("/settings/rules/add" vs "/settings/rules/"), so
+                # a bare prefix search could ambiguously match the add
+                # form's own action instead of the delete form's.
+                expected_delete_action = "%scallsign/AFR9001%s" % (
+                    config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
+                delete_form_marker = 'action="%s"' % expected_delete_action
+                delete_tag_start = page.rindex("<form", 0, page.index(delete_form_marker))
+                delete_tag_end = page.index(">", delete_tag_start)
+                delete_form_tag = page[delete_tag_start:delete_tag_end + 1]
+
+                for tag, name in ((add_form_tag, "add"), (delete_form_tag, "delete")):
+                    if config_page.SETTINGS_FORM_ID in tag:
+                        return False, (
+                            "expected the %s form to not carry the settings form's id, "
+                            "got %r" % (name, tag))
+                    if "form=" in tag:
+                        return False, (
+                            "expected the %s form to carry no form= attribute, got %r"
+                            % (name, tag))
+
+                # A rule add followed by an unrelated settings-form save
+                # leaves both the rule and the setting intact — the two
+                # write paths do not interfere.
+                status, _headers, _body = http_request(
+                    rbase + "/settings", method="POST",
+                    data=urllib.parse.urlencode({"tracked_runway": "3"}).encode(),
+                    cookie=rsession)
+                if status != 303:
+                    return False, "expected a 303 redirect from the settings save, got %d" % status
+                registry = colour_rules.load_colour_rules(rules_harness.tmpdir)
+                if "AFR9001" not in registry.get("callsign", {}):
+                    return False, "expected the rule to survive an unrelated settings-form save"
+                cfg = device_config.load_device_config(rules_harness.tmpdir)
+                if cfg.get("tracked_runway") != "3":
+                    return False, (
+                        "expected the settings save to persist independently of the rule add")
+                return True, ""
+            finally:
+                rules_harness.stop()
+                rules_harness.cleanup()
+        check(
+            "the rules add form and each delete form sit outside <form id=SETTINGS_FORM_ID> "
+            "(D-10): neither carries the settings form's id nor a form= attribute pointing at "
+            "it, and a rule add followed by an unrelated settings-form save leaves both the "
+            "rule and every device-config setting intact (14-VALIDATION.md row 10)",
+            _rules_add_and_delete_forms_sit_outside_settings_form)
+
+        def _rules_add_route_no_js_added_then_replaced():
+            from companion.pages import config_page
+            rules_harness = Harness()
+            try:
+                rules_harness.start()
+                rbase = rules_harness.base_url()
+                rsession = _login(rules_harness)
+
+                status, headers, _ = http_request(
+                    rbase + config_page.RULES_ADD_ROUTE, method="POST",
+                    data=urllib.parse.urlencode(
+                        {"rule_kind": "callsign", "rule_key": "afr1234",
+                         "rule_theme_id": "white"}).encode(),
+                    cookie=rsession)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if "flash=rule_added" not in headers.get("Location", ""):
+                    return False, (
+                        "expected the added flash key on first add, got %r"
+                        % headers.get("Location"))
+
+                status, headers, _ = http_request(
+                    rbase + config_page.RULES_ADD_ROUTE, method="POST",
+                    data=urllib.parse.urlencode(
+                        {"rule_kind": "callsign", "rule_key": "AFR1234",
+                         "rule_theme_id": "blue"}).encode(),
+                    cookie=rsession)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=rule_replaced" not in location or "rule=AFR1234" not in location:
+                    return False, (
+                        "expected the replaced flash key echoing the normalised key, "
+                        "got %r" % location)
+
+                registry = colour_rules.load_colour_rules(rules_harness.tmpdir)
+                callsign_entries = registry.get("callsign", {})
+                if list(callsign_entries.keys()) != ["AFR1234"]:
+                    return False, (
+                        "expected exactly one callsign entry keyed AFR1234, got %r"
+                        % (callsign_entries,))
+                if callsign_entries["AFR1234"]["theme_id"] != "blue":
+                    return False, (
+                        "expected the second add's theme to win, got %r"
+                        % (callsign_entries["AFR1234"],))
+                return True, ""
+            finally:
+                rules_harness.stop()
+                rules_harness.cleanup()
+        check(
+            "raw URL-encoded no-JS POSTs to the rules add route (14-VALIDATION.md row 11): a "
+            "first add flashes rule_added, a second add for the same key (case-insensitive "
+            "input) flashes rule_replaced and echoes the normalised key back, and the "
+            "registry holds exactly one entry with the second theme",
+            _rules_add_route_no_js_added_then_replaced)
+
+        def _rules_add_route_rejection_paths():
+            from companion.pages import config_page
+            import itertools
+            import string
+
+            rules_harness = Harness()
+            try:
+                rules_harness.start()
+                rbase = rules_harness.base_url()
+                rsession = _login(rules_harness)
+
+                def _add(kind, key, theme_id):
+                    data = urllib.parse.urlencode(
+                        {"rule_kind": kind, "rule_key": key, "rule_theme_id": theme_id}).encode()
+                    return http_request(
+                        rbase + config_page.RULES_ADD_ROUTE, method="POST", data=data,
+                        cookie=rsession)
+
+                # A malformed value for the selected kind — a prefix must
+                # be exactly three letters.
+                status, headers, _ = _add("prefix", "TOOLONG", "white")
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if "flash=rule_key_invalid" not in headers.get("Location", ""):
+                    return False, (
+                        "expected the key-invalid flash key, got %r" % headers.get("Location"))
+                registry = colour_rules.load_colour_rules(rules_harness.tmpdir)
+                if registry.get("prefix"):
+                    return False, "expected nothing written for a malformed value"
+
+                # A crafted kind outside the closed set.
+                status, headers, _ = _add("../../etc/passwd", "AFR", "white")
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if "flash=rule_save_failed" not in headers.get("Location", ""):
+                    return False, (
+                        "expected the generic save-failed flash key for a crafted kind, "
+                        "got %r" % headers.get("Location"))
+
+                # A crafted theme id outside THEME_IDS.
+                status, headers, _ = _add("callsign", "AFR9999", "not-a-real-theme")
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if "flash=rule_save_failed" not in headers.get("Location", ""):
+                    return False, (
+                        "expected the generic save-failed flash key for a crafted theme "
+                        "id, got %r" % headers.get("Location"))
+                registry = colour_rules.load_colour_rules(rules_harness.tmpdir)
+                if "AFR9999" in registry.get("callsign", {}):
+                    return False, "expected nothing written for a crafted theme id"
+
+                # Fill the registry to the cap with distinct, already-
+                # valid prefixes (mirroring
+                # server/test_manual_resolutions.py's own cap-enforcement
+                # precedent), then attempt one more through the real
+                # route.
+                existing_count = sum(len(v) for v in registry.values())
+                needed = colour_rules.COLOUR_RULE_MAX_ENTRIES - existing_count
+                cap_prefixes = []
+                for combo in itertools.product(string.ascii_uppercase, repeat=3):
+                    if len(cap_prefixes) >= needed:
+                        break
+                    cap_prefixes.append("".join(combo))
+                for prefix in cap_prefixes:
+                    result = colour_rules.add_rule(
+                        rules_harness.tmpdir, "prefix", prefix, "white")
+                    if result != colour_rules.ADD_OK_NEW:
+                        return False, (
+                            "test setup failure filling the cap: add_rule(%r, ...) "
+                            "returned %r" % (prefix, result))
+                status, headers, _ = _add("prefix", "ZZZ", "white")
+                if status != 303:
+                    return False, "expected a 303 redirect for the at-cap POST, got %d" % status
+                if "flash=rule_registry_full" not in headers.get("Location", ""):
+                    return False, (
+                        "expected the registry-full flash key, got %r" % headers.get("Location"))
+                registry_after = colour_rules.load_colour_rules(rules_harness.tmpdir)
+                if "ZZZ" in registry_after.get("prefix", {}):
+                    return False, "expected the at-cap entry to NOT be persisted"
+                return True, ""
+            finally:
+                rules_harness.stop()
+                rules_harness.cleanup()
+        check(
+            "the rules add route's rejection paths: a malformed value for the selected kind "
+            "flashes rule_key_invalid and writes nothing; a crafted kind and a crafted theme "
+            "id each flash the generic rule_save_failed and write nothing; filling the "
+            "registry to its cap and adding one more flashes rule_registry_full without "
+            "persisting the at-cap entry",
+            _rules_add_route_rejection_paths)
+
+        def _rules_delete_route_full_contract():
+            from companion.pages import config_page
+            rules_harness = Harness()
+            try:
+                rules_harness.start()
+                rbase = rules_harness.base_url()
+                rsession = _login(rules_harness)
+
+                add_result = colour_rules.add_rule(
+                    rules_harness.tmpdir, "hex", "3944F2", "blue")
+                if add_result != colour_rules.ADD_OK_NEW:
+                    return False, "test setup failure: add_rule() returned %r" % (add_result,)
+
+                delete_path = "%shex/3944F2%s" % (
+                    config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
+                status, headers, _ = http_request(rbase + delete_path, method="POST", cookie=rsession)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if "flash=rule_deleted" not in headers.get("Location", ""):
+                    return False, (
+                        "expected the deleted flash key, got %r" % headers.get("Location"))
+                registry = colour_rules.load_colour_rules(rules_harness.tmpdir)
+                if "3944F2" in registry.get("hex", {}):
+                    return False, "expected the entry to be removed from the registry"
+
+                # A second, identical delete of an already-absent entry
+                # is success, not an error — idempotent double-submission
+                # tolerance, matching the manual-resolutions delete
+                # precedent (no flash on a repeat delete either).
+                status, headers, _ = http_request(rbase + delete_path, method="POST", cookie=rsession)
+                if status != 303:
+                    return False, (
+                        "expected a second identical delete to also redirect, got %d" % status)
+                if "flash=" in headers.get("Location", ""):
+                    return False, (
+                        "expected no flash on a repeat delete of an already-absent entry, "
+                        "got %r" % headers.get("Location"))
+
+                # A malformed kind segment and a malformed value segment
+                # each 404 without touching an unrelated existing entry.
+                add_result = colour_rules.add_rule(
+                    rules_harness.tmpdir, "callsign", "AFR1234", "white")
+                if add_result != colour_rules.ADD_OK_NEW:
+                    return False, "test setup failure: add_rule() returned %r" % (add_result,)
+                bad_kind_path = "%sbogus/AFR1234%s" % (
+                    config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
+                status, _headers, _body = http_request(
+                    rbase + bad_kind_path, method="POST", cookie=rsession)
+                if status != 404:
+                    return False, "expected 404 for a malformed kind segment, got %d" % status
+                bad_value_path = "%scallsign/bad-value%s" % (
+                    config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
+                status, _headers, _body = http_request(
+                    rbase + bad_value_path, method="POST", cookie=rsession)
+                if status != 404:
+                    return False, "expected 404 for a malformed value segment, got %d" % status
+                registry_after = colour_rules.load_colour_rules(rules_harness.tmpdir)
+                if "AFR1234" not in registry_after.get("callsign", {}):
+                    return False, (
+                        "expected the unrelated entry to survive both 404'd delete attempts")
+                return True, ""
+            finally:
+                rules_harness.stop()
+                rules_harness.cleanup()
+        check(
+            "POST /settings/rules/{kind}/{value}/delete removes the registry entry and "
+            "flashes rule_deleted; a second identical delete of an already-absent entry is a "
+            "no-op that redirects with no flash; a malformed kind segment and a malformed "
+            "value segment each 404 without touching an unrelated existing entry",
+            _rules_delete_route_full_contract)
+
+        def _rules_page_context_reads_fresh_per_request():
+            rules_harness = Harness()
+            try:
+                rules_harness.start()
+                rbase = rules_harness.base_url()
+                rsession = _login(rules_harness)
+
+                status, _headers, body = http_request(rbase + "/settings", cookie=rsession)
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                if b"FRESHRD1" in body:
+                    return False, "expected the rule to be absent before it is written"
+
+                add_result = colour_rules.add_rule(
+                    rules_harness.tmpdir, "callsign", "FRESHRD1", "white")
+                if add_result != colour_rules.ADD_OK_NEW:
+                    return False, "test setup failure: add_rule() returned %r" % (add_result,)
+
+                status, _headers, body = http_request(rbase + "/settings", cookie=rsession)
+                if status != 200:
+                    return False, "expected 200, got %d" % status
+                if b"FRESHRD1" not in body:
+                    return False, (
+                        "expected page_context() to read the rules registry fresh per "
+                        "request, not through the poll-cycle process cache")
+                return True, ""
+            finally:
+                rules_harness.stop()
+                rules_harness.cleanup()
+        check(
+            "a rule written directly to state_dir between two GETs of the Settings page "
+            "appears in the second render — proving page_context() reads colour_rules fresh "
+            "per request rather than through any process-scoped cache",
+            _rules_page_context_reads_fresh_per_request)
 
         # --- poll-trigger cooldown: server-global, not per-session ---
 
