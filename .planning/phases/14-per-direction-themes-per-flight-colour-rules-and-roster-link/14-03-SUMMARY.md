@@ -144,6 +144,15 @@ None - no external service configuration required.
 - `server/test_poll_loop.py`'s `EXPECTED_CHECK_COUNT` is now 70; any future plan extending this harness must re-derive the count by running it, not by arithmetic.
 - Full suite verified green: `scripts/run-all-tests.sh` exits 0, 18/18 harnesses, coverage 92% (unchanged from the wave-1 baseline).
 
+## Self-Check: PASSED
+
+- FOUND: server/poll_loop.py
+- FOUND: server/test_poll_loop.py
+- FOUND: .planning/phases/14-per-direction-themes-per-flight-colour-rules-and-roster-link/14-03-SUMMARY.md
+- FOUND commit: 052ce6f
+- FOUND commit: a942432
+- FOUND commit: 480d1d9
+
 ---
 *Phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link*
 *Completed: 2026-09-06*
