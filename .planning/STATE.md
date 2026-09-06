@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 14
-status: Phase 14 plan 05/8 complete — panel-lookup.js imageless open, form toggling, load-time auto-open
-stopped_at: Completed 14-05-PLAN.md (panel-lookup.js imageless open, mode/manual form toggling, <a> interception, location.search-driven load-time auto-open, D-02/D-03/D-09/D-12/D-13/D-14); test_companion_app.py 159/159, view-pages 63/63, status-pages 158/158, full suite PASS. Wave 3 (14-06) and the rest of wave 2 (14-07) next.
-last_updated: "2026-09-06T14:44:05.611Z"
+current_phase: 13
+status: Phase 14 plan 07/8 complete — distinct manual_name_unusable flash key closes 13-UAT.md G-01
+stopped_at: Completed 14-07-PLAN.md (companion/app.py FLASH_KEY_MANUAL_NAME_UNUSABLE + narrowed _handle_manual_resolve_post() branch, closes 13-UAT.md G-01); test_companion_app.py 159/159, full suite PASS. Wave 3 (14-06) and 14-08 next.
+last_updated: "2026-09-06T15:01:27.612Z"
 last_activity: 2026-09-06
 progress:
   total_phases: 27
   completed_phases: 24
   total_plans: 139
-  completed_plans: 135
-  percent: 97
+  completed_plans: 136
+  percent: 89
 ---
 
 ---
@@ -345,6 +345,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 14 P03 | 22min | 2 tasks | 4 files |
 | Phase 14 P04 | 45min | 2 tasks | 2 files |
 | Phase 14 P05 | 23min | 2 tasks | 3 files |
+| Phase 14 P07 | 20min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -589,6 +590,7 @@ Recent decisions affecting current work:
 - [Phase 14]: 14-05: Populated the resolve-name form's hidden prefix input and the resolve-context block's five per-field <dd> hooks even though the plan's own Task 1 text lists only six lookups - 14-UI-SPEC.md names this plan as the explicit consumer of both
 - [Phase 14]: 14-05: data-view-panel-scope is read but has nowhere to write (no page module renders .lightbox__resolve-scope yet) - documented as a known limitation, not fixed here since it requires touching airlines_page.py, outside this plan's file scope
 - [Phase 14]: 14-05: wrapped the load-time auto-open's querySelector([data-view-panel-resolve-prefix=...]) call in try/catch and placed it after the click listener is wired, so a malformed ?resolve= value can never break the rest of the script
+- [Phase 14]: 14-07: distinguish a supplied-but-unusable manual airline name from an empty field by re-reading the same raw form value already passed to add_entry(), rather than duplicating manual_resolutions.py's own regex/validation logic
 
 ### Pending Todos
 
@@ -676,8 +678,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T14:44:05.593Z
-Stopped at: Completed 14-05-PLAN.md (panel-lookup.js imageless open, mode/manual form toggling, <a> interception, location.search-driven load-time auto-open, D-02/D-03/D-09/D-12/D-13/D-14); test_companion_app.py 159/159, view-pages 63/63, status-pages 158/158, full suite PASS. Wave 3 (14-06) and the rest of wave 2 (14-07) next.
+Last session: 2026-09-06T15:01:27.594Z
+Stopped at: Completed 14-07-PLAN.md (companion/app.py FLASH_KEY_MANUAL_NAME_UNUSABLE + narrowed _handle_manual_resolve_post() branch, closes 13-UAT.md G-01); test_companion_app.py 159/159, full suite PASS. Wave 3 (14-06) and 14-08 next.
 
 Resume file: 
 
