@@ -36,7 +36,12 @@ if REPO_ROOT not in sys.path:
 # 12-01: +4 (display_enabled registry field: normalise bool-only gotcha,
 # hostile-on-disk-value fail-open degradation, save round-trip +
 # carry-forward, save-rejects-non-bool with byte-identical-on-rejection)
-EXPECTED_CHECK_COUNT = 49
+# 14-02: 49 -> 54, +5 (D-04/D-05 theme_arriving: normalise degrade-to-None
+# never DEFAULT_THEME_ID, CLEAR_THEME_ARRIVING sentinel distinctness, the
+# hand-written hostile-value degrade proof, the pre-Phase-14 no-migration
+# proof, and the full three-state write contract - set / carry-forward-on-
+# omission / CLEAR_THEME_ARRIVING-clears / non-member-value-rejects)
+EXPECTED_CHECK_COUNT = 54
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -867,6 +872,160 @@ def main():
     check(
         "a subsequent theme-only save_device_config(theme='black') carries a previously-saved wake_interval_s=120 forward unchanged",
         _wake_interval_s_carries_forward_on_unrelated_save,
+    )
+
+    # --- theme_arriving (14-02, D-04/D-05) --------------------------------
+    #
+    # theme_arriving behaves like wake_interval_s on READ - the second key
+    # in this module whose valid value set includes None - but deliberately
+    # diverges from it on WRITE: it must be genuinely clearable via the
+    # CLEAR_THEME_ARRIVING sentinel, which wake_interval_s's contract
+    # explicitly does not offer (14-RESEARCH.md Assumption A1). The check
+    # names below are deliberately explicit about which half of that split
+    # each one is proving.
+
+    def _normalise_theme_arriving_degrades_hostile_values_never_to_default():
+        for hostile in ("chartreuse", 42, True, "", {"a": 1}, None):
+            got = device_config.normalise_theme_arriving(hostile)
+            if got is not None:
+                return False, "normalise_theme_arriving(%r) returned %r, expected None (never DEFAULT_THEME_ID)" % (hostile, got)
+        if device_config.normalise_theme_arriving("white") != "white":
+            return False, "normalise_theme_arriving('white') did not return 'white' unchanged"
+        return True, ""
+
+    check(
+        "normalise_theme_arriving() degrades a hostile string, an int, a bool, an empty string, a dict, and None to None - never to DEFAULT_THEME_ID, the wrong-shaped answer normalise_theme_id() would give - and returns a real THEMES member unchanged",
+        _normalise_theme_arriving_degrades_hostile_values_never_to_default,
+    )
+
+    def _clear_theme_arriving_sentinel_is_distinct_from_none_and_any_theme_id():
+        if device_config.CLEAR_THEME_ARRIVING is None:
+            return False, "CLEAR_THEME_ARRIVING is None - it must be a distinct sentinel"
+        if device_config.CLEAR_THEME_ARRIVING in device_config.THEME_IDS:
+            return False, "CLEAR_THEME_ARRIVING collides with a real theme id"
+        if device_config.CLEAR_THEME_ARRIVING == "white":
+            return False, "CLEAR_THEME_ARRIVING == 'white' - it must never equality-match a theme id"
+        return True, ""
+
+    check(
+        "CLEAR_THEME_ARRIVING is a distinct object - not None, and neither equal to nor a member of any registered theme id, so it can never collide with a real theme id or with unset",
+        _clear_theme_arriving_sentinel_is_distinct_from_none_and_any_theme_id,
+    )
+
+    def _hand_written_hostile_theme_arriving_yields_none_never_default():
+        # The degrade proof (14-VALIDATION.md row 6): a hand-edited on-disk
+        # theme_arriving degrades to None on read, matching
+        # normalise_theme_arriving()'s own contract, and is a real
+        # save-then-hand-edit-then-load round trip against a temp state
+        # dir - not a source grep.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            for bad_json, label in (
+                ('{"theme_arriving": "chartreuse"}', "an unregistered string"),
+                ('{"theme_arriving": 7}', "JSON int 7"),
+                ('{"theme_arriving": null}', "JSON null"),
+            ):
+                with open(path, "w") as fh:
+                    fh.write(bad_json)
+                config = device_config.load_device_config(tmpdir)
+                if config["theme_arriving"] is not None:
+                    return False, "%s produced theme_arriving=%r, expected None" % (label, config["theme_arriving"])
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "load_device_config() degrades a hand-written hostile theme_arriving (an unregistered string, a JSON int, or JSON null) to None, never to DEFAULT_THEME_ID",
+        _hand_written_hostile_theme_arriving_yields_none_never_default,
+    )
+
+    def _pre_phase_14_file_has_no_theme_arriving_migration():
+        # The no-migration proof (14-VALIDATION.md row 6): a
+        # device_config.json written before this phase - one that has never
+        # carried theme_arriving at all - round-trips every stored key
+        # unchanged, resolves theme_arriving to None, and load_device_config()
+        # never rewrites the file to add the new key.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            pre_phase_14_doc = {
+                "theme": "blue", "tracked_runway": "06-24", "led_enabled": False,
+                "quiet_hours_enabled": True, "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
+                "wake_interval_s": 300, "display_enabled": False,
+            }
+            with open(path, "w") as fh:
+                json.dump(pre_phase_14_doc, fh)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            config = device_config.load_device_config(tmpdir)
+            if config["theme_arriving"] is not None:
+                return False, "a file with no theme_arriving key produced %r, expected None" % (config["theme_arriving"],)
+            for key, want in pre_phase_14_doc.items():
+                if config[key] != want:
+                    return False, "pre-existing key %r round-tripped as %r, expected %r" % (key, config[key], want)
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "load_device_config() rewrote a pre-Phase-14 file on disk - no migration is permitted"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a device_config.json written before this phase (no theme_arriving key at all) loads every stored key unchanged, resolves theme_arriving to None, and is not rewritten on disk by load_device_config() - no migration",
+        _pre_phase_14_file_has_no_theme_arriving_migration,
+    )
+
+    def _theme_arriving_three_state_write_contract():
+        # The three-state write proof (14-VALIDATION.md row 6): set,
+        # carry-forward-on-omission, CLEAR_THEME_ARRIVING clears to None
+        # without disturbing an unrelated key, and a non-member value raises
+        # ValueError leaving the file byte-identical - the full D-04/D-05
+        # contract in one real save/load sequence against a temp state dir.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+
+            device_config.save_device_config(tmpdir, theme_arriving="black")
+            config = device_config.load_device_config(tmpdir)
+            if config["theme_arriving"] != "black":
+                return False, "save_device_config(theme_arriving='black') did not round-trip, got %r" % (config["theme_arriving"],)
+
+            device_config.save_device_config(tmpdir, theme="red")
+            config = device_config.load_device_config(tmpdir)
+            if config["theme_arriving"] != "black":
+                return False, "a theme-only save (theme_arriving omitted) did not carry theme_arriving='black' forward, got %r" % (config["theme_arriving"],)
+            if config["theme"] != "red":
+                return False, "theme did not update to 'red', got %r" % (config["theme"],)
+
+            device_config.save_device_config(tmpdir, theme_arriving=device_config.CLEAR_THEME_ARRIVING)
+            config = device_config.load_device_config(tmpdir)
+            if config["theme_arriving"] is not None:
+                return False, "save_device_config(theme_arriving=CLEAR_THEME_ARRIVING) did not clear to None, got %r" % (config["theme_arriving"],)
+            if config["theme"] != "red":
+                return False, "clearing theme_arriving disturbed the unrelated theme key, got %r" % (config["theme"],)
+
+            with open(path, "rb") as fh:
+                before = fh.read()
+            raised = False
+            try:
+                device_config.save_device_config(tmpdir, theme_arriving="chartreuse")
+            except ValueError:
+                raised = True
+            if not raised:
+                return False, "save_device_config(theme_arriving='chartreuse') did not raise ValueError"
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "a rejected theme_arriving write changed a pre-existing file's bytes"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config()'s theme_arriving honours its three-state contract end to end: set, carry-forward-on-omission, CLEAR_THEME_ARRIVING clears to None without disturbing theme, and a non-member value raises ValueError leaving the file byte-identical",
+        _theme_arriving_three_state_write_contract,
     )
 
     def _normalise_display_enabled_only_accepts_real_bools():
