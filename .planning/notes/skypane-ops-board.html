@@ -7,7 +7,8 @@
   POUR METTRE À JOUR — republier CE fichier à CETTE URL, sinon un nouveau lien
   est créé et l'ancien reste figé sur des données périmées. Depuis une session
   Claude Code : outil Artifact, action publish, file_path = ce fichier,
-  url = l'URL ci-dessus.
+  url = l'URL ci-dessus (obligatoire si le fichier est édité depuis un autre
+  chemin, par exemple un worktree temporaire).
 
   SOURCES À RELIRE AVANT CHAQUE MISE À JOUR (dans cet ordre) :
     .planning/ROADMAP.md      — liste des phases + section "Phase Details"
@@ -24,11 +25,14 @@
     .planning/debug/          — resolved/ = bugs clos ; tout fichier hors
                                 resolved/ serait un bug ouvert
 
-  ⚠ VÉRIFIER `git fetch && git status` D'ABORD. Ce tableau a déjà été généré
-  une fois depuis un checkout 374 commits en retard : deux phases entières et
-  la moitié des seeds manquaient, sans aucun signe visible.
+  ⚠ VÉRIFIER `git fetch` ET COMPARER À origin/main D'ABORD — puis regarder les
+  branches non mergées : une phase peut être terminée sur une branche et
+  absente de main. Ce tableau a déjà été généré une fois depuis un checkout
+  374 commits en retard, et une autre session peut travailler dans le même
+  checkout (voir la note Phase 13 ci-dessous).
 
-  Dernière génération : 2026-09-05, au commit 67c4989.
+  Dernière génération : 2026-09-06, main @ c5a4de5, Phase 13 lue sur sa
+  branche claude/phase-13-illustration-for-unidentified-flights.
 -->
 <title>Tour de contrôle SkyPane</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
@@ -184,6 +188,7 @@
   .row-main{ min-width:0; }
   .row-title{ font-weight:600; font-size:0.94rem; margin:0 0 3px; }
   .row-desc{ font-size:0.82rem; color:var(--ink-dim); line-height:1.45; margin:0; }
+  .row-note{ font-size:0.78rem; color:var(--warn-ink); line-height:1.45; margin:5px 0 0; }
   .row-date{
     font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:0.75rem;
     color:var(--ink-faint); white-space:nowrap; padding-top:3px; text-align:right;
@@ -203,7 +208,6 @@
     display:grid; grid-template-columns:56px 1fr auto; gap:10px;
     align-items:baseline; font-size:0.79rem; color:var(--ink-dim);
   }
-  .chain-item code{ color:var(--ink-faint); font-size:0.72rem; font-weight:600; }
   .chain-item .n{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--ink-faint); font-weight:600; }
   .chain-item .done{ color:var(--good-ink); font-size:0.7rem; font-weight:600; white-space:nowrap; }
 
@@ -240,7 +244,6 @@
   .callout strong{ color:var(--warn-ink); }
 
   /* Backlog */
-  .backlog-group{ margin-bottom:4px; }
   .backlog-group-name{
     font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:600;
     letter-spacing:0.08em; text-transform:uppercase; color:var(--ink-faint);
@@ -284,6 +287,10 @@
   .seed-new-flag{
     font-size:0.72rem; font-weight:600; color:var(--accent-ink);
     background:var(--accent-soft); border-radius:6px; padding:5px 8px; line-height:1.4;
+  }
+  .seed-warn-flag{
+    font-size:0.72rem; font-weight:600; color:var(--warn-ink);
+    background:var(--warn-soft); border-radius:6px; padding:5px 8px; line-height:1.4;
   }
 
   /* Bugs */
@@ -331,19 +338,19 @@
     <div>
       <p class="eyebrow">SkyPane · rapport d'état</p>
       <h1>Tour de contrôle</h1>
-      <p class="masthead-sub">Roadmap, backlog v2, seeds et bugs — consolidé depuis <code>.planning/</code> au commit <code>67c4989</code>.</p>
+      <p class="masthead-sub">Roadmap, backlog v2, seeds et bugs — consolidé depuis <code>.planning/</code> sur <code>main</code> @ <code>c5a4de5</code>, Phase 13 lue sur sa branche.</p>
     </div>
     <div class="masthead-meta">
       <strong>Synthèse</strong>
-      05 sept. 2026
+      06 sept. 2026
     </div>
   </div>
 
   <div class="stats">
     <div class="stat">
-      <div class="stat-value good">23/24</div>
-      <div class="stat-label">Phases closes</div>
-      <div class="stat-note">118/119 plans exécutés (99 %)</div>
+      <div class="stat-value good">24/25</div>
+      <div class="stat-label">Phases terminées</div>
+      <div class="stat-note">12 principales + 13 insérées · Phase 13 terminée sur sa branche</div>
     </div>
     <div class="stat">
       <div class="stat-value warn">1</div>
@@ -356,9 +363,9 @@
       <div class="stat-note">4 sessions debug résolues et archivées</div>
     </div>
     <div class="stat">
-      <div class="stat-value accent">6</div>
+      <div class="stat-value accent">4</div>
       <div class="stat-label">Seeds dormantes</div>
-      <div class="stat-note">sur 10 · 3 réalisées, 1 partielle · + 9 items backlog v2</div>
+      <div class="stat-note">sur 10 · 5 réalisées, 1 partielle · + 9 items backlog v2</div>
     </div>
   </div>
 
@@ -366,9 +373,9 @@
   <section class="board">
     <div class="board-head">
       <h2>Roadmap v1</h2>
-      <span class="count">24 phases · 2026-08-26 → 2026-09-04</span>
+      <span class="count">25 phases · 2026-08-26 → 2026-09-06</span>
     </div>
-    <p class="board-intro">Onze phases principales, treize insérées en cours de route. Tout est clos sauf un point, volontairement gardé pour la fin.</p>
+    <p class="board-intro">Douze phases principales, treize insérées en cours de route. Tout est terminé sauf un point, volontairement gardé pour la fin — et une phase attend encore sa PR.</p>
 
     <div class="rows">
       <div class="row">
@@ -472,7 +479,7 @@
         <span class="row-tag">P9</span>
         <div class="row-main">
           <p class="row-title">Thème bande diagonale</p>
-          <p class="row-desc">Bande trapézoïdale derrière l'illustration, hiérarchie à 3 niveaux du numéro de vol, 5 coloris.</p>
+          <p class="row-desc">Bande trapézoïdale derrière l'illustration, hiérarchie à 3 niveaux du numéro de vol, 5 coloris — puis deux thèmes ton-sur-ton (Band Blue/Red Field) en quick task.</p>
         </div>
         <span class="pill good">Terminé</span>
         <span class="row-date">2 sept.</span>
@@ -482,7 +489,7 @@
         <span class="row-tag">P10</span>
         <div class="row-main">
           <p class="row-title">Heures calmes programmées</p>
-          <p class="row-desc">Fenêtre de couvre-feu (23:00–07:00 par défaut, DST-safe Europe/Paris), écran dédié « QUIET HOURS / Back at HH:MM », <code>sleep_s</code> étendu pour dormir à travers la fenêtre.</p>
+          <p class="row-desc">Fenêtre de couvre-feu (23:00–07:00 par défaut, DST-safe Europe/Paris), <code>sleep_s</code> étendu pour dormir à travers la fenêtre. Écran refait en Phase 12 dans la nouvelle écriture (croissant, champ tamisé).</p>
           <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-001.</p>
         </div>
         <span class="pill good">Terminé</span>
@@ -493,18 +500,42 @@
         <span class="row-tag">P11</span>
         <div class="row-main">
           <p class="row-title">Intervalle de réveil configurable depuis le web</p>
-          <p class="row-desc"><code>SKYPANE_SLEEP_S</code> réglable depuis Settings (60–3600 s) au lieu d'une édition SSH du fichier d'env, sans redémarrage de service ni changement firmware.</p>
+          <p class="row-desc"><code>SKYPANE_SLEEP_S</code> réglable depuis Settings (60–3600 s) au lieu d'une édition SSH du fichier d'env, sans redémarrage ni changement firmware.</p>
           <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-002.</p>
         </div>
         <span class="pill good">Terminé</span>
         <span class="row-date">4 sept.</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P12</span>
+        <div class="row-main">
+          <p class="row-title">Écran allumable/éteignable à distance</p>
+          <p class="row-desc">Case « Enable display » dans Settings ; éteint = check-in fixe à 300 s sans rendu, verrou de maintien généralisé (aucune repeinture entre deux états de maintien), <code>max(300, heures calmes)</code> pour le sommeil. Vérifié sur le verre : extinction en ≈ 3 min, maintien silencieux 7 h 52 (93 check-ins, 0 image), rallumage en ≈ 5 min 20. Au passage, les trois écrans de maintien ont été refaits sur le verre : <strong>sombre = le cadre se repose, blanc = il travaille</strong>.</p>
+          <p class="row-note">Case ROADMAP encore décochée sur <code>main</code> — clôture administrative reportée après la Phase 13 (choix du 6 sept.). Étape E (chevauchement heures calmes) sautée : cet axe n'a que ses tests comme preuve.</p>
+          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-004 · PR #49 + #50.</p>
+        </div>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">5–6 sept.</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P13</span>
+        <div class="row-main">
+          <p class="row-title">Ajouter l'illustration d'un vol non identifié depuis le web</p>
+          <p class="row-desc">Registre de résolutions manuelles préfixe → compagnie, lien « Resolve » par ligne sur Health, section de résolution sur Airlines avec <code>&lt;datalist&gt;</code>, chargement par cycle dans le poll-loop, routes d'upload élargies aux nouvelles clés. 6/6 plans, vérification, UAT et revue sécurité présents.</p>
+          <p class="row-note">Terminée sur la branche <code>claude/phase-13-…</code> par une autre session — <strong>pas encore sur <code>main</code></strong>, PR à ouvrir. Le fichier SEED-005 est encore marqué <code>dormant</code>.</p>
+          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-005.</p>
+        </div>
+        <span class="pill accent">Sur branche</span>
+        <span class="row-date">6 sept.</span>
       </div>
     </div>
 
     <div class="callout">
       <span class="callout-mark">SEUL POINT OUVERT</span>
       <p>
-        <strong>Phase 5 · DEVICE-05</strong> — l'essai de décharge réel sur batterie (jusqu'à 21 jours sans intervention ; le protocole pré-enregistré et le checker <code>check-battery</code> sont déjà faits et validés sur fixtures) reste volontairement repoussé, le temps qu'aucune autre phase n'ait besoin que le Mac reste éveillé en continu. C'est aujourd'hui le seul chantier qui empêche de déclarer la roadmap v1 close — et il ne reste plus rien d'autre à attendre : aucune Phase 12 n'existe encore.
+        <strong>Phase 5 · DEVICE-05</strong> — l'essai de décharge réel sur batterie (jusqu'à 21 jours sans intervention ; protocole pré-enregistré et checker <code>check-battery</code> déjà validés sur fixtures) reste volontairement repoussé, le temps qu'aucune autre phase n'ait besoin que le Mac reste éveillé en continu. C'est le seul chantier qui empêche de déclarer la roadmap v1 close — et il ne reste plus rien d'autre à attendre : aucune Phase 14 n'existe. Il déciderait aussi de l'hypothèse non mesurée de la Phase 12 (le rafraîchissement domine-t-il le coût d'un cycle ?).
       </p>
     </div>
   </section>
@@ -515,37 +546,17 @@
       <h2>Seeds</h2>
       <span class="count">.planning/seeds/ · 10 fichiers</span>
     </div>
-    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Deux ont été promues en phases cette semaine (10 et 11) — c'est le mécanisme qui fonctionne.</p>
+    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Quatre ont été promues en phases en cinq jours (10, 11, 12, 13) — c'est le mécanisme qui fonctionne.</p>
 
     <div class="seed-grid">
-      <div class="seed-card fresh">
-        <div class="seed-top">
-          <p class="seed-title">SEED-004 — Allumer/éteindre l'écran e-ink à distance</p>
-          <span class="pill accent">Nouvelle</span>
-        </div>
-        <p class="seed-body">L'interrupteur manuel et immédiat, là où les heures calmes couvrent le cas programmé : partir une semaine, un invité dans la pièce, ou simplement vouloir le mur vide aujourd'hui.</p>
-        <p class="seed-new-flag">Scope small — Phases 10 et 11 ont déjà construit l'écran d'état, le gate du poll-loop et l'extension de <code>sleep_s</code> à réutiliser.</p>
-        <p class="seed-trigger"><b>Réveil :</b> à la prochaine ouverture des contrôles de la page Settings. Aucune dépendance au verdict batterie, contrairement à ses voisines.</p>
-      </div>
-
-      <div class="seed-card fresh">
-        <div class="seed-top">
-          <p class="seed-title">SEED-005 — Ajouter l'illustration d'un vol non identifié depuis le web</p>
-          <span class="pill accent">Nouvelle</span>
-        </div>
-        <p class="seed-body">Depuis les pages qui montrent déjà le manque (les préfixes non résolus de Health, la galerie Airlines), permettre à l'opérateur d'uploader l'image manquante — au lieu de quitter l'interface pour un runbook manuel.</p>
-        <p class="seed-new-flag">Deux verrous : l'upload teste l'appartenance de la clé <em>avant</em> tout (parade à une menace identifiée), donc il ne sait que <em>remplacer</em> ; et la liste non résolue est read-only par décision explicite, que cette seed rouvre.</p>
-        <p class="seed-trigger"><b>Réveil :</b> à la prochaine ouverture des surfaces de couverture (Health, Airlines). Scope medium — le pipeline d'upload existe déjà, le travail est le pont entre deux espaces de noms.</p>
-      </div>
-
       <div class="seed-card fresh">
         <div class="seed-top">
           <p class="seed-title">SEED-003 — Thèmes par direction, règles par vol, vols de K Stewart</p>
           <span class="pill neutral">Dormante</span>
         </div>
         <p class="seed-body">Trois niveaux de personnalisation : un thème dédié aux départs vs aux arrivées ; une couleur forcée quand un callsign ou une immatriculation précise est détectée ; et le surlignage automatique des vols que K Stewart opère.</p>
-        <p class="seed-new-flag">Enrichie aujourd'hui : la source est un <em>roster d'équipage</em>, pas un agenda perso — ça change le format à parser et pose une vraie question de confidentialité.</p>
-        <p class="seed-trigger"><b>Réveil :</b> au prochain milestone « personnalisation » touchant la config de l'interface compagnon. Scope large — c'est trois features.</p>
+        <p class="seed-new-flag">La source est un <em>roster d'équipage</em>, pas un agenda perso — ça change le format à parser et pose une vraie question de confidentialité.</p>
+        <p class="seed-trigger"><b>Réveil :</b> au prochain milestone « personnalisation » touchant la config de l'interface compagnon. Scope large — c'est trois features. La seule seed encore à promouvoir qui ait un vrai design derrière.</p>
       </div>
 
       <div class="seed-card">
@@ -572,7 +583,7 @@
           <span class="pill neutral">Dormante</span>
         </div>
         <p class="seed-body">Croiser le FIDS AeroDataBox (payant) pour retrouver la destination des compagnies à indicatifs tournants, type Transavia.</p>
-        <p class="seed-trigger"><b>Réveil :</b> le correctif gratuit par préfixe est déjà livré — à raviver seulement si l'écart restant justifie une dépense API.</p>
+        <p class="seed-trigger"><b>Réveil :</b> le correctif gratuit par préfixe est déjà livré — à raviver seulement si l'écart restant justifie une dépense API. La Phase 13 (résolutions manuelles) réduit encore ce besoin.</p>
       </div>
 
       <div class="seed-card">
@@ -582,6 +593,23 @@
         </div>
         <p class="seed-body">Le badge de panne source côté serveur (CFG-05) est livré. Il reste la moitié <em>device-local</em> — DEVICE-06, l'écran de repli quand l'appareil n'atteint plus du tout le serveur.</p>
         <p class="seed-trigger"><b>Réveil :</b> si les coupures de communication deviennent une vraie gêne. Reste listé au backlog v2.</p>
+      </div>
+
+      <div class="seed-card done">
+        <div class="seed-top">
+          <p class="seed-title">SEED-005 — Illustration d'un vol non identifié depuis le web</p>
+          <span class="pill good">Réalisée*</span>
+        </div>
+        <p class="seed-body">Promue et livrée comme Phase 13, sur sa branche.</p>
+        <p class="seed-warn-flag">* Le fichier de la seed dit encore <code>dormant</code> — à basculer en <code>fulfilled</code> à la clôture, avec la PR Phase 13.</p>
+      </div>
+
+      <div class="seed-card done">
+        <div class="seed-top">
+          <p class="seed-title">SEED-004 — Allumer/éteindre l'écran e-ink à distance</p>
+          <span class="pill good">Réalisée</span>
+        </div>
+        <p class="seed-body">Promue et livrée comme Phase 12, mergée sur <code>main</code> (#49, #50) et vérifiée sur le verre.</p>
       </div>
 
       <div class="seed-card done">
@@ -633,7 +661,7 @@
     <div class="backlog-item"><span class="rid">VIS-01</span><span>Photo personnelle en fond de la vue avion, rendue en dithering</span></div>
     <div class="backlog-item"><span class="rid">DEVICE-06</span><span>Écran de repli local après 2+ polls échoués (moitié device de l'icône de défaut)</span></div>
 
-    <p class="note-box"><strong>Un décalage documentaire à corriger un jour :</strong> quatre lignes de <code>PROJECT.md</code> (cycle wake/poll/sleep, indicateur batterie faible, fonctionnement sur batterie, ingestion serveur) sont toujours cochées « Active » sans étiquette v2, alors que les phases 1, 2 et 5 qui les livrent sont closes. Le passage Active → Validated n'a jamais été rejoué — ce n'est pas du reste à faire.</p>
+    <p class="note-box"><strong>Un décalage documentaire à corriger un jour :</strong> quatre lignes de <code>PROJECT.md</code> (cycle wake/poll/sleep, indicateur batterie faible, fonctionnement sur batterie, ingestion serveur) sont toujours cochées « Active » sans étiquette v2, alors que les phases 1, 2 et 5 qui les livrent sont closes. Le passage Active → Validated n'a jamais été rejoué — ce n'est pas du reste à faire. Bon candidat pour la même passe de clôture que la Phase 12.</p>
   </section>
 
   <!-- ===================== BUGS ===================== -->
@@ -677,7 +705,7 @@
   </section>
 
   <footer>
-    <span>Sources : <code>ROADMAP.md</code> · <code>STATE.md</code> · <code>REQUIREMENTS.md</code> · <code>seeds/</code> · <code>debug/</code> · 52 quick tasks</span>
+    <span>Sources : <code>ROADMAP.md</code> · <code>STATE.md</code> · <code>REQUIREMENTS.md</code> · <code>seeds/</code> · <code>debug/</code> · 54 quick tasks · branche Phase 13</span>
     <span>* dernière date de plan livré — DEVICE-05 reste ouvert</span>
   </footer>
 
