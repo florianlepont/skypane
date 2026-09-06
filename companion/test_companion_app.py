@@ -244,6 +244,15 @@ EXPECTED_CHECK_COUNT = 157  # 153 + 4 (phase 13 plan 13-06 Task 3: the
 # no-op, and a malformed prefix 404s without touching the registry).
 # Recomputed directly against the real on-disk check(...) call count, not
 # trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
+# HTTP-level checks that POST /airlines/resolve and POST
+# /airlines/manual-resolutions/{prefix}/delete actually reach
+# FLASH_KEY_MANUAL_SAVE_FAILED / FLASH_KEY_MANUAL_DELETE_FAILED when
+# add_entry()/delete_entry() fail to write because the state dir is
+# read-only — the two planner-added failure flash keys had no test
+# anywhere before this, which is exactly why CR-01 shipped. Recomputed
+# directly against the real on-disk check(...) call count, not trusted
+# from arithmetic alone.
 
 
 def _ago_iso(seconds):
@@ -3903,6 +3912,105 @@ def main():
             "flash; a second identical POST is a no-op that also redirects without an "
             "error flash; a malformed prefix 404s without touching the registry",
             _manual_resolution_delete_route_full_contract)
+
+        def _manual_resolve_post_save_failed_on_unwritable_state_dir():
+            # WR-11: FLASH_KEY_MANUAL_SAVE_FAILED was added specifically
+            # because add_entry() can return ADD_FAILED on an unwritable
+            # state dir — CR-01 fixed the bug that made that path raise
+            # instead (a dropped connection, no flash at all); this proves
+            # the flash key itself is actually reached end to end.
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                mbase = manual_harness.base_url()
+                msession = _login(manual_harness)
+
+                state = poll_loop.load_poll_state(manual_harness.tmpdir)
+                registry = state.get("unresolved_prefixes")
+                if not isinstance(registry, dict):
+                    registry = {}
+                registry["FLD"] = {
+                    "count": 1, "first_seen": "2026-01-01T00:00:00+00:00",
+                    "last_seen": "2026-01-01T00:00:00+00:00", "example_callsign": "FLD100"}
+                poll_loop.save_poll_state(manual_harness.tmpdir, {"unresolved_prefixes": registry})
+
+                os.chmod(manual_harness.tmpdir, 0o500)
+                try:
+                    resolve_data = urllib.parse.urlencode(
+                        {"prefix": "FLD", "airline_name": "Unwritable Air"}).encode()
+                    status, headers, _ = http_request(
+                        mbase + "/airlines/resolve", method="POST", data=resolve_data,
+                        cookie=msession)
+                finally:
+                    os.chmod(manual_harness.tmpdir, 0o700)
+
+                if status != 303:
+                    return False, "expected a 303 redirect even on a write failure, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=manual_save_failed" not in location:
+                    return False, (
+                        "expected the manual_save_failed flash key when add_entry() fails to "
+                        "write, got %r" % location)
+                if "resolve=FLD" not in location:
+                    return False, (
+                        "expected the redirect to carry resolve=FLD so the operator lands back "
+                        "on the form, got %r" % location)
+                registry_after = manual_resolutions.load_manual_resolutions(manual_harness.tmpdir)
+                if "FLD" in registry_after:
+                    return False, "expected nothing persisted after a failed write"
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "POST /airlines/resolve redirects with the manual_save_failed flash key (never a "
+            "dropped connection) when add_entry() cannot write because the state dir is "
+            "read-only — the exact failure mode CR-01 fixed, exercised end to end (WR-11)",
+            _manual_resolve_post_save_failed_on_unwritable_state_dir)
+
+        def _manual_resolution_delete_post_delete_failed_on_unwritable_state_dir():
+            # WR-11's mirror case: FLASH_KEY_MANUAL_DELETE_FAILED for
+            # delete_entry() returning False after a genuine write
+            # failure (never for an already-absent prefix, which is a
+            # silent no-op by design).
+            manual_harness = Harness()
+            try:
+                manual_harness.start()
+                mbase = manual_harness.base_url()
+                msession = _login(manual_harness)
+
+                add_result = manual_resolutions.add_entry(
+                    manual_harness.tmpdir, "DLF", "Undeletable Air")
+                if add_result != manual_resolutions.ADD_OK:
+                    return False, "test setup failure: add_entry() returned %r" % (add_result,)
+
+                os.chmod(manual_harness.tmpdir, 0o500)
+                try:
+                    status, headers, _ = http_request(
+                        mbase + "/airlines/manual-resolutions/DLF/delete", method="POST",
+                        cookie=msession)
+                finally:
+                    os.chmod(manual_harness.tmpdir, 0o700)
+
+                if status != 303:
+                    return False, "expected a 303 redirect even on a write failure, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=manual_delete_failed" not in location:
+                    return False, (
+                        "expected the manual_delete_failed flash key when delete_entry() fails "
+                        "to write, got %r" % location)
+                registry_after = manual_resolutions.load_manual_resolutions(manual_harness.tmpdir)
+                if "DLF" not in registry_after:
+                    return False, "expected the entry to survive a failed delete_entry() write"
+                return True, ""
+            finally:
+                manual_harness.stop()
+                manual_harness.cleanup()
+        check(
+            "POST /airlines/manual-resolutions/{prefix}/delete redirects with the "
+            "manual_delete_failed flash key, leaving the entry in place, when delete_entry() "
+            "cannot write because the state dir is read-only (WR-11)",
+            _manual_resolution_delete_post_delete_failed_on_unwritable_state_dir)
 
         # --- poll-trigger cooldown: server-global, not per-session ---
 

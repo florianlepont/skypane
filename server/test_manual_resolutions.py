@@ -28,11 +28,14 @@ if REPO_ROOT not in sys.path:
 # by RUNNING the harness (not by arithmetic), per this repo's own
 # documented discipline (see the ledger comment above
 # companion/test_status_pages.py's own EXPECTED_CHECK_COUNT).
-# 21 = 20 + 1 (13-REVIEW.md WR-03 fix: the drop-count-message check for
-# load_manual_resolutions()). 20 = 19 + 1 (13-REVIEW.md WR-02 fix: the
+# 23 = 21 + 2 (13-REVIEW.md WR-11 fix: add_entry()/delete_entry() failure-
+# path checks against a real unwritable state dir — the exact CR-01
+# reproduction case, at module level). 21 = 20 + 1 (13-REVIEW.md WR-03
+# fix: the drop-count-message check for load_manual_resolutions()).
+# 20 = 19 + 1 (13-REVIEW.md WR-02 fix: the
 # concurrent-add_entry() no-lost-updates check, proving _WRITE_LOCK
 # closes the unsynchronised read-modify-write window).
-EXPECTED_CHECK_COUNT = 21
+EXPECTED_CHECK_COUNT = 23
 
 
 def main():
@@ -428,7 +431,52 @@ def main():
         "nothing is dropped (WR-03)",
         _load_prints_drop_count_for_rejected_and_capped_entries)
 
-    # 21. Hostile-input sweep: every one of these must be rejected by
+    # 21. WR-11 proof (also CR-01's exact reproduction case): add_entry()
+    #     must return ADD_FAILED, never raise, when its state dir cannot be
+    #     created because the parent directory is read-only.
+    def _add_entry_on_uncreatable_state_dir_returns_failed():
+        with tempfile.TemporaryDirectory() as parent:
+            os.chmod(parent, 0o500)
+            try:
+                result = m.add_entry(os.path.join(parent, "state"), "ABC", "Test Air")
+            finally:
+                os.chmod(parent, 0o700)
+        if result != m.ADD_FAILED:
+            return False, "expected ADD_FAILED for an uncreatable state dir, got %r" % (result,)
+        return True, ""
+    check(
+        "add_entry() returns ADD_FAILED (never raises) when its state dir cannot be created because the "
+        "parent directory is read-only — CR-01's exact reproduction case (WR-11)",
+        _add_entry_on_uncreatable_state_dir_returns_failed)
+
+    # 22. WR-11 proof: delete_entry() must return False, never raise, when
+    #     the state dir goes read-only between the load and the write —
+    #     and the entry being deleted must survive untouched, since the
+    #     write never actually happened.
+    def _delete_entry_on_unwritable_state_dir_returns_false():
+        with tempfile.TemporaryDirectory() as tmp:
+            add_result = m.add_entry(tmp, "ABC", "Test Air")
+            if add_result != m.ADD_OK:
+                return False, "setup failure: add_entry() returned %r" % (add_result,)
+            os.chmod(tmp, 0o500)
+            try:
+                result = m.delete_entry(tmp, "ABC")
+            finally:
+                os.chmod(tmp, 0o700)
+            if result is not False:
+                return False, "expected False (never raises) when the state dir is read-only, got %r" % (
+                    result,)
+            registry = m.load_manual_resolutions(tmp)
+            if "ABC" not in registry:
+                return False, "expected the ABC entry to survive a failed delete_entry() write untouched"
+        return True, ""
+    check(
+        "delete_entry() returns False (never raises) when the state dir goes read-only mid-write, and "
+        "the existing entry survives untouched since the write never happened — CR-01's mirror case for "
+        "delete (WR-11)",
+        _delete_entry_on_unwritable_state_dir_returns_false)
+
+    # 23. Hostile-input sweep: every one of these must be rejected by
     #     add_entry() with some ADD_REJECTED_* value, and the registry must
     #     remain empty afterwards. One check covering the whole list, not
     #     one per item.
