@@ -866,13 +866,26 @@ def unresolved_row_for_prefix(state_dir, prefix):
     )
 
 
-def _resolve_context_html(row, now):
+def _resolve_context_html(row, now, id_suffix=""):
     """The five-row `<dl>` sighting-context block (its class is
-    RESOLVE_CONTEXT_CLASS) shared by Step A and Step B (D-12): one
-    `dt`/`dd` pair per
-    `RESOLVE_CONTEXT_LABELS` entry, sourced entirely from `row` (the
-    tuple `unresolved_row_for_prefix()` returned), never from a raw
-    query-string value.
+    RESOLVE_CONTEXT_CLASS) shared by Step A and Step B (D-12), and now
+    also by the dialog's static copy (14-UI-SPEC.md's Component
+    Inventory — one definition, two call sites): one `dt`/`dd` pair per
+    `RESOLVE_CONTEXT_LABELS` entry, each `<dd>` additionally carrying
+    its own hook class from `RESOLVE_CONTEXT_DD_CLASSES` in both call
+    modes, so the dialog's copy has stable JS hooks (plan 14-05) and the
+    two copies stay structurally identical.
+
+    `row=None` (the dialog's own call) renders five empty `<dd>`s — the
+    placeholder copy `panel-lookup.js` fills at click time; `now` may
+    then safely also be `None`, since `layout.concise_timestamp_html()`
+    short-circuits on a falsy timestamp before ever touching `now`.
+
+    `id_suffix` is accepted for call-shape parity with the other three
+    shared rendering functions this module now has (the resolve-name
+    form, the resolve-upload form, the manual-delete form, below); this
+    particular `<dl>` emits no id-bearing child in either mode, so the
+    parameter has no effect on this function's own output today.
 
     First seen/Last seen render through
     `layout.concise_timestamp_html(value, now, fallback="")`, whose
@@ -882,15 +895,24 @@ def _resolve_context_html(row, now):
     call. Every other value (the prefix, the count, the example
     callsign) goes through `escape_html()` exactly once.
     """
-    prefix, count, first_seen, last_seen, example_callsign = row
+    del id_suffix  # accepted for signature parity only — see docstring.
+    if row is None:
+        prefix, count, first_seen, last_seen, example_callsign = "", "", "", "", ""
+    else:
+        prefix, count, first_seen, last_seen, example_callsign = row
     first_seen_html = layout.concise_timestamp_html(first_seen, now, fallback="")
     last_seen_html = layout.concise_timestamp_html(last_seen, now, fallback="")
     pairs = (
-        ('<dd class="text-body mono">%s</dd>' % escape_html(prefix)),
-        ('<dd class="text-body">%s</dd>' % first_seen_html),
-        ('<dd class="text-body">%s</dd>' % last_seen_html),
-        ('<dd class="text-body">%s</dd>' % escape_html(count)),
-        ('<dd class="text-body mono">%s</dd>' % escape_html(example_callsign)),
+        ('<dd class="%s text-body mono">%s</dd>' % (
+            RESOLVE_CONTEXT_DD_CLASSES[0], escape_html(prefix))),
+        ('<dd class="%s text-body">%s</dd>' % (
+            RESOLVE_CONTEXT_DD_CLASSES[1], first_seen_html)),
+        ('<dd class="%s text-body">%s</dd>' % (
+            RESOLVE_CONTEXT_DD_CLASSES[2], last_seen_html)),
+        ('<dd class="%s text-body">%s</dd>' % (
+            RESOLVE_CONTEXT_DD_CLASSES[3], escape_html(count))),
+        ('<dd class="%s text-body mono">%s</dd>' % (
+            RESOLVE_CONTEXT_DD_CLASSES[4], escape_html(example_callsign))),
     )
     items = "".join(
         '<dt class="text-label">%s</dt>%s' % (escape_html(label), dd)
@@ -899,7 +921,7 @@ def _resolve_context_html(row, now):
     return '<dl class="%s">%s</dl>' % (RESOLVE_CONTEXT_CLASS, items)
 
 
-def _known_airlines_datalist_html():
+def _known_airlines_datalist_html(id_suffix=""):
     """D-13's whole mechanism, and it is native: a `<datalist>` offering
     one `<option>` per `illustrations.target_airline_names()` (27 today),
     each `value` escaped exactly once. Choosing a suggestion is what
@@ -907,12 +929,150 @@ def _known_airlines_datalist_html():
     art the fallback ladder already ships; typing anything else stays
     available for a genuinely new carrier. No script is involved and
     none may be added.
+
+    `id_suffix` (Phase 14, 14-02-PLAN.md Task 2): appended to
+    `MANUAL_DATALIST_ID` so the no-JS fallback's copy (`id_suffix=""`,
+    byte-identical to Phase 13) and the dialog's copy
+    (`id_suffix="-dialog"`) never collide when both render at once
+    (14-UI-SPEC.md's "why two ids, not one").
     """
     options = "".join(
         '<option value="%s">' % escape_html(name)
         for name in illustrations.target_airline_names()
     )
-    return '<datalist id="%s">%s</datalist>' % (MANUAL_DATALIST_ID, options)
+    return '<datalist id="%s">%s</datalist>' % (MANUAL_DATALIST_ID + id_suffix, options)
+
+
+def _resolve_name_form_html(prefix_value, id_suffix):
+    """Step A's name-entry form (D-11/D-12/D-13) — one definition, two
+    call sites (14-UI-SPEC.md's Component Inventory, Claude's
+    Discretion #1): `_resolve_section_html()` (the no-JS fallback) calls
+    this with the real prefix and `id_suffix=""` — every emitted id is
+    then byte-identical to what Phase 13's own inline block produced,
+    so no existing `<label for>` association or check breaks. The
+    dialog (`_lightbox_html()`) calls this with `prefix_value=""` and
+    `id_suffix="-dialog"` — `panel-lookup.js` fills the hidden prefix
+    input's own `.value` at click time.
+
+    `id_suffix` is appended to `MANUAL_NAME_INPUT_ID` (in both the `id`
+    and `for` positions) and threaded into `_known_airlines_datalist_
+    html()` (the `id`/`list` positions), so the two calls' ids never
+    collide inside the same DOM when the dialog and the fallback
+    section render simultaneously.
+
+    `prefix_value` interpolates through `escape_html()` exactly once,
+    into the hidden `prefix` input's `value` — the dialog's own call
+    passes `""` here since the script overwrites that value at click
+    time, exactly like `_lightbox_replace_form_html()`'s own `action=""`
+    placeholder discipline.
+
+    The outer `<form>` carries `LIGHTBOX_RESOLVE_NAME_CLASS`
+    (`lightbox__resolve-name`) in both calls — a shared function cannot
+    render two different wrapper tags for the same output, and the
+    no-JS fallback simply carries a spacing class style.css only ever
+    selects from inside `.lightbox` (14-UI-SPEC.md's Component
+    Inventory "New CSS" table).
+    """
+    name_input_id = MANUAL_NAME_INPUT_ID + id_suffix
+    datalist_html = _known_airlines_datalist_html(id_suffix)
+    name_field = (
+        '<div class="resolve-name-field">'
+        '<label for="%s">%s</label>'
+        '<input type="text" id="%s" name="airline_name" list="%s" '
+        'maxlength="100" required autocomplete="off" autofocus>'
+        "%s"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (
+        name_input_id, NAME_LABEL_TEXT,
+        name_input_id, MANUAL_DATALIST_ID + id_suffix,
+        datalist_html,
+        NAME_HINT_TEXT,
+    )
+    return (
+        '<form class="%s" method="post" action="%s">'
+        '<input type="hidden" name="prefix" value="%s">'
+        "%s"
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (
+        LIGHTBOX_RESOLVE_NAME_CLASS, RESOLVE_ROUTE,
+        escape_html(prefix_value),
+        name_field,
+        SAVE_BUTTON_TEXT,
+    )
+
+
+def _resolve_upload_form_html(action, id_suffix):
+    """Step B's upload-zone form (D-11/D-12/D-13) — one definition, two
+    call sites: `_resolve_section_html()` (the no-JS fallback) calls
+    this with the real `/illustration/{key}.png` action and
+    `id_suffix=""` (existing id `manual-illustration-input` unchanged).
+    The dialog calls this with `action=""` and `id_suffix="-dialog"`
+    (new id `manual-illustration-input-dialog`) — `panel-lookup.js`
+    overwrites `action` via `setAttribute`, exactly like the existing
+    replace form.
+
+    `action=""` is a real, present placeholder attribute on the
+    dialog's call, never omitted — the same rule `_lightbox_replace_
+    form_html()`'s own docstring states, for the same reason (the
+    script overwrites an existing attribute rather than creating one).
+
+    The outer wrapper stays `RESOLVE_UPLOAD_ZONE_CLASS`
+    (`resolve-upload-zone`), already generic and already reused
+    byte-identical from Phase 13 — no `lightbox__*` class is added
+    here (unlike the resolve-name and manual-delete forms): this div's
+    own spacing is `.resolve-upload-zone`'s existing rule, shared
+    verbatim across all three consumers per 14-UI-SPEC.md's Component
+    Inventory.
+    """
+    upload_input_id = MANUAL_UPLOAD_INPUT_ID + id_suffix
+    icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
+    return (
+        '<div class="%s">'
+        "%s"
+        '<label for="%s">Choose an image</label>'
+        '<p class="%s">%s</p>'
+        '<form method="post" enctype="multipart/form-data" action="%s">'
+        '<input type="file" id="%s" name="image" accept="image/png" required>'
+        '<button type="submit">%s</button>'
+        "</form>"
+        "</div>"
+    ) % (
+        RESOLVE_UPLOAD_ZONE_CLASS,
+        icon_html,
+        upload_input_id,
+        REPLACE_HINT_CLASS, REPLACE_HINT_TEXT,
+        action,
+        upload_input_id,
+        REPLACE_BUTTON_TEXT,
+    )
+
+
+def _manual_delete_form_html(action):
+    """The shared delete form (D-09 amendment, 2026-09-06) — one
+    definition, two call sites: `_resolve_section_html()`'s own two
+    entry-bearing branches (Step B, already-resolved) call this with
+    the real `_manual_delete_action(prefix)` URL; the dialog calls this
+    with `action=""`, and `panel-lookup.js` overwrites it via
+    `setAttribute`, exactly like the existing replace form.
+
+    Deliberately carries **no** `id_suffix` parameter, unlike the
+    resolve-name and resolve-upload forms above: its output names no
+    id at all — no `<label for>`, no `<input id>`,
+    no `<datalist>` — nothing that HTML requires to be document-unique,
+    so two copies of this exact markup can coexist on the page (dialog
+    + fallback) with zero collision risk. A future editor must not "fix"
+    this asymmetry by adding a suffix parameter it does not need
+    (14-UI-SPEC.md's Component Inventory states this reasoning
+    explicitly).
+    """
+    return (
+        '<form class="%s" method="post" action="%s">'
+        '<p class="text-label section-caption">%s</p>'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (LIGHTBOX_DELETE_CLASS, action, MANUAL_DELETE_CAPTION, DELETE_BUTTON_TEXT)
 
 
 def _resolve_section_html(ctx):
@@ -925,6 +1085,16 @@ def _resolve_section_html(ctx):
     `illustrations.resolved_illustration_path()`) — never from the raw
     `resolve_prefix` query-string value once past the first membership
     check (D-12).
+
+    Its markup now comes from the four shared rendering functions above
+    — the resolve-name form, the resolve-upload form, the
+    sighting-context block and the manual-delete form — this function
+    (the no-JS fallback) is their first call site; the shared dialog
+    (`_lightbox_html()`) is their second (14-UI-SPEC.md's Component
+    Inventory, Claude's Discretion #1). This function's own
+    four-branch derivation logic (the CR-02 fallthrough, the `prefix is
+    None` guard, the corrupt-key guard) is unchanged from Phase 13 —
+    only the markup emission moved into those shared functions.
 
     CR-02 fix: `unresolved_row_for_prefix()` returning `None` no longer
     means "render the stale sentence and stop". D-14's
@@ -947,6 +1117,14 @@ def _resolve_section_html(ctx):
     than `_resolve_context_html()`'s `<dl>`. A prefix with neither a live
     gap NOR a manual entry still renders the stale sentence — there is
     genuinely nothing to resolve.
+
+    D-09 amendment (2026-09-06): the shared manual-delete form renders
+    in exactly the two branches below that have reached an `entry`
+    (Step B, already-resolved), and in neither of the two entry-less
+    branches
+    (stale/invalid, Step A) — the same rule the dialog encodes via
+    `manual` being `active`/`superseded`, i.e. whenever an entry exists.
+    One rule, two render sites, not two rules.
     """
     prefix_raw = ctx.get("resolve_prefix")
     if not prefix_raw:
@@ -978,32 +1156,12 @@ def _resolve_section_html(ctx):
             # nothing to resolve here.
             body = '<p class="text-body">%s</p>' % RESOLVE_STALE_BODY
             return '<div class="page-section">%s%s</div>' % (back_link, body)
-        # Step A — name not yet saved.
+        # Step A — name not yet saved. No entry exists yet, so no
+        # delete form (D-09 amendment).
         heading = '<h2 class="text-heading">%s</h2>' % RESOLVE_HEADING
         caption = '<p class="text-label section-caption">%s</p>' % (
             RESOLVE_CAPTION_TEMPLATE % escaped_prefix)
-        datalist_html = _known_airlines_datalist_html()
-        name_field = (
-            '<div class="resolve-name-field">'
-            '<label for="%s">%s</label>'
-            '<input type="text" id="%s" name="airline_name" list="%s" '
-            'maxlength="100" required autocomplete="off" autofocus>'
-            "%s"
-            '<p class="text-label section-caption">%s</p>'
-            "</div>"
-        ) % (
-            MANUAL_NAME_INPUT_ID, NAME_LABEL_TEXT,
-            MANUAL_NAME_INPUT_ID, MANUAL_DATALIST_ID,
-            datalist_html,
-            NAME_HINT_TEXT,
-        )
-        form = (
-            '<form method="post" action="%s">'
-            '<input type="hidden" name="prefix" value="%s">'
-            "%s"
-            '<button type="submit">%s</button>'
-            "</form>"
-        ) % (RESOLVE_ROUTE, escaped_prefix, name_field, SAVE_BUTTON_TEXT)
+        form = _resolve_name_form_html(prefix, "")
         return '<div class="page-section">%s%s%s%s%s</div>' % (
             back_link, heading, caption, context_html, form)
 
@@ -1020,41 +1178,25 @@ def _resolve_section_html(ctx):
 
     escaped_name = escape_html(airline_name)
     heading = '<h2 class="text-heading">%s</h2>' % (STEP_B_HEADING_TEMPLATE % escaped_name)
+    # D-09 amendment: an entry exists past this point in every remaining
+    # branch, so the delete form renders in both of them.
+    delete_form = _manual_delete_form_html(_manual_delete_action(prefix))
 
     if illustrations.resolved_illustration_path(key, state_dir) is None:
         # Step B — name already saved, no artwork exists yet.
         caption = '<p class="text-label section-caption">%s</p>' % STEP_B_CAPTION
-        icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
         upload_action = "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key))
-        upload_zone = (
-            '<div class="%s">'
-            "%s"
-            '<label for="%s">Choose an image</label>'
-            '<p class="%s">%s</p>'
-            '<form method="post" enctype="multipart/form-data" action="%s">'
-            '<input type="file" id="%s" name="image" accept="image/png" required>'
-            '<button type="submit">%s</button>'
-            "</form>"
-            "</div>"
-        ) % (
-            RESOLVE_UPLOAD_ZONE_CLASS,
-            icon_html,
-            MANUAL_UPLOAD_INPUT_ID,
-            REPLACE_HINT_CLASS, REPLACE_HINT_TEXT,
-            upload_action,
-            MANUAL_UPLOAD_INPUT_ID,
-            REPLACE_BUTTON_TEXT,
-        )
+        upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             AIRLINES_ROUTE, STEP_B_SKIP_TEXT)
-        return '<div class="page-section">%s%s%s%s%s%s</div>' % (
-            back_link, heading, caption, context_html, upload_zone, skip_link)
+        return '<div class="page-section">%s%s%s%s%s%s%s</div>' % (
+            back_link, heading, caption, context_html, upload_zone, skip_link, delete_form)
 
     # Already resolved: a bookmark or a Back press landed on a prefix
     # still listed as a gap, but a manual entry already names an airline
-    # that has artwork. No controls.
+    # that has artwork. No controls except delete.
     body = '<p class="text-body">%s</p>' % (RESOLVE_ALREADY_DONE_TEMPLATE % escaped_name)
-    return '<div class="page-section">%s%s%s</div>' % (back_link, heading, body)
+    return '<div class="page-section">%s%s%s%s</div>' % (back_link, heading, body, delete_form)
 
 
 # ---------------------------------------------------------------------
