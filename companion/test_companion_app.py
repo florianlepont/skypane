@@ -2036,6 +2036,7 @@ def main():
             app_module.FLASH_KEY_MANUAL_REGISTRY_FULL,
             app_module.FLASH_KEY_MANUAL_SAVE_FAILED,
             app_module.FLASH_KEY_MANUAL_DELETE_FAILED,
+            app_module.FLASH_KEY_MANUAL_NAME_UNUSABLE,
         )
         for key in manual_keys:
             if key not in app_module.FLASH_MESSAGES:
@@ -2438,16 +2439,24 @@ def main():
                 return False, "expected the optional replace-form lookup exactly once, got %d" % lookup_count
             if src.index(lookup_needle) <= src.index(guard_needle):
                 return False, "expected the optional replace-form lookup's first occurrence after the mandatory guard's"
+            # Phase 14 (14-05-PLAN.md Task 1) widened this from 1 to 3:
+            # the replace form's own write (quick task 260903-btu,
+            # unchanged) plus two new siblings this task adds — the
+            # resolve-upload zone's nested <form> and the delete form —
+            # each following the identical optional-element,
+            # setAttribute("action", ...) idiom the replace form
+            # already established. Still exactly one guard line, still
+            # one optional lookup after it; only the write count grew.
             write_count = src.count('setAttribute("action"')
-            if write_count != 1:
-                return False, "expected the action-attribute setAttribute write exactly once, got %d" % write_count
+            if write_count != 3:
+                return False, "expected the action-attribute setAttribute write exactly 3 times, got %d" % write_count
             return True, ""
         check(
             "the mandatory three-element guard appears exactly once and never mentions the optional "
             "replace-form lookup on its own line, that lookup's first occurrence in the source comes after "
             "the guard's, it appears exactly once, and the action-attribute setAttribute write appears "
-            "exactly once — pinning the single line that keeps History's lightbox alive (quick task "
-            "260903-btu)",
+            "exactly 3 times (replace/resolve-upload/delete, phase 14 plan 14-05) — pinning the single "
+            "line that keeps History's lightbox alive (quick task 260903-btu)",
             _panel_lookup_optional_replace_lookup_stays_outside_mandatory_guard)
 
         def _panel_lookup_script_route_src_agree():
@@ -3771,6 +3780,7 @@ def main():
                     ("EMP", "", "flash=manual_name_empty"),
                     ("TLN", "A" * 101, "flash=manual_name_too_long"),
                     ("RSV", "Generic Fallback", "flash=manual_name_reserved"),
+                    ("UNU", "../../etc/passwd", "flash=manual_name_unusable"),
                 )
                 for prefix, airline_name, expected_flash in rejection_cases:
                     _seed_gap(prefix)

@@ -199,6 +199,11 @@ FLASH_KEY_MANUAL_PREFIX_STALE = airlines_page.FLASH_MANUAL_PREFIX_STALE
 FLASH_KEY_MANUAL_REGISTRY_FULL = airlines_page.FLASH_MANUAL_REGISTRY_FULL
 FLASH_KEY_MANUAL_SAVE_FAILED = airlines_page.FLASH_MANUAL_SAVE_FAILED
 FLASH_KEY_MANUAL_DELETE_FAILED = airlines_page.FLASH_MANUAL_DELETE_FAILED
+# Phase 14 plan 14-07 (closes 13-UAT.md's G-01): a ninth manual-resolution
+# flash key, declared by plan 14-02 beside the other eight and rebound
+# here exactly like them — distinguishes a name the operator genuinely
+# typed but that add_entry() can't use, from a genuinely empty field.
+FLASH_KEY_MANUAL_NAME_UNUSABLE = airlines_page.FLASH_MANUAL_NAME_UNUSABLE
 # Phase 15 D-10 (15-05-PLAN.md): the seven rule-editor flash keys are
 # defined once in companion/pages/config_page.py, for the identical
 # reason FLASH_KEY_SAVED/etc. above are — mirroring that same rebinding
@@ -270,6 +275,14 @@ FLASH_MESSAGES = {
     FLASH_KEY_MANUAL_DELETE_FAILED: (
         "Couldn't delete that entry — the frame's state directory may "
         "not be writable."),
+    # Phase 14 plan 14-07 (13-UAT.md G-01): distinct from
+    # FLASH_KEY_MANUAL_NAME_EMPTY above — the operator DID type something,
+    # it just can't be turned into an illustration key. Actionable, states
+    # the real requirement in user terms, never echoes the rejected value
+    # back, matching FLASH_KEY_ILLUSTRATION_REJECTED's own established voice.
+    FLASH_KEY_MANUAL_NAME_UNUSABLE: (
+        "That name can't be used for an illustration — try a different "
+        "spelling, or a name with letters and numbers."),
     # Phase 15 D-10 (15-05-PLAN.md, 15-UI-SPEC.md's Flash Messages table,
     # byte-identical). rule_replaced's copy is a template: the {key}
     # placeholder is filled in by _resolve_flash_text()'s own second
@@ -335,6 +348,7 @@ FLASH_ROLES = {
     FLASH_KEY_MANUAL_REGISTRY_FULL: "alert",
     FLASH_KEY_MANUAL_SAVE_FAILED: "alert",
     FLASH_KEY_MANUAL_DELETE_FAILED: "alert",
+    FLASH_KEY_MANUAL_NAME_UNUSABLE: "alert",
     # Phase 15 D-10: added/replaced/deleted are "status" (an outcome of a
     # normal add/delete flow); key-invalid/registry-full/save-failed/
     # delete-failed are "alert" (a rejection or a genuine failure) —
@@ -1503,9 +1517,22 @@ class Handler(BaseHTTPRequestHandler):
                 % (airlines_page.AIRLINES_ROUTE, quote(prefix, safe=""),
                    quote(FLASH_KEY_MANUAL_RESOLVED)))
 
-        if result in (manual_resolutions.ADD_REJECTED_PREFIX,
-                      manual_resolutions.ADD_REJECTED_NAME_EMPTY):
+        if result == manual_resolutions.ADD_REJECTED_PREFIX:
             flash_key = FLASH_KEY_MANUAL_NAME_EMPTY
+        elif result == manual_resolutions.ADD_REJECTED_NAME_EMPTY:
+            # 13-UAT.md G-01: add_entry() collapses "field was empty" and
+            # "field was supplied but illustration_key_for_name() returned
+            # None" onto this one result code (its own docstring steps 2
+            # and 3). Distinguish them here, at the presentation layer
+            # only, by re-reading the same raw posted value already passed
+            # to add_entry() two lines above — never a second read_form()
+            # call, never a re-derivation of manual_resolutions.py's own
+            # regex/validation logic.
+            raw_name = form.get("airline_name")
+            if isinstance(raw_name, str) and raw_name.strip():
+                flash_key = FLASH_KEY_MANUAL_NAME_UNUSABLE
+            else:
+                flash_key = FLASH_KEY_MANUAL_NAME_EMPTY
         elif result == manual_resolutions.ADD_REJECTED_NAME_TOO_LONG:
             flash_key = FLASH_KEY_MANUAL_NAME_TOO_LONG
         elif result == manual_resolutions.ADD_REJECTED_NAME_RESERVED:

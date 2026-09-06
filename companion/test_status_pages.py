@@ -282,7 +282,44 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 149  # 148 + 1 (13-REVIEW.md WR-06 fix: the
+EXPECTED_CHECK_COUNT = 163  # 158 + 5 (phase 14 plan 14-06 Task 1: the
+# manual_info=None byte-compat/plain-card check, the active-manual-states
+# (art + needs-artwork) attribute check, the needs-artwork sighting-
+# context conditional-on-live-gap check, the superseded-card
+# never-shows-operator-upload check, and the grid-injection check —
+# D-08/D-10/D-12 fallback reachability). Re-derived by RUNNING the
+# harness, not by arithmetic.
+# 158 = 157 + 1 (phase 14 plan 14-04 Task 2: the
+# _page_composition_order_matches_ui_spec() check, the one direct proof
+# that the resolve section now renders last, behind the shared dialog —
+# _resolve_slice() itself was retargeted IN PLACE as part of Task 1's
+# own render()-reorder fix, contributing zero to this count). Re-derived
+# by RUNNING the harness, not by arithmetic.
+# 157 = 152 + 5 (phase 14 plan 14-04 Task 1: the
+# coverage-gap block's threshold/sort/cap/overflow-count check, the gap
+# card's markup-shape/attribute-vocabulary check, the data-filter-group
+# format/no-collision check, the overflow-line templating check, and
+# the hostile-example-callsign escaping check — D-01/D-02/D-04/D-05/
+# D-06/D-07). Re-derived by RUNNING the harness, not by arithmetic.
+# 152 = 151 + 1 (phase 14 plan 14-03 Task 2: the
+# style.css DOM-contract guard for the five new/extended selectors —
+# a.airline-card, .airline-card__placeholder, .lightbox__heading:empty,
+# .lightbox__manual-note:empty, .manual-summary, plus the
+# .lightbox__replace three-way group and the aspect-ratio/accent/token
+# invariants). Re-derived by RUNNING the harness, not by arithmetic.
+# 151 = 150 + 1 (phase 14 plan 14-03 Task 1,
+# RESEARCH.md Pitfall 5: the source-assertion guard for
+# companion/static/list-filter.js's new [data-filter-set] lookup — pins
+# the token is present, the new handler calls the file's one existing
+# applyFilter(), the file still has exactly one [data-filter-text]
+# query, and the ES5-safe/no-network-no-timer standing constraints
+# hold). Re-derived by RUNNING the harness, not by arithmetic.
+# 150 = 149 + 1 (phase 14 plan 14-01 Task 3: the new
+# _seed_manual_resolutions() fixture helper's own end-to-end exercising
+# check, seeding one static-table-superseded prefix and one novel one
+# through manual_resolutions.add_entry() alone). Re-derived by RUNNING
+# the harness, not by arithmetic.
+# 149 = 148 + 1 (13-REVIEW.md WR-06 fix: the
 # health_page.RESOLVE_LINK_HREF_TEMPLATE / airlines_page route-constant
 # cross-module equality check). Re-derived by RUNNING the harness, not
 # by arithmetic.
@@ -361,6 +398,46 @@ def _seed_runway_events(state_dir, events):
 
 def _seed_unresolved_prefixes(state_dir, registry):
     poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
+
+
+def _seed_manual_resolutions(state_dir, entries):
+    """Seed `state_dir`'s manual-resolutions registry through the one
+    sanctioned write path, `manual_resolutions.add_entry()` — never by
+    writing a JSON literal. The registry's on-disk shape and validation
+    order belong to `manual_resolutions.py` (phase 14's boundary forbids
+    this phase touching that file); a fixture that hand-wrote the file
+    would silently drift from it and would additionally bypass the
+    `load_manual_resolutions()` rebuild-from-scratch discipline
+    downstream checks rely on.
+
+    `entries` is an iterable of `(prefix, airline_name)` pairs, or
+    `(prefix, airline_name, created_at)` triples when a harness needs a
+    pinned timestamp — passed straight through as `add_entry()`'s
+    injectable `now`.
+
+    A superseded fixture is produced by choosing a prefix
+    `enrich.static_airline_name_for_prefix()` already answers for (e.g.
+    `"AFR"`) — never by mutating the registry after the fact — because
+    `airlines_page._manual_resolution_rows()` derives `superseded` from
+    that oracle alone (RESEARCH.md Pitfall 6) and downstream checks must
+    consume that derivation rather than re-deriving it.
+
+    Raises `AssertionError` naming the prefix and the returned code if
+    `add_entry()` ever returns anything other than `ADD_OK`, so a
+    fixture that would have seeded nothing fails loudly instead of
+    producing a vacuously-passing check downstream.
+    """
+    for entry in entries:
+        if len(entry) == 3:
+            prefix, airline_name, created_at = entry
+        else:
+            prefix, airline_name = entry
+            created_at = None
+        code = manual_resolutions.add_entry(state_dir, prefix, airline_name, now=created_at)
+        if code != manual_resolutions.ADD_OK:
+            raise AssertionError(
+                "_seed_manual_resolutions: add_entry(%r, %r) returned %r, expected %r"
+                % (prefix, airline_name, code, manual_resolutions.ADD_OK))
 
 
 def _ctx(state_dir, now=None):
@@ -5907,23 +5984,34 @@ def main():
 
     def _replace_form_file_input_id_is_unique_and_labelled():
         # retargeted from the per-card disclosure onto the lightbox
-        # contract: now exactly one file input on the whole page, whose
-        # id is the static REPLACE_INPUT_ID. quick task 260903-df3
-        # extends this further: the label and the file input must both
-        # live *inside* the framed zone wrapper, so a future change that
-        # lifts either back out of the frame fails loudly here rather
-        # than silently.
+        # contract: exactly one file input on the whole page carries the
+        # static REPLACE_INPUT_ID. quick task 260903-df3 extends this
+        # further: the label and the file input must both live *inside*
+        # the framed zone wrapper, so a future change that lifts either
+        # back out of the frame fails loudly here rather than silently.
+        #
+        # Phase 14 (14-02-PLAN.md Task 3) retargeted the file-input-
+        # count portion of this check in place (no EXPECTED_CHECK_COUNT
+        # change — same check, re-scoped): the shared dialog now also
+        # renders its own resolve-upload form's file input
+        # (MANUAL_UPLOAD_INPUT_ID + "-dialog"), so "exactly one file
+        # input on the whole page" is no longer this check's own
+        # subject — REPLACE_INPUT_ID's own uniqueness among file-input
+        # ids is.
         tmp = _mkstate("a-replace-input-ids")
         try:
             rendered = airlines_page.render(_ctx(tmp))
             input_ids = re.findall(r'<input type="file" id="([^"]+)"', rendered)
-            if len(input_ids) != 1:
-                return False, "expected exactly one file input, got %d" % len(input_ids)
-            if input_ids[0] != airlines_page.REPLACE_INPUT_ID:
-                return False, "expected the file input's id to equal REPLACE_INPUT_ID, got %r" % (input_ids[0],)
+            replace_ids = [i for i in input_ids if i == airlines_page.REPLACE_INPUT_ID]
+            if len(replace_ids) != 1:
+                return False, (
+                    "expected exactly one file input carrying REPLACE_INPUT_ID, got %d (all file "
+                    "input ids: %r)" % (len(replace_ids), input_ids))
             label_fors = set(re.findall(r'<label for="([^"]+)">', rendered))
-            if input_ids[0] not in label_fors:
-                return False, "expected a <label for=\"%s\"> matching the file input's id" % (input_ids[0],)
+            if airlines_page.REPLACE_INPUT_ID not in label_fors:
+                return False, (
+                    "expected a <label for=\"%s\"> matching the file input's id" % (
+                        airlines_page.REPLACE_INPUT_ID,))
             zone_match = re.search(
                 r'<div class="%s">.*?</div>' % re.escape(airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS),
                 rendered, re.DOTALL)
@@ -5938,7 +6026,7 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "the whole rendered page carries exactly one <input type=\"file\">, whose id equals "
+        "the whole rendered page carries exactly one <input type=\"file\"> whose id equals "
         "airlines_page.REPLACE_INPUT_ID and is the target of a label's for attribute, and both the label and "
         "the file input live inside the framed zone wrapper (quick task 260903-df3) — the accessibility "
         "contract the move from per-card to shared must not lose",
@@ -6157,9 +6245,16 @@ def main():
             rendered = airlines_page.render(_ctx(tmp))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+        # Phase 14 (14-02-PLAN.md Task 3) retargeted this count in place
+        # (no EXPECTED_CHECK_COUNT change — same check, re-scoped): the
+        # shared dialog now also renders its own resolve-upload form
+        # (_resolve_upload_form_html(), id_suffix="-dialog"), which
+        # reuses the identical icon-upload glyph via the same
+        # layout.icon_html() call, so two occurrences are now expected,
+        # not one.
         use_tag = "<use href=" + '"#icon-upload"'
-        if rendered.count(use_tag) != 1:
-            return False, "expected exactly one %r in the rendered page, got %d" % (
+        if rendered.count(use_tag) != 2:
+            return False, "expected exactly two %r in the rendered page, got %d" % (
                 use_tag, rendered.count(use_tag))
         source_path = os.path.join(HERE, "pages", "airlines_page.py")
         with open(source_path) as fh:
@@ -6247,18 +6342,427 @@ def main():
         _replace_zone_markup_and_styling_contract)
 
     # ------------------------------------------------------------------
+    # Phase 14 (14-04-PLAN.md Task 1): the coverage-gap block (D-01,
+    # D-02, D-04, D-05, D-06, D-07).
+    # ------------------------------------------------------------------
+
+    def _gap_block_threshold_sort_cap_and_overflow():
+        tmp = _mkstate("a-gap-threshold-sort-cap")
+        try:
+            registry = {}
+            for i in range(15):
+                prefix = "G%02d" % i
+                registry[prefix] = {
+                    "count": 3 + i, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "%s123" % prefix,
+                }
+            _seed_unresolved_prefixes(tmp, registry)
+            shown, overflow_count = airlines_page._gap_rows_for_grid(tmp)
+            if len(shown) != airlines_page.GAP_BLOCK_CAP:
+                return False, "expected exactly %d shown gap rows, got %d" % (
+                    airlines_page.GAP_BLOCK_CAP, len(shown))
+            if overflow_count != 3:
+                return False, "expected an overflow count of 3 (15 eligible - 12 cap), got %d" % (
+                    overflow_count,)
+            expected_prefixes = [
+                prefix for prefix, _ in sorted(
+                    registry.items(), key=lambda item: (-item[1]["count"], item[0]))
+            ][:airlines_page.GAP_BLOCK_CAP]
+            actual_prefixes = [row[0] for row in shown]
+            if actual_prefixes != expected_prefixes:
+                return False, "expected rows sorted (-count, prefix), got %r (wanted %r)" % (
+                    actual_prefixes, expected_prefixes)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        # The threshold is >=, not >: an identical prefix at count=2
+        # must never earn a gap row; the same prefix at count=3 must.
+        tmp2 = _mkstate("a-gap-threshold-boundary")
+        try:
+            _seed_unresolved_prefixes(tmp2, {
+                "AT2": {"count": 2, "first_seen": "t1", "last_seen": "t2", "example_callsign": "AT2123"},
+            })
+            shown_low, overflow_low = airlines_page._gap_rows_for_grid(tmp2)
+            if shown_low or overflow_low:
+                return False, "expected count=2 (below GAP_BLOCK_THRESHOLD=3) to never render a gap row"
+            _seed_unresolved_prefixes(tmp2, {
+                "AT3": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "AT3123"},
+            })
+            shown_high, overflow_high = airlines_page._gap_rows_for_grid(tmp2)
+            if [row[0] for row in shown_high] != ["AT3"]:
+                return False, "expected count=3 (== GAP_BLOCK_THRESHOLD) to render exactly one gap row"
+            if overflow_high != 0:
+                return False, "expected zero overflow with only one eligible prefix"
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
+        return True, ""
+    check(
+        "_gap_rows_for_grid() thresholds at >= GAP_BLOCK_THRESHOLD (3), sorts eligible rows (-count, prefix), "
+        "caps at GAP_BLOCK_CAP (12), and reports the exact overflow count for the rest (D-05/D-06)",
+        _gap_block_threshold_sort_cap_and_overflow)
+
+    def _gap_card_markup_shape_and_attribute_vocabulary():
+        row = ("XYZ", 5, "t1", "t2", "XYZ123")
+        card_html = airlines_page._gap_card_html(0, row)
+        if "<img" in card_html:
+            return False, "expected zero <img> tags in a gap card"
+        if "airline-card__zoom" in card_html:
+            return False, "expected no nested .airline-card__zoom button in a gap card"
+        if not card_html.startswith('<a class="airline-card"'):
+            return False, "expected the whole card to be a real <a class=\"airline-card\"> element"
+        if not card_html.rstrip().endswith("</a>"):
+            return False, "expected the card to close with </a>"
+        expected_href = 'href="%s?%s=XYZ"' % (
+            airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+        if expected_href not in card_html:
+            return False, "expected %r in the gap card's markup" % (expected_href,)
+        required_attr_values = {
+            airlines_page._VIEW_PANEL_SRC_ATTR: "",
+            airlines_page._VIEW_PANEL_CAPTION_ATTR: "XYZ123",
+            airlines_page._VIEW_PANEL_HEADING_ATTR: airlines_page.RESOLVE_HEADING,
+            airlines_page._VIEW_PANEL_MODE_ATTR: airlines_page._VIEW_PANEL_MODE_GAP,
+            airlines_page._VIEW_PANEL_MANUAL_ATTR: "",
+            airlines_page._VIEW_PANEL_SCOPE_ATTR: airlines_page.RESOLVE_CAPTION_TEMPLATE % "XYZ",
+            airlines_page._VIEW_PANEL_RESOLVE_PREFIX_ATTR: "XYZ",
+            airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR: "t1",
+            airlines_page._VIEW_PANEL_LAST_SEEN_ATTR: "t2",
+            airlines_page._VIEW_PANEL_COUNT_ATTR: "5",
+        }
+        for attr, expected_value in required_attr_values.items():
+            expected_fragment = '%s="%s"' % (attr, expected_value)
+            if expected_fragment not in card_html:
+                return False, "expected %r in the gap card's markup, got %r" % (expected_fragment, card_html)
+        if '<span class="airline-card__placeholder" aria-hidden="true"></span>' not in card_html:
+            return False, "expected the pure-CSS placeholder span"
+        if '<p class="airline-card__name mono">XYZ123</p>' not in card_html:
+            return False, "expected the visible callsign paragraph"
+        return True, ""
+    check(
+        "_gap_card_html() renders the whole card as a real <a class=\"airline-card\" "
+        "href=\"/airlines?resolve={prefix}\"> trigger with zero <img> tags and no nested "
+        ".airline-card__zoom button, carrying every data-view-panel-* attribute UI-SPEC's Gap-card markup "
+        "shape names, non-empty where that snippet shows a value (D-01/D-02/D-12)",
+        _gap_card_markup_shape_and_attribute_vocabulary)
+
+    def _gap_card_filter_group_never_collides_with_curated_integer_groups():
+        source_path = os.path.join(HERE, "pages", "airlines_page.py")
+        with open(source_path) as fh:
+            page_source = fh.read()
+        if 'data-filter-group="gap%d"' not in page_source:
+            return False, "expected the literal 'data-filter-group=\"gap%d\"' format string in the source"
+        row = ("XYZ", 5, "t1", "t2", "XYZ123")
+        for index in (0, 1, 11):
+            card_html = airlines_page._gap_card_html(index, row)
+            match = re.search(r'data-filter-group="([^"]+)"', card_html)
+            if not match:
+                return False, "expected a data-filter-group attribute on the gap card"
+            value = match.group(1)
+            if not re.match(r"^gap\d+$", value):
+                return False, "expected data-filter-group to match ^gap\\d+$, got %r" % (value,)
+        tmp = _mkstate("a-gap-filter-group-collision")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {"count": 5, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
+            })
+            rendered = airlines_page.render(_ctx(tmp))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        curated_groups = set(re.findall(r'data-filter-group="(\d+)"', rendered))
+        gap_groups = set(re.findall(r'data-filter-group="(gap\d+)"', rendered))
+        if not gap_groups:
+            return False, "expected at least one gap data-filter-group in the rendered page"
+        for gap_group in gap_groups:
+            if gap_group in curated_groups:
+                return False, (
+                    "expected gap group %r to never equal a curated card's own bare-integer group"
+                    % (gap_group,))
+        return True, ""
+    check(
+        "a gap card's data-filter-group value is always a string-prefixed \"gap{index}\" (never a bare "
+        "integer) and never collides, as a bare string, with any curated card's own data-filter-group "
+        "value on the same render (RESEARCH.md Pitfall 4, T-14-17)",
+        _gap_card_filter_group_never_collides_with_curated_integer_groups)
+
+    def _gap_overflow_html_renders_only_when_the_cap_bites():
+        if airlines_page._gap_overflow_html(0) != "":
+            return False, "expected the empty string when overflow_count is 0"
+        overflow_html = airlines_page._gap_overflow_html(3)
+        if not overflow_html.startswith('<p class="text-label section-caption">'):
+            return False, "expected the overflow line's own wrapping <p>"
+        if "3 other unresolved prefixes" not in overflow_html:
+            return False, "expected the overflow count interpolated into the line"
+        link_match = re.search(r'<a href="/health">([^<]+)</a>', overflow_html)
+        if not link_match:
+            return False, "expected an <a href=\"/health\"> link"
+        if link_match.group(1) != airlines_page.MANUAL_OVERFLOW_LINK_TEXT:
+            return False, "expected the anchor to wrap only MANUAL_OVERFLOW_LINK_TEXT, got %r" % (
+                link_match.group(1),)
+        if not overflow_html.endswith("</a>.</p>"):
+            return False, "expected the trailing period immediately after the anchor's closing tag, outside it"
+        return True, ""
+    check(
+        "_gap_overflow_html() returns the empty string when the cap does not bite, and otherwise the exact "
+        "templated line naming the overflow count, with <a href=\"/health\"> wrapping only "
+        "MANUAL_OVERFLOW_LINK_TEXT and the trailing period sitting outside the anchor (D-07)",
+        _gap_overflow_html_renders_only_when_the_cap_bites)
+
+    def _gap_card_escapes_hostile_example_callsign():
+        hostile_callsign = '<script>alert(1)</script>"'
+        row = ("XYZ", 5, "t1", "t2", hostile_callsign)
+        card_html = airlines_page._gap_card_html(0, row)
+        if hostile_callsign in card_html:
+            return False, "expected the raw hostile callsign to never appear unescaped"
+        if "<script>" in card_html:
+            return False, "expected no raw '<script>' fragment to survive"
+        escaped_callsign = layout.escape_html(hostile_callsign)
+        if card_html.count(escaped_callsign) < 2:
+            return False, (
+                "expected the escaped callsign to appear at least twice (data-view-panel-caption attribute "
+                "and the visible name paragraph), got %d" % (card_html.count(escaped_callsign),))
+        return True, ""
+    check(
+        "an example_callsign containing '<', '>', '&' and '\"' reaching a gap card renders fully escaped, "
+        "both in data-view-panel-caption and in the visible callsign paragraph, exactly once per "
+        "interpolation site (T-06.6.4.1-05, T-14-16)",
+        _gap_card_escapes_hostile_example_callsign)
+
+    # ------------------------------------------------------------------
+    # Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback
+    # reachability): _airline_card_html()'s widened manual_info
+    # parameter and render()'s grid-injection step.
+    # ------------------------------------------------------------------
+
+    def _airline_card_html_manual_info_none_matches_todays_plain_card_and_keeps_button():
+        tmp = _mkstate("a-manual-info-none")
+        try:
+            card_none = airlines_page._airline_card_html(0, "Air France", [], tmp, None)
+            card_omitted = airlines_page._airline_card_html(0, "Air France", [], tmp)
+            if card_none != card_omitted:
+                return False, "expected manual_info=None to match the default-omitted call byte-for-byte"
+            if '<button type="button" class="airline-card__zoom"' not in card_none:
+                return False, "expected a plain curated card (no manual_info) to still wrap a <button>"
+            if "<a href=" in card_none:
+                return False, "expected no <a> trigger anywhere on a plain curated card"
+            if 'data-view-panel-mode="art"' not in card_none:
+                return False, 'expected mode="art" for a plain curated card'
+            if 'data-view-panel-manual=""' not in card_none:
+                return False, "expected an empty manual attribute for a plain curated card"
+            if 'data-view-panel-resolve-prefix=""' not in card_none:
+                return False, "expected an empty resolve-prefix attribute for a plain curated card"
+            if "airline-card__chip" in card_none:
+                return False, "expected no chip at all for a shapeless, manual_info=None card"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_airline_card_html(index, airline_name, shapes, state_dir, manual_info=None) renders byte-identically "
+        "to the default-omitted call, and a plain curated card with no manual history still wraps a real "
+        "<button> (never an <a>), with mode=\"art\" and every manual/resolve-prefix attribute empty "
+        "(14-06-PLAN.md Task 1)",
+        _airline_card_html_manual_info_none_matches_todays_plain_card_and_keeps_button)
+
+    def _airline_card_html_active_manual_states_render_expected_attributes_and_chip():
+        tmp = _mkstate("a-manual-active-states")
+        try:
+            # (a) active, has artwork — Air France already has real vendored art.
+            card_art = airlines_page._airline_card_html(0, "Air France", [], tmp, ("ZZZ", False, False))
+            expected_open = '<a href="%s?%s=ZZZ" class="airline-card__zoom"' % (
+                airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+            if expected_open not in card_art:
+                return False, "expected the trigger to be a real <a href> when a resolve prefix is present"
+            if 'data-view-panel-mode="art"' not in card_art:
+                return False, 'expected mode="art" for an active manual entry with real artwork'
+            if 'data-view-panel-manual="active"' not in card_art:
+                return False, 'expected manual="active"'
+            if 'data-view-panel-resolve-prefix="ZZZ"' not in card_art:
+                return False, "expected the resolve-prefix attribute to equal the prefix"
+            expected_delete_action = airlines_page._manual_delete_action("ZZZ")
+            if ('data-view-panel-delete-action="%s"' % expected_delete_action) not in card_art:
+                return False, "expected the delete-action attribute to equal _manual_delete_action(prefix)"
+            if 'data-view-panel-manual-note=""' not in card_art:
+                return False, "expected an empty manual-note for an active (non-superseded) entry"
+            if ('<span class="airline-card__chip">%s</span>' % airlines_page.MANUAL_CHIP_ACTIVE_TEXT) not in card_art:
+                return False, "expected the 'Resolved by hand' chip"
+
+            # (b) active, needs artwork — a genuinely novel name with no artwork yet.
+            card_needs = airlines_page._airline_card_html(
+                0, "Totally Novel Airline", [], tmp, ("XQZ", False, True))
+            if 'data-view-panel-mode="needs-artwork"' not in card_needs:
+                return False, 'expected mode="needs-artwork"'
+            expected_heading = airlines_page.STEP_B_HEADING_TEMPLATE % "Totally Novel Airline"
+            if ('data-view-panel-heading="%s"' % expected_heading) not in card_needs:
+                return False, "expected the heading attribute to equal STEP_B_HEADING_TEMPLATE % airline_name"
+            if 'data-view-panel-upload-action="/illustration/totally-novel-airline.png"' not in card_needs:
+                return False, "expected the upload-action to point at /illustration/{key}.png"
+            if ('<span class="airline-card__chip">%s</span>' % airlines_page.MANUAL_CHIP_ACTIVE_TEXT) not in card_needs:
+                return False, "expected the 'Resolved by hand' chip on a needs-artwork active card too"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an active manual_info triple renders the real <a href> trigger, the correct mode/heading/"
+        "upload-action for both the has-artwork and needs-artwork cases, the delete-action attribute from "
+        "_manual_delete_action(), an empty manual-note, and the 'Resolved by hand' chip (14-06-PLAN.md "
+        "Task 1)",
+        _airline_card_html_active_manual_states_render_expected_attributes_and_chip)
+
+    def _airline_card_html_needs_artwork_sighting_context_conditional_on_live_gap():
+        tmp_live = _mkstate("a-manual-needs-artwork-live-gap")
+        tmp_cleared = _mkstate("a-manual-needs-artwork-cleared-gap")
+        try:
+            _seed_unresolved_prefixes(tmp_live, {
+                "XQZ": {
+                    "count": 5,
+                    "first_seen": "2026-01-01T00:00:00+00:00",
+                    "last_seen": "2026-01-02T00:00:00+00:00",
+                    "example_callsign": "XQZ123",
+                },
+            })
+            manual_info = ("XQZ", False, True)
+            card_live = airlines_page._airline_card_html(0, "Totally Novel Airline", [], tmp_live, manual_info)
+            if 'data-view-panel-first-seen="2026-01-01T00:00:00+00:00"' not in card_live:
+                return False, "expected first-seen populated from the live gap registry"
+            if 'data-view-panel-last-seen="2026-01-02T00:00:00+00:00"' not in card_live:
+                return False, "expected last-seen populated from the live gap registry"
+            if 'data-view-panel-count="5"' not in card_live:
+                return False, "expected count populated from the live gap registry"
+
+            # D-14: once the live gap is cleared, all three fall back to
+            # empty rather than crashing or showing stale data.
+            card_cleared = airlines_page._airline_card_html(
+                0, "Totally Novel Airline", [], tmp_cleared, manual_info)
+            if 'data-view-panel-first-seen=""' not in card_cleared:
+                return False, "expected first-seen empty once the live gap is gone"
+            if 'data-view-panel-last-seen=""' not in card_cleared:
+                return False, "expected last-seen empty once the live gap is gone"
+            if 'data-view-panel-count=""' not in card_cleared:
+                return False, "expected count empty once the live gap is gone"
+
+            # These three attributes are only ever computed for
+            # mode=needs-artwork — an art-mode card (even one carrying
+            # manual_info) must never populate them, matching UI-SPEC's
+            # own "wasted work, not a correctness requirement" framing.
+            card_art_mode = airlines_page._airline_card_html(
+                0, "Air France", [], tmp_live, ("ZZZ", False, False))
+            if 'data-view-panel-count=""' not in card_art_mode:
+                return False, "expected an art-mode card to leave the sighting-context attributes empty"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_live, ignore_errors=True)
+            shutil.rmtree(tmp_cleared, ignore_errors=True)
+    check(
+        "a needs-artwork manual card's first-seen/last-seen/count attributes are populated from "
+        "unresolved_row_for_prefix() only when a live gap still exists for that prefix, fall back to empty "
+        "once D-14 clears it, and stay empty on an art-mode card regardless of manual_info (14-06-PLAN.md "
+        "Task 1)",
+        _airline_card_html_needs_artwork_sighting_context_conditional_on_live_gap)
+
+    def _airline_card_html_superseded_shows_built_in_state_never_operator_upload():
+        tmp = _mkstate("a-manual-superseded-card")
+        try:
+            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES);
+            # the entry's own stored name is deliberately distinct from
+            # the real static name "Air France".
+            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            card = _card_slice(rendered, "Air France")
+            if 'data-view-panel-manual="superseded"' not in card:
+                return False, 'expected manual="superseded" on the Air France card'
+            if ('<span class="airline-card__chip">%s</span>' % airlines_page.SUPERSEDED_MARKER_TEXT) not in card:
+                return False, "expected the Superseded chip on the card"
+            src_match = re.search(r'data-view-panel-src="([^"]*)"', card)
+            if not src_match or not src_match.group(1).startswith("/illustration/air-france.png"):
+                return False, (
+                    "expected data-view-panel-src to point at the built-in Air France illustration key, "
+                    "got %r" % (src_match.group(1) if src_match else None,))
+            if "some-other-airline" in card.lower():
+                return False, "expected the card to never derive a key from the entry's own stored name"
+            note_match = re.search(r'data-view-panel-manual-note="([^"]*)"', card)
+            if not note_match:
+                return False, "expected a manual-note on the superseded card"
+            note_text = note_match.group(1)
+            if "AFR" not in note_text or "Air France" not in note_text:
+                return False, "expected the manual-note to interpolate the prefix and the built-in name"
+            if "Some Other Airline" not in note_text:
+                return False, (
+                    "expected the manual-note's third slot to name the OPERATOR's own stored name "
+                    "('Some Other Airline'), not the built-in name a second time — the card's own "
+                    "airline_name parameter (the built-in name, for display/key purposes) must not be "
+                    "conflated with the registry entry's own stored airline_name field")
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a superseded card never shows the operator's own orphaned upload: data-view-panel-src points at "
+        "the built-in Air France illustration key (never a key derived from the entry's own stored name), "
+        "the Superseded chip renders, and the manual-note interpolates the prefix, the built-in name, AND "
+        "the operator's own originally-stored name (not the built-in name a second time) "
+        "(D-10, 14-06-PLAN.md Task 1)",
+        _airline_card_html_superseded_shows_built_in_state_never_operator_upload)
+
+    def _render_grid_injection_adds_exactly_one_novel_card_and_none_for_superseded_or_curated():
+        def _grid_section(rendered):
+            grid_start = rendered.index('class="illustration-grid"')
+            dialog_start = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID, grid_start)
+            return rendered[grid_start:dialog_start]
+
+        tmp_novel = _mkstate("a-grid-injection-novel")
+        tmp_none = _mkstate("a-grid-injection-none")
+        try:
+            # A genuinely novel active manual name gets exactly one
+            # injected card.
+            manual_resolutions.add_entry(tmp_novel, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
+            rendered_novel = airlines_page.render(_ctx(tmp_novel))
+            novel_count = _grid_section(rendered_novel).count(
+                '<p class="airline-card__name">Totally Novel Airline</p>')
+            if novel_count != 1:
+                return False, (
+                    "expected exactly one injected card for a genuinely novel active manual name, "
+                    "got %d" % novel_count)
+
+            # A superseded entry needs no injection (its display name is
+            # already curated); an active entry whose name is ALREADY
+            # curated must not be duplicated either.
+            manual_resolutions.add_entry(tmp_none, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            manual_resolutions.add_entry(tmp_none, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
+            rendered_none = airlines_page.render(_ctx(tmp_none))
+            grid_none = _grid_section(rendered_none)
+            af_count = grid_none.count('<p class="airline-card__name">Air France</p>')
+            if af_count != 1:
+                return False, (
+                    "expected Air France to appear exactly once in the grid (no duplicate injection), "
+                    "got %d" % af_count)
+            if '<p class="airline-card__name">Some Other Airline</p>' in grid_none:
+                return False, "expected no injected card for a superseded entry's own orphaned stored name"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp_novel, ignore_errors=True)
+            shutil.rmtree(tmp_none, ignore_errors=True)
+    check(
+        "render()'s grid-injection step adds exactly one card for a genuinely novel active manual airline "
+        "name not already among the curated pairs, and adds none for a superseded entry or for an active "
+        "entry whose name is already curated (D-08, UI-SPEC's Grid injection, 14-06-PLAN.md Task 1)",
+        _render_grid_injection_adds_exactly_one_novel_card_and_none_for_superseded_or_curated)
+
+    # ------------------------------------------------------------------
     # Phase 13 (13-04-PLAN.md Task 1): the conditional resolve section
     # (D-03, D-10 through D-13).
     # ------------------------------------------------------------------
 
     def _resolve_slice(rendered):
-        """Isolate just the resolve section's own markup from a full
-        page render — the shared lightbox dialog (rendered later, once
-        per page regardless of resolve state) carries its own permanent
-        `<form>`/file input that must not contaminate a "no form"/"no
-        file input" assertion scoped to the resolve section alone.
+        """Isolate everything the page renders AFTER the shared dialog —
+        Phase 14 (14-04-PLAN.md) moved the resolve section from the top
+        of the page (before the filter bar) to the bottom (behind the
+        shared lightbox), so the old filter-bar-anchored slice boundary
+        no longer isolates it. This anchors on the dialog's own id and
+        its universal closing tag instead of a hardcoded index into any
+        specific inner string, so it stays correct regardless of what
+        any later wave adds inside the dialog.
         """
-        return rendered[:rendered.index("filter-bar")]
+        dialog_id_marker = 'id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID
+        dialog_start = rendered.index(dialog_id_marker)
+        dialog_close = rendered.index("</dialog>", dialog_start)
+        return rendered[dialog_close + len("</dialog>"):]
 
     def _resolve_section_four_states_render_correctly():
         tmp = _mkstate("a-resolve-states")
@@ -6341,6 +6845,15 @@ def main():
         _resolve_section_four_states_render_correctly)
 
     def _resolve_section_datalist_contract():
+        # Phase 14 (14-02-PLAN.md Task 3) retargeted this check onto
+        # _resolve_slice(rendered) in place (no EXPECTED_CHECK_COUNT
+        # change — same check, re-scoped): the shared dialog now
+        # unconditionally renders its own copy of this datalist too
+        # (_resolve_name_form_html("", "-dialog"), id "known-airlines-
+        # dialog"), so a full-page option count would double to 54.
+        # This check's own subject is the no-JS fallback's datalist, so
+        # it slices down to that section exactly like every sibling
+        # resolve-section check already does.
         tmp = _mkstate("a-resolve-datalist")
         try:
             _seed_unresolved_prefixes(tmp, {
@@ -6352,28 +6865,41 @@ def main():
             ctx = _ctx(tmp)
             ctx["resolve_prefix"] = "XYZ"
             rendered = airlines_page.render(ctx)
+            section = _resolve_slice(rendered)
             names = illustrations.target_airline_names()
-            option_count = rendered.count("<option value=")
+            option_count = section.count("<option value=")
             if option_count != len(names):
                 return False, "expected %d <option> elements (one per target airline), got %d" % (
                     len(names), option_count)
-            datalist_match = re.search(r'<datalist id="([^"]+)">', rendered)
+            datalist_match = re.search(r'<datalist id="([^"]+)">', section)
             if not datalist_match:
                 return False, "expected a <datalist id=\"...\"> element"
-            list_attr_match = re.search(r'list="([^"]+)"', rendered)
+            list_attr_match = re.search(r'list="([^"]+)"', section)
             if not list_attr_match or list_attr_match.group(1) != datalist_match.group(1):
                 return False, "expected the name input's list attribute to equal the datalist's own id"
             for name in names:
                 expected_option = '<option value="%s">' % layout.escape_html(name)
-                if expected_option not in rendered:
+                if expected_option not in section:
                     return False, "expected an escaped %r for airline %r" % (expected_option, name)
+            # 14-06-PLAN.md external gap-closure (2026-09-06, per
+            # 14-05-SUMMARY.md's own documented finding):
+            # _resolve_name_form_html() now emits an always-present,
+            # server-side-empty <p class="lightbox__resolve-scope">
+            # inside its own output — panel-lookup.js (plan 14-05)
+            # writes the D-01 scope sentence into it on every dialog
+            # open. Checked here (the no-JS fallback's own call site)
+            # since the two calls share one rendering function.
+            if '<p class="lightbox__resolve-scope"></p>' not in section:
+                return False, "expected an empty <p class=\"lightbox__resolve-scope\"></p> in the rendered form"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "Step A's rendered datalist carries exactly len(illustrations.target_airline_names()) (27 against "
-        "today's data) <option> elements, the datalist's id matches the name input's list attribute, and "
-        "every airline name appears as an escaped <option value=...> exactly once (D-13)",
+        "today's data) <option> elements, the datalist's id matches the name input's list attribute, every "
+        "airline name appears as an escaped <option value=...> exactly once (D-13), and the shared "
+        "_resolve_name_form_html() output also carries an empty <p class=\"lightbox__resolve-scope\"></p> "
+        "for panel-lookup.js to write into on open (14-06-PLAN.md external gap-closure)",
         _resolve_section_datalist_contract)
 
     def _resolve_section_escapes_hostile_values_and_distrusts_query_string():
@@ -6515,143 +7041,200 @@ def main():
         "neither a live gap nor a manual entry exists for the prefix",
         _resolve_section_step_b_reachable_after_gap_cleared)
 
+    def _page_composition_order_matches_ui_spec():
+        # Phase 14 (14-04-PLAN.md Task 2): the one direct, permanent
+        # proof that UI-SPEC's new top-to-bottom order actually shipped
+        # — independent of what any individual section's own
+        # content-focused check already covers. Seeds both a real gap
+        # (so resolve_prefix reaches a live Step-A render) and relies on
+        # the always-present curated gallery.
+        tmp = _mkstate("a-page-composition-order")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {
+                    "count": 3, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "XYZ123",
+                },
+            })
+            ctx = _ctx(tmp)
+            ctx["resolve_prefix"] = "XYZ"
+            rendered = airlines_page.render(ctx)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        try:
+            filter_bar_index = rendered.index('class="filter-bar')
+            grid_index = rendered.index('class="illustration-grid', filter_bar_index)
+            dialog_open_index = rendered.index(
+                'id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID, grid_index)
+            dialog_close_index = rendered.index("</dialog>", dialog_open_index)
+            back_link_index = rendered.index(
+                airlines_page.RESOLVE_BACK_LINK_TEXT, dialog_close_index)
+        except ValueError as exc:
+            return False, "expected all five order markers to be present, in order: %s" % (exc,)
+        markers = (filter_bar_index, grid_index, dialog_open_index, dialog_close_index, back_link_index)
+        if list(markers) != sorted(markers):
+            return False, "expected strictly increasing marker positions, got %r" % (markers,)
+        return True, ""
+    check(
+        "the page's own top-to-bottom order is filter-bar, then illustration-grid, then the shared dialog's "
+        "opening tag, then its closing tag, then (last) the resolve section's own back-link text — proving "
+        "UI-SPEC's new page composition (resolve section moved to the bottom, behind the shared dialog) "
+        "shipped for real",
+        _page_composition_order_matches_ui_spec)
+
     # ------------------------------------------------------------------
     # Phase 13 (13-04-PLAN.md Task 2): the manual-resolutions management
     # list (D-06, D-07, D-08).
     # ------------------------------------------------------------------
 
-    def _manual_section_slice(rendered):
-        """Isolate just the management list's own markup — everything
-        from its heading constant to the end of the page, since it is
-        always the last thing render() emits.
-        """
-        return rendered[rendered.index(airlines_page.MANUAL_SECTION_HEADING):]
-
-    def _manual_section_empty_and_populated_states():
+    def _manual_summary_line_replaces_retired_management_table_copy():
+        # Phase 14 plan 14-06 Task 2, item 1 (retargeted in place from
+        # _manual_section_empty_and_populated_states — the standalone
+        # management table this check used to exercise is gone).
         tmp = _mkstate("a-manual-empty-populated")
         try:
             rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-            if airlines_page.MANUAL_EMPTY_HEADING not in section:
-                return False, "expected the approved empty heading with no manual resolutions"
-            if airlines_page.MANUAL_EMPTY_BODY not in section:
-                return False, "expected the approved empty body with no manual resolutions"
-            if "<table" in section:
-                return False, "expected no <table> element when the registry is empty"
+            if '<button type="button" class="manual-summary"' in rendered:
+                return False, "expected no .manual-summary element when the registry is empty"
+            for retired_copy in (
+                    "Manually resolved prefixes",
+                    "Airlines you’ve named by hand for a prefix the frame couldn’t "
+                    "otherwise identify.",
+                    "No manual resolutions yet.",
+                    "Resolve an unidentified flight from Health’s coverage-gap list "
+                    "to add one here.",
+                    "The frame’s built-in airline list now also recognizes this "
+                    "prefix — its entry wins, and this manual name is no longer used.",
+                    "manual-resolution__status--superseded",
+            ):
+                if retired_copy in rendered:
+                    return False, (
+                        "expected no trace of the retired management table's own copy: %r" % (retired_copy,))
 
-            manual_resolutions.add_entry(tmp, "AAA", "Airline A", now="2026-01-01T00:00:00+00:00")
-            manual_resolutions.add_entry(tmp, "BBB", "Airline B", now="2026-01-02T00:00:00+00:00")
-            rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-            if "<table" not in section:
-                return False, "expected a <table> element once entries exist"
-            if "<ul class=\"data-cards\">" not in section:
-                return False, "expected a <ul class=\"data-cards\"> element once entries exist"
-            table_prefixes = re.findall(r'<td class="mono">([^<]+)</td>', section)
-            card_prefixes = re.findall(r'<span class="cell-primary mono">([^<]+)</span>', section)
-            if table_prefixes != ["AAA", "BBB"] or card_prefixes != ["AAA", "BBB"]:
-                return False, "expected both representations to cover [AAA, BBB] in prefix-ascending order, got "\
-                    "table=%r cards=%r" % (table_prefixes, card_prefixes)
-            cards_index = section.index('<ul class="data-cards">')
-            table_index = section.index("<table")
-            if cards_index >= table_index:
-                return False, "expected the .data-cards list to precede the <table> in DOM order (the sibling-"\
-                    "combinator toggle depends on this)"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "with no manual resolutions the management list renders the approved empty heading/body and no "
-        "<table>; with two entries it renders both representations (table and .data-cards, cards first in "
-        "DOM order) covering the same prefixes in the same prefix-ascending order",
-        _manual_section_empty_and_populated_states)
-
-    def _manual_section_supersession_contract():
-        tmp = _mkstate("a-manual-supersession")
-        try:
-            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES);
-            # ZZZ is not.
             manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-02T00:00:00+00:00")
             rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-            if airlines_page.SUPERSEDED_MARKER_TEXT not in section:
-                return False, "expected the Superseded marker for a prefix the static table has caught up to"
-            if airlines_page.SUPERSEDED_MARKER_TITLE not in section:
-                return False, "expected the marker's title explanation"
-            if section.count(airlines_page.SUPERSEDED_CAPTION) != 1:
-                return False, "expected exactly one trailing explanatory caption, got %d" % (
-                    section.count(airlines_page.SUPERSEDED_CAPTION),)
-
-            tmp2 = _mkstate("a-manual-not-superseded")
-            try:
-                manual_resolutions.add_entry(tmp2, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
-                rendered2 = airlines_page.render(_ctx(tmp2))
-                section2 = _manual_section_slice(rendered2)
-                if airlines_page.SUPERSEDED_MARKER_TEXT in section2:
-                    return False, "expected no Superseded marker for a prefix absent from the static table"
-                if airlines_page.SUPERSEDED_CAPTION in section2:
-                    return False, "expected the explanatory caption absent entirely when nothing is superseded"
-            finally:
-                shutil.rmtree(tmp2, ignore_errors=True)
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "an entry whose prefix is a real member of the static prefix table renders the Superseded marker, "
-        "its title explanation, and exactly one trailing explanatory caption; an entry whose prefix is not "
-        "renders neither, and the caption is absent entirely when no row is superseded (D-06)",
-        _manual_section_supersession_contract)
-
-    def _manual_section_add_artwork_link_contract():
-        tmp = _mkstate("a-manual-add-artwork")
-        try:
-            # ZZZ names a fresh airline with no existing artwork —
-            # CR-02's status cell must offer the "Add artwork" link,
-            # pointing at the identical ?resolve={prefix} URL the
-            # resolve section itself now serves Step B from regardless
-            # of live-gap membership.
-            manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
-            # OLD names a target airline that already has real vendored
-            # artwork (Air France) — no link, nothing left to add.
-            manual_resolutions.add_entry(tmp, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
-            # AFR is a real static-table prefix, so this entry is
-            # superseded (D-06) — no link even though "Some Other
-            # Airline" itself has no artwork, since the built-in table
-            # now owns AFR and uploading under the operator's own name
-            # would not change what the frame displays.
-            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
-
-            rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-
-            expected_link = '<a href="%s?%s=%s">%s</a>' % (
-                airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM, "ZZZ",
-                airlines_page.ADD_ARTWORK_LINK_TEXT)
-            if section.count(expected_link) != 2:
-                # Rendered once in the desktop <tr>, once in the mobile <li>.
+            summary_open = '<button type="button" class="manual-summary" data-filter-set="manual">'
+            summary_count = rendered.count(summary_open)
+            if summary_count != 1:
+                return False, "expected the .manual-summary button to render exactly once, got %d" % summary_count
+            expected_text = airlines_page.MANUAL_SUMMARY_TEMPLATE % (2, 1)
+            expected_button = "%s%s</button>" % (summary_open, expected_text)
+            if expected_button not in rendered:
                 return False, (
-                    "expected the Add-artwork link for ZZZ to appear exactly twice (desktop + "
-                    "mobile), got %d: %r" % (section.count(expected_link), expected_link))
-
-            old_link = '?%s=OLD' % airlines_page.RESOLVE_QUERY_PARAM
-            if old_link in section:
-                return False, "expected NO Add-artwork link for OLD — Air France already has artwork"
-
-            afr_link = '?%s=AFR' % airlines_page.RESOLVE_QUERY_PARAM
-            if afr_link in section:
-                return False, "expected NO Add-artwork link for AFR — a superseded entry must not offer it"
-            if airlines_page.SUPERSEDED_MARKER_TEXT not in section:
-                return False, "expected AFR to still render the Superseded marker"
+                    "expected the summary line's text to match MANUAL_SUMMARY_TEMPLATE with 2 total, "
+                    "1 superseded")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "CR-02: the management list's status cell offers an 'Add artwork' link (into the identical "
-        "?resolve={prefix} URL the resolve section serves Step B from) for an active entry whose stored "
-        "name has no artwork yet, in both the desktop table and the mobile card; renders no such link for "
-        "an entry whose name already has artwork, nor for a superseded entry (which keeps its Superseded "
-        "marker instead)",
-        _manual_section_add_artwork_link_contract)
+        "with an empty manual-resolutions registry, render() emits no .manual-summary element and none of "
+        "the retired management table's own copy; with two entries seeded (one superseded, one active), "
+        ".manual-summary renders exactly once with text matching MANUAL_SUMMARY_TEMPLATE's total/superseded "
+        "count (D-11, 14-06-PLAN.md Task 2 item 1)",
+        _manual_summary_line_replaces_retired_management_table_copy)
+
+    def _manual_section_supersession_symbols_retired_and_chip_still_renders():
+        # Phase 14 plan 14-06 Task 2, item 2 (retargeted in place from
+        # _manual_section_supersession_contract): the superseded card's
+        # full attribute/note contract is already pinned by Task 1's own
+        # _airline_card_html_superseded_shows_built_in_state_never_
+        # operator_upload() check — this thin cross-reference only
+        # proves the D-06 supersession machinery's now-orphaned symbols
+        # are gone, and that the chip itself still renders end to end
+        # via render(), so the two checks never test the identical
+        # thing twice under different names.
+        for name in ("SUPERSEDED_MARKER_TITLE", "SUPERSEDED_CAPTION", "SUPERSEDED_STATUS_CLASS"):
+            if hasattr(airlines_page, name):
+                return False, "expected airlines_page to no longer expose %r" % (name,)
+        tmp = _mkstate("a-manual-supersession-retired")
+        try:
+            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES).
+            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            expected_chip = '<span class="airline-card__chip">%s</span>' % airlines_page.SUPERSEDED_MARKER_TEXT
+            if expected_chip not in rendered:
+                return False, "expected the Superseded chip to still render end to end via render()"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the retired D-06 supersession machinery's own symbols (SUPERSEDED_MARKER_TITLE, SUPERSEDED_CAPTION, "
+        "SUPERSEDED_STATUS_CLASS) are gone, and the Superseded chip itself still renders end to end via "
+        "render() — the card-level attribute/note contract is Task 1's own check's job, not re-tested here "
+        "(14-06-PLAN.md Task 2 item 2)",
+        _manual_section_supersession_symbols_retired_and_chip_still_renders)
+
+    def _retired_management_table_symbols_are_gone():
+        # Phase 14 plan 14-06 Task 2, item 3 (retargeted in place from
+        # _manual_section_add_artwork_link_contract, whose own CR-02
+        # add-artwork-link behaviour is now covered by
+        # _airline_card_html_active_manual_states_render_expected_
+        # attributes_and_chip() (Task 1) — the six retired rendering
+        # functions and eight now-orphaned copy/class constants
+        # _airlines_page_module_exposes_no_deleted_diagnostics_symbol()'s
+        # own hasattr-scan shape is followed exactly, over a different
+        # symbol list.
+        for name in (
+                "_manual_resolution_table_html", "_manual_resolution_cards_html",
+                "_manual_resolution_row_html", "_manual_resolutions_section_html",
+                "_manual_superseded_marker_html", "_manual_add_artwork_link_html",
+                "MANUAL_SECTION_HEADING", "MANUAL_SECTION_CAPTION",
+                "MANUAL_EMPTY_HEADING", "MANUAL_EMPTY_BODY",
+                "MANUAL_RESOLUTION_HEADERS", "ADD_ARTWORK_LINK_TEXT",
+                "SUPERSEDED_MARKER_TITLE", "SUPERSEDED_STATUS_CLASS",
+        ):
+            if hasattr(airlines_page, name):
+                return False, (
+                    "airlines_page module must no longer expose the retired management-table symbol %r" % name)
+        return True, ""
+    check(
+        "importing companion.pages.airlines_page raises no error, and the module exposes none of the six "
+        "retired management-table rendering functions or eight now-orphaned copy/class constants "
+        "(14-06-PLAN.md Task 2 item 3)",
+        _retired_management_table_symbols_are_gone)
+
+    def _manual_section_seed_helper_end_to_end():
+        # Phase 14 plan 14-01 Task 3: exercises the new
+        # _seed_manual_resolutions() fixture helper end-to-end against
+        # today's management table. Written to survive that table's own
+        # retirement in plan 14-06 by asserting on
+        # _manual_resolution_rows()'s tuples and the rendered airline
+        # names, never on <table>/<tr> markup that plan deletes.
+        tmp = _mkstate("a-seed-manual-resolutions-helper")
+        try:
+            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES,
+            # same choice the existing supersession checks above make);
+            # XQZ is not.
+            _seed_manual_resolutions(tmp, [
+                ("AFR", "Legacy Air France Ops"),
+                ("XQZ", "Totally Novel Airline"),
+            ])
+            rendered = airlines_page.render(_ctx(tmp))
+            if "Legacy Air France Ops" not in rendered:
+                return False, "expected the AFR entry's airline name to appear in the rendered page"
+            if "Totally Novel Airline" not in rendered:
+                return False, "expected the XQZ entry's airline name to appear in the rendered page"
+
+            registry = manual_resolutions.load_manual_resolutions(tmp)
+            if set(registry.keys()) != {"AFR", "XQZ"}:
+                return False, "expected the helper to seed exactly {AFR, XQZ}, got %r" % (sorted(registry),)
+
+            rows = airlines_page._manual_resolution_rows(tmp, registry)
+            superseded_by_prefix = {prefix: superseded for prefix, _, _, superseded, _ in rows}
+            if superseded_by_prefix.get("AFR") is not True:
+                return False, "expected AFR (a real static-table prefix) to report superseded=True"
+            if superseded_by_prefix.get("XQZ") is not False:
+                return False, "expected XQZ (not in the static table) to report superseded=False"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_seed_manual_resolutions() seeds through manual_resolutions.add_entry() alone; both seeded "
+        "airline names render on the Airlines page, and _manual_resolution_rows() reports superseded=True "
+        "for exactly the static-table prefix (AFR) and False for the novel one (XQZ) (phase 14 plan 14-01 "
+        "Task 3)",
+        _manual_section_seed_helper_end_to_end)
 
     def _health_resolve_link_template_matches_airlines_route_constants():
         # WR-06: airlines_page.py's own comment above RESOLVE_ROUTE/
@@ -6678,69 +7261,248 @@ def main():
         "check airlines_page.py's own comment already claims exists (WR-06)",
         _health_resolve_link_template_matches_airlines_route_constants)
 
-    def _manual_section_delete_control_and_design_system_contract():
-        tmp = _mkstate("a-manual-delete-contract")
+    def _manual_delete_form_renders_in_both_dialog_and_no_js_fallback():
+        # Phase 14 plan 14-06 Task 2, item 4 (retargeted in place from
+        # _manual_section_delete_control_and_design_system_contract):
+        # the D-09 amendment's permanent regression proof that this
+        # phase's earlier plans built but never pinned with a lasting
+        # check — one shared _manual_delete_form_html() function,
+        # rendered at exactly two call sites (the dialog, always with
+        # action=""; the no-JS fallback, with the real delete action)
+        # whenever a manual entry exists for the prefix being viewed.
+        tmp = _mkstate("a-manual-delete-two-call-sites")
         try:
-            manual_resolutions.add_entry(tmp, "AAA", "Airline A", now="2026-01-01T00:00:00+00:00")
-            rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-            expected_action = "/airlines/manual-resolutions/AAA/delete"
-            form_match = re.search(
-                r'<form method="post" action="%s">(.*?)</form>' % re.escape(expected_action),
-                section, re.DOTALL)
-            if not form_match:
-                return False, "expected a delete form with action %r" % (expected_action,)
-            inner = form_match.group(1)
-            if "<button type=\"submit\">" not in inner:
-                return False, "expected the delete control to be a submit button inside its own form"
-            if "<a " in inner:
-                return False, "expected the delete control to never be an anchor"
-            if "data-filter-group=\"" in section:
-                return False, "expected the management list to emit no filter-group markup at all"
-            if section.count('class="filter-bar') != 0:
-                return False, "expected the management list to emit no filter-bar markup at all"
-            rendered_full = rendered
-            if rendered_full.count('class="filter-bar') != 3:
-                return False, "expected exactly 3 occurrences of class=\"filter-bar in the whole page — "\
-                    "unchanged from before this plan (the gallery's own filter bar is the page's only one), "\
-                    "got %d" % (rendered_full.count('class="filter-bar'),)
+            # A manual entry with no artwork yet (Step B reachable) —
+            # the D-09 amendment's own precondition for the fallback
+            # section to reach a branch that renders the delete form at
+            # all.
+            manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
+            ctx = _ctx(tmp)
+            ctx["resolve_prefix"] = "ZZZ"
+            rendered = airlines_page.render(ctx)
 
-            style_css_path = os.path.join(HERE, "static", "style.css")
-            with open(style_css_path) as fh:
-                style_css_source = fh.read()
-            if airlines_page.SUPERSEDED_STATUS_CLASS not in style_css_source:
-                return False, "expected %r to appear in companion/static/style.css" % (
-                    airlines_page.SUPERSEDED_STATUS_CLASS,)
-            rule_match = re.search(
-                r"\.%s\s*\{([^}]*)\}" % re.escape(airlines_page.SUPERSEDED_STATUS_CLASS),
-                style_css_source)
-            if not rule_match:
-                return False, "expected to find the .%s rule body" % (airlines_page.SUPERSEDED_STATUS_CLASS,)
-            label_match = re.search(r"\.data-card__label\s*\{([^}]*)\}", style_css_source)
-            if not label_match:
-                return False, "expected to find the .data-card__label rule body"
+            dialog_open_index = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
+            dialog_close_index = rendered.index("</dialog>", dialog_open_index)
+            dialog_section = rendered[dialog_open_index:dialog_close_index]
+            fallback_section = rendered[dialog_close_index:]
 
-            def declared_values(body):
-                return {
-                    line.strip()
-                    for line in body.strip().splitlines() if line.strip()
-                }
-            superseded_decls = declared_values(rule_match.group(1))
-            label_decls = declared_values(label_match.group(1))
-            if superseded_decls != label_decls:
-                return False, "expected .%s to declare the identical five label-voice values .data-card__label "\
-                    "declares, got %r vs %r" % (
-                        airlines_page.SUPERSEDED_STATUS_CLASS, superseded_decls, label_decls)
+            delete_form_re = re.compile(
+                r'<form class="%s" method="post" action="([^"]*)">' % re.escape(airlines_page.LIGHTBOX_DELETE_CLASS))
+            dialog_forms = delete_form_re.findall(dialog_section)
+            if dialog_forms != [""]:
+                return False, (
+                    "expected exactly one delete form inside the shared dialog with action=\"\", got %r"
+                    % (dialog_forms,))
+
+            expected_action = airlines_page._manual_delete_action("ZZZ")
+            fallback_forms = delete_form_re.findall(fallback_section)
+            if fallback_forms != [expected_action]:
+                return False, (
+                    "expected exactly one delete form in the no-JS fallback section with action=%r, got %r"
+                    % (expected_action, fallback_forms))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "each row's delete form action is exactly /airlines/manual-resolutions/{prefix}/delete, the delete "
-        "control is a submit button inside that form (never an anchor), the management list emits no "
-        "filter-bar/filter-group markup of its own (the gallery's own filter bar stays the page's only one), "
-        "and .manual-resolution__status--superseded declares the identical five label-voice values "
-        ".data-card__label declares (asserted so the two can never drift, D-08/UI-SPEC Autonomous Decision 3)",
-        _manual_section_delete_control_and_design_system_contract)
+        "the D-09 amendment's permanent regression proof: rendering ?resolve={prefix} for a prefix with a "
+        "manual entry produces exactly one _manual_delete_form_html() output inside the shared dialog "
+        "(action=\"\") and exactly one inside the no-JS fallback section (the real delete action) — one "
+        "shared function, two call sites (14-06-PLAN.md Task 2 item 4)",
+        _manual_delete_form_renders_in_both_dialog_and_no_js_fallback)
+
+    def _list_filter_js_gains_data_filter_set_hook():
+        # Phase 14 (14-03-PLAN.md Task 1, RESEARCH.md Pitfall 5):
+        # list-filter.js exposed exactly four attributes and no way for
+        # an element elsewhere on the page to set the filter and re-run
+        # it, so D-11's clickable summary line had no real mechanism to
+        # drive. This pins the fix stays a single filtering
+        # implementation, ES5-safe, and free of the file's own standing
+        # network/timer bans — a source-level guard, since no harness
+        # exercises client JS execution directly.
+        js_path = os.path.join(HERE, "static", "list-filter.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+
+        if "data-filter-set" not in js_source:
+            return False, "expected the data-filter-set token in companion/static/list-filter.js"
+
+        # Strip comment lines before any counting assertion, so the
+        # header's own prose describing the new attribute cannot satisfy
+        # or break a count.
+        non_comment_source = "\n".join(
+            line for line in js_source.splitlines()
+            if not re.match(r'^\s*[/*]', line))
+
+        if "[data-filter-set]" not in non_comment_source:
+            return False, (
+                "expected a querySelectorAll(\"[data-filter-set]\") lookup outside comments")
+
+        handler_slice = non_comment_source[non_comment_source.index("[data-filter-set]"):]
+        if "applyFilter()" not in handler_slice:
+            return False, "expected the new [data-filter-set] handler to call applyFilter()"
+        if 'getAttribute("data-filter-set")' not in handler_slice:
+            return False, "expected the handler to read the clicked element's own data-filter-set attribute"
+
+        # The single-filtering-implementation property: exactly one
+        # [data-filter-text] QUERY (the bracketed attribute-selector
+        # form), not a bare substring count — the existing
+        # row.getAttribute("data-filter-text") read inside applyFilter()
+        # is not a second query and must not make this count 2.
+        text_query_count = non_comment_source.count("[data-filter-text]")
+        if text_query_count != 1:
+            return False, (
+                "expected exactly one [data-filter-text] query, got %d" % text_query_count)
+
+        if re.search(r'(^|[^A-Za-z_])(let|const) |=>', js_source):
+            return False, "expected list-filter.js to stay inside the ES5-safe subset (no let/const/arrow)"
+
+        if re.search(r'fetch\(|XMLHttpRequest|setTimeout|setInterval', non_comment_source):
+            return False, "expected list-filter.js to introduce no network call or timer"
+
+        return True, ""
+    check(
+        "companion/static/list-filter.js gains an optional, guarded [data-filter-set] lookup whose click "
+        "handler sets the filter input's value from the clicked element's own attribute and calls the "
+        "file's one existing applyFilter() — the file still has exactly one [data-filter-text] query, stays "
+        "ES5-safe, and introduces no network call or timer (phase 14 plan 14-03 Task 1, RESEARCH.md Pitfall "
+        "5, D-11's summary-line mechanism)",
+        _list_filter_js_gains_data_filter_set_hook)
+
+    def _phase14_task2_new_css_selectors_exhaustive():
+        # Phase 14 (14-03-PLAN.md Task 2): the style.css DOM-contract
+        # guard for every new/extended selector UI-SPEC's Component
+        # Inventory names, and no more. Uses the same
+        # index()-plus-window-slicing idiom this file's own cross-file
+        # CSS guards already use (see
+        # _quick_260901_tsa_css_dom_contract_guard above) — never a
+        # regex CSS parser.
+        css_path = os.path.join(HERE, "static", "style.css")
+        with open(css_path) as fh:
+            css_source = fh.read()
+
+        def _rule_body(selector_open):
+            start = css_source.index(selector_open)
+            brace_close = css_source.index("}", start)
+            return css_source[start:brace_close]
+
+        expectations = (
+            ("a.airline-card {", ("display: block", "color: inherit", "text-decoration: none")),
+            (".airline-card__placeholder {", (
+                "border: 1px dashed var(--color-border)",
+                "border-radius: var(--radius-control)",
+                "background: var(--color-canvas)",
+                "margin-bottom: var(--space-sm)",
+                "display: block")),
+            (".lightbox__heading:empty {", ("display: none",)),
+            (".lightbox__manual-note:empty {", ("display: none",)),
+            (".manual-summary {", (
+                "color: color-mix(in srgb, var(--color-text) 70%, transparent)",
+                "text-decoration: underline",
+                "cursor: pointer")),
+        )
+        for selector_open, expected_declarations in expectations:
+            if selector_open not in css_source:
+                return False, "expected style.css to declare %r" % (selector_open,)
+            body = _rule_body(selector_open)
+            for expected_declaration in expected_declarations:
+                if expected_declaration not in body:
+                    return False, (
+                        "expected %r's rule body to contain %r" % (selector_open, expected_declaration))
+
+        if ".manual-summary:hover {" not in css_source:
+            return False, "expected a .manual-summary:hover rule in style.css"
+        if "color: var(--color-text)" not in _rule_body(".manual-summary:hover {"):
+            return False, "expected .manual-summary:hover to declare color: var(--color-text)"
+
+        # .airline-card__placeholder's aspect-ratio must string-equal
+        # .airline-card__image's, so grid rows stay aligned whether a
+        # card holds art or a gap.
+        image_ratio = re.search(r'aspect-ratio:\s*([^;]+);', _rule_body(".airline-card__image {"))
+        placeholder_ratio = re.search(r'aspect-ratio:\s*([^;]+);', _rule_body(".airline-card__placeholder {"))
+        if not image_ratio or not placeholder_ratio:
+            return False, "expected both .airline-card__image and .airline-card__placeholder to declare aspect-ratio"
+        if image_ratio.group(1) != placeholder_ratio.group(1):
+            return False, (
+                "expected .airline-card__placeholder's aspect-ratio (%r) to string-equal "
+                ".airline-card__image's (%r)" % (placeholder_ratio.group(1), image_ratio.group(1)))
+
+        # The three-way group: .lightbox__replace's own selector list
+        # must now also name .lightbox__resolve-name and
+        # .lightbox__delete, in exactly one declaration block — extend
+        # the selector, never duplicate it, matching this file's own
+        # .lightbox__replace-zone, .resolve-upload-zone precedent.
+        #
+        # 14-08 on-glass fix (2026-09-06): each selector now carries
+        # `:not([hidden])` (a real-browser check found `display: block`
+        # here winning its specificity tie against the UA stylesheet's
+        # `[hidden] { display: none }`, so `hidden = true` stopped
+        # hiding these forms the moment Phase 14 started toggling them
+        # at runtime) — retargeted in place, same check, same intent.
+        group_selector = (
+            ".lightbox__replace:not([hidden]),\n"
+            ".lightbox__resolve-name:not([hidden]),\n"
+            ".lightbox__delete:not([hidden]) {"
+        )
+        if css_source.count(group_selector) != 1:
+            return False, (
+                "expected the exact three-way selector group %r exactly once in style.css, got %d"
+                % (group_selector, css_source.count(group_selector)))
+        group_body = _rule_body(group_selector)
+        for expected_declaration in ("display: block", "padding-top: var(--space-md)", "min-width: 0"):
+            if expected_declaration not in group_body:
+                return False, "expected the three-way group's rule body to contain %r" % (expected_declaration,)
+        # .lightbox__delete:not([hidden]) { (its own standalone rule)
+        # must not exist — confirms the selector was extended, not
+        # duplicated.
+        if css_source.count(".lightbox__delete:not([hidden]) {") != 1:
+            return False, (
+                "expected .lightbox__delete:not([hidden]) { to appear exactly once "
+                "(inside the shared group only), got %d"
+                % css_source.count(".lightbox__delete:not([hidden]) {"))
+
+        # Zero new accent consumer: the exhaustive header
+        # accent-reservation list (the file's first block comment) must
+        # mention none of this plan's new selector/class names.
+        header = css_source[:css_source.index("*/")]
+        for new_name in (
+                "a.airline-card", "airline-card__placeholder", "lightbox__heading",
+                "lightbox__manual-note", "manual-summary", "lightbox__resolve-name",
+                "lightbox__delete"):
+            if new_name in header:
+                return False, (
+                    "expected the header accent-reservation list to not mention %r — this plan "
+                    "adds zero new accent consumers" % (new_name,))
+
+        # Zero new custom property: none of this plan's own new/extended
+        # rule bodies declares a `--` custom property.
+        for selector_open in (
+                "a.airline-card {", ".airline-card__placeholder {", ".lightbox__heading:empty {",
+                ".lightbox__manual-note:empty {", ".manual-summary {", ".manual-summary:hover {",
+                group_selector):
+            body = _rule_body(selector_open)
+            if re.search(r'(^|\s)--[a-z][a-z-]*:', body):
+                return False, "expected %r's rule body to declare no new custom property" % (selector_open,)
+
+        # Phase 14 plan 14-06 Task 2 retires the management table's own
+        # rendering functions and, with them, this now-orphaned
+        # selector — retargeted in place (this check itself, not a new
+        # one) from "still declared" to "gone" now that the retirement
+        # has actually landed.
+        if "manual-resolution__status--superseded" in css_source:
+            return False, "expected .manual-resolution__status--superseded to be gone (phase 14 plan 14-06 Task 2)"
+
+        return True, ""
+    check(
+        "style.css declares exactly the five new/extended selectors UI-SPEC's Component Inventory "
+        "enumerates (a.airline-card, .airline-card__placeholder, .lightbox__heading:empty, "
+        ".lightbox__manual-note:empty, .manual-summary + :hover) with their exact declaration values, "
+        ".airline-card__placeholder's aspect-ratio string-equals .airline-card__image's, "
+        ".lightbox__replace's selector is extended to a three-way group with "
+        ".lightbox__resolve-name/.lightbox__delete in exactly one declaration block (never duplicated), "
+        "the header accent-reservation list mentions none of the new selectors, none of the new/extended "
+        "rule bodies declares a new custom property, and .manual-resolution__status--superseded is gone "
+        "now that plan 14-06 has retired it (phase 14 plan 14-03 Task 2, retargeted in place by 14-06 Task 2)",
+        _phase14_task2_new_css_selectors_exhaustive)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
@@ -6913,13 +7675,39 @@ def main():
                             return False, (
                                 "expected no data-view-panel-replace-action value to carry a cache buster "
                                 "in the real /airlines HTTP response body, found one on %r" % (action,))
-                    if body_text.count('action=""') != 1:
+                    # Phase 14 (14-02-PLAN.md Task 3) retargeted these two
+                    # assertions in place (no count change to
+                    # EXPECTED_CHECK_COUNT — this is the same check,
+                    # re-scoped): a bare substring count of 'action=""'
+                    # is no longer unambiguous now that every trigger
+                    # carries the full data-view-panel-* vocabulary,
+                    # including data-view-panel-upload-action="" and
+                    # data-view-panel-delete-action="" on every plain
+                    # curated card — both contain the literal substring
+                    # 'action=""' without being a real HTML `action`
+                    # attribute at all. A leading space isolates the
+                    # real attribute (`<form ... action="">`) from a
+                    # hyphenated data-attribute name ending in
+                    # "-action" (which has no space immediately before
+                    # "action"). The expected count is 3, not 1: the
+                    # shared dialog now carries three real empty-action
+                    # forms (replace, resolve-upload, delete) — the
+                    # resolve-name form's own action is never empty (it
+                    # always posts to RESOLVE_ROUTE, in both the dialog
+                    # and the no-JS fallback).
+                    if body_text.count(' action=""') != 3:
                         return False, (
-                            "expected action=\"\" exactly once in the real /airlines HTTP response body, "
-                            "got %d" % body_text.count('action=""'))
-                    if body_text.count('<input type="file"') != 1:
+                            "expected ' action=\"\"' exactly 3 times (replace/resolve-upload/delete "
+                            "forms) in the real /airlines HTTP response body, "
+                            "got %d" % body_text.count(' action=""'))
+                    # Phase 14 (14-02-PLAN.md Task 3) retargeted: the
+                    # dialog now also carries the resolve-upload form's
+                    # own file input, alongside the pre-existing replace
+                    # form's, so the expected count is 2, not 1.
+                    if body_text.count('<input type="file"') != 2:
                         return False, (
-                            "expected <input type=\"file\" exactly once in the real /airlines HTTP response "
+                            "expected <input type=\"file\" exactly twice (replace form, resolve-upload "
+                            "form) in the real /airlines HTTP response "
                             "body, got %d" % body_text.count('<input type="file"'))
 
                 elif path == "/history":
