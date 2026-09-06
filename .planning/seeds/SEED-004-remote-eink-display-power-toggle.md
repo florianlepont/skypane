@@ -1,13 +1,22 @@
 ---
 id: SEED-004
-status: dormant
+status: fulfilled
 planted: 2026-09-04
+resolved_date: 2026-09-06
 planted_during: "Phase 06.6.4.1 (companion page-by-page IA consolidation)"
 trigger_when: "When the companion Settings page's control set is next revisited — this belongs beside the four toggles already there (theme, runway, LED, quiet hours, wake interval), and is small enough that it is worth folding into any phase that already opens `companion/pages/config_page.py` and `server/device_config.py` together. No hardware or battery-verdict dependency, unlike its siblings."
 scope: small
 ---
 
 # SEED-004: Turn the e-ink panel off and back on remotely, from the companion web interface
+
+## Fulfilled 2026-09-06
+
+This seed shipped in full as **Phase 12**, `.planning/phases/12-remote-display-on-off-toggle/`, plans `12-01` through `12-06`, merged to `main` as PR #49 (code) and PR #50 (the on-glass revision and the closing record) — the seed is closed.
+
+What landed, against the seed's own open questions: *what "off" means on e-ink* — a dedicated dimmed screen (`_build_hold_canvas()`, the power ring above a tracked label), never a blank field; *wake behaviour while off* — the device keeps checking in on a **fixed 300 s** cadence (`DISPLAY_OFF_SLEEP_S`) and skips the render, the developer's own refinement of D-01, so switching back on lands within about five minutes with no firmware change; *where the flag lives* — `display_enabled` in `server/device_config.py`, exactly `led_enabled`'s pattern, with a sixth Settings group in `companion/pages/config_page.py`. The precedence question this seed flagged resolved into two axes (`12-CONTEXT.md` D-05): the toggle wins on what the panel shows, the longest sleep wins on how long the device sleeps. Verified on the real frame in the 12-06 session (`hardware/BRINGUP-LOG.md`, Phase 12): off in ≈3 min 07 s, an overnight silent hold of 93 check-ins with no image fetched, back on in ≈5 min 20 s.
+
+The seed's scope estimate ("small — Phases 10 and 11 built almost everything") was half right: the render state and the hold latch did carry over, but `quiet_hours_sleep_s()`'s window arithmetic did not, which is why this became a phase rather than a quick task. Everything below is the original 2026-09-04 record, retained unchanged as history.
 
 ## Why This Matters
 
