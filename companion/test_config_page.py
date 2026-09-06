@@ -43,6 +43,7 @@ from companion import auth  # noqa: E402
 from companion.layout import escape_html  # noqa: E402
 from companion.pages import config_page  # noqa: E402
 from server import device_config  # noqa: E402
+from server.plane import colour_rules  # noqa: E402
 
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -190,6 +191,46 @@ EXPECTED_CHECK_COUNT = 87  # merge of HEAD (79: Phase 10/11's Quiet hours +
 # call count at execution time (92/92 pass), not trusted from arithmetic
 # alone.
 EXPECTED_CHECK_COUNT = 92
+# 15-04-PLAN.md (D-04/D-05): +9 (the arrivals-checkbox/second-grid markup
+# check, the "override stored" pre-selection check, one check per Task 2
+# <behavior> bullet — checked persists, checkbox-absent clears, crafted
+# checkbox value rejected, non-member theme_arriving rejected across
+# three adversarial payloads, and a partial post still carries theme/
+# runway forward — the named clearable-contract full round trip
+# (15-VALIDATION.md row 7), and the raw no-JS HTTP POST check
+# (15-VALIDATION.md row 11, the Settings-form half)). Five pre-existing
+# checks were retargeted in place with no count change, per this file's
+# own established retarget-without-recounting discipline: the
+# theme_fieldset() default-selection and current-theme-and-runway checks
+# now expect the doubled per-grid selected-radio/theme-chip--selected
+# counts, the one-caption-per-group position check now expects
+# theme_fieldset()'s second (Arrivals theme label) <p>, the
+# .theme-chip__dot/.theme-chip__check/visually-hidden-Selected counts
+# were doubled to *4/*2/*2 for the second grid, and the live-selection-
+# state check's @supports selector(:has(*)) block count moved from 1 to
+# 2 now that this plan adds a second, separate feature-query block for
+# the arrivals-checkbox reveal. 92 + 9 = 101, recomputed directly against
+# the real on-disk check(...) call count at execution time (101/101
+# pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 101
+# 15-05-PLAN.md Task 3 (D-10/D-11): +8 (the rules-section-placement
+# check, the empty-state-then-list check, the cards-before-table DOM-
+# order check, the escaped-verbatim copy check, the kind-cell/add-form-
+# option shared-mapping check, the computed-swatch check, the
+# no-data-dirty-section check, and the locked-heading exact-equality
+# check pinning "Per-flight colour rules" literally — one check per
+# Task 3 markup/copy bullet, plus the literal-text pin). No pre-existing
+# count-shaped assertion needed retargeting: the new section's
+# `<form>`/`<section class="page-section">` elements sit outside every
+# existing count-shaped check's own scoped substring (the per-group
+# `<p>`/section-caption checks call theme_fieldset()/runway_fieldset()/
+# led_group() directly rather than the whole page, and the whole-page
+# DIRTY_SECTION_ATTR/STATIC_SAVE_FALLBACK_ATTR counts are both
+# unaffected since the rules section carries neither attribute).
+# 101 + 8 = 109, recomputed directly against the real on-disk check(...)
+# call count at execution time (109/109 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 109
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -1018,21 +1059,30 @@ def main():
         _theme_fieldset_covers_every_registered_theme_with_own_id_and_label)
 
     def _theme_fieldset_default_selects_exactly_the_white_option():
+        # Phase 15 D-05: theme_fieldset() now always renders a second
+        # (arrivals) chip grid alongside the first (departures) one, called
+        # here with no explicit theme_arriving override (the default), so
+        # the second grid pre-selects the SAME effective theme as the
+        # first — doubling the selected-radio count from 1 to 2, one per
+        # grid, both landing on White.
         rendered = config_page.theme_fieldset(device_config.DEFAULT_THEME_ID)
-        if rendered.count(" checked") != 1:
-            return False, "expected exactly one selected radio, found %d" % rendered.count(" checked")
+        if rendered.count(" checked") != 2:
+            return False, "expected exactly two selected radios (one per grid), found %d" % rendered.count(" checked")
         # 06.6.4.1.1-05: the chip's radio carries class="visually-hidden"
         # between value= and checked (matching .runway-card's own radio
         # attribute sequence), so the needle grows an intervening
         # attribute compared to the retired bare radio-list markup.
         white_option_needle = 'value="white" class="visually-hidden" checked'
-        if white_option_needle not in rendered:
-            return False, "the selected option is not the white one (expected %r substring)" % (white_option_needle,)
-        if 'theme-chip theme-chip--selected' not in rendered:
-            return False, "expected the White chip's <label> to carry theme-chip--selected"
+        if rendered.count(white_option_needle) != 2:
+            return False, (
+                "expected the white option selected in both grids (expected %r twice), got %d"
+                % (white_option_needle, rendered.count(white_option_needle)))
+        if rendered.count('theme-chip theme-chip--selected') != 2:
+            return False, "expected the White chip's <label> to carry theme-chip--selected in both grids"
         return True, ""
     check(
-        "theme_fieldset() rendered with the new default theme id marks exactly one option selected, and it is White",
+        "theme_fieldset() rendered with the new default theme id and no arrivals override marks exactly one option "
+        "selected PER grid (Phase 15 D-05 doubles this from 1 to 2), and both are White",
         _theme_fieldset_default_selects_exactly_the_white_option)
 
     def _runway_fieldset_exactly_three_radios():
@@ -1193,17 +1243,26 @@ def main():
         # "text-heading"> element runway_fieldset()/led_group() already
         # use — its control marker is "theme-chip-grid", not the retired
         # radio-list's bare "options" skip-marker.
+        #
+        # Phase 15 D-05: theme_fieldset() now emits a SECOND <p> — the
+        # "Arrivals theme" label (.theme-direction-label) above the
+        # revealed second grid — which is a real, deliberate addition, not
+        # a regression of the one-caption-per-section rule: that rule
+        # governs section-caption <p> elements specifically (still exactly
+        # one, asserted below unchanged), and the new <p> carries a
+        # different class entirely. theme_fieldset() is therefore the one
+        # group in this table with an expected <p> count of 2, not 1.
         theme_rendered = config_page.theme_fieldset("black")
         runway_rendered = config_page.runway_fieldset("3")
         led_rendered = config_page.led_group(True)
         groups = (
-            ("theme_fieldset()", theme_rendered, "</h2>", "theme-chip-grid"),
-            ("runway_fieldset()", runway_rendered, "</h2>", "runway-row"),
-            ("led_group()", led_rendered, "</h2>", "settings-checkbox"),
+            ("theme_fieldset()", theme_rendered, "</h2>", "theme-chip-grid", 2),
+            ("runway_fieldset()", runway_rendered, "</h2>", "runway-row", 1),
+            ("led_group()", led_rendered, "</h2>", "settings-checkbox", 1),
         )
-        for name, rendered, heading_close_marker, control_marker in groups:
-            if rendered.count("<p") != 1:
-                return False, "expected %s to emit exactly one <p element, got %d" % (name, rendered.count("<p"))
+        for name, rendered, heading_close_marker, control_marker, expected_p_count in groups:
+            if rendered.count("<p") != expected_p_count:
+                return False, "expected %s to emit exactly %d <p element(s), got %d" % (name, expected_p_count, rendered.count("<p"))
             if rendered.count("section-caption") != 1:
                 return False, "expected %s to emit exactly one section-caption occurrence, got %d" % (name, rendered.count("section-caption"))
             heading_close = rendered.index(heading_close_marker)
@@ -1289,11 +1348,16 @@ def main():
             return False, "expected exactly one runway-card--selected modifier"
         if 'value="black" class="visually-hidden" checked' not in rendered:
             return False, "expected the saved theme (black) to be marked selected via its radio input"
-        if rendered.count("theme-chip--selected") != 1:
-            return False, "expected exactly one theme-chip--selected modifier"
+        # Phase 15 D-05: with no theme_arriving override in device_config,
+        # theme_fieldset()'s second (arrivals) grid pre-selects the SAME
+        # effective theme as the first (departures) grid — doubling this
+        # count from 1 to 2, one per grid, both landing on "black".
+        if rendered.count("theme-chip--selected") != 2:
+            return False, "expected exactly two theme-chip--selected modifiers (one per grid), got %d" % rendered.count("theme-chip--selected")
         return True, ""
     check(
-        "the currently-saved theme is shown current and the (non-default) saved runway card is the one marked selected",
+        "the currently-saved theme is shown current in both chip grids (Phase 15 D-05 doubles this from 1 to 2 "
+        "absent an arrivals override) and the (non-default) saved runway card is the one marked selected",
         _current_theme_and_runway_are_selected)
 
     def _poll_trigger_enabled_at_zero_cooldown():
@@ -1552,7 +1616,14 @@ def main():
             # silently kept the prior/default value instead; the merged
             # Phase 8 registry (19 real entries) makes "black" valid, so
             # it now persists as posted.
-            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": False}:
+            # Phase 15 (15-02): load_device_config() now always returns
+            # theme_arriving too. It is None here because this post carries no
+            # arrivals override, and None means "same theme as departures" —
+            # never DEFAULT_THEME_ID. Added to this full-dict equality the same
+            # mechanical way 15-02 updated its 9 siblings in
+            # server/test_config_history.py; the assertion stays an exact-dict
+            # comparison rather than being loosened to a subset check.
+            if on_disk != {"theme": "black", "theme_arriving": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": False}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
@@ -2340,11 +2411,15 @@ def main():
         # spans whose inline background values are computed from
         # _palette_hex() against the theme's own departing_index/
         # arriving_index — real panel palette colours, never hardcoded.
+        #
+        # Phase 15 D-05: theme_fieldset() now renders TWO chip grids (one
+        # per THEME_IDS entry each), doubling this count from *2 to *4 —
+        # 2 dots per chip, 2 grids.
         rendered = config_page.theme_fieldset("white")
-        if rendered.count("theme-chip__dot") != len(device_config.THEME_IDS) * 2:
+        if rendered.count("theme-chip__dot") != len(device_config.THEME_IDS) * 4:
             return False, (
-                "expected exactly %d .theme-chip__dot occurrences (2 per theme), got %d"
-                % (len(device_config.THEME_IDS) * 2, rendered.count("theme-chip__dot")))
+                "expected exactly %d .theme-chip__dot occurrences (2 per theme, 2 grids), got %d"
+                % (len(device_config.THEME_IDS) * 4, rendered.count("theme-chip__dot")))
         for theme_id in device_config.THEME_IDS:
             theme = device_config.THEMES[theme_id]
             departing_hex = config_page._palette_hex(theme["departing_index"])
@@ -2355,8 +2430,9 @@ def main():
                 return False, "expected theme %r's arriving swatch dot to carry %r" % (theme_id, arriving_hex)
         return True, ""
     check(
-        "every theme chip carries exactly two .theme-chip__dot swatches whose inline background values equal "
-        "_palette_hex() computed from that theme's own departing_index/arriving_index (06.6.4.1.1-05)",
+        "every theme chip in both grids carries exactly two .theme-chip__dot swatches whose inline background "
+        "values equal _palette_hex() computed from that theme's own departing_index/arriving_index (06.6.4.1.1-05, "
+        "doubled to *4 by Phase 15 D-05's second grid)",
         _theme_chip_swatch_dots_carry_real_palette_hex_values)
 
     def _theme_chip_radio_hidden_and_check_glyph_present_on_every_chip():
@@ -2366,6 +2442,12 @@ def main():
         # carries a .theme-chip__check glyph with its visually-hidden
         # "Selected" text, present on all 16 chips regardless of which one
         # is actually selected.
+        #
+        # Phase 15 D-05: theme_fieldset() now renders TWO chip grids, so
+        # the check-glyph and "Selected" text counts double from
+        # theme_count to theme_count * 2 (the name="theme" radio count
+        # itself stays scoped to the first grid only, since the second
+        # grid's radios carry name="theme_arriving" instead).
         rendered = config_page.theme_fieldset("white")
         theme_count = len(device_config.THEME_IDS)
         if rendered.count('name="theme" value="') != theme_count:
@@ -2374,18 +2456,304 @@ def main():
             return False, "expected every chip's radio to carry class=\"visually-hidden\""
         if "display:none" in rendered or "display: none" in rendered:
             return False, "expected the radio hidden via the visually-hidden utility class, never display:none"
-        if rendered.count('<span class="theme-chip__check">') != theme_count:
+        if rendered.count('<span class="theme-chip__check">') != theme_count * 2:
             return False, (
-                "expected exactly %d .theme-chip__check occurrences (one per chip, regardless of selection), got %d"
-                % (theme_count, rendered.count('<span class="theme-chip__check">')))
-        if rendered.count('<span class="visually-hidden">Selected</span>') != theme_count:
-            return False, "expected every chip's check glyph to carry the visually-hidden \"Selected\" text"
+                "expected exactly %d .theme-chip__check occurrences (one per chip, regardless of selection, "
+                "across both grids), got %d"
+                % (theme_count * 2, rendered.count('<span class="theme-chip__check">')))
+        if rendered.count('<span class="visually-hidden">Selected</span>') != theme_count * 2:
+            return False, "expected every chip's check glyph to carry the visually-hidden \"Selected\" text, across both grids"
         return True, ""
     check(
-        "every theme chip's radio carries class=\"visually-hidden\" (never display:none) and every chip carries a "
-        ".theme-chip__check glyph with visually-hidden \"Selected\" text, present on all chips regardless of "
-        "selection (06.6.4.1.1-05)",
+        "every theme chip's radio carries class=\"visually-hidden\" (never display:none) and every chip in both "
+        "grids carries a .theme-chip__check glyph with visually-hidden \"Selected\" text, present on all chips "
+        "regardless of selection (06.6.4.1.1-05, doubled by Phase 15 D-05's second grid)",
         _theme_chip_radio_hidden_and_check_glyph_present_on_every_chip)
+
+    # ------------------------------------------------------------------
+    # 15-04-PLAN.md (D-04/D-05): the arrivals-override checkbox, its
+    # revealed second chip grid, and handle_post()'s clearable-checkbox
+    # contract (15-VALIDATION.md row 7).
+    # ------------------------------------------------------------------
+
+    def _theme_arriving_markup_both_grids_copy_and_checkbox_present():
+        # Task 3 markup checks: both grids present in the rendered
+        # Settings page; the second carries name="theme_arriving" radios
+        # and the data-arrival-grid attribute; both new copy strings
+        # appear escaped-verbatim; the checkbox carries the
+        # theme-arriving-toggle id and is nested in a settings-checkbox
+        # label; the total preview-image count is exactly twice
+        # len(THEME_IDS).
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "poll_cooldown_remaining": 0,
+        })
+        if 'class="theme-chip-grid"' not in rendered:
+            return False, "expected the first (departures) grid's plain class"
+        if 'class="theme-chip-grid theme-chip-grid--arrivals"' not in rendered:
+            return False, "expected the second (arrivals) grid's modifier class"
+        if config_page.ARRIVAL_GRID_ATTR not in rendered:
+            return False, "expected the second grid to carry data-arrival-grid"
+        theme_count = len(device_config.THEME_IDS)
+        if rendered.count('name="theme_arriving" value="') != theme_count:
+            return False, (
+                "expected %d theme_arriving radios, got %d"
+                % (theme_count, rendered.count('name="theme_arriving" value="')))
+        # Pinned as literal copy strings (matching how this harness already
+        # pins the existing helper texts), not just via the constant, so a
+        # future accidental rewording of the constant's own value is
+        # caught here too.
+        if "Use a different theme for arrivals" not in rendered:
+            return False, "expected THEME_ARRIVING_CHECKBOX_LABEL (\"Use a different theme for arrivals\") escaped-verbatim"
+        if "Arrivals theme" not in rendered:
+            return False, "expected THEME_DIRECTION_LABEL (\"Arrivals theme\") escaped-verbatim"
+        if config_page.THEME_ARRIVING_CHECKBOX_LABEL != "Use a different theme for arrivals":
+            return False, "expected THEME_ARRIVING_CHECKBOX_LABEL to equal the locked copy exactly"
+        if config_page.THEME_DIRECTION_LABEL != "Arrivals theme":
+            return False, "expected THEME_DIRECTION_LABEL to equal the locked copy exactly"
+        toggle_match = re.search(
+            r'<input[^>]*%s[^>]*>' % re.escape(config_page.THEME_ARRIVING_TOGGLE_ID), rendered)
+        if not toggle_match:
+            return False, "expected an <input> carrying the theme-arriving-toggle id"
+        if 'name="theme_arriving_enabled"' not in toggle_match.group(0):
+            return False, "expected the toggle's <input> to carry name=\"theme_arriving_enabled\""
+        label_start = rendered.rindex('<label class="settings-checkbox">', 0, toggle_match.start())
+        label_end = rendered.index("</label>", label_start)
+        if not (label_start < toggle_match.start() < label_end):
+            return False, "expected the toggle to be nested inside a <label class=\"settings-checkbox\">"
+        expected_preview_count = 2 * theme_count
+        if rendered.count('class="theme-chip__preview"') != expected_preview_count:
+            return False, (
+                "expected exactly %d theme-chip__preview <img> occurrences (one per theme, per grid), got %d"
+                % (expected_preview_count, rendered.count('class="theme-chip__preview"')))
+        return True, ""
+    check(
+        "the rendered Settings page carries both theme chip grids (the plain .theme-chip-grid and its "
+        ".theme-chip-grid--arrivals/[data-arrival-grid] sibling), the arrivals checkbox nested in a "
+        "settings-checkbox label with id=theme-arriving-toggle, both new copy strings escaped-verbatim, and "
+        "exactly 2*len(THEME_IDS) theme-chip__preview images (Phase 15 D-05)",
+        _theme_arriving_markup_both_grids_copy_and_checkbox_present)
+
+    def _theme_arriving_override_preselects_second_grid_and_checks_the_box():
+        # Task 3 pre-selection checks, the "override stored" half — the
+        # "no override" half is already covered by
+        # _theme_fieldset_default_selects_exactly_the_white_option and
+        # _current_theme_and_runway_are_selected above, both updated in
+        # place by this same plan to expect the doubled count.
+        rendered = config_page.theme_fieldset("white", "black")
+        toggle_match = re.search(
+            r'<input[^>]*%s[^>]*>' % re.escape(config_page.THEME_ARRIVING_TOGGLE_ID), rendered)
+        if not toggle_match or "checked" not in toggle_match.group(0):
+            return False, "expected the arrivals checkbox to render checked when theme_arriving is set"
+        grid = rendered.split(config_page.ARRIVAL_GRID_ATTR, 1)[1]
+        if not re.search(r'name="theme_arriving" value="black"[^>]*checked', grid):
+            return False, "expected the second grid's checked radio to be the stored override (black)"
+        if re.search(r'name="theme_arriving" value="white"[^>]*checked', grid):
+            return False, "expected the departures theme (white) to NOT be marked selected in the arrivals grid once an override is set"
+        return True, ""
+    check(
+        "theme_fieldset() with a stored theme_arriving override checks the arrivals checkbox and pre-selects "
+        "the OVERRIDE (not the departures theme) in the second grid (Phase 15 D-05)",
+        _theme_arriving_override_preselects_second_grid_and_checks_the_box)
+
+    def _handle_post_theme_arriving_checked_persists_chosen_id():
+        # Task 2 <behavior> bullet 1.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {
+                    "theme": "white", "tracked_runway": device_config.DEFAULT_RUNWAY_ID,
+                    "theme_arriving_enabled": config_page.ARRIVING_CHECKBOX_VALUE,
+                    "theme_arriving": "black",
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["theme_arriving"] != "black":
+                return False, "expected theme_arriving 'black' on disk, got %r" % (on_disk["theme_arriving"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with theme_arriving_enabled=ARRIVING_CHECKBOX_VALUE and a valid theme_arriving persists that id",
+        _handle_post_theme_arriving_checked_persists_chosen_id)
+
+    def _handle_post_theme_arriving_checkbox_absent_clears_previous_override():
+        # Task 2 <behavior> bullet 2 - the checkbox's absence clears a
+        # previously-set override even though theme_arriving itself is
+        # still present with a valid id (the always-rendered second grid
+        # means a real browser submission always carries it).
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            config_page.handle_post(
+                {
+                    "theme": "white", "tracked_runway": device_config.DEFAULT_RUNWAY_ID,
+                    "theme_arriving_enabled": config_page.ARRIVING_CHECKBOX_VALUE,
+                    "theme_arriving": "black",
+                },
+                ctx)
+            flash_key = config_page.handle_post(
+                {
+                    "theme": "white", "tracked_runway": device_config.DEFAULT_RUNWAY_ID,
+                    "theme_arriving": "black",
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["theme_arriving"] is not None:
+                return False, (
+                    "unchecking the arrivals checkbox failed to clear theme_arriving, got %r"
+                    % (on_disk["theme_arriving"],))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with theme_arriving_enabled absent but theme_arriving still present with a valid id clears "
+        "a previously-set override back to None",
+        _handle_post_theme_arriving_checkbox_absent_clears_previous_override)
+
+    def _handle_post_crafted_theme_arriving_checkbox_value_rejected():
+        # Task 2 <behavior> bullet 3.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            before = open(device_config.device_config_path(tmpdir), "rb").read()
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"theme_arriving_enabled": "yes", "theme_arriving": "black"}, ctx)
+            after = open(device_config.device_config_path(tmpdir), "rb").read()
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
+            if before != after:
+                return False, "expected device_config.json to be byte-identical, it changed"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with a crafted theme_arriving_enabled value (\"yes\") rejects the whole submission and "
+        "writes nothing",
+        _handle_post_crafted_theme_arriving_checkbox_value_rejected)
+
+    def _handle_post_nonmember_theme_arriving_rejected():
+        # Task 2 <behavior> bullet 4, including a path-traversal-shaped
+        # and a SQL-shaped payload, matching theme's own adversarial
+        # coverage.
+        for payload in ("chartreuse", "../../etc/passwd", "sky'; DROP TABLE flights; --"):
+            tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+            try:
+                _write_device_config(tmpdir, "black", "3")
+                before = open(device_config.device_config_path(tmpdir), "rb").read()
+                ctx = {"state_dir": tmpdir}
+                flash_key = config_page.handle_post(
+                    {
+                        "theme_arriving_enabled": config_page.ARRIVING_CHECKBOX_VALUE,
+                        "theme_arriving": payload,
+                    },
+                    ctx)
+                after = open(device_config.device_config_path(tmpdir), "rb").read()
+                if flash_key != config_page.FLASH_SAVE_FAILED:
+                    return False, "expected FLASH_SAVE_FAILED for theme_arriving=%r, got %r" % (payload, flash_key)
+                if before != after:
+                    return False, "expected device_config.json to be byte-identical for theme_arriving=%r, it changed" % (payload,)
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        return True, ""
+    check(
+        "handle_post with a non-member theme_arriving (a plain invalid id, a path-traversal-shaped payload, and a "
+        "SQL-shaped payload) rejects the whole submission and writes nothing",
+        _handle_post_nonmember_theme_arriving_rejected)
+
+    def _handle_post_theme_arriving_partial_post_still_carries_other_fields():
+        # Task 2 <behavior> bullet 5: every other field's behaviour is
+        # unchanged - a partial-field post still carries the other
+        # settings forward.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "06-24")
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {
+                    "theme_arriving_enabled": config_page.ARRIVING_CHECKBOX_VALUE,
+                    "theme_arriving": "white",
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["tracked_runway"] != "06-24":
+                return False, "expected the existing runway to be carried forward unchanged, got %r" % (on_disk,)
+            if on_disk["theme"] != "black":
+                return False, "expected the existing theme to be carried forward unchanged, got %r" % (on_disk,)
+            if on_disk["theme_arriving"] != "white":
+                return False, "expected theme_arriving 'white' on disk, got %r" % (on_disk["theme_arriving"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "a post carrying only theme_arriving_enabled/theme_arriving still carries the existing theme/runway "
+        "forward unchanged",
+        _handle_post_theme_arriving_partial_post_still_carries_other_fields)
+
+    def _theme_arriving_clearable_contract_full_round_trip():
+        # 15-VALIDATION.md row 7 - the acceptance criterion the whole plan
+        # exists for. Named so a failure says plainly that unchecking the
+        # box failed to clear the override. Proves the full sequence: save
+        # with the box checked and a chosen arrivals theme (confirm it
+        # persisted), save again with the checkbox key simply absent and
+        # theme_arriving still present with a valid id (confirm
+        # theme_arriving comes back None), and confirm every other
+        # setting from the first save survived the second save unchanged.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            ctx = {"state_dir": tmpdir}
+            first = config_page.handle_post(
+                {
+                    "theme": "white", "tracked_runway": "06-24",
+                    "led_enabled": config_page.LED_CHECKBOX_VALUE,
+                    "theme_arriving_enabled": config_page.ARRIVING_CHECKBOX_VALUE,
+                    "theme_arriving": "black",
+                },
+                ctx)
+            if first != config_page.FLASH_SAVED:
+                return False, "expected the first (checked) save to return FLASH_SAVED, got %r" % (first,)
+            after_first = device_config.load_device_config(tmpdir)
+            if after_first["theme_arriving"] != "black":
+                return False, (
+                    "expected theme_arriving 'black' to persist after the checked save, got %r"
+                    % (after_first["theme_arriving"],))
+
+            second = config_page.handle_post(
+                {
+                    "theme": "white", "tracked_runway": "06-24",
+                    "led_enabled": config_page.LED_CHECKBOX_VALUE,
+                    "theme_arriving": "black",
+                },
+                ctx)
+            if second != config_page.FLASH_SAVED:
+                return False, "expected the second (unchecked) save to return FLASH_SAVED, got %r" % (second,)
+            after_second = device_config.load_device_config(tmpdir)
+            if after_second["theme_arriving"] is not None:
+                return False, (
+                    "unchecking the arrivals checkbox failed to clear the override - expected theme_arriving "
+                    "None, got %r" % (after_second["theme_arriving"],))
+            if (
+                after_second["theme"] != "white"
+                or after_second["tracked_runway"] != "06-24"
+                or after_second["led_enabled"] is not True
+            ):
+                return False, "expected every other setting to survive the second save unchanged, got %r" % (after_second,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "the clearable contract (15-VALIDATION.md row 7): a checked save with a chosen arrivals theme persists it, "
+        "then an unchecked save (with theme_arriving still present) clears it back to None while every other "
+        "setting survives unchanged - fails loudly if unchecking stops clearing the override",
+        _theme_arriving_clearable_contract_full_round_trip)
 
     def _settings_page_has_zero_fieldsets_and_five_dirty_sections():
         # 06.6.4.1.1-05: the rendered Settings page contains no <fieldset
@@ -2487,10 +2855,18 @@ def main():
         # positive restore rule rather than a re-scoped guard.
         source = _read_static("style.css")
 
+        # Phase 15 D-05 adds a SECOND @supports selector(:has(*)) block —
+        # the arrivals-checkbox CSS-only reveal — placed after this one
+        # (the live-selection-state block quick task 260904-bbi added).
+        # index() below still resolves to this block's own opening brace
+        # (the first occurrence), so every selector-position assertion
+        # below (idx < supports_idx meaning "lives inside this block")
+        # is unaffected by the second, later block's existence.
         supports_marker = "@supports selector(:has(*)) {"
-        if source.count(supports_marker) != 1:
+        if source.count(supports_marker) != 2:
             return False, (
-                "expected exactly one %r block, got %d" % (supports_marker, source.count(supports_marker)))
+                "expected exactly two %r blocks (this live-selection-state one, plus Phase 15 D-05's "
+                "arrivals-reveal one), got %d" % (supports_marker, source.count(supports_marker)))
         supports_idx = source.index(supports_marker)
 
         wash = "background: color-mix(in srgb, var(--color-accent) 12%, transparent);"
@@ -2781,6 +3157,232 @@ def main():
         _dirty_state_js_still_has_no_network_or_timer_sinks)
 
     # ==================================================================
+    # 15-05-PLAN.md Task 3 (D-10, D-11, 15-VALIDATION.md row 10): the
+    # per-flight colour-rules editor's markup/copy checks.
+    # ==================================================================
+
+    def _rules_section_renders_between_form_and_poll_section():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        form_end = rendered.index("</form>")
+        rules_pos = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_pos = rendered.index('<h2 class="text-heading">Poll</h2>')
+        if not (form_end < rules_pos < poll_pos):
+            return False, (
+                "expected </form> < Rules heading < Poll heading, got positions %d/%d/%d"
+                % (form_end, rules_pos, poll_pos))
+        return True, ""
+    check(
+        "render() places the rules section between the settings </form> and the Poll section (Phase 15 D-10)",
+        _rules_section_renders_between_form_and_poll_section)
+
+    def _rules_section_empty_state_then_list_once_a_rule_exists():
+        empty_ctx = {
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        }
+        rendered = config_page.render(empty_ctx)
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        rules_segment = rendered[rules_start:poll_start]
+        if config_page.RULES_EMPTY_HEADING not in rules_segment:
+            return False, "expected the empty-state heading with no rules"
+        if "data-table-wrap" in rules_segment or "data-cards" in rules_segment:
+            return False, "expected no list markup in the empty-state branch"
+
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-markup-")
+        try:
+            result = colour_rules.add_rule(
+                tmp, "callsign", "AFR1234", "white", now="2026-01-01T00:00:00+00:00")
+            if result != colour_rules.ADD_OK_NEW:
+                return False, "test setup failure: add_rule() returned %r" % (result,)
+            registry = colour_rules.load_colour_rules(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        filled_ctx = dict(empty_ctx)
+        filled_ctx["colour_rules"] = registry
+        filled_ctx["now"] = "2026-01-02T00:00:00+00:00"
+        rendered = config_page.render(filled_ctx)
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        rules_segment = rendered[rules_start:poll_start]
+        if config_page.RULES_EMPTY_HEADING in rules_segment:
+            return False, "expected the empty state to be replaced once a rule exists"
+        if "data-table-wrap" not in rules_segment or "data-cards" not in rules_segment:
+            return False, "expected both the card list and the table once a rule exists"
+        if "AFR1234" not in rules_segment:
+            return False, "expected the seeded rule's key to appear in the rendered list"
+        return True, ""
+    check(
+        "the rules section renders the empty state with no rules, and the empty state is replaced by "
+        "the cards-then-table list once a rule exists (Phase 15 D-10)",
+        _rules_section_empty_state_then_list_once_a_rule_exists)
+
+    def _rules_list_cards_precede_table_in_dom_order():
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-order-")
+        try:
+            result = colour_rules.add_rule(
+                tmp, "hex", "3944F2", "blue", now="2026-01-01T00:00:00+00:00")
+            if result != colour_rules.ADD_OK_NEW:
+                return False, "test setup failure: add_rule() returned %r" % (result,)
+            registry = colour_rules.load_colour_rules(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": registry,
+            "poll_cooldown_remaining": 0,
+            "now": "2026-01-02T00:00:00+00:00",
+        })
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        rules_segment = rendered[rules_start:poll_start]
+        if "data-cards" not in rules_segment or "data-table-wrap" not in rules_segment:
+            return False, "expected both data-cards and data-table-wrap to be present"
+        if rules_segment.index("data-cards") >= rules_segment.index("data-table-wrap"):
+            return False, "expected data-cards to precede data-table-wrap in DOM order"
+        return True, ""
+    check(
+        "the rules list's .data-cards precede its .data-table-wrap in DOM order (the sibling-combinator "
+        "toggle depends on this exact order)",
+        _rules_list_cards_precede_table_in_dom_order)
+
+    def _rules_copy_appears_escaped_verbatim():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        copy_strings = (
+            config_page.RULES_SECTION_HEADING,
+            config_page.RULES_SECTION_CAPTION,
+            config_page.RULE_KIND_FIELD_LABEL,
+            config_page.RULE_VALUE_FIELD_LABEL,
+            config_page.RULE_THEME_FIELD_LABEL,
+            config_page.RULE_ADD_BUTTON_TEXT,
+            config_page.RULE_VALUE_HINT,
+            config_page.RULES_EMPTY_HEADING,
+            config_page.RULES_EMPTY_BODY,
+        )
+        for text in copy_strings:
+            if escape_html(text) not in rendered:
+                return False, "expected %r to appear escaped-verbatim in the rendered page" % (text,)
+        for kind, label in config_page.RULE_KIND_LABELS.items():
+            if escape_html(label) not in rendered:
+                return False, "expected the kind label %r (for %r) to appear escaped-verbatim" % (label, kind)
+        return True, ""
+    check(
+        "every rules-section copy string (heading, caption, field labels, kind labels, value hint, "
+        "empty-state heading/body) appears escaped-verbatim, matching 15-UI-SPEC.md's Copywriting "
+        "Contract byte for byte",
+        _rules_copy_appears_escaped_verbatim)
+
+    def _rules_section_heading_locked_verbatim():
+        # Exact equality is a stronger gate than a substring check, and
+        # pins the section heading against 15-UI-SPEC.md's Copywriting
+        # Contract literally — "Per-flight colour rules" — rather than
+        # only via the RULES_SECTION_HEADING constant every check above
+        # already reuses.
+        if config_page.RULES_SECTION_HEADING != "Per-flight colour rules":
+            return False, (
+                "expected RULES_SECTION_HEADING to equal the locked heading exactly, got %r"
+                % (config_page.RULES_SECTION_HEADING,))
+        return True, ""
+    check(
+        "RULES_SECTION_HEADING equals 15-UI-SPEC.md's locked \"Per-flight colour rules\" heading exactly",
+        _rules_section_heading_locked_verbatim)
+
+    def _rules_kind_cell_and_add_form_option_share_one_mapping():
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-kind-")
+        try:
+            for kind, value, theme_id in (
+                ("callsign", "AFR1234", "white"),
+                ("hex", "3944F2", "blue"),
+                ("prefix", "AFR", "red"),
+            ):
+                result = colour_rules.add_rule(
+                    tmp, kind, value, theme_id, now="2026-01-01T00:00:00+00:00")
+                if result != colour_rules.ADD_OK_NEW:
+                    return False, "test setup failure: add_rule(%r) returned %r" % (kind, result)
+            registry = colour_rules.load_colour_rules(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": registry,
+            "poll_cooldown_remaining": 0,
+            "now": "2026-01-02T00:00:00+00:00",
+        })
+        add_form_start = rendered.index('name="rule_kind"')
+        add_form_segment = rendered[add_form_start:rendered.index("</select>", add_form_start)]
+        for kind in colour_rules.RULE_KINDS:
+            label = config_page.RULE_KIND_LABELS[kind]
+            option_needle = '<option value="%s">%s</option>' % (
+                escape_html(kind), escape_html(label))
+            if option_needle not in add_form_segment:
+                return False, "expected the add form's %r option to carry %r" % (kind, label)
+            # The list's Kind cell for that same kind's row carries the
+            # identical label text, never abbreviated differently.
+            if "<td>%s</td>" % escape_html(label) not in rendered:
+                return False, "expected a Kind cell carrying %r for kind %r" % (label, kind)
+        return True, ""
+    check(
+        "the add form's kind <option> text and the list's Kind cell text come from the same "
+        "RULE_KIND_LABELS mapping, so the two can never disagree",
+        _rules_kind_cell_and_add_form_option_share_one_mapping)
+
+    def _rules_swatch_is_computed_never_a_hardcoded_hex_literal():
+        tmp = tempfile.mkdtemp(prefix="skypane-rules-swatch-")
+        try:
+            result = colour_rules.add_rule(
+                tmp, "callsign", "AFR1234", "white", now="2026-01-01T00:00:00+00:00")
+            if result != colour_rules.ADD_OK_NEW:
+                return False, "test setup failure: add_rule() returned %r" % (result,)
+            registry = colour_rules.load_colour_rules(tmp)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": registry,
+            "poll_cooldown_remaining": 0,
+            "now": "2026-01-02T00:00:00+00:00",
+        })
+        expected_hex = config_page._palette_hex(device_config.THEMES["white"]["departing_index"])
+        expected_swatch = (
+            '<span class="theme-swatch__chip" style="background:%s">'
+            % escape_html(expected_hex))
+        if expected_swatch not in rendered:
+            return False, (
+                "expected the rule row's swatch to carry the real _palette_hex() value %r"
+                % (expected_hex,))
+        return True, ""
+    check(
+        "the rule row's theme swatch is a computed _palette_hex() value, not a hardcoded hex literal",
+        _rules_swatch_is_computed_never_a_hardcoded_hex_literal)
+
+    def _rules_section_carries_no_dirty_section_attr():
+        rendered = config_page.render({
+            "device_config": {"theme": "white", "tracked_runway": "3"},
+            "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+            "poll_cooldown_remaining": 0,
+        })
+        rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+        poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+        rules_segment = rendered[rules_start:poll_start]
+        if config_page.DIRTY_SECTION_ATTR in rules_segment:
+            return False, "expected the rules section to carry no data-dirty-section attribute"
+        return True, ""
+    check(
+        "the rules section carries no data-dirty-section attribute - it is not part of the tracked "
+        "settings form, exactly like the Poll section",
+        _rules_section_carries_no_dirty_section_attr)
+
+    # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py
     # subprocess, logs in, posts a valid theme-and-runway pair, follows
     # the redirect, and asserts the rendered page carries D-07's
@@ -2900,6 +3502,47 @@ def main():
             "persists led_enabled False, and a follow-up GET renders the control unchecked"
             % (config_page.SETTINGS_ROUTE, config_page.SETTINGS_ROUTE),
             _settings_post_empty_body_persists_led_false_and_renders_unchecked)
+
+        def _settings_form_raw_post_no_js_clears_and_sets_theme_arriving():
+            # 15-VALIDATION.md row 11 (the Settings-form half this plan
+            # owns): a raw, URL-encoded POST to the live SETTINGS_ROUTE -
+            # no client script involved - once with the arrivals checkbox
+            # key present, once with it absent, proving the set/clear
+            # contract holds over the real HTTP path, not just in-process.
+            status, _headers, _body = http_request(
+                base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({
+                    "theme": "white", "tracked_runway": "3",
+                    "theme_arriving_enabled": config_page.ARRIVING_CHECKBOX_VALUE,
+                    "theme_arriving": "black",
+                }).encode())
+            if status != 303:
+                return False, "expected a 303 redirect on the checked save, got %d" % status
+            on_disk = device_config.load_device_config(harness.tmpdir)
+            if on_disk["theme_arriving"] != "black":
+                return False, (
+                    "expected theme_arriving 'black' after the checked raw POST, got %r"
+                    % (on_disk["theme_arriving"],))
+
+            status, _headers, _body = http_request(
+                base + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
+                data=urllib.parse.urlencode({
+                    "theme": "white", "tracked_runway": "3",
+                    "theme_arriving": "black",
+                }).encode())
+            if status != 303:
+                return False, "expected a 303 redirect on the unchecked save, got %d" % status
+            on_disk = device_config.load_device_config(harness.tmpdir)
+            if on_disk["theme_arriving"] is not None:
+                return False, (
+                    "expected theme_arriving None after the unchecked raw POST (the checkbox key was simply "
+                    "absent), got %r" % (on_disk["theme_arriving"],))
+            return True, ""
+        check(
+            "a raw, URL-encoded no-JS POST to SETTINGS_ROUTE sets theme_arriving when the arrivals checkbox key "
+            "is present and clears it back to None when the checkbox key is simply absent, over the real HTTP "
+            "path (15-VALIDATION.md row 11, the Settings-form half)",
+            _settings_form_raw_post_no_js_clears_and_sets_theme_arriving)
 
         def _settings_post_unauthenticated_redirects_to_login_and_writes_nothing():
             # 06.6.4.1-07 (D-05): live-HTTP successor to the old

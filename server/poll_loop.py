@@ -61,6 +61,7 @@ if _REPO_ROOT not in sys.path:
 import server.device_config as device_config
 import server.history_db as history_db
 import server.panel_format as panel_format
+import server.plane.colour_rules as colour_rules
 import server.plane.detect as detect
 import server.plane.enrich as enrich
 import server.plane.illustrations as illustrations
@@ -655,7 +656,11 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     test_pipeline_e2e.py is fully hermetic (no live network call).
 
     Returns a small result dict: {"flight": ..., "state": ..., "panel_changed": ...,
-    "theme": ..., "tracked_runway": ..., "source_fault": ..., "event_recorded": ...}.
+    "theme": ..., "effective_theme": ..., "tracked_runway": ..., "source_fault": ...,
+    "event_recorded": ...}. `theme` is always the configured base theme id;
+    `effective_theme` (D-13) is what the panel actually rendered with - equal
+    to `theme` on any cycle that displayed no flight, and equal to the
+    colour_rules-resolved id on any cycle that displayed one.
     `flight` is what this cycle DETECTED, which since the 2026-08-28
     mechanism-C mitigation is not necessarily what it displayed - a distinct
     new aircraft may have been queued rather than shown. `state` and
@@ -731,6 +736,17 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # state dir of its own; it keeps resolving vendored art only.
     illustrations.set_override_state_dir(state_dir)
     manual_resolutions.set_manual_registry_state_dir(state_dir)
+    # D-13 (phase 15, plan 15-03): prime the per-flight colour-rule registry
+    # cache from THIS cycle's own state_dir, for the identical reason the two
+    # priming calls above already give - a companion-side rule save (add or
+    # delete) landing mid-cycle must never split one rendered panel across
+    # two registry configurations. This is the ONLY colour-rules call safe to
+    # place here, at the top of the cycle: it just loads a small JSON file
+    # into the process-wide cache. The resolver itself, resolve_effective_theme_id(),
+    # is NOT called here - render_state and current_flight are not settled
+    # yet at this point in the function - see the effective_theme_id default
+    # assignment below for why.
+    colour_rules.set_colour_rules_state_dir(state_dir)
 
     # CFG-01/CFG-12: read the user's saved theme + tracked runway ONCE per
     # cycle, not once per call site - a mid-cycle save landing between two
@@ -740,6 +756,21 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # here.
     device_cfg = device_config.load_device_config(state_dir)
     theme_id = device_cfg["theme"]
+    # D-13: a DEFAULT ASSIGNMENT, not a resolution. Every branch below -
+    # including the four that display no flight - references this name, in
+    # exactly the way `unknown_prefix` and `event_recorded` further down are
+    # predefined before any branching, for the identical UnboundLocalError
+    # reason. Do NOT call colour_rules.resolve_effective_theme_id() here:
+    # `render_state` and `current_flight` are not settled at this point in
+    # the function - `render_state` is not known until
+    # runway_config.infer_from_flight() returns a non-None `confirmed_state`,
+    # or until `current_confirmed_state` is read back from `poll_state`
+    # further down; `current_flight` is not final until after the
+    # pacing/promotion logic runs. Calling the resolver here would either
+    # raise (both are undefined this early) or, worse if written
+    # defensively, silently resolve against the PREVIOUS cycle's stale
+    # values (15-RESEARCH.md Pitfall 1).
+    effective_theme_id = theme_id
     tracked_runway_id = device_cfg["tracked_runway"]
     # D-04/D-05/D-07 (10-CONTEXT.md): the once-per-cycle quiet-hours
     # decision, computed from the SAME device_cfg read above - never a
@@ -822,7 +853,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         panel_changed = False
         if was_hold is None:
             canvas = render.build_canvas(
-                None, hold_kind, quiet_hours_until=quiet_until,
+                None, hold_kind, theme_id=theme_id, quiet_hours_until=quiet_until,
                 source_fault=source_fault, battery_low=battery_low,
             )
             rendered = panel_format.pack_panel(canvas)
@@ -870,6 +901,11 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             "state": hold_kind,
             "panel_changed": panel_changed,
             "theme": theme_id,
+            # D-13: a hold screen's effective theme IS the base theme - no
+            # rule or arrivals override is ever consulted for a hold screen
+            # (D-09) - and reporting it uniformly here is what makes this key
+            # trustworthy across every branch, held or not.
+            "effective_theme": theme_id,
             "tracked_runway": tracked_runway_id,
             "source_fault": source_fault,
             "event_recorded": False,
@@ -1106,6 +1142,14 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             poll_state["last_recorded_corroborated"] = current_flight.get("corroborated")
             # D-25/D-26: the previous flight's own real illustration/text
             # rides along on the same panel as the current detection's.
+            #
+            # D-13, application point 1 of 2: this is the flight-detected
+            # branch's confirmed-state render - the invariant this pair
+            # exists to hold is that the same flight, drawn again from
+            # `current_route` on a later cycle's battery-icon/source-fault
+            # repaint (application point 2, the held branch below), gets the
+            # identical effective theme id it got here.
+            effective_theme_id = colour_rules.resolve_effective_theme_id(render_state, current_flight, device_cfg)
             canvas = render.build_canvas(
                 current_flight,
                 render_state,
@@ -1113,7 +1157,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
                 previous_flight=previous_flight,
                 previous_route=previous_route,
                 previous_state=previous_confirmed_state,
-                theme_id=theme_id,
+                theme_id=effective_theme_id,
                 runway_id=tracked_runway_id,
                 source_fault=source_fault,
                 battery_low=battery_low,
@@ -1185,6 +1229,12 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         # been showing.
         if source_fault != previous_source_fault or battery_changed or hold_exited:
             if confirmed_state is not None:
+                # D-13, application point 2 of 2: the same flight is being
+                # drawn again from `current_route` on this battery-icon/
+                # source-fault repaint - it must get the IDENTICAL effective
+                # theme id it got on the cycle that first displayed it
+                # (application point 1, the flight-detected branch above).
+                effective_theme_id = colour_rules.resolve_effective_theme_id(render_state, current_flight, device_cfg)
                 held_canvas = render.build_canvas(
                     current_flight,
                     render_state,
@@ -1192,7 +1242,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
                     previous_flight=previous_flight,
                     previous_route=previous_route,
                     previous_state=previous_confirmed_state,
-                    theme_id=theme_id,
+                    theme_id=effective_theme_id,
                     runway_id=tracked_runway_id,
                     source_fault=source_fault,
                     battery_low=battery_low,
@@ -1293,7 +1343,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     print(
         "poll_loop: hex=%s callsign=%s aircraft_type=%s corroborated=%s altitude_ft=%s confirmed_state=%s "
         "render_state=%s state_source=%s route_source=%s unknown_prefix=%s shown=%s pending=%d dropped=%s "
-        "battery_low=%s panel_changed=%s theme=%s tracked_runway=%s source_fault=%s hold_exited=%s"
+        "battery_low=%s panel_changed=%s theme=%s effective_theme=%s tracked_runway=%s source_fault=%s hold_exited=%s"
         % (
             (flight or {}).get("hex"),
             (flight or {}).get("callsign"),
@@ -1311,6 +1361,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             battery_low,
             panel_changed,
             theme_id,
+            effective_theme_id,
             tracked_runway_id,
             source_fault,
             hold_exited,
@@ -1322,6 +1373,13 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         "state": render_state,
         "panel_changed": panel_changed,
         "theme": theme_id,
+        # D-13: the base theme on any cycle that displayed no flight
+        # (unchanged from the default assignment above); the resolved id on
+        # any cycle that displayed one (from one of the two call sites
+        # above). `theme` keeps meaning the configured base theme - existing
+        # checks depend on that - `effective_theme` is what actually reached
+        # the glass.
+        "effective_theme": effective_theme_id,
         "tracked_runway": tracked_runway_id,
         "source_fault": source_fault,
         "event_recorded": event_recorded,

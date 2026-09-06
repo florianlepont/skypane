@@ -91,6 +91,25 @@ DISPLAY_OFF_SLEEP_S = 300
 # process's argparse namespace and is not knowable here (D-07, 11-RESEARCH.md Pattern 1).
 # Do not "restore consistency" by inventing a default; there isn't one to invent.
 
+# D-04/D-05 (15-CONTEXT.md): the one sentinel in this module that widens what a
+# save_device_config() argument can mean. For every field including
+# theme_arriving, `None` keeps its single existing meaning - "the caller
+# didn't supply this parameter, carry the current on-disk value forward" -
+# and that meaning never changes. `CLEAR_THEME_ARRIVING` is a second,
+# distinct value that means "the caller explicitly wants theme_arriving
+# cleared back to unset (None)", something `None` itself cannot express
+# without colliding with carry-forward. This mirrors
+# companion/pages/health_page.py's `_DB_UNAVAILABLE` module-level `object()`
+# sentinel - the existing in-codebase idiom for a state plain `None` cannot
+# carry - rather than inventing a new pattern. The alternative considered and
+# rejected (15-RESEARCH.md Assumption A1) was a second boolean parameter
+# `clear_theme_arriving=False`: that would give exactly one field an
+# asymmetric extra argument while every other field keeps identical arity.
+# `load_device_config()` never sees this sentinel - it exists only in
+# save_device_config()'s write path, compared by identity (`is`), never by
+# equality, so no crafted value could ever collide with it.
+CLEAR_THEME_ARRIVING = object()
+
 # Shape gate for a submitted/stored quiet-hours HH:MM string. Deliberately
 # anchored with `\Z`, NOT `$`: Python's `$` also matches immediately before a
 # trailing newline, so a submitted "07:00\n" would pass a `$`-anchored
@@ -434,6 +453,29 @@ def normalise_theme_id(value):
     return DEFAULT_THEME_ID
 
 
+def normalise_theme_arriving(value):
+    """Return `value` unchanged only when it is a string AND a member of
+    `THEMES` - otherwise return `None`. Never raises.
+
+    Unlike `normalise_theme_id()`, which degrades an unrecognised value to
+    this module's documented theme default, this degrades to `None` - and
+    `None` here means "no override, i.e. same as `theme`" (D-04), NOT
+    "degraded to the documented default". Copying normalise_theme_id()'s
+    degrade-to-default shape here would be wrong: there is no sensible
+    "default arrivals theme" to fall back to, only "defer to whatever the
+    base theme already is".
+
+    This makes `theme_arriving` the second key in this module, after
+    `wake_interval_s`, whose valid value set includes `None` - and the two
+    diverge on write (see CLEAR_THEME_ARRIVING and save_device_config()'s own
+    docstring): `wake_interval_s`'s `None` is permanent-until-a-new-value,
+    while `theme_arriving` must be genuinely clearable back to `None`.
+    """
+    if isinstance(value, str) and value in THEMES:
+        return value
+    return None
+
+
 def normalise_runway_id(value):
     """Same contract as normalise_theme_id(), against RUNWAYS/DEFAULT_RUNWAY_ID."""
     if isinstance(value, str) and value in RUNWAYS:
@@ -524,18 +566,24 @@ def normalise_wake_interval_s(value):
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns all eight keys with valid
-    values - `theme`, `tracked_runway`, `led_enabled`, `quiet_hours_enabled`,
-    `quiet_hours_start`, `quiet_hours_end`, `wake_interval_s`, and
-    `display_enabled` - via normalise_theme_id()/normalise_runway_id()/
-    normalise_led_enabled()/normalise_quiet_hours_enabled()/
-    normalise_quiet_hours_time()/normalise_wake_interval_s()/
-    normalise_display_enabled(), so a hostile or stale value on disk (e.g. a
-    path-traversal string, a numeric runway id, a non-bool led_enabled, a
-    malformed quiet-hours time, a hostile wake_interval_s, or a non-bool
-    display_enabled) never reaches a caller. `wake_interval_s` is the single
-    key whose valid value set includes `None`, meaning never-explicitly-set -
-    every other key always has a concrete default (D-09: `display_enabled`
+    empty dict rather than raising. Always returns all nine keys with valid
+    values - `theme`, `theme_arriving`, `tracked_runway`, `led_enabled`,
+    `quiet_hours_enabled`, `quiet_hours_start`, `quiet_hours_end`,
+    `wake_interval_s`, and `display_enabled` - via normalise_theme_id()/
+    normalise_theme_arriving()/normalise_runway_id()/normalise_led_enabled()/
+    normalise_quiet_hours_enabled()/normalise_quiet_hours_time()/
+    normalise_wake_interval_s()/normalise_display_enabled(), so a hostile or
+    stale value on disk (e.g. a path-traversal string, a numeric runway id, a
+    non-bool led_enabled, a malformed quiet-hours time, a hostile
+    wake_interval_s, an unregistered theme_arriving, or a non-bool
+    display_enabled) never reaches a caller. `theme_arriving` (D-04) is read
+    with `.get()`, so a `device_config.json` written before this phase - one
+    that has never carried the key - resolves to `None` with no migration
+    and no rewrite of the file on disk. `wake_interval_s` and
+    `theme_arriving` are the two keys whose valid value set includes `None`:
+    `wake_interval_s`'s `None` means never-explicitly-set, while
+    `theme_arriving`'s `None` means "no override, same as `theme`" - every
+    other key always has a concrete default (D-09: `display_enabled`
     defaults to `True`). Never raises.
     """
     try:
@@ -547,6 +595,7 @@ def load_device_config(state_dir):
         data = {}
     return {
         "theme": normalise_theme_id(data.get("theme")),
+        "theme_arriving": normalise_theme_arriving(data.get("theme_arriving")),
         "tracked_runway": normalise_runway_id(data.get("tracked_runway")),
         "led_enabled": normalise_led_enabled(data.get("led_enabled")),
         "quiet_hours_enabled": normalise_quiet_hours_enabled(data.get("quiet_hours_enabled")),
@@ -558,22 +607,23 @@ def load_device_config(state_dir):
 
 
 def save_device_config(
-    state_dir, theme=None, tracked_runway=None, led_enabled=None,
+    state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None,
 ):
-    """Validate and persist a new theme and/or tracked-runway id and/or
-    led_enabled flag and/or the three quiet-hours fields and/or
-    wake_interval_s and/or display_enabled.
+    """Validate and persist a new theme and/or theme_arriving override and/or
+    tracked-runway id and/or led_enabled flag and/or the three quiet-hours
+    fields and/or wake_interval_s and/or display_enabled.
 
     Each supplied (non-None) value is checked before anything is written:
     `theme`/`tracked_runway` against their registries with an explicit
     membership test, `led_enabled`/`quiet_hours_enabled`/`display_enabled`
     with an explicit `isinstance(..., bool)` type check (there is no
     registry for a boolean), `quiet_hours_start`/`quiet_hours_end` against
-    the `_HHMM_RE` shape gate, and `wake_interval_s` against the bounded-int
-    gate (`isinstance(value, int) and not isinstance(value, bool)`, then
-    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` inclusive). An
+    the `_HHMM_RE` shape gate, `wake_interval_s` against the bounded-int gate
+    (`isinstance(value, int) and not isinstance(value, bool)`, then
+    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` inclusive), and
+    `theme_arriving` against a three-state contract described below. An
     unknown/wrong-typed value raises `ValueError` naming both the bounds (for
     `wake_interval_s`) or the registry (for the others) and the rejected
     value - and leaves any pre-existing file byte-identical
@@ -589,6 +639,18 @@ def save_device_config(
     Question 2 (an empty numeric input means "leave unchanged", never
     "reject the save"), not an oversight.
 
+    `theme_arriving` (D-04/D-05) is the one field with a genuinely different,
+    three-state argument contract, because it must be clearable from the
+    Settings form (an unchecked arrivals-theme-override checkbox) in a way
+    `wake_interval_s` deliberately is not:
+      - `None` (the default): not supplied, carry the current on-disk value
+        forward - the same meaning `None` has for every other field here.
+      - `CLEAR_THEME_ARRIVING` (a distinct module-level sentinel, compared by
+        identity): explicitly clear the override back to `None` (meaning "no
+        override, same as `theme`").
+      - any other value: must be a `THEMES` member, or `ValueError` is raised
+        and nothing is written.
+
     Writes with the same tmp-write-then-os.replace() idiom
     server/poll_loop.py's save_poll_state() uses, including the except
     branch that removes a stray `.tmp` file before re-raising - a crash
@@ -598,6 +660,8 @@ def save_device_config(
     """
     if theme is not None and theme not in THEMES:
         raise ValueError("unknown theme id %r (expected one of %r)" % (theme, THEME_IDS))
+    if theme_arriving is not None and theme_arriving is not CLEAR_THEME_ARRIVING and theme_arriving not in THEMES:
+        raise ValueError("unknown theme_arriving id %r (expected None, CLEAR_THEME_ARRIVING, or one of %r)" % (theme_arriving, THEME_IDS))
     if tracked_runway is not None and tracked_runway not in RUNWAYS:
         raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
     if led_enabled is not None and not isinstance(led_enabled, bool):
@@ -621,8 +685,21 @@ def save_device_config(
         )
 
     current = load_device_config(state_dir)
+    # theme_arriving is the one field in this module with three write-time
+    # meanings instead of two (D-05): the sentinel clears to None, any other
+    # non-None value sets it, and None (the default, meaning "not supplied")
+    # carries the current on-disk value forward - the opposite of the
+    # resolution wake_interval_s deliberately took, because an unchecked
+    # arrivals-theme-override checkbox must genuinely clear the override.
+    if theme_arriving is CLEAR_THEME_ARRIVING:
+        new_theme_arriving = None
+    elif theme_arriving is not None:
+        new_theme_arriving = theme_arriving
+    else:
+        new_theme_arriving = current["theme_arriving"]
     new_config = {
         "theme": theme if theme is not None else current["theme"],
+        "theme_arriving": new_theme_arriving,
         "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
         "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
         "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],

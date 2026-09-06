@@ -16,7 +16,17 @@ import json
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
+# Phase 15 D-10 (15-05-PLAN.md): the one deliberate exception to this
+# package's own page-module-isolation convention (companion/pages/
+# __init__.py; see airlines_page.py's own precedent comment for the same
+# convention applied to server.plane imports). DELETE_BUTTON_TEXT is a
+# single locked-English string with identical meaning on both pages — the
+# rules list's per-row Delete button reuses it rather than minting a
+# second string, exactly as the plan directs. This does not create an
+# import cycle: airlines_page.py never imports config_page.py.
+from companion.pages.airlines_page import DELETE_BUTTON_TEXT
 from server import device_config, panel_format
+from server.plane import colour_rules
 
 # The single definition of this route prefix in the repository (06.4).
 # companion/app.py rebinds it (RUNWAY_IMAGE_ROUTE_PREFIX =
@@ -68,6 +78,27 @@ QUIET_HOURS_CHECKBOX_VALUE = "on"
 # own rationale exactly: shared by display_group()'s markup and
 # handle_post()'s validator so the two can never drift apart.
 DISPLAY_CHECKBOX_VALUE = "on"
+
+# Phase 15 D-05 (15-UI-SPEC.md Copywriting Contract): the arrivals-theme-
+# override checkbox's sole accepted submitted value - a fourth consumer of
+# the same absent-means-off idiom LED_CHECKBOX_VALUE/
+# QUIET_HOURS_CHECKBOX_VALUE/DISPLAY_CHECKBOX_VALUE already establish,
+# shared by theme_fieldset()'s markup and handle_post()'s validator so the
+# two can never drift apart.
+ARRIVING_CHECKBOX_VALUE = "on"
+# An element id, not a class - unlike the three checkboxes above, this one
+# is referenced by companion/static/style.css's `:has()` reveal selector,
+# which must target one specific control rather than a class three other
+# checkboxes on this page already share.
+THEME_ARRIVING_TOGGLE_ID = "theme-arriving-toggle"
+# The attribute-as-CSS-hook naming the revealed second (arrivals) chip
+# grid, following this app's existing data-dirty-section/
+# data-static-save-fallback/data-filter-group convention.
+ARRIVAL_GRID_ATTR = "data-arrival-grid"
+# Locked-English copy (15-UI-SPEC.md Copywriting Contract) - do not
+# paraphrase.
+THEME_ARRIVING_CHECKBOX_LABEL = "Use a different theme for arrivals"
+THEME_DIRECTION_LABEL = "Arrivals theme"
 
 # quick task 260901-re6: each settings group used to render a description
 # sentence above its control (THEME_SECTION_DESCRIPTION/
@@ -226,6 +257,64 @@ FLASH_POLL_FAILED = "poll_failed"
 # cooldown and both call `poll_loop.run_once()`.
 FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
 
+# Phase 15 D-10/D-11 (15-05-PLAN.md): the per-flight colour-rules editor's
+# route constants, mirroring how airlines_page.py owns RESOLVE_ROUTE/
+# MANUAL_DELETE_ROUTE_PREFIX/_SUFFIX and companion/app.py rebinds them
+# rather than re-typing the literals. Add and delete are immediate POSTs
+# on their own routes, outside SETTINGS_ROUTE and the settings form's
+# unsaved-changes dirty bar — a rule is a one-step immediate act, not a
+# pending edit.
+RULES_ADD_ROUTE = "/settings/rules/add"
+RULES_DELETE_ROUTE_PREFIX = "/settings/rules/"
+RULES_DELETE_ROUTE_SUFFIX = "/delete"
+
+# Locked-English copy (15-UI-SPEC.md Copywriting Contract, Rules
+# section) - verbatim, do not paraphrase.
+RULES_SECTION_HEADING = "Per-flight colour rules"
+RULES_SECTION_CAPTION = (
+    "Override the theme for one exact flight, aircraft, or carrier. Most "
+    "specific match wins — a callsign rule beats a hex rule, which beats "
+    "a prefix rule — and adding a key that's already in use replaces the "
+    "existing rule for it. Applies on the frame's next scheduled poll, "
+    "not immediately.")
+RULE_KIND_FIELD_LABEL = "Match by"
+RULE_VALUE_FIELD_LABEL = "Value"
+RULE_THEME_FIELD_LABEL = "Theme"
+RULE_ADD_BUTTON_TEXT = "Add rule"
+# An ordered mapping from each colour_rules.RULE_KINDS member to its
+# label - used by BOTH the add form's <option> text and the list's Kind
+# cell, so the two can never disagree (15-UI-SPEC.md: "never abbreviated
+# differently in the list than in the form").
+RULE_KIND_LABELS = {
+    colour_rules.RULE_KIND_CALLSIGN: "Callsign",
+    colour_rules.RULE_KIND_HEX: "ICAO24 hex",
+    colour_rules.RULE_KIND_PREFIX: "Callsign prefix",
+}
+RULE_VALUE_HINT = (
+    "Exact callsign (e.g. AFR1234), ICAO24 hex (e.g. 3944F2), or a "
+    "3-letter prefix (e.g. AFR) — matching the kind selected above.")
+RULES_EMPTY_HEADING = "No rules yet"
+RULES_EMPTY_BODY = (
+    "Add one above to give a specific flight, aircraft, or carrier its "
+    "own theme, regardless of direction.")
+# A trailing empty header for the delete column, matching
+# _manual_resolution_table_html()'s own trailing empty <th>.
+RULE_HEADERS = ("Kind", "Key", "Theme", "Added", "")
+
+# The seven flash keys this module's rule-add/rule-delete routes (owned by
+# companion/app.py, Task 2) can produce, defined here for the identical
+# reason FLASH_SAVED/FLASH_SAVE_FAILED/etc. above are: companion/app.py
+# rebinds each under its own FLASH_KEY_RULE_* name and owns the message
+# text/ARIA role, mirroring the FLASH_MANUAL_* rebinding pattern
+# airlines_page.py already establishes.
+FLASH_RULE_ADDED = "rule_added"
+FLASH_RULE_REPLACED = "rule_replaced"
+FLASH_RULE_KEY_INVALID = "rule_key_invalid"
+FLASH_RULE_REGISTRY_FULL = "rule_registry_full"
+FLASH_RULE_SAVE_FAILED = "rule_save_failed"
+FLASH_RULE_DELETED = "rule_deleted"
+FLASH_RULE_DELETE_FAILED = "rule_delete_failed"
+
 
 def _palette_hex(index):
     """`#RRGGBB`, computed from `server.panel_format.PALETTE_RGB`'s flat
@@ -238,7 +327,64 @@ def _palette_hex(index):
     return "#%02X%02X%02X" % (r, g, b)
 
 
-def theme_fieldset(current_theme_id):
+def _theme_chip_grid_html(field_name, selected_theme_id, extra_class="", extra_attr=""):
+    """Phase 15 D-05: the chip-grid renderer `theme_fieldset()` calls
+    TWICE — once for the always-present departures grid
+    (`field_name="theme"`, no `extra_class`/`extra_attr`, so it renders
+    byte-identical to the pre-Phase-14 markup: `<div class=
+    "theme-chip-grid">`), once for the revealed arrivals grid
+    (`field_name="theme_arriving"`, `extra_class="theme-chip-grid--
+    arrivals"`, `extra_attr=ARRIVAL_GRID_ATTR`). Factored out of
+    `theme_fieldset()`'s old single inline loop so the two grids can never
+    drift apart: they differ ONLY in the radio group's `name`, which chip
+    is marked `checked`/`--selected`, and this grid's own wrapper class/
+    attribute — everything else (the hidden-radio selectable-card idiom,
+    the `/theme-preview/{id}.png` source, the `_palette_hex()` swatch
+    dots, the check glyph) is one shared definition.
+    """
+    chips = []
+    for theme_id in device_config.THEME_IDS:
+        selected = theme_id == selected_theme_id
+        checked = " checked" if selected else ""
+        chip_class = (
+            "theme-chip theme-chip--selected" if selected else "theme-chip")
+        theme = device_config.THEMES[theme_id]
+        label = device_config.theme_label(theme_id)
+        escaped_id = escape_html(theme_id)
+        departing_hex = _palette_hex(theme["departing_index"])
+        arriving_hex = _palette_hex(theme["arriving_index"])
+        chips.append(
+            '<label class="%s">'
+            '<input type="radio" name="%s" value="%s" class="visually-hidden"%s>'
+            '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
+            'width="320" height="120" loading="lazy" style="background:%s">'
+            '<span class="theme-chip__body">'
+            '<span class="theme-chip__name">%s</span>'
+            '<span class="theme-chip__swatches" aria-hidden="true">'
+            '<span class="theme-chip__dot" style="background:%s"></span>'
+            '<span class="theme-chip__dot" style="background:%s"></span>'
+            "</span>"
+            "</span>"
+            '<span class="theme-chip__check">%s<span class="visually-hidden">Selected</span></span>'
+            "</label>"
+            % (
+                chip_class, escape_html(field_name), escaped_id, checked,
+                THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
+                escape_html(THEME_PREVIEW_ALT_TEMPLATE % label),
+                escape_html(departing_hex),
+                escape_html(label),
+                escape_html(departing_hex), escape_html(arriving_hex),
+                layout.icon_html("icon-check"),
+            )
+        )
+    grid_class = "theme-chip-grid"
+    if extra_class:
+        grid_class = grid_class + " " + extra_class
+    attr_html = (" %s" % extra_attr) if extra_attr else ""
+    return '<div class="%s"%s>%s</div>' % (grid_class, attr_html, "".join(chips))
+
+
+def theme_fieldset(current_theme_id, current_theme_arriving=None):
     """D-04: a read-only theme status block when exactly one theme is
     registered (`len(device_config.THEME_IDS) == 1`) — a one-option radio
     group has no real decision value. Falls back to the editable D-01
@@ -283,6 +429,20 @@ def theme_fieldset(current_theme_id):
     UIR-07's lesson) so the browser reserves the correct box before the
     image arrives, and `loading="lazy"` keeps below-the-fold chips off
     the critical path (mirroring the Airlines gallery's own precedent).
+
+    Phase 15 D-05: `current_theme_arriving` (an id or `None`, defaulting
+    to `None` so every pre-Phase-14 call site keeps working unchanged)
+    extends the multi-theme branch with a `settings-checkbox` toggle plus
+    a SECOND, identical chip grid for the arrivals override — both always
+    rendered in the HTML (the CSS-only `:has()` reveal in
+    companion/static/style.css hides the second grid when the box is
+    unchecked; a browser without `:has()` support just always shows both,
+    denser but never broken). The single-theme read-only branch above is
+    untouched: a one-option "choice" has no arrivals override worth
+    offering either. The second grid pre-selects the EFFECTIVE arrivals
+    theme — `current_theme_arriving` when set, otherwise the same
+    `current_theme_id` the first grid has selected — so an operator who
+    ticks the box starts from the theme already in use, not from nothing.
     """
     caption_html = (
         '<p class="text-label section-caption">%s</p>'
@@ -313,51 +473,41 @@ def theme_fieldset(current_theme_id):
             escape_html(device_config.theme_label(theme_id)),
         )
 
-    chips = []
-    for theme_id in device_config.THEME_IDS:
-        selected = theme_id == current_theme_id
-        checked = " checked" if selected else ""
-        chip_class = (
-            "theme-chip theme-chip--selected" if selected else "theme-chip")
-        theme = device_config.THEMES[theme_id]
-        label = device_config.theme_label(theme_id)
-        escaped_id = escape_html(theme_id)
-        departing_hex = _palette_hex(theme["departing_index"])
-        arriving_hex = _palette_hex(theme["arriving_index"])
-        chips.append(
-            '<label class="%s">'
-            '<input type="radio" name="theme" value="%s" class="visually-hidden"%s>'
-            '<img class="theme-chip__preview" src="%s%s.png" alt="%s" '
-            'width="320" height="120" loading="lazy" style="background:%s">'
-            '<span class="theme-chip__body">'
-            '<span class="theme-chip__name">%s</span>'
-            '<span class="theme-chip__swatches" aria-hidden="true">'
-            '<span class="theme-chip__dot" style="background:%s"></span>'
-            '<span class="theme-chip__dot" style="background:%s"></span>'
-            "</span>"
-            "</span>"
-            '<span class="theme-chip__check">%s<span class="visually-hidden">Selected</span></span>'
-            "</label>"
-            % (
-                chip_class, escaped_id, checked,
-                THEME_PREVIEW_ROUTE_PREFIX, escaped_id,
-                escape_html(THEME_PREVIEW_ALT_TEMPLATE % label),
-                escape_html(departing_hex),
-                escape_html(label),
-                escape_html(departing_hex), escape_html(arriving_hex),
-                layout.icon_html("icon-check"),
-            )
-        )
+    first_grid = _theme_chip_grid_html("theme", current_theme_id)
+    checkbox_checked = " checked" if current_theme_arriving is not None else ""
+    effective_arriving = (
+        current_theme_arriving if current_theme_arriving is not None
+        else current_theme_id)
+    second_grid = _theme_chip_grid_html(
+        "theme_arriving", effective_arriving,
+        extra_class="theme-chip-grid--arrivals", extra_attr=ARRIVAL_GRID_ATTR)
+    # Only the revealed (second) grid gets a label: before the checkbox
+    # exists there is exactly one grid and it needs no label (unchanged
+    # today); once revealed, the <h2>Theme</h2> heading plus the
+    # checkbox's own "...for arrivals" wording already disambiguate the
+    # first grid as the default/departures one — a second "Departures"
+    # label on the first grid would be an extra line of chrome that
+    # wording already makes redundant (15-UI-SPEC.md Section Anatomy §1).
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">Theme</h2>'
         "%s"
-        '<div class="theme-chip-grid">%s</div>'
+        "%s"
+        '<label class="settings-checkbox">'
+        '<input type="checkbox" name="theme_arriving_enabled" id="%s" value="%s"%s> %s'
+        "</label>"
+        '<p class="text-label theme-direction-label">%s</p>'
+        "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Theme"),
         caption_html,
-        "".join(chips),
+        first_grid,
+        escape_html(THEME_ARRIVING_TOGGLE_ID),
+        escape_html(ARRIVING_CHECKBOX_VALUE), checkbox_checked,
+        escape_html(THEME_ARRIVING_CHECKBOX_LABEL),
+        escape_html(THEME_DIRECTION_LABEL),
+        second_grid,
     )
 
 
@@ -882,9 +1032,264 @@ def poll_trigger_section(cooldown_remaining):
     )
 
 
+# ---------------------------------------------------------------------
+# Phase 15 D-10/D-11 (15-05-PLAN.md): the per-flight colour-rules editor —
+# an add form (its own immediate POST route) plus an always-present list
+# (empty state, or a cards-then-table pairing) with a plain per-row Delete
+# button (its own immediate POST route). Mirrors airlines_page.py's own
+# manual-resolutions management-list decomposition one-for-one: a delete-
+# action URL builder, a row/table/card-list renderer trio, and a section
+# assembler.
+# ---------------------------------------------------------------------
+
+
+def _rule_delete_action(kind, value):
+    """The delete form's `action` attribute for `(kind, value)` — the
+    two-segment shape `/settings/rules/{kind}/{value}/delete` (D-09's
+    store key is `(kind, value)`, so the delete action must identify
+    both). Both segments are already-normalised, already-allowlisted
+    uppercase alphanumerics by the time a row reaches this function
+    (`colour_rules.rule_rows()`'s own contract, re-checked again at read
+    time by `load_colour_rules()`), so `escape_html()` on each segment is
+    the only encoding needed — mirrors `airlines_page._manual_delete_
+    action()`'s own one-string-builder-for-both-renderers discipline, so
+    the desktop `<tr>` and the mobile `<li>` can never diverge into
+    building two different strings for the same row.
+    """
+    return "%s%s/%s%s" % (
+        RULES_DELETE_ROUTE_PREFIX, escape_html(kind), escape_html(value),
+        RULES_DELETE_ROUTE_SUFFIX,
+    )
+
+
+def _rule_add_form_html():
+    """The add form (D-10, D-11, 15-UI-SPEC.md's Add-Form Shape): a
+    `<form method="post">` targeting `RULES_ADD_ROUTE`, three
+    `<div class="rule-add-form__field">` blocks in Match-by/Value/Theme
+    order and a submit button — a column stack on every viewport, no
+    side-by-side arrangement (a three-field inline row would be the
+    page's first horizontally-arranged settings form).
+
+    Field 1 (Match by): a native `<select name="rule_kind">` with one
+    `<option>` per `colour_rules.RULE_KINDS` member using `RULE_KIND_
+    LABELS` text, no blank placeholder option — the first listed option
+    is the implicit default, matching every other `<select>` on this
+    page.
+
+    Field 2 (Value): a plain `<input type="text" name="rule_key"
+    maxlength="8" required autocomplete="off">` with **no** `pattern`
+    attribute — the server is the single source of truth for per-kind
+    format validation (a single input serving three kinds cannot express
+    a per-kind pattern without JavaScript, which this phase does not
+    add) — followed by a `.section-caption`-styled hint line
+    (`RULE_VALUE_HINT`), not a placeholder.
+
+    Field 3 (Theme): a native `<select name="rule_theme_id">` with one
+    `<option>` per `device_config.THEME_IDS` entry (18 today), no swatch
+    inside the `<option>` (a native `<select>` cannot render inline
+    coloured chips without JavaScript or a full custom-select rebuild).
+    """
+    kind_options = "".join(
+        '<option value="%s">%s</option>'
+        % (escape_html(kind), escape_html(RULE_KIND_LABELS[kind]))
+        for kind in colour_rules.RULE_KINDS
+    )
+    theme_options = "".join(
+        '<option value="%s">%s</option>'
+        % (escape_html(theme_id), escape_html(device_config.theme_label(theme_id)))
+        for theme_id in device_config.THEME_IDS
+    )
+    return (
+        '<form method="post" action="%s" class="rule-add-form">'
+        '<div class="rule-add-form__field">'
+        '<label for="rule-kind">%s</label>'
+        '<select id="rule-kind" name="rule_kind" required>%s</select>'
+        "</div>"
+        '<div class="rule-add-form__field">'
+        '<label for="rule-key">%s</label>'
+        '<input type="text" id="rule-key" name="rule_key" maxlength="8" '
+        'required autocomplete="off">'
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+        '<div class="rule-add-form__field">'
+        '<label for="rule-theme">%s</label>'
+        '<select id="rule-theme" name="rule_theme_id" required>%s</select>'
+        "</div>"
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (
+        RULES_ADD_ROUTE,
+        escape_html(RULE_KIND_FIELD_LABEL), kind_options,
+        escape_html(RULE_VALUE_FIELD_LABEL),
+        escape_html(RULE_VALUE_HINT),
+        escape_html(RULE_THEME_FIELD_LABEL), theme_options,
+        escape_html(RULE_ADD_BUTTON_TEXT),
+    )
+
+
+def _rule_theme_swatch_html(theme_id):
+    """One `<span class="theme-swatch__chip">` followed by the theme's
+    label text — reuses the existing swatch-dot class verbatim (a third
+    consumer, after `theme_fieldset()`'s read-only single-theme row and
+    the theme-chip-grid's own dots), computed via `_palette_hex()`, never
+    a hardcoded hex literal.
+    """
+    theme_hex = _palette_hex(device_config.THEMES[theme_id]["departing_index"])
+    return (
+        '<span class="theme-swatch__chip" style="background:%s"></span>%s'
+    ) % (escape_html(theme_hex), escape_html(device_config.theme_label(theme_id)))
+
+
+def _rule_row_html(index, kind, value, theme_id, created_at, now):
+    """One `<tr>` for the rules table: `row`/`row-alt` by index parity,
+    Kind/Key/Theme/Added/Delete cells — mirrors `airlines_page._manual_
+    resolution_row_html()`'s own shape. The Kind cell is plain escaped
+    text from `RULE_KIND_LABELS`, never abbreviated differently from the
+    add form and never colour-coded (colour is reserved for the swatch
+    column only). The Key cell carries `class="mono"`, escaped verbatim,
+    uppercase as stored. `created_at` renders through `layout.concise_
+    timestamp_html()`, interpolated verbatim as already-safe markup —
+    never re-escaped.
+    """
+    row_class = "row-alt" if index % 2 else "row"
+    delete_form = (
+        '<form method="post" action="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (_rule_delete_action(kind, value), DELETE_BUTTON_TEXT)
+    cells = (
+        "<td>%s</td>" % escape_html(RULE_KIND_LABELS.get(kind, kind)),
+        '<td class="mono">%s</td>' % escape_html(value),
+        "<td>%s</td>" % _rule_theme_swatch_html(theme_id),
+        "<td>%s</td>" % layout.concise_timestamp_html(created_at, now, fallback=""),
+        "<td>%s</td>" % delete_form,
+    )
+    return '<tr class="%s">%s</tr>' % (row_class, "".join(cells))
+
+
+def _rules_table_html(rows, now):
+    """The desktop (`>=960px`) rules table, hand-rolled to match
+    `airlines_page._manual_resolution_table_html()`'s own
+    `.data-table-wrap`/`.data-table`/`thead`/`tbody` structure.
+    """
+    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in RULE_HEADERS)
+    body_rows = [
+        _rule_row_html(index, kind, value, theme_id, created_at, now)
+        for index, (kind, value, theme_id, created_at) in enumerate(rows)
+    ]
+    return (
+        '<div class="data-table-wrap">'
+        '<table class="data-table">'
+        "<thead><tr>%s</tr></thead>"
+        "<tbody>%s</tbody>"
+        "</table>"
+        "</div>"
+    ) % (header_cells, "".join(body_rows))
+
+
+def _rules_cards_html(rows, now):
+    """The mobile (`<960px`) `.data-cards` representation — one
+    `<li class="data-card">` per rule, no `data-filter-text`/
+    `data-filter-group` attributes (this list has no filter bar, mirroring
+    the manual-resolutions list's own precedent). Returns `""` for an
+    empty list, matching `_rules_table_html()`'s own no-chrome-with-no-data
+    rule (never called on the empty branch in practice — `_rules_section_
+    html()` renders the empty state instead — but kept total for the same
+    reason `_manual_resolution_cards_html()` is).
+    """
+    if not rows:
+        return ""
+    items = []
+    for kind, value, theme_id, created_at in rows:
+        primary = (
+            '<div class="data-card__primary">'
+            '<span class="cell-primary mono">%s</span>'
+            '<span class="data-card__value">%s</span>'
+            "</div>"
+        ) % (escape_html(value), _rule_theme_swatch_html(theme_id))
+        kind_secondary = (
+            '<div class="data-card__secondary">'
+            '<span class="data-card__label">%s</span>%s'
+            "</div>"
+        ) % (escape_html(RULE_HEADERS[0]), escape_html(RULE_KIND_LABELS.get(kind, kind)))
+        added_secondary = (
+            '<div class="data-card__secondary">'
+            '<span class="data-card__label">%s</span>%s'
+            "</div>"
+        ) % (
+            escape_html(RULE_HEADERS[3]),
+            layout.concise_timestamp_html(created_at, now, fallback=""),
+        )
+        delete_form = (
+            '<form method="post" action="%s">'
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (_rule_delete_action(kind, value), DELETE_BUTTON_TEXT)
+        items.append(
+            '<li class="data-card">%s%s%s%s</li>'
+            % (primary, kind_secondary, added_secondary, delete_form))
+    return '<ul class="data-cards">%s</ul>' % "".join(items)
+
+
+def _rules_section_html(ctx):
+    """The per-flight colour-rules editor's own `<section class=
+    "page-section">` (D-10, D-11): heading, one caption, the add form,
+    then either `layout.empty_state()` or the card list followed by the
+    table wrapper.
+
+    **Placement decision** (15-UI-SPEC.md Section Anatomy §2's Open
+    Question 1, confirmed at plan time): this section renders immediately
+    after `</form>` closes, taking the slot the Poll section used to
+    occupy — Poll itself moves one slot later. HTML forbids nesting a
+    `<form>` inside another `<form>`, and the add form plus each delete
+    row are real `<form>` elements, so this section cannot be a
+    descendant of `<form id=SETTINGS_FORM_ID>`. Every existing group's DOM
+    nesting stays byte-identical; only the top-level ordering of the two
+    sections after the form changes. This section carries no
+    `DIRTY_SECTION_ATTR` — it is not part of the tracked settings form,
+    exactly like the Poll section, whose action is likewise immediate.
+
+    Reads the rules registry from `ctx["colour_rules"]` (Task 2 threads
+    this in, read fresh per request from `colour_rules.load_colour_
+    rules(state_dir)` — never the poll-cycle process cache), falling back
+    to the empty registry shape when the key is absent so `render({})`
+    still works.
+    """
+    registry = ctx.get("colour_rules")
+    if not isinstance(registry, dict):
+        registry = {kind: {} for kind in colour_rules.RULE_KINDS}
+    now = ctx.get("now")
+    rows = colour_rules.rule_rows(registry)
+
+    heading = '<h2 class="text-heading">%s</h2>' % escape_html(RULES_SECTION_HEADING)
+    caption = (
+        '<p class="text-label section-caption">%s</p>'
+        % escape_html(RULES_SECTION_CAPTION))
+    add_form = _rule_add_form_html()
+
+    if not rows:
+        body = layout.empty_state(RULES_EMPTY_HEADING, RULES_EMPTY_BODY)
+        return '<section class="page-section">%s%s%s%s</section>' % (
+            heading, caption, add_form, body)
+
+    # Cards render before the table — style.css's `.data-cards ~
+    # .data-table-wrap` sibling-combinator toggle depends on this exact
+    # DOM order (mirrors airlines_page._manual_resolutions_section_html()'s
+    # own load-bearing warning; do not reorder these two calls).
+    cards_html = _rules_cards_html(rows, now)
+    table_html = _rules_table_html(rows, now)
+    return '<section class="page-section">%s%s%s%s%s</section>' % (
+        heading, caption, add_form, cards_html, table_html)
+
+
 def render(ctx):
     device_cfg = ctx.get("device_config") or {}
     current_theme_id = device_cfg.get("theme", device_config.DEFAULT_THEME_ID)
+    # Phase 15 D-04: an explicit `.get()` with no `or` fallback and no
+    # default — `None` is a meaningful value here (no arrivals-theme
+    # override, same as the departures theme), the same reasoning
+    # current_wake_interval_s's own read below already carries.
+    current_theme_arriving = device_cfg.get("theme_arriving")
     current_runway_id = device_cfg.get(
         "tracked_runway", device_config.DEFAULT_RUNWAY_ID)
     current_led_enabled = device_cfg.get(
@@ -959,6 +1364,18 @@ def render(ctx):
         "</div>"
     ) % (escape_html(DIRTY_BAR_INITIAL_TEXT), SETTINGS_FORM_ID)
 
+    # Phase 15 D-10 (15-05-PLAN.md, 15-UI-SPEC.md Section Anatomy §2's
+    # Open Question 1, confirmed): the rules section renders immediately
+    # after </form> closes, taking the slot the Poll section used to
+    # occupy — Poll itself moves one slot later, below. See
+    # _rules_section_html()'s own docstring for the full reasoning (HTML
+    # forbids nesting a <form> inside another <form>, and the add form
+    # plus each delete row are real <form> elements, so this section
+    # cannot be a descendant of <form id=SETTINGS_FORM_ID>). Every
+    # existing group's DOM nesting above stays byte-identical; only the
+    # top-level ordering of the two sections after the form changes.
+    rules_section_html = _rules_section_html(ctx)
+
     return (
         layout.page_header("Settings")
         + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
@@ -970,6 +1387,7 @@ def render(ctx):
         "%s"
         '<button type="submit" %s>Save settings</button>'
         "</form>"
+        "%s"
         '<section class="page-section">'
         '<h2 class="text-heading">Poll</h2>'
         "%s"
@@ -978,7 +1396,7 @@ def render(ctx):
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
-        theme_fieldset(current_theme_id),
+        theme_fieldset(current_theme_id, current_theme_arriving),
         runway_fieldset(current_runway_id, ctx.get("runway_images") or ()),
         led_group(current_led_enabled),
         quiet_hours_group(
@@ -986,6 +1404,7 @@ def render(ctx):
         wake_interval_group(current_wake_interval_s),
         display_group(current_display_enabled),
         STATIC_SAVE_FALLBACK_ATTR,
+        rules_section_html,
         poll_trigger_section(cooldown_remaining),
         dirty_bar_html,
     )
@@ -1096,9 +1515,24 @@ def handle_post(form, ctx):
     display-specific flash message exists — saving reuses FLASH_SAVED/
     FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's/12-UI-SPEC.md's
     Copywriting Contract.
+
+    Phase 15 D-04/D-05 add two more form fields, `theme_arriving_enabled`
+    (the arrivals-override checkbox) and `theme_arriving` (the second
+    grid's selected theme id), with a genuinely different resolution from
+    every other checkbox above: `theme_arriving` is validated by the same
+    membership test `theme` uses, then the CHECKBOX field alone (never
+    `theme_arriving`'s presence) decides whether the validated id is
+    persisted or the override is cleared via
+    `device_config.CLEAR_THEME_ARRIVING` — see the inline comment at that
+    branch for why keying off either `theme_arriving`'s presence or `None`
+    would silently break the clear path. The result is passed as one more
+    keyword argument on the same, still-singular persistence call below;
+    the all-or-nothing rejection contract is unchanged.
     """
     state_dir = ctx["state_dir"]
     submitted_theme = form.get("theme")
+    submitted_theme_arriving = form.get("theme_arriving")
+    submitted_theme_arriving_enabled = form.get("theme_arriving_enabled")
     submitted_runway = form.get("tracked_runway")
     submitted_led = form.get("led_enabled")
     submitted_qh_enabled = form.get("quiet_hours_enabled")
@@ -1109,7 +1543,29 @@ def handle_post(form, ctx):
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
         return FLASH_SAVE_FAILED
+    if (
+        submitted_theme_arriving is not None
+        and submitted_theme_arriving not in device_config.THEME_IDS
+    ):
+        return FLASH_SAVE_FAILED
     if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
+        return FLASH_SAVE_FAILED
+    # Phase 15 D-05: keyed on the CHECKBOX field, never on
+    # theme_arriving's presence. D-05 requires the second (arrivals) grid
+    # to always be rendered for no-JS correctness, which means
+    # theme_arriving is essentially ALWAYS present in a real browser
+    # submission with a valid id — a branch keyed on that field's
+    # presence would therefore never fire the clear path. The checkbox is
+    # the only signal that distinguishes "set" from "clear". `None` is
+    # not the clear value either: `None` already means "not supplied,
+    # carry forward" for every parameter of this write path including
+    # this one, so passing it here would make a partial-field save
+    # silently wipe a previously-set override.
+    if submitted_theme_arriving_enabled is None:
+        theme_arriving = device_config.CLEAR_THEME_ARRIVING
+    elif submitted_theme_arriving_enabled == ARRIVING_CHECKBOX_VALUE:
+        theme_arriving = submitted_theme_arriving
+    else:
         return FLASH_SAVE_FAILED
     if submitted_led is None:
         led_enabled = False
@@ -1139,7 +1595,8 @@ def handle_post(form, ctx):
 
     try:
         device_config.save_device_config(
-            state_dir, theme=submitted_theme, tracked_runway=submitted_runway,
+            state_dir, theme=submitted_theme, theme_arriving=theme_arriving,
+            tracked_runway=submitted_runway,
             led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
             quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
             wake_interval_s=wake_interval_s, display_enabled=display_enabled)

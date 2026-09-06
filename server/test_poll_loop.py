@@ -98,7 +98,14 @@ if REPO_ROOT not in sys.path:
 # 13-05 Task 2: +2 (D-14's clear_resolved_unresolved_prefix() cleanup call:
 # removing a now-resolvable prefix's entry, and doing so independently of
 # route_source - the fresh_hit case Pitfall 2 warns about) - 62 + 2.
-EXPECTED_CHECK_COUNT = 64
+# 15-03 Task 2: +6 (wiring colour_rules.resolve_effective_theme_id() into
+# run_once()'s two flight-displaying render branches, D-13: the
+# both-branches battery-transition invariant; the three flight-less call
+# sites - nothing-ever-detected, the held branch's own empty-state site,
+# and the hold early-return - each proven to ignore a matching rule and an
+# arrivals override; direction sensitivity through the real loop; and the
+# per-cycle registry-priming proof) - 64 + 6.
+EXPECTED_CHECK_COUNT = 70
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -486,6 +493,7 @@ def main():
         # --- quick task 260827-oz9: cross-cycle persistence of the
         # unresolved-ICAO-prefix registry --------------------------------
 
+        import server.plane.colour_rules as colour_rules
         import server.plane.enrich as enrich
         import server.plane.manual_resolutions as manual_resolutions
 
@@ -2634,6 +2642,297 @@ def main():
                 "'fresh_hit' (adsbdb answered) - a route_source-gated implementation would fail exactly this "
                 "check and no other (13-RESEARCH.md Pitfall 2)",
                 _clear_resolved_unresolved_prefix_is_independent_of_route_source,
+            )
+
+            # --- plan 15-03: wire colour_rules.resolve_effective_theme_id()
+            # into run_once()'s two flight-displaying render branches (D-13),
+            # and prime the registry cache once per cycle. 15-VALIDATION.md
+            # rows 8 and 9. -----------------------------------------------
+
+            # 51. The both-branches invariant (row 8) - the plan's headline
+            # proof. A rule configured to match the displayed flight's own
+            # callsign must produce the SAME effective_theme on the cycle
+            # that first displays it (the flight-detected branch) and on a
+            # later cycle that redraws the identical flight purely because
+            # the battery-low icon flipped (the held/re-render branch) - and
+            # that theme must be the rule's, not the base theme, so the
+            # check would still fail if both branches were wrong in the same
+            # direction.
+            def _battery_transition_never_flips_effective_theme_for_the_same_flight():
+                import server.plane.render as render
+
+                d13_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d13-both-")
+                try:
+                    colour_rules.add_rule(d13_dir, colour_rules.RULE_KIND_CALLSIGN, "BLK7777", "black")
+
+                    # Spy on render.build_canvas itself (check 5's own pattern)
+                    # so this check asserts on the theme_id ACTUALLY PASSED TO
+                    # THE RENDER CALL, not merely on run_once()'s reported
+                    # effective_theme metadata - a call site that silently
+                    # diverges from its own resolved effective_theme_id (e.g.
+                    # a stray theme_id=theme_id at the build_canvas() call
+                    # while the resolver call above it is left in place) would
+                    # still report the correct metadata but paint the wrong
+                    # colour, and only a spy on the real call site catches
+                    # that.
+                    captured_theme_ids = []
+                    original = render.build_canvas
+
+                    def _spy(flight, state, **kwargs):
+                        captured_theme_ids.append(kwargs.get("theme_id"))
+                        return original(flight, state, **kwargs)
+
+                    poll_loop.render.build_canvas = _spy
+                    try:
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        result1 = poll_loop.run_once(snapshot=_snapshot("d13001", "BLK7777", CLIMB), state_dir=d13_dir, geofence=GEOFENCE_PATH)
+
+                        # Change ONLY the battery state - crossing
+                        # BATTERY_LOW_THRESHOLD_MV forces the held branch's
+                        # guarded re-render of the SAME flight from
+                        # current_route, with nothing about the flight itself
+                        # changing.
+                        _write_battery_state(d13_dir, 3000)
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        result2 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=d13_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.render.build_canvas = original
+
+                    if len(captured_theme_ids) != 2:
+                        return False, (
+                            "expected exactly 2 render.build_canvas() calls across the two cycles (one per "
+                            "branch), captured %r" % (captured_theme_ids,)
+                        )
+                    rendered_theme_1, rendered_theme_2 = captured_theme_ids
+
+                    for label, result, rendered_theme in (
+                        ("the flight-detected branch", result1, rendered_theme_1),
+                        ("the held/re-render branch", result2, rendered_theme_2),
+                    ):
+                        if result.get("effective_theme") != rendered_theme:
+                            return False, (
+                                "%s reported effective_theme=%r but actually called render.build_canvas() with "
+                                "theme_id=%r - the reported metadata and the real render call must never "
+                                "diverge" % (label, result.get("effective_theme"), rendered_theme)
+                            )
+
+                    if rendered_theme_2 != rendered_theme_1:
+                        return False, (
+                            "a battery-icon repaint of the SAME flight (BLK7777) changed the theme_id actually "
+                            "passed to render.build_canvas() from %r to %r - the held/re-render branch must "
+                            "render with the IDENTICAL theme the flight-detected branch already used (D-13)"
+                            % (rendered_theme_1, rendered_theme_2)
+                        )
+                    if rendered_theme_1 != "black":
+                        return False, (
+                            "render.build_canvas() was called with theme_id=%r on both cycles, expected the "
+                            "matching rule's theme 'black' - not the base theme, so both branches must "
+                            "genuinely consult the same rule" % (rendered_theme_1,)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(d13_dir, ignore_errors=True)
+            check(
+                "a battery-icon repaint of the same flight (the held/re-render branch) reports the identical "
+                "effective_theme the flight-detected branch already reported, and both are the matching rule's "
+                "theme rather than the base theme - proving a battery-icon repaint can never flip the panel's "
+                "colour (D-13, 15-VALIDATION.md row 8)",
+                _battery_transition_never_flips_effective_theme_for_the_same_flight,
+            )
+
+            # 52. The four flight-less call sites (row 9), case 1 of 3: a
+            # cycle that has never detected anything at all (the
+            # nothing-ever-detected `else` branch) reports the base theme,
+            # even with a matching rule and an arrivals override configured.
+            def _nothing_ever_detected_ignores_rule_and_override():
+                b1_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d13-flightless-a-")
+                try:
+                    colour_rules.add_rule(b1_dir, colour_rules.RULE_KIND_CALLSIGN, "SNK4444", "black")
+                    device_config.save_device_config(b1_dir, theme_arriving="yellow")
+
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=b1_dir, geofence=GEOFENCE_PATH)
+                    if result.get("effective_theme") != "white":
+                        return False, (
+                            "a cycle that has never detected anything reported effective_theme=%r, expected the "
+                            "base theme 'white' even with a rule and an arrivals override configured (D-09)"
+                            % (result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(b1_dir, ignore_errors=True)
+            check(
+                "the nothing-ever-detected empty-state call site reports effective_theme == the base theme, "
+                "never consulting a configured rule or the arrivals override (D-09, 15-VALIDATION.md row 9)",
+                _nothing_ever_detected_ignores_rule_and_override,
+            )
+
+            # 53. The four flight-less call sites (row 9), case 2 of 3: the
+            # held branch's OWN empty-state call site - reached when a flight
+            # is persisted as `last_flight` but its `confirmed_state` never
+            # resolved (the vertical-rate deadband) - reports the base
+            # theme, even with a rule matching that very flight's own
+            # callsign.
+            def _held_branch_with_no_confirmed_state_ignores_rule_and_override():
+                b2_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d13-flightless-b-")
+                try:
+                    colour_rules.add_rule(b2_dir, colour_rules.RULE_KIND_CALLSIGN, "SNK5555", "black")
+                    device_config.save_device_config(b2_dir, theme_arriving="yellow")
+
+                    # First cycle: baro_rate=0 sits inside runway_config's
+                    # deadband, so confirmed_state stays None - render_state
+                    # is "empty" and last_confirmed_state persists as None,
+                    # but last_flight IS persisted.
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    poll_loop.run_once(snapshot=_snapshot("d13005", "SNK5555", 0), state_dir=b2_dir, geofence=GEOFENCE_PATH)
+                    state_after_1 = poll_loop.load_poll_state(b2_dir)
+                    if state_after_1.get("last_confirmed_state") is not None:
+                        return False, (
+                            "test setup did not produce an unconfirmed first detection: last_confirmed_state=%r"
+                            % (state_after_1.get("last_confirmed_state"),)
+                        )
+
+                    # Second cycle: nothing detected. Force the held branch's
+                    # transition gate open via a battery change, exactly as
+                    # the both-branches invariant does, so its empty-state
+                    # call site actually runs this cycle.
+                    _write_battery_state(b2_dir, 3000)
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=b2_dir, geofence=GEOFENCE_PATH)
+                    if result.get("effective_theme") != "white":
+                        return False, (
+                            "the held branch's empty-state call site (unconfirmed flight, battery transition) "
+                            "reported effective_theme=%r, expected the base theme 'white' - a rule matching the "
+                            "persisted flight's own callsign must never leak onto this call site (D-09)"
+                            % (result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(b2_dir, ignore_errors=True)
+            check(
+                "the held branch's own empty-state call site (a persisted flight whose confirmed_state never "
+                "resolved) reports effective_theme == the base theme, even though a rule configured to match "
+                "that flight's own callsign is present (D-09, 15-VALIDATION.md row 9)",
+                _held_branch_with_no_confirmed_state_ignores_rule_and_override,
+            )
+
+            # 54. The four flight-less call sites (row 9), case 3 of 3: both
+            # hold screens - driven here via display-off - report the base
+            # theme in the hold early-return's OWN result dict, even with a
+            # matching rule, an arrivals override, and a pre-hold flight
+            # already persisted in poll_state.json.
+            def _hold_early_return_ignores_rule_and_override():
+                b3_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d13-flightless-c-")
+                try:
+                    colour_rules.add_rule(b3_dir, colour_rules.RULE_KIND_CALLSIGN, "SNK6666", "black")
+                    device_config.save_device_config(b3_dir, theme_arriving="yellow", display_enabled=False)
+                    poll_loop.save_poll_state(b3_dir, {
+                        "last_flight": {"hex": "d13006", "callsign": "SNK6666"},
+                        "last_confirmed_state": "departing",
+                    })
+
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=b3_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "display_off":
+                        return False, "test setup did not enter the display-off hold: state=%r" % (result.get("state"),)
+                    if result.get("effective_theme") != "white":
+                        return False, (
+                            "the hold early-return's result dict reported effective_theme=%r, expected the base "
+                            "theme 'white' - a rule matching the pre-hold flight's own callsign must never leak "
+                            "onto a hold screen (D-09)" % (result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(b3_dir, ignore_errors=True)
+            check(
+                "the hold early-return's result dict reports effective_theme == the base theme under "
+                "display-off, even with a matching rule, an arrivals override, and a pre-hold flight persisted "
+                "in poll_state.json (D-09, 15-VALIDATION.md row 9)",
+                _hold_early_return_ignores_rule_and_override,
+            )
+
+            # 55. Direction sensitivity through the real loop (the D-04 half
+            # of the seam, proved end to end rather than only at the
+            # resolver's unit level): with no rule but an arrivals override
+            # configured, a detected ARRIVING flight's cycle reports the
+            # override, and a detected DEPARTING flight's cycle reports the
+            # base theme.
+            def _direction_sensitivity_through_the_real_loop():
+                c_dir_arr = tempfile.mkdtemp(prefix="skypane-poll-loop-d13-direction-arr-")
+                c_dir_dep = tempfile.mkdtemp(prefix="skypane-poll-loop-d13-direction-dep-")
+                try:
+                    device_config.save_device_config(c_dir_arr, theme_arriving="yellow")
+                    device_config.save_device_config(c_dir_dep, theme_arriving="yellow")
+
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    arriving_result = poll_loop.run_once(snapshot=_snapshot("d13007", "ARR8888", -CLIMB), state_dir=c_dir_arr, geofence=GEOFENCE_PATH)
+                    if arriving_result.get("state") != "arriving":
+                        return False, "test setup did not produce an arriving detection: state=%r" % (arriving_result.get("state"),)
+                    if arriving_result.get("effective_theme") != "yellow":
+                        return False, (
+                            "a detected ARRIVING flight with an arrivals override configured reported "
+                            "effective_theme=%r, expected the override 'yellow' (D-04)" % (arriving_result.get("effective_theme"),)
+                        )
+
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    departing_result = poll_loop.run_once(snapshot=_snapshot("d13008", "DEP9999", CLIMB), state_dir=c_dir_dep, geofence=GEOFENCE_PATH)
+                    if departing_result.get("state") != "departing":
+                        return False, "test setup did not produce a departing detection: state=%r" % (departing_result.get("state"),)
+                    if departing_result.get("effective_theme") != "white":
+                        return False, (
+                            "a detected DEPARTING flight with an arrivals override configured reported "
+                            "effective_theme=%r, expected the base theme 'white' - the override applies only to "
+                            "arriving (D-04)" % (departing_result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(c_dir_arr, ignore_errors=True)
+                    shutil.rmtree(c_dir_dep, ignore_errors=True)
+            check(
+                "with no rule but an arrivals override configured, run_once() reports the override as "
+                "effective_theme for a detected arriving flight and the base theme for a detected departing "
+                "flight (D-04, proved end to end through the real poll loop)",
+                _direction_sensitivity_through_the_real_loop,
+            )
+
+            # 56. Per-cycle priming: a rule added to the state dir AFTER one
+            # run_once() cycle is picked up by the very NEXT cycle - proving
+            # colour_rules.set_colour_rules_state_dir() runs every cycle
+            # rather than once per process, the failure mode a module-level
+            # cache populated only at import time would invite (T-15-02).
+            def _colour_rules_registry_reloaded_every_cycle_from_its_own_state_dir():
+                d_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d13-priming-")
+                try:
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    before = poll_loop.run_once(snapshot=_snapshot("d13009", "PRM1111", CLIMB), state_dir=d_dir, geofence=GEOFENCE_PATH)
+                    if before.get("effective_theme") != "white":
+                        return False, "before any rule exists, effective_theme=%r, expected the base theme 'white'" % (before.get("effective_theme"),)
+
+                    colour_rules.add_rule(d_dir, colour_rules.RULE_KIND_CALLSIGN, "PRM1111", "black")
+
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    after = poll_loop.run_once(snapshot=_snapshot("d13009", "PRM1111", CLIMB), state_dir=d_dir, geofence=GEOFENCE_PATH)
+                    if after.get("effective_theme") != "black":
+                        return False, (
+                            "a rule added between two run_once() cycles was not picked up by the NEXT cycle: "
+                            "effective_theme=%r, expected 'black' - the registry must be reloaded from THIS "
+                            "cycle's own state_dir every cycle, not cached once per process"
+                            % (after.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(d_dir, ignore_errors=True)
+            check(
+                "a colour rule added to the state dir AFTER one run_once() cycle is picked up by the very next "
+                "cycle - proving the registry is primed every cycle, not cached once per process "
+                "(D-13/T-15-02)",
+                _colour_rules_registry_reloaded_every_cycle_from_its_own_state_dir,
             )
 
         finally:
