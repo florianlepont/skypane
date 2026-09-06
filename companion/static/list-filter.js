@@ -20,6 +20,15 @@
  * [data-filter-input] at all — today only History and Airlines do — so
  * the guard below is load-bearing, not defensive noise, matching the
  * project's established convention.
+ *
+ * Phase 14 (14-03-PLAN.md, RESEARCH.md Pitfall 5): one more optional,
+ * guarded lookup, [data-filter-set], lets an element elsewhere on the
+ * page (Airlines' clickable manual-resolution summary line) set the
+ * filter input's value and re-run this file's one applyFilter() — the
+ * identical "set a value, re-run the filter" pattern [data-filter-clear]
+ * already establishes, never a second filtering implementation. A page
+ * with no [data-filter-set] element (History) is unaffected: the lookup
+ * returns an empty list and no listener is attached.
  */
 (function () {
   "use strict";
@@ -32,6 +41,7 @@
   var countEl = document.querySelector("[data-filter-count]");
   var emptyEl = document.querySelector("[data-filter-empty]");
   var clearBtn = document.querySelector("[data-filter-clear]");
+  var setButtons = document.querySelectorAll("[data-filter-set]");
 
   function applyFilter() {
     // Query fresh on every input event — the two responsive
@@ -92,6 +102,22 @@
       input.value = "";
       applyFilter();
     });
+  }
+
+  // Phase 14 (14-03-PLAN.md): querySelectorAll (plural), not
+  // querySelector — more than one summary-line-style element could
+  // legitimately exist on a page, unlike the single clearBtn above.
+  // Each matched element sets the filter input's value from its own
+  // data-filter-set attribute and re-runs the one existing
+  // applyFilter() — no second filtering path, no query-string read, no
+  // persisted state, no network call, no timer.
+  for (var si = 0; si < setButtons.length; si++) {
+    (function (setBtn) {
+      setBtn.addEventListener("click", function () {
+        input.value = setBtn.getAttribute("data-filter-set") || "";
+        applyFilter();
+      });
+    })(setButtons[si]);
   }
 
   // No DOMContentLoaded wrapper is needed: the <script> tag

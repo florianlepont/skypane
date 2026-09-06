@@ -72,7 +72,25 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 54  # + 2 (quick 260903-peo Task 3: UIR-17's desktop
+EXPECTED_CHECK_COUNT = 63  # + 8 (phase 14 plan 14-05 Task 2: 8 new
+# source-content checks pinning panel-lookup.js's own contract without a
+# live DOM - no image.src="" anywhere; image.removeAttribute("src") is
+# conditional, not unconditional at module scope; the shared populate
+# function (openFromTrigger) is defined exactly once and called from at
+# least two sites; location.search is read exactly once, at script init,
+# outside any click-only-reachable function; every one of the eleven new
+# data-view-panel-* attribute name literals appears in the file's source;
+# the mode-governed elements' hidden assignments all occur, textually,
+# before the shared function's own showModal() call; evt.preventDefault()
+# appears exactly once, positioned after the trigger-null-check and
+# before any showModal()-reaching call; and exactly one
+# document.getElementById("panel-lookup-dialog")/document.addEventListener
+# ("click", ...) pair still exists) = 63.
+# 55 = 54 + 1 (phase 14 plan 14-01 Task 2: the new
+# reflection-driven _view_panel_attr_constants_all_classified() check -
+# _lightbox_dom_contract_three_file_guard() itself was restructured onto
+# three classified token tuples in place, still one check) = 55.
+# 54 = 52 + 2 (quick 260903-peo Task 3: UIR-17's desktop
 # copy-button reveal stylesheet contract — [data-copy-value]-scoped, opacity
 # + pointer-events only, both tr:hover/tr:focus-within named — and the
 # cross-file markup guard pinning the [data-copy-value] discriminator that
@@ -206,6 +224,123 @@ EXPECTED_CHECK_COUNT = 54  # + 2 (quick 260903-peo Task 3: UIR-17's desktop
 # (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+# --- lightbox DOM-contract token classification (phase 14 plan 14-01 Task 2) ---
+#
+# _lightbox_dom_contract_three_file_guard() below used to carry a single
+# inline `tokens` tuple. That worked while History and the Airlines
+# gallery rendered an identical vocabulary, but Airlines-only lightbox
+# markup (the replace form) already exists today and this phase is about
+# to add more server-rendered vocabulary that panel-lookup.js never
+# reads. Restructuring the guard's data into three explicitly-scoped
+# tuples, each with its own present/absent contract, lets the guard keep
+# growing without ever again silently degrading into "shared" coverage
+# for something that is provably not shared.
+#
+# _view_panel_attr_constants_all_classified() (below, in main()) enforces
+# by reflection that every airlines_page._VIEW_PANEL_*_ATTR constant's
+# *value* lives in exactly one of these three tuples - a constant left
+# out of all three, or placed in two at once, fails the harness by
+# construction rather than by someone remembering to update this list.
+
+# Must appear in companion/static/panel-lookup.js's source, in the
+# rendered History page, and in the rendered Airlines page - the
+# vocabulary every one of the three genuinely shares today.
+_LIGHTBOX_SHARED_TOKENS = (
+    history_page.LIGHTBOX_DIALOG_ID,
+    "data-view-panel-src",
+    "data-view-panel-caption",
+    "lightbox__image",
+    "lightbox__caption",
+    "lightbox__note",
+    "data-view-panel-close",
+)
+
+# Must appear in panel-lookup.js's source and in the rendered Airlines
+# page, and must be absent from the rendered History page - History
+# deliberately renders no replace form and never should (see
+# airlines_page.py's own comment on _VIEW_PANEL_REPLACE_ACTION_ATTR).
+#
+# Phase 14 plan 14-05 Task 2 promotes every member 14-02 staged in
+# _LIGHTBOX_RENDER_ONLY_TOKENS (below, now empty) into this tuple:
+# panel-lookup.js now reads every one of the eleven new
+# data-view-panel-* attributes and looks up every one of the six new
+# dialog classes, and every one of them is, like the replace form
+# before it, genuinely Airlines-only - History never renders a
+# resolve/gap/manual surface, so none of Phase 14's own new tokens ever
+# lands in _LIGHTBOX_SHARED_TOKENS.
+_LIGHTBOX_AIRLINES_ONLY_TOKENS = (
+    "data-view-panel-replace-action",
+    "lightbox__replace",
+    airlines_page._VIEW_PANEL_HEADING_ATTR,
+    airlines_page._VIEW_PANEL_MODE_ATTR,
+    airlines_page._VIEW_PANEL_MANUAL_ATTR,
+    airlines_page._VIEW_PANEL_SCOPE_ATTR,
+    airlines_page._VIEW_PANEL_RESOLVE_PREFIX_ATTR,
+    airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR,
+    airlines_page._VIEW_PANEL_LAST_SEEN_ATTR,
+    airlines_page._VIEW_PANEL_COUNT_ATTR,
+    airlines_page._VIEW_PANEL_UPLOAD_ACTION_ATTR,
+    airlines_page._VIEW_PANEL_DELETE_ACTION_ATTR,
+    airlines_page._VIEW_PANEL_MANUAL_NOTE_ATTR,
+    airlines_page.LIGHTBOX_HEADING_CLASS,
+    airlines_page.LIGHTBOX_MANUAL_NOTE_CLASS,
+    airlines_page.LIGHTBOX_RESOLVE_NAME_CLASS,
+    airlines_page.LIGHTBOX_DELETE_CLASS,
+    airlines_page.RESOLVE_CONTEXT_CLASS,
+    airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
+)
+
+# Server-rendered vocabulary the script does not read yet: asserted
+# present in the rendered Airlines page only, with no assertion at all
+# against panel-lookup.js. A staging area for one wave at most - plan
+# 14-05 Task 2 emptied this back to () by promoting every token it held
+# (the eleven new data-view-panel-* attribute values, the four
+# new/promoted dialog classes, resolve-context, resolve-upload-zone)
+# into _LIGHTBOX_AIRLINES_ONLY_TOKENS above, once panel-lookup.js
+# learned to read/look up all of them. Stays empty absent a future wave
+# introducing a fourth rendered-but-not-yet-scripted token.
+_LIGHTBOX_RENDER_ONLY_TOKENS = ()
+
+# The eleven data-view-panel-* attribute name literals 14-02 added to
+# the vocabulary (14-05 Task 2's own check #5) - built from the same
+# airlines_page constants already threaded into
+# _LIGHTBOX_AIRLINES_ONLY_TOKENS above, never a second hand-copied list.
+_NEW_VIEW_PANEL_ATTR_NAMES = (
+    airlines_page._VIEW_PANEL_HEADING_ATTR,
+    airlines_page._VIEW_PANEL_MODE_ATTR,
+    airlines_page._VIEW_PANEL_MANUAL_ATTR,
+    airlines_page._VIEW_PANEL_SCOPE_ATTR,
+    airlines_page._VIEW_PANEL_RESOLVE_PREFIX_ATTR,
+    airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR,
+    airlines_page._VIEW_PANEL_LAST_SEEN_ATTR,
+    airlines_page._VIEW_PANEL_COUNT_ATTR,
+    airlines_page._VIEW_PANEL_UPLOAD_ACTION_ATTR,
+    airlines_page._VIEW_PANEL_DELETE_ACTION_ATTR,
+    airlines_page._VIEW_PANEL_MANUAL_NOTE_ATTR,
+)
+
+
+def _strip_js_comments(src):
+    """Crude but sufficient for this one hand-written file: strips
+    /* */ block comments and // line comments so a source-content check
+    can search "real code" without a comment's own prose (e.g. an
+    explanatory mention of the exact anti-pattern being pinned as
+    absent) producing a false positive. Not a full JS tokenizer - does
+    not account for either sequence appearing inside a string literal -
+    but panel-lookup.js's own actual string literals never contain "//"
+    or "/*", so this is safe for this file's real content.
+    """
+    without_block = re.sub(r"/\*.*?\*/", "", src, flags=re.DOTALL)
+    without_line = re.sub(r"//[^\n]*", "", without_block)
+    return without_line
+
+
+def _read_panel_lookup_source():
+    js_path = os.path.join(HERE, "static", "panel-lookup.js")
+    with open(js_path) as fh:
+        return fh.read()
 
 
 # --- fixture helpers -----------------------------------------------------
@@ -1710,14 +1845,17 @@ def main():
         _view_panel_empty_gallery_zero_triggers_zero_dialog)
 
     def _lightbox_dom_contract_three_file_guard():
-        # Source/DOM-contract guard: LIGHTBOX_DIALOG_ID, the two trigger
-        # attribute names, and the three lightbox element class names
-        # must each appear in panel-lookup.js's source, and in the
-        # rendered markup of every page that shares this mechanism -
-        # since quick task 260902-tli that is both History and the
-        # Airlines gallery (widened from History-only). A drift in any
-        # of the three would leave the button silently doing nothing
-        # with no signal from any file in isolation.
+        # Source/DOM-contract guard, restructured (phase 14 plan 14-01
+        # Task 2) into three classified token tuples instead of one
+        # inline literal: _LIGHTBOX_SHARED_TOKENS must appear in
+        # panel-lookup.js's source and in both pages' rendered markup;
+        # _LIGHTBOX_AIRLINES_ONLY_TOKENS must appear in panel-lookup.js
+        # and in Airlines' rendered markup, and must be absent from
+        # History's; _LIGHTBOX_RENDER_ONLY_TOKENS is asserted present in
+        # Airlines' rendered markup only, with no claim at all against
+        # panel-lookup.js or History. A drift in any of the three would
+        # leave the button silently doing nothing with no signal from
+        # any file in isolation.
         js_path = os.path.join(HERE, "static", "panel-lookup.js")
         with open(js_path) as fh:
             js_source = fh.read()
@@ -1738,27 +1876,243 @@ def main():
         # render(ctx) signature.
         airlines_rendered = airlines_page.render({})
 
-        tokens = (
-            history_page.LIGHTBOX_DIALOG_ID,
-            "data-view-panel-src",
-            "data-view-panel-caption",
-            "lightbox__image",
-            "lightbox__caption",
-            "lightbox__note",
-        )
-        for token in tokens:
+        for token in _LIGHTBOX_SHARED_TOKENS:
             if token not in js_source:
-                return False, "expected %r to appear in companion/static/panel-lookup.js" % token
+                return False, "expected shared token %r to appear in companion/static/panel-lookup.js" % token
             if token not in history_rendered:
-                return False, "expected %r to appear in the rendered History page" % token
+                return False, "expected shared token %r to appear in the rendered History page" % token
             if token not in airlines_rendered:
-                return False, "expected %r to appear in the rendered Airlines page" % token
+                return False, "expected shared token %r to appear in the rendered Airlines page" % token
+
+        for token in _LIGHTBOX_AIRLINES_ONLY_TOKENS:
+            if token not in js_source:
+                return False, (
+                    "expected Airlines-only token %r to appear in companion/static/panel-lookup.js" % token)
+            if token not in airlines_rendered:
+                return False, "expected Airlines-only token %r to appear in the rendered Airlines page" % token
+            if token in history_rendered:
+                return False, "did not expect Airlines-only token %r in the rendered History page" % token
+
+        for token in _LIGHTBOX_RENDER_ONLY_TOKENS:
+            if token not in airlines_rendered:
+                return False, "expected render-only token %r to appear in the rendered Airlines page" % token
+
         return True, ""
     check(
-        "LIGHTBOX_DIALOG_ID, the two data-view-panel-* trigger attribute names, and the three "
-        "lightbox__* element class names each appear in companion/static/panel-lookup.js and in "
-        "the rendered markup of both History and the Airlines gallery (quick task 260902-tli)",
+        "the shared, Airlines-only and render-only lightbox token tuples each appear (or, for "
+        "Airlines-only, are absent from History) exactly where their own classification says they "
+        "must, across companion/static/panel-lookup.js and both pages' rendered markup",
         _lightbox_dom_contract_three_file_guard)
+
+    def _view_panel_attr_constants_all_classified():
+        # Reflection-driven coverage check (phase 14 plan 14-01 Task 2):
+        # enumerate every airlines_page module attribute matching the
+        # exact shape _VIEW_PANEL_...(_ATTR) and assert its *value*
+        # appears in exactly one of the three classified token tuples
+        # above. A hand-copied list here would be the same drift this
+        # guard exists to catch, one level up - so this walks
+        # dir(airlines_page) instead of restating a name list.
+        all_tuples = (
+            _LIGHTBOX_SHARED_TOKENS,
+            _LIGHTBOX_AIRLINES_ONLY_TOKENS,
+            _LIGHTBOX_RENDER_ONLY_TOKENS,
+        )
+
+        # The three tuples must never overlap - a token classified in
+        # two of them at once would carry contradictory expectations.
+        seen = {}
+        for tuple_name, tup in (
+            ("_LIGHTBOX_SHARED_TOKENS", _LIGHTBOX_SHARED_TOKENS),
+            ("_LIGHTBOX_AIRLINES_ONLY_TOKENS", _LIGHTBOX_AIRLINES_ONLY_TOKENS),
+            ("_LIGHTBOX_RENDER_ONLY_TOKENS", _LIGHTBOX_RENDER_ONLY_TOKENS),
+        ):
+            for token in tup:
+                if token in seen:
+                    return False, (
+                        "token %r is classified in both %s and %s - the three tuples must be "
+                        "pairwise disjoint" % (token, seen[token], tuple_name))
+                seen[token] = tuple_name
+
+        for name in dir(airlines_page):
+            if not (name.startswith("_VIEW_PANEL_") and name.endswith("_ATTR")):
+                continue
+            value = getattr(airlines_page, name)
+            memberships = [tup for tup in all_tuples if value in tup]
+            if len(memberships) == 0:
+                return False, (
+                    "airlines_page.%s = %r is not classified in any of _LIGHTBOX_SHARED_TOKENS, "
+                    "_LIGHTBOX_AIRLINES_ONLY_TOKENS or _LIGHTBOX_RENDER_ONLY_TOKENS" % (name, value))
+            if len(memberships) > 1:
+                return False, (
+                    "airlines_page.%s = %r is classified in more than one of the three token "
+                    "tuples" % (name, value))
+        return True, ""
+    check(
+        "every airlines_page._VIEW_PANEL_*_ATTR constant's value is classified in exactly one of "
+        "the three lightbox token tuples, discovered by reflection over dir(airlines_page) rather "
+        "than a hand-copied name list",
+        _view_panel_attr_constants_all_classified)
+
+    # --- Phase 14 plan 14-05 Task 2: eight source-content checks pinning
+    # panel-lookup.js's own contract without a live DOM/JS engine (no
+    # headless browser exists in this project's toolchain - see
+    # RESEARCH.md's Validation Architecture section). ---------------------
+
+    def _panel_lookup_never_sets_image_src_to_empty_string():
+        stripped = _strip_js_comments(_read_panel_lookup_source())
+        if 'image.src = ""' in stripped:
+            return False, (
+                'expected zero occurrences of image.src = "" in panel-lookup.js\'s '
+                "comment-stripped source (D-02/RESEARCH.md Pitfall 1)")
+        return True, ""
+    check(
+        "panel-lookup.js never sets image.src to the empty string anywhere in its "
+        "comment-stripped source - D-02/RESEARCH.md Pitfall 1's single riskiest line, "
+        "the exact cross-browser spurious-request bug this phase's imageless-open branch exists "
+        "to avoid",
+        _panel_lookup_never_sets_image_src_to_empty_string)
+
+    def _panel_lookup_remove_attribute_src_is_conditional():
+        src = _read_panel_lookup_source()
+        needle = 'image.removeAttribute("src")'
+        if needle not in src:
+            return False, "expected %r to appear at least once" % needle
+        line = next(line for line in src.splitlines() if needle in line)
+        indent = len(line) - len(line.lstrip(" "))
+        # Every bare top-level statement inside the IIFE (a var
+        # declaration, a function definition) sits at 2-space indent;
+        # anything nested one level deeper than that (inside an
+        # if/else/for) sits at 4+ spaces - this must be nested, never a
+        # bare, unconditional module-scope statement.
+        if indent <= 2:
+            return False, (
+                "expected image.removeAttribute(\"src\") indented inside a conditional branch, "
+                "not written unconditionally at module scope (indent was %d)" % indent)
+        return True, ""
+    check(
+        "panel-lookup.js's image.removeAttribute(\"src\") call is nested inside a conditional "
+        "branch (the src-absent case), never written unconditionally at module scope",
+        _panel_lookup_remove_attribute_src_is_conditional)
+
+    def _panel_lookup_shared_populate_function_two_call_sites():
+        src = _read_panel_lookup_source()
+        def_needle = "function openFromTrigger(trigger)"
+        def_count = src.count(def_needle)
+        if def_count != 1:
+            return False, "expected exactly one openFromTrigger definition, got %d" % def_count
+        total_mentions = src.count("openFromTrigger(")
+        call_sites = total_mentions - def_count
+        if call_sites < 2:
+            return False, (
+                "expected openFromTrigger referenced (called) from at least two sites, found %d"
+                % call_sites)
+        return True, ""
+    check(
+        "panel-lookup.js's shared populate-and-open function (openFromTrigger) is defined exactly "
+        "once and referenced from at least two call sites - the click listener and the load-time "
+        "auto-open (RESEARCH.md Pitfall 2's mandatory factoring)",
+        _panel_lookup_shared_populate_function_two_call_sites)
+
+    def _panel_lookup_location_search_read_once_outside_click_only_function():
+        src = _read_panel_lookup_source()
+        stripped = _strip_js_comments(src)
+        code_count = stripped.count("location.search")
+        if code_count != 1:
+            return False, (
+                "expected location.search to be read exactly once in panel-lookup.js's own code "
+                "(comments excluded), got %d" % code_count)
+        # openFromTrigger is the one function reachable from a click;
+        # location.search's single read must sit outside its body,
+        # after the click listener that calls it is already wired
+        # (RESEARCH.md Pitfall 2, D-13/D-14).
+        func_start = src.index("function openFromTrigger(trigger)")
+        func_end = src.index("\n  }\n", func_start)
+        search_idx = src.index("location.search")
+        click_listener_idx = src.index('document.addEventListener("click"')
+        if func_start < search_idx < func_end:
+            return False, "expected location.search's one read outside openFromTrigger's own body"
+        if search_idx < click_listener_idx:
+            return False, "expected location.search's one read positioned after the click listener is wired"
+        return True, ""
+    check(
+        "panel-lookup.js reads location.search exactly once in its own code, at script init, "
+        "outside openFromTrigger (the one function reachable from a click) and after the click "
+        "listener is already wired",
+        _panel_lookup_location_search_read_once_outside_click_only_function)
+
+    def _panel_lookup_eleven_new_attrs_present_in_source():
+        src = _read_panel_lookup_source()
+        missing = [name for name in _NEW_VIEW_PANEL_ATTR_NAMES if name not in src]
+        if missing:
+            return False, (
+                "expected every one of the eleven new data-view-panel-* attribute name literals "
+                "in panel-lookup.js's source, missing: %r" % missing)
+        return True, ""
+    check(
+        "every one of the eleven new data-view-panel-* attribute name literals 14-02 added to the "
+        "vocabulary appears at least once in panel-lookup.js's own source",
+        _panel_lookup_eleven_new_attrs_present_in_source)
+
+    def _panel_lookup_mode_hidden_toggles_before_showmodal():
+        src = _read_panel_lookup_source()
+        func_start = src.index("function openFromTrigger(trigger)")
+        show_modal_idx = src.index("dialog.showModal();", func_start)
+        func_body = src[func_start:show_modal_idx]
+        needles = (
+            'resolveNameForm.hidden = (mode !== "gap")',
+            'resolveUploadZone.hidden = (mode !== "needs-artwork")',
+            'replaceForm.hidden = (mode !== "art")',
+        )
+        for needle in needles:
+            if needle not in func_body:
+                return False, (
+                    "expected %r to occur, textually, before openFromTrigger's own "
+                    "dialog.showModal() call" % needle)
+        return True, ""
+    check(
+        "the mode-governed elements' (resolveNameForm/resolveUploadZone/replaceForm) hidden "
+        "assignments all occur, textually, before openFromTrigger's own dialog.showModal() call "
+        "(RESEARCH.md Pitfall 3 - showModal()'s one-time autofocus placement must see the final, "
+        "already-toggled subtree)",
+        _panel_lookup_mode_hidden_toggles_before_showmodal)
+
+    def _panel_lookup_prevent_default_once_correctly_positioned():
+        src = _read_panel_lookup_source()
+        count = src.count("evt.preventDefault()")
+        if count != 1:
+            return False, "expected evt.preventDefault() exactly once, got %d" % count
+        click_idx = src.index('document.addEventListener("click"')
+        null_check_idx = src.index("if (!trigger) {", click_idx)
+        prevent_idx = src.index("evt.preventDefault()", click_idx)
+        open_call_idx = src.index("openFromTrigger(trigger)", click_idx)
+        if not (click_idx < null_check_idx < prevent_idx < open_call_idx):
+            return False, (
+                "expected evt.preventDefault() positioned after the trigger-null-check and before "
+                "openFromTrigger() (the one showModal()-reaching call) inside the click listener")
+        return True, ""
+    check(
+        "panel-lookup.js's evt.preventDefault() appears exactly once, inside the click listener, "
+        "positioned after the trigger-null-check and before the showModal()-reaching "
+        "openFromTrigger() call (D-12's <a> interception)",
+        _panel_lookup_prevent_default_once_correctly_positioned)
+
+    def _panel_lookup_single_dialog_lookup_single_click_listener():
+        src = _read_panel_lookup_source()
+        dialog_count = src.count('document.getElementById("panel-lookup-dialog")')
+        click_count = src.count('document.addEventListener("click"')
+        if dialog_count != 1:
+            return False, (
+                'expected exactly one document.getElementById("panel-lookup-dialog"), got %d'
+                % dialog_count)
+        if click_count != 1:
+            return False, (
+                'expected exactly one document.addEventListener("click", ...), got %d' % click_count)
+        return True, ""
+    check(
+        "panel-lookup.js still contains exactly one document.getElementById(\"panel-lookup-dialog\") "
+        "and exactly one document.addEventListener(\"click\", ...) - this plan extended the existing "
+        "single mechanism rather than adding a second one (D-03's own rejected alternative)",
+        _panel_lookup_single_dialog_lookup_single_click_listener)
 
     def _airlines_lightbox_constants_match_history():
         # quick task 260902-tli: the dialog id and the three
@@ -1872,20 +2226,43 @@ def main():
         # rule itself were deleted from the stylesheet (the zone
         # selector alone would satisfy it). Require the exact selector,
         # built from the constant rather than hard-coding the literal.
-        exact_selector = "." + airlines_page.LIGHTBOX_REPLACE_FORM_CLASS + " {"
-        if exact_selector not in style_css_source:
+        #
+        # Phase 14 (14-03-PLAN.md Task 2) retargeted this pattern IN
+        # PLACE (no count change to EXPECTED_CHECK_COUNT — same check,
+        # re-scoped): .lightbox__replace's own selector is now the head
+        # of a three-way group (`.lightbox__replace,\n.lightbox__resolve-
+        # name,\n.lightbox__delete {`), so the class name is followed by
+        # a comma, not always " {". A lookahead for whitespace/comma/
+        # brace immediately after the class name (excluding the
+        # "-zone" hyphen continuation) still proves the exact selector
+        # exists as its own token, in either the old standalone form or
+        # the new grouped form.
+        #
+        # 14-08 on-glass fix (2026-09-06) retargeted this pattern IN
+        # PLACE a second time: a real-browser check found `display:
+        # block` on this group winning a specificity tie against the UA
+        # stylesheet's `[hidden] { display: none }`, so every selector
+        # in the group now carries `:not([hidden])` immediately after
+        # the class name — a colon, not whitespace/comma/brace. Added
+        # `:` to the lookahead so the exact-selector proof still holds
+        # for the scoped form.
+        exact_selector_pattern = re.compile(
+            r'\.' + re.escape(airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) + r'(?=[\s,{:])')
+        if not exact_selector_pattern.search(style_css_source):
             return False, (
-                "expected %r in companion/static/style.css — the fourth file in the chain, and the one "
-                "whose drift would leave the form functional but unstyled" % (exact_selector,))
+                "expected a '.%s' selector (not merely a '-zone' prefix match) in "
+                "companion/static/style.css — the fourth file in the chain, and the one whose drift would "
+                "leave the form functional but unstyled" % (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS,))
         return True, ""
     check(
         "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR and airlines_page.LIGHTBOX_REPLACE_FORM_CLASS each "
         "appear in companion/static/panel-lookup.js's source and in a real airlines_page.render({}) call, "
-        "the exact '.lightbox__replace {' selector (not merely a substring, which the newer "
-        "'.lightbox__replace-zone' selector could otherwise satisfy) appears in companion/static/style.css, "
-        "and neither token appears in a real, seeded history_page.render() call (quick task 260903-btu; these "
-        "two constants have no history_page counterpart by design and must never join "
-        "_airlines_lightbox_constants_match_history()'s pairs tuple)",
+        "the exact '.lightbox__replace' selector (not merely a substring, which the newer "
+        "'.lightbox__replace-zone' selector could otherwise satisfy) appears in companion/static/style.css "
+        "standalone or as the head of the phase-14 three-way group, and neither token appears in a real, "
+        "seeded history_page.render() call (quick task 260903-btu; these two constants have no history_page "
+        "counterpart by design and must never join _airlines_lightbox_constants_match_history()'s pairs "
+        "tuple; pattern retargeted in place by phase 14 plan 14-03 Task 2)",
         _replace_lightbox_names_appear_in_three_files_never_in_history)
 
     def _airlines_render_empty_ctx_still_contains_gallery_grid():

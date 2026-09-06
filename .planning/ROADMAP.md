@@ -38,6 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 11: Web-configurable wake interval** - Make `SKYPANE_SLEEP_S` configurable through the companion web interface instead of SSH-only env-file edits — promoted from `.planning/seeds/SEED-002-web-configurable-wake-interval.md` at the developer's request (2026-09-02). Planned 2026-09-04: 4 plans across 3 waves (3/4 executed). (completed 2026-09-04)
 - [x] **Phase 12: Remote display on/off toggle** - Turn the e-ink panel dark on demand from the companion Settings page, and bring it back, without touching hardware — the manual, immediate sibling of Phase 10's scheduled quiet hours. Promoted from `.planning/seeds/SEED-004-remote-eink-display-power-toggle.md` at the developer's request (2026-09-05). Discussed and planned 2026-09-05 (6 plans, 3 waves); waves 1-2 executed the same day; the 12-06 on-glass checkpoint ran 2026-09-05 → 06 and redesigned all three hold screens on the panel (dark = resting, white = working). Merged as PR #49 + #50. (completed 2026-09-06)
 - [x] **Phase 13: Add an illustration for an unidentified flight from the companion web interface** - Let the operator close a coverage gap from the two pages that already surface it (Health's unresolved-prefix registry, the Airlines gallery) instead of leaving the web UI for the manual runbook — promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` at the developer's request (2026-09-05). The hardened upload path already shipped (`260902-v26`/`260903-df3`); the open questions are how an unidentified flight mints a key without reopening threat `T-v26-02-01`, and whether uploading also resolves the airline. Not yet discussed or planned. (completed 2026-09-06)
+- [x] **Phase 14: Resolve an unidentified flight from the gallery lightbox, with coverage gaps as empty cards** - Fold Phase 13's resolve flow into the interaction pattern the Airlines gallery already uses: a coverage gap becomes an empty card in the grid, clicking it opens the shared `<dialog>` every other card opens, and the standalone management table is absorbed into the cards rather than deleted. Raised by the developer on seeing Phase 13's real page (2026-09-06) — the page already hosts that dialog and already puts the replace-upload form inside it, so the page section Phase 13 shipped was inconsistent with its own surroundings. Presentation-layer only; no server-side change expected. Not yet discussed or planned. (completed 2026-09-06)
 
 ## Phase Details
 
@@ -784,3 +785,49 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 13-06-PLAN.md — the widened per-request illustration membership union plus the two new POST routes (D-09/D-11 — reopens and re-establishes `T-v26-02-01`)
+
+### Phase 14: Resolve an unidentified flight from the gallery lightbox, with coverage gaps as empty cards
+
+**Goal:** Fold Phase 13's resolve flow into the interaction pattern the Airlines gallery already uses. A coverage gap becomes an empty card in the grid, alongside the art that does exist; clicking it opens the same shared lightbox every other card opens, and the naming/upload happens there. Health's per-row Resolve link lands on that same dialog rather than on a separate page section. The standalone "Manually resolved prefixes" table disappears — absorbed into the cards, not deleted.
+
+**Note on origin (2026-09-06):** Raised by the developer within minutes of Phase 13 shipping, on seeing the real page: *"ce tableau ne sert à rien. Quand je clique dans health > resolve > je m'attendais à voir une pop up plutôt. Pour les vols inconnus, j'imaginais des cases vides avec juste les callsign d'écrit dans la page airline. Un clic dessus ouvre également la pop up."*
+
+**The inconsistency is real and pre-existing in Phase 13's own page.** `companion/pages/airlines_page.py` already carries a shared `<dialog id="panel-lookup-dialog">` (`LIGHTBOX_DIALOG_ID`), driven by `companion/static/panel-lookup.js` and shared with History — and the illustration **replace-upload form already lives inside it** (`_lightbox_replace_form_html()`). "Click a card, a modal opens carrying the action" is that page's dominant pattern. Phase 13 shipped its resolve flow as a page section beside it instead. The developer read the page once and felt the mismatch immediately.
+
+**How it got there, recorded so the process lesson is not lost.** Phase 13's `/gsd-ui-phase` ran in `--auto` at the developer's explicit request to chain without waiting; the UI researcher logged 8 discretion calls that no human reviewed, and `gsd-ui-checker` passed the contract 6/6 — because it validated the spec's *internal* coherence, not its fit with the interaction pattern already shipped on the target page. A UI contract for a page that already has a dominant pattern should be checked against that pattern explicitly.
+
+**On the table (agreement with a correction).** The developer is right that it should go, but it is not useless: it is currently the only surface carrying D-06's "superseded" state and D-07's delete control, both of which exist to give the operator a repair path. It must die **by absorption** — a resolved prefix becomes an ordinary-looking card whose own affordances carry that state — never by plain deletion, or Phase 13's deliberate reversibility is lost with it.
+
+**Three things to settle in `/gsd-discuss-phase 14` — do not assume defaults:**
+
+- **(a) Prefix identity versus flight identity.** Resolution is per **3-letter ICAO prefix**, not per flight. The developer asked for cards showing "juste les callsign". A card labelled `XQZ411` whose naming silently dresses *every* XQZ flight would mislead. Decide what the card's primary label is (prefix, with the example callsign as supporting detail, is the honest default) and make the dialog's copy state the scope plainly.
+- **(b) Volume.** `enrich.UNRESOLVED_PREFIX_MAX_ENTRIES` caps the gap registry at **200**; `illustrations.target_filenames()` is **43** keys. Dropping 200 empty cards into a 43-card gallery would drown the art it exists to show. Decide between a dedicated sub-section inside the page, a display cap, or reusing the filter bar the page already has.
+- **(c) The JavaScript posture.** Phase 13 shipped **zero JS** and its page section degrades cleanly without it. The lightbox is JS-driven — `panel-lookup.js` rewrites each card's form `action` on click, with a documented harmless degradation (a `POST /airlines` that 404s). Moving the resolve flow into the dialog inherits that dependency. The site already accepts it for the replace form, so this is consistent rather than novel — but it is a real change of posture for this flow and must be a decision, not a side effect.
+
+**Expected surface** (to be confirmed at plan time): the empty-card rendering and the management-list absorption in `companion/pages/airlines_page.py`; the dialog's own content in the same file plus `companion/static/panel-lookup.js`; the Resolve link's target in `companion/pages/health_page.py`; styling in `companion/static/style.css`. **No server-side change is expected** — `server/plane/manual_resolutions.py`, `server/plane/enrich.py`, `server/poll_loop.py` and the two POST routes in `companion/app.py` all shipped in Phase 13 and are exactly what this redesign consumes. If a plan proposes touching them, that is a signal the scope drifted.
+
+**Requirements**: None expected — a presentation-layer follow-up to an unmapped phase, matching the Phase 10-13 precedent.
+**Depends on:** Phase 13 (merged as `8f45385`, PR #51) — this phase re-presents that machinery and changes none of it. Also Phase 06.6.4.1, which established the shared lightbox and reborn Airlines as the illustration gallery.
+**Closes with:** a real-browser pass, since the whole phase is interaction design and the dialog's behaviour is browser-owned. This also closes Phase 13's two open UAT gaps, which live in exactly this surface: **G-02** (the `<datalist>` popup was never verified in a browser) and **G-01** (a rejected airline name is reported to the operator as an empty one).
+**Plans:** 8/8 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 14-01-PLAN.md — Validation scaffolding: self-enforcing cross-file dialog contract guard, manual-registry fixture helper
+- [x] 14-02-PLAN.md — Shared rendering machinery: copy deck, trigger attribute vocabulary, one-definition-two-call-sites resolve/upload/delete forms, extended dialog, no-JS delete (D-09 amendment)
+- [x] 14-03-PLAN.md — `list-filter.js`'s programmatic filter hook (D-11's mechanism) and every new CSS selector (gap placeholder, `a.airline-card`, dialog form spacing, summary line)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 14-04-PLAN.md — Gap-card rendering and the gap block: empty imageless cards, sighting-count sort, threshold/cap, overflow line, page reorder (resolve section to the bottom)
+- [x] 14-05-PLAN.md — `panel-lookup.js`: imageless open, per-mode/manual form toggling, `<a>` interception, load-time auto-open on `?resolve=`
+- [x] 14-07-PLAN.md — G-01 fix: a distinct flash key for a supplied-but-unusable airline name
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 14-06-PLAN.md — Manual-resolution absorption: chip + superseded-state cards, trigger-tag generalisation, grid injection, summary line, management-table removal
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 14-08-PLAN.md — Blocking real-browser verification of every manual-only behavior, closing G-02
