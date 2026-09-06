@@ -95,7 +95,10 @@ if REPO_ROOT not in sys.path:
 # 13-05 Task 1: +2 (wiring D-01/D-02's manual_resolutions.
 # set_manual_registry_state_dir() call into run_once(): the per-cycle-
 # reload proof and the end-to-end route_source=="manual" case) - 60 + 2.
-EXPECTED_CHECK_COUNT = 62
+# 13-05 Task 2: +2 (D-14's clear_resolved_unresolved_prefix() cleanup call:
+# removing a now-resolvable prefix's entry, and doing so independently of
+# route_source - the fresh_hit case Pitfall 2 warns about) - 62 + 2.
+EXPECTED_CHECK_COUNT = 64
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -2511,6 +2514,126 @@ def main():
                 "nothing, is recorded with route_source == 'manual' and a route carrying the operator's airline "
                 "name (D-01/D-02, end to end through a real run_once() cycle)",
                 _manual_resolution_reaches_route_source_end_to_end,
+            )
+
+            # 49. Cleanup on a resolvable prefix (Task 2, check 3): a
+            # cycle detecting a flight whose prefix is now resolvable (via
+            # the manual registry) removes that prefix's entry from
+            # unresolved_prefixes and persists the removal, while a
+            # second, still-unresolvable prefix's entry stays byte-
+            # identical to what was seeded (D-14).
+            def _clear_resolved_unresolved_prefix_removes_resolvable_entry():
+                original_transport = enrich.default_transport
+                enrich.default_transport = lambda callsign, timeout=None: (404, None)
+                try:
+                    d14a_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d14-clear-")
+                    try:
+                        seeded_still_unresolved = {
+                            "count": 1,
+                            "first_seen": "2026-01-02T00:00:00+00:00",
+                            "last_seen": "2026-01-02T00:00:00+00:00",
+                            "example_callsign": "PPP5555",
+                        }
+                        poll_loop.save_poll_state(d14a_dir, {
+                            "unresolved_prefixes": {
+                                "NNN": {
+                                    "count": 3,
+                                    "first_seen": "2026-01-01T00:00:00+00:00",
+                                    "last_seen": "2026-01-01T00:10:00+00:00",
+                                    "example_callsign": "NNN4444",
+                                },
+                                "PPP": dict(seeded_still_unresolved),
+                            },
+                        })
+                        manual_resolutions.add_entry(d14a_dir, "NNN", "Novus Air")
+
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        poll_loop.run_once(snapshot=_snapshot("666666", "NNN7777", CLIMB), state_dir=d14a_dir, geofence=GEOFENCE_PATH)
+
+                        unresolved_after = poll_loop.load_poll_state(d14a_dir).get("unresolved_prefixes")
+                        if not isinstance(unresolved_after, dict) or "NNN" in unresolved_after:
+                            return False, "NNN is still present after being resolved via the manual registry: %r" % (unresolved_after,)
+                        if unresolved_after.get("PPP") != seeded_still_unresolved:
+                            return False, "the still-unresolvable PPP entry was not left byte-identical: %r" % (unresolved_after.get("PPP"),)
+                        return True, ""
+                    finally:
+                        manual_resolutions.set_manual_registry_state_dir(None)
+                        shutil.rmtree(d14a_dir, ignore_errors=True)
+                finally:
+                    enrich.default_transport = original_transport
+            check(
+                "a cycle detecting a flight whose prefix is now resolvable via the manual registry removes that "
+                "prefix's entry from unresolved_prefixes and persists the removal, leaving a still-unresolvable "
+                "prefix's entry byte-identical (D-14)",
+                _clear_resolved_unresolved_prefix_removes_resolvable_entry,
+            )
+
+            # 50. Independence from route_source (Task 2, check 4 -
+            # Pitfall 2 made executable): the SAME setup as check 49, but
+            # with the transport stub returning a FULL adsbdb route so
+            # this cycle's own route_source is "fresh_hit" - a cleanup
+            # implemented as a branch inside the miss handling would fail
+            # exactly this check and no other.
+            def _clear_resolved_unresolved_prefix_is_independent_of_route_source():
+                original_transport = enrich.default_transport
+                enrich.default_transport = lambda callsign, timeout=None: (200, {
+                    "response": {
+                        "flightroute": {
+                            "airline": {"name": "Full Route Air"},
+                            "origin": {"iata_code": "ORY", "municipality": "Paris"},
+                            "destination": {"iata_code": "JFK", "municipality": "New York"},
+                        }
+                    }
+                })
+                try:
+                    d14b_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-d14-fresh-")
+                    try:
+                        seeded_still_unresolved = {
+                            "count": 1,
+                            "first_seen": "2026-01-03T00:00:00+00:00",
+                            "last_seen": "2026-01-03T00:00:00+00:00",
+                            "example_callsign": "TUV2222",
+                        }
+                        poll_loop.save_poll_state(d14b_dir, {
+                            "unresolved_prefixes": {
+                                "QRS": {
+                                    "count": 2,
+                                    "first_seen": "2026-01-01T00:00:00+00:00",
+                                    "last_seen": "2026-01-01T00:05:00+00:00",
+                                    "example_callsign": "QRS1111",
+                                },
+                                "TUV": dict(seeded_still_unresolved),
+                            },
+                        })
+                        manual_resolutions.add_entry(d14b_dir, "QRS", "Quorum Air")
+
+                        buf = io.StringIO()
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        with contextlib.redirect_stdout(buf):
+                            poll_loop.run_once(snapshot=_snapshot("555555", "QRS3333", CLIMB), state_dir=d14b_dir, geofence=GEOFENCE_PATH)
+                        line = [ln for ln in buf.getvalue().splitlines() if ln.startswith("poll_loop: ")][-1]
+                        if "route_source=fresh_hit" not in line:
+                            return False, "test setup did not produce route_source=fresh_hit as required: %s" % (line,)
+
+                        unresolved_after = poll_loop.load_poll_state(d14b_dir).get("unresolved_prefixes")
+                        if not isinstance(unresolved_after, dict) or "QRS" in unresolved_after:
+                            return False, (
+                                "QRS is still present after a fresh_hit cycle - the cleanup must not be gated on "
+                                "route_source: %r" % (unresolved_after,)
+                            )
+                        if unresolved_after.get("TUV") != seeded_still_unresolved:
+                            return False, "the still-unresolvable TUV entry was not left byte-identical: %r" % (unresolved_after.get("TUV"),)
+                        return True, ""
+                    finally:
+                        manual_resolutions.set_manual_registry_state_dir(None)
+                        shutil.rmtree(d14b_dir, ignore_errors=True)
+                finally:
+                    enrich.default_transport = original_transport
+            check(
+                "the D-14 cleanup removes a resolved prefix's entry even when this cycle's own route_source is "
+                "'fresh_hit' (adsbdb answered) - a route_source-gated implementation would fail exactly this "
+                "check and no other (13-RESEARCH.md Pitfall 2)",
+                _clear_resolved_unresolved_prefix_is_independent_of_route_source,
             )
 
         finally:

@@ -1037,30 +1037,52 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             cache = poll_state.get("enrichment_cache")
             if not isinstance(cache, dict):
                 cache = {}
-            # D-05 (quick task 260827-hyy): a single seam now classifies
-            # four categories, not three - "fresh_hit"/"cache_hit" mean
-            # exactly what they always did (a cached *miss* is still a
-            # "miss" here, not a "cache hit" - "cache hit" means the cache
-            # spared us a request AND returned a usable route); the new
-            # fourth category, "airline_only", means adsbdb had no route
-            # this cycle but the callsign's ICAO prefix identified the
-            # carrier from a static in-repo table - no additional network
-            # call, no additional cache entry. Nothing derived from the
-            # adsbdb response body is ever logged, on any of the four paths.
+            # D-05 (quick task 260827-hyy; extended phase 13, D-01/D-02): a
+            # single seam now classifies five categories, not three -
+            # "fresh_hit"/"cache_hit" mean exactly what they always did (a
+            # cached *miss* is still a "miss" here, not a "cache hit" -
+            # "cache hit" means the cache spared us a request AND returned a
+            # usable route); "airline_only" means adsbdb had no route this
+            # cycle but the callsign's ICAO prefix identified the carrier
+            # from the static in-repo table - no additional network call, no
+            # additional cache entry; "manual" (phase 13, D-01/D-02) means
+            # the same, except the carrier was identified via the runtime,
+            # operator-writable manual-resolution registry
+            # (server.plane.manual_resolutions) instead of the static
+            # table - the static table is always consulted first and wins
+            # on a collision (D-06), so a prefix present in both tables is
+            # reported as "airline_only", never "manual". Nothing derived
+            # from the adsbdb response body is ever logged, on any of the
+            # five paths.
             route, route_source = enrich.resolve_route(current_flight.get("callsign"), cache)
             enrich.trim_cache(cache)
             poll_state["enrichment_cache"] = cache
-            # quick task 260827-oz9: a "miss" means neither adsbdb nor the
-            # static prefix table resolved anything for a shape-valid
-            # callsign - exactly "unrecognized ICAO prefix". Record it into
-            # the same durable poll_state.json this cycle already writes,
-            # so the finding survives this oneshot's process boundary.
-            # Never called for "airline_only"/"fresh_hit"/"cache_hit" (a
-            # source resolved something) or "held"/"n/a" (no enrichment
-            # ran this cycle at all).
+            # quick task 260827-oz9: a "miss" means neither adsbdb, the
+            # static prefix table, nor (phase 13) the manual registry
+            # resolved anything for a shape-valid callsign - exactly
+            # "unrecognized ICAO prefix". Record it into the same durable
+            # poll_state.json this cycle already writes, so the finding
+            # survives this oneshot's process boundary. Never called for
+            # "airline_only"/"manual"/"fresh_hit"/"cache_hit" (a source
+            # resolved something) or "held"/"n/a" (no enrichment ran this
+            # cycle at all).
             unresolved_prefixes = poll_state.get("unresolved_prefixes")
             if not isinstance(unresolved_prefixes, dict):
                 unresolved_prefixes = {}
+            # D-14: unconditionally clear this callsign's prefix from the
+            # gap registry if it now resolves, BEFORE the miss-recording
+            # branch below and before trim_unresolved_prefixes()/the
+            # write-back - a deletion after either point would be
+            # discarded. Deliberately NOT gated on route_source:
+            # route_source describes only this cycle's adsbdb outcome for
+            # this one callsign and says nothing about whether the prefix
+            # as a whole is now resolvable (adsbdb wins by construction in
+            # resolve_route(), so a resolved prefix can still show
+            # "fresh_hit"/"cache_hit" here) - gating on it would leave a
+            # stale entry uncleaned every time adsbdb happened to answer.
+            # The helper below does its own resolvability check via
+            # airline_from_callsign() (enrich.py, phase 13 D-14).
+            enrich.clear_resolved_unresolved_prefix(current_flight.get("callsign"), unresolved_prefixes)
             if route_source == "miss":
                 unknown_prefix = enrich.note_unresolved_prefix(current_flight.get("callsign"), unresolved_prefixes)
             enrich.trim_unresolved_prefixes(unresolved_prefixes)
