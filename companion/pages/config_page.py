@@ -1183,9 +1183,24 @@ def handle_post(form, ctx):
     display-specific flash message exists — saving reuses FLASH_SAVED/
     FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's/12-UI-SPEC.md's
     Copywriting Contract.
+
+    Phase 14 D-04/D-05 add two more form fields, `theme_arriving_enabled`
+    (the arrivals-override checkbox) and `theme_arriving` (the second
+    grid's selected theme id), with a genuinely different resolution from
+    every other checkbox above: `theme_arriving` is validated by the same
+    membership test `theme` uses, then the CHECKBOX field alone (never
+    `theme_arriving`'s presence) decides whether the validated id is
+    persisted or the override is cleared via
+    `device_config.CLEAR_THEME_ARRIVING` — see the inline comment at that
+    branch for why keying off either `theme_arriving`'s presence or `None`
+    would silently break the clear path. The result is passed as one more
+    keyword argument on the same, still-singular persistence call below;
+    the all-or-nothing rejection contract is unchanged.
     """
     state_dir = ctx["state_dir"]
     submitted_theme = form.get("theme")
+    submitted_theme_arriving = form.get("theme_arriving")
+    submitted_theme_arriving_enabled = form.get("theme_arriving_enabled")
     submitted_runway = form.get("tracked_runway")
     submitted_led = form.get("led_enabled")
     submitted_qh_enabled = form.get("quiet_hours_enabled")
@@ -1196,7 +1211,29 @@ def handle_post(form, ctx):
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
         return FLASH_SAVE_FAILED
+    if (
+        submitted_theme_arriving is not None
+        and submitted_theme_arriving not in device_config.THEME_IDS
+    ):
+        return FLASH_SAVE_FAILED
     if submitted_runway is not None and submitted_runway not in device_config.RUNWAY_IDS:
+        return FLASH_SAVE_FAILED
+    # Phase 14 D-05: keyed on the CHECKBOX field, never on
+    # theme_arriving's presence. D-05 requires the second (arrivals) grid
+    # to always be rendered for no-JS correctness, which means
+    # theme_arriving is essentially ALWAYS present in a real browser
+    # submission with a valid id — a branch keyed on that field's
+    # presence would therefore never fire the clear path. The checkbox is
+    # the only signal that distinguishes "set" from "clear". `None` is
+    # not the clear value either: `None` already means "not supplied,
+    # carry forward" for every parameter of this write path including
+    # this one, so passing it here would make a partial-field save
+    # silently wipe a previously-set override.
+    if submitted_theme_arriving_enabled is None:
+        theme_arriving = device_config.CLEAR_THEME_ARRIVING
+    elif submitted_theme_arriving_enabled == ARRIVING_CHECKBOX_VALUE:
+        theme_arriving = submitted_theme_arriving
+    else:
         return FLASH_SAVE_FAILED
     if submitted_led is None:
         led_enabled = False
@@ -1226,7 +1263,8 @@ def handle_post(form, ctx):
 
     try:
         device_config.save_device_config(
-            state_dir, theme=submitted_theme, tracked_runway=submitted_runway,
+            state_dir, theme=submitted_theme, theme_arriving=theme_arriving,
+            tracked_runway=submitted_runway,
             led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
             quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
             wake_interval_s=wake_interval_s, display_enabled=display_enabled)
