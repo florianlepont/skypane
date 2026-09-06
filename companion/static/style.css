@@ -3753,6 +3753,26 @@ summary::-webkit-details-marker {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* Phase 13 (13-04-PLAN.md Task 2, D-06): the manual-resolutions
+ * management list's "Superseded" status marker. Declares the project's
+ * unified label voice BY VALUE, not by selector reuse — matching
+ * .data-card__label's own five declarations exactly, per
+ * sketch-findings-skypane SKILL.md's own rule that these selectors are
+ * written out separately rather than consolidated into one rule (now a
+ * seventh consumer alongside .stat-tile__caption, .data-table th,
+ * .data-card__label, .filter-bar__count, .banner__pill and
+ * .airline-card__chip above). No background, no border, no new colour
+ * token, no icon: a superseded entry is an expected, harmless outcome
+ * of the built-in airline list catching up, not a fault, so it must not
+ * reach for a warn/error colour. */
+.manual-resolution__status--superseded {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 /* Phase 06.5 (D-02): interactive battery-trend chart hit targets and
  * readout line. */
 

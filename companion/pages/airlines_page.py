@@ -264,6 +264,29 @@ MANUAL_DATALIST_ID = "known-airlines"
 # enrich.py's own callsign-prefix shape gate.
 _RESOLVE_PREFIX_RE = re.compile(r"^[A-Z]{3}$")
 
+# Phase 13 (13-04-PLAN.md Task 2, D-06/D-07): the manual-resolutions
+# management list's copy constants, byte-identical to 13-UI-SPEC.md's
+# Full Copy Deck.
+MANUAL_SECTION_HEADING = "Manually resolved prefixes"
+MANUAL_SECTION_CAPTION = (
+    "Airlines you’ve named by hand for a prefix the frame couldn’t "
+    "otherwise identify.")
+MANUAL_EMPTY_HEADING = "No manual resolutions yet."
+MANUAL_EMPTY_BODY = (
+    "Resolve an unidentified flight from Health’s coverage-gap list "
+    "to add one here.")
+MANUAL_RESOLUTION_HEADERS = ("Prefix", "Airline name", "Added", "Status", "Delete")
+SUPERSEDED_MARKER_TEXT = "Superseded"
+SUPERSEDED_MARKER_TITLE = (
+    "The frame’s built-in airline list now also recognizes this "
+    "prefix — its entry wins, and this manual name is no longer used.")
+SUPERSEDED_CAPTION = (
+    "A prefix is marked Superseded once the frame’s built-in list "
+    "also recognizes it — the built-in entry wins. Delete and re-add "
+    "to point it somewhere else.")
+DELETE_BUTTON_TEXT = "Delete"
+SUPERSEDED_STATUS_CLASS = "manual-resolution__status--superseded"
+
 # quick task 260902-v26 (D-04 is explicitly a negative requirement: no
 # revert-to-original control is in scope, anywhere, for this feature).
 # The replace-image control's own copy, each its own module-level
@@ -868,32 +891,214 @@ def _resolve_section_html(ctx):
     return '<div class="page-section">%s%s%s</div>' % (back_link, heading, body)
 
 
+# ---------------------------------------------------------------------
+# Phase 13 (13-04-PLAN.md Task 2): the always-present manual-resolutions
+# management list (D-06, D-07, D-08).
+# ---------------------------------------------------------------------
+
+
+def _manual_delete_action(prefix):
+    """The delete form's `action` attribute for `prefix`, built once here
+    so the desktop `<tr>` and the mobile `<li>` can never diverge into
+    building two different strings for the same row.
+    """
+    return "%s%s%s" % (MANUAL_DELETE_ROUTE_PREFIX, escape_html(prefix), MANUAL_DELETE_ROUTE_SUFFIX)
+
+
+def _manual_superseded_marker_html():
+    """The `<span class="manual-resolution__status--superseded">`
+    marker, carrying text (`SUPERSEDED_MARKER_TEXT`) and a `title`
+    explanation (`SUPERSEDED_MARKER_TITLE`) — never colour alone, this
+    app's Label-voice convention and the UI-SPEC's no-colour-only-signal
+    rule.
+    """
+    return '<span class="%s" title="%s">%s</span>' % (
+        SUPERSEDED_STATUS_CLASS,
+        escape_html(SUPERSEDED_MARKER_TITLE),
+        escape_html(SUPERSEDED_MARKER_TEXT),
+    )
+
+
+def _manual_resolution_rows(state_dir, registry):
+    """`(prefix, airline_name, created_at, superseded)` tuples from an
+    already-loaded `registry` dict, via `manual_resolutions.entry_rows()`
+    (prefix-ascending), with `superseded` set from
+    `enrich.static_airline_name_for_prefix(prefix)` — D-06's oracle: the
+    static table has caught up, so its entry wins at runtime and the
+    operator's uploaded art is no longer reachable under this prefix.
+    Nothing here mutates the registry — flagging is the whole of D-06's
+    UI obligation; repairing is delete-and-re-add.
+    """
+    rows = []
+    for prefix, airline_name, created_at in manual_resolutions.entry_rows(registry):
+        superseded = bool(enrich.static_airline_name_for_prefix(prefix))
+        rows.append((prefix, airline_name, created_at, superseded))
+    return rows
+
+
+def _manual_resolution_row_html(index, prefix, airline_name, created_at, superseded, now):
+    """One `<tr>` for the management table: `row`/`row-alt` by index
+    parity, prefix/name/added/status/delete cells. `created_at` renders
+    through `layout.concise_timestamp_html()`, interpolated verbatim as
+    already-safe markup — never re-escaped, matching this module's own
+    `_resolve_context_html()` discipline. The status cell is empty for
+    an active entry (the normal state gets no visual noise, matching
+    `layout.card_status_class()`'s own documented "absence is the
+    signal" discipline) or the superseded marker.
+    """
+    row_class = "row-alt" if index % 2 else "row"
+    status_html = _manual_superseded_marker_html() if superseded else ""
+    delete_form = (
+        '<form method="post" action="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (_manual_delete_action(prefix), DELETE_BUTTON_TEXT)
+    cells = (
+        '<td class="mono">%s</td>' % escape_html(prefix),
+        "<td>%s</td>" % escape_html(airline_name),
+        "<td>%s</td>" % layout.concise_timestamp_html(created_at, now, fallback=""),
+        "<td>%s</td>" % status_html,
+        "<td>%s</td>" % delete_form,
+    )
+    return '<tr class="%s">%s</tr>' % (row_class, "".join(cells))
+
+
+def _manual_resolution_table_html(rows, now):
+    """The management table, hand-rolled to match
+    `health_page._registry_table_html()`'s own `.data-table-wrap`/
+    `.data-table`/`thead`/`tbody` structure for visual consistency.
+    """
+    header_cells = "".join(
+        "<th>%s</th>" % escape_html(h) for h in MANUAL_RESOLUTION_HEADERS)
+    body_rows = [
+        _manual_resolution_row_html(index, prefix, airline_name, created_at, superseded, now)
+        for index, (prefix, airline_name, created_at, superseded) in enumerate(rows)
+    ]
+    return (
+        '<div class="data-table-wrap">'
+        '<table class="data-table">'
+        "<thead><tr>%s</tr></thead>"
+        "<tbody>%s</tbody>"
+        "</table>"
+        "</div>"
+    ) % (header_cells, "".join(body_rows))
+
+
+def _manual_resolution_cards_html(rows, now):
+    """The mobile `.data-cards` representation of the management list —
+    one `<li class="data-card">` per row, no `data-filter-text`/
+    `data-filter-group` attributes at all: this list has no filter bar
+    (UI-SPEC Autonomous Decision 3), and `list-filter.js`'s distinct-
+    group counting must not be invited to see a list it does not drive.
+    Returns `""` for an empty list, matching `_manual_resolution_table_
+    html()`'s own no-chrome-with-no-data rule.
+    """
+    if not rows:
+        return ""
+    items = []
+    for prefix, airline_name, created_at, superseded in rows:
+        marker_html = _manual_superseded_marker_html() if superseded else ""
+        primary = (
+            '<div class="data-card__primary">'
+            '<span class="cell-primary mono">%s</span>'
+            '<span class="data-card__value">%s</span>'
+            "%s"
+            "</div>"
+        ) % (escape_html(prefix), escape_html(airline_name), marker_html)
+        secondary = (
+            '<div class="data-card__secondary">'
+            '<span class="data-card__label">%s</span>%s'
+            "</div>"
+        ) % (
+            escape_html(MANUAL_RESOLUTION_HEADERS[2]),
+            layout.concise_timestamp_html(created_at, now, fallback=""),
+        )
+        delete_form = (
+            '<form method="post" action="%s">'
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (_manual_delete_action(prefix), DELETE_BUTTON_TEXT)
+        items.append('<li class="data-card">%s%s%s</li>' % (primary, secondary, delete_form))
+    return '<ul class="data-cards">%s</ul>' % "".join(items)
+
+
+def _manual_resolutions_section_html(ctx):
+    """The always-present manual-resolutions management list (D-07): its
+    own `.page-section` card, heading, caption, then either
+    `layout.empty_state()` or the table/card-list pairing, plus — only
+    when at least one row is superseded — the trailing explanatory
+    caption. UI-SPEC Autonomous Decision 2: this list sits at the
+    bottom of the page (after the lightbox) because it is reference/
+    cleanup material, not the page's purpose.
+
+    Reads the registry from `ctx.get("manual_resolutions")` when
+    present (plan 13-06 threads this in), falling back to
+    `manual_resolutions.load_manual_resolutions(state_dir)` when the key
+    is absent and `state_dir` is truthy, and to `{}` otherwise — so
+    `render({})` still works.
+    """
+    state_dir = ctx.get("state_dir")
+    now = ctx.get("now")
+    registry = ctx.get("manual_resolutions")
+    if registry is None:
+        registry = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
+
+    heading = '<h2 class="text-heading">%s</h2>' % escape_html(MANUAL_SECTION_HEADING)
+    caption = '<p class="text-label section-caption">%s</p>' % escape_html(MANUAL_SECTION_CAPTION)
+
+    rows = _manual_resolution_rows(state_dir, registry)
+    if not rows:
+        body = layout.empty_state(MANUAL_EMPTY_HEADING, MANUAL_EMPTY_BODY)
+        return '<div class="page-section">%s%s%s</div>' % (heading, caption, body)
+
+    # Cards render before the table — style.css's `.data-cards ~
+    # .data-table-wrap` sibling-combinator toggle (the same mechanism
+    # health_page._registry_section() documents for itself) depends on
+    # this exact DOM order; do not reorder these two calls.
+    cards_html = _manual_resolution_cards_html(rows, now)
+    table_html = _manual_resolution_table_html(rows, now)
+    superseded_caption = ""
+    if any(row[3] for row in rows):
+        superseded_caption = '<p class="text-label section-caption">%s</p>' % escape_html(SUPERSEDED_CAPTION)
+    return '<div class="page-section">%s%s%s%s%s</div>' % (
+        heading, caption, cards_html, table_html, superseded_caption)
+
+
 def render(ctx):
     """The Airlines page (D-13 through D-17, extended by phase 13's
     D-03/D-06/D-07/D-10 through D-13): the page header, the conditional
-    resolve section, the D-16 filter bar, then one card per airline in
-    `illustrations.target_variants_by_airline()` order, then the shared
-    click-to-enlarge lightbox dialog (quick task 260902-tli). `ctx` is
+    resolve section, the D-16 filter bar, one card per airline in
+    `illustrations.target_variants_by_airline()` order, the shared
+    click-to-enlarge lightbox dialog (quick task 260902-tli), then the
+    always-present manual-resolutions management list (D-07). `ctx` is
     accepted for call-site parity with every other page module's
     `render(ctx)` signature.
 
     Since quick task 260902-v26 this reads `state_dir` (used to resolve
     each card's illustration-replace cache buster, see
-    `_illustration_cache_buster()`). Phase 13 (13-04-PLAN.md) adds two
-    more `ctx.get()` reads: `resolve_prefix` (the `?resolve={prefix}`
-    query value, presence-gating `_resolve_section_html()`) and `now`
-    (threaded to every rendered timestamp in the resolve section's
-    context block, `_resolve_context_html()`). Every one of these three
-    keys is read with `ctx.get()`, never `ctx[...]` —
-    `companion/test_view_pages.py`'s existing `render({})` call with a
-    literal empty dict must keep rendering the unchanged gallery and no
-    resolve section. This page still opens no database.
+    `_illustration_cache_buster()`, and by both new phase-13 sections
+    below as their own state-dir source). Phase 13 (13-04-PLAN.md) adds
+    three more `ctx.get()` reads: `resolve_prefix` (the `?resolve=
+    {prefix}` query value, presence-gating `_resolve_section_html()`),
+    `now` (threaded to every rendered timestamp in both new sections),
+    and `manual_resolutions` (an already-loaded registry dict,
+    `_manual_resolutions_section_html()`'s preferred source — plan
+    13-06 threads this in; absent, it falls back to loading fresh from
+    `state_dir`). Every one of these four keys is read with `ctx.get()`,
+    never `ctx[...]` — `companion/test_view_pages.py`'s existing
+    `render({})` call with a literal empty dict must keep rendering the
+    unchanged gallery, no resolve section, and the management list's own
+    empty state. This page still opens no database.
 
     The filter bar and the lightbox dialog both render only when there
     is at least one card — this codebase's consistent "no chrome with no
     data" rule — though with a static curated list that branch is
     unreachable today; it stays a genuine guard, not a claim that the
-    list can ever be empty.
+    list can ever be empty. The management list has its own,
+    independent empty state (`layout.empty_state()`) and is never
+    gated on the gallery having any cards — UI-SPEC Autonomous Decision
+    2: it is reference/cleanup material, not the page's purpose, so it
+    sits last, below the gallery.
     """
     # ctx.get(), never ctx["state_dir"]: companion/test_view_pages.py:1365
     # calls render({}) with a literal empty dict, and every other caller
@@ -904,10 +1109,12 @@ def render(ctx):
     pairs = illustrations.target_variants_by_airline()
     filter_html = _filter_bar_html(len(pairs)) if pairs else ""
     lightbox_html = _lightbox_html() if pairs else ""
+    manual_section_html = _manual_resolutions_section_html(ctx)
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
         + resolve_html
         + filter_html
         + _gallery_grid_html(pairs, state_dir)
         + lightbox_html
+        + manual_section_html
     )

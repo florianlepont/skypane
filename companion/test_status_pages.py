@@ -282,7 +282,11 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 143  # 140 + 3 (phase 13 plan 04 Task 1: the
+EXPECTED_CHECK_COUNT = 146  # 143 + 3 (phase 13 plan 04 Task 2: the
+# management list's empty/populated-states check, the supersession-
+# contract check, and the delete-control/design-system contract check —
+# D-06/D-07/D-08). Re-derived by RUNNING the harness, not by arithmetic.
+# 143 = 140 + 3 (phase 13 plan 04 Task 1: the
 # resolve section's four-state state-machine check, the Step A datalist
 # contract check, and the hostile-value-escaping/query-string-distrust
 # check — D-03/D-11/D-12/D-13/T-13-05/T-13-08). Re-derived by RUNNING the
@@ -6413,6 +6417,157 @@ def main():
         "resolve_prefix differing in case or padding from the stored registry key renders the stale card "
         "rather than the form — nothing displayed comes from the query string (D-12)",
         _resolve_section_escapes_hostile_values_and_distrusts_query_string)
+
+    # ------------------------------------------------------------------
+    # Phase 13 (13-04-PLAN.md Task 2): the manual-resolutions management
+    # list (D-06, D-07, D-08).
+    # ------------------------------------------------------------------
+
+    def _manual_section_slice(rendered):
+        """Isolate just the management list's own markup — everything
+        from its heading constant to the end of the page, since it is
+        always the last thing render() emits.
+        """
+        return rendered[rendered.index(airlines_page.MANUAL_SECTION_HEADING):]
+
+    def _manual_section_empty_and_populated_states():
+        tmp = _mkstate("a-manual-empty-populated")
+        try:
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+            if airlines_page.MANUAL_EMPTY_HEADING not in section:
+                return False, "expected the approved empty heading with no manual resolutions"
+            if airlines_page.MANUAL_EMPTY_BODY not in section:
+                return False, "expected the approved empty body with no manual resolutions"
+            if "<table" in section:
+                return False, "expected no <table> element when the registry is empty"
+
+            manual_resolutions.add_entry(tmp, "AAA", "Airline A", now="2026-01-01T00:00:00+00:00")
+            manual_resolutions.add_entry(tmp, "BBB", "Airline B", now="2026-01-02T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+            if "<table" not in section:
+                return False, "expected a <table> element once entries exist"
+            if "<ul class=\"data-cards\">" not in section:
+                return False, "expected a <ul class=\"data-cards\"> element once entries exist"
+            table_prefixes = re.findall(r'<td class="mono">([^<]+)</td>', section)
+            card_prefixes = re.findall(r'<span class="cell-primary mono">([^<]+)</span>', section)
+            if table_prefixes != ["AAA", "BBB"] or card_prefixes != ["AAA", "BBB"]:
+                return False, "expected both representations to cover [AAA, BBB] in prefix-ascending order, got "\
+                    "table=%r cards=%r" % (table_prefixes, card_prefixes)
+            cards_index = section.index('<ul class="data-cards">')
+            table_index = section.index("<table")
+            if cards_index >= table_index:
+                return False, "expected the .data-cards list to precede the <table> in DOM order (the sibling-"\
+                    "combinator toggle depends on this)"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "with no manual resolutions the management list renders the approved empty heading/body and no "
+        "<table>; with two entries it renders both representations (table and .data-cards, cards first in "
+        "DOM order) covering the same prefixes in the same prefix-ascending order",
+        _manual_section_empty_and_populated_states)
+
+    def _manual_section_supersession_contract():
+        tmp = _mkstate("a-manual-supersession")
+        try:
+            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES);
+            # ZZZ is not.
+            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+            if airlines_page.SUPERSEDED_MARKER_TEXT not in section:
+                return False, "expected the Superseded marker for a prefix the static table has caught up to"
+            if airlines_page.SUPERSEDED_MARKER_TITLE not in section:
+                return False, "expected the marker's title explanation"
+            if section.count(airlines_page.SUPERSEDED_CAPTION) != 1:
+                return False, "expected exactly one trailing explanatory caption, got %d" % (
+                    section.count(airlines_page.SUPERSEDED_CAPTION),)
+
+            tmp2 = _mkstate("a-manual-not-superseded")
+            try:
+                manual_resolutions.add_entry(tmp2, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
+                rendered2 = airlines_page.render(_ctx(tmp2))
+                section2 = _manual_section_slice(rendered2)
+                if airlines_page.SUPERSEDED_MARKER_TEXT in section2:
+                    return False, "expected no Superseded marker for a prefix absent from the static table"
+                if airlines_page.SUPERSEDED_CAPTION in section2:
+                    return False, "expected the explanatory caption absent entirely when nothing is superseded"
+            finally:
+                shutil.rmtree(tmp2, ignore_errors=True)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "an entry whose prefix is a real member of the static prefix table renders the Superseded marker, "
+        "its title explanation, and exactly one trailing explanatory caption; an entry whose prefix is not "
+        "renders neither, and the caption is absent entirely when no row is superseded (D-06)",
+        _manual_section_supersession_contract)
+
+    def _manual_section_delete_control_and_design_system_contract():
+        tmp = _mkstate("a-manual-delete-contract")
+        try:
+            manual_resolutions.add_entry(tmp, "AAA", "Airline A", now="2026-01-01T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            section = _manual_section_slice(rendered)
+            expected_action = "/airlines/manual-resolutions/AAA/delete"
+            form_match = re.search(
+                r'<form method="post" action="%s">(.*?)</form>' % re.escape(expected_action),
+                section, re.DOTALL)
+            if not form_match:
+                return False, "expected a delete form with action %r" % (expected_action,)
+            inner = form_match.group(1)
+            if "<button type=\"submit\">" not in inner:
+                return False, "expected the delete control to be a submit button inside its own form"
+            if "<a " in inner:
+                return False, "expected the delete control to never be an anchor"
+            if "data-filter-group=\"" in section:
+                return False, "expected the management list to emit no filter-group markup at all"
+            if section.count('class="filter-bar') != 0:
+                return False, "expected the management list to emit no filter-bar markup at all"
+            rendered_full = rendered
+            if rendered_full.count('class="filter-bar') != 3:
+                return False, "expected exactly 3 occurrences of class=\"filter-bar in the whole page — "\
+                    "unchanged from before this plan (the gallery's own filter bar is the page's only one), "\
+                    "got %d" % (rendered_full.count('class="filter-bar'),)
+
+            style_css_path = os.path.join(HERE, "static", "style.css")
+            with open(style_css_path) as fh:
+                style_css_source = fh.read()
+            if airlines_page.SUPERSEDED_STATUS_CLASS not in style_css_source:
+                return False, "expected %r to appear in companion/static/style.css" % (
+                    airlines_page.SUPERSEDED_STATUS_CLASS,)
+            rule_match = re.search(
+                r"\.%s\s*\{([^}]*)\}" % re.escape(airlines_page.SUPERSEDED_STATUS_CLASS),
+                style_css_source)
+            if not rule_match:
+                return False, "expected to find the .%s rule body" % (airlines_page.SUPERSEDED_STATUS_CLASS,)
+            label_match = re.search(r"\.data-card__label\s*\{([^}]*)\}", style_css_source)
+            if not label_match:
+                return False, "expected to find the .data-card__label rule body"
+
+            def declared_values(body):
+                return {
+                    line.strip()
+                    for line in body.strip().splitlines() if line.strip()
+                }
+            superseded_decls = declared_values(rule_match.group(1))
+            label_decls = declared_values(label_match.group(1))
+            if superseded_decls != label_decls:
+                return False, "expected .%s to declare the identical five label-voice values .data-card__label "\
+                    "declares, got %r vs %r" % (
+                        airlines_page.SUPERSEDED_STATUS_CLASS, superseded_decls, label_decls)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "each row's delete form action is exactly /airlines/manual-resolutions/{prefix}/delete, the delete "
+        "control is a submit button inside that form (never an anchor), the management list emits no "
+        "filter-bar/filter-group markup of its own (the gallery's own filter bar stays the page's only one), "
+        "and .manual-resolution__status--superseded declares the identical five label-voice values "
+        ".data-card__label declares (asserted so the two can never drift, D-08/UI-SPEC Autonomous Decision 3)",
+        _manual_section_delete_control_and_design_system_contract)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
