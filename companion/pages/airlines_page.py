@@ -862,6 +862,30 @@ def _gap_rows_for_grid(state_dir):
     `resolve_prefix`) or a missing/unreadable poll state both yield
     `([], 0)` rather than crashing a page render, mirroring
     `_illustration_cache_buster()`'s own no-`state_dir` short-circuit.
+
+    14-08 on-glass fix (2026-09-06, D-13/D-14 real-browser check): skips
+    any prefix that already has a `manual_resolutions.json` entry, even
+    though `poll_state.json`'s own `unresolved_prefixes` still lists it —
+    the two files are updated by different owners on different
+    schedules (the companion writes the manual entry immediately;
+    `server/poll_loop.py`'s D-14 cleanup only clears the gap entry on
+    the device's *next* wake-and-poll cycle, exactly what the save
+    confirmation flash tells the operator: "the frame will pick it up
+    next time it wakes and polls"). Without this exclusion, saving a
+    name for a still-unresolved gap rendered TWO `data-view-panel-
+    resolve-prefix="{prefix}"` elements simultaneously for one wake
+    (the stale gap card plus the new manual/needs-artwork card) —
+    confirmed live in a real browser — and `panel-lookup.js`'s
+    `document.querySelector()` auto-open (a single-match lookup, by
+    design, since exactly one match is the invariant every other mode
+    relies on) silently grabbed whichever rendered first in DOM order
+    (the gap card, since D-05 sorts gaps to the head of the grid),
+    reopening the dialog on the wrong (Step A) form after the operator
+    had just completed Step A. The manual registry is authoritative the
+    moment a name is saved — this function's OWN eligibility list is
+    the right and only place to encode that, not a client-side
+    disambiguation panel-lookup.js would have no principled way to make
+    (it has no way to know which of two matches is "newer").
     """
     if not state_dir:
         return [], 0
@@ -869,8 +893,11 @@ def _gap_rows_for_grid(state_dir):
     registry = state.get("unresolved_prefixes")
     if not isinstance(registry, dict):
         return [], 0
+    manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
     eligible = []
     for prefix, entry in registry.items():
+        if prefix in manual_registry:
+            continue
         if not isinstance(entry, dict):
             continue
         count = entry.get("count")
