@@ -28,10 +28,11 @@ if REPO_ROOT not in sys.path:
 # by RUNNING the harness (not by arithmetic), per this repo's own
 # documented discipline (see the ledger comment above
 # companion/test_status_pages.py's own EXPECTED_CHECK_COUNT).
-# 20 = 19 + 1 (13-REVIEW.md WR-02 fix: the concurrent-add_entry()
-# no-lost-updates check, proving _WRITE_LOCK closes the unsynchronised
-# read-modify-write window).
-EXPECTED_CHECK_COUNT = 20
+# 21 = 20 + 1 (13-REVIEW.md WR-03 fix: the drop-count-message check for
+# load_manual_resolutions()). 20 = 19 + 1 (13-REVIEW.md WR-02 fix: the
+# concurrent-add_entry() no-lost-updates check, proving _WRITE_LOCK
+# closes the unsynchronised read-modify-write window).
+EXPECTED_CHECK_COUNT = 21
 
 
 def main():
@@ -359,7 +360,75 @@ def main():
         "behind (WR-02)",
         _concurrent_add_entry_calls_lose_no_updates)
 
-    # 20. Hostile-input sweep: every one of these must be rejected by
+    # 20. WR-03 proof: load_manual_resolutions() prints a one-line
+    #     drop-count message whenever it silently rejects an entry (or
+    #     truncates at the cap) — the exact loss add_entry()/delete_entry()
+    #     would otherwise make permanent on their next write, with no
+    #     record anywhere that it happened. Nothing is printed when
+    #     nothing is dropped, and an over-cap file's remainder is counted
+    #     without validating every key beyond the cap (T-13-04/T-13-12).
+    def _load_prints_drop_count_for_rejected_and_capped_entries():
+        import contextlib
+        import io
+        import string
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(m.manual_resolutions_path(tmp), "w") as fh:
+                json.dump({
+                    "AAA": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"},
+                    "BBB": "not a dict",
+                }, fh)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                result = m.load_manual_resolutions(tmp)
+            expected = {"AAA": {"airline_name": "Volotea", "created_at": "2026-01-01T00:00:00+00:00"}}
+            if result != expected:
+                return False, "expected the valid entry alone to survive, got %r" % (result,)
+            if "1 entry" not in buf.getvalue():
+                return False, "expected a drop-count message naming 1 dropped entry, got %r" % (buf.getvalue(),)
+
+        with tempfile.TemporaryDirectory() as tmp_clean:
+            with open(m.manual_resolutions_path(tmp_clean), "w") as fh:
+                json.dump({"AAA": {"airline_name": "Volotea", "created_at": "t"}}, fh)
+            buf_clean = io.StringIO()
+            with contextlib.redirect_stdout(buf_clean):
+                m.load_manual_resolutions(tmp_clean)
+            if buf_clean.getvalue():
+                return False, "expected no drop-count message when nothing is dropped, got %r" % (
+                    buf_clean.getvalue(),)
+
+        with tempfile.TemporaryDirectory() as tmp_cap:
+            over_cap_by = 5
+            oversized = {}
+            count = 0
+            total = m.MANUAL_RESOLUTION_MAX_ENTRIES + over_cap_by
+            for a in string.ascii_uppercase:
+                for b in string.ascii_uppercase:
+                    if count >= total:
+                        break
+                    oversized["Z" + a + b] = {"airline_name": "Airline %d" % count, "created_at": "t"}
+                    count += 1
+                if count >= total:
+                    break
+            with open(m.manual_resolutions_path(tmp_cap), "w") as fh:
+                json.dump(oversized, fh)
+            buf_cap = io.StringIO()
+            with contextlib.redirect_stdout(buf_cap):
+                result_cap = m.load_manual_resolutions(tmp_cap)
+            if len(result_cap) != m.MANUAL_RESOLUTION_MAX_ENTRIES:
+                return False, "expected exactly the cap's worth of surviving entries, got %d" % (
+                    len(result_cap),)
+            if ("%d entry" % over_cap_by) not in buf_cap.getvalue():
+                return False, "expected the drop-count message to name the %d over-cap entries, got %r" % (
+                    over_cap_by, buf_cap.getvalue())
+        return True, ""
+    check(
+        "load_manual_resolutions() prints a one-line drop-count message whenever it silently rejects an "
+        "entry or truncates at the cap (naming the real count in both cases) and prints nothing when "
+        "nothing is dropped (WR-03)",
+        _load_prints_drop_count_for_rejected_and_capped_entries)
+
+    # 21. Hostile-input sweep: every one of these must be rejected by
     #     add_entry() with some ADD_REJECTED_* value, and the registry must
     #     remain empty afterwards. One check covering the whole list, not
     #     one per item.

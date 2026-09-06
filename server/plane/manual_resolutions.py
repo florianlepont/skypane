@@ -225,6 +225,25 @@ def load_manual_resolutions(state_dir):
     collected, so a hand-edited oversized file can never make a page
     render unbounded (T-13-04/T-13-12).
 
+    WR-03 fix: because `add_entry()`/`delete_entry()` rewrite the whole
+    file from exactly this validated view, any entry this function
+    silently dropped is permanently erased the next time either function
+    writes — a 250-entry hand-migrated file loses 50 entries the moment
+    the operator clicks Delete on one row, and a rejected/malformed entry
+    vanishes on the next Add. This function does not (and, given
+    `illustration_key_for_name()`'s own re-check being deliberate defence
+    in depth against a hand-edited unsafe/reserved name — T-13-02 — must
+    not) silently re-persist an entry it itself rejects. What it CAN do
+    is stop the loss from being silent: whenever the raw file holds more
+    entries than survive validation (whether rejected outright or beyond
+    the cap), this prints one line naming how many will be dropped on the
+    next write, before returning the validated view exactly as before.
+    The cap-triggered `break` below is preserved as a `break`, not
+    changed to a `continue` that would keep validating every remaining
+    key just to count it — that would reopen the exact unbounded-render
+    risk (T-13-04/T-13-12) the cap exists to close; the drop count for
+    that case is the untouched remainder's size, not a per-entry re-walk.
+
     Returns `{prefix: {"airline_name": name, "created_at": created_at}}`.
     """
     try:
@@ -235,25 +254,41 @@ def load_manual_resolutions(state_dir):
     if not isinstance(data, dict):
         data = {}
 
+    sorted_keys = sorted(data.keys(), key=lambda k: k if isinstance(k, str) else "")
     registry = {}
-    for key in sorted(data.keys(), key=lambda k: k if isinstance(k, str) else ""):
+    rejected = 0
+    capped_remainder = 0
+    for index, key in enumerate(sorted_keys):
         if len(registry) >= MANUAL_RESOLUTION_MAX_ENTRIES:
+            capped_remainder = len(sorted_keys) - index
             break
         prefix = normalise_prefix(key)
         if prefix is None:
+            rejected += 1
             continue
         value = data[key]
         if not isinstance(value, dict):
+            rejected += 1
             continue
         airline_name = normalise_manual_airline_name(value.get("airline_name"))
         if airline_name is None:
+            rejected += 1
             continue
         if illustration_key_for_name(airline_name) is None:
+            rejected += 1
             continue
         created_at = value.get("created_at")
         if not isinstance(created_at, str):
+            rejected += 1
             continue
         registry[prefix] = {"airline_name": airline_name, "created_at": created_at}
+
+    dropped = rejected + capped_remainder
+    if dropped:
+        print(
+            "manual_resolutions: %d entry/entries will be dropped from %s on the next write "
+            "(malformed/unsafe, or beyond the %d-entry cap)"
+            % (dropped, manual_resolutions_path(state_dir), MANUAL_RESOLUTION_MAX_ENTRIES))
 
     return registry
 
