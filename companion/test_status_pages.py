@@ -56,7 +56,6 @@ import companion.app as app  # noqa: E402
 from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import history_db  # noqa: E402
-from server.plane import enrich  # noqa: E402
 from server.plane import illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
