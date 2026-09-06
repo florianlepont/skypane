@@ -7432,7 +7432,18 @@ def main():
         # .lightbox__delete, in exactly one declaration block — extend
         # the selector, never duplicate it, matching this file's own
         # .lightbox__replace-zone, .resolve-upload-zone precedent.
-        group_selector = ".lightbox__replace,\n.lightbox__resolve-name,\n.lightbox__delete {"
+        #
+        # 14-08 on-glass fix (2026-09-06): each selector now carries
+        # `:not([hidden])` (a real-browser check found `display: block`
+        # here winning its specificity tie against the UA stylesheet's
+        # `[hidden] { display: none }`, so `hidden = true` stopped
+        # hiding these forms the moment Phase 14 started toggling them
+        # at runtime) — retargeted in place, same check, same intent.
+        group_selector = (
+            ".lightbox__replace:not([hidden]),\n"
+            ".lightbox__resolve-name:not([hidden]),\n"
+            ".lightbox__delete:not([hidden]) {"
+        )
         if css_source.count(group_selector) != 1:
             return False, (
                 "expected the exact three-way selector group %r exactly once in style.css, got %d"
@@ -7441,12 +7452,14 @@ def main():
         for expected_declaration in ("display: block", "padding-top: var(--space-md)", "min-width: 0"):
             if expected_declaration not in group_body:
                 return False, "expected the three-way group's rule body to contain %r" % (expected_declaration,)
-        # .lightbox__delete { (its own standalone rule) must not exist —
-        # confirms the selector was extended, not duplicated.
-        if css_source.count(".lightbox__delete {") != 1:
+        # .lightbox__delete:not([hidden]) { (its own standalone rule)
+        # must not exist — confirms the selector was extended, not
+        # duplicated.
+        if css_source.count(".lightbox__delete:not([hidden]) {") != 1:
             return False, (
-                "expected .lightbox__delete { to appear exactly once (inside the shared group only), got %d"
-                % css_source.count(".lightbox__delete {"))
+                "expected .lightbox__delete:not([hidden]) { to appear exactly once "
+                "(inside the shared group only), got %d"
+                % css_source.count(".lightbox__delete:not([hidden]) {"))
 
         # Zero new accent consumer: the exhaustive header
         # accent-reservation list (the file's first block comment) must

@@ -4461,10 +4461,28 @@ a.airline-card {
  * identical "one action block inside the dialog" spacing treatment
  * this rule already declares, matching this file's own
  * .lightbox__replace-zone, .resolve-upload-zone precedent below
- * (extend the selector, never duplicate the declaration). */
-.lightbox__replace,
-.lightbox__resolve-name,
-.lightbox__delete {
+ * (extend the selector, never duplicate the declaration).
+ *
+ * 14-08 on-glass fix (2026-09-06, D-03 real-browser check): each of
+ * these three forms is exactly the element panel-lookup.js's
+ * openFromTrigger() sets `.hidden` on per mode
+ * (resolveNameForm/replaceForm) or per manual (deleteForm). An
+ * unconditional `display: block` here has the SAME specificity as the
+ * UA stylesheet's own `[hidden] { display: none }` rule and, being the
+ * later author rule, wins the tie — so `hidden = true` stopped hiding
+ * anything the moment Phase 14 started toggling these three at
+ * runtime (this rule's `.lightbox__replace` half predates Phase 14 and
+ * was never exercised as a bug before, since nothing ever set `hidden`
+ * on it). Confirmed live: opening a gap card showed the replace AND
+ * delete forms alongside the name form, all three simultaneously
+ * `hidden=true` in the DOM yet rendering `display:block`. Scoping the
+ * selector to `:not([hidden])` keeps every declaration and every
+ * existing selector exactly as this comment already describes them —
+ * it only ever matches when the attribute is absent, so it can never
+ * fight `[hidden]` again. */
+.lightbox__replace:not([hidden]),
+.lightbox__resolve-name:not([hidden]),
+.lightbox__delete:not([hidden]) {
   display: block;
   padding-top: var(--space-md);
   min-width: 0;
@@ -4485,9 +4503,24 @@ a.airline-card {
  * it, rather than a duplicated rule — it reuses the exact
  * `.lightbox__replace-zone` visual treatment verbatim, per
  * 13-UI-SPEC.md's own instruction. No declaration inside any of the six
- * changes. */
-.lightbox__replace-zone,
-.resolve-upload-zone {
+ * changes.
+ *
+ * 14-08 on-glass fix (2026-09-06): `.resolve-upload-zone` is exactly
+ * the element panel-lookup.js sets `.hidden` on per mode
+ * (`resolveUploadZone.hidden = (mode !== "needs-artwork")`) — an
+ * unconditional `display: flex` here wins its specificity tie against
+ * the UA stylesheet's `[hidden] { display: none }` (same reasoning as
+ * the `.lightbox__replace`/`.lightbox__resolve-name`/`.lightbox__delete`
+ * rule above), so the upload zone stayed visible in every mode
+ * regardless of `hidden`, confirmed live in the same browser pass.
+ * `.lightbox__replace-zone` itself is never given `hidden` directly —
+ * it is nested inside `.lightbox__replace`, whose own now-scoped rule
+ * above hides it as an ancestor — so `:not([hidden])` here is a no-op
+ * for it today, added only to keep both selectors in this shared rule
+ * on the same footing, matching this rule's own "extend the selector,
+ * never duplicate the declaration" convention. */
+.lightbox__replace-zone:not([hidden]),
+.resolve-upload-zone:not([hidden]) {
   display: flex;
   flex-direction: column;
   align-items: center;

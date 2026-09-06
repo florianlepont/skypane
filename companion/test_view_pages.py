@@ -2237,8 +2237,17 @@ def main():
         # "-zone" hyphen continuation) still proves the exact selector
         # exists as its own token, in either the old standalone form or
         # the new grouped form.
+        #
+        # 14-08 on-glass fix (2026-09-06) retargeted this pattern IN
+        # PLACE a second time: a real-browser check found `display:
+        # block` on this group winning a specificity tie against the UA
+        # stylesheet's `[hidden] { display: none }`, so every selector
+        # in the group now carries `:not([hidden])` immediately after
+        # the class name — a colon, not whitespace/comma/brace. Added
+        # `:` to the lookahead so the exact-selector proof still holds
+        # for the scoped form.
         exact_selector_pattern = re.compile(
-            r'\.' + re.escape(airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) + r'(?=[\s,{])')
+            r'\.' + re.escape(airlines_page.LIGHTBOX_REPLACE_FORM_CLASS) + r'(?=[\s,{:])')
         if not exact_selector_pattern.search(style_css_source):
             return False, (
                 "expected a '.%s' selector (not merely a '-zone' prefix match) in "
