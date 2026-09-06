@@ -283,7 +283,14 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 150  # 149 + 1 (phase 14 plan 14-01 Task 3: the new
+EXPECTED_CHECK_COUNT = 151  # 150 + 1 (phase 14 plan 14-03 Task 1,
+# RESEARCH.md Pitfall 5: the source-assertion guard for
+# companion/static/list-filter.js's new [data-filter-set] lookup — pins
+# the token is present, the new handler calls the file's one existing
+# applyFilter(), the file still has exactly one [data-filter-text]
+# query, and the ES5-safe/no-network-no-timer standing constraints
+# hold). Re-derived by RUNNING the harness, not by arithmetic.
+# 150 = 149 + 1 (phase 14 plan 14-01 Task 3: the new
 # _seed_manual_resolutions() fixture helper's own end-to-end exercising
 # check, seeding one static-table-superseded prefix and one novel one
 # through manual_resolutions.add_entry() alone). Re-derived by RUNNING
@@ -6857,6 +6864,64 @@ def main():
         "and .manual-resolution__status--superseded declares the identical five label-voice values "
         ".data-card__label declares (asserted so the two can never drift, D-08/UI-SPEC Autonomous Decision 3)",
         _manual_section_delete_control_and_design_system_contract)
+
+    def _list_filter_js_gains_data_filter_set_hook():
+        # Phase 14 (14-03-PLAN.md Task 1, RESEARCH.md Pitfall 5):
+        # list-filter.js exposed exactly four attributes and no way for
+        # an element elsewhere on the page to set the filter and re-run
+        # it, so D-11's clickable summary line had no real mechanism to
+        # drive. This pins the fix stays a single filtering
+        # implementation, ES5-safe, and free of the file's own standing
+        # network/timer bans — a source-level guard, since no harness
+        # exercises client JS execution directly.
+        js_path = os.path.join(HERE, "static", "list-filter.js")
+        with open(js_path) as fh:
+            js_source = fh.read()
+
+        if "data-filter-set" not in js_source:
+            return False, "expected the data-filter-set token in companion/static/list-filter.js"
+
+        # Strip comment lines before any counting assertion, so the
+        # header's own prose describing the new attribute cannot satisfy
+        # or break a count.
+        non_comment_source = "\n".join(
+            line for line in js_source.splitlines()
+            if not re.match(r'^\s*[/*]', line))
+
+        if "[data-filter-set]" not in non_comment_source:
+            return False, (
+                "expected a querySelectorAll(\"[data-filter-set]\") lookup outside comments")
+
+        handler_slice = non_comment_source[non_comment_source.index("[data-filter-set]"):]
+        if "applyFilter()" not in handler_slice:
+            return False, "expected the new [data-filter-set] handler to call applyFilter()"
+        if 'getAttribute("data-filter-set")' not in handler_slice:
+            return False, "expected the handler to read the clicked element's own data-filter-set attribute"
+
+        # The single-filtering-implementation property: exactly one
+        # [data-filter-text] QUERY (the bracketed attribute-selector
+        # form), not a bare substring count — the existing
+        # row.getAttribute("data-filter-text") read inside applyFilter()
+        # is not a second query and must not make this count 2.
+        text_query_count = non_comment_source.count("[data-filter-text]")
+        if text_query_count != 1:
+            return False, (
+                "expected exactly one [data-filter-text] query, got %d" % text_query_count)
+
+        if re.search(r'(^|[^A-Za-z_])(let|const) |=>', js_source):
+            return False, "expected list-filter.js to stay inside the ES5-safe subset (no let/const/arrow)"
+
+        if re.search(r'fetch\(|XMLHttpRequest|setTimeout|setInterval', non_comment_source):
+            return False, "expected list-filter.js to introduce no network call or timer"
+
+        return True, ""
+    check(
+        "companion/static/list-filter.js gains an optional, guarded [data-filter-set] lookup whose click "
+        "handler sets the filter input's value from the clicked element's own attribute and calls the "
+        "file's one existing applyFilter() — the file still has exactly one [data-filter-text] query, stays "
+        "ES5-safe, and introduces no network call or timer (phase 14 plan 14-03 Task 1, RESEARCH.md Pitfall "
+        "5, D-11's summary-line mechanism)",
+        _list_filter_js_gains_data_filter_set_hook)
 
     # ======================================================================
     # Section 3: one end-to-end check — a real companion/app.py subprocess,
