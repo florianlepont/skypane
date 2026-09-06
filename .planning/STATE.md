@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 14
-status: "Phase 14 complete and verified — 13/13 must-haves, both human-verification items (G-02 datalist popup, Escape/backdrop-close) confirmed live by the developer via a Cloudflare-tunnelled demo instance"
-stopped_at: "Phase 14 verified passed — 8/8 plans, code review resolved (1 critical + 4 warnings), developer confirmed the 2 remaining human-verification items"
+status: "Phase 14 secured — verified passed, then security-audited: 29/29 threats closed, 0 open. Ready for /gsd-ship"
+stopped_at: "Phase 14 secure-phase complete — SECURITY.md written (29/29 threats closed, 6 unregistered flags recorded, one overclaim corrected on WR-02). Awaiting user-invoked /gsd-ship."
 last_updated: "2026-09-06T20:51:38.108Z"
 last_activity: 2026-09-06
 last_activity_desc: Phase 14 complete
