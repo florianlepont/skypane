@@ -259,11 +259,6 @@ MANUAL_NAME_INPUT_ID = "manual-airline-name"
 MANUAL_UPLOAD_INPUT_ID = "manual-illustration-input"
 MANUAL_DATALIST_ID = "known-airlines"
 
-# D-11's membership-test prefix shape: exactly three uppercase ASCII
-# letters, mirroring manual_resolutions._PREFIX_RE and
-# enrich.py's own callsign-prefix shape gate.
-_RESOLVE_PREFIX_RE = re.compile(r"^[A-Z]{3}$")
-
 # Phase 13 (13-04-PLAN.md Task 2, D-06/D-07): the manual-resolutions
 # management list's copy constants, byte-identical to 13-UI-SPEC.md's
 # Full Copy Deck.
@@ -699,25 +694,35 @@ def unresolved_row_for_prefix(state_dir, prefix):
     displayed value comes from the tuple this function returns, never
     from the caller's own raw query-string value (D-12).
 
+    WR-04 fix: `prefix` is normalised through
+    `manual_resolutions.normalise_prefix()` (strip + upper-case + shape
+    check) right here, at this function's own boundary, rather than by
+    each caller separately — this is the single D-11 membership test the
+    render path and the write path both share, so normalising anywhere
+    else would risk the two answering differently for the same input
+    again. Callers must pass the raw value through unmodified.
+
     Reads through `poll_loop.load_poll_state(state_dir)` — never a direct
     file open, never a re-derivation of `server/plane/enrich.py`'s own
     registry-writer's shape logic — mirroring
     `health_page.unresolved_rows()`'s exact field-handling discipline,
-    just for one prefix instead of every row. Returns `None` unless: the
-    `unresolved_prefixes` value is a dict, `prefix` is a string matching
-    `_RESOLVE_PREFIX_RE` (exactly three uppercase ASCII letters), the
-    entry for it is itself a dict, and its `count` is an `int` that is
-    not a `bool`. Otherwise returns the five-tuple `(prefix, count,
-    first_seen, last_seen, example_callsign)`, with the last three
-    defaulting to `""`. Never raises — a missing or unreadable poll
-    state, or a hand-edited malformed entry, yields `None` rather than
-    crashing a page render.
+    just for one prefix instead of every row. Returns `None` unless:
+    `prefix` normalises to a real 3-letter prefix
+    (`manual_resolutions.normalise_prefix()`), the `unresolved_prefixes`
+    value is a dict, the entry for it is itself a dict, and its `count`
+    is an `int` that is not a `bool`. Otherwise returns the five-tuple
+    `(prefix, count, first_seen, last_seen, example_callsign)` — `prefix`
+    here is the NORMALISED value, not necessarily byte-identical to the
+    argument — with the last three defaulting to `""`. Never raises — a
+    missing or unreadable poll state, or a hand-edited malformed entry,
+    yields `None` rather than crashing a page render.
     """
+    prefix = manual_resolutions.normalise_prefix(prefix)
+    if prefix is None:
+        return None
     state = poll_loop.load_poll_state(state_dir)
     registry = state.get("unresolved_prefixes")
     if not isinstance(registry, dict):
-        return None
-    if not isinstance(prefix, str) or not _RESOLVE_PREFIX_RE.match(prefix):
         return None
     entry = registry.get(prefix)
     if not isinstance(entry, dict):

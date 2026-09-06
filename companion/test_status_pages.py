@@ -6384,7 +6384,8 @@ def main():
                 return False, "expected add_entry() to accept the hostile-but-slug-safe name, got %r" % (
                     add_result,)
 
-            ctx = _ctx(tmp)
+            now = _iso(_now())
+            ctx = _ctx(tmp, now=now)
             ctx["resolve_prefix"] = "XYZ"
             rendered = airlines_page.render(ctx)
 
@@ -6395,27 +6396,34 @@ def main():
             if 'value="<b>' in rendered or 'title="<b>' in rendered:
                 return False, "found an unescaped hostile value inside an attribute"
 
-            # D-12: a resolve_prefix that differs in case or padding from
-            # the stored registry key must never be treated as a match —
-            # nothing displayed comes from the query string.
+            # WR-04: a resolve_prefix that differs from the stored
+            # registry key only in case or surrounding whitespace
+            # normalises (via unresolved_row_for_prefix()'s own
+            # manual_resolutions.normalise_prefix() call) to the
+            # identical prefix the write path (POST /airlines/resolve)
+            # already accepts — so it must render the exact same resolve
+            # section as the canonical upper-case value, never a
+            # different (stale) state derived from treating the raw,
+            # unnormalised query string as authoritative (D-12).
+            canonical_section = _resolve_slice(rendered)
             for hostile_prefix in ("xyz", "XYZ ", " XYZ", "Xyz"):
-                ctx = _ctx(tmp)
+                ctx = _ctx(tmp, now=now)
                 ctx["resolve_prefix"] = hostile_prefix
-                rendered = airlines_page.render(ctx)
-                if airlines_page.RESOLVE_STALE_BODY not in rendered:
-                    return False, "expected the stale card for mismatched-case/padded prefix %r" % (
-                        hostile_prefix,)
-                if airlines_page.MANUAL_NAME_INPUT_ID in rendered:
-                    return False, "expected no name input for mismatched-case/padded prefix %r" % (
-                        hostile_prefix,)
+                variant_rendered = airlines_page.render(ctx)
+                variant_section = _resolve_slice(variant_rendered)
+                if variant_section != canonical_section:
+                    return False, (
+                        "expected resolve_prefix=%r to normalise to the same resolve "
+                        "section as the canonical 'XYZ', got a divergent render"
+                        % (hostile_prefix,))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "a stored airline name and example callsign both containing an angle bracket, a double quote and an "
         "ampersand render fully escaped everywhere they appear (including inside an attribute value), and a "
-        "resolve_prefix differing in case or padding from the stored registry key renders the stale card "
-        "rather than the form — nothing displayed comes from the query string (D-12)",
+        "resolve_prefix differing from the stored registry key only in case or surrounding whitespace "
+        "normalises to the identical prefix and renders the identical resolve section (WR-04/D-12)",
         _resolve_section_escapes_hostile_values_and_distrusts_query_string)
 
     # ------------------------------------------------------------------

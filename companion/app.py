@@ -1382,8 +1382,7 @@ class Handler(BaseHTTPRequestHandler):
         form = self.read_form()
         state_dir = self.args.state_dir
 
-        row = unresolved_row_for_prefix(
-            state_dir, manual_resolutions.normalise_prefix(form.get("prefix")))
+        row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
         if row is None:
             return self.redirect(
                 "%s?flash=%s"
