@@ -56,6 +56,7 @@ import companion.app as app  # noqa: E402
 from companion import auth, illustration_normalize, layout  # noqa: E402
 from companion.pages import airlines_page, health_page, history_page  # noqa: E402
 from server import history_db  # noqa: E402
+from server.plane import enrich  # noqa: E402
 from server.plane import illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
 from server.plane import render as panel_render  # noqa: E402
@@ -282,7 +283,12 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 149  # 148 + 1 (13-REVIEW.md WR-06 fix: the
+EXPECTED_CHECK_COUNT = 150  # 149 + 1 (phase 14 plan 14-01 Task 3: the new
+# _seed_manual_resolutions() fixture helper's own end-to-end exercising
+# check, seeding one static-table-superseded prefix and one novel one
+# through manual_resolutions.add_entry() alone). Re-derived by RUNNING
+# the harness, not by arithmetic.
+# 149 = 148 + 1 (13-REVIEW.md WR-06 fix: the
 # health_page.RESOLVE_LINK_HREF_TEMPLATE / airlines_page route-constant
 # cross-module equality check). Re-derived by RUNNING the harness, not
 # by arithmetic.
@@ -361,6 +367,46 @@ def _seed_runway_events(state_dir, events):
 
 def _seed_unresolved_prefixes(state_dir, registry):
     poll_loop.save_poll_state(state_dir, {"unresolved_prefixes": registry})
+
+
+def _seed_manual_resolutions(state_dir, entries):
+    """Seed `state_dir`'s manual-resolutions registry through the one
+    sanctioned write path, `manual_resolutions.add_entry()` — never by
+    writing a JSON literal. The registry's on-disk shape and validation
+    order belong to `manual_resolutions.py` (phase 14's boundary forbids
+    this phase touching that file); a fixture that hand-wrote the file
+    would silently drift from it and would additionally bypass the
+    `load_manual_resolutions()` rebuild-from-scratch discipline
+    downstream checks rely on.
+
+    `entries` is an iterable of `(prefix, airline_name)` pairs, or
+    `(prefix, airline_name, created_at)` triples when a harness needs a
+    pinned timestamp — passed straight through as `add_entry()`'s
+    injectable `now`.
+
+    A superseded fixture is produced by choosing a prefix
+    `enrich.static_airline_name_for_prefix()` already answers for (e.g.
+    `"AFR"`) — never by mutating the registry after the fact — because
+    `airlines_page._manual_resolution_rows()` derives `superseded` from
+    that oracle alone (RESEARCH.md Pitfall 6) and downstream checks must
+    consume that derivation rather than re-deriving it.
+
+    Raises `AssertionError` naming the prefix and the returned code if
+    `add_entry()` ever returns anything other than `ADD_OK`, so a
+    fixture that would have seeded nothing fails loudly instead of
+    producing a vacuously-passing check downstream.
+    """
+    for entry in entries:
+        if len(entry) == 3:
+            prefix, airline_name, created_at = entry
+        else:
+            prefix, airline_name = entry
+            created_at = None
+        code = manual_resolutions.add_entry(state_dir, prefix, airline_name, now=created_at)
+        if code != manual_resolutions.ADD_OK:
+            raise AssertionError(
+                "_seed_manual_resolutions: add_entry(%r, %r) returned %r, expected %r"
+                % (prefix, airline_name, code, manual_resolutions.ADD_OK))
 
 
 def _ctx(state_dir, now=None):
@@ -6652,6 +6698,48 @@ def main():
         "an entry whose name already has artwork, nor for a superseded entry (which keeps its Superseded "
         "marker instead)",
         _manual_section_add_artwork_link_contract)
+
+    def _manual_section_seed_helper_end_to_end():
+        # Phase 14 plan 14-01 Task 3: exercises the new
+        # _seed_manual_resolutions() fixture helper end-to-end against
+        # today's management table. Written to survive that table's own
+        # retirement in plan 14-06 by asserting on
+        # _manual_resolution_rows()'s tuples and the rendered airline
+        # names, never on <table>/<tr> markup that plan deletes.
+        tmp = _mkstate("a-seed-manual-resolutions-helper")
+        try:
+            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES,
+            # same choice the existing supersession checks above make);
+            # XQZ is not.
+            _seed_manual_resolutions(tmp, [
+                ("AFR", "Legacy Air France Ops"),
+                ("XQZ", "Totally Novel Airline"),
+            ])
+            rendered = airlines_page.render(_ctx(tmp))
+            if "Legacy Air France Ops" not in rendered:
+                return False, "expected the AFR entry's airline name to appear in the rendered page"
+            if "Totally Novel Airline" not in rendered:
+                return False, "expected the XQZ entry's airline name to appear in the rendered page"
+
+            registry = manual_resolutions.load_manual_resolutions(tmp)
+            if set(registry.keys()) != {"AFR", "XQZ"}:
+                return False, "expected the helper to seed exactly {AFR, XQZ}, got %r" % (sorted(registry),)
+
+            rows = airlines_page._manual_resolution_rows(tmp, registry)
+            superseded_by_prefix = {prefix: superseded for prefix, _, _, superseded, _ in rows}
+            if superseded_by_prefix.get("AFR") is not True:
+                return False, "expected AFR (a real static-table prefix) to report superseded=True"
+            if superseded_by_prefix.get("XQZ") is not False:
+                return False, "expected XQZ (not in the static table) to report superseded=False"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "_seed_manual_resolutions() seeds through manual_resolutions.add_entry() alone; both seeded "
+        "airline names render on the Airlines page, and _manual_resolution_rows() reports superseded=True "
+        "for exactly the static-table prefix (AFR) and False for the novel one (XQZ) (phase 14 plan 14-01 "
+        "Task 3)",
+        _manual_section_seed_helper_end_to_end)
 
     def _health_resolve_link_template_matches_airlines_route_constants():
         # WR-06: airlines_page.py's own comment above RESOLVE_ROUTE/
