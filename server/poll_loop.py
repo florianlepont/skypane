@@ -64,6 +64,7 @@ import server.panel_format as panel_format
 import server.plane.detect as detect
 import server.plane.enrich as enrich
 import server.plane.illustrations as illustrations
+import server.plane.manual_resolutions as manual_resolutions
 import server.plane.render as render
 import server.plane.runway_config as runway_config
 
@@ -699,22 +700,37 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     state_dir = state_dir or DEFAULT_STATE_DIR
     os.makedirs(state_dir, exist_ok=True)
 
-    # D-01/D-02 (quick task 260902-v26): configure the illustration override
-    # resolver from THIS cycle's own state_dir, here rather than in main() -
-    # run_once() is the single entry point both the systemd oneshot AND
-    # companion/app.py's POST /poll-now in-process trigger go through, so
-    # setting it here covers both without a second call site. Idempotent,
-    # and both callers pass the same state_dir, so this process-global
-    # assignment is safe under companion/app.py's ThreadingHTTPServer (the
-    # companion service passes its own --state-dir to run_once(), which is
-    # the same directory its own routes use). This is what lets an uploaded
-    # override reach render.py's select_illustration() calls without
-    # render.py itself gaining any state_dir awareness.
+    # D-01/D-02 (quick task 260902-v26; extended phase 13, D-01/D-02 for the
+    # manual-resolution registry below): configure the illustration override
+    # resolver AND the manual-resolution registry from THIS cycle's own
+    # state_dir, here rather than in main() - run_once() is the single entry
+    # point both the systemd oneshot AND companion/app.py's POST /poll-now
+    # in-process trigger go through, so setting both here covers both
+    # triggers without a second call site. Configuring from main() instead
+    # would silently skip the companion-triggered cycle - precisely the
+    # cycle an operator who just saved a manual resolution is waiting on.
+    # Idempotent, and both callers pass the same state_dir, so this
+    # process-global assignment is safe under companion/app.py's
+    # ThreadingHTTPServer (the companion service passes its own --state-dir
+    # to run_once(), which is the same directory its own routes use). This
+    # is what lets an uploaded override reach render.py's
+    # select_illustration() calls, and a manually-resolved prefix reach
+    # enrich.airline_from_callsign(), without either module gaining any
+    # state_dir awareness of its own.
+    #
+    # The manual registry is reloaded from disk here, once per cycle, for
+    # exactly the reason the CFG-01/CFG-12 comment below gives for
+    # device_cfg: a companion-side save landing between two separate reads
+    # would otherwise split one cycle across two registries. This is also
+    # the latency contract the operator is told about - a manual resolution
+    # reaches the glass at the next wake, up to wake_interval_s away, never
+    # instantly.
     #
     # server/plane/render.py's standalone CLI main() is deliberately NOT
     # wired - it renders ad-hoc previews from the command line and has no
     # state dir of its own; it keeps resolving vendored art only.
     illustrations.set_override_state_dir(state_dir)
+    manual_resolutions.set_manual_registry_state_dir(state_dir)
 
     # CFG-01/CFG-12: read the user's saved theme + tracked runway ONCE per
     # cycle, not once per call site - a mid-cycle save landing between two
