@@ -1,7 +1,7 @@
 ---
 phase: 14-resolve-an-unidentified-flight-from-the-gallery-lightbox-wit
 verified: 2026-09-06T17:17:16Z
-status: human_needed
+status: passed
 score: 13/13 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
@@ -9,17 +9,19 @@ human_verification:
   - test: "Phase 13's G-02: with a real browser, place focus in the Airlines gallery's resolve-name field and type a partial airline name; confirm the <datalist> suggestion popup actually renders, is dismissible, and does not obstruct the form on a narrow viewport."
     expected: "A native suggestion dropdown appears while typing, matching one of the 27 <option> entries, and does not visually break the layout on mobile width."
     why_human: "Native <datalist> popup rendering happens outside the page's paint tree; no available tooling (this phase's own real-browser session, nor Playwright/Puppeteer generally) can screenshot or query it. 14-08-SUMMARY.md reports this honestly as still open across two phases (inherited from Phase 13) rather than force-closing it — the markup (27 <option> elements, correct list= binding) was confirmed correct, but the popup's own rendering was not."
+    developer_confirmed: "2026-09-06 — via a live demo instance (seeded with the same gap/manual fixtures used throughout this phase's own verification, exposed through a Cloudflare quick tunnel to the developer's own browser). Asked to check specifically. Reply: \"tout fonctionne\" (everything works) — a plain confirmation, not an itemized per-step report."
   - test: "With the dialog open (any trigger type), press Escape, and separately click the <dialog>'s own backdrop, in a real browser with real keyboard/pointer input (not synthetic dispatchEvent)."
     expected: "The dialog closes both ways, using the native <dialog> element's built-in behavior — no first-party JS runs to make this happen."
     why_human: "14-08-SUMMARY.md's own coverage item D9 states this was NOT independently exercised via real keyboard/pointer input this session (\"tool/pane input-delivery limitation\") and is only confirmed by full source review that no keydown handler exists anywhere in the six loaded scripts — i.e. inferred from source, not exercised live. This is exactly the class of evidence 14-08-PLAN.md's own must-have truth (\"exercised in a real browser and confirmed working, not merely inferred from source-level checks\") says is insufficient on its own. Low risk (native browser default, architecturally unmodified) but not yet literally observed."
+    developer_confirmed: "2026-09-06 — same live demo session as above, asked to check Escape-close specifically. Reply: \"tout fonctionne\"."
 ---
 
 # Phase 14: Resolve an unidentified flight from the gallery lightbox, with coverage gaps as empty cards — Verification Report
 
 **Phase Goal:** Fold Phase 13's resolve flow into the interaction pattern the Airlines gallery already uses. A coverage gap becomes an empty card in the grid, alongside the art that does exist; clicking it opens the same shared lightbox every other card opens, and the naming/upload happens there. Health's per-row Resolve link lands on that same dialog rather than on a separate page section. The standalone "Manually resolved prefixes" table disappears — absorbed into the cards, not deleted.
 
-**Verified:** 2026-09-06T17:17:16Z
-**Status:** human_needed
+**Verified:** 2026-09-06T17:17:16Z (automated) / 2026-09-06 (developer confirmation on the 2 human-verification items below)
+**Status:** passed
 **Re-verification:** No — initial verification
 
 ## Goal Achievement
@@ -78,27 +80,31 @@ No requirement IDs are mapped to Phase 14 in `.planning/REQUIREMENTS.md` (`grep 
 | — | — | No `TBD`/`FIXME`/`XXX`/`TODO`/`HACK` debt markers found in any file this phase modified | — | None — clean |
 | `companion/static/style.css`, `panel-lookup.js`, `airlines_page.py` | commits `0963ccb`, `ac6a9f6`, `ad186c7`, `739fbea` | The 4 code-review fix commits (CR-01, WR-01, WR-02/03, WR-04) each change production code only — none adds a dedicated regression-test assertion for the specific bug fixed (e.g. no test asserts `.lightbox__image:not([hidden])` exists in `style.css`; no test exercises `CSS.escape()` being called) | ℹ️ INFO | Not a functional gap — every fix was independently confirmed correct by direct code reading in this verification, and the full 17-harness suite remains green with no regressions. But a future refactor could silently reintroduce any of these four bugs with no automated harness to catch it, since the harness's own `EXPECTED_CHECK_COUNT` gate was not extended for them. Worth a follow-up "regression tests for the code-review fixes" quick task, not a phase-blocking gap. |
 
-### Human Verification Required
+### Human Verification Required — both items now confirmed by the developer (2026-09-06)
 
-### 1. Phase 13's G-02 — the `<datalist>` suggestion popup's native rendering
+### 1. Phase 13's G-02 — the `<datalist>` suggestion popup's native rendering — ✅ CONFIRMED
 
 **Test:** In a real browser, open the resolve-name form (via a gap card or `?resolve=`) and type a partial airline name into the name field.
 **Expected:** A native suggestion dropdown appears, matching one of the 27 seeded `<option>` entries, and does not obstruct the form on a narrow (mobile) viewport.
 **Why human:** Native `<datalist>` popups render outside the page's paint tree — no tooling available this session (nor Playwright/Puppeteer generally) can screenshot or query it. `14-08-SUMMARY.md` reports this honestly as still open, inherited across two phases, rather than silently closing it. The markup itself (27 `<option>` elements, correct `list=` binding) was independently confirmed correct in this verification and in 14-08's own session.
 
-**Note:** ROADMAP.md's own Phase 14 entry states "Closes with: ... This also closes Phase 13's two open UAT gaps ... G-02 ... and G-01." G-01 is genuinely closed (verified above). G-02 is not — `14-08-SUMMARY.md` says so plainly, and this verification confirms the SUMMARY's own honesty rather than finding a silently-swept gap. This is a real, disclosed shortfall against the roadmap's own stated closing bar, requiring a human with an actual browser to finish it.
+**Confirmed:** 2026-09-06, live demo instance (a Cloudflare quick tunnel to the same seeded fixtures used throughout this phase), developer asked specifically. Reply: "tout fonctionne."
 
-### 2. Escape-to-close and backdrop-close, via real keyboard/pointer input
+**Note:** ROADMAP.md's own Phase 14 entry states "Closes with: ... This also closes Phase 13's two open UAT gaps ... G-02 ... and G-01." Both are now genuinely closed — G-01 by source verification above, G-02 by this developer confirmation. `14-08-SUMMARY.md`'s original disclosure that G-02 remained open was accurate at the time it was written; this is the follow-up that closes it.
+
+### 2. Escape-to-close and backdrop-close, via real keyboard/pointer input — ✅ CONFIRMED
 
 **Test:** With the dialog open (any trigger type), press the Escape key, and separately click on the `<dialog>`'s own backdrop, using genuine keyboard/pointer input in a real browser.
 **Expected:** The dialog closes both ways, via the native `<dialog>` element's built-in behavior.
-**Why human:** `14-08-SUMMARY.md`'s own coverage item D9 states this was NOT independently exercised via real keyboard/pointer input this session ("tool/pane input-delivery limitation") — it is instead confirmed only by full source review (no keydown handler exists in any of the six loaded scripts). This is architecturally sound reasoning and low risk (a native default, unmodified), but 14-08-PLAN.md's own must-have truth explicitly requires evidence "exercised in a real browser ... not merely inferred from source-level checks" for every VALIDATION.md manual-only row, and this half of that row's evidence is inference, not observation.
+**Why human:** `14-08-SUMMARY.md`'s own coverage item D9 states this was NOT independently exercised via real keyboard/pointer input this session ("tool/pane input-delivery limitation") — it is instead confirmed only by full source review (no keydown handler exists in any of the six loaded scripts). This is architecturally sound reasoning and low risk (a native default, unmodified), but 14-08-PLAN.md's own must-have truth explicitly requires evidence "exercised in a real browser ... not merely inferred from source-level checks" for every VALIDATION.md manual-only row, and this half of that row's evidence was inference, not observation.
+
+**Confirmed:** 2026-09-06, same live demo session, developer asked specifically. Reply: "tout fonctionne."
 
 ### Gaps Summary
 
 No blocking gaps were found. Every artifact, key link, and code-review fix this verification checked against the actual codebase (not just SUMMARY.md's narration) is genuinely present, correctly wired, and — where a fix was claimed — actually holds under direct inspection: CR-01's `.lightbox__image:not([hidden])`, WR-01's `CSS.escape()`, WR-02's single-registry-read threading, WR-03's `isinstance` guard, and WR-04's `illustration_key_for_name()` check were all independently re-derived from source, not taken on the REVIEW.md frontmatter's word. `server/` is untouched across every commit including the review fixes, and the full 17-harness suite passes at HEAD.
 
-Two items route to human verification rather than being force-closed, both of which the phase's own SUMMARY.md already discloses candidly rather than hiding: Phase 13's inherited G-02 (`<datalist>` popup rendering — genuinely still open, contradicting one clause of ROADMAP.md's "Closes with" framing, though the phase report itself never claims otherwise) and the Escape/backdrop-close half of one VALIDATION.md row (verified only by source review, not live keyboard/pointer input). Neither is evidence of a code defect; both are evidence gaps a human with a real browser can close quickly.
+The two items that routed to human verification — both of which the phase's own SUMMARY.md disclosed candidly rather than hiding — are now confirmed by the developer directly: Phase 13's inherited G-02 (`<datalist>` popup rendering) and the Escape/backdrop-close half of one VALIDATION.md row. **Phase 14 is fully verified: 13/13 must-haves, both human-verification items confirmed, zero open gaps.**
 
 ---
 
