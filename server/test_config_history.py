@@ -84,7 +84,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -100,7 +100,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+                if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -115,7 +115,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -128,7 +128,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "black", "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -177,7 +177,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -209,7 +209,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -605,7 +605,7 @@ def main():
                 tmpdir, quiet_hours_enabled=True, quiet_hours_start="22:30", quiet_hours_end="06:15")
             config = device_config.load_device_config(tmpdir)
             if config != {
-                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
                 "wake_interval_s": None, "display_enabled": True,
             }:
@@ -803,7 +803,7 @@ def main():
             device_config.save_device_config(tmpdir, wake_interval_s=120)
             config = device_config.load_device_config(tmpdir)
             if config != {
-                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
                 "wake_interval_s": 120, "display_enabled": True,
             }:
@@ -926,7 +926,7 @@ def main():
             device_config.save_device_config(tmpdir, display_enabled=False)
             config = device_config.load_device_config(tmpdir)
             if config != {
-                "theme": "white", "tracked_runway": "3", "led_enabled": True,
+                "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
                 "wake_interval_s": None, "display_enabled": False,
             }:
