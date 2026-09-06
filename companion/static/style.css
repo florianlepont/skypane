@@ -2096,6 +2096,42 @@ button:disabled {
   }
 }
 
+/* Phase 14 D-05: the "Arrivals theme" label above the revealed second
+ * (arrivals) chip grid. Composes the existing 12px/semibold/uppercase/
+ * 0.06em/70%-muted label voice (.data-table th, .stat-tile__caption et
+ * al.) verbatim, written out as its own selector rather than added to
+ * that selector list — matching how those six label-voice selectors are
+ * already written out separately, each in its own structural context. No
+ * new size, weight, family or colour token. */
+.theme-direction-label {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Phase 14 D-05: the arrivals-override reveal — a second, later, separate
+ * feature-query block from the live-selection-state one above — both
+ * grids are UNCONDITIONALLY rendered in the HTML (D-05's own "must always
+ * be present" requirement); this block only ever HIDES the second grid
+ * and its label once :has() is supported and the toggle is unchecked. A
+ * browser without :has() support skips this whole block and simply
+ * always shows both grids — denser, never broken, never dependent on
+ * script. Scoped through .theme-status:has(#theme-arriving-toggle) so
+ * the [data-arrival-grid] attribute selector can never accidentally match
+ * an unrelated future component. Plain display: none, no transition, no
+ * animation — this codebase adds no motion to a reveal of this kind, so
+ * prefers-reduced-motion is not implicated. */
+@supports selector(:has(*)) {
+  .theme-status:has(#theme-arriving-toggle):not(:has(#theme-arriving-toggle:checked))
+    [data-arrival-grid],
+  .theme-status:has(#theme-arriving-toggle):not(:has(#theme-arriving-toggle:checked))
+    .theme-direction-label {
+    display: none;
+  }
+}
+
 /* Shared Settings-page checkbox normalization (quick task 260901-qif,
  * generalised 10-05-PLAN.md Task 2): now used by both the Diagnostic LED
  * group and the Quiet hours group, so this is a single rule serving two
