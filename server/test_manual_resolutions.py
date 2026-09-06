@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -27,7 +28,10 @@ if REPO_ROOT not in sys.path:
 # by RUNNING the harness (not by arithmetic), per this repo's own
 # documented discipline (see the ledger comment above
 # companion/test_status_pages.py's own EXPECTED_CHECK_COUNT).
-EXPECTED_CHECK_COUNT = 19
+# 20 = 19 + 1 (13-REVIEW.md WR-02 fix: the concurrent-add_entry()
+# no-lost-updates check, proving _WRITE_LOCK closes the unsynchronised
+# read-modify-write window).
+EXPECTED_CHECK_COUNT = 20
 
 
 def main():
@@ -311,7 +315,51 @@ def main():
         return True, ""
     check("no manual_resolutions.json.tmp file remains after a successful add_entry() (atomicity proof)", _no_stray_tmp_file_after_add)
 
-    # 19. Hostile-input sweep: every one of these must be rejected by
+    # 19. WR-02 proof: 20 concurrent add_entry() calls for 20 distinct
+    #     prefixes (companion/app.py's real ThreadingHTTPServer
+    #     concurrency shape) must all persist durably under _WRITE_LOCK -
+    #     no lost update from an unsynchronised load-modify-write race,
+    #     and no stray unique-per-writer .tmp file left behind.
+    def _concurrent_add_entry_calls_lose_no_updates():
+        with tempfile.TemporaryDirectory() as tmp:
+            prefixes = ["AA%s" % chr(ord("A") + i) for i in range(20)]
+            errors = []
+
+            def _worker(pfx):
+                try:
+                    result = m.add_entry(tmp, pfx, "Airline %s" % pfx)
+                    if result != m.ADD_OK:
+                        errors.append((pfx, result))
+                except Exception as exc:  # never let a worker's exception vanish silently
+                    errors.append((pfx, repr(exc)))
+
+            threads = [threading.Thread(target=_worker, args=(pfx,)) for pfx in prefixes]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+            if errors:
+                return False, "worker error(s)/rejection(s): %r" % (errors,)
+
+            registry = m.load_manual_resolutions(tmp)
+            missing = [pfx for pfx in prefixes if pfx not in registry]
+            if missing:
+                return False, (
+                    "WR-02: lost update(s) - missing prefixes after concurrent add_entry() "
+                    "calls: %r (registry has %d/%d entries)" % (missing, len(registry), len(prefixes)))
+
+            stray = [f for f in os.listdir(tmp) if f.endswith(".tmp")]
+            if stray:
+                return False, "stray .tmp file(s) left behind after concurrent writes: %r" % (stray,)
+        return True, ""
+    check(
+        "20 concurrent add_entry() calls for 20 distinct prefixes (ThreadingHTTPServer's real "
+        "concurrency shape) all persist durably with no lost update and no stray .tmp file left "
+        "behind (WR-02)",
+        _concurrent_add_entry_calls_lose_no_updates)
+
+    # 20. Hostile-input sweep: every one of these must be rejected by
     #     add_entry() with some ADD_REJECTED_* value, and the registry must
     #     remain empty afterwards. One check covering the whole list, not
     #     one per item.

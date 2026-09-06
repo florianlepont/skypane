@@ -52,6 +52,7 @@ per request.
 import json
 import os
 import re
+import threading
 from datetime import datetime, timezone
 
 from server.plane import illustrations
@@ -117,6 +118,19 @@ _GENERIC_FALLBACK_KEY = illustrations.GENERIC_FALLBACK_FILENAME[: -len(".png")]
 # "empty registry" — exactly today's behaviour, which is what keeps every
 # existing enrich test unchanged. Set once per poll cycle only.
 _cached_registry = {}
+
+# WR-02 fix: `add_entry()`/`delete_entry()` are both an unlocked
+# load-modify-write-whole-file cycle, and `companion/app.py` runs under
+# `ThreadingHTTPServer` — a real deployment. Without this lock, two
+# concurrent writers (an add and a delete, or two adds) can each load the
+# registry before either has written, then each write back a version that
+# is missing the other's change (a silent lost update); serialising the
+# whole load-modify-write cycle per writer, not just the final
+# `os.replace()`, is what closes that window. This is a single process-wide
+# lock, not per-state_dir — this codebase runs one companion process
+# against one state_dir at a time, exactly like `illustrations.py`'s own
+# override-write path assumes.
+_WRITE_LOCK = threading.Lock()
 
 
 def manual_resolutions_path(state_dir):
@@ -275,12 +289,24 @@ def add_entry(state_dir, prefix, airline_name, now=None):
     update-in-place).
 
     Writes with `device_config.py`'s tmp-write-then-`os.replace()` idiom:
-    `os.makedirs(state_dir, exist_ok=True)`, write to `path + ".tmp"`, then
-    `os.replace(tmp, path)`. Unlike `save_device_config()` (which raises on
-    a write failure), any exception during the write is caught here, the
-    stray `.tmp` file is removed if present, and `ADD_FAILED` is returned
-    instead of re-raising — the caller is an HTTP route handler that needs
-    a flash key to show the operator, not a traceback.
+    `os.makedirs(state_dir, exist_ok=True)`, write to a per-writer-unique
+    temp path, then `os.replace(tmp, path)`. Unlike `save_device_config()`
+    (which raises on a write failure), any exception during the write is
+    caught here, the stray temp file is removed if present, and
+    `ADD_FAILED` is returned instead of re-raising — the caller is an HTTP
+    route handler that needs a flash key to show the operator, not a
+    traceback.
+
+    WR-02 fix: step 5's load-check-mutate-write is one atomic unit under
+    `_WRITE_LOCK` — `companion/app.py` is a `ThreadingHTTPServer`, so two
+    concurrent writers (this function and/or `delete_entry()`) could
+    otherwise each load the registry before either writes, silently
+    losing whichever wrote second. The temp filename additionally
+    includes the writer's own pid and thread id (rather than a single
+    fixed `path + ".tmp"`), so two writers — even ones that briefly raced
+    outside the lock, or a hand-run script sharing the same state dir —
+    can never have their `json.dump()` calls interleave into the same
+    file descriptor.
     """
     normalised_prefix = normalise_prefix(prefix)
     if normalised_prefix is None:
@@ -303,28 +329,29 @@ def add_entry(state_dir, prefix, airline_name, now=None):
             return ADD_REJECTED_NAME_RESERVED
         return ADD_REJECTED_NAME_EMPTY
 
-    registry = load_manual_resolutions(state_dir)
-    if normalised_prefix not in registry and len(registry) >= MANUAL_RESOLUTION_MAX_ENTRIES:
-        return ADD_REJECTED_FULL
+    with _WRITE_LOCK:
+        registry = load_manual_resolutions(state_dir)
+        if normalised_prefix not in registry and len(registry) >= MANUAL_RESOLUTION_MAX_ENTRIES:
+            return ADD_REJECTED_FULL
 
-    if now is None:
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    registry[normalised_prefix] = {"airline_name": name, "created_at": now}
+        if now is None:
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        registry[normalised_prefix] = {"airline_name": name, "created_at": now}
 
-    path = manual_resolutions_path(state_dir)
-    tmp = path + ".tmp"
-    try:
-        os.makedirs(state_dir, exist_ok=True)
-        with open(tmp, "w") as fh:
-            json.dump(registry, fh, indent=1)
-        os.replace(tmp, path)
-    except Exception:
-        if os.path.exists(tmp):
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-        return ADD_FAILED
+        path = manual_resolutions_path(state_dir)
+        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
+        try:
+            os.makedirs(state_dir, exist_ok=True)
+            with open(tmp, "w") as fh:
+                json.dump(registry, fh, indent=1)
+            os.replace(tmp, path)
+        except Exception:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            return ADD_FAILED
 
     return ADD_OK
 
@@ -344,31 +371,39 @@ def delete_entry(state_dir, prefix):
     manual resolution nor its prefix has any exclusive claim to. The
     accepted cost is an orphaned override PNG with no garbage collection —
     deliberately, not an oversight.
+
+    WR-02 fix: the load-check-mutate-write sequence below is one atomic
+    unit under `_WRITE_LOCK`, shared with `add_entry()` — see that
+    function's own docstring for why (a `ThreadingHTTPServer` can run this
+    function and `add_entry()` concurrently). The temp filename likewise
+    carries this writer's own pid and thread id rather than a single fixed
+    name.
     """
     normalised_prefix = normalise_prefix(prefix)
     if normalised_prefix is None:
         return False
 
-    registry = load_manual_resolutions(state_dir)
-    if normalised_prefix not in registry:
-        return False
+    with _WRITE_LOCK:
+        registry = load_manual_resolutions(state_dir)
+        if normalised_prefix not in registry:
+            return False
 
-    del registry[normalised_prefix]
+        del registry[normalised_prefix]
 
-    path = manual_resolutions_path(state_dir)
-    tmp = path + ".tmp"
-    try:
-        os.makedirs(state_dir, exist_ok=True)
-        with open(tmp, "w") as fh:
-            json.dump(registry, fh, indent=1)
-        os.replace(tmp, path)
-    except Exception:
-        if os.path.exists(tmp):
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
-        return False
+        path = manual_resolutions_path(state_dir)
+        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
+        try:
+            os.makedirs(state_dir, exist_ok=True)
+            with open(tmp, "w") as fh:
+                json.dump(registry, fh, indent=1)
+            os.replace(tmp, path)
+        except Exception:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            return False
 
     return True
 
