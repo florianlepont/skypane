@@ -825,7 +825,7 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10-13's precedent. If promoted, new CFG-13+ entries in `REQUIREMENTS.md`, which the seed names as the natural home.
 **Depends on:** Phase 13 (numeric order; and its `manual_resolutions.py` file contract and Airlines-page list editor are the precedents this phase copies), Phases 8 and 9 (the 18-theme registry every rule resolves into), Phase 06.6.4.1.1 (the theme chip grid with rendered previews that per-direction selection extends).
 **Closes with:** no on-glass verification if rules resolve to existing theme ids (nothing new reaches the glass — to be confirmed once the split and the rule shape are settled); a `/gsd-secure-phase 14` pass in any case, and a blocking one before the roster half ever ships.
-**Plans:** 2/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -835,8 +835,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 14-03-PLAN.md — `server/poll_loop.py`: one cache-priming call plus the resolver at exactly the two `build_canvas()` call sites that display a flight, leaving the other four on the bare base theme (D-13/D-06) [wave 2]
-- [ ] 14-04-PLAN.md — Settings Theme group: the arrivals checkbox, the second chip grid, the CSS-only `:has()` reveal and the unchecked-clears-the-override save path (D-05) [wave 2]
+- [x] 14-03-PLAN.md — `server/poll_loop.py`: one cache-priming call plus the resolver at exactly the two `build_canvas()` call sites that display a flight, leaving the other four on the bare base theme (D-13/D-06) [wave 2]
+- [x] 14-04-PLAN.md — Settings Theme group: the arrivals checkbox, the second chip grid, the CSS-only `:has()` reveal and the unchecked-clears-the-override save path (D-05) [wave 2]
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
