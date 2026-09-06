@@ -834,7 +834,7 @@ def _gallery_grid_html(pairs, state_dir=None, gap_cards_html="", manual_info_by_
     return '<div class="illustration-grid">%s%s</div>' % (gap_cards_html, cards)
 
 
-def _gap_rows_for_grid(state_dir):
+def _gap_rows_for_grid(state_dir, manual_registry=None):
     """The gap block's own source, sort, threshold and cap (D-04, D-05,
     D-06): every prefix in the live unresolved-callsign-prefix registry
     with `count >= GAP_BLOCK_THRESHOLD`, sorted `(-count, prefix)`, split
@@ -886,6 +886,26 @@ def _gap_rows_for_grid(state_dir):
     the right and only place to encode that, not a client-side
     disambiguation panel-lookup.js would have no principled way to make
     (it has no way to know which of two matches is "newer").
+
+    `manual_registry` (code review fix, 2026-09-06, WR-02): optional,
+    defaults to `None`. When omitted, this function loads it fresh via
+    `manual_resolutions.load_manual_resolutions(state_dir)` exactly as
+    before — preserving the standalone-callable shape
+    `companion/test_status_pages.py`'s own direct calls already rely
+    on. `render()` instead passes in the SAME registry dict it already
+    resolved for `_manual_resolution_rows()` a few lines below this
+    function's own call site, rather than letting this function load
+    it a second, independent time. Two independent reads of
+    `manual_resolutions.json` within one `ThreadingHTTPServer` request
+    (this function's own internal read, plus `render()`'s separate
+    read for the manual-card injection logic) opened a narrow race: a
+    concurrent write landing between the two could reproduce, within
+    that single request, the exact "prefix missing from both blocks"
+    failure this function's own D-13/D-14 fix above was written to
+    close. One read per render, threaded through, closes it —
+    matching this codebase's own repeatedly-stated "single read per
+    cycle" discipline (`poll_loop.py`'s own comment on this exact
+    principle).
     """
     if not state_dir:
         return [], 0
@@ -893,7 +913,8 @@ def _gap_rows_for_grid(state_dir):
     registry = state.get("unresolved_prefixes")
     if not isinstance(registry, dict):
         return [], 0
-    manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
+    if manual_registry is None:
+        manual_registry = manual_resolutions.load_manual_resolutions(state_dir)
     eligible = []
     for prefix, entry in registry.items():
         if prefix in manual_registry:
@@ -951,8 +972,31 @@ def _gap_card_html(index, row):
     integer, so it can never collide with the curated grid's own
     `enumerate(pairs)` sequence sharing the same attribute name
     (RESEARCH.md Pitfall 4, T-14-17).
+
+    Code review fix (2026-09-06, WR-03): `example_callsign` is a JSON
+    *value*, not a dict key like `prefix` — a hand-edited
+    `poll_state.json` can hold a number, list, or other non-string
+    there, and `_gap_rows_for_grid()`'s own `entry.get(...) or ""`
+    fallback does not catch it (a truthy non-string value passes
+    through unchanged). Every other use of these two values already
+    goes through `escape_html()`, which coerces via `str()` and never
+    raises — but the `.lower()` call below runs on the raw value
+    first, ahead of that safety net, and `.lower()` on a non-string
+    raises `AttributeError`, contradicting this function's own
+    "never raises" framing and crashing the whole `/airlines` render.
+    `prefix` itself needs no equivalent guard — it is a dict key
+    straight from `json.load()`, and JSON object keys are always
+    strings. `health_page.unresolved_rows()` carries the identical
+    unguarded `or ""` pattern for the same field, inherited from the
+    "byte for byte" duplication this function's own docstring already
+    describes — harmless there only because that page never calls a
+    string-only method on the value. Left unfixed there: out of this
+    phase's scope (a different page module, no `.lower()`-shaped risk
+    reachable in its own current code).
     """
     prefix, count, first_seen, last_seen, example_callsign = row
+    if not isinstance(example_callsign, str):
+        example_callsign = str(example_callsign)
     escaped_prefix = escape_html(prefix)
     escaped_callsign = escape_html(example_callsign)
     filter_text = escape_html("%s %s" % (example_callsign.lower(), prefix.lower()))
@@ -1684,9 +1728,6 @@ def render(ctx):
     state_dir = ctx.get("state_dir")
     resolve_html = _resolve_section_html(ctx)
     pairs = illustrations.target_variants_by_airline()
-    gap_shown, gap_overflow_count = _gap_rows_for_grid(state_dir)
-    gap_cards_html = "".join(_gap_card_html(i, row) for i, row in enumerate(gap_shown))
-    overflow_html = _gap_overflow_html(gap_overflow_count)
 
     # Phase 14 (14-06-PLAN.md Task 1, D-08/D-10/D-12 fallback
     # reachability): the identical registry-loading fallback the retired
@@ -1694,10 +1735,20 @@ def render(ctx):
     # `_manual_resolution_rows()`'s own tuples — consumed here, never
     # re-derived, and reused as-is by `_manual_summary_html()` below
     # (Task 2) rather than recomputed a second time.
+    #
+    # Code review fix (2026-09-06, WR-02): this registry load moved
+    # ABOVE `_gap_rows_for_grid()`'s own call, and its result is now
+    # threaded into that call, so one render() only ever reads
+    # manual_resolutions.json once — see that function's own
+    # docstring for the narrow same-request race this closes.
     registry = ctx.get("manual_resolutions")
     if registry is None:
         registry = manual_resolutions.load_manual_resolutions(state_dir) if state_dir else {}
     manual_rows = _manual_resolution_rows(state_dir, registry)
+
+    gap_shown, gap_overflow_count = _gap_rows_for_grid(state_dir, registry)
+    gap_cards_html = "".join(_gap_card_html(i, row) for i, row in enumerate(gap_shown))
+    overflow_html = _gap_overflow_html(gap_overflow_count)
 
     # manual_info_by_name maps a CARD's display name to its own
     # (prefix, superseded, needs_artwork) triple. A superseded row's
