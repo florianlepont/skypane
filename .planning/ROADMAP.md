@@ -812,12 +812,22 @@ Plans:
 **Plans:** 8 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 14-01-PLAN.md — Validation scaffolding: self-enforcing cross-file dialog contract guard, manual-registry fixture helper
 - [ ] 14-02-PLAN.md — Shared rendering machinery: copy deck, trigger attribute vocabulary, one-definition-two-call-sites resolve/upload/delete forms, extended dialog, no-JS delete (D-09 amendment)
 - [ ] 14-03-PLAN.md — `list-filter.js`'s programmatic filter hook (D-11's mechanism) and every new CSS selector (gap placeholder, `a.airline-card`, dialog form spacing, summary line)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 14-04-PLAN.md — Gap-card rendering and the gap block: empty imageless cards, sighting-count sort, threshold/cap, overflow line, page reorder (resolve section to the bottom)
 - [ ] 14-05-PLAN.md — `panel-lookup.js`: imageless open, per-mode/manual form toggling, `<a>` interception, load-time auto-open on `?resolve=`
-- [ ] 14-06-PLAN.md — Manual-resolution absorption: chip + superseded-state cards, trigger-tag generalisation, grid injection, summary line, management-table removal
 - [ ] 14-07-PLAN.md — G-01 fix: a distinct flash key for a supplied-but-unusable airline name
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 14-06-PLAN.md — Manual-resolution absorption: chip + superseded-state cards, trigger-tag generalisation, grid injection, summary line, management-table removal
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 14-08-PLAN.md — Blocking real-browser verification of every manual-only behavior, closing G-02
