@@ -88,6 +88,18 @@ Every page module in this package exposes:
           expose — that cache exists only for the poll cycle's own
           once-per-cycle read, and this service is a long-running
           `ThreadingHTTPServer`
+        - colour_rules: `server.plane.colour_rules.load_colour_rules(
+          state_dir)`'s return value - the full `{kind: {value: {"theme_
+          id": ..., "created_at": ...}}}` registry, read fresh per
+          request (added by plan 14-05, D-10/D-11). companion/pages/
+          config_page.py's render() is the sole consumer, for the
+          per-flight colour-rules editor's list. Never the process-
+          scoped cache `colour_rules.set_colour_rules_state_dir()`/
+          `resolve_effective_theme_id()` expose - that cache exists only
+          for the poll cycle's own once-per-cycle read, and this service
+          is a long-running `ThreadingHTTPServer`; a companion-side save
+          landing mid-request must always be visible on the very next
+          request, not just the next poll cycle
 
     handle_post(form, ctx) -> str
         Only modules that accept a form (today: config_page) additionally

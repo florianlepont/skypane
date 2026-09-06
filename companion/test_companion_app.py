@@ -2064,20 +2064,28 @@ def main():
                     "got %r" % (key, resolved))
         if app_module._resolve_flash_text("not-a-real-flash-key", "/nonexistent") is not None:
             return False, "expected _resolve_flash_text() to return None for an unknown key"
+        # Phase 14 D-10 (14-05-PLAN.md): FLASH_KEY_RULE_REPLACED joins
+        # FLASH_KEY_POLL_COOLDOWN as the second deliberately-interpolated
+        # key ("{key}", D-09's "make replaced legible" requirement) —
+        # widened in place, not loosened: every other FLASH_MESSAGES value
+        # still carries no runtime placeholder at all.
+        _interpolated_keys = (
+            app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED)
         for key, text in app_module.FLASH_MESSAGES.items():
-            if key == app_module.FLASH_KEY_POLL_COOLDOWN:
-                continue  # the one pre-existing, deliberately-interpolated key ("{n}").
+            if key in _interpolated_keys:
+                continue
             if "%" in text or "{" in text:
                 return False, (
                     "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r "
                     "(UI-SPEC Autonomous Decision 6: flash copy is fixed, never "
-                    "interpolated, except the pre-existing cooldown key)" % (key, text))
+                    "interpolated, except the cooldown and rule_replaced keys)" % (key, text))
         return True, ""
     check(
         "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "
         "UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an "
         "unknown key still resolves to None, and no FLASH_MESSAGES value carries a "
-        "runtime placeholder except the pre-existing cooldown key",
+        "runtime placeholder except the cooldown and rule_replaced keys (Phase 14 D-10 "
+        "widened this in place, not loosened)",
         _flash_manual_keys_complete_and_byte_identical)
 
     class _FakeResolveCtxHandler(_FakePageContextHandler):

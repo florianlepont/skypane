@@ -71,7 +71,7 @@ from companion.pages import (  # noqa: E402
 # (Handler._handle_manual_resolve_post() below) can never diverge.
 from companion.pages.airlines_page import unresolved_row_for_prefix  # noqa: E402
 from server import device_config, history_db  # noqa: E402
-from server.plane import illustrations, manual_resolutions  # noqa: E402
+from server.plane import colour_rules, illustrations, manual_resolutions  # noqa: E402
 import server.poll_loop as poll_loop  # noqa: E402
 
 DEFAULT_PORT = 8643
@@ -161,6 +161,13 @@ ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 # companion/pages/config_page.py, for the Settings theme picker's own
 # markup — see theme_preview.py's module docstring for the full reasoning.
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
+# Phase 14 D-10 (14-05-PLAN.md): single definition site is companion/
+# pages/config_page.py (app.py imports that module, so the reverse import
+# would be a cycle) — rebound here exactly like RUNWAY_IMAGE_ROUTE_PREFIX/
+# SETTINGS_ROUTE above.
+RULES_ADD_ROUTE = config_page.RULES_ADD_ROUTE
+RULES_DELETE_ROUTE_PREFIX = config_page.RULES_DELETE_ROUTE_PREFIX
+RULES_DELETE_ROUTE_SUFFIX = config_page.RULES_DELETE_ROUTE_SUFFIX
 
 # The four flash-key string literals are defined exactly once, in
 # companion/pages/config_page.py (plan 06-07's Task 2) — imported here
@@ -192,6 +199,17 @@ FLASH_KEY_MANUAL_PREFIX_STALE = airlines_page.FLASH_MANUAL_PREFIX_STALE
 FLASH_KEY_MANUAL_REGISTRY_FULL = airlines_page.FLASH_MANUAL_REGISTRY_FULL
 FLASH_KEY_MANUAL_SAVE_FAILED = airlines_page.FLASH_MANUAL_SAVE_FAILED
 FLASH_KEY_MANUAL_DELETE_FAILED = airlines_page.FLASH_MANUAL_DELETE_FAILED
+# Phase 14 D-10 (14-05-PLAN.md): the seven rule-editor flash keys are
+# defined once in companion/pages/config_page.py, for the identical
+# reason FLASH_KEY_SAVED/etc. above are — mirroring that same rebinding
+# pattern exactly.
+FLASH_KEY_RULE_ADDED = config_page.FLASH_RULE_ADDED
+FLASH_KEY_RULE_REPLACED = config_page.FLASH_RULE_REPLACED
+FLASH_KEY_RULE_KEY_INVALID = config_page.FLASH_RULE_KEY_INVALID
+FLASH_KEY_RULE_REGISTRY_FULL = config_page.FLASH_RULE_REGISTRY_FULL
+FLASH_KEY_RULE_SAVE_FAILED = config_page.FLASH_RULE_SAVE_FAILED
+FLASH_KEY_RULE_DELETED = config_page.FLASH_RULE_DELETED
+FLASH_KEY_RULE_DELETE_FAILED = config_page.FLASH_RULE_DELETE_FAILED
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -252,6 +270,35 @@ FLASH_MESSAGES = {
     FLASH_KEY_MANUAL_DELETE_FAILED: (
         "Couldn't delete that entry — the frame's state directory may "
         "not be writable."),
+    # Phase 14 D-10 (14-05-PLAN.md, 14-UI-SPEC.md's Flash Messages table,
+    # byte-identical). rule_replaced's copy is a template: the {key}
+    # placeholder is filled in by _resolve_flash_text()'s own second
+    # special case below, never interpolated here.
+    FLASH_KEY_RULE_ADDED: (
+        "Rule added — the frame will use it next time it wakes and polls."),
+    FLASH_KEY_RULE_REPLACED: (
+        "Updated the rule for {key} — it replaces the one that was "
+        "there before, applied next time the frame wakes and polls."),
+    FLASH_KEY_RULE_KEY_INVALID: (
+        "That doesn't match the selected kind's format — a callsign "
+        "(e.g. AFR1234), an ICAO24 hex (e.g. 3944F2), or a 3-letter "
+        "prefix (e.g. AFR)."),
+    # The entry count is a literal, matching FLASH_KEY_MANUAL_REGISTRY_
+    # FULL's own established shape above — colour_rules.COLOUR_RULE_MAX_
+    # ENTRIES is also 200; the two must be kept equal by hand (a check in
+    # companion/test_companion_app.py pins this).
+    FLASH_KEY_RULE_REGISTRY_FULL: (
+        "The rules list is full (200 entries) — delete an old one "
+        "before adding another."),
+    FLASH_KEY_RULE_SAVE_FAILED: (
+        "Couldn't save that rule — the frame's state directory may not "
+        "be writable."),
+    FLASH_KEY_RULE_DELETED: (
+        "Rule deleted — the frame will stop using it next time it "
+        "wakes and polls."),
+    FLASH_KEY_RULE_DELETE_FAILED: (
+        "Couldn't delete that rule — the frame's state directory may "
+        "not be writable."),
 }
 
 # 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
@@ -288,6 +335,17 @@ FLASH_ROLES = {
     FLASH_KEY_MANUAL_REGISTRY_FULL: "alert",
     FLASH_KEY_MANUAL_SAVE_FAILED: "alert",
     FLASH_KEY_MANUAL_DELETE_FAILED: "alert",
+    # Phase 14 D-10: added/replaced/deleted are "status" (an outcome of a
+    # normal add/delete flow); key-invalid/registry-full/save-failed/
+    # delete-failed are "alert" (a rejection or a genuine failure) —
+    # matching this dict's usual success/rejection split above.
+    FLASH_KEY_RULE_ADDED: "status",
+    FLASH_KEY_RULE_REPLACED: "status",
+    FLASH_KEY_RULE_KEY_INVALID: "alert",
+    FLASH_KEY_RULE_REGISTRY_FULL: "alert",
+    FLASH_KEY_RULE_SAVE_FAILED: "alert",
+    FLASH_KEY_RULE_DELETED: "status",
+    FLASH_KEY_RULE_DELETE_FAILED: "alert",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -373,12 +431,37 @@ def _validated_next_route(candidate):
     return candidate if candidate in allowed else None
 
 
-def _resolve_flash_text(flash_key, state_dir):
+def _resolve_flash_text(flash_key, state_dir, rule_key=None):
+    """`rule_key` (Phase 14 D-10, 14-05-PLAN.md) is the second special
+    case this function carries, mirroring FLASH_KEY_POLL_COOLDOWN's own
+    runtime-value-interpolation shape immediately below: FLASH_KEY_RULE_
+    REPLACED's template names the key the operator just typed
+    (`page_context()` passes the raw `rule=` query value through this
+    parameter).
+
+    T-14-14: `rule_key` is re-normalised through `colour_rules.
+    normalise_rule_callsign()` before it is ever interpolated — never
+    trusted from the request unvalidated. That normaliser's charset
+    (`[A-Z0-9]{2,8}`) is a strict superset of the hex and prefix
+    normalisers' own charsets, so it validates "is this safe to echo" for
+    a value of any of the three kinds without needing to know which kind
+    produced it (the kind itself does not travel in this redirect — only
+    the already-normalised value does). A value that fails this check —
+    including `None`, an empty string, or anything a hostile query
+    parameter could carry — degrades to the generic FLASH_KEY_RULE_ADDED
+    copy rather than ever reaching the page unvalidated; `escape_html()`
+    on render (`layout.flash_banner()`) is the second line.
+    """
     if flash_key not in FLASH_MESSAGES:
         return None
     template = FLASH_MESSAGES[flash_key]
     if flash_key == FLASH_KEY_POLL_COOLDOWN:
         return template.format(n=poll_cooldown_remaining(state_dir))
+    if flash_key == FLASH_KEY_RULE_REPLACED:
+        normalised_key = colour_rules.normalise_rule_callsign(rule_key)
+        if normalised_key is None:
+            return FLASH_MESSAGES[FLASH_KEY_RULE_ADDED]
+        return template.format(key=normalised_key)
     return template
 
 
@@ -815,6 +898,12 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         params = parse_qs(parsed.query)
         flash_key = params.get("flash", [None])[0]
+        # Phase 14 D-10: the raw `rule=` query value, read alongside the
+        # existing flash-key read — for FLASH_KEY_RULE_REPLACED's own
+        # "Updated the rule for {key}" copy. Passed straight through to
+        # _resolve_flash_text(), which is the sole place it is
+        # re-normalised before ever being interpolated (T-14-14).
+        rule_key = params.get("rule", [None])[0]
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()
         # WR-04: compute once per request (fail-closed to None on any
@@ -839,7 +928,7 @@ class Handler(BaseHTTPRequestHandler):
             # (11-RESEARCH.md Open Question 2: an empty numeric input
             # means "leave unchanged", never "clear").
             "wake_interval_env_default": env_wake_interval_default(),
-            "flash": _resolve_flash_text(flash_key, state_dir),
+            "flash": _resolve_flash_text(flash_key, state_dir, rule_key=rule_key),
             # 06.6.2-06 (UXA-07): the ARIA role the resolved flash text
             # should render with, looked up from the same flash_key this
             # method already resolved above — "status" for any key not
@@ -895,6 +984,16 @@ class Handler(BaseHTTPRequestHandler):
             # ThreadingHTTPServer, so it must never read a manual
             # resolution through that cache.
             "manual_resolutions": manual_resolutions.load_manual_resolutions(state_dir),
+            # Phase 14 D-10 (14-05-PLAN.md): read fresh per request,
+            # exactly like manual_resolutions above and for the identical
+            # reason — never the poll cycle's own once-per-cycle
+            # process-scoped registry cache (see server/plane/
+            # colour_rules.py's module docstring for that cache's own
+            # setter). This service is a long-running
+            # ThreadingHTTPServer, so a companion-side save landing
+            # mid-request must always be visible on the very next
+            # request, not just the next poll cycle.
+            "colour_rules": colour_rules.load_colour_rules(state_dir),
         }
 
     # --- shared page fragments -------------------------------------------
@@ -1460,6 +1559,110 @@ class Handler(BaseHTTPRequestHandler):
                 % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_DELETE_FAILED)))
         return self.redirect(airlines_page.AIRLINES_ROUTE)
 
+    def _handle_rule_add_post(self):
+        """POST /settings/rules/add (Phase 14 D-10, D-11, 14-05-PLAN.md):
+        the per-flight colour-rules editor's immediate add route,
+        following `_handle_manual_resolve_post()`'s shape above — an
+        immediate action outside SETTINGS_ROUTE and the settings form's
+        unsaved-changes dirty bar.
+
+        Reads `rule_kind`/`rule_key`/`rule_theme_id` and calls
+        `colour_rules.add_rule(state_dir, kind, key, theme_id)`, which is
+        the single validation authority (kind membership, per-kind key
+        format, theme membership, the registry cap, all checked before
+        any write) — this handler performs no validation of its own.
+        Maps the result to a flash key with an explicit branch per
+        value, never a dict-driven lookup, so an unrecognised result
+        cannot silently pass through with no flash at all: the new-entry
+        result to the added key; the replaced result to the replaced
+        key, with the just-added normalised value appended as a `rule=`
+        query parameter (D-09's "make replaced legible" requirement);
+        the rejected-key result to the key-invalid key; the full result
+        to the registry-full key. A crafted `rule_kind` or
+        `rule_theme_id` (the rejected-kind/rejected-theme results) is a
+        hostile-request shape, not a genuine user mistake, and reuses
+        the generic save-failed key rather than earning its own message
+        (14-UI-SPEC.md's own explicit asymmetry) — the failed result and
+        any other unrecognised result map to the same generic key.
+
+        No CSRF token: the session cookie's `SameSite=Strict` flag is
+        this site's documented CSRF control for every state-changing
+        POST (companion/auth.py:132), matching every other route in
+        this file rather than inventing a second mechanism for this
+        route pair alone (T-14-13, accepted risk).
+        """
+        form = self.read_form()
+        state_dir = self.args.state_dir
+
+        submitted_kind = form.get("rule_kind")
+        submitted_key = form.get("rule_key")
+        submitted_theme_id = form.get("rule_theme_id")
+
+        result = colour_rules.add_rule(
+            state_dir, submitted_kind, submitted_key, submitted_theme_id)
+
+        if result == colour_rules.ADD_OK_NEW:
+            return self.redirect(
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
+        if result == colour_rules.ADD_OK_REPLACED:
+            # Both segments are already known-valid at this point (that is
+            # exactly why add_rule() returned ADD_OK_REPLACED rather than
+            # a rejection) — re-derived here, never trusted from the raw
+            # form value, matching T-14-14's validate-then-echo discipline.
+            normalised_kind = colour_rules.normalise_rule_kind(submitted_kind)
+            normalised_value = colour_rules.normalise_rule_value(
+                normalised_kind, submitted_key)
+            return self.redirect(
+                "%s?flash=%s&rule=%s"
+                % (SETTINGS_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
+                   quote(normalised_value, safe="")))
+        if result == colour_rules.ADD_REJECTED_KEY:
+            flash_key = FLASH_KEY_RULE_KEY_INVALID
+        elif result == colour_rules.ADD_REJECTED_FULL:
+            flash_key = FLASH_KEY_RULE_REGISTRY_FULL
+        else:
+            # ADD_REJECTED_KIND, ADD_REJECTED_THEME, ADD_FAILED, and any
+            # unrecognised result all reuse the generic save-failed key —
+            # a result must never fall through to no flash at all.
+            flash_key = FLASH_KEY_RULE_SAVE_FAILED
+        return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
+
+    def _handle_rule_delete(self, kind, value):
+        """POST /settings/rules/{kind}/{value}/delete (Phase 14 D-10,
+        T-14-01, 14-05-PLAN.md): mirrors `_handle_manual_resolution_
+        delete()`'s shape above, with the one extra normalisation step
+        this route's two-segment path needs. Both `kind` and `value` are
+        re-normalised through `colour_rules.normalise_rule_kind()`/
+        `normalise_rule_value()` BEFORE either is ever used as a registry
+        lookup — an unrecognised kind or a malformed value 404s without
+        touching the registry, never a lookup against a request-supplied
+        string (T-14-01).
+
+        Deleting an already-absent `(kind, value)` is success, not an
+        error — idempotent double-submission tolerance, matching
+        `_handle_manual_resolution_delete()`'s own established posture:
+        that case redirects with no flash at all, exactly like a repeat
+        delete of an already-gone manual resolution does.
+        """
+        normalised_kind = colour_rules.normalise_rule_kind(kind)
+        if normalised_kind is None:
+            return self.send_html(404, self._not_found_page())
+        normalised_value = colour_rules.normalise_rule_value(normalised_kind, value)
+        if normalised_value is None:
+            return self.send_html(404, self._not_found_page())
+
+        state_dir = self.args.state_dir
+        registry = colour_rules.load_colour_rules(state_dir)
+        existed = normalised_value in registry.get(normalised_kind, {})
+        deleted = colour_rules.delete_rule(state_dir, normalised_kind, normalised_value)
+        if deleted:
+            return self.redirect(
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
+        if existed:
+            return self.redirect(
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
+        return self.redirect(SETTINGS_ROUTE)
+
     def _referring_tab(self):
         referer = self.headers.get("Referer", "")
         try:
@@ -1755,6 +1958,32 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             key = path[len(ILLUSTRATION_IMAGE_ROUTE_PREFIX):-len(".png")]
             return self._handle_illustration_replace(key)
+
+        # Phase 14 D-10 (14-05-PLAN.md): the rules editor's two immediate
+        # POST routes, behind the same require_session() gate as every
+        # other state-changing route above — no new auth mechanism and no
+        # CSRF token, inheriting the site-wide session gate and the
+        # SameSite=Strict cookie control uniformly applied here.
+        if path == RULES_ADD_ROUTE:
+            if not self.require_session():
+                return None
+            return self._handle_rule_add_post()
+
+        # Mirrors the manual-resolution delete branch's own startswith/
+        # endswith shape above, with the one extra step this route's
+        # two-segment path needs: split the recovered middle on a slash
+        # ONCE to recover the kind and the value. A middle that does not
+        # split into exactly two non-empty segments is a 404.
+        if path.startswith(RULES_DELETE_ROUTE_PREFIX) and path.endswith(
+                RULES_DELETE_ROUTE_SUFFIX):
+            if not self.require_session():
+                return None
+            middle = path[
+                len(RULES_DELETE_ROUTE_PREFIX):-len(RULES_DELETE_ROUTE_SUFFIX)]
+            segments = middle.split("/", 1)
+            if len(segments) != 2 or not segments[0] or not segments[1]:
+                return self.send_html(404, self._not_found_page())
+            return self._handle_rule_delete(segments[0], segments[1])
 
         return self.send_html(404, self._not_found_page())
 
