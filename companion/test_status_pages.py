@@ -6679,15 +6679,25 @@ def main():
             if "some-other-airline" in card.lower():
                 return False, "expected the card to never derive a key from the entry's own stored name"
             note_match = re.search(r'data-view-panel-manual-note="([^"]*)"', card)
-            if not note_match or "AFR" not in note_match.group(1) or "Air France" not in note_match.group(1):
+            if not note_match:
+                return False, "expected a manual-note on the superseded card"
+            note_text = note_match.group(1)
+            if "AFR" not in note_text or "Air France" not in note_text:
                 return False, "expected the manual-note to interpolate the prefix and the built-in name"
+            if "Some Other Airline" not in note_text:
+                return False, (
+                    "expected the manual-note's third slot to name the OPERATOR's own stored name "
+                    "('Some Other Airline'), not the built-in name a second time — the card's own "
+                    "airline_name parameter (the built-in name, for display/key purposes) must not be "
+                    "conflated with the registry entry's own stored airline_name field")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "a superseded card never shows the operator's own orphaned upload: data-view-panel-src points at "
         "the built-in Air France illustration key (never a key derived from the entry's own stored name), "
-        "the Superseded chip renders, and the manual-note interpolates the prefix and the built-in name "
+        "the Superseded chip renders, and the manual-note interpolates the prefix, the built-in name, AND "
+        "the operator's own originally-stored name (not the built-in name a second time) "
         "(D-10, 14-06-PLAN.md Task 1)",
         _airline_card_html_superseded_shows_built_in_state_never_operator_upload)
 
@@ -6872,13 +6882,25 @@ def main():
                 expected_option = '<option value="%s">' % layout.escape_html(name)
                 if expected_option not in section:
                     return False, "expected an escaped %r for airline %r" % (expected_option, name)
+            # 14-06-PLAN.md external gap-closure (2026-09-06, per
+            # 14-05-SUMMARY.md's own documented finding):
+            # _resolve_name_form_html() now emits an always-present,
+            # server-side-empty <p class="lightbox__resolve-scope">
+            # inside its own output — panel-lookup.js (plan 14-05)
+            # writes the D-01 scope sentence into it on every dialog
+            # open. Checked here (the no-JS fallback's own call site)
+            # since the two calls share one rendering function.
+            if '<p class="lightbox__resolve-scope"></p>' not in section:
+                return False, "expected an empty <p class=\"lightbox__resolve-scope\"></p> in the rendered form"
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
         "Step A's rendered datalist carries exactly len(illustrations.target_airline_names()) (27 against "
-        "today's data) <option> elements, the datalist's id matches the name input's list attribute, and "
-        "every airline name appears as an escaped <option value=...> exactly once (D-13)",
+        "today's data) <option> elements, the datalist's id matches the name input's list attribute, every "
+        "airline name appears as an escaped <option value=...> exactly once (D-13), and the shared "
+        "_resolve_name_form_html() output also carries an empty <p class=\"lightbox__resolve-scope\"></p> "
+        "for panel-lookup.js to write into on open (14-06-PLAN.md external gap-closure)",
         _resolve_section_datalist_contract)
 
     def _resolve_section_escapes_hostile_values_and_distrusts_query_string():
@@ -7066,138 +7088,112 @@ def main():
     # list (D-06, D-07, D-08).
     # ------------------------------------------------------------------
 
-    def _manual_section_slice(rendered):
-        """Isolate just the management list's own markup — everything
-        from its heading constant to the end of the page, since it is
-        always the last thing render() emits.
-        """
-        return rendered[rendered.index(airlines_page.MANUAL_SECTION_HEADING):]
-
-    def _manual_section_empty_and_populated_states():
+    def _manual_summary_line_replaces_retired_management_table_copy():
+        # Phase 14 plan 14-06 Task 2, item 1 (retargeted in place from
+        # _manual_section_empty_and_populated_states — the standalone
+        # management table this check used to exercise is gone).
         tmp = _mkstate("a-manual-empty-populated")
         try:
             rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-            if airlines_page.MANUAL_EMPTY_HEADING not in section:
-                return False, "expected the approved empty heading with no manual resolutions"
-            if airlines_page.MANUAL_EMPTY_BODY not in section:
-                return False, "expected the approved empty body with no manual resolutions"
-            if "<table" in section:
-                return False, "expected no <table> element when the registry is empty"
+            if '<button type="button" class="manual-summary"' in rendered:
+                return False, "expected no .manual-summary element when the registry is empty"
+            for retired_copy in (
+                    "Manually resolved prefixes",
+                    "Airlines you’ve named by hand for a prefix the frame couldn’t "
+                    "otherwise identify.",
+                    "No manual resolutions yet.",
+                    "Resolve an unidentified flight from Health’s coverage-gap list "
+                    "to add one here.",
+                    "The frame’s built-in airline list now also recognizes this "
+                    "prefix — its entry wins, and this manual name is no longer used.",
+                    "manual-resolution__status--superseded",
+            ):
+                if retired_copy in rendered:
+                    return False, (
+                        "expected no trace of the retired management table's own copy: %r" % (retired_copy,))
 
-            manual_resolutions.add_entry(tmp, "AAA", "Airline A", now="2026-01-01T00:00:00+00:00")
-            manual_resolutions.add_entry(tmp, "BBB", "Airline B", now="2026-01-02T00:00:00+00:00")
-            rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-            if "<table" not in section:
-                return False, "expected a <table> element once entries exist"
-            if "<ul class=\"data-cards\">" not in section:
-                return False, "expected a <ul class=\"data-cards\"> element once entries exist"
-            table_prefixes = re.findall(r'<td class="mono">([^<]+)</td>', section)
-            card_prefixes = re.findall(r'<span class="cell-primary mono">([^<]+)</span>', section)
-            if table_prefixes != ["AAA", "BBB"] or card_prefixes != ["AAA", "BBB"]:
-                return False, "expected both representations to cover [AAA, BBB] in prefix-ascending order, got "\
-                    "table=%r cards=%r" % (table_prefixes, card_prefixes)
-            cards_index = section.index('<ul class="data-cards">')
-            table_index = section.index("<table")
-            if cards_index >= table_index:
-                return False, "expected the .data-cards list to precede the <table> in DOM order (the sibling-"\
-                    "combinator toggle depends on this)"
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "with no manual resolutions the management list renders the approved empty heading/body and no "
-        "<table>; with two entries it renders both representations (table and .data-cards, cards first in "
-        "DOM order) covering the same prefixes in the same prefix-ascending order",
-        _manual_section_empty_and_populated_states)
-
-    def _manual_section_supersession_contract():
-        tmp = _mkstate("a-manual-supersession")
-        try:
-            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES);
-            # ZZZ is not.
             manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-02T00:00:00+00:00")
             rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-            if airlines_page.SUPERSEDED_MARKER_TEXT not in section:
-                return False, "expected the Superseded marker for a prefix the static table has caught up to"
-            if airlines_page.SUPERSEDED_MARKER_TITLE not in section:
-                return False, "expected the marker's title explanation"
-            if section.count(airlines_page.SUPERSEDED_CAPTION) != 1:
-                return False, "expected exactly one trailing explanatory caption, got %d" % (
-                    section.count(airlines_page.SUPERSEDED_CAPTION),)
-
-            tmp2 = _mkstate("a-manual-not-superseded")
-            try:
-                manual_resolutions.add_entry(tmp2, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
-                rendered2 = airlines_page.render(_ctx(tmp2))
-                section2 = _manual_section_slice(rendered2)
-                if airlines_page.SUPERSEDED_MARKER_TEXT in section2:
-                    return False, "expected no Superseded marker for a prefix absent from the static table"
-                if airlines_page.SUPERSEDED_CAPTION in section2:
-                    return False, "expected the explanatory caption absent entirely when nothing is superseded"
-            finally:
-                shutil.rmtree(tmp2, ignore_errors=True)
-            return True, ""
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-    check(
-        "an entry whose prefix is a real member of the static prefix table renders the Superseded marker, "
-        "its title explanation, and exactly one trailing explanatory caption; an entry whose prefix is not "
-        "renders neither, and the caption is absent entirely when no row is superseded (D-06)",
-        _manual_section_supersession_contract)
-
-    def _manual_section_add_artwork_link_contract():
-        tmp = _mkstate("a-manual-add-artwork")
-        try:
-            # ZZZ names a fresh airline with no existing artwork —
-            # CR-02's status cell must offer the "Add artwork" link,
-            # pointing at the identical ?resolve={prefix} URL the
-            # resolve section itself now serves Step B from regardless
-            # of live-gap membership.
-            manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
-            # OLD names a target airline that already has real vendored
-            # artwork (Air France) — no link, nothing left to add.
-            manual_resolutions.add_entry(tmp, "OLD", "Air France", now="2026-01-01T00:00:00+00:00")
-            # AFR is a real static-table prefix, so this entry is
-            # superseded (D-06) — no link even though "Some Other
-            # Airline" itself has no artwork, since the built-in table
-            # now owns AFR and uploading under the operator's own name
-            # would not change what the frame displays.
-            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
-
-            rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-
-            expected_link = '<a href="%s?%s=%s">%s</a>' % (
-                airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM, "ZZZ",
-                airlines_page.ADD_ARTWORK_LINK_TEXT)
-            if section.count(expected_link) != 2:
-                # Rendered once in the desktop <tr>, once in the mobile <li>.
+            summary_open = '<button type="button" class="manual-summary" data-filter-set="manual">'
+            summary_count = rendered.count(summary_open)
+            if summary_count != 1:
+                return False, "expected the .manual-summary button to render exactly once, got %d" % summary_count
+            expected_text = airlines_page.MANUAL_SUMMARY_TEMPLATE % (2, 1)
+            expected_button = "%s%s</button>" % (summary_open, expected_text)
+            if expected_button not in rendered:
                 return False, (
-                    "expected the Add-artwork link for ZZZ to appear exactly twice (desktop + "
-                    "mobile), got %d: %r" % (section.count(expected_link), expected_link))
-
-            old_link = '?%s=OLD' % airlines_page.RESOLVE_QUERY_PARAM
-            if old_link in section:
-                return False, "expected NO Add-artwork link for OLD — Air France already has artwork"
-
-            afr_link = '?%s=AFR' % airlines_page.RESOLVE_QUERY_PARAM
-            if afr_link in section:
-                return False, "expected NO Add-artwork link for AFR — a superseded entry must not offer it"
-            if airlines_page.SUPERSEDED_MARKER_TEXT not in section:
-                return False, "expected AFR to still render the Superseded marker"
+                    "expected the summary line's text to match MANUAL_SUMMARY_TEMPLATE with 2 total, "
+                    "1 superseded")
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "CR-02: the management list's status cell offers an 'Add artwork' link (into the identical "
-        "?resolve={prefix} URL the resolve section serves Step B from) for an active entry whose stored "
-        "name has no artwork yet, in both the desktop table and the mobile card; renders no such link for "
-        "an entry whose name already has artwork, nor for a superseded entry (which keeps its Superseded "
-        "marker instead)",
-        _manual_section_add_artwork_link_contract)
+        "with an empty manual-resolutions registry, render() emits no .manual-summary element and none of "
+        "the retired management table's own copy; with two entries seeded (one superseded, one active), "
+        ".manual-summary renders exactly once with text matching MANUAL_SUMMARY_TEMPLATE's total/superseded "
+        "count (D-11, 14-06-PLAN.md Task 2 item 1)",
+        _manual_summary_line_replaces_retired_management_table_copy)
+
+    def _manual_section_supersession_symbols_retired_and_chip_still_renders():
+        # Phase 14 plan 14-06 Task 2, item 2 (retargeted in place from
+        # _manual_section_supersession_contract): the superseded card's
+        # full attribute/note contract is already pinned by Task 1's own
+        # _airline_card_html_superseded_shows_built_in_state_never_
+        # operator_upload() check — this thin cross-reference only
+        # proves the D-06 supersession machinery's now-orphaned symbols
+        # are gone, and that the chip itself still renders end to end
+        # via render(), so the two checks never test the identical
+        # thing twice under different names.
+        for name in ("SUPERSEDED_MARKER_TITLE", "SUPERSEDED_CAPTION", "SUPERSEDED_STATUS_CLASS"):
+            if hasattr(airlines_page, name):
+                return False, "expected airlines_page to no longer expose %r" % (name,)
+        tmp = _mkstate("a-manual-supersession-retired")
+        try:
+            # AFR is a real static-table prefix (enrich._ICAO_AIRLINE_PREFIXES).
+            manual_resolutions.add_entry(tmp, "AFR", "Some Other Airline", now="2026-01-01T00:00:00+00:00")
+            rendered = airlines_page.render(_ctx(tmp))
+            expected_chip = '<span class="airline-card__chip">%s</span>' % airlines_page.SUPERSEDED_MARKER_TEXT
+            if expected_chip not in rendered:
+                return False, "expected the Superseded chip to still render end to end via render()"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "the retired D-06 supersession machinery's own symbols (SUPERSEDED_MARKER_TITLE, SUPERSEDED_CAPTION, "
+        "SUPERSEDED_STATUS_CLASS) are gone, and the Superseded chip itself still renders end to end via "
+        "render() — the card-level attribute/note contract is Task 1's own check's job, not re-tested here "
+        "(14-06-PLAN.md Task 2 item 2)",
+        _manual_section_supersession_symbols_retired_and_chip_still_renders)
+
+    def _retired_management_table_symbols_are_gone():
+        # Phase 14 plan 14-06 Task 2, item 3 (retargeted in place from
+        # _manual_section_add_artwork_link_contract, whose own CR-02
+        # add-artwork-link behaviour is now covered by
+        # _airline_card_html_active_manual_states_render_expected_
+        # attributes_and_chip() (Task 1) — the six retired rendering
+        # functions and eight now-orphaned copy/class constants
+        # _airlines_page_module_exposes_no_deleted_diagnostics_symbol()'s
+        # own hasattr-scan shape is followed exactly, over a different
+        # symbol list.
+        for name in (
+                "_manual_resolution_table_html", "_manual_resolution_cards_html",
+                "_manual_resolution_row_html", "_manual_resolutions_section_html",
+                "_manual_superseded_marker_html", "_manual_add_artwork_link_html",
+                "MANUAL_SECTION_HEADING", "MANUAL_SECTION_CAPTION",
+                "MANUAL_EMPTY_HEADING", "MANUAL_EMPTY_BODY",
+                "MANUAL_RESOLUTION_HEADERS", "ADD_ARTWORK_LINK_TEXT",
+                "SUPERSEDED_MARKER_TITLE", "SUPERSEDED_STATUS_CLASS",
+        ):
+            if hasattr(airlines_page, name):
+                return False, (
+                    "airlines_page module must no longer expose the retired management-table symbol %r" % name)
+        return True, ""
+    check(
+        "importing companion.pages.airlines_page raises no error, and the module exposes none of the six "
+        "retired management-table rendering functions or eight now-orphaned copy/class constants "
+        "(14-06-PLAN.md Task 2 item 3)",
+        _retired_management_table_symbols_are_gone)
 
     def _manual_section_seed_helper_end_to_end():
         # Phase 14 plan 14-01 Task 3: exercises the new
@@ -7266,69 +7262,54 @@ def main():
         "check airlines_page.py's own comment already claims exists (WR-06)",
         _health_resolve_link_template_matches_airlines_route_constants)
 
-    def _manual_section_delete_control_and_design_system_contract():
-        tmp = _mkstate("a-manual-delete-contract")
+    def _manual_delete_form_renders_in_both_dialog_and_no_js_fallback():
+        # Phase 14 plan 14-06 Task 2, item 4 (retargeted in place from
+        # _manual_section_delete_control_and_design_system_contract):
+        # the D-09 amendment's permanent regression proof that this
+        # phase's earlier plans built but never pinned with a lasting
+        # check — one shared _manual_delete_form_html() function,
+        # rendered at exactly two call sites (the dialog, always with
+        # action=""; the no-JS fallback, with the real delete action)
+        # whenever a manual entry exists for the prefix being viewed.
+        tmp = _mkstate("a-manual-delete-two-call-sites")
         try:
-            manual_resolutions.add_entry(tmp, "AAA", "Airline A", now="2026-01-01T00:00:00+00:00")
-            rendered = airlines_page.render(_ctx(tmp))
-            section = _manual_section_slice(rendered)
-            expected_action = "/airlines/manual-resolutions/AAA/delete"
-            form_match = re.search(
-                r'<form method="post" action="%s">(.*?)</form>' % re.escape(expected_action),
-                section, re.DOTALL)
-            if not form_match:
-                return False, "expected a delete form with action %r" % (expected_action,)
-            inner = form_match.group(1)
-            if "<button type=\"submit\">" not in inner:
-                return False, "expected the delete control to be a submit button inside its own form"
-            if "<a " in inner:
-                return False, "expected the delete control to never be an anchor"
-            if "data-filter-group=\"" in section:
-                return False, "expected the management list to emit no filter-group markup at all"
-            if section.count('class="filter-bar') != 0:
-                return False, "expected the management list to emit no filter-bar markup at all"
-            rendered_full = rendered
-            if rendered_full.count('class="filter-bar') != 3:
-                return False, "expected exactly 3 occurrences of class=\"filter-bar in the whole page — "\
-                    "unchanged from before this plan (the gallery's own filter bar is the page's only one), "\
-                    "got %d" % (rendered_full.count('class="filter-bar'),)
+            # A manual entry with no artwork yet (Step B reachable) —
+            # the D-09 amendment's own precondition for the fallback
+            # section to reach a branch that renders the delete form at
+            # all.
+            manual_resolutions.add_entry(tmp, "ZZZ", "Brand New Air", now="2026-01-01T00:00:00+00:00")
+            ctx = _ctx(tmp)
+            ctx["resolve_prefix"] = "ZZZ"
+            rendered = airlines_page.render(ctx)
 
-            style_css_path = os.path.join(HERE, "static", "style.css")
-            with open(style_css_path) as fh:
-                style_css_source = fh.read()
-            if airlines_page.SUPERSEDED_STATUS_CLASS not in style_css_source:
-                return False, "expected %r to appear in companion/static/style.css" % (
-                    airlines_page.SUPERSEDED_STATUS_CLASS,)
-            rule_match = re.search(
-                r"\.%s\s*\{([^}]*)\}" % re.escape(airlines_page.SUPERSEDED_STATUS_CLASS),
-                style_css_source)
-            if not rule_match:
-                return False, "expected to find the .%s rule body" % (airlines_page.SUPERSEDED_STATUS_CLASS,)
-            label_match = re.search(r"\.data-card__label\s*\{([^}]*)\}", style_css_source)
-            if not label_match:
-                return False, "expected to find the .data-card__label rule body"
+            dialog_open_index = rendered.index('id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID)
+            dialog_close_index = rendered.index("</dialog>", dialog_open_index)
+            dialog_section = rendered[dialog_open_index:dialog_close_index]
+            fallback_section = rendered[dialog_close_index:]
 
-            def declared_values(body):
-                return {
-                    line.strip()
-                    for line in body.strip().splitlines() if line.strip()
-                }
-            superseded_decls = declared_values(rule_match.group(1))
-            label_decls = declared_values(label_match.group(1))
-            if superseded_decls != label_decls:
-                return False, "expected .%s to declare the identical five label-voice values .data-card__label "\
-                    "declares, got %r vs %r" % (
-                        airlines_page.SUPERSEDED_STATUS_CLASS, superseded_decls, label_decls)
+            delete_form_re = re.compile(
+                r'<form class="%s" method="post" action="([^"]*)">' % re.escape(airlines_page.LIGHTBOX_DELETE_CLASS))
+            dialog_forms = delete_form_re.findall(dialog_section)
+            if dialog_forms != [""]:
+                return False, (
+                    "expected exactly one delete form inside the shared dialog with action=\"\", got %r"
+                    % (dialog_forms,))
+
+            expected_action = airlines_page._manual_delete_action("ZZZ")
+            fallback_forms = delete_form_re.findall(fallback_section)
+            if fallback_forms != [expected_action]:
+                return False, (
+                    "expected exactly one delete form in the no-JS fallback section with action=%r, got %r"
+                    % (expected_action, fallback_forms))
             return True, ""
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "each row's delete form action is exactly /airlines/manual-resolutions/{prefix}/delete, the delete "
-        "control is a submit button inside that form (never an anchor), the management list emits no "
-        "filter-bar/filter-group markup of its own (the gallery's own filter bar stays the page's only one), "
-        "and .manual-resolution__status--superseded declares the identical five label-voice values "
-        ".data-card__label declares (asserted so the two can never drift, D-08/UI-SPEC Autonomous Decision 3)",
-        _manual_section_delete_control_and_design_system_contract)
+        "the D-09 amendment's permanent regression proof: rendering ?resolve={prefix} for a prefix with a "
+        "manual entry produces exactly one _manual_delete_form_html() output inside the shared dialog "
+        "(action=\"\") and exactly one inside the no-JS fallback section (the real delete action) — one "
+        "shared function, two call sites (14-06-PLAN.md Task 2 item 4)",
+        _manual_delete_form_renders_in_both_dialog_and_no_js_fallback)
 
     def _list_filter_js_gains_data_filter_set_hook():
         # Phase 14 (14-03-PLAN.md Task 1, RESEARCH.md Pitfall 5):
@@ -7490,11 +7471,13 @@ def main():
             if re.search(r'(^|\s)--[a-z][a-z-]*:', body):
                 return False, "expected %r's rule body to declare no new custom property" % (selector_open,)
 
-        # The retired management-table selector deliberately survives
-        # this plan — it becomes dead code only when plan 14-06 deletes
-        # the management table's own rendering functions.
-        if "manual-resolution__status--superseded" not in css_source:
-            return False, "expected .manual-resolution__status--superseded to still be declared"
+        # Phase 14 plan 14-06 Task 2 retires the management table's own
+        # rendering functions and, with them, this now-orphaned
+        # selector — retargeted in place (this check itself, not a new
+        # one) from "still declared" to "gone" now that the retirement
+        # has actually landed.
+        if "manual-resolution__status--superseded" in css_source:
+            return False, "expected .manual-resolution__status--superseded to be gone (phase 14 plan 14-06 Task 2)"
 
         return True, ""
     check(
@@ -7505,8 +7488,8 @@ def main():
         ".lightbox__replace's selector is extended to a three-way group with "
         ".lightbox__resolve-name/.lightbox__delete in exactly one declaration block (never duplicated), "
         "the header accent-reservation list mentions none of the new selectors, none of the new/extended "
-        "rule bodies declares a new custom property, and .manual-resolution__status--superseded survives "
-        "for plan 14-06 to retire (phase 14 plan 14-03 Task 2)",
+        "rule bodies declares a new custom property, and .manual-resolution__status--superseded is gone "
+        "now that plan 14-06 has retired it (phase 14 plan 14-03 Task 2, retargeted in place by 14-06 Task 2)",
         _phase14_task2_new_css_selectors_exhaustive)
 
     # ======================================================================
