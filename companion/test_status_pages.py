@@ -283,7 +283,13 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 152  # 151 + 1 (phase 14 plan 14-03 Task 2: the
+EXPECTED_CHECK_COUNT = 157  # 152 + 5 (phase 14 plan 14-04 Task 1: the
+# coverage-gap block's threshold/sort/cap/overflow-count check, the gap
+# card's markup-shape/attribute-vocabulary check, the data-filter-group
+# format/no-collision check, the overflow-line templating check, and
+# the hostile-example-callsign escaping check — D-01/D-02/D-04/D-05/
+# D-06/D-07). Re-derived by RUNNING the harness, not by arithmetic.
+# 152 = 151 + 1 (phase 14 plan 14-03 Task 2: the
 # style.css DOM-contract guard for the five new/extended selectors —
 # a.airline-card, .airline-card__placeholder, .lightbox__heading:empty,
 # .lightbox__manual-note:empty, .manual-summary, plus the
@@ -6324,18 +6330,210 @@ def main():
         _replace_zone_markup_and_styling_contract)
 
     # ------------------------------------------------------------------
+    # Phase 14 (14-04-PLAN.md Task 1): the coverage-gap block (D-01,
+    # D-02, D-04, D-05, D-06, D-07).
+    # ------------------------------------------------------------------
+
+    def _gap_block_threshold_sort_cap_and_overflow():
+        tmp = _mkstate("a-gap-threshold-sort-cap")
+        try:
+            registry = {}
+            for i in range(15):
+                prefix = "G%02d" % i
+                registry[prefix] = {
+                    "count": 3 + i, "first_seen": "t1", "last_seen": "t2",
+                    "example_callsign": "%s123" % prefix,
+                }
+            _seed_unresolved_prefixes(tmp, registry)
+            shown, overflow_count = airlines_page._gap_rows_for_grid(tmp)
+            if len(shown) != airlines_page.GAP_BLOCK_CAP:
+                return False, "expected exactly %d shown gap rows, got %d" % (
+                    airlines_page.GAP_BLOCK_CAP, len(shown))
+            if overflow_count != 3:
+                return False, "expected an overflow count of 3 (15 eligible - 12 cap), got %d" % (
+                    overflow_count,)
+            expected_prefixes = [
+                prefix for prefix, _ in sorted(
+                    registry.items(), key=lambda item: (-item[1]["count"], item[0]))
+            ][:airlines_page.GAP_BLOCK_CAP]
+            actual_prefixes = [row[0] for row in shown]
+            if actual_prefixes != expected_prefixes:
+                return False, "expected rows sorted (-count, prefix), got %r (wanted %r)" % (
+                    actual_prefixes, expected_prefixes)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+        # The threshold is >=, not >: an identical prefix at count=2
+        # must never earn a gap row; the same prefix at count=3 must.
+        tmp2 = _mkstate("a-gap-threshold-boundary")
+        try:
+            _seed_unresolved_prefixes(tmp2, {
+                "AT2": {"count": 2, "first_seen": "t1", "last_seen": "t2", "example_callsign": "AT2123"},
+            })
+            shown_low, overflow_low = airlines_page._gap_rows_for_grid(tmp2)
+            if shown_low or overflow_low:
+                return False, "expected count=2 (below GAP_BLOCK_THRESHOLD=3) to never render a gap row"
+            _seed_unresolved_prefixes(tmp2, {
+                "AT3": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "AT3123"},
+            })
+            shown_high, overflow_high = airlines_page._gap_rows_for_grid(tmp2)
+            if [row[0] for row in shown_high] != ["AT3"]:
+                return False, "expected count=3 (== GAP_BLOCK_THRESHOLD) to render exactly one gap row"
+            if overflow_high != 0:
+                return False, "expected zero overflow with only one eligible prefix"
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
+        return True, ""
+    check(
+        "_gap_rows_for_grid() thresholds at >= GAP_BLOCK_THRESHOLD (3), sorts eligible rows (-count, prefix), "
+        "caps at GAP_BLOCK_CAP (12), and reports the exact overflow count for the rest (D-05/D-06)",
+        _gap_block_threshold_sort_cap_and_overflow)
+
+    def _gap_card_markup_shape_and_attribute_vocabulary():
+        row = ("XYZ", 5, "t1", "t2", "XYZ123")
+        card_html = airlines_page._gap_card_html(0, row)
+        if "<img" in card_html:
+            return False, "expected zero <img> tags in a gap card"
+        if "airline-card__zoom" in card_html:
+            return False, "expected no nested .airline-card__zoom button in a gap card"
+        if not card_html.startswith('<a class="airline-card"'):
+            return False, "expected the whole card to be a real <a class=\"airline-card\"> element"
+        if not card_html.rstrip().endswith("</a>"):
+            return False, "expected the card to close with </a>"
+        expected_href = 'href="%s?%s=XYZ"' % (
+            airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+        if expected_href not in card_html:
+            return False, "expected %r in the gap card's markup" % (expected_href,)
+        required_attr_values = {
+            airlines_page._VIEW_PANEL_SRC_ATTR: "",
+            airlines_page._VIEW_PANEL_CAPTION_ATTR: "XYZ123",
+            airlines_page._VIEW_PANEL_HEADING_ATTR: airlines_page.RESOLVE_HEADING,
+            airlines_page._VIEW_PANEL_MODE_ATTR: airlines_page._VIEW_PANEL_MODE_GAP,
+            airlines_page._VIEW_PANEL_MANUAL_ATTR: "",
+            airlines_page._VIEW_PANEL_SCOPE_ATTR: airlines_page.RESOLVE_CAPTION_TEMPLATE % "XYZ",
+            airlines_page._VIEW_PANEL_RESOLVE_PREFIX_ATTR: "XYZ",
+            airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR: "t1",
+            airlines_page._VIEW_PANEL_LAST_SEEN_ATTR: "t2",
+            airlines_page._VIEW_PANEL_COUNT_ATTR: "5",
+        }
+        for attr, expected_value in required_attr_values.items():
+            expected_fragment = '%s="%s"' % (attr, expected_value)
+            if expected_fragment not in card_html:
+                return False, "expected %r in the gap card's markup, got %r" % (expected_fragment, card_html)
+        if '<span class="airline-card__placeholder" aria-hidden="true"></span>' not in card_html:
+            return False, "expected the pure-CSS placeholder span"
+        if '<p class="airline-card__name mono">XYZ123</p>' not in card_html:
+            return False, "expected the visible callsign paragraph"
+        return True, ""
+    check(
+        "_gap_card_html() renders the whole card as a real <a class=\"airline-card\" "
+        "href=\"/airlines?resolve={prefix}\"> trigger with zero <img> tags and no nested "
+        ".airline-card__zoom button, carrying every data-view-panel-* attribute UI-SPEC's Gap-card markup "
+        "shape names, non-empty where that snippet shows a value (D-01/D-02/D-12)",
+        _gap_card_markup_shape_and_attribute_vocabulary)
+
+    def _gap_card_filter_group_never_collides_with_curated_integer_groups():
+        source_path = os.path.join(HERE, "pages", "airlines_page.py")
+        with open(source_path) as fh:
+            page_source = fh.read()
+        if 'data-filter-group="gap%d"' not in page_source:
+            return False, "expected the literal 'data-filter-group=\"gap%d\"' format string in the source"
+        row = ("XYZ", 5, "t1", "t2", "XYZ123")
+        for index in (0, 1, 11):
+            card_html = airlines_page._gap_card_html(index, row)
+            match = re.search(r'data-filter-group="([^"]+)"', card_html)
+            if not match:
+                return False, "expected a data-filter-group attribute on the gap card"
+            value = match.group(1)
+            if not re.match(r"^gap\d+$", value):
+                return False, "expected data-filter-group to match ^gap\\d+$, got %r" % (value,)
+        tmp = _mkstate("a-gap-filter-group-collision")
+        try:
+            _seed_unresolved_prefixes(tmp, {
+                "XYZ": {"count": 5, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
+            })
+            rendered = airlines_page.render(_ctx(tmp))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        curated_groups = set(re.findall(r'data-filter-group="(\d+)"', rendered))
+        gap_groups = set(re.findall(r'data-filter-group="(gap\d+)"', rendered))
+        if not gap_groups:
+            return False, "expected at least one gap data-filter-group in the rendered page"
+        for gap_group in gap_groups:
+            if gap_group in curated_groups:
+                return False, (
+                    "expected gap group %r to never equal a curated card's own bare-integer group"
+                    % (gap_group,))
+        return True, ""
+    check(
+        "a gap card's data-filter-group value is always a string-prefixed \"gap{index}\" (never a bare "
+        "integer) and never collides, as a bare string, with any curated card's own data-filter-group "
+        "value on the same render (RESEARCH.md Pitfall 4, T-14-17)",
+        _gap_card_filter_group_never_collides_with_curated_integer_groups)
+
+    def _gap_overflow_html_renders_only_when_the_cap_bites():
+        if airlines_page._gap_overflow_html(0) != "":
+            return False, "expected the empty string when overflow_count is 0"
+        overflow_html = airlines_page._gap_overflow_html(3)
+        if not overflow_html.startswith('<p class="text-label section-caption">'):
+            return False, "expected the overflow line's own wrapping <p>"
+        if "3 other unresolved prefixes" not in overflow_html:
+            return False, "expected the overflow count interpolated into the line"
+        link_match = re.search(r'<a href="/health">([^<]+)</a>', overflow_html)
+        if not link_match:
+            return False, "expected an <a href=\"/health\"> link"
+        if link_match.group(1) != airlines_page.MANUAL_OVERFLOW_LINK_TEXT:
+            return False, "expected the anchor to wrap only MANUAL_OVERFLOW_LINK_TEXT, got %r" % (
+                link_match.group(1),)
+        if not overflow_html.endswith("</a>.</p>"):
+            return False, "expected the trailing period immediately after the anchor's closing tag, outside it"
+        return True, ""
+    check(
+        "_gap_overflow_html() returns the empty string when the cap does not bite, and otherwise the exact "
+        "templated line naming the overflow count, with <a href=\"/health\"> wrapping only "
+        "MANUAL_OVERFLOW_LINK_TEXT and the trailing period sitting outside the anchor (D-07)",
+        _gap_overflow_html_renders_only_when_the_cap_bites)
+
+    def _gap_card_escapes_hostile_example_callsign():
+        hostile_callsign = '<script>alert(1)</script>"'
+        row = ("XYZ", 5, "t1", "t2", hostile_callsign)
+        card_html = airlines_page._gap_card_html(0, row)
+        if hostile_callsign in card_html:
+            return False, "expected the raw hostile callsign to never appear unescaped"
+        if "<script>" in card_html:
+            return False, "expected no raw '<script>' fragment to survive"
+        escaped_callsign = layout.escape_html(hostile_callsign)
+        if card_html.count(escaped_callsign) < 2:
+            return False, (
+                "expected the escaped callsign to appear at least twice (data-view-panel-caption attribute "
+                "and the visible name paragraph), got %d" % (card_html.count(escaped_callsign),))
+        return True, ""
+    check(
+        "an example_callsign containing '<', '>', '&' and '\"' reaching a gap card renders fully escaped, "
+        "both in data-view-panel-caption and in the visible callsign paragraph, exactly once per "
+        "interpolation site (T-06.6.4.1-05, T-14-16)",
+        _gap_card_escapes_hostile_example_callsign)
+
+    # ------------------------------------------------------------------
     # Phase 13 (13-04-PLAN.md Task 1): the conditional resolve section
     # (D-03, D-10 through D-13).
     # ------------------------------------------------------------------
 
     def _resolve_slice(rendered):
-        """Isolate just the resolve section's own markup from a full
-        page render — the shared lightbox dialog (rendered later, once
-        per page regardless of resolve state) carries its own permanent
-        `<form>`/file input that must not contaminate a "no form"/"no
-        file input" assertion scoped to the resolve section alone.
+        """Isolate everything the page renders AFTER the shared dialog —
+        Phase 14 (14-04-PLAN.md) moved the resolve section from the top
+        of the page (before the filter bar) to the bottom (behind the
+        shared lightbox), so the old `rendered[:rendered.index(
+        "filter-bar")]` boundary no longer isolates it. This anchors on
+        the dialog's own id and its universal closing tag instead of a
+        hardcoded index into any specific inner string, so it stays
+        correct regardless of what any later wave adds inside the
+        dialog.
         """
-        return rendered[:rendered.index("filter-bar")]
+        dialog_id_marker = 'id="%s"' % airlines_page.LIGHTBOX_DIALOG_ID
+        dialog_start = rendered.index(dialog_id_marker)
+        dialog_close = rendered.index("</dialog>", dialog_start)
+        return rendered[dialog_close + len("</dialog>"):]
 
     def _resolve_section_four_states_render_correctly():
         tmp = _mkstate("a-resolve-states")

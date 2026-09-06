@@ -283,6 +283,15 @@ MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
 AIRLINES_ROUTE = "/airlines"
 RESOLVE_QUERY_PARAM = "resolve"
 
+# Phase 14 (14-04-PLAN.md, D-06): the gap block's threshold and cap —
+# both locked numeric values from D-06's own text, not a discretion
+# call. A prefix must be seen at least GAP_BLOCK_THRESHOLD times before
+# it earns a gap card at all, and at most GAP_BLOCK_CAP gap cards ever
+# render, head of grid, regardless of how many prefixes clear the
+# threshold (see _gap_overflow_html() for what happens to the rest).
+GAP_BLOCK_THRESHOLD = 3
+GAP_BLOCK_CAP = 12
+
 # Phase 13 copy constants, byte-identical to 13-UI-SPEC.md's Full Copy
 # Deck (real U+2014 em dashes, real U+2019 apostrophes, matching every
 # other string in this module).
@@ -712,18 +721,165 @@ def _airline_card_html(index, airline_name, shapes, state_dir=None):
     ) % (filter_text, index, zoom_html, escape_html(airline_name), chips_html)
 
 
-def _gallery_grid_html(pairs, state_dir=None):
+def _gallery_grid_html(pairs, state_dir=None, gap_cards_html=""):
     """Wrap one `_airline_card_html()` card per `(airline_name, shapes)`
     pair in the `.illustration-grid` container (06.6.4.1-UI-SPEC.md
     §7.1, companion/static/style.css from plan 01). Skips (renders
     nothing for) any pair whose card comes back empty. `state_dir`
     (quick task 260902-v26, default `None`) is threaded straight through
     to every card — see `_airline_card_html()`'s own docstring.
+
+    `gap_cards_html` (14-04-PLAN.md, D-04/D-05): already-rendered gap
+    cards' markup (`render()`'s own `"".join(_gap_card_html(...) for
+    ...)` call), prepended inside this same `.illustration-grid`
+    wrapper, ahead of the curated cards — one function still owns the
+    grid's outer markup, matching this module's "one render function"
+    discipline. Defaults to `""` so every existing call site (and every
+    existing test calling this function positionally with two arguments)
+    keeps rendering byte-identical output with no gap block at all.
     """
     cards = "".join(
         _airline_card_html(index, airline_name, shapes, state_dir)
         for index, (airline_name, shapes) in enumerate(pairs))
-    return '<div class="illustration-grid">%s</div>' % cards
+    return '<div class="illustration-grid">%s%s</div>' % (gap_cards_html, cards)
+
+
+def _gap_rows_for_grid(state_dir):
+    """The gap block's own source, sort, threshold and cap (D-04, D-05,
+    D-06): every prefix in the live unresolved-callsign-prefix registry
+    with `count >= GAP_BLOCK_THRESHOLD`, sorted `(-count, prefix)`, split
+    into `(shown, overflow_count)` where `shown` is at most
+    `GAP_BLOCK_CAP` rows and `overflow_count` is how many eligible rows
+    the cap hides.
+
+    Reads `poll_loop.load_poll_state(state_dir)`'s own
+    `unresolved_prefixes` dict directly — this module already imports
+    `poll_loop` for `unresolved_row_for_prefix()` above — duplicating
+    `health_page.unresolved_rows()`'s own malformed-entry-skip discipline
+    and sort key byte for byte (skip a non-dict entry, skip a non-int or
+    bool `count`, sort by count descending then prefix ascending) rather
+    than importing it: a page module has no import path to a sibling
+    page module (companion/pages/__init__.py's boundary), the same
+    duplicated-not-imported discipline this module already applies to
+    its own route constants (RESEARCH.md's Don't-Hand-Roll table).
+
+    Returns rows in the exact five-field shape `unresolved_row_for_
+    prefix()` already returns them (`prefix, count, first_seen,
+    last_seen, example_callsign`), so a future caller can treat both
+    functions' rows identically. Never raises — a falsy `state_dir` (this
+    function, unlike `unresolved_row_for_prefix()`, is called
+    unconditionally by `render()`, not gated behind a truthy
+    `resolve_prefix`) or a missing/unreadable poll state both yield
+    `([], 0)` rather than crashing a page render, mirroring
+    `_illustration_cache_buster()`'s own no-`state_dir` short-circuit.
+    """
+    if not state_dir:
+        return [], 0
+    state = poll_loop.load_poll_state(state_dir)
+    registry = state.get("unresolved_prefixes")
+    if not isinstance(registry, dict):
+        return [], 0
+    eligible = []
+    for prefix, entry in registry.items():
+        if not isinstance(entry, dict):
+            continue
+        count = entry.get("count")
+        if not isinstance(count, int) or isinstance(count, bool):
+            continue
+        if count < GAP_BLOCK_THRESHOLD:
+            continue
+        eligible.append((
+            prefix,
+            count,
+            entry.get("first_seen") or "",
+            entry.get("last_seen") or "",
+            entry.get("example_callsign") or "",
+        ))
+    eligible.sort(key=lambda row: (-row[1], row[0]))
+    shown = eligible[:GAP_BLOCK_CAP]
+    overflow_count = max(0, len(eligible) - GAP_BLOCK_CAP)
+    return shown, overflow_count
+
+
+def _gap_card_html(index, row):
+    """One coverage-gap card (D-01, D-02, D-04, D-05, D-12,
+    14-UI-SPEC.md's "Gap-card markup shape"): the whole `<a
+    class="airline-card">` element IS the click-to-resolve trigger — no
+    `<img>` at all (D-02: the placeholder is pure CSS,
+    `.airline-card__placeholder`, already styled by plan 14-03) and no
+    nested `.airline-card__zoom` button (D-12: "an `<a>` needs only
+    `preventDefault()`").
+
+    `row` is one of `_gap_rows_for_grid()`'s own five-field tuples
+    (`prefix, count, first_seen, last_seen, example_callsign`) — the
+    same shape `unresolved_row_for_prefix()` returns. `index` is this
+    card's position among the shown gap cards (0-based), used only to
+    build its `data-filter-group` value.
+
+    `escaped_prefix`/`escaped_callsign` are each computed exactly once
+    here and reused across every attribute/text site that needs them
+    (T-06.6.4.1-05, T-14-16) — never re-escaped. `data-view-panel-src`
+    and `data-view-panel-manual` both stay the empty string: a raw gap
+    has no image and no manual-resolution history yet (that state
+    belongs to plan 14-06's manual/superseded cards, not here).
+    `data-view-panel-first-seen`/`-last-seen`/`-count` carry the escaped
+    RAW registry values, never run through
+    `layout.concise_timestamp_html()` — that helper returns markup
+    unsuited to an attribute value, and `panel-lookup.js` can only ever
+    textContent-copy whatever raw string the attribute carries; this is
+    a deliberate, documented asymmetry with the no-JS fallback's own
+    concise rendering, not a defect.
+
+    `data-filter-group` is a string-prefixed `"gap%d"`, never a bare
+    integer, so it can never collide with the curated grid's own
+    `enumerate(pairs)` sequence sharing the same attribute name
+    (RESEARCH.md Pitfall 4, T-14-17).
+    """
+    prefix, count, first_seen, last_seen, example_callsign = row
+    escaped_prefix = escape_html(prefix)
+    escaped_callsign = escape_html(example_callsign)
+    filter_text = escape_html("%s %s" % (example_callsign.lower(), prefix.lower()))
+    return (
+        '<a class="airline-card" href="%s?%s=%s" '
+        '%s="" %s="%s" %s="%s" %s="%s" '
+        '%s="" %s="%s" %s="%s" '
+        '%s="%s" %s="%s" %s="%s" '
+        'data-filter-text="%s" data-filter-group="gap%d" '
+        'aria-label="%s">'
+        '<span class="airline-card__placeholder" aria-hidden="true"></span>'
+        '<p class="airline-card__name mono">%s</p>'
+        "</a>"
+    ) % (
+        AIRLINES_ROUTE, RESOLVE_QUERY_PARAM, escaped_prefix,
+        _VIEW_PANEL_SRC_ATTR,
+        _VIEW_PANEL_CAPTION_ATTR, escaped_callsign,
+        _VIEW_PANEL_HEADING_ATTR, RESOLVE_HEADING,
+        _VIEW_PANEL_MODE_ATTR, _VIEW_PANEL_MODE_GAP,
+        _VIEW_PANEL_MANUAL_ATTR,
+        _VIEW_PANEL_SCOPE_ATTR, RESOLVE_CAPTION_TEMPLATE % escaped_prefix,
+        _VIEW_PANEL_RESOLVE_PREFIX_ATTR, escaped_prefix,
+        _VIEW_PANEL_FIRST_SEEN_ATTR, escape_html(first_seen),
+        _VIEW_PANEL_LAST_SEEN_ATTR, escape_html(last_seen),
+        _VIEW_PANEL_COUNT_ATTR, escape_html(count),
+        filter_text, index,
+        GAP_CARD_ARIA_TEMPLATE % (escaped_prefix, escaped_callsign),
+        escaped_callsign,
+    )
+
+
+def _gap_overflow_html(overflow_count):
+    """The gap block's overflow line (D-07), rendered only when
+    `_gap_rows_for_grid()`'s own cap hides at least one eligible prefix
+    — `""` otherwise. `MANUAL_OVERFLOW_TEMPLATE`'s `%d` slot is
+    `overflow_count`; `MANUAL_OVERFLOW_LINK_TEXT` is the only text
+    wrapped by the `<a href="/health">` anchor — the trailing period
+    sits outside it, matching 14-UI-SPEC.md's Gap-block composition
+    literal exactly.
+    """
+    if not overflow_count:
+        return ""
+    return '<p class="text-label section-caption">%s<a href="/health">%s</a>.</p>' % (
+        MANUAL_OVERFLOW_TEMPLATE % overflow_count, MANUAL_OVERFLOW_LINK_TEXT)
 
 
 def _lightbox_html():
@@ -1479,39 +1635,42 @@ def _manual_resolutions_section_html(ctx):
 
 def render(ctx):
     """The Airlines page (D-13 through D-17, extended by phase 13's
-    D-03/D-06/D-07/D-10 through D-13): the page header, the conditional
-    resolve section, the D-16 filter bar, one card per airline in
+    D-03/D-06/D-07/D-10 through D-13, and by phase 14's coverage-gap
+    grid and page-order reversal): the page header, the D-16 filter bar,
+    the D-04/D-05/D-06/D-07 gap block (gap cards prepended head-of-grid,
+    plus D-07's overflow line), one card per airline in
     `illustrations.target_variants_by_airline()` order, the shared
-    click-to-enlarge lightbox dialog (quick task 260902-tli), then the
-    always-present manual-resolutions management list (D-07). `ctx` is
-    accepted for call-site parity with every other page module's
-    `render(ctx)` signature.
+    click-to-enlarge lightbox dialog (quick task 260902-tli), the
+    always-present manual-resolutions management list (D-07), then
+    (phase 14, moved from the top of the page) the conditional resolve
+    section. `ctx` is accepted for call-site parity with every other
+    page module's `render(ctx)` signature.
 
     Since quick task 260902-v26 this reads `state_dir` (used to resolve
     each card's illustration-replace cache buster, see
-    `_illustration_cache_buster()`, and by both new phase-13 sections
-    below as their own state-dir source). Phase 13 (13-04-PLAN.md) adds
-    three more `ctx.get()` reads: `resolve_prefix` (the `?resolve=
-    {prefix}` query value, presence-gating `_resolve_section_html()`),
-    `now` (threaded to every rendered timestamp in both new sections),
-    and `manual_resolutions` (an already-loaded registry dict,
-    `_manual_resolutions_section_html()`'s preferred source — plan
-    13-06 threads this in; absent, it falls back to loading fresh from
-    `state_dir`). Every one of these four keys is read with `ctx.get()`,
-    never `ctx[...]` — `companion/test_view_pages.py`'s existing
-    `render({})` call with a literal empty dict must keep rendering the
-    unchanged gallery, no resolve section, and the management list's own
-    empty state. This page still opens no database.
+    `_illustration_cache_buster()`, by both phase-13 sections below as
+    their own state-dir source, and by `_gap_rows_for_grid()` above).
+    Phase 13 (13-04-PLAN.md) adds three more `ctx.get()` reads:
+    `resolve_prefix` (the `?resolve={prefix}` query value,
+    presence-gating `_resolve_section_html()`), `now` (threaded to every
+    rendered timestamp in both new sections), and `manual_resolutions`
+    (an already-loaded registry dict, `_manual_resolutions_section_html(
+    )`'s preferred source — plan 13-06 threads this in; absent, it falls
+    back to loading fresh from `state_dir`). Every one of these four
+    keys is read with `ctx.get()`, never `ctx[...]` —
+    `companion/test_view_pages.py`'s existing `render({})` call with a
+    literal empty dict must keep rendering the unchanged gallery, no gap
+    cards, no resolve section, and the management list's own empty
+    state. This page still opens no database.
 
-    The filter bar and the lightbox dialog both render only when there
-    is at least one card — this codebase's consistent "no chrome with no
-    data" rule — though with a static curated list that branch is
-    unreachable today; it stays a genuine guard, not a claim that the
-    list can ever be empty. The management list has its own,
-    independent empty state (`layout.empty_state()`) and is never
-    gated on the gallery having any cards — UI-SPEC Autonomous Decision
-    2: it is reference/cleanup material, not the page's purpose, so it
-    sits last, below the gallery.
+    The filter bar and the lightbox dialog both render whenever there is
+    at least one card of EITHER kind (gap or curated) — this codebase's
+    consistent "no chrome with no data" rule, widened here so a state
+    with gaps but zero curated pairs still gets its filter bar and
+    dialog. The management list has its own, independent empty state
+    (`layout.empty_state()`) and is never gated on the gallery having
+    any cards — UI-SPEC Autonomous Decision 2: it is reference/cleanup
+    material, not the page's purpose.
     """
     # ctx.get(), never ctx["state_dir"]: companion/test_view_pages.py:1365
     # calls render({}) with a literal empty dict, and every other caller
@@ -1520,14 +1679,31 @@ def render(ctx):
     state_dir = ctx.get("state_dir")
     resolve_html = _resolve_section_html(ctx)
     pairs = illustrations.target_variants_by_airline()
-    filter_html = _filter_bar_html(len(pairs)) if pairs else ""
-    lightbox_html = _lightbox_html() if pairs else ""
+    gap_shown, gap_overflow_count = _gap_rows_for_grid(state_dir)
+    gap_cards_html = "".join(_gap_card_html(i, row) for i, row in enumerate(gap_shown))
+    overflow_html = _gap_overflow_html(gap_overflow_count)
+    total = len(gap_shown) + len(pairs)
+    filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
+    lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     manual_section_html = _manual_resolutions_section_html(ctx)
+    # Phase 14 (14-04-PLAN.md): UI-SPEC's binding top-to-bottom order is
+    # filter_bar, then manual-summary, then gap-overflow, then grid. The
+    # bare "" below is that manual-summary insertion point, reserved as
+    # its own summand (never merged into the overflow_html expression)
+    # so plan 14-06 can drop `_manual_summary_html(manual_rows)` in here
+    # without re-parsing a merged string. The management table itself
+    # (still rendered in full below by `_manual_resolutions_section_html(
+    # )`, unchanged, until plan 14-06 replaces it with that one-line
+    # summary) keeps its existing place directly ahead of `resolve_html`
+    # so that the resolve section — moved to the bottom of the page by
+    # this same plan — stays the true last element render() emits.
     return (
         layout.page_header("Airlines", purpose=GALLERY_PURPOSE_TEXT)
-        + resolve_html
         + filter_html
-        + _gallery_grid_html(pairs, state_dir)
+        + ""
+        + overflow_html
+        + _gallery_grid_html(pairs, state_dir, gap_cards_html)
         + lightbox_html
         + manual_section_html
+        + resolve_html
     )
