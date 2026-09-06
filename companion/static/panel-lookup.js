@@ -325,12 +325,30 @@
   // no error, no dialog. The page's own server-rendered fallback
   // section already tells the honest story for a stale or
   // already-fully-resolved prefix.
+  //
+  // Code review fix (2026-09-06, WR-01): resolveValue comes straight
+  // from the URL's query string — fully attacker/user-controlled — and
+  // was previously concatenated into the attribute-selector string
+  // with only a literal double-quote character as a delimiter. A value
+  // containing that same character could break out of the string
+  // context (e.g. close the attribute selector early and append an
+  // unrelated one), matching an unintended element and opening the
+  // dialog on its data instead of failing closed. CSS.escape() is the
+  // standard fix for exactly
+  // this — escaping a string for safe use inside a CSS selector — and
+  // is available in every browser this file already assumes, since
+  // dialog.showModal()'s own feature-detection gate at the top of this
+  // file already requires a browser new enough to have it. Left
+  // uncalled behind a feature check on purpose: the existing try/catch
+  // below already degrades to autoTrigger = null if CSS.escape were
+  // ever unavailable, matching this block's own established
+  // fail-silently posture.
   var resolveValue = resolveParamFromSearch(location.search);
   if (resolveValue) {
     var autoTrigger = null;
     try {
       autoTrigger = document.querySelector(
-        '[data-view-panel-resolve-prefix="' + resolveValue + '"]');
+        '[data-view-panel-resolve-prefix="' + CSS.escape(resolveValue) + '"]');
     } catch (err) {
       autoTrigger = null;
     }
