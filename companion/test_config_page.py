@@ -1552,7 +1552,14 @@ def main():
             # silently kept the prior/default value instead; the merged
             # Phase 8 registry (19 real entries) makes "black" valid, so
             # it now persists as posted.
-            if on_disk != {"theme": "black", "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": False}:
+            # Phase 14 (14-02): load_device_config() now always returns
+            # theme_arriving too. It is None here because this post carries no
+            # arrivals override, and None means "same theme as departures" —
+            # never DEFAULT_THEME_ID. Added to this full-dict equality the same
+            # mechanical way 14-02 updated its 9 siblings in
+            # server/test_config_history.py; the assertion stays an exact-dict
+            # comparison rather than being loosened to a subset check.
+            if on_disk != {"theme": "black", "theme_arriving": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": False}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
