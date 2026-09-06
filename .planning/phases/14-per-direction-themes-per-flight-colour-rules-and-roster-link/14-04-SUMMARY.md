@@ -130,6 +130,15 @@ None — no external service configuration required.
 
 This plan is independent of 14-01/14-03 and depends only on 14-02 (already landed in wave 1). Plan 14-05 (per-flight colour rules) can proceed without waiting on this plan's own artifacts, per the phase's dependency map. The Theme group's markup, CSS, and `handle_post()` contract are all stable and fully covered by the 101-check harness; no follow-up work is implied.
 
+## Self-Check: PASSED
+
+- FOUND: `companion/pages/config_page.py`
+- FOUND: `companion/static/style.css`
+- FOUND: `companion/test_config_page.py`
+- FOUND: commit `8027a70` (Task 1)
+- FOUND: commit `0f83a00` (Task 2)
+- FOUND: commit `72235aa` (Task 3)
+
 ---
 *Phase: 14-per-direction-themes-per-flight-colour-rules-and-roster-link*
 *Completed: 2026-09-06*
