@@ -2024,6 +2024,7 @@ def main():
             app_module.FLASH_KEY_MANUAL_REGISTRY_FULL,
             app_module.FLASH_KEY_MANUAL_SAVE_FAILED,
             app_module.FLASH_KEY_MANUAL_DELETE_FAILED,
+            app_module.FLASH_KEY_MANUAL_NAME_UNUSABLE,
         )
         for key in manual_keys:
             if key not in app_module.FLASH_MESSAGES:
@@ -3759,6 +3760,7 @@ def main():
                     ("EMP", "", "flash=manual_name_empty"),
                     ("TLN", "A" * 101, "flash=manual_name_too_long"),
                     ("RSV", "Generic Fallback", "flash=manual_name_reserved"),
+                    ("UNU", "../../etc/passwd", "flash=manual_name_unusable"),
                 )
                 for prefix, airline_name, expected_flash in rejection_cases:
                     _seed_gap(prefix)
