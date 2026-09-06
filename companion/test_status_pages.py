@@ -282,7 +282,11 @@ STARTUP_DEADLINE_S = 10.0
 # hardcoded 900/263 literal pair — same check, zero count change from
 # that rewrite. Re-derived by RUNNING the harness (136/136), not by
 # arithmetic.
-EXPECTED_CHECK_COUNT = 148  # 146 + 2 (13-REVIEW.md CR-02 fix: the
+EXPECTED_CHECK_COUNT = 149  # 148 + 1 (13-REVIEW.md WR-06 fix: the
+# health_page.RESOLVE_LINK_HREF_TEMPLATE / airlines_page route-constant
+# cross-module equality check). Re-derived by RUNNING the harness, not
+# by arithmetic.
+# 148 = 146 + 2 (13-REVIEW.md CR-02 fix: the
 # resolve section's Step-B-stays-reachable-after-D-14-clears-the-gap
 # check, and the management list's Add-artwork-link check). Re-derived
 # by RUNNING the harness, not by arithmetic.
@@ -6648,6 +6652,31 @@ def main():
         "an entry whose name already has artwork, nor for a superseded entry (which keeps its Superseded "
         "marker instead)",
         _manual_section_add_artwork_link_contract)
+
+    def _health_resolve_link_template_matches_airlines_route_constants():
+        # WR-06: airlines_page.py's own comment above RESOLVE_ROUTE/
+        # AIRLINES_ROUTE/RESOLVE_QUERY_PARAM/MANUAL_DELETE_ROUTE_PREFIX
+        # claims these are "pinned by a cross-module equality check in
+        # companion/test_status_pages.py" — no such check existed until
+        # this one. health_page.RESOLVE_LINK_HREF_TEMPLATE
+        # ("/airlines?resolve=%s") is a hand-written duplicate of
+        # AIRLINES_ROUTE + "?" + RESOLVE_QUERY_PARAM + "=%s"; renaming
+        # either constant without updating the other would silently break
+        # D-10's per-row deep link (the only entry point into the whole
+        # feature) behind a still-green suite. This check makes that
+        # drift fail loudly instead.
+        expected_template = "%s?%s=%%s" % (airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+        if health_page.RESOLVE_LINK_HREF_TEMPLATE != expected_template:
+            return False, (
+                "expected health_page.RESOLVE_LINK_HREF_TEMPLATE (%r) to equal %r, derived from "
+                "airlines_page.AIRLINES_ROUTE + airlines_page.RESOLVE_QUERY_PARAM"
+                % (health_page.RESOLVE_LINK_HREF_TEMPLATE, expected_template))
+        return True, ""
+    check(
+        "health_page.RESOLVE_LINK_HREF_TEMPLATE equals the template derived from "
+        "airlines_page.AIRLINES_ROUTE and airlines_page.RESOLVE_QUERY_PARAM — the cross-module equality "
+        "check airlines_page.py's own comment already claims exists (WR-06)",
+        _health_resolve_link_template_matches_airlines_route_constants)
 
     def _manual_section_delete_control_and_design_system_contract():
         tmp = _mkstate("a-manual-delete-contract")
