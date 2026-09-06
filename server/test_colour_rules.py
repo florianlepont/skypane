@@ -429,7 +429,7 @@ def main():
                 for kind, value, theme_id in state_dir_registry:
                     add_result = c.add_rule(tmp, kind, value, theme_id)
                     if add_result not in (c.ADD_OK_NEW, c.ADD_OK_REPLACED):
-                        raise AssertionError("setup failure: add_rule(%r, %r, %r) returned %r" % (tmp, kind, value, theme_id, add_result))
+                        raise AssertionError("setup failure: add_rule(%r, %r, %r, %r) returned %r" % (tmp, kind, value, theme_id, add_result))
                 c.set_colour_rules_state_dir(tmp)
             return c.resolve_effective_theme_id(state, flight, device_cfg)
         finally:
