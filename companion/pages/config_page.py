@@ -16,7 +16,17 @@ import json
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
+# Phase 14 D-10 (14-05-PLAN.md): the one deliberate exception to this
+# package's own page-module-isolation convention (companion/pages/
+# __init__.py; see airlines_page.py's own precedent comment for the same
+# convention applied to server.plane imports). DELETE_BUTTON_TEXT is a
+# single locked-English string with identical meaning on both pages — the
+# rules list's per-row Delete button reuses it rather than minting a
+# second string, exactly as the plan directs. This does not create an
+# import cycle: airlines_page.py never imports config_page.py.
+from companion.pages.airlines_page import DELETE_BUTTON_TEXT
 from server import device_config, panel_format
+from server.plane import colour_rules
 
 # The single definition of this route prefix in the repository (06.4).
 # companion/app.py rebinds it (RUNWAY_IMAGE_ROUTE_PREFIX =
@@ -246,6 +256,64 @@ FLASH_POLL_FAILED = "poll_failed"
 # requests arriving before the first finishes could both observe zero
 # cooldown and both call `poll_loop.run_once()`.
 FLASH_POLL_ALREADY_RUNNING = "poll_already_running"
+
+# Phase 14 D-10/D-11 (14-05-PLAN.md): the per-flight colour-rules editor's
+# route constants, mirroring how airlines_page.py owns RESOLVE_ROUTE/
+# MANUAL_DELETE_ROUTE_PREFIX/_SUFFIX and companion/app.py rebinds them
+# rather than re-typing the literals. Add and delete are immediate POSTs
+# on their own routes, outside SETTINGS_ROUTE and the settings form's
+# unsaved-changes dirty bar — a rule is a one-step immediate act, not a
+# pending edit.
+RULES_ADD_ROUTE = "/settings/rules/add"
+RULES_DELETE_ROUTE_PREFIX = "/settings/rules/"
+RULES_DELETE_ROUTE_SUFFIX = "/delete"
+
+# Locked-English copy (14-UI-SPEC.md Copywriting Contract, Rules
+# section) - verbatim, do not paraphrase.
+RULES_SECTION_HEADING = "Per-flight colour rules"
+RULES_SECTION_CAPTION = (
+    "Override the theme for one exact flight, aircraft, or carrier. Most "
+    "specific match wins — a callsign rule beats a hex rule, which beats "
+    "a prefix rule — and adding a key that's already in use replaces the "
+    "existing rule for it. Applies on the frame's next scheduled poll, "
+    "not immediately.")
+RULE_KIND_FIELD_LABEL = "Match by"
+RULE_VALUE_FIELD_LABEL = "Value"
+RULE_THEME_FIELD_LABEL = "Theme"
+RULE_ADD_BUTTON_TEXT = "Add rule"
+# An ordered mapping from each colour_rules.RULE_KINDS member to its
+# label - used by BOTH the add form's <option> text and the list's Kind
+# cell, so the two can never disagree (14-UI-SPEC.md: "never abbreviated
+# differently in the list than in the form").
+RULE_KIND_LABELS = {
+    colour_rules.RULE_KIND_CALLSIGN: "Callsign",
+    colour_rules.RULE_KIND_HEX: "ICAO24 hex",
+    colour_rules.RULE_KIND_PREFIX: "Callsign prefix",
+}
+RULE_VALUE_HINT = (
+    "Exact callsign (e.g. AFR1234), ICAO24 hex (e.g. 3944F2), or a "
+    "3-letter prefix (e.g. AFR) — matching the kind selected above.")
+RULES_EMPTY_HEADING = "No rules yet"
+RULES_EMPTY_BODY = (
+    "Add one above to give a specific flight, aircraft, or carrier its "
+    "own theme, regardless of direction.")
+# A trailing empty header for the delete column, matching
+# _manual_resolution_table_html()'s own trailing empty <th>.
+RULE_HEADERS = ("Kind", "Key", "Theme", "Added", "")
+
+# The seven flash keys this module's rule-add/rule-delete routes (owned by
+# companion/app.py, Task 2) can produce, defined here for the identical
+# reason FLASH_SAVED/FLASH_SAVE_FAILED/etc. above are: companion/app.py
+# rebinds each under its own FLASH_KEY_RULE_* name and owns the message
+# text/ARIA role, mirroring the FLASH_MANUAL_* rebinding pattern
+# airlines_page.py already establishes.
+FLASH_RULE_ADDED = "rule_added"
+FLASH_RULE_REPLACED = "rule_replaced"
+FLASH_RULE_KEY_INVALID = "rule_key_invalid"
+FLASH_RULE_REGISTRY_FULL = "rule_registry_full"
+FLASH_RULE_SAVE_FAILED = "rule_save_failed"
+FLASH_RULE_DELETED = "rule_deleted"
+FLASH_RULE_DELETE_FAILED = "rule_delete_failed"
 
 
 def _palette_hex(index):
@@ -964,6 +1032,256 @@ def poll_trigger_section(cooldown_remaining):
     )
 
 
+# ---------------------------------------------------------------------
+# Phase 14 D-10/D-11 (14-05-PLAN.md): the per-flight colour-rules editor —
+# an add form (its own immediate POST route) plus an always-present list
+# (empty state, or a cards-then-table pairing) with a plain per-row Delete
+# button (its own immediate POST route). Mirrors airlines_page.py's own
+# manual-resolutions management-list decomposition one-for-one: a delete-
+# action URL builder, a row/table/card-list renderer trio, and a section
+# assembler.
+# ---------------------------------------------------------------------
+
+
+def _rule_delete_action(kind, value):
+    """The delete form's `action` attribute for `(kind, value)` — the
+    two-segment shape `/settings/rules/{kind}/{value}/delete` (D-09's
+    store key is `(kind, value)`, so the delete action must identify
+    both). Both segments are already-normalised, already-allowlisted
+    uppercase alphanumerics by the time a row reaches this function
+    (`colour_rules.rule_rows()`'s own contract, re-checked again at read
+    time by `load_colour_rules()`), so `escape_html()` on each segment is
+    the only encoding needed — mirrors `airlines_page._manual_delete_
+    action()`'s own one-string-builder-for-both-renderers discipline, so
+    the desktop `<tr>` and the mobile `<li>` can never diverge into
+    building two different strings for the same row.
+    """
+    return "%s%s/%s%s" % (
+        RULES_DELETE_ROUTE_PREFIX, escape_html(kind), escape_html(value),
+        RULES_DELETE_ROUTE_SUFFIX,
+    )
+
+
+def _rule_add_form_html():
+    """The add form (D-10, D-11, 14-UI-SPEC.md's Add-Form Shape): a
+    `<form method="post">` targeting `RULES_ADD_ROUTE`, three
+    `<div class="rule-add-form__field">` blocks in Match-by/Value/Theme
+    order and a submit button — a column stack on every viewport, no
+    side-by-side arrangement (a three-field inline row would be the
+    page's first horizontally-arranged settings form).
+
+    Field 1 (Match by): a native `<select name="rule_kind">` with one
+    `<option>` per `colour_rules.RULE_KINDS` member using `RULE_KIND_
+    LABELS` text, no blank placeholder option — the first listed option
+    is the implicit default, matching every other `<select>` on this
+    page.
+
+    Field 2 (Value): a plain `<input type="text" name="rule_key"
+    maxlength="8" required autocomplete="off">` with **no** `pattern`
+    attribute — the server is the single source of truth for per-kind
+    format validation (a single input serving three kinds cannot express
+    a per-kind pattern without JavaScript, which this phase does not
+    add) — followed by a `.section-caption`-styled hint line
+    (`RULE_VALUE_HINT`), not a placeholder.
+
+    Field 3 (Theme): a native `<select name="rule_theme_id">` with one
+    `<option>` per `device_config.THEME_IDS` entry (18 today), no swatch
+    inside the `<option>` (a native `<select>` cannot render inline
+    coloured chips without JavaScript or a full custom-select rebuild).
+    """
+    kind_options = "".join(
+        '<option value="%s">%s</option>'
+        % (escape_html(kind), escape_html(RULE_KIND_LABELS[kind]))
+        for kind in colour_rules.RULE_KINDS
+    )
+    theme_options = "".join(
+        '<option value="%s">%s</option>'
+        % (escape_html(theme_id), escape_html(device_config.theme_label(theme_id)))
+        for theme_id in device_config.THEME_IDS
+    )
+    return (
+        '<form method="post" action="%s" class="rule-add-form">'
+        '<div class="rule-add-form__field">'
+        '<label for="rule-kind">%s</label>'
+        '<select id="rule-kind" name="rule_kind" required>%s</select>'
+        "</div>"
+        '<div class="rule-add-form__field">'
+        '<label for="rule-key">%s</label>'
+        '<input type="text" id="rule-key" name="rule_key" maxlength="8" '
+        'required autocomplete="off">'
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+        '<div class="rule-add-form__field">'
+        '<label for="rule-theme">%s</label>'
+        '<select id="rule-theme" name="rule_theme_id" required>%s</select>'
+        "</div>"
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (
+        RULES_ADD_ROUTE,
+        escape_html(RULE_KIND_FIELD_LABEL), kind_options,
+        escape_html(RULE_VALUE_FIELD_LABEL),
+        escape_html(RULE_VALUE_HINT),
+        escape_html(RULE_THEME_FIELD_LABEL), theme_options,
+        escape_html(RULE_ADD_BUTTON_TEXT),
+    )
+
+
+def _rule_theme_swatch_html(theme_id):
+    """One `<span class="theme-swatch__chip">` followed by the theme's
+    label text — reuses the existing swatch-dot class verbatim (a third
+    consumer, after `theme_fieldset()`'s read-only single-theme row and
+    the theme-chip-grid's own dots), computed via `_palette_hex()`, never
+    a hardcoded hex literal.
+    """
+    theme_hex = _palette_hex(device_config.THEMES[theme_id]["departing_index"])
+    return (
+        '<span class="theme-swatch__chip" style="background:%s"></span>%s'
+    ) % (escape_html(theme_hex), escape_html(device_config.theme_label(theme_id)))
+
+
+def _rule_row_html(index, kind, value, theme_id, created_at, now):
+    """One `<tr>` for the rules table: `row`/`row-alt` by index parity,
+    Kind/Key/Theme/Added/Delete cells — mirrors `airlines_page._manual_
+    resolution_row_html()`'s own shape. The Kind cell is plain escaped
+    text from `RULE_KIND_LABELS`, never abbreviated differently from the
+    add form and never colour-coded (colour is reserved for the swatch
+    column only). The Key cell carries `class="mono"`, escaped verbatim,
+    uppercase as stored. `created_at` renders through `layout.concise_
+    timestamp_html()`, interpolated verbatim as already-safe markup —
+    never re-escaped.
+    """
+    row_class = "row-alt" if index % 2 else "row"
+    delete_form = (
+        '<form method="post" action="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+    ) % (_rule_delete_action(kind, value), DELETE_BUTTON_TEXT)
+    cells = (
+        "<td>%s</td>" % escape_html(RULE_KIND_LABELS.get(kind, kind)),
+        '<td class="mono">%s</td>' % escape_html(value),
+        "<td>%s</td>" % _rule_theme_swatch_html(theme_id),
+        "<td>%s</td>" % layout.concise_timestamp_html(created_at, now, fallback=""),
+        "<td>%s</td>" % delete_form,
+    )
+    return '<tr class="%s">%s</tr>' % (row_class, "".join(cells))
+
+
+def _rules_table_html(rows, now):
+    """The desktop (`>=960px`) rules table, hand-rolled to match
+    `airlines_page._manual_resolution_table_html()`'s own
+    `.data-table-wrap`/`.data-table`/`thead`/`tbody` structure.
+    """
+    header_cells = "".join("<th>%s</th>" % escape_html(h) for h in RULE_HEADERS)
+    body_rows = [
+        _rule_row_html(index, kind, value, theme_id, created_at, now)
+        for index, (kind, value, theme_id, created_at) in enumerate(rows)
+    ]
+    return (
+        '<div class="data-table-wrap">'
+        '<table class="data-table">'
+        "<thead><tr>%s</tr></thead>"
+        "<tbody>%s</tbody>"
+        "</table>"
+        "</div>"
+    ) % (header_cells, "".join(body_rows))
+
+
+def _rules_cards_html(rows, now):
+    """The mobile (`<960px`) `.data-cards` representation — one
+    `<li class="data-card">` per rule, no `data-filter-text`/
+    `data-filter-group` attributes (this list has no filter bar, mirroring
+    the manual-resolutions list's own precedent). Returns `""` for an
+    empty list, matching `_rules_table_html()`'s own no-chrome-with-no-data
+    rule (never called on the empty branch in practice — `_rules_section_
+    html()` renders the empty state instead — but kept total for the same
+    reason `_manual_resolution_cards_html()` is).
+    """
+    if not rows:
+        return ""
+    items = []
+    for kind, value, theme_id, created_at in rows:
+        primary = (
+            '<div class="data-card__primary">'
+            '<span class="cell-primary mono">%s</span>'
+            '<span class="data-card__value">%s</span>'
+            "</div>"
+        ) % (escape_html(value), _rule_theme_swatch_html(theme_id))
+        kind_secondary = (
+            '<div class="data-card__secondary">'
+            '<span class="data-card__label">%s</span>%s'
+            "</div>"
+        ) % (escape_html(RULE_HEADERS[0]), escape_html(RULE_KIND_LABELS.get(kind, kind)))
+        added_secondary = (
+            '<div class="data-card__secondary">'
+            '<span class="data-card__label">%s</span>%s'
+            "</div>"
+        ) % (
+            escape_html(RULE_HEADERS[3]),
+            layout.concise_timestamp_html(created_at, now, fallback=""),
+        )
+        delete_form = (
+            '<form method="post" action="%s">'
+            '<button type="submit">%s</button>'
+            "</form>"
+        ) % (_rule_delete_action(kind, value), DELETE_BUTTON_TEXT)
+        items.append(
+            '<li class="data-card">%s%s%s%s</li>'
+            % (primary, kind_secondary, added_secondary, delete_form))
+    return '<ul class="data-cards">%s</ul>' % "".join(items)
+
+
+def _rules_section_html(ctx):
+    """The per-flight colour-rules editor's own `<section class=
+    "page-section">` (D-10, D-11): heading, one caption, the add form,
+    then either `layout.empty_state()` or the card list followed by the
+    table wrapper.
+
+    **Placement decision** (14-UI-SPEC.md Section Anatomy §2's Open
+    Question 1, confirmed at plan time): this section renders immediately
+    after `</form>` closes, taking the slot the Poll section used to
+    occupy — Poll itself moves one slot later. HTML forbids nesting a
+    `<form>` inside another `<form>`, and the add form plus each delete
+    row are real `<form>` elements, so this section cannot be a
+    descendant of `<form id=SETTINGS_FORM_ID>`. Every existing group's DOM
+    nesting stays byte-identical; only the top-level ordering of the two
+    sections after the form changes. This section carries no
+    `DIRTY_SECTION_ATTR` — it is not part of the tracked settings form,
+    exactly like the Poll section, whose action is likewise immediate.
+
+    Reads the rules registry from `ctx["colour_rules"]` (Task 2 threads
+    this in, read fresh per request from `colour_rules.load_colour_
+    rules(state_dir)` — never the poll-cycle process cache), falling back
+    to the empty registry shape when the key is absent so `render({})`
+    still works.
+    """
+    registry = ctx.get("colour_rules")
+    if not isinstance(registry, dict):
+        registry = {kind: {} for kind in colour_rules.RULE_KINDS}
+    now = ctx.get("now")
+    rows = colour_rules.rule_rows(registry)
+
+    heading = '<h2 class="text-heading">%s</h2>' % escape_html(RULES_SECTION_HEADING)
+    caption = (
+        '<p class="text-label section-caption">%s</p>'
+        % escape_html(RULES_SECTION_CAPTION))
+    add_form = _rule_add_form_html()
+
+    if not rows:
+        body = layout.empty_state(RULES_EMPTY_HEADING, RULES_EMPTY_BODY)
+        return '<section class="page-section">%s%s%s%s</section>' % (
+            heading, caption, add_form, body)
+
+    # Cards render before the table — style.css's `.data-cards ~
+    # .data-table-wrap` sibling-combinator toggle depends on this exact
+    # DOM order (mirrors airlines_page._manual_resolutions_section_html()'s
+    # own load-bearing warning; do not reorder these two calls).
+    cards_html = _rules_cards_html(rows, now)
+    table_html = _rules_table_html(rows, now)
+    return '<section class="page-section">%s%s%s%s%s</section>' % (
+        heading, caption, add_form, cards_html, table_html)
+
+
 def render(ctx):
     device_cfg = ctx.get("device_config") or {}
     current_theme_id = device_cfg.get("theme", device_config.DEFAULT_THEME_ID)
@@ -1046,6 +1364,18 @@ def render(ctx):
         "</div>"
     ) % (escape_html(DIRTY_BAR_INITIAL_TEXT), SETTINGS_FORM_ID)
 
+    # Phase 14 D-10 (14-05-PLAN.md, 14-UI-SPEC.md Section Anatomy §2's
+    # Open Question 1, confirmed): the rules section renders immediately
+    # after </form> closes, taking the slot the Poll section used to
+    # occupy — Poll itself moves one slot later, below. See
+    # _rules_section_html()'s own docstring for the full reasoning (HTML
+    # forbids nesting a <form> inside another <form>, and the add form
+    # plus each delete row are real <form> elements, so this section
+    # cannot be a descendant of <form id=SETTINGS_FORM_ID>). Every
+    # existing group's DOM nesting above stays byte-identical; only the
+    # top-level ordering of the two sections after the form changes.
+    rules_section_html = _rules_section_html(ctx)
+
     return (
         layout.page_header("Settings")
         + '<form class="config-form" id="%s" data-dirty-form method="post" action="%s">'
@@ -1057,6 +1387,7 @@ def render(ctx):
         "%s"
         '<button type="submit" %s>Save settings</button>'
         "</form>"
+        "%s"
         '<section class="page-section">'
         '<h2 class="text-heading">Poll</h2>'
         "%s"
@@ -1073,6 +1404,7 @@ def render(ctx):
         wake_interval_group(current_wake_interval_s),
         display_group(current_display_enabled),
         STATIC_SAVE_FALLBACK_ATTR,
+        rules_section_html,
         poll_trigger_section(cooldown_remaining),
         dirty_bar_html,
     )

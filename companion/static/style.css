@@ -4646,3 +4646,23 @@ summary::-webkit-details-marker {
     font-size: 14px;
   }
 }
+
+/* Phase 14 D-10: the rules add-form's three-field column-stack layout
+ * (14-UI-SPEC.md's Add-Form Shape) — a column stack on every viewport, no
+ * side-by-side arrangement at any breakpoint, matching every existing
+ * settings group (each a single control or a vertical stack). No new
+ * spacing token, no new colour, no new type role, no new button/form-
+ * control geometry: the Add rule button, every Delete button, the text
+ * input and both <select> elements all inherit their existing site-wide
+ * treatment unmodified. This phase adds zero entries to this file's
+ * header accent-reservation list. */
+.rule-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.rule-add-form__field {
+  display: flex;
+  flex-direction: column;
+}
