@@ -913,7 +913,7 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10-15's precedent. To be confirmed at discuss time.
 **Depends on:** Phase 15 (the rule registry, the resolver, the precedence order and the Settings editor this phase feeds rather than rebuilds), and Phase 8 D-09 (`callsign_iata`, whose measured inadequacy as a match key is finding 2 above).
 **Closes with:** a `/gsd-secure-phase 16` pass over the secret handling and the outbound fetch. No on-glass verification expected if a calendar match resolves to an already-registered theme id, exactly as Phase 15's D-07 established — to be confirmed once the rule shape is settled.
-**Plans:** 2/7 plans executed
+**Plans:** 3/7 plans executed
 
 Plans:
 **Wave 1**
@@ -923,7 +923,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 16-03-PLAN.md — D-01's separate `{state_dir}/calendar_rules.json` registry with the never-raising/allowlist-revalidating/capped/atomic file contract, D-03's today-plus-48h rolling window rewritten whole, the durable throttle gate, and the two env-var accessors (value vs presence)
+- [x] 16-03-PLAN.md — D-01's separate `{state_dir}/calendar_rules.json` registry with the never-raising/allowlist-revalidating/capped/atomic file contract, D-03's today-plus-48h rolling window rewritten whole, the durable throttle gate, and the two env-var accessors (value vs presence)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
