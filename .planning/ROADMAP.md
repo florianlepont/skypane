@@ -913,7 +913,7 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10-15's precedent. To be confirmed at discuss time.
 **Depends on:** Phase 15 (the rule registry, the resolver, the precedence order and the Settings editor this phase feeds rather than rebuilds), and Phase 8 D-09 (`callsign_iata`, whose measured inadequacy as a match key is finding 2 above).
 **Closes with:** a `/gsd-secure-phase 16` pass over the secret handling and the outbound fetch. No on-glass verification expected if a calendar match resolves to an already-registered theme id, exactly as Phase 15's D-07 established — to be confirmed once the rule shape is settled.
-**Plans:** 5/7 plans executed
+**Plans:** 6/7 plans executed
 
 Plans:
 **Wave 1**
@@ -932,7 +932,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 16-06-PLAN.md — D-04's matcher (airline from `callsign_iata` at runtime, direction-symmetric far end, ±90min window, closest-in-time tiebreak, no match on `airline_only`/`manual`/`miss`) and D-02's additive `calendar_theme_id=` keyword on `resolve_effective_theme_id()`
+- [x] 16-06-PLAN.md — D-04's matcher (airline from `callsign_iata` at runtime, direction-symmetric far end, ±90min window, closest-in-time tiebreak, no match on `airline_only`/`manual`/`miss`) and D-02's additive `calendar_theme_id=` keyword on `resolve_effective_theme_id()`
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
