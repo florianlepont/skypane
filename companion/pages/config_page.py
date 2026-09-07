@@ -896,10 +896,15 @@ def calendar_group(
 
     The status line is resolved with an explicit three-branch decision:
     not configured wins first; then configured-with-a-usable-
-    `last_synced_at`; then configured-otherwise (the pending string). For
-    the synced branch, `layout.concise_timestamp_html(last_synced_at, now,
-    fallback="")` is called and an empty return is treated as "not
-    usable", so an unparseable stored value falls back to the pending
+    `last_synced_at`; then configured-otherwise (the pending string).
+    "Usable" is decided with `layout.parse_iso()`/`layout.age_seconds()`
+    directly, the same two calls `concise_timestamp_html()` makes
+    internally — NOT by treating an empty return from that function as
+    the unparseable signal, because `concise_timestamp_html()` only
+    returns its (escaped) `fallback` for a falsy `ts`; for a truthy but
+    unparseable string it instead returns a non-empty span echoing the
+    raw value verbatim (its own documented degrade-gracefully contract).
+    An unparseable stored value therefore falls back to the pending
     string rather than producing a fabricated or blank time — this is
     16-UI-SPEC.md Open Question 3's stated fallback.
 
@@ -922,9 +927,13 @@ def calendar_group(
     if not configured:
         status_html = escape_html(CALENDAR_STATUS_NOT_CONFIGURED)
     else:
-        timestamp_html = layout.concise_timestamp_html(
-            last_synced_at, now, fallback="")
-        if timestamp_html:
+        usable = (
+            bool(last_synced_at)
+            and layout.parse_iso(last_synced_at) is not None
+            and layout.age_seconds(last_synced_at, now) is not None)
+        if usable:
+            timestamp_html = layout.concise_timestamp_html(
+                last_synced_at, now, fallback="")
             status_html = "%s%s." % (
                 escape_html(CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX),
                 timestamp_html)

@@ -43,7 +43,7 @@ from companion import auth  # noqa: E402
 from companion.layout import escape_html  # noqa: E402
 from companion.pages import config_page  # noqa: E402
 from server import device_config  # noqa: E402
-from server.plane import colour_rules  # noqa: E402
+from server.plane import calendar_rules, colour_rules  # noqa: E402
 
 TEST_PASSWORD = "config-page-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
@@ -231,6 +231,24 @@ EXPECTED_CHECK_COUNT = 101
 # call count at execution time (109/109 pass), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 109
+# 16-05-PLAN.md Task 3: +18 (the Calendar settings group - three status
+# states mutually exclusive, the unparseable-timestamp-falls-back-to-
+# pending check, the copy-fidelity-against-16-UI-SPEC.md check, the
+# forbidden-vocabulary check, the secret-never-reaches-render() check,
+# the secret-never-reaches-served-HTTP-bytes check (a second, dedicated
+# harness with the env var set), the no-preview/no-count check, the D-01
+# no-calendar-row-in-rules-list check, three theme-select checks (exactly
+# one field/populated in order, saved value selected, default-to-base-
+# theme), the placement-and-dirty-attr check, the no-inline-JS check, and
+# three handle_post() checks (valid persists and carries forward, four
+# adversarial payloads rejected, absent leaves unchanged) - one check per
+# Task 3 <action> bullet. No pre-existing check needed retargeting beyond
+# the two count-shaped ones Task 1 already retargeted in place (6 -> 7
+# dirty-section groups, with no count change for that retargeting).
+# 109 + 18 = 127, recomputed directly against the real on-disk check(...)
+# call count at execution time (127/127 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 127
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3396,6 +3414,408 @@ def main():
         _rules_section_carries_no_dirty_section_attr)
 
     # ==================================================================
+    # Section 1b (16-05-PLAN.md Task 3): the Calendar settings group -
+    # render() copy/status/theme-select checks, plus handle_post()'s
+    # calendar_theme_id membership gate. 16-VALIDATION.md's registry row
+    # (D-01) and T-16-SECRET row are both covered here.
+    # ==================================================================
+
+    _CALENDAR_BASE_CTX = {
+        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "poll_cooldown_remaining": 0,
+        "now": "2026-09-07T09:12:04+00:00",
+    }
+
+    def _calendar_status_text(rendered):
+        match = re.search(r'<p class="calendar-status">(.*?)</p>', rendered, re.S)
+        if not match:
+            raise AssertionError('expected a <p class="calendar-status"> element')
+        return match.group(1)
+
+    def _calendar_status_not_configured_is_exclusive():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        status = _calendar_status_text(config_page.render(ctx))
+        if config_page.CALENDAR_STATUS_NOT_CONFIGURED not in status:
+            return False, "expected the not-configured status string"
+        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING in status:
+            return False, "expected the pending status string to be absent"
+        if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX in status:
+            return False, "expected the synced status prefix to be absent"
+        return True, ""
+    check(
+        "with no calendar configured, render() emits only the not-configured status string",
+        _calendar_status_not_configured_is_exclusive)
+
+    def _calendar_status_configured_pending_is_exclusive():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
+        status = _calendar_status_text(config_page.render(ctx))
+        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING not in status:
+            return False, "expected the pending status string"
+        if config_page.CALENDAR_STATUS_NOT_CONFIGURED in status:
+            return False, "expected the not-configured status string to be absent"
+        if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX in status:
+            return False, "expected the synced status prefix to be absent"
+        return True, ""
+    check(
+        "with a calendar configured and no successful sync recorded, render() emits only the pending status string",
+        _calendar_status_configured_pending_is_exclusive)
+
+    def _calendar_status_configured_synced_is_exclusive_with_relative_age():
+        ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=True,
+            calendar_last_synced_at="2026-09-07T09:00:00+00:00")
+        status = _calendar_status_text(config_page.render(ctx))
+        if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX not in status:
+            return False, "expected the synced status prefix"
+        if "ago)" not in status:
+            return False, "expected a relative-age fragment, proving concise_timestamp_html() was used"
+        if config_page.CALENDAR_STATUS_NOT_CONFIGURED in status:
+            return False, "expected the not-configured status string to be absent"
+        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING in status:
+            return False, "expected the pending status string to be absent"
+        return True, ""
+    check(
+        "with a calendar configured and a last_synced_at present, render() emits the synced status with an "
+        "absolute-plus-relative timestamp fragment, never a bare ISO string",
+        _calendar_status_configured_synced_is_exclusive_with_relative_age)
+
+    def _calendar_status_unparseable_synced_falls_back_to_pending():
+        ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=True,
+            calendar_last_synced_at="not-a-real-timestamp")
+        status = _calendar_status_text(config_page.render(ctx))
+        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING not in status:
+            return False, "expected the pending status string as the honest fallback"
+        if 'class="mono"' in status:
+            return False, "expected no timestamp markup for an unparseable stored value"
+        return True, ""
+    check(
+        "with a calendar configured and a last_synced_at that is present but unparseable, the pending string "
+        "is used rather than a fabricated time",
+        _calendar_status_unparseable_synced_falls_back_to_pending)
+
+    def _calendar_copy_fidelity_against_ui_spec():
+        spec_path = os.path.join(
+            REPO_ROOT, ".planning", "phases",
+            "16-calendar-linked-flight-highlighting-a-connected-calendar-sou",
+            "16-UI-SPEC.md")
+        with open(spec_path, encoding="utf-8") as fh:
+            spec = fh.read()
+        for name in (
+                "CALENDAR_SECTION_CAPTION",
+                "CALENDAR_STATUS_CONFIGURED_PENDING",
+                "CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX",
+                "CALENDAR_THEME_HINT"):
+            value = getattr(config_page, name)
+            if value not in spec:
+                return False, "%s is not a contiguous substring of 16-UI-SPEC.md: %r" % (name, value)
+        return True, ""
+    check(
+        "the section caption, both configured-state strings, and the theme hint are each a contiguous "
+        "substring of 16-UI-SPEC.md, so a paraphrase fails rather than merely looking different",
+        _calendar_copy_fidelity_against_ui_spec)
+
+    def _calendar_forbidden_vocabulary_absent():
+        # 16-UI-SPEC.md's own "What this section deliberately does NOT
+        # say" section bans AFFIRMATIVE real-time-awareness claims and
+        # person/role/employer/crew-function nouns - it does not ban the
+        # word "track" outright, and the locked Copywriting Contract's
+        # own CALENDAR_SECTION_CAPTION requires the NEGATED construction
+        # "it does not track or announce anything on its own" verbatim. A
+        # bare substring check for "track" would therefore reject the
+        # spec's own mandated copy; this check asserts the negated
+        # construction is present (proving the caption's core promise
+        # survives) and that no AFFIRMATIVE tracking/watching/real-time
+        # claim or crew-role noun is present.
+        blob = " ".join([
+            config_page.CALENDAR_SECTION_HEADING,
+            config_page.CALENDAR_SECTION_CAPTION,
+            config_page.CALENDAR_STATUS_NOT_CONFIGURED,
+            config_page.CALENDAR_STATUS_CONFIGURED_PENDING,
+            config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX,
+            config_page.CALENDAR_THEME_FIELD_LABEL,
+            config_page.CALENDAR_THEME_HINT,
+        ]).lower()
+        forbidden_phrases = (
+            "watches", "watch for", "follows", "monitors", "notifies",
+            "currently flying", "in the air now", "on duty", "crew",
+            "roster", "pilot", "duty roster",
+        )
+        bad = [phrase for phrase in forbidden_phrases if phrase in blob]
+        if bad:
+            return False, "forbidden vocabulary found: %r" % (bad,)
+        if re.search(r"\btracks\b|\bis tracking\b|\bwatching\b|\bmonitoring\b", blob):
+            return False, "found an affirmative tracking/watching/monitoring claim"
+        if "does not track" not in blob:
+            return False, "expected the mandated negated 'does not track ... on its own' construction"
+        return True, ""
+    check(
+        "the Calendar group's copy carries none of the phase's banned affirmative real-time-awareness or "
+        "crew-role vocabulary, while still carrying the mandated negated 'does not track' construction "
+        "verbatim",
+        _calendar_forbidden_vocabulary_absent)
+
+    def _calendar_secret_never_reaches_render_function():
+        token = "sk1-distinctive-token-2rv9"
+        host = "private-crew-calendar.example.internal"
+        path = "feeds/roster-export"
+        query_param = "auth_token"
+        url = "https://%s/%s?%s=%s" % (host, path, query_param, token)
+        old = os.environ.get(calendar_rules.CALENDAR_URL_ENV_VAR)
+        os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = url
+        try:
+            configured = calendar_rules.calendar_is_configured()
+            if not configured:
+                return False, "expected calendar_is_configured() to report True with the env var set"
+            ctx = dict(
+                _CALENDAR_BASE_CTX, calendar_configured=configured,
+                calendar_last_synced_at=None)
+            rendered = config_page.render(ctx)
+        finally:
+            if old is None:
+                os.environ.pop(calendar_rules.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = old
+        for needle in (token, host, path, query_param, url):
+            if needle in rendered:
+                return False, "expected %r never to appear in the rendered page" % (needle,)
+        return True, ""
+    check(
+        "with the calendar URL env var set to a URL carrying a distinctive token, render() never emits the "
+        "token, the host, the path segment, or the query-parameter name (T-16-SECRET)",
+        _calendar_secret_never_reaches_render_function)
+
+    def _calendar_no_preview_no_count_in_rendered_page():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            entries = [
+                {"airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "TLS",
+                 "start_at": 1893456000.0, "end_at": 1893459600.0},
+                {"airline_iata": "AF", "origin_iata": "NCE", "destination_iata": "ORY",
+                 "start_at": 1893484800.0, "end_at": 1893488400.0},
+                {"airline_iata": "BA", "origin_iata": "LHR", "destination_iata": "ORY",
+                 "start_at": 1893500000.0, "end_at": 1893503600.0},
+            ]
+            if not calendar_rules.write_calendar_registry(
+                    tmpdir, entries, None, "2026-09-07T09:00:00+00:00"):
+                return False, "expected the fixture registry write to succeed"
+            ctx = dict(
+                _CALENDAR_BASE_CTX, calendar_configured=True,
+                calendar_last_synced_at="2026-09-07T09:00:00+00:00",
+                colour_rules={kind: {} for kind in colour_rules.RULE_KINDS})
+            rendered = config_page.render(ctx)
+            for code_pattern in (r"\bORY\b", r"\bTLS\b", r"\bNCE\b", r"\bLHR\b", r"\bAF\b", r"\bBA\b"):
+                if re.search(code_pattern, rendered):
+                    return False, "expected no calendar-derived code matching %r anywhere on the rendered page" % (code_pattern,)
+            if re.search(r"\b3\s+(upcoming\s+)?flights?\b", rendered.lower()):
+                return False, "expected no derived flight-count phrase"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "a populated calendar registry (real-shaped routes/airline codes) never surfaces any airport code, "
+        "airline code, or a derived flight count anywhere on the rendered Settings page (16-UI-SPEC.md "
+        "Configured / Not Configured State)",
+        _calendar_no_preview_no_count_in_rendered_page)
+
+    def _calendar_d01_registry_entries_never_appear_in_rules_list():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            entries = [
+                {"airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "TLS",
+                 "start_at": 1893456000.0, "end_at": 1893459600.0},
+            ]
+            if not calendar_rules.write_calendar_registry(
+                    tmpdir, entries, None, "2026-09-07T09:00:00+00:00"):
+                return False, "expected the fixture registry write to succeed"
+            result = colour_rules.add_rule(
+                tmpdir, colour_rules.RULE_KIND_CALLSIGN, "AFR1234", "black")
+            if result not in (colour_rules.ADD_OK_NEW, colour_rules.ADD_OK_REPLACED):
+                return False, "expected the manual rule to be added, got %r" % (result,)
+            registry = colour_rules.load_colour_rules(tmpdir)
+            ctx = dict(
+                _CALENDAR_BASE_CTX, calendar_configured=True,
+                calendar_last_synced_at="2026-09-07T09:00:00+00:00",
+                colour_rules=registry)
+            rendered = config_page.render(ctx)
+            rules_start = rendered.index(config_page.RULES_SECTION_HEADING)
+            poll_start = rendered.index('<h2 class="text-heading">Poll</h2>')
+            rules_segment = rendered[rules_start:poll_start]
+            if "AFR1234" not in rules_segment:
+                return False, "expected the manually-added rule's key to appear in the rules list"
+            for code_pattern in (r"\bORY\b", r"\bTLS\b"):
+                if re.search(code_pattern, rules_segment):
+                    return False, "expected no calendar-sourced row (matching %r) in the rules editor" % (code_pattern,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "with both a populated calendar registry and one hand-added colour rule, the rendered rules list "
+        "shows exactly the manual rule and no calendar-sourced row (16-VALIDATION.md registry row, D-01)",
+        _calendar_d01_registry_entries_never_appear_in_rules_list)
+
+    def _calendar_theme_select_exactly_one_and_populated_in_order():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx)
+        if rendered.count('name="calendar_theme_id"') != 1:
+            return False, (
+                "expected exactly one calendar_theme_id field, got %d"
+                % rendered.count('name="calendar_theme_id"'))
+        select_match = re.search(
+            r'<select id="calendar-theme" name="calendar_theme_id" required>(.*?)</select>',
+            rendered, re.S)
+        if not select_match:
+            return False, "expected a calendar-theme select carrying the required attribute"
+        options = re.findall(r'<option value="([^"]*)"', select_match.group(1))
+        if options != list(device_config.THEME_IDS):
+            return False, "expected options in THEME_IDS order, got %r" % (options,)
+        if "swatch" in select_match.group(1):
+            return False, "expected no swatch inside any option"
+        return True, ""
+    check(
+        "the Calendar group's <select> carries exactly one calendar_theme_id field, with one <option> per "
+        "THEME_IDS member in order, required, and no swatch inside any option",
+        _calendar_theme_select_exactly_one_and_populated_in_order)
+
+    def _calendar_theme_select_saved_value_is_selected():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        ctx["device_config"] = dict(ctx["device_config"], calendar_theme_id="black")
+        rendered = config_page.render(ctx)
+        select_match = re.search(
+            r'<select id="calendar-theme"[^>]*>(.*?)</select>', rendered, re.S)
+        if not re.search(r'<option value="black" selected>', select_match.group(1)):
+            return False, "expected the saved calendar_theme_id ('black') to render selected"
+        if select_match.group(1).count(" selected>") != 1:
+            return False, "expected exactly one selected option"
+        return True, ""
+    check(
+        "with a saved calendar_theme_id, that option carries the selected attribute and no other option does",
+        _calendar_theme_select_saved_value_is_selected)
+
+    def _calendar_theme_select_defaults_to_base_theme_when_unset():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        ctx["device_config"] = dict(ctx["device_config"], theme="black")
+        rendered = config_page.render(ctx)
+        select_match = re.search(
+            r'<select id="calendar-theme"[^>]*>(.*?)</select>', rendered, re.S)
+        if not re.search(r'<option value="black" selected>', select_match.group(1)):
+            return False, "expected the currently-selected base theme ('black') to render selected by default"
+        return True, ""
+    check(
+        "with no saved calendar_theme_id, the option matching the currently-selected base theme is selected",
+        _calendar_theme_select_defaults_to_base_theme_when_unset)
+
+    def _calendar_placement_after_display_before_form_close_with_dirty_attr():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx)
+        display_index = rendered.index(
+            '<h2 class="text-heading">%s</h2>' % config_page.DISPLAY_SECTION_HEADING)
+        calendar_index = rendered.index(
+            '<h2 class="text-heading">%s</h2>' % config_page.CALENDAR_SECTION_HEADING)
+        form_close_index = rendered.index("</form>")
+        if not (display_index < calendar_index < form_close_index):
+            return False, (
+                "expected Display < Calendar < </form>, got %d, %d, %d"
+                % (display_index, calendar_index, form_close_index))
+        if '%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.CALENDAR_SECTION_HEADING) not in rendered:
+            return False, "expected the Calendar group to carry the dirty-section attribute"
+        return True, ""
+    check(
+        "the Calendar heading's index is greater than Display's and less than the settings form's closing "
+        "tag, and the group carries the dirty-section attribute",
+        _calendar_placement_after_display_before_form_close_with_dirty_attr)
+
+    def _calendar_group_no_inline_js_and_select_within_form():
+        ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
+        rendered = config_page.render(ctx)
+        form_start = rendered.index('<form class="config-form"')
+        form_end = rendered.index("</form>") + len("</form>")
+        select_index = rendered.index('name="calendar_theme_id"')
+        if not (form_start < select_index < form_end):
+            return False, "expected the calendar_theme_id select to sit inside the settings form"
+        calendar_start = rendered.index(
+            '%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.CALENDAR_SECTION_HEADING))
+        calendar_segment = rendered[calendar_start:form_end]
+        if "onclick" in calendar_segment or "onchange" in calendar_segment or "<script" in calendar_segment:
+            return False, "expected no inline event-handler attribute or script tag in the Calendar group"
+        return True, ""
+    check(
+        "the Calendar group renders no inline event-handler attribute and no script tag, and its select "
+        "sits inside the settings form's markup range (no-JS correctness)",
+        _calendar_group_no_inline_js_and_select_within_form)
+
+    def _handle_post_calendar_theme_id_valid_persists_and_carries_forward():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({"calendar_theme_id": "white"}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["calendar_theme_id"] != "white":
+                return False, (
+                    "expected calendar_theme_id 'white' on disk, got %r"
+                    % (on_disk["calendar_theme_id"],))
+            if on_disk["theme"] != "black":
+                return False, (
+                    "expected the existing theme 'black' to be carried forward unchanged, got %r"
+                    % (on_disk["theme"],))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with a valid calendar_theme_id persists it and carries every other field forward",
+        _handle_post_calendar_theme_id_valid_persists_and_carries_forward)
+
+    def _handle_post_calendar_theme_id_adversarial_rejected():
+        for payload in ("chartreuse", "", "../../etc/passwd", "sky'; DROP TABLE flights; --"):
+            tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+            try:
+                _write_device_config(tmpdir, "black", "3")
+                before = open(device_config.device_config_path(tmpdir), "rb").read()
+                ctx = {"state_dir": tmpdir}
+                flash_key = config_page.handle_post({"calendar_theme_id": payload}, ctx)
+                after = open(device_config.device_config_path(tmpdir), "rb").read()
+                if flash_key != config_page.FLASH_SAVE_FAILED:
+                    return False, (
+                        "expected FLASH_SAVE_FAILED for calendar_theme_id=%r, got %r"
+                        % (payload, flash_key))
+                if before != after:
+                    return False, (
+                        "expected device_config.json to be byte-identical for calendar_theme_id=%r, it changed"
+                        % (payload,))
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+        return True, ""
+    check(
+        "handle_post with a non-member calendar_theme_id (empty string, a plain invalid id, a "
+        "path-traversal-shaped payload, and a SQL-shaped payload) rejects the whole submission and writes "
+        "nothing",
+        _handle_post_calendar_theme_id_adversarial_rejected)
+
+    def _handle_post_calendar_theme_id_absent_leaves_unchanged():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            device_config.save_device_config(tmpdir, calendar_theme_id="green")
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post({}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            on_disk = device_config.load_device_config(tmpdir)
+            if on_disk["calendar_theme_id"] != "green":
+                return False, (
+                    "expected calendar_theme_id to remain 'green' when the field is absent, got %r"
+                    % (on_disk["calendar_theme_id"],))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with no calendar_theme_id field at all leaves an already-saved value untouched",
+        _handle_post_calendar_theme_id_absent_leaves_unchanged)
+
+    # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py
     # subprocess, logs in, posts a valid theme-and-runway pair, follows
     # the redirect, and asserts the rendered page carries D-07's
@@ -3647,6 +4067,57 @@ def main():
     finally:
         harness.stop()
         harness.cleanup()
+
+    # ==================================================================
+    # Section 3 (16-05-PLAN.md Task 3, T-16-SECRET): a second, dedicated
+    # harness launched with the calendar URL env var set to a
+    # token-carrying URL, proving the secret never reaches the SERVED
+    # HTTP bytes — not just render()'s in-process return value (Section
+    # 1b's own check above covers that half). A separate subprocess is
+    # needed because Harness.start() snapshots os.environ once, at
+    # startup, and the main harness above was already started (in
+    # Section 2) without this variable set.
+    # ==================================================================
+
+    calendar_token = "sk1-distinctive-token-2rv9"
+    calendar_host = "private-crew-calendar.example.internal"
+    calendar_path = "feeds/roster-export"
+    calendar_query_param = "auth_token"
+    calendar_url = "https://%s/%s?%s=%s" % (
+        calendar_host, calendar_path, calendar_query_param, calendar_token)
+
+    calendar_harness = Harness()
+    _old_calendar_env = os.environ.get(calendar_rules.CALENDAR_URL_ENV_VAR)
+    os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = calendar_url
+    try:
+        calendar_harness.start()
+        calendar_base = calendar_harness.base_url()
+        calendar_cookie = _login(calendar_harness)
+
+        def _calendar_secret_never_reaches_served_http_bytes():
+            status, _headers, body = http_request(
+                calendar_base + config_page.SETTINGS_ROUTE, cookie=calendar_cookie)
+            if status != 200:
+                return False, "expected 200 on the authenticated Settings page, got %d" % status
+            body_text = body.decode("utf-8", errors="replace")
+            if config_page.CALENDAR_STATUS_CONFIGURED_PENDING not in body_text:
+                return False, "expected the configured-pending status (no sync recorded yet)"
+            for needle in (calendar_token, calendar_host, calendar_path, calendar_query_param, calendar_url):
+                if needle in body_text:
+                    return False, "expected %r never to appear in the served response body" % (needle,)
+            return True, ""
+        check(
+            "with SKYPANE_CALENDAR_ICS_URL set to a URL carrying a distinctive token, a real authenticated "
+            "HTTP GET of the Settings page never serves the token, the host, the path segment, or the "
+            "query-parameter name in the response body (T-16-SECRET, real HTTP round trip)",
+            _calendar_secret_never_reaches_served_http_bytes)
+    finally:
+        if _old_calendar_env is None:
+            os.environ.pop(calendar_rules.CALENDAR_URL_ENV_VAR, None)
+        else:
+            os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = _old_calendar_env
+        calendar_harness.stop()
+        calendar_harness.cleanup()
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
