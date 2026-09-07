@@ -988,7 +988,15 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
 
         try:
             response = transport(current_url, timeout)
-        except (requests.RequestException, ValueError) as exc:
+        except Exception as exc:
+            # Deliberately broad (not just requests.RequestException): "any
+            # exception raised by the transport returns nothing rather than
+            # propagating" (this function's own behaviour contract) - a
+            # caller-supplied fake transport, or a future requests version,
+            # is not guaranteed to only ever raise a RequestException
+            # subclass, and this fetch must never abort a poll cycle no
+            # matter what raised.
+            #
             # Deliberate divergence from detect.py:950-958's caller-catch
             # idiom, which does "%s: %s" % (type(exc).__name__, exc) - see
             # this function's own docstring and Pitfall 4 in
@@ -1022,7 +1030,8 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
                     response.close()
                     return None
                 chunks.append(chunk)
-        except (requests.RequestException, ValueError) as exc:
+        except Exception as exc:
+            # Deliberately broad - see the transport-call catch above.
             print(
                 "calendar_rules: fetch_ics() reading the response body failed: %s"
                 % type(exc).__name__,
@@ -1034,3 +1043,116 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
 
     # Too many redirect hops - give up rather than loop.
     return None
+
+
+# --- Once-per-cycle throttle, fetch, parse, window and persist step --------
+#
+# The single function poll_loop.py (plan 16-07) calls once per cycle. It
+# performs no network I/O at all when the feature is unconfigured or the
+# throttle has not elapsed, since 16-CONTEXT.md requires the fetch never
+# delay a render and the 30-second poll oneshot's whole budget is short.
+
+
+def refresh_calendar_registry(state_dir, now, transport=None):
+    """Throttle, fetch, parse, window and persist the calendar registry for
+    this poll cycle. Returns `(result_code, registry)`, where `registry` is
+    always the dict the caller should use for this cycle - so a skipped or
+    failed cycle still hands back a usable rolling window without a second
+    read of the file. Never raises, for any combination of a missing state
+    dir, an unwritable state dir, a hostile body and a failing transport.
+
+    Three no-network guarantees, in order: no transport call at all when
+    `configured_calendar_url()` is `None` (the feature is off); no
+    transport call when `calendar_fetch_is_due()` says the throttle has not
+    elapsed - this is the branch that dominates in production, since the
+    poll timer fires every 30 seconds and the interval is
+    `CALENDAR_FETCH_INTERVAL_S`, so all but roughly one cycle in sixty stops
+    here; and at most one bounded `fetch_ics()` call otherwise.
+
+    `last_attempt_at` updates on every attempt that actually happens
+    (throttled-through and unconfigured cycles leave it untouched);
+    `last_synced_at` moves only after a body was fetched AND parsed, so a
+    permanently failing feed is neither retried every cycle nor displayed
+    as fresh. On a refused URL, a transport failure, or a body that parses
+    to nothing usable, the previously persisted entries are re-persisted
+    unchanged alongside the new `last_attempt_at` - overwriting them with
+    an empty list on a transient error would erase an otherwise-valid
+    rolling window before its natural expiry; the panel's designed
+    degradation is "no matches" only once the window genuinely ages out.
+    An empty result on a genuine success is still success: a roster with
+    nothing in the next 48 hours is a correct, legitimately empty window,
+    distinguishable from a broken feed only by `last_synced_at` having
+    moved - which is exactly why the two timestamps are tracked
+    separately.
+
+    Prints nothing on the throttled or unconfigured paths - the throttled
+    path runs on almost every cycle and would otherwise flood the journal.
+    On a completed attempt (success or failure) prints at most one line
+    naming this module, the result code and the entry count; never the URL,
+    never the result code paired with the URL, never anything derived from
+    the body.
+    """
+    # Wrapped so nothing escapes: every callee below is already
+    # never-raising on its own, but this function's contract is that
+    # poll_loop.run_once() (plan 16-07) can call it unconditionally and
+    # never gain a new failure mode from this tier - defence in depth
+    # against a future change to any callee above breaking that contract.
+    try:
+        registry = load_calendar_registry(state_dir)
+
+        url = configured_calendar_url()
+        if url is None:
+            # Not a failing feed - a feature that is simply off. Leaving
+            # last_attempt_at untouched means the first fetch after the
+            # operator configures the feature runs immediately rather
+            # than waiting out a full throttle interval.
+            return FETCH_SKIPPED_UNCONFIGURED, registry
+
+        if not calendar_fetch_is_due(registry["last_attempt_at"], now):
+            return FETCH_SKIPPED_THROTTLED, registry
+
+        body = fetch_ics(url, transport=transport)
+
+        if body is None:
+            # A transient blip must not erase an otherwise-valid rolling
+            # window before its natural expiry - persist the EXISTING
+            # entries and last_synced_at unchanged, moving only
+            # last_attempt_at.
+            write_calendar_registry(
+                state_dir, registry["entries"], now, registry["last_synced_at"])
+            result_registry = {
+                "entries": registry["entries"],
+                "last_attempt_at": now,
+                "last_synced_at": registry["last_synced_at"],
+            }
+            print(
+                "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
+                % (FETCH_FAILED, len(result_registry["entries"])),
+                file=sys.stderr,
+            )
+            return FETCH_FAILED, result_registry
+
+        parsed = parse_ics_events(body)
+        windowed = select_window_entries(parsed, now)
+        # An empty windowed result here is still success: a roster with
+        # nothing in the next 48 hours is a correct, legitimately empty
+        # window - distinguishable from a broken feed only by
+        # last_synced_at having moved.
+        last_synced_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        wrote_ok = write_calendar_registry(state_dir, windowed, now, last_synced_at)
+        result_registry = {
+            "entries": windowed,
+            "last_attempt_at": now,
+            "last_synced_at": last_synced_at,
+        }
+        result_code = FETCH_OK if wrote_ok else FETCH_FAILED
+        print(
+            "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
+            % (result_code, len(result_registry["entries"])),
+            file=sys.stderr,
+        )
+        return result_code, result_registry
+    except Exception:
+        # Defence in depth only - see the comment above. Fall back to
+        # whatever is durably on disk rather than propagate.
+        return FETCH_FAILED, load_calendar_registry(state_dir)
