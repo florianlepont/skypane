@@ -1137,25 +1137,29 @@ def main():
 
     def _render_exactly_five_dirty_sections_in_order():
         # Acceptance criterion: the rendered output contains exactly
-        # six elements carrying data-dirty-section, whose attribute
+        # seven elements carrying data-dirty-section, whose attribute
         # values in document order are "Theme", "Runway", "Diagnostic
-        # LED", "Quiet hours", "Wake interval", "Display" — 10-05-PLAN.md
-        # Task 1 wired Quiet hours in as the fourth group after
-        # Diagnostic LED, 11-03-PLAN.md Task 1 wired Wake interval in as
-        # the fifth, after Quiet hours, and 12-05-PLAN.md Task 1 wires
-        # Display in as the sixth and last, after Wake interval.
+        # LED", "Quiet hours", "Wake interval", "Display", "Calendar" —
+        # 10-05-PLAN.md Task 1 wired Quiet hours in as the fourth group
+        # after Diagnostic LED, 11-03-PLAN.md Task 1 wired Wake interval
+        # in as the fifth, after Quiet hours, 12-05-PLAN.md Task 1 wired
+        # Display in as the sixth, after Wake interval, and 16-05-PLAN.md
+        # Task 1 wires Calendar in as the seventh and last, after Display
+        # (16-UI-SPEC.md Section Anatomy's Placement recommendation).
         rendered = config_page.render({
             "device_config": {"theme": "sky", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
         })
         found = re.findall(
             r'%s="([^"]*)"' % re.escape(config_page.DIRTY_SECTION_ATTR), rendered)
-        expected = ["Theme", "Runway", "Diagnostic LED", "Quiet hours", "Wake interval", "Display"]
+        expected = [
+            "Theme", "Runway", "Diagnostic LED", "Quiet hours",
+            "Wake interval", "Display", "Calendar"]
         if found != expected:
             return False, "expected %r in document order, got %r" % (expected, found)
         return True, ""
     check(
-        "render() carries exactly six data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display",
+        "render() carries exactly seven data-dirty-section elements, in document order Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar",
         _render_exactly_five_dirty_sections_in_order)
 
     def _runway_fieldset_returns_single_top_level_div():
@@ -2772,6 +2776,9 @@ def main():
         # 12-05-PLAN.md: the count is 6, not 5, now that Display joined as
         # the sixth and last group — again not a rename of this check's
         # own premise.
+        # 16-05-PLAN.md: the count is 7, not 6, now that Calendar joined
+        # as the seventh and last group — again not a rename of this
+        # check's own premise.
         rendered = config_page.render({
             "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
             "poll_cooldown_remaining": 0,
@@ -2780,14 +2787,14 @@ def main():
             return False, "expected zero <fieldset> elements on the rendered Settings page"
         if "<legend" in rendered:
             return False, "expected zero <legend> elements on the rendered Settings page"
-        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 6:
+        if rendered.count(config_page.DIRTY_SECTION_ATTR) != 7:
             return False, (
-                "expected exactly 6 %s occurrences (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display), got %d"
+                "expected exactly 7 %s occurrences (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar), got %d"
                 % (config_page.DIRTY_SECTION_ATTR, rendered.count(config_page.DIRTY_SECTION_ATTR)))
         return True, ""
     check(
-        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly six "
-        "data-dirty-section groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display)",
+        "the rendered Settings page contains no <fieldset> and no <legend>, and exactly seven "
+        "data-dirty-section groups (Theme/Runway/Diagnostic LED/Quiet hours/Wake interval/Display/Calendar)",
         _settings_page_has_zero_fieldsets_and_five_dirty_sections)
 
     def _selected_runway_card_and_theme_chip_carry_a_background_wash():
