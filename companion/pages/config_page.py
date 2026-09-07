@@ -26,7 +26,7 @@ import companion.layout as layout
 # import cycle: airlines_page.py never imports config_page.py.
 from companion.pages.airlines_page import DELETE_BUTTON_TEXT
 from server import device_config, panel_format
-from server.plane import colour_rules
+from server.plane import calendar_rules, colour_rules
 
 # The single definition of this route prefix in the repository (06.4).
 # companion/app.py rebinds it (RUNWAY_IMAGE_ROUTE_PREFIX =
@@ -314,6 +314,40 @@ FLASH_RULE_REGISTRY_FULL = "rule_registry_full"
 FLASH_RULE_SAVE_FAILED = "rule_save_failed"
 FLASH_RULE_DELETED = "rule_deleted"
 FLASH_RULE_DELETE_FAILED = "rule_delete_failed"
+
+# Phase 16 (16-05-PLAN.md, 16-UI-SPEC.md Copywriting Contract) - verbatim,
+# do not paraphrase. Every string below is written against
+# .planning/ROADMAP.md's Phase 16 measured finding 3: on the one measured
+# duty day, none of the calendar owner's three flights were among the
+# frame's 201 detections. This feature can only colour a flight that
+# happens to be the one currently on screen - it does not track, watch,
+# follow, monitor, notify, or know a flight is happening independently of
+# what is on screen, and no string here may imply otherwise.
+CALENDAR_SECTION_HEADING = "Calendar"
+CALENDAR_SECTION_CAPTION = (
+    "When the flight the frame is currently showing is one your "
+    "connected calendar lists, it uses this theme instead of the usual "
+    "one. It can only colour a flight that happens to be on screen — "
+    "it does not track or announce anything on its own. Applies on the "
+    "frame's next scheduled poll, not immediately.")
+# Interpolates calendar_rules.CALENDAR_URL_ENV_VAR rather than retyping
+# the literal, so this copy and the env var name can never drift apart.
+CALENDAR_STATUS_NOT_CONFIGURED = (
+    "Not configured. Set `%s` in `skypane.env` on the server to connect "
+    "a calendar." % calendar_rules.CALENDAR_URL_ENV_VAR)
+CALENDAR_STATUS_CONFIGURED_PENDING = "Connected — waiting for the first sync."
+# The relative-timestamp slot is left open so calendar_group() can
+# interpolate concise_timestamp_html()'s raw markup without the escaping
+# collision a single format string would create.
+CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX = "Connected — last synced "
+CALENDAR_THEME_FIELD_LABEL = "Theme"
+# Deliberate repeat of the caption's own core constraint, placed right
+# where the operator picks the theme (16-UI-SPEC.md's own stated
+# reasoning): this is the single sentence most likely to be skimmed past
+# if it appears only once, at the top of the section.
+CALENDAR_THEME_HINT = (
+    "Used only when a flight from the calendar happens to be the one on "
+    "screen.")
 
 
 def _palette_hex(index):
@@ -839,6 +873,106 @@ def display_group(current_display_enabled):
     )
 
 
+def calendar_group(
+        configured, last_synced_at, now, current_calendar_theme_id,
+        current_theme_id):
+    """The Calendar settings group (16-UI-SPEC.md Section Anatomy): a
+    seventh and last sibling inside the single merged `<form
+    action="{SETTINGS_ROUTE}">`, appended after `display_group()`'s
+    output — this position is 16-UI-SPEC.md's own Placement
+    recommendation, taken as recommended: a pure zero-disruption append
+    that leaves every existing group's relative order and DOM nesting
+    untouched, where the considered alternative (directly after Theme)
+    would insert into the middle of an already-verified sequence for a
+    purely narrative benefit. Unlike Phase 15's Rules section, this group
+    belongs INSIDE the form: it nests no form of its own (a single
+    `<select>`, no add/delete actions), so it submits with the shared Save
+    Settings flow exactly like Wake interval or Display.
+
+    Card class is `.page-section`, not `.theme-status` — this is a
+    distinct group that happens to contain one theme-assigning field,
+    joining Poll/Quiet hours/Wake interval/Rules' card class rather than
+    the Theme-specific one (16-UI-SPEC.md Section Anatomy).
+
+    The status line is resolved with an explicit three-branch decision:
+    not configured wins first; then configured-with-a-usable-
+    `last_synced_at`; then configured-otherwise (the pending string).
+    "Usable" is decided with `layout.parse_iso()`/`layout.age_seconds()`
+    directly, the same two calls `concise_timestamp_html()` makes
+    internally — NOT by treating an empty return from that function as
+    the unparseable signal, because `concise_timestamp_html()` only
+    returns its (escaped) `fallback` for a falsy `ts`; for a truthy but
+    unparseable string it instead returns a non-empty span echoing the
+    raw value verbatim (its own documented degrade-gracefully contract).
+    An unparseable stored value therefore falls back to the pending
+    string rather than producing a fabricated or blank time — this is
+    16-UI-SPEC.md Open Question 3's stated fallback.
+
+    `concise_timestamp_html()` is a RAW-MARKUP-PRODUCING function: its
+    return is interpolated verbatim into the synced branch, never
+    re-escaped, while the surrounding sentence fragment is escaped
+    separately — the one place in this function where the file's
+    otherwise-universal escaping discipline is deliberately not applied
+    uniformly.
+
+    The `<select name="calendar_theme_id">` reuses `_rule_add_form_html()`'s
+    exact option-building loop — one option per `device_config.THEME_IDS`
+    member in order, text from `device_config.theme_label()`, no swatch —
+    and marks selected the saved `calendar_theme_id` when set, otherwise
+    the currently-selected base theme id (matching the arrivals grid's own
+    default-selection precedent). `class="calendar-status"` is emitted as
+    a bare hook; 16-UI-SPEC.md Open Question 4 is resolved in favour of no
+    new CSS rule — companion/static/style.css needs no change for it.
+    """
+    if not configured:
+        status_html = escape_html(CALENDAR_STATUS_NOT_CONFIGURED)
+    else:
+        usable = (
+            bool(last_synced_at)
+            and layout.parse_iso(last_synced_at) is not None
+            and layout.age_seconds(last_synced_at, now) is not None)
+        if usable:
+            timestamp_html = layout.concise_timestamp_html(
+                last_synced_at, now, fallback="")
+            status_html = "%s%s." % (
+                escape_html(CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX),
+                timestamp_html)
+        else:
+            status_html = escape_html(CALENDAR_STATUS_CONFIGURED_PENDING)
+
+    selected_calendar_theme_id = (
+        current_calendar_theme_id if current_calendar_theme_id is not None
+        else current_theme_id)
+    theme_options = "".join(
+        '<option value="%s"%s>%s</option>'
+        % (
+            escape_html(theme_id),
+            " selected" if theme_id == selected_calendar_theme_id else "",
+            escape_html(device_config.theme_label(theme_id)),
+        )
+        for theme_id in device_config.THEME_IDS
+    )
+    return (
+        '<div class="page-section" %s="%s">'
+        '<h2 class="text-heading">%s</h2>'
+        '<p class="text-label section-caption">%s</p>'
+        '<p class="calendar-status">%s</p>'
+        '<div class="rule-add-form__field">'
+        '<label for="calendar-theme">%s</label>'
+        '<select id="calendar-theme" name="calendar_theme_id" required>%s</select>'
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+        "</div>"
+    ) % (
+        DIRTY_SECTION_ATTR, escape_html(CALENDAR_SECTION_HEADING),
+        escape_html(CALENDAR_SECTION_HEADING),
+        escape_html(CALENDAR_SECTION_CAPTION),
+        status_html,
+        escape_html(CALENDAR_THEME_FIELD_LABEL), theme_options,
+        escape_html(CALENDAR_THEME_HINT),
+    )
+
+
 def _js_literal(value):
     """The single, mandatory gate for every Python value crossing into
     `_poll_cooldown_script()`'s inline `<script>` body. Never interpolate
@@ -1318,6 +1452,14 @@ def render(ctx):
     # nothing changes for an installation already in service.
     current_display_enabled = device_cfg.get(
         "display_enabled", device_config.DEFAULT_DISPLAY_ENABLED)
+    # Phase 16 (16-05-PLAN.md): read fresh per request, matching every
+    # other ctx-threaded value in this function. An explicit `.get()` with
+    # no `or` fallback — `None` is meaningful here (no calendar theme
+    # chosen yet, default to the base theme), the same reasoning
+    # current_theme_arriving's own read above already carries.
+    current_calendar_theme_id = device_cfg.get("calendar_theme_id")
+    calendar_configured = ctx.get("calendar_configured")
+    calendar_last_synced_at = ctx.get("calendar_last_synced_at")
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
 
     # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
@@ -1385,6 +1527,7 @@ def render(ctx):
         "%s"
         "%s"
         "%s"
+        "%s"
         '<button type="submit" %s>Save settings</button>'
         "</form>"
         "%s"
@@ -1403,6 +1546,13 @@ def render(ctx):
             current_quiet_enabled, current_quiet_start, current_quiet_end),
         wake_interval_group(current_wake_interval_s),
         display_group(current_display_enabled),
+        # Phase 16 (16-05-PLAN.md, 16-UI-SPEC.md Section Anatomy's
+        # Placement recommendation): appended as the LAST group inside the
+        # form, immediately after Display and before the static save
+        # fallback button — a pure zero-disruption append.
+        calendar_group(
+            calendar_configured, calendar_last_synced_at, ctx.get("now"),
+            current_calendar_theme_id, current_theme_id),
         STATIC_SAVE_FALLBACK_ATTR,
         rules_section_html,
         poll_trigger_section(cooldown_remaining),
@@ -1516,6 +1666,14 @@ def handle_post(form, ctx):
     FLASH_SAVE_FAILED verbatim, per 10-UI-SPEC.md's/12-UI-SPEC.md's
     Copywriting Contract.
 
+    Phase 16 (16-05-PLAN.md) adds one more form field, `calendar_theme_id`
+    — a plain tracked field with no checkbox, so unlike `theme_arriving`
+    it needs no clear sentinel: `None` keeps its single existing meaning,
+    "not supplied, carry forward". It is validated by the identical
+    membership test `theme`/`tracked_runway` already use and passed
+    through as one more keyword argument on the same, still-singular
+    `save_device_config()` call.
+
     Phase 15 D-04/D-05 add two more form fields, `theme_arriving_enabled`
     (the arrivals-override checkbox) and `theme_arriving` (the second
     grid's selected theme id), with a genuinely different resolution from
@@ -1540,8 +1698,19 @@ def handle_post(form, ctx):
     submitted_qh_end = form.get("quiet_hours_end")
     submitted_wake_interval = form.get("wake_interval_s")
     submitted_display = form.get("display_enabled")
+    submitted_calendar_theme_id = form.get("calendar_theme_id")
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
+        return FLASH_SAVE_FAILED
+    # Phase 16 (16-05-PLAN.md, T-16-TAMPER's HTTP-layer half): same
+    # membership-test shape as theme/theme_arriving above. A non-member
+    # value is a hostile-request shape, not a genuine user mistake
+    # (16-UI-SPEC.md Flash messages) — reuse the existing generic
+    # save-failed flash, no new flash constant.
+    if (
+        submitted_calendar_theme_id is not None
+        and submitted_calendar_theme_id not in device_config.THEME_IDS
+    ):
         return FLASH_SAVE_FAILED
     if (
         submitted_theme_arriving is not None
@@ -1599,7 +1768,8 @@ def handle_post(form, ctx):
             tracked_runway=submitted_runway,
             led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
             quiet_hours_start=submitted_qh_start, quiet_hours_end=submitted_qh_end,
-            wake_interval_s=wake_interval_s, display_enabled=display_enabled)
+            wake_interval_s=wake_interval_s, display_enabled=display_enabled,
+            calendar_theme_id=submitted_calendar_theme_id)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
     return FLASH_SAVED
