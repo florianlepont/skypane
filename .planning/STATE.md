@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 15
+current_phase: 14
 status: "Phases 14 and 15 both COMPLETE — 14 shipped via PR #55; 15 (per-direction themes, per-flight colour rules) merged main in and closed with verification passed, UAT 4/4, security 15/15"
-stopped_at: "Merged origin/main (PR #55, Phase 14) into the Phase 15 branch on 2026-09-06 and resolved the collision: both phases had claimed number 14, including nine overlapping T-14-* threat ids. This branch renumbered to 15 and its ids to T-15-*. Conflicts were add/add in every case — ROADMAP keeps both phases in numeric order, companion/app.py keeps both flash-key sets. Phase 15 detail: 5/5 plans, 27/27 must-haves, UAT 4/4, threats_open 0."
-last_updated: "2026-09-06T21:45:00.000Z"
+stopped_at: Phase 16 context gathered
+last_updated: "2026-09-07T08:00:10.620Z"
 last_activity: 2026-09-06
-last_activity_desc: "Phases 14 and 15 both complete; collision resolved by merge"
+last_activity_desc: Phase 15 complete
 progress:
-  total_phases: 23  # re-derived at merge time by counting ROADMAP.md's own "## Phases" bullets — both sides had drifted to 27
-  completed_phases: 22  # only Phase 5 (DEVICE-05) remains open
-  total_plans: 147  # re-derived by counting ROADMAP.md's per-phase "- [ ]/[x] NN-MM-PLAN.md" lines across both merged phases
-  completed_plans: 146
-  percent: 99  # completed_plans/total_plans (146/147), per this file's own convention — never completed_phases/total_phases
+  total_phases: 29
+  completed_phases: 26
+  total_plans: 144
+  completed_plans: 143
+  percent: 90
 current_phase_name: per-direction-themes-per-flight-colour-rules-and-roster-link
 ---
 
@@ -692,12 +692,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-06T21:45:00.000Z
-Stopped at: Phase 15 closed and merged with origin/main (PR #55); phase-number collision resolved
+Last session: 2026-09-07T08:00:10.599Z
+Stopped at: Phase 16 context gathered
 
 Resume file: 
 
-.planning/phases/15-per-direction-themes-per-flight-colour-rules-and-roster-link/15-VERIFICATION.md
+.planning/phases/16-calendar-linked-flight-highlighting-a-connected-calendar-sou/16-CONTEXT.md
 
 - Phase 3 (visual-polish-on-real-glass) gap-closure plan 03-04 complete: `render.py` gained `_illustration_over_pixel_cap()` (header-only pixel cap, reusing `illustrations.ILLUSTRATION_MAX_PIXELS`) and `_load_illustration_safely()` (never-raises loader, candidate ladder: real path -> `illustrations.generic_fallback_path()` -> `None`), wired into both `_build_active_canvas()` illustration call sites (main + previous card). A corrupt or oversized vendored PNG now degrades to `generic-fallback.png` instead of crashing `render_panel()` and freezing every subsequent poll cycle via `poll_loop.py`'s outer handler.
 - Three regression checks added to `server/test_render.py` (36-38), RED-verified against the pre-fix code (exactly 3 FAIL / 35 PASS, two surfacing the exact `PIL.UnidentifiedImageError` 03-VERIFICATION.md reproduced live), then GREEN at 38/38 after the fix. `illustrations.py` and `poll_loop.py` untouched (verified via `git status --porcelain`).
