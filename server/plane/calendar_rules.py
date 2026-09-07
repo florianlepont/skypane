@@ -7,17 +7,23 @@ fetch of an operator-supplied iCal URL (plan 16-04), the hand-rolled RFC
 5545 subset parser below (this plan, 16-01), a rolling-window registry
 persisted at `{state_dir}/calendar_rules.json` (plan 16-03), and a pure
 match function comparing a detected, enriched flight against that registry
-(plan 16-06). This plan lands only the parser half: `unfold_ics_lines()`,
-`split_property()`, `parse_ics_datetime()` and `parse_ics_events()`, plus
-every constant and compiled allowlist the rest of the phase's plans share.
+(plan 16-06, `match_calendar_theme()`). This plan lands only the parser
+half: `unfold_ics_lines()`, `split_property()`, `parse_ics_datetime()` and
+`parse_ics_events()`, plus every constant and compiled allowlist the rest
+of the phase's plans share.
 
 **Leaf-import contract (copied, adapted, from `server/plane/colour_rules.py`'s
 own docstring):** this module imports stdlib only (`re`, `sys`, `os`,
 `json`, `threading`, `ipaddress`, `socket`, `urllib.parse`,
 `datetime`/`timezone`) plus `requests` — already a pinned dependency used
 by `detect.py` and `enrich.py`, so this plan's fetch step adds no new
-entry to `server/requirements.txt`. It must NEVER import
-`server.plane.colour_rules`, `server.plane.enrich`, `server.plane.detect`,
+entry to `server/requirements.txt` — plus, as of plan 16-06,
+`server.device_config`, for the one membership test
+`match_calendar_theme()` needs against `device_config.THEMES` (the exact
+same single-module exception `colour_rules.py` itself carries, since
+`device_config.py` is itself a leaf that imports neither this module nor
+`colour_rules.py`). It must NEVER import `server.plane.colour_rules`,
+`server.plane.enrich`, `server.plane.detect`,
 `server.plane.illustrations`, `server.plane.manual_resolutions`, or
 `server.plane.render`.
 
@@ -25,7 +31,7 @@ The `colour_rules` direction specifically is forbidden for a reason beyond
 the general leaf-layering discipline every other name in that list already
 carries: D-02's precedence between a calendar match and a manual rule is
 wired the OTHER way round — `poll_loop.py` computes a `calendar_theme_id`
-by calling this module's (future) match function, then passes that value
+by calling this module's `match_calendar_theme()`, then passes that value
 into `colour_rules.resolve_effective_theme_id()` as a plain keyword
 argument. `colour_rules.py` never needs to know this module exists. If
 this module ever imported `colour_rules` back, `poll_loop -> calendar_rules
@@ -61,6 +67,8 @@ from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
 
 import requests
+
+from server import device_config
 
 # --- Constants -------------------------------------------------------------
 
@@ -1156,3 +1164,262 @@ def refresh_calendar_registry(state_dir, now, transport=None):
         # Defence in depth only - see the comment above. Fall back to
         # whatever is durably on disk rather than propagate.
         return FETCH_FAILED, load_calendar_registry(state_dir)
+
+
+# --- Matching (plan 16-06, D-04) --------------------------------------------
+#
+# The pure function poll_loop.py (plan 16-07) calls at BOTH of
+# colour_rules.resolve_effective_theme_id()'s call sites (D-13's
+# both-branches invariant), comparing a detected, enriched flight against
+# the loaded registry and the operator's chosen theme. Nothing above this
+# section depends on it; everything below is new in this plan.
+
+# This module's own copies of the two confirmed render-state strings
+# (runway_config.py's STATE_DEPARTING/STATE_ARRIVING), following the exact
+# comment colour_rules.py already carries for its own ARRIVING_STATE: the
+# primitive is deliberately duplicated rather than imported, because
+# importing runway_config would start eroding the leaf contract for a
+# two-character saving.
+DEPARTING_STATE = "departing"
+ARRIVING_STATE = "arriving"
+
+
+def _airline_iata_from_route(route):
+    """Derive the detected flight's 2-letter IATA airline code from
+    `route["callsign_iata"]`, or `None`.
+
+    **CORRECTION 1 (16-RESEARCH.md, applied 2026-09-07) — read this before
+    touching this function.** This research originally flagged, as its
+    single most important open question, that the calendar encodes the
+    airline as a 2-letter IATA prefix (e.g. `TO`) while `enrich.py`'s
+    `_ICAO_AIRLINE_PREFIXES` is keyed on the 3-letter ICAO prefix (e.g.
+    `TVF`) the detector actually sees, with nothing in this codebase
+    bridging the two — and it recommended building a new static table to
+    close that gap.
+
+    **That table is unnecessary, and MUST NOT be built, here or anywhere.**
+    The bridge already exists at runtime, in the same route dict this
+    matcher already holds: `route["callsign_iata"]`'s leading two
+    characters ARE the IATA airline code, sitting beside `airline_name`.
+    Verified across 300 real cached flights spanning ten carriers (TVF/TO
+    Transavia France, VLG/VY Vueling, EJU/EC easyJet Europe, CRL/SS
+    Corsairfly, TAP/TP TAP Portugal, CCM/XK CCM Airlines, FWI/TX Air
+    Caraïbes, RAM/AT Royal Air Maroc, DAH/AH Air Algerie, AFR/AF Air
+    France) — every pair derives cleanly with no lookup. A static table
+    would be a standing maintenance burden and a drift risk against
+    `enrich._ICAO_AIRLINE_PREFIXES` for a lookup that is already free at
+    runtime; do not reintroduce one.
+
+    Requires `callsign_iata` to be a string; strips and uppercases it,
+    takes its first two characters, and returns them only when they pass
+    `_AIRLINE_IATA_RE` (at least one letter, no all-digit pair). Returns
+    `None` for a non-dict `route`, a missing/non-string `callsign_iata`,
+    or a leading pair that fails the allowlist. Never raises.
+    """
+    if not isinstance(route, dict):
+        return None
+    callsign_iata = route.get("callsign_iata")
+    if not isinstance(callsign_iata, str):
+        return None
+    candidate = callsign_iata.strip().upper()[:2]
+    if _AIRLINE_IATA_RE.match(candidate):
+        return candidate
+    return None
+
+
+def _far_end_iata(route, render_state):
+    """The detected flight's "far end" airport for this direction: the
+    destination for a departure, the origin for an arrival. `None` for a
+    non-dict `route` or any render state other than the two confirmed
+    ones.
+
+    Kept as a symmetric pair with `_entry_far_end_iata()` below, rather
+    than inlined at each call site, so the direction symmetry the D-04
+    match key requires is checkable at a glance: the comparison this
+    module makes is always destination-against-destination or
+    origin-against-origin, never destination-against-origin, so a leg
+    flown the other way never matches an entry for the outbound.
+    """
+    if not isinstance(route, dict):
+        return None
+    if render_state == DEPARTING_STATE:
+        return route.get("destination_iata")
+    if render_state == ARRIVING_STATE:
+        return route.get("origin_iata")
+    return None
+
+
+def _entry_far_end_iata(entry, render_state):
+    """`_far_end_iata()`'s mirror for a calendar registry entry rather
+    than a detected route: the entry's `destination_iata` for a
+    departure, its `origin_iata` for an arrival. `None` for a non-dict
+    `entry` or any render state other than the two confirmed ones.
+    """
+    if not isinstance(entry, dict):
+        return None
+    if render_state == DEPARTING_STATE:
+        return entry.get("destination_iata")
+    if render_state == ARRIVING_STATE:
+        return entry.get("origin_iata")
+    return None
+
+
+def _reference_time(entry, render_state):
+    """The moment a calendar entry is measured against for this
+    direction: `start_at` for a departure (the aircraft leaves near
+    off-blocks), `end_at` for an arrival (it lands near on-blocks). `None`
+    for a non-dict `entry` or any render state other than the two
+    confirmed ones.
+    """
+    if not isinstance(entry, dict):
+        return None
+    if render_state == DEPARTING_STATE:
+        return entry.get("start_at")
+    if render_state == ARRIVING_STATE:
+        return entry.get("end_at")
+    return None
+
+
+def match_calendar_theme(registry, route, render_state, device_cfg, now):
+    """D-04's pure matcher: return the operator's configured calendar
+    theme id when — and only when — the detected, enriched `route` and
+    `render_state` agree with at least one candidate entry in `registry`
+    on airline, far-end airport and time. Returns `None` otherwise. Never
+    raises, for any combination of a non-dict `registry`, a non-list
+    `entries` value, a malformed entry, a non-dict `route`, a non-dict
+    `device_cfg` and a non-numeric `now`.
+
+    Deliberately excludes both the flight dict and `resolve_route()`'s
+    enrichment-provenance label from its parameter list. The flight dict
+    is excluded because nothing in D-04's key comes from it — the airline
+    comes from the enriched `route` and the direction from `render_state`
+    — and an unused parameter would invite a future change to start
+    matching on the raw callsign, which 16-CONTEXT.md's measured finding 2
+    rules out: only 11% of the dominant Orly carrier's flights carry a
+    commercial-looking IATA number, while `origin_iata`/`destination_iata`
+    are populated on 100% of enriched detections. The provenance label is
+    excluded because it is not meaningful at `poll_loop.py`'s second call
+    site — the held/repaint branch reports the value `"held"` there — so a
+    test against that label would silently disable the feature on every
+    repaint, while the field-presence test in step 3 below is exactly
+    equivalent to the `fresh_hit`/`cache_hit` restriction (CORRECTION 1)
+    and works identically at both sites.
+
+    Sequence:
+
+    1. Resolve the operator's chosen theme first: read
+       `device_cfg["calendar_theme_id"]`, require a string that is a
+       member of `device_config.THEMES`, and return `None` immediately
+       otherwise. Doing this first means an unconfigured or tampered
+       theme costs no comparison work at all — this module's own share of
+       T-16-TAMPER.
+    2. Require `render_state` to be one of the two confirmed flight
+       states.
+    3. Require `route` to be a dict carrying all three of `origin_iata`,
+       `destination_iata` and `callsign_iata` as non-empty strings, with
+       both airport codes passing `_AIRPORT_IATA_RE`. This is
+       CORRECTION 1's narrowing, encoded as a field-presence test: these
+       three fields exist only on a `fresh_hit` or a `cache_hit` — see
+       `enrich.airline_only_route()`, which sets all three to `None` for
+       an `airline_only`/`manual` result — so this test is exactly the
+       enrichment-provenance restriction, expressed in a form that is
+       still true at the held call site.
+    4. Derive the detected airline through `_airline_iata_from_route()`
+       and the detected far end through `_far_end_iata()`; return `None`
+       if either is missing.
+    5. Walk the registry's entries, re-validating each one from scratch
+       through `_normalise_calendar_entry()` (T-16-INPUT: a hand-edited
+       `calendar_rules.json` is this tier's tamper vector, so this
+       function never trusts that a previous writer already validated
+       what it is reading) — skipping any entry that is not a dict or
+       whose fields fail the same allowlists the loader applies. Keep an
+       entry as a candidate when its `airline_iata` equals the detected
+       airline, its own far end for this direction
+       (`_entry_far_end_iata()`) equals the detected far end, and the
+       absolute difference between `now` and its reference time
+       (`_reference_time()`) is at most `CALENDAR_MATCH_TOLERANCE_S`.
+    6. Return the configured theme when at least one candidate survives,
+       choosing the candidate with the smallest absolute time difference.
+       An exact tie breaks deterministically — by the earlier reference
+       time, then by the entry's own field ordering — so the result never
+       depends on iteration order. A single winner matters even though
+       every candidate yields the same theme id today: it keeps this
+       function honest about the physical fact that a flight is one
+       aircraft, and it is what a future per-entry theme would need.
+       `CALENDAR_MATCH_TOLERANCE_S` (90 minutes) is this phase's
+       resolution of a Claude's-Discretion point: generous enough to
+       absorb an ordinary delay, and far tighter than the roughly eight
+       hours separating the measured twice-daily same-route rotations
+       (16-CONTEXT.md finding 2), so a same-route collision is never
+       ambiguously close.
+
+    The whole body is guarded so a malformed registry, route, config or
+    clock returns `None` rather than raising — this function runs inside
+    the poll cycle and must never become a new way for a render to fail.
+    """
+    try:
+        theme_id = device_cfg.get("calendar_theme_id") if isinstance(device_cfg, dict) else None
+        if not isinstance(theme_id, str) or theme_id not in device_config.THEMES:
+            return None
+
+        if render_state not in (DEPARTING_STATE, ARRIVING_STATE):
+            return None
+
+        if not isinstance(route, dict):
+            return None
+        origin_iata = route.get("origin_iata")
+        destination_iata = route.get("destination_iata")
+        callsign_iata = route.get("callsign_iata")
+        if not isinstance(origin_iata, str) or not origin_iata:
+            return None
+        if not isinstance(destination_iata, str) or not destination_iata:
+            return None
+        if not isinstance(callsign_iata, str) or not callsign_iata:
+            return None
+        if not _AIRPORT_IATA_RE.match(origin_iata) or not _AIRPORT_IATA_RE.match(destination_iata):
+            return None
+
+        detected_airline = _airline_iata_from_route(route)
+        detected_far_end = _far_end_iata(route, render_state)
+        if detected_airline is None or detected_far_end is None:
+            return None
+
+        if isinstance(now, bool) or not isinstance(now, (int, float)):
+            return None
+
+        raw_entries = registry.get("entries") if isinstance(registry, dict) else None
+        if not isinstance(raw_entries, list):
+            return None
+
+        best = None  # (abs_diff, reference_time, tie_key) - smallest wins
+        for raw_entry in raw_entries:
+            normalised = _normalise_calendar_entry(raw_entry)
+            if normalised is None:
+                continue
+            if normalised["airline_iata"] != detected_airline:
+                continue
+            if _entry_far_end_iata(normalised, render_state) != detected_far_end:
+                continue
+            reference_time = _reference_time(normalised, render_state)
+            if reference_time is None:
+                continue
+            diff = abs(now - reference_time)
+            if diff > CALENDAR_MATCH_TOLERANCE_S:
+                continue
+            tie_key = (
+                normalised["airline_iata"], normalised["origin_iata"],
+                normalised["destination_iata"], normalised["start_at"],
+                normalised["end_at"],
+            )
+            candidate = (diff, reference_time, tie_key)
+            if best is None or candidate < best:
+                best = candidate
+
+        if best is None:
+            return None
+        return theme_id
+    except Exception:
+        # Defence in depth only - every branch above is already guarded,
+        # but this function runs inside the poll cycle and must never
+        # become a new way for a render to fail.
+        return None
