@@ -36,8 +36,8 @@ warns against for its own five forbidden imports.
 plan 16-03 lands, the registry this module writes lives at
 `{state_dir}/calendar_rules.json` — outside the git-tracked tree
 `deploy/deploy.sh` rsyncs with `--delete`, so it survives a redeploy the
-same way `colour_rules.json`/`manual_resolutions.json`/`device_config.json`
-already do.
+same way phase 15's colour-rule registry, `manual_resolutions.json`, and
+`device_config.json` already do.
 
 **Privacy clause:** this module's eventual persisted output describes a
 named person's near-term work schedule (D-03's own framing) sitting on a
@@ -48,8 +48,11 @@ or a description. D-03's rolling window (plan 16-03) is what bounds how
 long that minimum is retained; this plan's job is to make sure the minimum
 itself is never exceeded even before a registry exists to expire it from.
 """
+import json
+import os
 import re
 import sys
+import threading
 from datetime import datetime, timezone
 
 # --- Constants -------------------------------------------------------------
@@ -106,6 +109,42 @@ CATEGORY_FLIGHT = "FLT"
 # carry; filtered before their (deliberately invalid) dates are ever
 # parsed.
 STATUS_CANCELLED = "CANCELLED"
+
+# --- Registry file contract (plan 16-03) ------------------------------------
+#
+# calendar_rules.json's shape, D-01's separation from phase 15's rule
+# store, and D-03's whole-file-rewrite rolling window. See
+# calendar_rules_path(), load_calendar_registry() and
+# write_calendar_registry() below.
+# CALENDAR_RULES_FILENAME (D-01: deliberately not the filename phase 15's
+# colour-rule registry uses — an automatic source must never overwrite,
+# replace or delete a rule the operator typed by hand) is already
+# declared above.
+
+# The exact five-key shape parse_ics_events() emits, declared once so the
+# loader's key-set validation and this harness's fixtures share a single
+# definition of "a well-shaped entry" rather than two that could drift.
+CALENDAR_REGISTRY_KEYS = (
+    "airline_iata", "origin_iata", "destination_iata", "start_at", "end_at",
+)
+
+# Result constants for poll_loop.py's (plan 16-04) fetch outcome. These are
+# NOT flash keys, mirroring colour_rules.py's own ADD_* comment: nothing
+# about a flash exists at this tier, and companion/ never sees these.
+FETCH_OK = "fetch_ok"
+FETCH_SKIPPED_UNCONFIGURED = "fetch_skipped_unconfigured"
+FETCH_SKIPPED_THROTTLED = "fetch_skipped_throttled"
+FETCH_REJECTED_URL = "fetch_rejected_url"
+FETCH_FAILED = "fetch_failed"
+
+# WR-02-style fix (T-15-02's precedent, colour_rules.py:107-114), applied
+# here as defence in depth even though it is not load-bearing the way it is
+# for colour_rules.py's ThreadingHTTPServer writers: this file has a single
+# writer — the poll oneshot's fetch step — never companion/'s concurrent
+# request threads. The lock still wraps the entire load-check-mutate-write
+# sequence, not just the final atomic replace, so a future second writer
+# can never appear without this module already being race-safe against it.
+_WRITE_LOCK = threading.Lock()
 
 # --- Compiled positive allowlists ------------------------------------------
 #
@@ -391,3 +430,269 @@ def parse_ics_events(raw_text):
 
     entries.sort(key=lambda entry: entry["start_at"])
     return entries
+
+
+# --- Registry file contract (plan 16-03, D-01/D-03) -------------------------
+
+
+def calendar_rules_path(state_dir):
+    """Join `state_dir` and `CALENDAR_RULES_FILENAME`.
+
+    Mirrors `colour_rules.colour_rules_path()`. This file survives a
+    redeploy because `deploy/deploy.sh` rsyncs `server/` with `--delete`
+    while excluding the state directory, the same reason phase 15's
+    colour-rule registry, `manual_resolutions.json`, and
+    `device_config.json` already survive one.
+    """
+    return os.path.join(state_dir, CALENDAR_RULES_FILENAME)
+
+
+def calendar_is_configured():
+    """Return whether `CALENDAR_URL_ENV_VAR` is set to a non-blank value,
+    as a genuine `bool` — never the value itself.
+
+    Reads the environment on every call through `os.environ.get()` —
+    nothing captured at import time — matching the shared per-call shape
+    of `auth.configured_password()` and `app.env_wake_interval_default()`.
+    This function exists precisely so a caller that only needs to render
+    a configured-or-not status (companion/'s Settings status line, plan
+    16-05) never touches the secret value: it must never be reimplemented
+    as a truthiness test on `configured_calendar_url()`'s return inside a
+    caller's own scope.
+
+    Uses `env_wake_interval_default()`'s fail-open shape, not
+    `configured_password()`'s fail-closed one: an absent calendar
+    variable is a designed, legitimate empty state (the feature is simply
+    off), not an auth failure.
+    """
+    raw = os.environ.get(CALENDAR_URL_ENV_VAR)
+    return bool(raw and raw.strip())
+
+
+def configured_calendar_url():
+    """Return the stripped calendar URL, or `None`. The sole accessor of
+    the value.
+
+    Reads the environment on every call; nothing captured at import time
+    and no module-level cache. The return value is this phase's first
+    secret outside `companion/auth.py` (T-16-SECRET): it must never be
+    logged, never interpolated into an exception message, never written
+    to `state_dir`, and never returned to `companion/` — `companion/`
+    calls `calendar_is_configured()` instead, which answers the presence
+    question without ever touching this value.
+    """
+    raw = os.environ.get(CALENDAR_URL_ENV_VAR)
+    if not isinstance(raw, str):
+        return None
+    stripped = raw.strip()
+    return stripped or None
+
+
+def _normalise_calendar_entry(entry):
+    """Rebuild one candidate registry entry from scratch, returning a
+    fresh well-shaped dict or `None`. Never raises.
+
+    Re-applies, on every call, the exact allowlists `parse_ics_events()`
+    already applied at parse time: the key set must be exactly
+    `CALENDAR_REGISTRY_KEYS` (not a subset, not a superset), both airport
+    codes must match `_AIRPORT_IATA_RE`, the airline code must match
+    `_AIRLINE_IATA_RE`, both timestamps must be real numbers with `bool`
+    rejected explicitly (`bool` is an `int` subclass — the same guard
+    `poll_loop._as_timestamp()` already applies), and `end_at` must not
+    precede `start_at`. This is T-16-INPUT's defence: `calendar_rules.json`
+    is operator-inspectable on the VPS, and a hand-edited entry is this
+    tier's tamper vector, so every read re-validates rather than trusting
+    what a previous write already checked.
+    """
+    if not isinstance(entry, dict) or set(entry.keys()) != set(CALENDAR_REGISTRY_KEYS):
+        return None
+
+    airline_iata = entry.get("airline_iata")
+    origin_iata = entry.get("origin_iata")
+    destination_iata = entry.get("destination_iata")
+    start_at = entry.get("start_at")
+    end_at = entry.get("end_at")
+
+    if not isinstance(airline_iata, str) or not _AIRLINE_IATA_RE.match(airline_iata):
+        return None
+    if not isinstance(origin_iata, str) or not _AIRPORT_IATA_RE.match(origin_iata):
+        return None
+    if not isinstance(destination_iata, str) or not _AIRPORT_IATA_RE.match(destination_iata):
+        return None
+    if isinstance(start_at, bool) or not isinstance(start_at, (int, float)):
+        return None
+    if isinstance(end_at, bool) or not isinstance(end_at, (int, float)):
+        return None
+
+    start_at = float(start_at)
+    end_at = float(end_at)
+    if end_at < start_at:
+        return None
+
+    return {
+        "airline_iata": airline_iata,
+        "origin_iata": origin_iata,
+        "destination_iata": destination_iata,
+        "start_at": start_at,
+        "end_at": end_at,
+    }
+
+
+def _rebuild_capped_entries(raw_entries, context):
+    """Rebuild every entry in `raw_entries` from scratch via
+    `_normalise_calendar_entry()`, stopping the instant `CALENDAR_MAX_ENTRIES`
+    survivors have accumulated, and print — never raise — a one-line
+    warning naming `context`, the drop count and the cap when anything
+    was dropped, mirroring `load_colour_rules()`'s own
+    `capped_remainder`-accounted warning. A non-list `raw_entries`
+    (a hand-edited file whose `entries` key is not a list) returns an
+    empty list without printing, since there is nothing to count as
+    dropped versus what was never a candidate list to begin with. Never
+    raises regardless of `raw_entries`'s shape.
+    """
+    if not isinstance(raw_entries, list):
+        return []
+
+    survivors = []
+    rejected = 0
+    capped_remainder = 0
+    for index, raw_entry in enumerate(raw_entries):
+        if len(survivors) >= CALENDAR_MAX_ENTRIES:
+            capped_remainder = len(raw_entries) - index
+            break
+        normalised = _normalise_calendar_entry(raw_entry)
+        if normalised is None:
+            rejected += 1
+            continue
+        survivors.append(normalised)
+
+    dropped = rejected + capped_remainder
+    if dropped:
+        print(
+            "calendar_rules: %s dropped %d entr%s (malformed/unsafe, or "
+            "beyond the %d-entry cap)"
+            % (context, dropped, "y" if dropped == 1 else "ies", CALENDAR_MAX_ENTRIES),
+            file=sys.stderr,
+        )
+    return survivors
+
+
+def load_calendar_registry(state_dir):
+    """Read `{state_dir}/calendar_rules.json`; never raises.
+
+    A missing file, an unreadable file, invalid JSON, a JSON array, a
+    JSON string, or a dict whose `entries` is not a list all yield the
+    documented empty shape — a dict with `entries` mapping to `[]`,
+    `last_attempt_at` mapping to `None`, and `last_synced_at` mapping to
+    `None` — so every caller can index without a `.get()` dance.
+
+    Every surviving entry is rebuilt from scratch by
+    `_rebuild_capped_entries()` / `_normalise_calendar_entry()` — never
+    the parsed dict reused directly — re-applying the same allowlists
+    `parse_ics_events()` applied at parse time, because this file is
+    operator-inspectable on the VPS and a hand-edited entry is this
+    tier's tamper vector (T-16-INPUT). Accumulation stops at
+    `CALENDAR_MAX_ENTRIES` survivors, printing (never raising) a
+    one-line drop-count warning when anything was dropped.
+
+    Two timestamps, two domains, deliberately not interchangeable:
+    `last_attempt_at` is normalised to a `float` epoch-seconds value (or
+    `None`) because `calendar_fetch_is_due()` does arithmetic over it on
+    every poll cycle, the same domain `poll_loop.now_s()` already uses.
+    `last_synced_at` is normalised to a `str` (or `None`) because its
+    only consumer, `companion/layout.py`'s `concise_timestamp_html()`,
+    parses an ISO-8601 string the way `history_db.utc_now_iso()` already
+    produces one. `last_attempt_at` updates on every fetch attempt and is
+    the only thing the throttle consults; `last_synced_at` updates only
+    on a successful parse and is the only thing the companion's status
+    copy reads — conflating them either hammers a broken feed every 30
+    seconds forever or hides a persistently failing feed's staleness
+    from the operator.
+    """
+    try:
+        with open(calendar_rules_path(state_dir)) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    entries = _rebuild_capped_entries(data.get("entries"), "load_calendar_registry()")
+
+    last_attempt_at = data.get("last_attempt_at")
+    if isinstance(last_attempt_at, bool) or not isinstance(last_attempt_at, (int, float)):
+        last_attempt_at = None
+    else:
+        last_attempt_at = float(last_attempt_at)
+
+    last_synced_at = data.get("last_synced_at")
+    if not isinstance(last_synced_at, str):
+        last_synced_at = None
+
+    return {
+        "entries": entries,
+        "last_attempt_at": last_attempt_at,
+        "last_synced_at": last_synced_at,
+    }
+
+
+def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at):
+    """Replace `{state_dir}/calendar_rules.json` WHOLE with `entries`,
+    `last_attempt_at` and `last_synced_at`. Returns `True` on success,
+    `False` on any failure; never raises.
+
+    D-03 in one sentence: this function **replaces** the whole file, it
+    never merges, appends to, or diffs against what was there before —
+    that is what makes a past flight expire by replacement rather than by
+    a cleanup pass, and a merge would resurrect exactly the entries the
+    rolling window exists to drop.
+
+    Under `_WRITE_LOCK` (this file's single writer today is the poll
+    oneshot's fetch step, not `ThreadingHTTPServer`'s concurrent request
+    threads — the lock here is defence in depth, not the load-bearing
+    correctness property T-15-02 needed for phase 15's rule store): the
+    incoming `entries` are rebuilt through the identical per-field gates
+    `load_calendar_registry()` applies, via the shared
+    `_rebuild_capped_entries()` helper, so a caller can never persist
+    what the loader would only drop again on the next read. Then the
+    tmp-write block is `colour_rules.py`'s shape verbatim — the state
+    directory is created, the JSON is written to a temp filename
+    embedding the process id and the thread id, dumped with an indent of
+    one, atomically replaced onto the real path, and on any failure the
+    temp file is removed (tolerating a failure to remove it) rather than
+    raising.
+    """
+    with _WRITE_LOCK:
+        capped_entries = _rebuild_capped_entries(
+            entries if isinstance(entries, list) else [], "write_calendar_registry()")
+
+        if isinstance(last_attempt_at, bool) or not isinstance(last_attempt_at, (int, float)):
+            normalised_attempt = None
+        else:
+            normalised_attempt = float(last_attempt_at)
+        normalised_synced = last_synced_at if isinstance(last_synced_at, str) else None
+
+        registry = {
+            "entries": capped_entries,
+            "last_attempt_at": normalised_attempt,
+            "last_synced_at": normalised_synced,
+        }
+
+        path = calendar_rules_path(state_dir)
+        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
+        try:
+            os.makedirs(state_dir, exist_ok=True)
+            with open(tmp, "w") as fh:
+                json.dump(registry, fh, indent=1)
+            os.replace(tmp, path)
+        except Exception:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            return False
+
+    return True
+
+
