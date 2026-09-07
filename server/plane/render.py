@@ -1071,16 +1071,50 @@ def _load_illustration_safely(path, target_w):
     return None
 
 
+_illustration_cache = {}
+# Bounded so the long-lived companion process cannot grow it without limit
+# across every (illustration, target width) pair it ever previews: past the
+# cap the cache is simply flushed and refilled - a miss only costs one PNG
+# decode + resize, exactly what every call cost before the cache existed.
+_ILLUSTRATION_CACHE_MAX_ENTRIES = 128
+
+
 def _resize_illustration(path, target_w):
     """Load a vendored per-airline illustration PNG (real alpha channel,
     see HANDOFF.md) and resize it to `target_w` px wide, preserving its
     source aspect ratio. Returns a fresh "RGBA" image.
+
+    Memoized on (path, mtime_ns, size, target_w) via os.stat() - a cache hit
+    skips both the PNG decode and the LANCZOS resize. Production poll_loop.py
+    is a oneshot process per systemd timer, so this cache is a no-op there;
+    it exists to remove ~650 redundant PNG decodes in test_render's own run
+    and to speed up the long-lived companion process's panel previews. If
+    os.stat() raises OSError, fall through to the uncached load unchanged -
+    `_load_illustration_safely()`'s existing try/except ladder must keep
+    seeing the same exceptions it always has.
     """
+    try:
+        st = os.stat(path)
+        cache_key = (path, st.st_mtime_ns, st.st_size, target_w)
+    except OSError:
+        cache_key = None
+
+    if cache_key is not None:
+        cached = _illustration_cache.get(cache_key)
+        if cached is not None:
+            return cached.copy()
+
     with Image.open(path) as source:
         rgba = source.convert("RGBA")
         src_w, src_h = rgba.size
         target_h = max(1, round(target_w * src_h / src_w))
-        return rgba.resize((target_w, target_h), Image.LANCZOS)
+        resized = rgba.resize((target_w, target_h), Image.LANCZOS)
+
+    if cache_key is not None:
+        if len(_illustration_cache) >= _ILLUSTRATION_CACHE_MAX_ENTRIES:
+            _illustration_cache.clear()
+        _illustration_cache[cache_key] = resized
+    return resized.copy()
 
 
 ILLUSTRATION_ALPHA_THRESHOLD = 127
