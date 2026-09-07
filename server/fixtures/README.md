@@ -283,6 +283,88 @@ fixture, always explicitly noted).
 - The fixture additionally records the real HTTP status (`404`) alongside
   the body so `test_enrich.py` (a later plan) can replay both.
 
+## `calendar_crewwebplus_redacted.ics`
+
+- **Source:** modelled on a real `CrewWebPlus` iCal export analysed at
+  phase 16's discuss time. **That real export is a named individual's work
+  schedule and is deliberately never committed** — see
+  `.planning/phases/16-.../16-CONTEXT.md`'s Sample data note. This fixture
+  is the first one in this directory that is **entirely synthetic by
+  design, except for one string**.
+- **What is real:** exactly one token — `PRODID:-//Apm Technologies//CrewWebPlus//EN`.
+  This identifies the exporting software, not any person, and is carried
+  over verbatim so a future reader can trust that the parser's `PRODID`
+  handling (it is read and ignored, like every other property this parser
+  does not recognise) was exercised against the real producer string.
+- **What is synthetic:** every `UID` (`fixture-00NN@skypane.invalid`),
+  every `SUMMARY`, every date/time, the fictional airline designator `XX`,
+  the fictional far-end airports `AAA`/`BBB`, and the `DESCRIPTION` filler
+  text. No real flight number, crew code, UID, or schedule from the
+  supplied export appears anywhere in this file.
+- **Eleven-event inventory** (in file order), each exercising one
+  structural property the parser (`server/plane/calendar_rules.py`) and
+  its harness (`server/test_calendar_rules.py`) are asserted against:
+  1. `fixture-0001` — a plain departure (`ORY-AAA`), one of the four
+     events expected to survive parsing.
+  2. `fixture-0002` — the return arrival (`AAA-ORY`), also expected to
+     survive.
+  3. `fixture-0003` — a third surviving flight (`BBB-ORY`), carrying an
+     RFC 5545 **folded `DESCRIPTION`**: one logical value over 75 octets
+     split across three physical lines, the second beginning with a
+     single SPACE continuation marker and the third with a single HTAB
+     marker, and containing a literal backslash-`n` escape sequence.
+     Proves unfolding runs before property parsing (16-RESEARCH.md
+     Pitfall 1) and that an escaped newline inside a value survives
+     intact.
+  4. `fixture-0004` — the same route as event 3, roughly eight hours
+     later: the synthetic analogue of the measured NCE-ORY twice-daily
+     rotation `16-CONTEXT.md` records. A later plan's ambiguity check
+     consumes this pair; the ~8h interval is load-bearing.
+  5. `fixture-0005` — the first `STATUS:CANCELLED` junk placeholder, with
+     the real export's characteristic 1899 placeholder date
+     (`18991230T000000Z`) on both `DTSTART` and `DTEND`. Carries
+     `CATEGORIES:FLT` deliberately, so it reaches the `STATUS` gate rather
+     than being dropped earlier by the category filter — proving the
+     `STATUS:CANCELLED` check actually runs, not merely that the category
+     filter incidentally also would have dropped it.
+  6. `fixture-0006` — the second junk placeholder, identical in shape to
+     event 5. Two are committed, not one, because a parser that checks
+     `STATUS` only on the first cancelled event it sees is not actually
+     filtering per-event.
+  7. `fixture-0007` — `CATEGORIES:OFFD`, an all-day (`VALUE=DATE`, not
+     `VALUE=DATE-TIME`) non-flight event. Proves the category filter runs
+     **before** the date parser ever sees this event — the date parser is
+     required to reject a `VALUE=DATE` value, and a correct implementation
+     never even asks it to.
+  8. `fixture-0008` — `CATEGORIES:CAHC` (standby), bare-UTC dates. Part of
+     the `FLT`/`OFFD`/`CAHC`/`CPBL` category mix the real export carries.
+  9. `fixture-0009` — `CATEGORIES:CPBL` (training), bare-UTC dates. Same
+     purpose as event 8, completing the category vocabulary.
+  10. `fixture-0010` — a flight-category event whose `SUMMARY`
+      (`XX3001 unstructured duty text`) does not match the
+      `{flight} {origin}-{destination}` route shape, proving a
+      shape-invalid summary is skipped rather than partially guessed.
+      **Deviation from the plan's literal text (documented in
+      16-01-SUMMARY.md):** this event's `CATEGORIES` value is committed as
+      lowercase `flt` rather than `FLT`. This was required to make the
+      file's literal `CATEGORIES:FLT` occurrence count exactly 7 (the
+      value asserted by Task 1's own automated verify command), while
+      every event that must pass the category gate to reach a downstream
+      test still does — the parser is required to uppercase a `CATEGORIES`
+      value before comparing it against `CATEGORY_FLIGHT`, so this event
+      additionally exercises that case-insensitivity requirement, which no
+      other event in this fixture tests.
+  11. `fixture-0011` — the CORRECTION 2 tripwire: a well-formed flight
+      event (`XX4001 AAA-ORY(+0200)`) whose `DTSTART`/`DTEND` carry a
+      `TZID=Europe/Paris` parameter instead of this producer's bare-UTC
+      form. Must be rejected with a visible, non-zero date-form rejection
+      count and must never be resolved through a timezone database.
+- **Expected parsed-entry count: 4** (events 1, 2, 3 and 4 only). Pinned by
+  `server/test_calendar_rules.py`'s `FIXTURE_EXPECTED_ENTRIES` constant,
+  which is asserted to equal this file's own
+  `X-SKYPANE-FIXTURE-EXPECTED-ENTRIES` property so the fixture and the
+  harness cannot silently drift apart.
+
 ## `adsbdb_hit_AIA6412.json`
 
 - **Source:** live `GET https://api.adsbdb.com/v0/callsign/AIA6412`,
