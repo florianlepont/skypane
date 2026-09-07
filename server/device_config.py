@@ -476,6 +476,38 @@ def normalise_theme_arriving(value):
     return None
 
 
+def normalise_calendar_theme_id(value):
+    """Return `value` unchanged only when it is a string AND a member of
+    `THEMES` - otherwise return `None`. Never raises.
+
+    Same degrade-to-`None` shape as `normalise_theme_arriving()`, and for the
+    same reason: `None` here means "the operator has not chosen a theme for
+    calendar-matched flights, so a calendar match resolves to nothing and the
+    manual rules run next" - NOT "degraded to the documented default".
+    Degrading to `DEFAULT_THEME_ID` instead would be actively wrong: every
+    calendar match would then silently repaint the panel in whatever theme
+    the frame already happened to be using, which looks exactly like the
+    feature not having matched at all, rather than the honest inert state of
+    "no calendar theme chosen" (phase 16 plan 02, T-16-TAMPER).
+
+    Deliberately no clear-sentinel of `CLEAR_THEME_ARRIVING`'s kind for this
+    key: the Calendar section's
+    `<select name="calendar_theme_id">` (16-UI-SPEC.md Section Anatomy) has
+    no enable/disable checkbox and is always rendered as a required field, so
+    there is no UI state that needs to distinguish "clear it" from "leave it
+    alone" the way an unchecked arrivals-override checkbox does. `None` here
+    keeps its single existing meaning of "not supplied, carry forward" - the
+    same resolution `wake_interval_s` already has, for the same reason.
+
+    This makes `calendar_theme_id` the third key in this module, after
+    `wake_interval_s` and `theme_arriving`, whose valid value set includes
+    `None`.
+    """
+    if isinstance(value, str) and value in THEMES:
+        return value
+    return None
+
+
 def normalise_runway_id(value):
     """Same contract as normalise_theme_id(), against RUNWAYS/DEFAULT_RUNWAY_ID."""
     if isinstance(value, str) and value in RUNWAYS:
@@ -566,25 +598,29 @@ def normalise_wake_interval_s(value):
 def load_device_config(state_dir):
     """Read `<state_dir>/device_config.json`; a missing file, an unreadable
     file, a malformed document, or a non-dict document all fall back to an
-    empty dict rather than raising. Always returns all nine keys with valid
-    values - `theme`, `theme_arriving`, `tracked_runway`, `led_enabled`,
-    `quiet_hours_enabled`, `quiet_hours_start`, `quiet_hours_end`,
-    `wake_interval_s`, and `display_enabled` - via normalise_theme_id()/
-    normalise_theme_arriving()/normalise_runway_id()/normalise_led_enabled()/
-    normalise_quiet_hours_enabled()/normalise_quiet_hours_time()/
-    normalise_wake_interval_s()/normalise_display_enabled(), so a hostile or
-    stale value on disk (e.g. a path-traversal string, a numeric runway id, a
-    non-bool led_enabled, a malformed quiet-hours time, a hostile
-    wake_interval_s, an unregistered theme_arriving, or a non-bool
-    display_enabled) never reaches a caller. `theme_arriving` (D-04) is read
-    with `.get()`, so a `device_config.json` written before this phase - one
-    that has never carried the key - resolves to `None` with no migration
-    and no rewrite of the file on disk. `wake_interval_s` and
-    `theme_arriving` are the two keys whose valid value set includes `None`:
-    `wake_interval_s`'s `None` means never-explicitly-set, while
-    `theme_arriving`'s `None` means "no override, same as `theme`" - every
-    other key always has a concrete default (D-09: `display_enabled`
-    defaults to `True`). Never raises.
+    empty dict rather than raising. Always returns all ten keys with valid
+    values - `theme`, `theme_arriving`, `calendar_theme_id`,
+    `tracked_runway`, `led_enabled`, `quiet_hours_enabled`,
+    `quiet_hours_start`, `quiet_hours_end`, `wake_interval_s`, and
+    `display_enabled` - via normalise_theme_id()/normalise_theme_arriving()/
+    normalise_calendar_theme_id()/normalise_runway_id()/
+    normalise_led_enabled()/normalise_quiet_hours_enabled()/
+    normalise_quiet_hours_time()/normalise_wake_interval_s()/
+    normalise_display_enabled(), so a hostile or stale value on disk (e.g. a
+    path-traversal string, a numeric runway id, a non-bool led_enabled, a
+    malformed quiet-hours time, a hostile wake_interval_s, an unregistered
+    theme_arriving or calendar_theme_id, or a non-bool display_enabled) never
+    reaches a caller. `theme_arriving` (D-04) and `calendar_theme_id` (phase
+    16 plan 02) are both read with `.get()`, so a `device_config.json`
+    written before either key existed - one that has never carried it -
+    resolves that key to `None` with no migration and no rewrite of the file
+    on disk. `wake_interval_s`, `theme_arriving`, and `calendar_theme_id` are
+    the three keys whose valid value set includes `None`: `wake_interval_s`'s
+    `None` means never-explicitly-set, `theme_arriving`'s `None` means "no
+    override, same as `theme`", and `calendar_theme_id`'s `None` means "the
+    operator has not chosen a calendar theme, so a calendar match has no
+    effect" - every other key always has a concrete default (D-09:
+    `display_enabled` defaults to `True`). Never raises.
     """
     try:
         with open(device_config_path(state_dir)) as fh:
@@ -596,6 +632,7 @@ def load_device_config(state_dir):
     return {
         "theme": normalise_theme_id(data.get("theme")),
         "theme_arriving": normalise_theme_arriving(data.get("theme_arriving")),
+        "calendar_theme_id": normalise_calendar_theme_id(data.get("calendar_theme_id")),
         "tracked_runway": normalise_runway_id(data.get("tracked_runway")),
         "led_enabled": normalise_led_enabled(data.get("led_enabled")),
         "quiet_hours_enabled": normalise_quiet_hours_enabled(data.get("quiet_hours_enabled")),
@@ -609,40 +646,51 @@ def load_device_config(state_dir):
 def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
-    wake_interval_s=None, display_enabled=None,
+    wake_interval_s=None, display_enabled=None, calendar_theme_id=None,
 ):
     """Validate and persist a new theme and/or theme_arriving override and/or
     tracked-runway id and/or led_enabled flag and/or the three quiet-hours
-    fields and/or wake_interval_s and/or display_enabled.
+    fields and/or wake_interval_s and/or display_enabled and/or
+    calendar_theme_id.
 
     Each supplied (non-None) value is checked before anything is written:
-    `theme`/`tracked_runway` against their registries with an explicit
-    membership test, `led_enabled`/`quiet_hours_enabled`/`display_enabled`
-    with an explicit `isinstance(..., bool)` type check (there is no
-    registry for a boolean), `quiet_hours_start`/`quiet_hours_end` against
-    the `_HHMM_RE` shape gate, `wake_interval_s` against the bounded-int gate
-    (`isinstance(value, int) and not isinstance(value, bool)`, then
-    `[WAKE_INTERVAL_MIN_S, WAKE_INTERVAL_MAX_S]` inclusive), and
-    `theme_arriving` against a three-state contract described below. An
-    unknown/wrong-typed value raises `ValueError` naming both the bounds (for
-    `wake_interval_s`) or the registry (for the others) and the rejected
-    value - and leaves any pre-existing file byte-identical
-    (T-06-01-01/T-06-01-06). A value left `None` is carried over unchanged
-    from the current on-disk config (falling back to the documented defaults
-    if none exists yet), so a caller updating only the theme never has to
-    also resupply the runway, the LED flag, the quiet-hours fields,
-    wake_interval_s, or display_enabled.
+    `theme`/`tracked_runway`/`calendar_theme_id` against their registries
+    with an explicit membership test, `led_enabled`/`quiet_hours_enabled`/
+    `display_enabled` with an explicit `isinstance(..., bool)` type check
+    (there is no registry for a boolean), `quiet_hours_start`/
+    `quiet_hours_end` against the `_HHMM_RE` shape gate, `wake_interval_s`
+    against the bounded-int gate (`isinstance(value, int) and not
+    isinstance(value, bool)`, then `[WAKE_INTERVAL_MIN_S,
+    WAKE_INTERVAL_MAX_S]` inclusive), and `theme_arriving` against a
+    three-state contract described below. An unknown/wrong-typed value
+    raises `ValueError` naming both the bounds (for `wake_interval_s`) or the
+    registry (for the others) and the rejected value - and leaves any
+    pre-existing file byte-identical (T-06-01-01/T-06-01-06). A value left
+    `None` is carried over unchanged from the current on-disk config
+    (falling back to the documented defaults if none exists yet), so a
+    caller updating only the theme never has to also resupply the runway,
+    the LED flag, the quiet-hours fields, wake_interval_s, display_enabled,
+    or calendar_theme_id.
 
     Because `None` means "not supplied / carry forward" for every field,
     there is no way to clear an already-set `wake_interval_s` back to unset
     through this function - that is the resolution of 11-RESEARCH.md's Open
     Question 2 (an empty numeric input means "leave unchanged", never
-    "reject the save"), not an oversight.
+    "reject the save"), not an oversight. `calendar_theme_id` (phase 16 plan
+    02) takes the identical resolution and for the identical reason:
+    `theme_arriving` needed `CLEAR_THEME_ARRIVING` because its UI is a
+    checkbox plus a grid, and the checkbox is the only signal that
+    distinguishes "set" from "clear". The Calendar section
+    (16-UI-SPEC.md § Section Anatomy) has no checkbox - just a `required`,
+    always-rendered `<select name="calendar_theme_id">` - so there is no
+    "clear" UI state to model, and this key keeps `None`'s single existing
+    meaning of "not supplied, carry forward", the same resolution
+    `wake_interval_s` already has.
 
     `theme_arriving` (D-04/D-05) is the one field with a genuinely different,
     three-state argument contract, because it must be clearable from the
     Settings form (an unchecked arrivals-theme-override checkbox) in a way
-    `wake_interval_s` deliberately is not:
+    `wake_interval_s` and `calendar_theme_id` deliberately are not:
       - `None` (the default): not supplied, carry the current on-disk value
         forward - the same meaning `None` has for every other field here.
       - `CLEAR_THEME_ARRIVING` (a distinct module-level sentinel, compared by
@@ -662,6 +710,8 @@ def save_device_config(
         raise ValueError("unknown theme id %r (expected one of %r)" % (theme, THEME_IDS))
     if theme_arriving is not None and theme_arriving is not CLEAR_THEME_ARRIVING and theme_arriving not in THEMES:
         raise ValueError("unknown theme_arriving id %r (expected None, CLEAR_THEME_ARRIVING, or one of %r)" % (theme_arriving, THEME_IDS))
+    if calendar_theme_id is not None and calendar_theme_id not in THEMES:
+        raise ValueError("unknown calendar_theme_id %r (expected None or one of %r)" % (calendar_theme_id, THEME_IDS))
     if tracked_runway is not None and tracked_runway not in RUNWAYS:
         raise ValueError("unknown tracked_runway id %r (expected one of %r)" % (tracked_runway, RUNWAY_IDS))
     if led_enabled is not None and not isinstance(led_enabled, bool):
@@ -700,6 +750,7 @@ def save_device_config(
     new_config = {
         "theme": theme if theme is not None else current["theme"],
         "theme_arriving": new_theme_arriving,
+        "calendar_theme_id": calendar_theme_id if calendar_theme_id is not None else current["calendar_theme_id"],
         "tracked_runway": tracked_runway if tracked_runway is not None else current["tracked_runway"],
         "led_enabled": led_enabled if led_enabled is not None else current["led_enabled"],
         "quiet_hours_enabled": quiet_hours_enabled if quiet_hours_enabled is not None else current["quiet_hours_enabled"],
