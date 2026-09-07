@@ -12,12 +12,14 @@ match function comparing a detected, enriched flight against that registry
 every constant and compiled allowlist the rest of the phase's plans share.
 
 **Leaf-import contract (copied, adapted, from `server/plane/colour_rules.py`'s
-own docstring):** this module imports stdlib only today (`re`, `sys`,
-`datetime`/`timezone`); plan 16-03 adds `os`, `json` and `threading` for
-the registry file contract, and plan 16-04 adds `requests` for the fetch.
-It must NEVER import `server.plane.colour_rules`, `server.plane.enrich`,
-`server.plane.detect`, `server.plane.illustrations`,
-`server.plane.manual_resolutions`, or `server.plane.render`.
+own docstring):** this module imports stdlib only (`re`, `sys`, `os`,
+`json`, `threading`, `ipaddress`, `socket`, `urllib.parse`,
+`datetime`/`timezone`) plus `requests` — already a pinned dependency used
+by `detect.py` and `enrich.py`, so this plan's fetch step adds no new
+entry to `server/requirements.txt`. It must NEVER import
+`server.plane.colour_rules`, `server.plane.enrich`, `server.plane.detect`,
+`server.plane.illustrations`, `server.plane.manual_resolutions`, or
+`server.plane.render`.
 
 The `colour_rules` direction specifically is forbidden for a reason beyond
 the general leaf-layering discipline every other name in that list already
@@ -48,14 +50,31 @@ or a description. D-03's rolling window (plan 16-03) is what bounds how
 long that minimum is retained; this plan's job is to make sure the minimum
 itself is never exceeded even before a registry exists to expire it from.
 """
+import ipaddress
 import json
 import os
 import re
+import socket
 import sys
 import threading
 from datetime import datetime, timezone
+from urllib.parse import urljoin, urlparse
+
+import requests
 
 # --- Constants -------------------------------------------------------------
+
+# Self-identification for the one outbound call this module makes, in
+# detect.py's/enrich.py's own shape (detect.py:72-76, enrich.py's
+# USER_AGENT). A calendar provider is not a rate-limited public service
+# the way the ADS-B aggregators are, but naming this traffic honestly
+# costs nothing and matches the codebase's one existing convention for
+# every outbound request.
+USER_AGENT = (
+    "skypane-server/0.1 "
+    "(hobby project, Phase 16 calendar-linked flight highlighting; "
+    "see server/README.md for what this traffic is)"
+)
 
 # The registry's on-disk filename, mirroring COLOUR_RULES_FILENAME /
 # MANUAL_RESOLUTIONS_FILENAME's naming convention. Not read by any code
@@ -83,8 +102,9 @@ CALENDAR_FETCH_INTERVAL_S = 1800
 CALENDAR_FETCH_TIMEOUT_S = 10.0
 
 # Hard response-size cap enforced by streaming, never by trusting a
-# Content-Length header (plan 16-04, T-16-DOS). 2 MiB comfortably exceeds
-# any plausible multi-month roster export.
+# response's own declared-length header (plan 16-04, T-16-DOS) - a
+# hostile or misconfigured server can omit, understate or exceed it.
+# 2 MiB comfortably exceeds any plausible multi-month roster export.
 CALENDAR_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
 # Bounded redirect-following (plan 16-04); each hop is re-validated against
@@ -788,3 +808,229 @@ def select_window_entries(entries, now):
 
     kept.sort(key=lambda entry: entry["start_at"])
     return kept[:CALENDAR_MAX_ENTRIES]
+
+
+# --- Bounded, SSRF-hardened fetch (plan 16-04, T-16-SSRF/T-16-DOS/T-16-SECRET) ----
+#
+# This is the project's first outbound request to a host the operator (not
+# the developer) chose, and the calendar URL it fetches is this project's
+# first runtime secret held outside companion/auth.py. Four independent
+# bounds apply together, none sufficient alone: the resolved address must
+# be public (checked on every redirect hop, not only the configured URL),
+# the response body is capped while it is streamed, the request carries a
+# hard timeout, and the redirect hop count is bounded. See
+# 16-RESEARCH.md's "Bounded, IP-validated fetch skeleton" for the vetted
+# shape this implements, and Pitfall 4 there for why this module's own
+# exception-logging discipline deliberately diverges from detect.py's
+# neighbouring caller-catch idiom (detect.py:950-958's
+# "%s: %s" % (type(exc).__name__, exc) interpolates the exception object
+# itself - several requests.exceptions.* subclasses embed the request URL,
+# which here carries the calendar subscription token, in their default
+# __str__()).
+
+
+def _address_is_public(ip_text):
+    """Return `True` when `ip_text` parses as a public unicast address,
+    `False` otherwise - including when it fails to parse at all.
+
+    Deliberately delegates range classification to the standard library
+    (`ipaddress`) rather than hand-rolling CIDR arithmetic (16-RESEARCH.md's
+    own "Don't Hand-Roll" guidance): `ipaddress.ip_address()` covers both
+    IPv4 and IPv6 through the same call, and its `is_private`/`is_loopback`/
+    `is_link_local`/`is_reserved`/`is_multicast`/`is_unspecified` properties
+    are the audited, spec-following source of truth this project has no
+    reason to reimplement. Returns `False` rather than raising on an
+    unparseable value - an address this function cannot classify is treated
+    as unsafe, never as safe-by-default.
+    """
+    try:
+        address = ipaddress.ip_address(ip_text)
+    except (ValueError, TypeError):
+        return False
+    if (address.is_private or address.is_loopback or address.is_link_local
+            or address.is_reserved or address.is_multicast
+            or address.is_unspecified):
+        return False
+    return True
+
+
+def _host_is_safe(hostname, port=None):
+    """Return `True` only when EVERY address `hostname` resolves to is a
+    public unicast address; `False` on a resolution failure or if even one
+    resolved address is not public.
+
+    This function exists in this exact shape - resolve first, then check
+    every returned address - because checking the hostname *string* against
+    a blocklist and stopping there is defeated by DNS rebinding: the
+    hostname can resolve to a public address at validation time and a
+    private one at connection time, since nothing pins the two moments to
+    the same answer. The addresses the resolver actually returns are
+    therefore what must be checked, and a single private answer among
+    several public ones is enough to refuse the whole hostname - accepting
+    it on the strength of the public ones would let an attacker publish one
+    good answer and one bad one and rely on the caller connecting to
+    whichever happened to be tried.
+
+    Never raises: a resolution failure (`socket.gaierror`), an unparseable
+    hostname, or any other resolver error all return `False`.
+    """
+    try:
+        infos = socket.getaddrinfo(hostname, port)
+    except (socket.gaierror, UnicodeError, OSError):
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        sockaddr = info[4]
+        address_text = sockaddr[0]
+        if not _address_is_public(address_text):
+            return False
+    return True
+
+
+def _url_is_safe(url):
+    """Return `True` only when `url`'s scheme is exactly `https`, it has a
+    hostname, and `_host_is_safe()` accepts every address that hostname
+    resolves to. Never raises - a URL `urlparse()` itself cannot make sense
+    of is refused, not guessed at.
+    """
+    try:
+        parsed = urlparse(url)
+    except (ValueError, TypeError):
+        return False
+    if parsed.scheme != "https":
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        port = parsed.port
+    except ValueError:
+        return False
+    return _host_is_safe(hostname, port)
+
+
+def default_calendar_transport(url, timeout):
+    """Thin `requests.get()` wrapper, `enrich.default_transport()`'s exact
+    shape: GET `url` with the module's `USER_AGENT`, `timeout`, streaming
+    enabled and automatic redirect following disabled, returning the
+    response object unread.
+
+    `fetch_ics()`'s injectable `transport` parameter exists specifically so
+    tests can replace this with a hermetic fake that replays a scripted
+    response instead of making a live network call - see
+    server/test_calendar_rules.py. Redirects are disabled here, not left to
+    `requests`, because `fetch_ics()` must re-validate each `Location`
+    target through `_url_is_safe()` before ever following it (T-16-SSRF) -
+    something `requests`'s own automatic redirect handling has no hook for.
+    """
+    return requests.get(
+        url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=timeout,
+        stream=True,
+        allow_redirects=False,
+    )
+
+
+def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=None):
+    """Fetch `url` and return its decoded body text, or `None` on any
+    refusal or failure. Never raises.
+
+    Four independent bounds are applied together, each insufficient alone:
+    the scheme must be `https` and every resolved address must be public
+    (checked via `_url_is_safe()`, re-applied to `url` on every redirect
+    hop, not only the first); the response is read in chunks with a
+    running byte count, aborting the instant it exceeds `max_bytes` -
+    never by trusting a response's own declared-length header, which a
+    hostile or misconfigured server can omit, understate or exceed; the
+    request carries `timeout` seconds; and following at most
+    `max_redirects` redirect hops, past
+    which this function gives up rather than looping. All four default
+    from this module's own constants (`CALENDAR_FETCH_TIMEOUT_S`,
+    `CALENDAR_MAX_REDIRECTS`, `CALENDAR_MAX_RESPONSE_BYTES`) when not
+    supplied.
+
+    Redirects are never followed automatically (`default_calendar_transport()`
+    disables it): a redirect response's `Location` target becomes the next
+    loop iteration's URL, sent back through the identical `_url_is_safe()`
+    gate before it is ever requested - a target that fails it is refused,
+    exactly like the original URL. A relative `Location` is resolved
+    against the current URL first. A redirect with no `Location` header, a
+    non-200 final status, and an oversized streamed body all return `None`.
+
+    Logging discipline (T-16-SECRET, this task's headline acceptance
+    criterion): the only failure path in this function that logs at all is
+    the transport-exception catch below, and it logs `type(exc).__name__`
+    plus a fixed, hand-written description - never `exc` itself
+    interpolated, because several `requests.exceptions.*` subclasses embed
+    the request URL (which carries the calendar's access token) in their
+    default string form, and `journalctl -u skypane-poll` is readable by
+    anyone with VPS access. Nothing printed on any path in this function -
+    including the success path - ever contains the URL, its host, its
+    path, or its query. This continues a rule this project already states
+    for its one other runtime secret (`poll_loop.py`'s own docstring:
+    never log a bearer token or the BYOS setup secret), not a new one.
+    """
+    if timeout is None:
+        timeout = CALENDAR_FETCH_TIMEOUT_S
+    if max_redirects is None:
+        max_redirects = CALENDAR_MAX_REDIRECTS
+    if max_bytes is None:
+        max_bytes = CALENDAR_MAX_RESPONSE_BYTES
+    if transport is None:
+        transport = default_calendar_transport
+
+    current_url = url
+    for _ in range(max_redirects + 1):
+        if not _url_is_safe(current_url):
+            return None
+
+        try:
+            response = transport(current_url, timeout)
+        except (requests.RequestException, ValueError) as exc:
+            # Deliberate divergence from detect.py:950-958's caller-catch
+            # idiom, which does "%s: %s" % (type(exc).__name__, exc) - see
+            # this function's own docstring and Pitfall 4 in
+            # 16-RESEARCH.md. Log the exception TYPE only, never `exc`
+            # itself, and never the URL.
+            print(
+                "calendar_rules: fetch_ics() transport call failed: %s"
+                % type(exc).__name__,
+                file=sys.stderr,
+            )
+            return None
+
+        if getattr(response, "is_redirect", False):
+            location = response.headers.get("Location")
+            response.close()
+            if not location:
+                return None
+            current_url = urljoin(current_url, location)
+            continue
+
+        if response.status_code != 200:
+            response.close()
+            return None
+
+        chunks = []
+        total = 0
+        try:
+            for chunk in response.iter_content(chunk_size=8192):
+                total += len(chunk)
+                if total > max_bytes:
+                    response.close()
+                    return None
+                chunks.append(chunk)
+        except (requests.RequestException, ValueError) as exc:
+            print(
+                "calendar_rules: fetch_ics() reading the response body failed: %s"
+                % type(exc).__name__,
+                file=sys.stderr,
+            )
+            return None
+        response.close()
+        return b"".join(chunks).decode("utf-8", errors="replace")
+
+    # Too many redirect hops - give up rather than loop.
+    return None
