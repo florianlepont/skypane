@@ -41,7 +41,15 @@ if REPO_ROOT not in sys.path:
 # hand-written hostile-value degrade proof, the pre-Phase-14 no-migration
 # proof, and the full three-state write contract - set / carry-forward-on-
 # omission / CLEAR_THEME_ARRIVING-clears / non-member-value-rejects)
-EXPECTED_CHECK_COUNT = 54
+# 16-02: 54 -> 60, +6 (calendar_theme_id: absent-key-defaults-to-None
+# covering both a missing state dir and a config saved before the key
+# existed, a registered-id round-trip, the T-16-TAMPER hand-written
+# hostile-value degrade proof across seven hostile shapes - explicitly
+# never DEFAULT_THEME_ID, the write-gate non-member rejection leaving the
+# file byte-identical, carry-forward in both directions against every
+# sibling field, and independence from theme_arriving under CLEAR_THEME_
+# ARRIVING - re-derived by running the harness, not by arithmetic)
+EXPECTED_CHECK_COUNT = 60
 
 
 def _caddy_log_line(uri, ts, headers):
@@ -89,7 +97,7 @@ def main():
         try:
             missing = os.path.join(tmpdir, "does-not-exist")
             config = device_config.load_device_config(missing)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
                 return False, "expected defaults, got %r" % (config,)
             return True, ""
         finally:
@@ -105,7 +113,7 @@ def main():
                 with open(path, "w") as fh:
                     fh.write(bad_content)
                 config = device_config.load_device_config(tmpdir)
-                if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+                if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
                     return False, "content %r produced %r, expected defaults" % (bad_content, config)
             return True, ""
         finally:
@@ -120,7 +128,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
                 return False, "hostile input produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -133,7 +141,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -182,7 +190,7 @@ def main():
             with open(path, "w") as fh:
                 fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
                 return False, "hand-edited hostile file produced %r, expected defaults for both keys" % (config,)
             return True, ""
         finally:
@@ -214,7 +222,7 @@ def main():
         try:
             device_config.save_device_config(tmpdir, led_enabled=False)
             config = device_config.load_device_config(tmpdir)
-            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True}:
+            if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None}:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
         finally:
@@ -612,7 +620,7 @@ def main():
             if config != {
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
-                "wake_interval_s": None, "display_enabled": True,
+                "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None,
             }:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
@@ -810,7 +818,7 @@ def main():
             if config != {
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-                "wake_interval_s": 120, "display_enabled": True,
+                "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None,
             }:
                 return False, "round-trip produced %r" % (config,)
             return True, ""
@@ -1087,7 +1095,7 @@ def main():
             if config != {
                 "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
                 "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
-                "wake_interval_s": None, "display_enabled": False,
+                "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None,
             }:
                 return False, "round-trip produced %r" % (config,)
             device_config.save_device_config(tmpdir, theme="black")
@@ -1131,6 +1139,188 @@ def main():
     check(
         "save_device_config() rejects display_enabled='on', 0, 1, 'false', and [] with ValueError and leaves a pre-existing, legitimately-saved file byte-identical across every rejection (display_enabled=None is not a rejection case - it means carry forward)",
         _save_display_enabled_rejects_non_bool_and_leaves_file_byte_identical,
+    )
+
+    # --- calendar_theme_id (16-02, T-16-TAMPER) -----------------------------
+    #
+    # calendar_theme_id behaves like theme_arriving on READ - a hostile or
+    # unrecognised value degrades to None, never to DEFAULT_THEME_ID - and
+    # like wake_interval_s on WRITE - None always means "not supplied, carry
+    # forward", with deliberately no CLEAR_THEME_ARRIVING-style sentinel,
+    # because the Calendar section's <select> has no enable/disable
+    # checkbox (16-UI-SPEC.md Section Anatomy).
+
+    def _calendar_theme_id_absent_key_defaults_to_none():
+        # A pre-existing deployed config - either no file at all, or one
+        # written by a save_device_config() call that never mentions
+        # calendar_theme_id - must both resolve to None. A failure here
+        # means an already-deployed device_config.json broke.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            missing = os.path.join(tmpdir, "does-not-exist")
+            config = device_config.load_device_config(missing)
+            if config["calendar_theme_id"] is not None:
+                return False, "a missing state dir produced calendar_theme_id=%r, expected None" % (config["calendar_theme_id"],)
+
+            device_config.save_device_config(tmpdir, theme="black")
+            config = device_config.load_device_config(tmpdir)
+            if config["calendar_theme_id"] is not None:
+                return False, "a saved config that never mentioned calendar_theme_id produced %r, expected None - a pre-existing deployed config would break" % (config["calendar_theme_id"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "load_device_config() resolves calendar_theme_id to None both for a missing state dir and for a config saved before this key was ever supplied - a pre-existing deployed config must not break",
+        _calendar_theme_id_absent_key_defaults_to_none,
+    )
+
+    def _calendar_theme_id_round_trips():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            good = device_config.THEME_IDS[-1]
+            device_config.save_device_config(tmpdir, calendar_theme_id=good)
+            config = device_config.load_device_config(tmpdir)
+            if config["calendar_theme_id"] != good:
+                return False, "save_device_config(calendar_theme_id=%r) did not round-trip, got %r" % (good, config["calendar_theme_id"])
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(calendar_theme_id=<a registered THEME_IDS member>) round-trips through load_device_config() unchanged",
+        _calendar_theme_id_round_trips,
+    )
+
+    def _hand_written_hostile_calendar_theme_id_yields_none_never_default():
+        # T-16-TAMPER: every hostile on-disk shape degrades to None, and
+        # explicitly NOT to DEFAULT_THEME_ID - a future change that copies
+        # normalise_theme_id()'s degrade-to-default shape by mistake for
+        # this key must fail here.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            path = device_config.device_config_path(tmpdir)
+            for bad_json, label in (
+                ('{"calendar_theme_id": "not-a-theme"}', "an unregistered string"),
+                ('{"calendar_theme_id": ""}', "an empty string"),
+                ('{"calendar_theme_id": 7}', "a JSON int"),
+                ('{"calendar_theme_id": true}', "a JSON bool"),
+                ('{"calendar_theme_id": ["white"]}', "a JSON list"),
+                ('{"calendar_theme_id": {"id": "white"}}', "a JSON dict"),
+                ('{"calendar_theme_id": null}', "JSON null"),
+            ):
+                with open(path, "w") as fh:
+                    fh.write(bad_json)
+                config = device_config.load_device_config(tmpdir)
+                if config["calendar_theme_id"] is not None:
+                    return False, "%s produced calendar_theme_id=%r, expected None" % (label, config["calendar_theme_id"])
+                if config["calendar_theme_id"] == device_config.DEFAULT_THEME_ID:
+                    return False, "%s degraded to DEFAULT_THEME_ID instead of None" % (label,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "load_device_config() degrades a hand-written hostile calendar_theme_id (an unregistered string, the empty string, a JSON int, bool, list, dict, or null) to None, provably never to DEFAULT_THEME_ID (T-16-TAMPER)",
+        _hand_written_hostile_calendar_theme_id_yields_none_never_default,
+    )
+
+    def _save_calendar_theme_id_rejects_non_member_byte_identical():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme="black", tracked_runway="3")
+            path = device_config.device_config_path(tmpdir)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            raised = False
+            try:
+                device_config.save_device_config(tmpdir, calendar_theme_id="not-a-theme")
+            except ValueError:
+                raised = True
+            if not raised:
+                return False, "save_device_config(calendar_theme_id='not-a-theme') did not raise ValueError"
+            with open(path, "rb") as fh:
+                after = fh.read()
+            if before != after:
+                return False, "a rejected calendar_theme_id write changed a pre-existing file's bytes"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "save_device_config(calendar_theme_id=<non-member>) raises ValueError and leaves a pre-existing, legitimately-saved file byte-identical",
+        _save_calendar_theme_id_rejects_non_member_byte_identical,
+    )
+
+    def _calendar_theme_id_carries_forward_in_both_directions():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            good = device_config.THEME_IDS[-1]
+
+            # A save that supplies only calendar_theme_id leaves every other
+            # field at its stored value.
+            device_config.save_device_config(
+                tmpdir, theme="black", theme_arriving="red", tracked_runway="02-20",
+                led_enabled=False, quiet_hours_enabled=True, quiet_hours_start="22:00",
+                quiet_hours_end="06:00", wake_interval_s=120, display_enabled=False,
+            )
+            device_config.save_device_config(tmpdir, calendar_theme_id=good)
+            config = device_config.load_device_config(tmpdir)
+            if config["calendar_theme_id"] != good:
+                return False, "calendar_theme_id did not save, got %r" % (config["calendar_theme_id"],)
+            for key, want in (
+                ("theme", "black"), ("theme_arriving", "red"), ("tracked_runway", "02-20"),
+                ("led_enabled", False), ("quiet_hours_enabled", True), ("quiet_hours_start", "22:00"),
+                ("quiet_hours_end", "06:00"), ("wake_interval_s", 120), ("display_enabled", False),
+            ):
+                if config[key] != want:
+                    return False, "a calendar_theme_id-only save disturbed %r: got %r, expected %r" % (key, config[key], want)
+
+            # A save that supplies only theme leaves an already-stored
+            # calendar_theme_id intact.
+            device_config.save_device_config(tmpdir, theme="white")
+            config = device_config.load_device_config(tmpdir)
+            if config["calendar_theme_id"] != good:
+                return False, "a theme-only save did not carry a previously-saved calendar_theme_id forward, got %r" % (config["calendar_theme_id"],)
+            if config["theme"] != "white":
+                return False, "theme did not update to 'white', got %r" % (config["theme"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "a save that supplies only calendar_theme_id leaves theme/theme_arriving/tracked_runway/led_enabled/quiet-hours/wake_interval_s/display_enabled at their stored values, and a save that supplies only theme leaves an already-stored calendar_theme_id intact",
+        _calendar_theme_id_carries_forward_in_both_directions,
+    )
+
+    def _calendar_theme_id_independent_of_theme_arriving():
+        # The two override keys share the same write path (new_config /
+        # save_device_config()) but must not be coupled by it: clearing
+        # theme_arriving via its sentinel must never disturb
+        # calendar_theme_id, and vice versa is implicitly covered by every
+        # other carry-forward check above.
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-history-")
+        try:
+            device_config.save_device_config(tmpdir, theme_arriving="black", calendar_theme_id="red")
+            config = device_config.load_device_config(tmpdir)
+            if config["theme_arriving"] != "black" or config["calendar_theme_id"] != "red":
+                return False, "initial save did not set both keys, got theme_arriving=%r calendar_theme_id=%r" % (
+                    config["theme_arriving"], config["calendar_theme_id"],
+                )
+
+            device_config.save_device_config(tmpdir, theme_arriving=device_config.CLEAR_THEME_ARRIVING)
+            config = device_config.load_device_config(tmpdir)
+            if config["theme_arriving"] is not None:
+                return False, "CLEAR_THEME_ARRIVING did not clear theme_arriving, got %r" % (config["theme_arriving"],)
+            if config["calendar_theme_id"] != "red":
+                return False, "clearing theme_arriving disturbed the unrelated calendar_theme_id, got %r" % (config["calendar_theme_id"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    check(
+        "clearing theme_arriving through CLEAR_THEME_ARRIVING leaves a separately-set calendar_theme_id untouched - the two override keys are not coupled by the shared write path",
+        _calendar_theme_id_independent_of_theme_arriving,
     )
 
     # --- history_db.py ------------------------------------------------------
