@@ -1623,7 +1623,13 @@ def main():
             # mechanical way 15-02 updated its 9 siblings in
             # server/test_config_history.py; the assertion stays an exact-dict
             # comparison rather than being loosened to a subset check.
-            if on_disk != {"theme": "black", "theme_arriving": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": False}:
+            # Phase 16 (16-02): load_device_config() now always returns
+            # calendar_theme_id too, None here because no calendar theme has
+            # been chosen. Same mechanical update as the Phase 15 line above,
+            # and for the same reason — a new always-returned key changes what
+            # this exact-dict comparison must expect. Still an exact-dict
+            # comparison, deliberately not loosened to a subset check.
+            if on_disk != {"theme": "black", "theme_arriving": None, "calendar_theme_id": None, "tracked_runway": "06-24", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": False, "wake_interval_s": None}:
                 return False, "on-disk config does not match the posted values: %r" % (on_disk,)
             return True, ""
         finally:
