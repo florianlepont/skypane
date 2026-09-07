@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 16
-status: "Phase 16 discussed — context captured, ready to plan"
+current_phase: 14
+status: Phase 16 discussed — context captured, ready to plan
 stopped_at: Phase 16 context gathered
-last_updated: "2026-09-07T08:00:10.620Z"
+last_updated: "2026-09-07T09:16:58.252Z"
 last_activity: 2026-09-06
 last_activity_desc: Phase 15 complete
 progress:
@@ -13,7 +13,7 @@ progress:
   completed_phases: 22
   total_plans: 147
   completed_plans: 146
-  percent: 99  # completed_plans/total_plans (146/147), re-derived from ROADMAP.md. state.* keeps writing completed_phases/total_phases here instead — the recurring miscomputation this field is hand-corrected against every session
+  percent: "99  # completed_plans/total_plans (146/147), re-derived from ROADMAP.md. state.* keeps writing completed_phases/total_phases here instead — the recurring miscomputation this field is hand-corrected against every session"
 current_phase_name: calendar-linked-flight-highlighting-a-connected-calendar-sou
 ---
 

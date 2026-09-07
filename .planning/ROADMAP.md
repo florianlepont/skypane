@@ -916,11 +916,24 @@ Plans:
 **Plans:** 7 plans across 5 waves
 
 Plans:
+**Wave 1**
 
 - [ ] 16-01-PLAN.md — Wave 0 items: the redacted CrewWebPlus-shaped `.ics` fixture, the new `server/test_calendar_rules.py` harness with its suite registration, and `calendar_rules.py`'s RFC 5545 subset parser (unfold before split, category filter before date parse, bare-UTC only with a loud rejection otherwise)
 - [ ] 16-02-PLAN.md — `device_config.json`'s optional `calendar_theme_id` key, validated on both the read and the write path, defaulting to `None` rather than a theme
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 16-03-PLAN.md — D-01's separate `{state_dir}/calendar_rules.json` registry with the never-raising/allowlist-revalidating/capped/atomic file contract, D-03's today-plus-48h rolling window rewritten whole, the durable throttle gate, and the two env-var accessors (value vs presence)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 16-04-PLAN.md — the SSRF-hardened bounded fetch (https only, resolved-IP validation re-applied per redirect hop, streamed size cap, hard timeout), secret-safe failure logging, and `refresh_calendar_registry()`
 - [ ] 16-05-PLAN.md — the companion Settings Calendar group: three-state text-only status line, `calendar_theme_id` select, membership-gated POST, and the `skypane.env.example` documentation
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 16-06-PLAN.md — D-04's matcher (airline from `callsign_iata` at runtime, direction-symmetric far end, ±90min window, closest-in-time tiebreak, no match on `airline_only`/`manual`/`miss`) and D-02's additive `calendar_theme_id=` keyword on `resolve_effective_theme_id()`
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
 - [ ] 16-07-PLAN.md — `poll_loop.py` wiring: one throttled refresh per cycle, one match from settled inputs, persisted beside `last_route` and reused by the held branch so Phase 15's both-branches invariant holds by construction
