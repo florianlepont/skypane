@@ -165,3 +165,23 @@ re-promoting it starts from a design conversation, not from a cold seed.
 Phase 15 builds the rule store a roster match will later write into, and
 deliberately reserves nothing for it (D-02). Status unchanged: dormant, for
 the roster half. Trigger for that half: the two answers above, in hand.
+
+**Fully promoted 2026-09-07.** The roster half that stayed dormant above is now
+**Phase 16**, and this seed has no unpromoted content left. Sub-ideas 1 and 2
+shipped as Phase 15 (merged to `main`, PR #54); sub-idea 3 is Phase 16, unblocked
+because both prerequisites named above were satisfied: a real CrewWebPlus iCal
+export was supplied and analysed, and the developer relayed the calendar owner's
+consent. **The framing was generalised at the developer's request to "connect
+your calendar"** — the design names no person, and the crew case is simply its
+first user.
+
+Three measurements taken before promotion correct this file's own guesses, and
+Phase 16's ROADMAP entry is authoritative over the text above wherever they
+disagree: the export is fully structured rather than duty-coded; the scheduled
+flight number cannot be the match key (11% usable for Transavia, versus 100%
+route coverage), so route plus time window is; and the frame sees too few
+movements for this to ever mean "they are flying now" — on the owner's one
+recorded Orly duty day, none of her three flights were among 201 detections.
+That last point was put to the developer, who chose this design regardless.
+Status stays `dormant` until Phase 16 ships, per this project's own convention
+of closing a seed on delivery rather than on promotion.
