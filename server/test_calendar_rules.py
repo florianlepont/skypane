@@ -36,17 +36,32 @@ FIXTURE_ICS = "calendar_crewwebplus_redacted.ics"
 # harness can never silently drift apart.
 FIXTURE_EXPECTED_ENTRIES = 4
 
-# Initial value for this file, introduced by phase 16 plan 01. Re-derived
-# by RUNNING the harness (not by arithmetic), per this repo's own
-# documented discipline (see server/test_colour_rules.py's own
-# EXPECTED_CHECK_COUNT comment). Later plans in this phase raise it as
-# they add checks.
-EXPECTED_CHECK_COUNT = 20
+# Initial value for this file, introduced by phase 16 plan 01 (20 checks,
+# the parser). Re-derived by RUNNING the harness (not by arithmetic), per
+# this repo's own documented discipline (see server/test_colour_rules.py's
+# own EXPECTED_CHECK_COUNT comment). Phase 16 plan 03 raised it to 31,
+# adding the registry (D-01), rolling window and throttle (D-03) checks.
+# Later plans in this phase raise it further as they add checks.
+EXPECTED_CHECK_COUNT = 31
 
 
 def load_fixture_text(name):
     with open(os.path.join(FIXTURES_DIR, name)) as fh:
         return fh.read()
+
+
+def _entry(airline_iata, origin_iata, destination_iata, start_at, end_at):
+    """Build one well-shaped CALENDAR_REGISTRY_KEYS entry for the registry,
+    window and throttle checks below (plan 16-03) - the same five-key
+    shape parse_ics_events() emits.
+    """
+    return {
+        "airline_iata": airline_iata,
+        "origin_iata": origin_iata,
+        "destination_iata": destination_iata,
+        "start_at": start_at,
+        "end_at": end_at,
+    }
 
 
 def main():
@@ -345,6 +360,320 @@ def main():
                 return False, "serialised entries leak schedule text %r: %r" % (forbidden, blob)
         return True, ""
     check("every returned entry has exactly the five expected keys, and the serialised list carries no flight number, UID, or description text", _record_shape_carries_no_schedule_text)
+
+    # --- Phase 16 plan 03: registry (D-01), rolling window and throttle
+    #     (D-03) checks, added below the plan 16-01 parser checks above. ---
+
+    # 21. D-01's headline proof: writing and re-writing a populated
+    #     calendar registry never touches colour_rules.json - not its
+    #     parsed content, not its bytes on disk - and the two registries
+    #     are two distinct files that coexist in the same state dir.
+    def _d01_calendar_never_touches_colour_rules():
+        import hashlib
+        import tempfile
+        import server.plane.colour_rules as colour_rules
+        with tempfile.TemporaryDirectory() as tmp:
+            colour_rules.add_rule(tmp, "prefix", "AFR", "white")
+            before_registry = colour_rules.load_colour_rules(tmp)
+            with open(colour_rules.colour_rules_path(tmp), "rb") as fh:
+                before_hash = hashlib.sha256(fh.read()).hexdigest()
+
+            entries_a = [_entry("XX", "AAA", "ORY", 1.0, 2.0)]
+            entries_b = [
+                _entry("XX", "BBB", "ORY", 3.0, 4.0),
+                _entry("XX", "CCC", "ORY", 5.0, 6.0),
+            ]
+            cr.write_calendar_registry(tmp, entries_a, 10.0, None)
+            cr.write_calendar_registry(tmp, entries_b, 20.0, "2026-09-07T00:00:00+00:00")
+
+            after_registry = colour_rules.load_colour_rules(tmp)
+            with open(colour_rules.colour_rules_path(tmp), "rb") as fh:
+                after_hash = hashlib.sha256(fh.read()).hexdigest()
+
+            if after_registry != before_registry:
+                return False, ("colour_rules.load_colour_rules() output changed after a "
+                                "calendar registry write: an automatic source touched the "
+                                "operator's hand-written rules")
+            if after_hash != before_hash:
+                return False, "colour_rules.json's bytes changed after a calendar registry write"
+            if not os.path.exists(cr.calendar_rules_path(tmp)):
+                return False, "calendar_rules.json was not written"
+            if cr.calendar_rules_path(tmp) == colour_rules.colour_rules_path(tmp):
+                return False, "calendar_rules.json and colour_rules.json resolved to the same path"
+        return True, ""
+    check("D-01: writing and re-writing the calendar registry never touches colour_rules.json's content or bytes, and the two registries are distinct files", _d01_calendar_never_touches_colour_rules)
+
+    # 22. D-03's whole-file rewrite: a second write with a different,
+    #     shorter entry list leaves ONLY that list on disk - never a merge
+    #     with the earlier one.
+    def _d03_whole_file_rewrite_never_merges():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            entries_a = [
+                _entry("XX", "AAA", "ORY", 1.0, 2.0),
+                _entry("XX", "BBB", "ORY", 3.0, 4.0),
+            ]
+            entries_b = [_entry("XX", "CCC", "ORY", 5.0, 6.0)]
+            cr.write_calendar_registry(tmp, entries_a, 100.0, "2026-09-07T00:00:00+00:00")
+            cr.write_calendar_registry(tmp, entries_b, 200.0, "2026-09-07T01:00:00+00:00")
+            loaded = cr.load_calendar_registry(tmp)
+            origins = sorted(e["origin_iata"] for e in loaded["entries"])
+            if origins != ["CCC"]:
+                return False, ("expected only entries_b's entry to survive (no merge with "
+                                "entries_a), got %r" % (origins,))
+        return True, ""
+    check("write_calendar_registry() replaces the whole file - a shorter second write leaves only that list, never a merge with the earlier one", _d03_whole_file_rewrite_never_merges)
+
+    # 23. A successful fetch that legitimately returns nothing empties the
+    #     window rather than leaving yesterday's flights behind, and both
+    #     timestamps are still readable afterwards.
+    def _d03_empty_write_empties_the_window():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            cr.write_calendar_registry(
+                tmp, [_entry("XX", "AAA", "ORY", 1.0, 2.0)], 100.0, "2026-09-07T00:00:00+00:00")
+            cr.write_calendar_registry(tmp, [], 200.0, "2026-09-07T01:00:00+00:00")
+            loaded = cr.load_calendar_registry(tmp)
+            if loaded["entries"] != []:
+                return False, "expected an empty entries list after an empty write, got %r" % (loaded["entries"],)
+            if loaded["last_attempt_at"] != 200.0 or loaded["last_synced_at"] != "2026-09-07T01:00:00+00:00":
+                return False, "timestamps did not survive an empty write: %r" % (loaded,)
+        return True, ""
+    check("write_calendar_registry([]) empties the registry rather than leaving the previous entries behind, with both timestamps still readable", _d03_empty_write_empties_the_window)
+
+    # 24. select_window_entries() keeps an already-landed-earlier-today
+    #     entry, a later-today entry and a 47h-ahead entry; drops one
+    #     ended yesterday and one 49h ahead; returns sorted ascending;
+    #     never mutates its input.
+    def _rolling_window_keeps_and_drops_the_expected_entries():
+        import copy
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+
+        def offset_entry(start_offset_h, duration_h=2):
+            start = now + start_offset_h * 3600
+            return _entry("XX", "AAA", "ORY", start, start + duration_h * 3600)
+
+        ended_yesterday = offset_entry(-30)
+        landed_earlier_today = offset_entry(-8)
+        later_today = offset_entry(2)
+        forty_seven_ahead = offset_entry(47)
+        forty_nine_ahead = offset_entry(49)
+        source = [ended_yesterday, landed_earlier_today, later_today, forty_seven_ahead, forty_nine_ahead]
+        frozen = copy.deepcopy(source)
+
+        kept = cr.select_window_entries(source, now)
+
+        if source != frozen:
+            return False, "select_window_entries() mutated its input list"
+        kept_starts = [e["start_at"] for e in kept]
+        expected_starts = sorted(
+            e["start_at"] for e in (landed_earlier_today, later_today, forty_seven_ahead))
+        if sorted(kept_starts) != expected_starts:
+            return False, ("expected exactly the earlier-today, later-today and 47h-ahead "
+                            "entries, got start_at values %r" % (kept_starts,))
+        if kept_starts != sorted(kept_starts):
+            return False, "select_window_entries() did not return entries sorted ascending by start_at"
+        return True, ""
+    check("select_window_entries() keeps an already-landed-earlier-today entry, a later-today entry and a 47h-ahead entry, drops one ended yesterday and one 49h ahead, sorted ascending, without mutating its input", _rolling_window_keeps_and_drops_the_expected_entries)
+
+    # 25. select_window_entries() excludes a 19th-century junk timestamp
+    #     for any plausible present-day now.
+    def _rolling_window_excludes_nineteenth_century_junk():
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        junk_start = datetime(1899, 12, 30, tzinfo=timezone.utc).timestamp()
+        junk_entry = _entry("XX", "AAA", "ORY", junk_start, junk_start + 3600)
+        kept = cr.select_window_entries([junk_entry], now)
+        if kept != []:
+            return False, "expected the 19th-century entry to be excluded, got %r" % (kept,)
+        return True, ""
+    check("select_window_entries() excludes an entry carrying a 19th-century timestamp for a present-day now", _rolling_window_excludes_nineteenth_century_junk)
+
+    # 26. A file holding more than CALENDAR_MAX_ENTRIES well-formed
+    #     entries loads capped, with a drop-count warning captured from
+    #     stderr.
+    def _load_caps_at_max_entries_with_a_warning():
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            oversized = [
+                _entry("XX", "AAA", "ORY", float(i), float(i) + 1)
+                for i in range(cr.CALENDAR_MAX_ENTRIES + 50)
+            ]
+            with open(cr.calendar_rules_path(tmp), "w") as fh:
+                json.dump({"entries": oversized, "last_attempt_at": None, "last_synced_at": None}, fh)
+            buf = io.StringIO()
+            old_stderr = sys.stderr
+            sys.stderr = buf
+            try:
+                loaded = cr.load_calendar_registry(tmp)
+            finally:
+                sys.stderr = old_stderr
+            if len(loaded["entries"]) != cr.CALENDAR_MAX_ENTRIES:
+                return False, "expected exactly CALENDAR_MAX_ENTRIES entries, got %d" % (len(loaded["entries"]),)
+            if "dropped" not in buf.getvalue():
+                return False, "expected a drop-count warning on stderr, got %r" % (buf.getvalue(),)
+        return True, ""
+    check("load_calendar_registry() on a file holding more than CALENDAR_MAX_ENTRIES well-formed entries returns exactly CALENDAR_MAX_ENTRIES of them and prints a drop-count warning on stderr", _load_caps_at_max_entries_with_a_warning)
+
+    # 27. Every hostile entry shape is dropped: a non-dict, a short dict,
+    #     an over-long dict, a lowercase airport code, a three-character
+    #     airline code, a string timestamp, a boolean timestamp, and an
+    #     inverted time pair all load with zero survivors, raising
+    #     nothing.
+    def _load_drops_every_hostile_entry_shape():
+        import json
+        import tempfile
+        hostile_entries = [
+            "not-a-dict",
+            {"airline_iata": "XX", "origin_iata": "AAA", "destination_iata": "ORY"},
+            {"airline_iata": "XX", "origin_iata": "AAA", "destination_iata": "ORY",
+             "start_at": 1.0, "end_at": 2.0, "extra": "x"},
+            {"airline_iata": "XX", "origin_iata": "aaa", "destination_iata": "ORY",
+             "start_at": 1.0, "end_at": 2.0},
+            {"airline_iata": "XXX", "origin_iata": "AAA", "destination_iata": "ORY",
+             "start_at": 1.0, "end_at": 2.0},
+            {"airline_iata": "XX", "origin_iata": "AAA", "destination_iata": "ORY",
+             "start_at": "1.0", "end_at": 2.0},
+            {"airline_iata": "XX", "origin_iata": "AAA", "destination_iata": "ORY",
+             "start_at": True, "end_at": 2.0},
+            {"airline_iata": "XX", "origin_iata": "AAA", "destination_iata": "ORY",
+             "start_at": 5.0, "end_at": 1.0},
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(cr.calendar_rules_path(tmp), "w") as fh:
+                json.dump({"entries": hostile_entries, "last_attempt_at": None, "last_synced_at": None}, fh)
+            loaded = cr.load_calendar_registry(tmp)
+        if loaded["entries"] != []:
+            return False, "expected zero survivors from eight hostile entry shapes, got %r" % (loaded["entries"],)
+        return True, ""
+    check("load_calendar_registry() drops every one of eight hostile entry shapes (non-dict, short, over-long, lowercase airport, 3-char airline, string timestamp, boolean timestamp, inverted time pair) and raises nothing", _load_drops_every_hostile_entry_shape)
+
+    # 28. Non-JSON bytes, a JSON array, a JSON string, and a dict whose
+    #     entries is an integer all load to the documented empty shape.
+    def _load_degrades_to_empty_shape_for_hostile_files():
+        import json
+        import tempfile
+        empty_shape = {"entries": [], "last_attempt_at": None, "last_synced_at": None}
+        hostile_bodies = [
+            "not json at all",
+            json.dumps([1, 2, 3]),
+            json.dumps("just a string"),
+            json.dumps({"entries": 5}),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = cr.calendar_rules_path(tmp)
+            for body in hostile_bodies:
+                with open(path, "w") as fh:
+                    fh.write(body)
+                loaded = cr.load_calendar_registry(tmp)
+                if loaded != empty_shape:
+                    return False, "load_calendar_registry() on %r returned %r, expected the empty shape" % (body, loaded)
+        return True, ""
+    check("load_calendar_registry() degrades non-JSON bytes, a JSON array, a JSON string, and a dict whose entries is an integer all to the documented empty shape", _load_degrades_to_empty_shape_for_hostile_files)
+
+    # 29. calendar_fetch_is_due() returns the exact expected verdict
+    #     across seven cases: never fetched, just fetched, one second
+    #     before the interval elapses, one second after, a future
+    #     timestamp, a string, and a boolean.
+    def _throttle_exact_verdicts():
+        now = 1000000.0
+        cases = [
+            (None, True, "never fetched"),
+            (now, False, "just fetched"),
+            (now - (cr.CALENDAR_FETCH_INTERVAL_S - 1), False, "one second before the interval elapses"),
+            (now - (cr.CALENDAR_FETCH_INTERVAL_S + 1), True, "one second after the interval elapses"),
+            (now + 500, True, "a future last_attempt_at (clock stepped backwards)"),
+            ("not-a-number", True, "a string last_attempt_at"),
+            (True, True, "a boolean last_attempt_at"),
+        ]
+        for last_attempt_at, expected, label in cases:
+            actual = cr.calendar_fetch_is_due(last_attempt_at, now)
+            if actual is not expected:
+                return False, ("calendar_fetch_is_due(%r, now) for case %r returned %r, "
+                                "expected %r - a broken feed would be contacted on every "
+                                "30-second cycle" % (last_attempt_at, label, actual, expected))
+        return True, ""
+    check("calendar_fetch_is_due() returns the exact expected verdict for never-fetched, just-fetched, one-second-before/-after the interval, a future timestamp, a string, and a boolean - a broken feed must never be contacted on every 30-second cycle", _throttle_exact_verdicts)
+
+    # 30. The two persisted timestamps survive a round trip with their
+    #     distinct types (a number and an ISO string), and
+    #     calendar_fetch_is_due() consults only last_attempt_at: changing
+    #     last_synced_at alone never changes its verdict, changing
+    #     last_attempt_at alone does.
+    def _two_timestamps_are_distinct_in_type_and_role():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            cr.write_calendar_registry(tmp, [], 500.0, "2020-01-01T00:00:00+00:00")
+            loaded = cr.load_calendar_registry(tmp)
+            if not isinstance(loaded["last_attempt_at"], float):
+                return False, "last_attempt_at did not survive the round trip as a float: %r" % (loaded,)
+            if not isinstance(loaded["last_synced_at"], str):
+                return False, "last_synced_at did not survive the round trip as a str: %r" % (loaded,)
+
+            now = 100000.0
+            due_before = cr.calendar_fetch_is_due(loaded["last_attempt_at"], now)
+
+            # Change ONLY last_synced_at - the throttle's verdict must not move.
+            cr.write_calendar_registry(tmp, [], loaded["last_attempt_at"], "2026-09-07T00:00:00+00:00")
+            after_sync_change = cr.load_calendar_registry(tmp)
+            due_after_sync_change = cr.calendar_fetch_is_due(after_sync_change["last_attempt_at"], now)
+            if due_after_sync_change != due_before:
+                return False, "calendar_fetch_is_due()'s verdict changed when only last_synced_at changed"
+
+            # Change ONLY last_attempt_at (to `now` itself) - the verdict MUST move.
+            cr.write_calendar_registry(tmp, [], now, "2026-09-07T00:00:00+00:00")
+            after_attempt_change = cr.load_calendar_registry(tmp)
+            due_after_attempt_change = cr.calendar_fetch_is_due(after_attempt_change["last_attempt_at"], now)
+            if due_after_attempt_change is not False:
+                return False, "expected calendar_fetch_is_due() to report not-due immediately after last_attempt_at was set to now"
+            if due_before is not True:
+                return False, "test setup failure: due_before should have been True (elapsed far exceeds the interval)"
+        return True, ""
+    check("the two persisted timestamps survive a round trip with distinct types (a number and an ISO string), and calendar_fetch_is_due() consults only last_attempt_at - changing last_synced_at alone never changes its verdict, changing last_attempt_at does", _two_timestamps_are_distinct_in_type_and_role)
+
+    # 31. A distinctive token set in the calendar URL environment
+    #     variable appears nowhere in the persisted file's bytes, nowhere
+    #     in the loaded dict's JSON serialisation, and nowhere in
+    #     anything the module printed to stderr during a round trip.
+    def _secret_never_reaches_the_file_or_the_log():
+        import json
+        import tempfile
+        token = "SEKRIT-TOKEN-CONTAINMENT-CHECK"
+        old_value = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://example.invalid/feed.ics?token=%s" % token
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                oversized = [
+                    _entry("XX", "AAA", "ORY", float(i), float(i) + 1)
+                    for i in range(cr.CALENDAR_MAX_ENTRIES + 5)
+                ]
+                buf = io.StringIO()
+                old_stderr = sys.stderr
+                sys.stderr = buf
+                try:
+                    cr.write_calendar_registry(tmp, oversized, 1.0, "2026-09-07T00:00:00+00:00")
+                    loaded = cr.load_calendar_registry(tmp)
+                finally:
+                    sys.stderr = old_stderr
+                captured_stderr = buf.getvalue()
+                with open(cr.calendar_rules_path(tmp)) as fh:
+                    file_bytes = fh.read()
+                serialised = json.dumps(loaded)
+                if token in file_bytes:
+                    return False, "the calendar URL token leaked into calendar_rules.json"
+                if token in serialised:
+                    return False, "the calendar URL token leaked into the loaded dict's serialisation"
+                if token in captured_stderr:
+                    return False, "the calendar URL token leaked into stderr"
+            return True, ""
+        finally:
+            if old_value is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_value
+    check("a distinctive token set in the calendar URL environment variable appears in neither calendar_rules.json's bytes, the loaded dict's serialisation, nor anything printed to stderr during a round trip", _secret_never_reaches_the_file_or_the_log)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
