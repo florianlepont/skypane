@@ -34,8 +34,10 @@ if REPO_ROOT not in sys.path:
 # by RUNNING the harness (not by arithmetic), per this repo's own
 # documented discipline (see the ledger comment above
 # companion/test_status_pages.py's own EXPECTED_CHECK_COUNT and
-# server/test_manual_resolutions.py's own EXPECTED_CHECK_COUNT).
-EXPECTED_CHECK_COUNT = 27
+# server/test_manual_resolutions.py's own EXPECTED_CHECK_COUNT). Phase 16
+# plan 06 raised it to 33, adding D-02's calendar_theme_id precedence,
+# backward-compatibility and tamper checks.
+EXPECTED_CHECK_COUNT = 33
 
 
 def main():
@@ -420,7 +422,7 @@ def main():
 
     # 19-25. D-13 resolver truth table, all seven rows, each its own check
     #        so a failure names which row broke.
-    def _resolver_with(state_dir_registry, state, flight, device_cfg):
+    def _resolver_with(state_dir_registry, state, flight, device_cfg, calendar_theme_id=None):
         try:
             if state_dir_registry is None:
                 c.set_colour_rules_state_dir(None)
@@ -431,7 +433,7 @@ def main():
                     if add_result not in (c.ADD_OK_NEW, c.ADD_OK_REPLACED):
                         raise AssertionError("setup failure: add_rule(%r, %r, %r, %r) returned %r" % (tmp, kind, value, theme_id, add_result))
                 c.set_colour_rules_state_dir(tmp)
-            return c.resolve_effective_theme_id(state, flight, device_cfg)
+            return c.resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=calendar_theme_id)
         finally:
             c.set_colour_rules_state_dir(None)
 
@@ -528,6 +530,102 @@ def main():
             c.set_colour_rules_state_dir(None)
         return True, ""
     check("resolve_effective_theme_id() ignores a cached entry whose theme_id is not a member of device_config.THEMES rather than returning it (T-15-05)", _tampered_cache_theme_id_ignored)
+
+    # --- Plan 16-06: D-02's calendar_theme_id precedence -------------------
+
+    CAL_THEME = "band_red_field"  # distinct from any theme used in the truth table rows above
+    RULE_THEME_FOR_PRECEDENCE = "red"
+    if CAL_THEME not in device_config.THEMES or CAL_THEME == RULE_THEME_FOR_PRECEDENCE:
+        raise AssertionError("test setup invalid: CAL_THEME must be a real, distinct theme id")
+
+    # 28. The headline: a calendar value beats even an exact-callsign rule -
+    #     the narrowest thing an operator can write. A failure here states
+    #     the accepted D-02 consequence out loud.
+    def _calendar_beats_exact_callsign_rule():
+        result = _resolver_with(
+            [("callsign", "AFR1234", RULE_THEME_FOR_PRECEDENCE)], "departing", flight_afr,
+            {"theme": "white"}, calendar_theme_id=CAL_THEME)
+        if result != CAL_THEME:
+            return False, "D-02's accepted consequence is that a calendar match beats even an exact-callsign rule; expected %r, got %r" % (CAL_THEME, result)
+        return True, ""
+    check("resolve_effective_theme_id() D-02: a calendar_theme_id beats even a matching exact-callsign rule (the accepted consequence)", _calendar_beats_exact_callsign_rule)
+
+    # 29. Calendar beats a matching hex rule.
+    def _calendar_beats_hex_rule():
+        result = _resolver_with(
+            [("hex", "39DE4A", RULE_THEME_FOR_PRECEDENCE)], "departing", flight_afr,
+            {"theme": "white"}, calendar_theme_id=CAL_THEME)
+        if result != CAL_THEME:
+            return False, "expected the calendar value to beat a matching hex rule, got %r" % (result,)
+        return True, ""
+    check("resolve_effective_theme_id() D-02: a calendar_theme_id beats a matching hex rule", _calendar_beats_hex_rule)
+
+    # 30. Calendar beats a matching prefix rule.
+    def _calendar_beats_prefix_rule():
+        result = _resolver_with(
+            [("prefix", "AFR", RULE_THEME_FOR_PRECEDENCE)], "departing", flight_afr,
+            {"theme": "white"}, calendar_theme_id=CAL_THEME)
+        if result != CAL_THEME:
+            return False, "expected the calendar value to beat a matching prefix rule, got %r" % (result,)
+        return True, ""
+    check("resolve_effective_theme_id() D-02: a calendar_theme_id beats a matching prefix rule", _calendar_beats_prefix_rule)
+
+    # 31. Calendar beats the arrivals override on an arriving state.
+    def _calendar_beats_arrivals_override():
+        result = _resolver_with(
+            None, "arriving", flight_afr, {"theme": "white", "theme_arriving": RULE_THEME_FOR_PRECEDENCE},
+            calendar_theme_id=CAL_THEME)
+        if result != CAL_THEME:
+            return False, "expected the calendar value to beat the arrivals override, got %r" % (result,)
+        return True, ""
+    check("resolve_effective_theme_id() D-02: a calendar_theme_id beats the arrivals override (theme_arriving) on an arriving state", _calendar_beats_arrivals_override)
+
+    # 32. Backward compatibility: every existing three-positional call
+    #     resolves identically with calendar_theme_id omitted versus passed
+    #     explicitly as None, across a small matrix of rule/override
+    #     configurations.
+    def _backward_compatible_three_positional_call():
+        matrix = [
+            (None, "departing", flight_afr, {"theme": "white"}),
+            (None, "arriving", flight_afr, {"theme": "white", "theme_arriving": "blue"}),
+            (None, "departing", flight_afr, {"theme": "white", "theme_arriving": "blue"}),
+            ([("prefix", "AFR", "red")], "departing", flight_afr, {"theme": "white"}),
+            ([("hex", "39DE4A", "green"), ("prefix", "AFR", "red")], "departing", flight_afr, {"theme": "white"}),
+            ([("callsign", "AFR1234", "blue"), ("hex", "39DE4A", "green")], "departing", flight_afr, {"theme": "white"}),
+            ([("prefix", "AFR", "red")], "arriving", flight_afr, {"theme": "white", "theme_arriving": "blue"}),
+        ]
+        for state_dir_registry, state, flight, device_cfg in matrix:
+            three_arg = _resolver_with(state_dir_registry, state, flight, device_cfg)
+            four_arg_none = _resolver_with(state_dir_registry, state, flight, device_cfg, calendar_theme_id=None)
+            if three_arg != four_arg_none:
+                return False, "state_dir_registry=%r state=%r: three-arg result %r != four-arg (calendar_theme_id=None) result %r" % (
+                    state_dir_registry, state, three_arg, four_arg_none)
+        return True, ""
+    check("resolve_effective_theme_id() is byte-for-byte identical whether calendar_theme_id is omitted or passed explicitly as None, across a matrix of rule/override configurations", _backward_compatible_three_positional_call)
+
+    # 33. Membership on the calendar value (T-16-TAMPER, mirroring this
+    #     file's own tampered-cache check in naming and try/finally
+    #     discipline): a non-member string, an empty string, an integer, a
+    #     boolean, a dict and a list as calendar_theme_id all fall through
+    #     to the matching rule's theme - never the passed value, never a
+    #     short-circuit to the base theme.
+    def _tampered_calendar_theme_id_ignored():
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                add_result = c.add_rule(tmp, "callsign", "AFR1234", RULE_THEME_FOR_PRECEDENCE)
+                if add_result != c.ADD_OK_NEW:
+                    return False, "setup failure: add_rule() returned %r" % (add_result,)
+                c.set_colour_rules_state_dir(tmp)
+                for bad in ("not-a-real-theme", "", 1, True, {}, []):
+                    result = c.resolve_effective_theme_id(
+                        "departing", flight_afr, {"theme": "white"}, calendar_theme_id=bad)
+                    if result != RULE_THEME_FOR_PRECEDENCE:
+                        return False, "calendar_theme_id=%r: expected fall-through to the rule's theme %r, got %r" % (
+                            bad, RULE_THEME_FOR_PRECEDENCE, result)
+        finally:
+            c.set_colour_rules_state_dir(None)
+        return True, ""
+    check("resolve_effective_theme_id() ignores a calendar_theme_id that is not a member of device_config.THEMES, falling through to the matching rule rather than returning it or the base theme (T-16-TAMPER)", _tampered_calendar_theme_id_ignored)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
