@@ -61,6 +61,7 @@ if _REPO_ROOT not in sys.path:
 import server.device_config as device_config
 import server.history_db as history_db
 import server.panel_format as panel_format
+import server.plane.calendar_rules as calendar_rules
 import server.plane.colour_rules as colour_rules
 import server.plane.detect as detect
 import server.plane.enrich as enrich
@@ -748,6 +749,21 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # assignment below for why.
     colour_rules.set_colour_rules_state_dir(state_dir)
 
+    # Phase 16, plan 07: the calendar refresh is its own distinct step, NOT
+    # a fourth entry in the priming block above. The three calls above only
+    # read a small JSON file into a process-wide cache; this one may open a
+    # socket, so folding it silently into that list would misrepresent it
+    # as equally cheap. It is nonetheless safe to call unconditionally at
+    # the top of every cycle because refresh_calendar_registry() makes
+    # three guarantees: no transport call at all when the feature is
+    # unconfigured, none when the throttle interval has not elapsed, and a
+    # single bounded call otherwise - and it never raises. So it can never
+    # delay a render (16-CONTEXT.md's stated requirement). now_s() is
+    # passed as the clock, the same seam every other per-cycle timestamp
+    # decision in this function already uses, so the test harness's fake
+    # clock drives the calendar throttle too.
+    _, calendar_registry = calendar_rules.refresh_calendar_registry(state_dir, now_s())
+
     # CFG-01/CFG-12: read the user's saved theme + tracked runway ONCE per
     # cycle, not once per call site - a mid-cycle save landing between two
     # separate reads is exactly how a panel could end up rendered half in
@@ -760,7 +776,7 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # including the four that display no flight - references this name, in
     # exactly the way `unknown_prefix` and `event_recorded` further down are
     # predefined before any branching, for the identical UnboundLocalError
-    # reason. Do NOT call colour_rules.resolve_effective_theme_id() here:
+    # reason. Do NOT call the colour_rules resolver here:
     # `render_state` and `current_flight` are not settled at this point in
     # the function - `render_state` is not known until
     # runway_config.infer_from_flight() returns a non-None `confirmed_state`,
@@ -770,6 +786,13 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     # raise (both are undefined this early) or, worse if written
     # defensively, silently resolve against the PREVIOUS cycle's stale
     # values (15-RESEARCH.md Pitfall 1).
+    #
+    # Phase 16, plan 07: the identical trap applies to the calendar match,
+    # calendar_rules's match_calendar_theme function - render_state and
+    # current_flight are just as unsettled here, and the match additionally
+    # needs the enriched `route`, which does not exist until
+    # enrich.resolve_route() runs much further down. The match is computed
+    # at the flight-detected branch's resolver call site below, not here.
     effective_theme_id = theme_id
     tracked_runway_id = device_cfg["tracked_runway"]
     # D-04/D-05/D-07 (10-CONTEXT.md): the once-per-cycle quiet-hours
@@ -951,6 +974,17 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
     current_flight = poll_state.get("last_flight")
     current_confirmed_state = poll_state.get("last_confirmed_state")
     current_route = poll_state.get("last_route")
+    # Phase 16, plan 07: the calendar sibling of current_route immediately
+    # above. Both describe the flight that is CURRENTLY on the panel, both
+    # were computed on the cycle that first displayed it, and both are
+    # reused - never recomputed - by the held/repaint branch further down.
+    # Membership-tested against device_config.THEMES here, before it can
+    # reach the resolver, so a hand-edited poll_state.json cannot smuggle
+    # an unregistered theme id onto the panel (T-16-TAMPER).
+    current_calendar_theme_id = poll_state.get("last_calendar_theme_id")
+    if (not isinstance(current_calendar_theme_id, str)
+            or current_calendar_theme_id not in device_config.THEMES):
+        current_calendar_theme_id = None
     previous_flight = poll_state.get("previous_flight")
     previous_confirmed_state = poll_state.get("previous_confirmed_state")
     previous_route = poll_state.get("previous_route")
@@ -1060,6 +1094,13 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             render_state = "empty"
             route_source = "n/a"
             route = None
+            # Phase 16, plan 07: this call site displays no flight, so it
+            # keeps passing the bare base theme (theme_id, not
+            # effective_theme_id) - a calendar match must never reach an
+            # empty state. calendar_theme_id is set to None here purely so
+            # the shared write block below (common to both sub-branches of
+            # this render_state fork) always has a bound value to persist.
+            calendar_theme_id = None
             canvas = render.build_canvas(
                 None, render_state, theme_id=theme_id, runway_id=tracked_runway_id,
                 source_fault=source_fault, battery_low=battery_low,
@@ -1149,7 +1190,22 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
             # `current_route` on a later cycle's battery-icon/source-fault
             # repaint (application point 2, the held branch below), gets the
             # identical effective theme id it got here.
-            effective_theme_id = colour_rules.resolve_effective_theme_id(render_state, current_flight, device_cfg)
+            #
+            # Phase 16, plan 07: this is the phase's SINGLE calendar match
+            # site. It is here, and nowhere else, because this is the first
+            # point in the function where all five of match_calendar_theme's
+            # inputs are settled - the route has been enriched
+            # (enrich.resolve_route() above), the render state is confirmed,
+            # and the flight has survived the pacing/promotion logic. The
+            # held/repaint branch below must NOT call this function again -
+            # it reuses the persisted value read into
+            # current_calendar_theme_id above, for the reason given at that
+            # branch's own call site.
+            calendar_theme_id = calendar_rules.match_calendar_theme(
+                calendar_registry, route, render_state, device_cfg, now_s())
+            effective_theme_id = colour_rules.resolve_effective_theme_id(
+                render_state, current_flight, device_cfg,
+                calendar_theme_id=calendar_theme_id)
             canvas = render.build_canvas(
                 current_flight,
                 render_state,
@@ -1169,6 +1225,11 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
         poll_state["last_flight"] = current_flight
         poll_state["last_confirmed_state"] = confirmed_state
         poll_state["last_route"] = route
+        # Phase 16, plan 07: written on the same lines as last_flight/
+        # last_route immediately above, in the same block, so the stored
+        # calendar value and the stored route can never drift apart and
+        # describe two different aircraft.
+        poll_state["last_calendar_theme_id"] = calendar_theme_id
         poll_state["previous_flight"] = previous_flight
         poll_state["previous_confirmed_state"] = previous_confirmed_state
         poll_state["previous_route"] = previous_route
@@ -1234,7 +1295,26 @@ def run_once(snapshot=None, state_dir=None, geofence=None, caddy_log=None):
                 # source-fault repaint - it must get the IDENTICAL effective
                 # theme id it got on the cycle that first displayed it
                 # (application point 1, the flight-detected branch above).
-                effective_theme_id = colour_rules.resolve_effective_theme_id(render_state, current_flight, device_cfg)
+                #
+                # Phase 16, plan 07: this is the load-bearing decision of
+                # the whole plan, and a future reader must not "fix" it
+                # into a recomputation. calendar_theme_id here is
+                # current_calendar_theme_id - the value READ from
+                # poll_state above, NOT a fresh call to calendar_rules's
+                # match_calendar_theme function. The calendar match
+                # is the first resolver input that is a function of the
+                # clock: recomputing it here would let a repaint that
+                # happens hours after the flight was first displayed fall
+                # outside the calendar entry's own time window and
+                # silently change the panel's colour - exactly the
+                # divergence D-13 and T-15-10 exist to forbid. Reusing the
+                # persisted value makes the both-branches invariant hold BY
+                # CONSTRUCTION, and it is the identical choice this branch
+                # already makes for `current_route`, which it reuses
+                # rather than re-enriching, for the same reason.
+                effective_theme_id = colour_rules.resolve_effective_theme_id(
+                    render_state, current_flight, device_cfg,
+                    calendar_theme_id=current_calendar_theme_id)
                 held_canvas = render.build_canvas(
                     current_flight,
                     render_state,
