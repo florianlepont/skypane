@@ -696,3 +696,95 @@ def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at)
     return True
 
 
+# --- Rolling window and throttle (plan 16-03, D-03) -------------------------
+
+
+def calendar_fetch_is_due(last_attempt_at, now, min_interval_s=None):
+    """May the throttled calendar fetch run on this cycle?
+
+    Written to `poll_loop.advance_is_due()`'s exact shape, because it
+    answers the identical structural question — durable state, not a
+    process timer: `deploy/skypane-poll.service` is `Type=oneshot`, fired
+    fresh by `deploy/skypane-poll.timer` every 30 seconds, so there is no
+    in-process scheduler to hold a next-fetch-due moment across cycles.
+    Every pacing decision in this codebase is therefore arithmetic over a
+    persisted timestamp, and this function is that arithmetic for the
+    calendar fetch.
+
+    Reads only `last_attempt_at`, which updates on **every** fetch
+    attempt whether it succeeded or not — so a permanently unreachable
+    feed is contacted at most once per `min_interval_s` rather than every
+    30 seconds forever. It deliberately does **not** read
+    `last_synced_at`, which updates only on a successful parse and exists
+    solely so the companion's status copy can tell the operator when the
+    feed last actually worked.
+
+    `min_interval_s` defaults to `CALENDAR_FETCH_INTERVAL_S`. Returns
+    `True` when `last_attempt_at` is `None`, is a `bool`, or is not a
+    real number (a fresh or hand-edited state always fetches). Returns
+    `True` when the elapsed time is negative — a clock step backwards
+    must not wedge the feature into never fetching again. This module
+    defines no clock of its own: `now` is always passed in, keeping
+    `poll_loop.now_s()` the codebase's one replaceable clock seam.
+    """
+    if min_interval_s is None:
+        min_interval_s = CALENDAR_FETCH_INTERVAL_S
+    if (last_attempt_at is None
+            or isinstance(last_attempt_at, bool)
+            or not isinstance(last_attempt_at, (int, float))):
+        return True
+    elapsed = now - last_attempt_at
+    if elapsed < 0:
+        return True
+    return elapsed >= min_interval_s
+
+
+def select_window_entries(entries, now):
+    """Reduce `entries` to D-03's rolling window: the start of the current
+    UTC day through `now + CALENDAR_WINDOW_FORWARD_S`. Returns a new
+    list, sorted ascending by `start_at`, capped at `CALENDAR_MAX_ENTRIES`;
+    never mutates `entries`. Never raises — a malformed entry is skipped,
+    not propagated.
+
+    The window width is this phase's resolution of a Claude's-Discretion
+    point: D-03 specifies today plus 24 to 48 hours forward and leaves
+    the exact width open. `CALENDAR_WINDOW_FORWARD_S` (48h) is that
+    range's stated upper bound, which is what makes a roster published
+    the evening before a two-sector day still useful. The back edge is
+    the literal start of the current UTC day rather than an invented
+    look-back, so the rule matches D-03's own words exactly.
+
+    Safety property that makes the back edge correct rather than merely
+    literal: the day-start edge is always further back than
+    `CALENDAR_MATCH_TOLERANCE_S` (a UTC day is at least 23 hours; the
+    match tolerance is 90 minutes), so no entry is ever dropped from the
+    window while `match_calendar_theme()` (plan 16-06) would still
+    consider it in range.
+
+    Privacy clause: a narrower window is strictly better here, because
+    this file holds a named person's near-term work schedule on a VPS,
+    and D-03 rejected mirroring the whole feed for exactly that reason.
+    """
+    if not isinstance(entries, list):
+        return []
+
+    try:
+        now_dt = datetime.fromtimestamp(now, tz=timezone.utc)
+        day_start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    except (OverflowError, OSError, ValueError, TypeError):
+        return []
+    forward_edge = now + CALENDAR_WINDOW_FORWARD_S
+
+    kept = []
+    for entry in entries:
+        normalised = _normalise_calendar_entry(entry)
+        if normalised is None:
+            continue
+        if normalised["end_at"] < day_start:
+            continue
+        if normalised["start_at"] > forward_edge:
+            continue
+        kept.append(normalised)
+
+    kept.sort(key=lambda entry: entry["start_at"])
+    return kept[:CALENDAR_MAX_ENTRIES]
