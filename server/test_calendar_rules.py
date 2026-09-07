@@ -43,8 +43,11 @@ FIXTURE_EXPECTED_ENTRIES = 4
 # own EXPECTED_CHECK_COUNT comment). Phase 16 plan 03 raised it to 31,
 # adding the registry (D-01), rolling window and throttle (D-03) checks.
 # Phase 16 plan 04 raised it to 55, adding the fetch-hardening,
-# secret-leak-containment and refresh-orchestration checks below.
-EXPECTED_CHECK_COUNT = 55
+# secret-leak-containment and refresh-orchestration checks below. Phase 16
+# plan 06 raised it to 74, adding match_calendar_theme()'s truth table,
+# direction-symmetry, runtime-derived-airline, route-shape-narrowing,
+# fixture-driven ambiguity and never-raises checks.
+EXPECTED_CHECK_COUNT = 74
 
 # A real public unicast IPv4 address (no DNS lookup needed - urlparse()
 # already sees a literal IP as the hostname, and socket.getaddrinfo()
@@ -1259,6 +1262,280 @@ def main():
             else:
                 os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
     check("refresh_calendar_registry() never raises - an unwritable state dir, a punctuation body, a raising transport, and a redirect-looping transport all return a result code", _refresh_never_raises)
+
+    # --- Plan 16-06: match_calendar_theme() (D-04 / CORRECTION 1) -----------
+
+    import server.device_config as device_config
+
+    CAL_THEME = device_config.THEME_IDS[-1]
+    CAL_CFG = {"theme": device_config.DEFAULT_THEME_ID, "calendar_theme_id": CAL_THEME}
+    MATCH_NOW = 1789000000.0
+
+    def _route(airline_name, origin_iata, destination_iata, callsign_iata):
+        """A route dict in `enrich._parse_route()`'s exact six-key shape,
+        for the matcher checks below.
+        """
+        return {
+            "airline_name": airline_name,
+            "origin_iata": origin_iata,
+            "origin_city": None,
+            "destination_iata": destination_iata,
+            "destination_city": None,
+            "callsign_iata": callsign_iata,
+        }
+
+    # 56. The correct triple on a departure matches.
+    def _match_truth_table_departure():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        route = _route("Some Airline", "ORY", "AAA", "XX1001")
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW)
+        if result != CAL_THEME:
+            return False, "expected a departure match to return %r, got %r" % (CAL_THEME, result)
+        return True, ""
+    check("match_calendar_theme() matches a departing detection whose route destination, airline and time all agree with an entry", _match_truth_table_departure)
+
+    # 57. The correct triple on an arrival matches.
+    def _match_truth_table_arrival():
+        entries = [_entry("XX", "BBB", "ORY", MATCH_NOW - 7200, MATCH_NOW)]
+        route = _route("Some Airline", "BBB", "ORY", "XX2001")
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.ARRIVING_STATE, CAL_CFG, MATCH_NOW)
+        if result != CAL_THEME:
+            return False, "expected an arrival match to return %r, got %r" % (CAL_THEME, result)
+        return True, ""
+    check("match_calendar_theme() matches an arriving detection whose route origin, airline and time all agree with an entry", _match_truth_table_arrival)
+
+    # 58. Same airline and time, a different far end - no match.
+    def _match_truth_table_different_far_end():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        route = _route("Some Airline", "ORY", "ZZZ", "XX1001")
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW)
+        if result is not None:
+            return False, "expected no match with a different far-end airport, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() does not match when only the far-end airport differs", _match_truth_table_different_far_end)
+
+    # 59. Same far end and time, a different airline - no match.
+    def _match_truth_table_different_airline():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        route = _route("Some Airline", "ORY", "AAA", "YY1001")
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW)
+        if result is not None:
+            return False, "expected no match with a different airline, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() does not match when only the airline differs", _match_truth_table_different_airline)
+
+    # 60. Same airline and far end, time outside the tolerance - no match.
+    def _match_truth_table_time_outside_tolerance():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        route = _route("Some Airline", "ORY", "AAA", "XX1001")
+        outside = MATCH_NOW + cr.CALENDAR_MATCH_TOLERANCE_S + 1
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.DEPARTING_STATE, CAL_CFG, outside)
+        if result is not None:
+            return False, "expected no match just outside the tolerance, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() does not match when the time is just outside CALENDAR_MATCH_TOLERANCE_S", _match_truth_table_time_outside_tolerance)
+
+    # 61. Same airline and far end, time just inside the tolerance - matches.
+    def _match_truth_table_time_inside_tolerance():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        route = _route("Some Airline", "ORY", "AAA", "XX1001")
+        inside = MATCH_NOW + cr.CALENDAR_MATCH_TOLERANCE_S - 1
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.DEPARTING_STATE, CAL_CFG, inside)
+        if result != CAL_THEME:
+            return False, "expected a match just inside the tolerance, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() matches when the time is just inside CALENDAR_MATCH_TOLERANCE_S", _match_truth_table_time_inside_tolerance)
+
+    # 62. Direction symmetry: an arriving detection is never matched
+    #     against an entry's DEPARTURE-side far end. Crafted so the
+    #     documented mutation (make _entry_far_end_iata() return the
+    #     destination for both states) would flip this to a match.
+    def _direction_symmetry_arrival_rejects_departure_side_far_end():
+        entries = [_entry("XX", "CCC", "DDD", MATCH_NOW, MATCH_NOW + 7200)]
+        # route's origin equals the entry's DESTINATION ("DDD") - the wrong
+        # field for an arrival, whose correct far end is the entry's ORIGIN.
+        route = _route("Some Airline", "DDD", "ZZZ", "XX1234")
+        result = cr.match_calendar_theme(
+            {"entries": entries}, route, cr.ARRIVING_STATE, CAL_CFG, MATCH_NOW + 7200)
+        if result is not None:
+            return False, "expected no match: an arrival must compare against the entry's origin, not its destination, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() direction symmetry: an arriving detection is never matched against an entry's departure-side far end", _direction_symmetry_arrival_rejects_departure_side_far_end)
+
+    # 63. Direction symmetry mirror: a departing detection is never
+    #     matched against an entry's ARRIVAL-side far end.
+    def _direction_symmetry_departure_rejects_arrival_side_far_end():
+        entries = [_entry("XX", "EEE", "FFF", MATCH_NOW, MATCH_NOW + 7200)]
+        # route's destination equals the entry's ORIGIN ("EEE") - the wrong
+        # field for a departure, whose correct far end is the entry's
+        # DESTINATION.
+        route = _route("Some Airline", "GGG", "EEE", "XX5678")
+        result = cr.match_calendar_theme(
+            {"entries": entries}, route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW)
+        if result is not None:
+            return False, "expected no match: a departure must compare against the entry's destination, not its origin, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() direction symmetry: a departing detection is never matched against an entry's arrival-side far end", _direction_symmetry_departure_rejects_arrival_side_far_end)
+
+    # 64. The airline half is derived at runtime, not tabulated
+    #     (CORRECTION 1): a two-letter designator this codebase's own
+    #     static tables have never seen still matches. A failure here
+    #     means someone reintroduced a static airline table.
+    def _airline_derived_not_tabulated():
+        entries = [_entry("ZQ", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        route = _route("An Unheard-Of Airline", "ORY", "AAA", "ZQ9999")
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW)
+        if result != CAL_THEME:
+            return False, "expected a match on a designator ('ZQ') no static table could contain, got %r - did someone reintroduce a static airline table?" % (result,)
+        return True, ""
+    check("match_calendar_theme() derives the airline from callsign_iata at runtime - a designator no static table could contain still matches (CORRECTION 1)", _airline_derived_not_tabulated)
+
+    # 65. The production bug this narrowing prevents: an airline_only-shaped
+    #     route (all three IATA fields None) never matches, however perfect
+    #     the entries and time.
+    def _airline_only_shaped_route_never_matches():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        airline_only_route = {
+            "airline_name": "Some Airline", "origin_iata": None, "origin_city": None,
+            "destination_iata": None, "destination_city": None, "callsign_iata": None,
+        }
+        result = cr.match_calendar_theme({"entries": entries}, airline_only_route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW)
+        if result is not None:
+            return False, "an airline_only-shaped route must never match, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() never matches an airline_only-shaped route (the production bug the field-presence test prevents)", _airline_only_shaped_route_never_matches)
+
+    # 66. The same shape, a different provenance (a "manual" enrichment
+    #     result) - assert both, since the point is that the SHAPE is what
+    #     matters, not the source label.
+    def _manual_shaped_route_never_matches():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        manual_route = {
+            "airline_name": "Some Airline (manually resolved)", "origin_iata": None,
+            "origin_city": None, "destination_iata": None, "destination_city": None,
+            "callsign_iata": None,
+        }
+        result = cr.match_calendar_theme({"entries": entries}, manual_route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW)
+        if result is not None:
+            return False, "a manual-shaped route must never match, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() never matches a manual-shaped route - the same shape as airline_only, a different provenance", _manual_shaped_route_never_matches)
+
+    # 67. The miss case: a None route never matches.
+    def _none_route_never_matches():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        result = cr.match_calendar_theme({"entries": entries}, None, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW)
+        if result is not None:
+            return False, "a None route (a miss) must never match, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() never matches a None route (the miss case)", _none_route_never_matches)
+
+    # 68-71. Ambiguity (16-VALIDATION matcher row 3), using the committed
+    #        fixture's own same-route pair (XX2001/XX2002, both BBB-ORY
+    #        arrivals roughly 8.5h apart) parsed through parse_ics_events()
+    #        - never a hand-built pair.
+    fixture_entries = cr.parse_ics_events(load_fixture_text(FIXTURE_ICS))
+    bbb_ory_entries = [
+        e for e in fixture_entries
+        if e["origin_iata"] == "BBB" and e["destination_iata"] == "ORY"
+    ]
+    if len(bbb_ory_entries) != 2:
+        check("FIXTURE_ICS setup: exactly two BBB-ORY entries exist for the ambiguity checks", lambda: (False, "expected 2, found %d: %r" % (len(bbb_ory_entries), bbb_ory_entries)))
+    else:
+        bbb_ory_entries.sort(key=lambda e: e["end_at"])
+        near_entry, far_entry = bbb_ory_entries[0], bbb_ory_entries[1]
+        ambiguity_route = _route("Some Airline", "BBB", "ORY", "XX9999")
+
+        def _ambiguity_near_first():
+            now = near_entry["end_at"] + 1000
+            result = cr.match_calendar_theme({"entries": bbb_ory_entries}, ambiguity_route, cr.ARRIVING_STATE, CAL_CFG, now)
+            if result != CAL_THEME:
+                return False, "expected a match near the fixture's first same-route entry, got %r" % (result,)
+            return True, ""
+        check("match_calendar_theme() matches a detection near the fixture's own first same-route (BBB-ORY) entry", _ambiguity_near_first)
+
+        def _ambiguity_near_second():
+            now = far_entry["end_at"] - 1000
+            result = cr.match_calendar_theme({"entries": bbb_ory_entries}, ambiguity_route, cr.ARRIVING_STATE, CAL_CFG, now)
+            if result != CAL_THEME:
+                return False, "expected a match near the fixture's second same-route entry, got %r" % (result,)
+            return True, ""
+        check("match_calendar_theme() matches a detection near the fixture's own second same-route (BBB-ORY) entry", _ambiguity_near_second)
+
+        def _ambiguity_midway_matches_neither():
+            midpoint = (near_entry["end_at"] + far_entry["end_at"]) / 2.0
+            if abs(midpoint - near_entry["end_at"]) <= cr.CALENDAR_MATCH_TOLERANCE_S or \
+                    abs(midpoint - far_entry["end_at"]) <= cr.CALENDAR_MATCH_TOLERANCE_S:
+                return False, "test setup failure: the fixture's pair is not far enough apart for a clean midpoint (gap=%r)" % (far_entry["end_at"] - near_entry["end_at"],)
+            result = cr.match_calendar_theme({"entries": bbb_ory_entries}, ambiguity_route, cr.ARRIVING_STATE, CAL_CFG, midpoint)
+            if result is not None:
+                return False, "expected no match midway between the fixture's pair, outside both tolerances, got %r" % (result,)
+            return True, ""
+        check("match_calendar_theme() matches neither of the fixture's own same-route entries when the detection sits midway, outside both tolerances", _ambiguity_midway_matches_neither)
+
+        def _ambiguity_deterministic_regardless_of_list_order():
+            now = near_entry["end_at"] + 1000
+            forward = cr.match_calendar_theme({"entries": [near_entry, far_entry]}, ambiguity_route, cr.ARRIVING_STATE, CAL_CFG, now)
+            reversed_order = cr.match_calendar_theme({"entries": [far_entry, near_entry]}, ambiguity_route, cr.ARRIVING_STATE, CAL_CFG, now)
+            if forward != reversed_order:
+                return False, "expected the same result regardless of entry list order, got %r vs %r" % (forward, reversed_order)
+            if forward != CAL_THEME:
+                return False, "test setup failure: expected a match in the forward-order case, got %r" % (forward,)
+            return True, ""
+        check("match_calendar_theme() returns the identical result whether the fixture's same-route entries are listed forward or reversed (determinism, not iteration order)", _ambiguity_deterministic_regardless_of_list_order)
+
+    # 72. No calendar_theme_id saved in device_cfg - no match.
+    def _no_calendar_theme_id_saved_yields_no_match():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        route = _route("Some Airline", "ORY", "AAA", "XX1001")
+        cfg = {"theme": device_config.DEFAULT_THEME_ID}
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.DEPARTING_STATE, cfg, MATCH_NOW)
+        if result is not None:
+            return False, "expected no match with no calendar_theme_id saved, got %r" % (result,)
+        return True, ""
+    check("match_calendar_theme() returns no match when device_cfg carries no calendar_theme_id", _no_calendar_theme_id_saved_yields_no_match)
+
+    # 73. A calendar_theme_id that is not a member of device_config.THEMES
+    #     yields no match - this tier's share of T-16-TAMPER. Assert
+    #     explicitly that the unregistered value is never returned.
+    def _tampered_calendar_theme_id_never_returned():
+        entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        route = _route("Some Airline", "ORY", "AAA", "XX1001")
+        cfg = {"theme": device_config.DEFAULT_THEME_ID, "calendar_theme_id": "not-a-real-theme"}
+        result = cr.match_calendar_theme({"entries": entries}, route, cr.DEPARTING_STATE, cfg, MATCH_NOW)
+        if result is not None:
+            return False, "expected the unregistered calendar_theme_id to never be returned, got %r" % (result,)
+        if "not-a-real-theme" in device_config.THEMES:
+            return False, "test setup invalid: 'not-a-real-theme' is somehow a real theme id"
+        return True, ""
+    check("match_calendar_theme() never returns a calendar_theme_id that is not a member of device_config.THEMES (T-16-TAMPER)", _tampered_calendar_theme_id_never_returned)
+
+    # 74. Never raises: a non-dict registry, a non-list entries, entries
+    #     containing a non-dict and a partially-shaped dict, a non-dict
+    #     route, a non-dict device_cfg, a non-numeric now, and a render
+    #     state that is neither confirmed state - each returns None and
+    #     raises nothing.
+    def _matcher_never_raises():
+        good_route = _route("Some Airline", "ORY", "AAA", "XX1001")
+        good_entries = [_entry("XX", "ORY", "AAA", MATCH_NOW, MATCH_NOW + 7200)]
+        cases = [
+            (None, good_route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW),
+            ([], good_route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW),
+            ({"entries": None}, good_route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW),
+            ({"entries": "not a list"}, good_route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW),
+            ({"entries": [None, {}, {"airline_iata": 1}]}, good_route, cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW),
+            ({"entries": good_entries}, "not a dict", cr.DEPARTING_STATE, CAL_CFG, MATCH_NOW),
+            ({"entries": good_entries}, good_route, cr.DEPARTING_STATE, "not a dict", MATCH_NOW),
+            ({"entries": good_entries}, good_route, cr.DEPARTING_STATE, CAL_CFG, "not-a-time"),
+            ({"entries": good_entries}, good_route, "boarding", CAL_CFG, MATCH_NOW),
+        ]
+        for registry, route, render_state, device_cfg, now in cases:
+            result = cr.match_calendar_theme(registry, route, render_state, device_cfg, now)
+            if result is not None:
+                return False, "case %r unexpectedly returned %r instead of None" % (
+                    (registry, route, render_state, device_cfg, now), result)
+        return True, ""
+    check("match_calendar_theme() never raises for a non-dict registry, non-list entries, malformed entries, a non-dict route, a non-dict device_cfg, a non-numeric now, or an unconfirmed render state", _matcher_never_raises)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

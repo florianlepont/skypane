@@ -6,10 +6,15 @@ goes through (D-13).
 This module imports `server.device_config` (for `THEMES` membership
 validation against a persisted or resolved theme id) plus stdlib only. It
 must NEVER import `server.plane.enrich`, `server.plane.detect`,
-`server.plane.illustrations`, `server.plane.manual_resolutions`, or
-`server.plane.render` — `poll_loop.py` already imports all of those plus
-this module, and the reverse direction would make
-`poll_loop -> colour_rules -> X -> poll_loop` a real import cycle (D-13).
+`server.plane.illustrations`, `server.plane.manual_resolutions`,
+`server.plane.render`, or (phase 16) `server.plane.calendar_rules` —
+`poll_loop.py` already imports all of those plus this module, and the
+reverse direction would make `poll_loop -> colour_rules -> X -> poll_loop`
+a real import cycle (D-13). D-02's calendar-beats-manual-rule precedence
+deliberately does not need this module to import `calendar_rules` to get
+that ordering: the calendar's chosen theme id arrives as the plain
+`calendar_theme_id` keyword argument on `resolve_effective_theme_id()`
+below, computed by the caller.
 Its callsign/prefix normalisers therefore deliberately DUPLICATE small
 primitives already defined in `enrich.py` (`normalise_callsign()`) and
 `manual_resolutions.py` (`normalise_prefix()`) rather than import them —
@@ -463,20 +468,38 @@ def _rule_theme_from_cache(cache, kind, key):
     return entry.get("theme_id")
 
 
-def resolve_effective_theme_id(state, flight, device_cfg):
+def resolve_effective_theme_id(state, flight, device_cfg, calendar_theme_id=None):
     """The D-13 resolver — the only function in this phase that decides
     what colour the panel is. Reads `_cached_rules` only; never touches
     disk. Never raises; always returns a member of `device_config.THEMES`.
 
-    Order: exact callsign rule, then hex rule, then prefix rule, then the
-    arrivals override when and only when `state` equals `ARRIVING_STATE`,
-    then `device_cfg["theme"]`.
+    Order (phase 16, D-02): a membership-tested `calendar_theme_id` first,
+    then the exact callsign rule, then hex rule, then prefix rule, then
+    the arrivals override when and only when `state` equals
+    `ARRIVING_STATE`, then `device_cfg["theme"]`.
+
+    D-02's accepted consequence, in the developer's own terms: a calendar
+    match beats even an exact-callsign rule, which is the narrowest thing
+    an operator can write. Someone who deliberately pins one callsign will
+    find a calendar match overriding it. This was raised at decision time
+    and chosen anyway, because a calendar entry designates one specific
+    flight on one specific date, and the point of the feature is that
+    these flights stand out.
+
+    `calendar_theme_id` is computed by the CALLER — `poll_loop.py`, via
+    `calendar_rules.match_calendar_theme()` — and this function neither
+    imports nor knows about the calendar module, which is what preserves
+    its leaf-import contract while still putting the calendar first in
+    the order.
 
     Ordering trap this module cannot enforce on its own: this function
     must be called only where `render_state` and `current_flight` are
     already settled, never hoisted beside `poll_loop`'s top-of-cycle
     config read — plan 15-03 owns that placement.
     """
+    if isinstance(calendar_theme_id, str) and calendar_theme_id in device_config.THEMES:
+        return calendar_theme_id
+
     cache = _cached_rules if isinstance(_cached_rules, dict) else {}
 
     raw_callsign = flight.get("callsign") if isinstance(flight, dict) else None
