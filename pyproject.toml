@@ -44,12 +44,17 @@ select = ["E4", "E7", "E9", "F"]
 ignore = ["E402"]
 
 [tool.coverage.run]
-# Parallel data files: the suite is 15 independent processes
-# (scripts/run-all-tests.sh), each of which needs its own data file before
-# `coverage combine` merges them. Do NOT also set `append` — coverage.py
-# rejects that combination outright ("Can't append to data files in
-# parallel mode"), confirmed live (M2). Parallel mode already gives each
-# process its own file; append is the alternative to it, not a companion.
+# Parallel data files: the suite is 16 independent processes
+# (scripts/run-all-tests.sh / scripts/run_all_tests.py), each of which
+# needs its own data file before `coverage combine` merges them. These
+# processes now run CONCURRENTLY (one worker per CPU by default) rather
+# than sequentially — parallel mode's one-data-file-per-process design is
+# precisely what makes that concurrency safe; a shared single data file
+# written by simultaneous processes would corrupt itself. Do NOT also set
+# `append` — coverage.py rejects that combination outright ("Can't append
+# to data files in parallel mode"), confirmed live (M2). Parallel mode
+# already gives each process its own file; append is the alternative to
+# it, not a companion.
 parallel = true
 
 # Source-scoped to this project's own three code directories so library
