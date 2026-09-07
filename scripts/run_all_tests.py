@@ -3,7 +3,7 @@
 half; scripts/run-all-tests.sh is the thin invocation wrapper CI and README
 both call).
 
-Runs all 16 harnesses under coverage, aggregates the result, and enforces
+Runs all 18 harnesses under coverage, aggregates the result, and enforces
 the coverage threshold configured in pyproject.toml. Plan 04-04's CI
 workflow calls run-all-tests.sh rather than restating the file list, and
 plan 04-05's README tells contributors to run the same thing — one list,
@@ -46,17 +46,21 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
 
-# Canonical 16-file enumeration (M1, measured live during 04-02 planning;
+# Canonical 18-file enumeration (M1, measured live during 04-02 planning;
 # phase 6 added 6 harnesses — see 06-11-PLAN.md Task 3; 06.6.2-01 added
-# companion/test_contrast_check.py). 04-CONTEXT.md's D-07 list is 7 files
+# companion/test_contrast_check.py; phase 13 plan 01 added
+# server/test_manual_resolutions.py; phase 14 plan 01 added
+# server/test_colour_rules.py). 04-CONTEXT.md's D-07 list is 7 files
 # and is known-stale — do NOT "correct" this list back down to match it.
 # This list is the single source of truth CI (04-04) and README.md
 # (04-05) both defer to.
 HARNESSES = [
     "server/test_config_history.py",
+    "server/test_colour_rules.py",
     "server/test_dither.py",
     "server/test_enrich.py",
     "server/test_illustrations.py",
+    "server/test_manual_resolutions.py",
     "server/test_panel_preview.py",
     "server/test_pipeline_e2e.py",
     "server/test_plane_detection.py",
@@ -162,7 +166,7 @@ def main():
     # `parallel = true` — each process below writes its own .coverage.*
     # data file. Do NOT also pass --append here: coverage.py rejects the
     # combination outright ("Can't append to data files in parallel mode"),
-    # and parallel mode is precisely what makes running these 16 processes
+    # and parallel mode is precisely what makes running these 18 processes
     # concurrently safe in the first place.
     env = dict(os.environ)
     if sys.version_info >= (3, 12) and "COVERAGE_CORE" not in os.environ:

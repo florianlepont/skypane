@@ -44,7 +44,7 @@ select = ["E4", "E7", "E9", "F"]
 ignore = ["E402"]
 
 [tool.coverage.run]
-# Parallel data files: the suite is 16 independent processes
+# Parallel data files: the suite is 18 independent processes
 # (scripts/run-all-tests.sh / scripts/run_all_tests.py), each of which
 # needs its own data file before `coverage combine` merges them. These
 # processes now run CONCURRENTLY (one worker per CPU by default) rather

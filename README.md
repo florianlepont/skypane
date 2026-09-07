@@ -92,12 +92,12 @@ This is the **exact same command CI runs** — a green local run means a
 green pipeline. There is no pytest here by design: every
 `server/test_*.py` / `stub-server/test_poll_cycle.py` /
 `companion/test_*.py` harness is a directly-executable, stdlib-only script
-that reports its own check count and exit code (16 harnesses, currently
-911 checks total), aggregated and coverage-gated by the script above.
+that reports its own check count and exit code (18 harnesses, currently
+1085 checks total), aggregated and coverage-gated by the script above.
 Don't arrive expecting to invoke a test collector — run each file, or run
 all of them via the script.
 
-The runner executes all 16 harnesses **concurrently by default** (one
+The runner executes all 18 harnesses **concurrently by default** (one
 worker per CPU) instead of one after another, and still reports every
 harness's failure rather than stopping at the first. Set `JOBS=1` to
 reproduce the old serial behaviour (useful when debugging interleaved

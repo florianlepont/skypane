@@ -124,10 +124,12 @@ status: complete
 
 Each task was committed atomically:
 
-1. **Task 1: Byte-identical hot-loop rewrites** - `c8f8b76` (perf)
-2. **Task 2: Concurrent Python test runner + docs** - `19a7011` (perf)
-3. **Task 3: Workflow hardening** - `f9a16b7` (ci)
-4. **Orchestrator follow-up** - `5c9d4a8` (fix): a harness timeout now kills the whole process group (`start_new_session=True` + `os.killpg`), so the child servers the companion/stub-server harnesses spawn can no longer be orphaned - verified live with `HARNESS_TIMEOUT_S=2` (five harnesses reported as timed out, exit 1, no surviving child process, no `.coverage*` leftovers); `_illustration_cache` bounded at 128 entries; dead `table_lines` block removed; two comment corrections (panel_format.py's length assert guards dimensions, not index legality; ci.yml's job was ~6 min, not ~9).
+1. **Task 1: Byte-identical hot-loop rewrites** - `bff6688` (perf)
+2. **Task 2: Concurrent Python test runner + docs** - `0328b9e` (perf)
+3. **Task 3: Workflow hardening** - `13fe179` (ci)
+4. **Orchestrator follow-up** - `3bd78c9` (fix): a harness timeout now kills the whole process group (`start_new_session=True` + `os.killpg`), so the child servers the companion/stub-server harnesses spawn can no longer be orphaned - verified live with `HARNESS_TIMEOUT_S=2` (five harnesses reported as timed out, exit 1, no surviving child process, no `.coverage*` leftovers); `_illustration_cache` bounded at 128 entries; dead `table_lines` block removed; two comment corrections (panel_format.py's length assert guards dimensions, not index legality; ci.yml's job was ~6 min, not ~9).
+
+Rebased onto `origin/main` (Phases 12-15 merged meanwhile, hashes above are post-rebase): `main` had grown two harnesses, `server/test_colour_rules.py` and `server/test_manual_resolutions.py`, now registered in the runner - 18 harnesses, 1085 checks, coverage 93 %, 9.7 s wall at JOBS=10 on 3.12, byte-identity re-verified on the rebased tree.
 
 Orchestrator's independent re-run after the follow-up: Python 3.12 8.5 s at JOBS=10 and 10.8 s at JOBS=4 (the GitHub runner's vCPU count), Python 3.11 9.1 s - 911/911 checks, coverage TOTAL 92 %, `ruff check .` and `actionlint` clean.
 
@@ -220,4 +222,4 @@ None - no external service configuration required. The new pip caching, concurre
 
 ## Self-Check: PASSED
 
-All 11 claimed files verified present on disk (10 code/config files + this SUMMARY). All 4 commit hashes (`c8f8b76`, `19a7011`, `f9a16b7`, `5c9d4a8`) verified present in `git log --oneline --all`.
+All 11 claimed files verified present on disk (10 code/config files + this SUMMARY). All 4 commit hashes (`bff6688`, `0328b9e`, `13fe179`, `3bd78c9`) verified present in `git log --oneline --all`.
