@@ -544,3 +544,40 @@ def fetch_ics(url, timeout=10.0):
 
 **Research date:** 2026-09-07
 **Valid until:** 30 days (stable domain — stdlib Python, an already-shipped internal resolver, and a fixed third-party export format are all slow-moving; re-verify sooner only if the real CrewWebPlus export's structure is found to differ from the measured findings once the redacted fixture is actually built)
+
+---
+
+## Corrections applied 2026-09-07, after this research returned
+
+Two of this document's Open Questions were closed against the real supplied export and real production data immediately after it was written. **These corrections supersede the corresponding text above. The planner must follow them, not the original.**
+
+### CORRECTION 1 — the "IATA↔ICAO airline bridge" gap does not exist. Do not build a static table.
+
+This research flagged as "the single most important open question" that the calendar encodes the airline as a 2-letter IATA prefix (`TO`) while `enrich.py`'s `_ICAO_AIRLINE_PREFIXES` is keyed on the 3-letter ICAO prefix (`TVF`), with nothing bridging them — and recommended a new static table.
+
+**That table is unnecessary.** The bridge is already produced at runtime, in the same route dict the matcher will already be holding: `route["callsign_iata"]`'s leading letters ARE the IATA airline code, and they sit beside `airline_name`. Verified across 300 real cached flights — every pair derives cleanly with no lookup:
+
+| ICAO (detected callsign) | IATA (from `callsign_iata`) | Airline | Flights |
+|---|---|---|---|
+| TVF | TO | Transavia France | 122 |
+| VLG | VY | Vueling Airlines | 27 |
+| EJU | EC | easyJet Europe | 22 |
+| CRL | SS | Corsairfly | 12 |
+| TAP | TP | TAP Portugal | 9 |
+| CCM | XK | CCM Airlines | 9 |
+| FWI | TX | Air Caraïbes | 8 |
+| RAM | AT | Royal Air Maroc | 8 |
+| DAH | AH | Air Algerie | 5 |
+| AFR | AF | Air France | 4 |
+
+So the airline half of D-04's match key is: take the calendar entry's 2-letter prefix, compare it to the leading letters of the detected flight's `callsign_iata`. No new table, no new maintenance burden, and no drift risk against `_ICAO_AIRLINE_PREFIXES`.
+
+Note this reinforces a constraint the research already surfaced correctly: `callsign_iata` — and `origin_iata`/`destination_iata` — are only present when `route_source` is `fresh_hit` or `cache_hit`. A calendar match therefore cannot fire on an `airline_only`, `manual` or `miss` enrichment. That is a real narrowing on top of measured finding 3 and belongs in the plan's own acceptance criteria, not discovered at execution time.
+
+### CORRECTION 2 — `DTSTART`/`DTEND` never carry `TZID` in this producer. Always bare UTC.
+
+Open Question 2 asked whether the export might use `TZID`. Measured across all 63 events in the real export: **63/63 are `DTSTART;VALUE=DATE-TIME:` and `DTEND;VALUE=DATE-TIME:`**, with a trailing `Z`. Zero `TZID` parameters anywhere in the file.
+
+The parser therefore needs no timezone database and no `TZID` resolution path. It should still **reject rather than guess** a value it does not recognise, so a future producer change fails loudly instead of silently mis-timing a match — but the happy path is a single bare-UTC format.
+
+The `(+0200)` suffix inside `SUMMARY` is the *local* offset at the far end and is informational only; the authoritative times are `DTSTART`/`DTEND`, already UTC. Do not parse the summary offset for matching.
