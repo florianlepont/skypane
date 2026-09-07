@@ -913,13 +913,13 @@ Plans:
 **Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10-15's precedent. To be confirmed at discuss time.
 **Depends on:** Phase 15 (the rule registry, the resolver, the precedence order and the Settings editor this phase feeds rather than rebuilds), and Phase 8 D-09 (`callsign_iata`, whose measured inadequacy as a match key is finding 2 above).
 **Closes with:** a `/gsd-secure-phase 16` pass over the secret handling and the outbound fetch. No on-glass verification expected if a calendar match resolves to an already-registered theme id, exactly as Phase 15's D-07 established — to be confirmed once the rule shape is settled.
-**Plans:** 7 plans across 5 waves
+**Plans:** 2/7 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 16-01-PLAN.md — Wave 0 items: the redacted CrewWebPlus-shaped `.ics` fixture, the new `server/test_calendar_rules.py` harness with its suite registration, and `calendar_rules.py`'s RFC 5545 subset parser (unfold before split, category filter before date parse, bare-UTC only with a loud rejection otherwise)
-- [ ] 16-02-PLAN.md — `device_config.json`'s optional `calendar_theme_id` key, validated on both the read and the write path, defaulting to `None` rather than a theme
+- [x] 16-01-PLAN.md — Wave 0 items: the redacted CrewWebPlus-shaped `.ics` fixture, the new `server/test_calendar_rules.py` harness with its suite registration, and `calendar_rules.py`'s RFC 5545 subset parser (unfold before split, category filter before date parse, bare-UTC only with a loud rejection otherwise)
+- [x] 16-02-PLAN.md — `device_config.json`'s optional `calendar_theme_id` key, validated on both the read and the write path, defaulting to `None` rather than a theme
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
