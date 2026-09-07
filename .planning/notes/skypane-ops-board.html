@@ -24,6 +24,16 @@
                                 les seeds les plus anciennes n'ont pas ce champ)
     .planning/debug/          — resolved/ = bugs clos ; tout fichier hors
                                 resolved/ serait un bug ouvert
+    .planning/phases/*/*-REVIEW.md
+                                — section "## Warnings" de chaque revue de code ;
+                                ⚠ jamais mise à jour après correction : vérifier
+                                chaque WR-xx contre le code (les fix commits sont
+                                sur la branche de phase, "fix(NN): WR-xx …")
+    .planning/phases/*/*-SECURITY.md
+                                — sections "Open Warnings"/"Unregistered Flags"
+                                (Phases 13, 14, 15 en ont ; les autres phases
+                                antérieures à l'intégration de /gsd-secure-phase
+                                n'en ont pas)
 
   ⚠ VÉRIFIER `git fetch` ET COMPARER À origin/main D'ABORD — puis regarder les
   branches non mergées : une phase peut être terminée sur une branche et
@@ -31,8 +41,8 @@
   374 commits en retard, et une autre session peut travailler dans le même
   checkout (voir la note Phase 13 ci-dessous).
 
-  Dernière génération : 2026-09-06, passe de clôture, main @ f12ab47
-  (Phases 12 et 13 mergées : #49/#50 et #51).
+  Dernière génération : 2026-09-07, Phases 14 et 15 intégrées, main @ d46e22a
+  (Phase 14 : PR #55 ; Phase 15 : PR #54, promue depuis SEED-003).
 -->
 <title>Tour de contrôle SkyPane</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
@@ -147,7 +157,7 @@
 
   /* Stat strip */
   .stats{
-    display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
+    display:grid; grid-template-columns:repeat(5,1fr); gap:1px;
     background:var(--line); border:1px solid var(--line);
     border-radius:var(--radius); overflow:hidden;
     margin-bottom:44px; box-shadow:var(--shadow);
@@ -313,6 +323,12 @@
   .bug-desc{ display:block; font-weight:400; color:var(--ink-dim); font-size:0.78rem; margin-top:2px; line-height:1.45; }
   .bug-date{ font-family:'IBM Plex Mono',monospace; font-size:0.73rem; color:var(--ink-faint); white-space:nowrap; }
 
+  /* Avertissements de revue */
+  .warn-row{ display:grid; grid-template-columns:96px 1fr auto; gap:12px; align-items:baseline; padding:9px 4px; border-bottom:1px solid var(--line-soft); font-size:0.85rem; }
+  .warn-row:last-child{ border-bottom:none; }
+  .warn-tag{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-size:0.75rem; font-weight:600; color:var(--ink-faint); white-space:nowrap; }
+  .warn-name{ font-weight:600; }
+
   footer{
     margin-top:52px; padding-top:18px; border-top:1px solid var(--line);
     font-size:0.75rem; color:var(--ink-faint);
@@ -322,11 +338,13 @@
 
   @media (max-width:680px){
     .stats{ grid-template-columns:repeat(2,1fr); }
+    .stat:last-child{ grid-column:span 2; }
     .seed-grid{ grid-template-columns:1fr; }
     .row{ grid-template-columns:36px 1fr; }
     .row-date{ grid-column:2; text-align:left; padding-top:0; }
     .chain-item{ grid-template-columns:48px 1fr; }
     .chain-item .done{ grid-column:2; }
+    .warn-row{ grid-template-columns:1fr; }
     .masthead{ flex-direction:column; align-items:flex-start; }
     .masthead-meta{ text-align:left; }
   }
@@ -338,7 +356,7 @@
     <div>
       <p class="eyebrow">SkyPane · rapport d'état</p>
       <h1>Tour de contrôle</h1>
-      <p class="masthead-sub">Roadmap, backlog v2, seeds et bugs — consolidé depuis <code>.planning/</code> sur <code>main</code> — passe de clôture du 6 septembre.</p>
+      <p class="masthead-sub">Roadmap, backlog v2, seeds, bugs et avertissements de revue — consolidé depuis <code>.planning/</code> sur <code>main</code> @ <code>d46e22a</code>, 7 septembre.</p>
     </div>
     <div class="masthead-meta">
       <strong>Synthèse</strong>
@@ -348,9 +366,9 @@
 
   <div class="stats">
     <div class="stat">
-      <div class="stat-value good">25/26</div>
+      <div class="stat-value good">27/28</div>
       <div class="stat-label">Phases terminées</div>
-      <div class="stat-note">13 principales + 13 insérées · toutes sur <code>main</code></div>
+      <div class="stat-note">15 principales + 13 insérées · toutes sur <code>main</code></div>
     </div>
     <div class="stat">
       <div class="stat-value warn">1</div>
@@ -363,9 +381,14 @@
       <div class="stat-note">4 sessions debug résolues et archivées</div>
     </div>
     <div class="stat">
-      <div class="stat-value accent">4</div>
+      <div class="stat-value accent">3</div>
       <div class="stat-label">Seeds dormantes</div>
-      <div class="stat-note">sur 10 · 5 réalisées, 1 partielle · + 9 items backlog v2</div>
+      <div class="stat-note">sur 10 · 5 réalisées, 2 partielles · + 9 items backlog v2</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value warn">21</div>
+      <div class="stat-label">Avertissements ouverts</div>
+      <div class="stat-note">17 de revue de code, 4 d'audit sécurité · 33 autres vérifiés clos</div>
     </div>
   </div>
 
@@ -373,9 +396,9 @@
   <section class="board">
     <div class="board-head">
       <h2>Roadmap v1</h2>
-      <span class="count">26 phases · 2026-08-26 → 2026-09-06</span>
+      <span class="count">28 phases · 2026-08-26 → 2026-09-06</span>
     </div>
-    <p class="board-intro">Treize phases principales, treize insérées en cours de route. Tout est terminé et sur <code>main</code>, sauf un point volontairement gardé pour la fin.</p>
+    <p class="board-intro">Quinze phases principales, treize insérées en cours de route. Tout est terminé et sur <code>main</code>, sauf un point volontairement gardé pour la fin.</p>
 
     <div class="rows">
       <div class="row">
@@ -533,12 +556,24 @@
       <div class="row">
         <span class="row-tag">P14</span>
         <div class="row-main">
-          <p class="row-title">Thèmes par direction, règles par vol, vols de K Stewart</p>
-          <p class="row-desc">Un thème pour les départs et un pour les arrivées ; une règle par vol (callsign ou hex ICAO24) qui impose un thème ; surlignage automatique des vols que K Stewart opère, lus depuis son roster. Trois features autour d'un même point de résolution en amont du choix de thème dans <code>run_once()</code>. Promue entière pour que le discuss-phase arbitre d'abord le découpage — recommandation : livrer le socle + les deux premières, garder le volet roster derrière ses deux inconnues externes (format d'export, consentement).</p>
-          <p class="row-note">Avant promotion, trois corrections au seed : les 18 thèmes ont déjà la même couleur départ/arrivée (aucun mécanisme à « réconcilier ») ; une règle doit désigner un thème, pas une couleur brute (rien de nouveau à vérifier sur le verre) ; la détection porte le hex mais pas l'immatriculation.</p>
-          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-003 · cadrée le 6 sept. (<code>15-CONTEXT.md</code>, D-01…D-13) : volet roster différé, thème + surcharge arrivées, règles callsign / hex / préfixe vers un thème du registre, éditeur dans Settings · 0 plan, à planifier (<code>/gsd-plan-phase 15</code>).</p>
+          <p class="row-title">Résoudre un vol non identifié depuis la lightbox de la galerie</p>
+          <p class="row-desc">Le flux de résolution de la Phase 13 replié dans le motif d'interaction que la galerie Airlines utilise déjà : un vol non couvert devient une carte vide dans la grille, cliquer dessus ouvre le même <code>&lt;dialog&gt;</code> que toute autre carte, et le tableau de gestion autonome est absorbé dans les cartes plutôt que supprimé. Remontée par le développeur en voyant la vraie page de la Phase 13 (la section ne s'intégrait pas à son propre entourage) — aucun changement côté serveur.</p>
+          <p class="row-note">Revue de code : 5 constats (1 bloquant, 4 avertissements), tous corrigés avant merge — 0 restant. Un signalement de l'audit sécurité reste ouvert (voir « Avertissements de revue »).</p>
+          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Non issue d'une seed — remontée directement par le développeur · PR #55, 8/8 plans, 13/13 preuves vérifiées.</p>
         </div>
-        <span class="pill accent">Cadrée</span>
+        <span class="pill good">Terminé</span>
+        <span class="row-date">6 sept.</span>
+      </div>
+
+      <div class="row">
+        <span class="row-tag">P15</span>
+        <div class="row-main">
+          <p class="row-title">Thèmes par direction, règles par vol, vols de K Stewart</p>
+          <p class="row-desc">Un thème dédié aux arrivées, activable/désactivable ; une règle par vol (callsign, hex ICAO24 ou préfixe compagnie) qui impose un thème du registre ; un point de résolution unique en amont du choix de thème dans <code>run_once()</code>. Le volet surlignage automatique des vols de K Stewart (lu depuis son roster) a été différé — deux inconnues externes (format d'export, consentement) que seul le développeur peut lever.</p>
+          <p class="row-note">5/5 plans, 27/27 preuves vérifiées, UAT complet, audit sécurité 15/15 menaces closes.</p>
+          <p class="row-desc" style="margin-top:5px;color:var(--accent-ink);">Promue depuis SEED-003 (partiellement — le volet roster reste dans la seed) · cadrée et livrée le 6 sept.</p>
+        </div>
+        <span class="pill good">Terminé</span>
         <span class="row-date">6 sept.</span>
       </div>
     </div>
@@ -546,7 +581,7 @@
     <div class="callout">
       <span class="callout-mark">SEUL POINT OUVERT</span>
       <p>
-        <strong>Phase 5 · DEVICE-05</strong> — l'essai de décharge réel sur batterie (jusqu'à 21 jours sans intervention ; protocole pré-enregistré et checker <code>check-battery</code> déjà validés sur fixtures) reste volontairement repoussé, le temps qu'aucune autre phase n'ait besoin que le Mac reste éveillé en continu. C'est le seul chantier qui empêche de déclarer la roadmap v1 close. La Phase 15 (promue depuis SEED-003 le 6 sept., en cadrage) est ouverte mais indépendante de lui — elle ne touche ni le firmware ni la batterie. Il déciderait aussi de l'hypothèse non mesurée de la Phase 12 (le rafraîchissement domine-t-il le coût d'un cycle ?).
+        <strong>Phase 5 · DEVICE-05</strong> — l'essai de décharge réel sur batterie (jusqu'à 21 jours sans intervention ; protocole pré-enregistré et checker <code>check-battery</code> déjà validés sur fixtures) reste volontairement repoussé, le temps qu'aucune autre phase n'ait besoin que le Mac reste éveillé en continu. C'est le seul chantier qui empêche de déclarer la roadmap v1 close. Les Phases 14 et 15, ajoutées après le dernier calage de ce tableau, sont désormais toutes deux terminées et indépendantes de lui — ni l'une ni l'autre ne touche le firmware ou la batterie. Il déciderait aussi de l'hypothèse non mesurée de la Phase 12 (le rafraîchissement domine-t-il le coût d'un cycle ?).
       </p>
     </div>
   </section>
@@ -557,7 +592,7 @@
       <h2>Seeds</h2>
       <span class="count">.planning/seeds/ · 10 fichiers</span>
     </div>
-    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Cinq ont été promues en phases en six jours (10, 11, 12, 13, 14) — les quatre premières livrées, la 14 en cadrage — c'est le mécanisme qui fonctionne.</p>
+    <p class="board-intro">Idées mises de côté avec une condition de réveil explicite. Cinq ont été promues en phases en six jours (10, 11, 12, 13, 15), toutes livrées — c'est le mécanisme qui fonctionne.</p>
 
     <div class="seed-grid">
       <div class="seed-card fresh">
@@ -567,7 +602,7 @@
         </div>
         <p class="seed-body">Trois niveaux de personnalisation : un thème dédié aux départs vs aux arrivées ; une couleur forcée quand un callsign ou une immatriculation précise est détectée ; et le surlignage automatique des vols que K Stewart opère.</p>
         <p class="seed-new-flag">La source est un <em>roster d'équipage</em>, pas un agenda perso — ça change le format à parser et pose une vraie question de confidentialité.</p>
-        <p class="seed-trigger"><b>Promue le 6 sept.</b> ; le cadrage a gardé les volets 1 et 2 dans la Phase 15 et <b>différé le volet roster</b>, qui reste ici avec l'intention du développeur consignée dans <code>15-CONTEXT.md</code> (URL iCal, thème dédié seulement, numéro de vol + jour, secret en variable d'environnement). Il reste conditionné au format d'export du roster et au consentement explicite de K Stewart — deux réponses que seule cette personne peut donner.</p>
+        <p class="seed-trigger"><b>Promue et livrée le 6 sept.</b> (Phase 15, 5/5 plans) ; l'exécution a gardé les volets 1 et 2 et <b>différé le volet roster</b>, qui reste ici avec l'intention du développeur consignée dans <code>15-CONTEXT.md</code> (URL iCal, thème dédié seulement, numéro de vol + jour, secret en variable d'environnement). Il reste conditionné au format d'export du roster et au consentement explicite de K Stewart — deux réponses que seule cette personne peut donner. Le fichier de la seed lui-même dit encore <code>dormant</code>, pas <code>partially-fulfilled</code> — décalage documentaire mineur, non corrigé ici.</p>
       </div>
 
       <div class="seed-card">
@@ -714,8 +749,136 @@
     </div>
   </section>
 
+  <!-- ===================== AVERTISSEMENTS DE REVUE ===================== -->
+  <section class="board">
+    <div class="board-head">
+      <h2>Avertissements de revue</h2>
+      <span class="count">.planning/phases/*/*-REVIEW.md · *-SECURITY.md · 21 ouverts</span>
+    </div>
+    <p class="board-intro">Points laissés ouverts par les revues de code de phase et par les audits sécurité des Phases 13, 14 et 15, vérifiés un par un contre le code de <code>main</code> le 7 septembre. Rien ici ne bloque la roadmap : ce sont des candidats de durcissement, gardés visibles pour ne pas se perdre.</p>
+
+    <p class="backlog-group-name">Phase 13 — revue de code (9)</p>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-01</span>
+      <span class="warn-name"><code>manual_resolutions.py</code> — « never raises » faux pour <code>state_dir=None</code><span class="bug-desc">Trois fonctions du registre promettent de ne jamais lever mais lèvent <code>TypeError</code> pour <code>state_dir=None</code> ; deux appelants contournent avec un <code>if state_dir:</code>, trois autres s'y fient sans garde. Latent : la prod passe toujours une chaîne.</span></span>
+      <span class="pill neutral">Contrat</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-03</span>
+      <span class="warn-name"><code>manual_resolutions.py</code> — une entrée rejetée est effacée à l'écriture suivante<span class="bug-desc">Toute entrée rejetée au chargement, ou au-delà du plafond de 200, disparaît définitivement dès que l'opérateur ajoute ou supprime quoi que ce soit. Corrigé a minima : la perte est journalisée, pas évitée.</span></span>
+      <span class="pill warn">Données</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-05</span>
+      <span class="warn-name"><code>_PREFIX_RE</code> / <code>_SAFE_KEY_RE</code> — <code>$</code> accepte un saut de ligne final<span class="bug-desc">Le <code>$</code> Python matche aussi avant un <code>\n</code> terminal. Aucun contournement possible (strip et normalisation en amont, la regex exposée a été supprimée par le fix WR-04) : dérive de contrat seulement, <code>\Z</code> suffirait.</span></span>
+      <span class="pill neutral">Cosmétique</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-07</span>
+      <span class="warn-name"><code>.resolve-upload-zone</code> ne reproduit pas le DOM de la lightbox<span class="bug-desc">Le commentaire CSS promet le même traitement que <code>.lightbox__replace-zone</code>, mais le champ fichier et le bouton sont enfouis dans un <code>&lt;form&gt;</code> : ils perdent l'empilement en colonne et l'espacement.</span></span>
+      <span class="pill neutral">Mise en page</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-08</span>
+      <span class="warn-name"><code>ADD_REJECTED_PREFIX</code> affiche « Enter an airline name »<span class="bug-desc">Un rejet de forme du préfixe (champ caché, jamais saisi) renvoie un message faux et inactionnable. Branche inatteignable aujourd'hui — c'est précisément ce qui cache l'erreur si elle le devient.</span></span>
+      <span class="pill neutral">Message</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-09</span>
+      <span class="warn-name"><code>_manual_resolution_rows(state_dir, registry)</code> ne lit jamais <code>state_dir</code><span class="bug-desc">Paramètre accepté, transmis, jamais utilisé — sa fonction sœur <code>unresolved_row_for_prefix()</code> s'en sert, ce qui invite à croire que celle-ci lit aussi l'état.</span></span>
+      <span class="pill neutral">Code mort</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-10</span>
+      <span class="warn-name"><code>companion/app.py</code> — deux uploads simultanés partagent le fichier temporaire<span class="bug-desc">Les temporaires sont nommés par clé et pid, sans identité de thread : sous <code>ThreadingHTTPServer</code>, deux uploads d'une même clé entremêlent leurs octets et l'un des deux échoue à tort. L'audit sécurité (UF-02) y ajoute une fenêtre TOCTOU entre validation et décodage. Antérieur (260902-v26), mais D-09 a élargi l'espace de clés.</span></span>
+      <span class="pill warn">Concurrence</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-12</span>
+      <span class="warn-name">Étape B — « Illustration replaced » pour un tout premier upload<span class="bug-desc">Le formulaire d'upload de l'étape B réutilise le flash de remplacement alors qu'il n'y avait rien à remplacer ; la phase a créé un flash dédié pour l'étape A et pas pour celle-ci.</span></span>
+      <span class="pill neutral">Message</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · WR-13</span>
+      <span class="warn-name"><code>static_airline_name_for_prefix()</code> — « ASCII » n'est pas ce que le code impose<span class="bug-desc"><code>str.isalpha()</code> accepte « ÀÉÎ » ; le lookup échoue donc c'est correct par accident, mais cette fonction est l'oracle de supersession de D-06 et son contrat écrit est ce que le prochain appelant croira.</span></span>
+      <span class="pill neutral">Contrat</span>
+    </div>
+
+    <p class="backlog-group-name">Phase 13 — audit sécurité (2)</p>
+    <div class="warn-row">
+      <span class="warn-tag">13 · UF-01</span>
+      <span class="warn-name"><code>illustration_normalize.py</code> — cache LRU illimité, clé sur <code>mtime</code><span class="bug-desc">Chaque ré-upload d'une même clé crée une entrée permanente dans un serveur qui tourne longtemps ; le commentaire « 43 fichiers vendored » est périmé depuis que D-09 a ajouté jusqu'à 200 clés opérateur. Croissance mémoire lente, opérateur authentifié seulement.</span></span>
+      <span class="pill accent">Audit sécu</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">13 · UF-03</span>
+      <span class="warn-name">Une entrée malformée du registre → une ligne de log par rendu<span class="bug-desc">Le fix WR-03 journalise le nombre d'entrées qui seront perdues, mais <code>load_manual_resolutions()</code> tourne désormais deux à trois fois par page authentifiée (voir 14 · SEC-4.1 ci-dessous) : la ligne revient d'autant plus souvent au lieu d'une fois. Volume de log seulement.</span></span>
+      <span class="pill accent">Audit sécu</span>
+    </div>
+
+    <p class="backlog-group-name">Phase 14 — audit sécurité (1)</p>
+    <div class="warn-row">
+      <span class="warn-tag">14 · SEC-4.1</span>
+      <span class="warn-name">Le fix WR-02 lit le registre 2 à 3 fois, pas « une seule fois » comme documenté<span class="bug-desc">Le docstring du fix, le message du commit et <code>14-VERIFICATION.md</code> affirment tous que <code>render()</code> lit <code>manual_resolutions.json</code> une seule fois ; en instrumentant le chargeur, une page Airlines avec une carte supersédée en fait 2 lectures, et avec <code>?resolve=</code> en fait 3. La faille nommée par WR-02 (un préfixe absent des deux ensembles) reste bien close ; c'est l'invariant écrit qui est faux.</span></span>
+      <span class="pill neutral">Contrat</span>
+    </div>
+
+    <p class="backlog-group-name">Phase 15 — revue de code (1)</p>
+    <div class="warn-row">
+      <span class="warn-tag">15 · WR-01</span>
+      <span class="warn-name">Suppression d'une règle — un « échec » signalé alors qu'elle a bien disparu<span class="bug-desc"><code>_handle_rule_delete()</code> vérifie l'existence de la règle hors verrou, puis appelle <code>delete_rule()</code> qui revérifie sous verrou : une suppression concurrente entre les deux fait croire à un échec côté opérateur alors que la règle est bien partie. La suppression elle-même reste sûre — seul le message ment.</span></span>
+      <span class="pill neutral">Message</span>
+    </div>
+
+    <p class="backlog-group-name">Phase 15 — audit sécurité (1)</p>
+    <div class="warn-row">
+      <span class="warn-tag">15 · UF-15-02</span>
+      <span class="warn-name"><code>rule_rows()</code> et le rendu de la pastille de thème ne se protègent pas eux-mêmes<span class="bug-desc">Les deux ne sont sûrs aujourd'hui que parce que leur unique appelant leur passe déjà un registre filtré par <code>load_colour_rules()</code> ; un futur appelant direct casserait cette hypothèse en silence.</span></span>
+      <span class="pill neutral">Dépendance</span>
+    </div>
+
+    <p class="backlog-group-name">Revues antérieures (7)</p>
+    <div class="warn-row">
+      <span class="warn-tag">3 · WR-01</span>
+      <span class="warn-name"><code>render.py</code> — <code>previous_state</code> jamais validé<span class="bug-desc"><code>draw_previous_text_block()</code> transmet l'état tel quel : toute valeur inconnue rend « from » en silence au lieu d'échouer. Seuls des appelants directs peuvent le déclencher.</span></span>
+      <span class="pill neutral">Contrat</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">3 · WR-02</span>
+      <span class="warn-name"><code>_assert_legal_palette()</code> ne voit rien au-delà de 256 couleurs<span class="bug-desc"><code>Image.getcolors()</code> renvoie <code>None</code> passé 256 couleurs, traité comme « zéro couleur » : les deux assertions passent à vide dans le cas exact qu'elles doivent attraper.</span></span>
+      <span class="pill neutral">Garde-fou</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">6.2 · WR-01</span>
+      <span class="warn-name"><code>save_device_config()</code> — lecture-fusion-écriture sans verrou<span class="bug-desc">Deux enregistrements rapprochés (Settings et LED, ou une double soumission) sous <code>ThreadingHTTPServer</code> peuvent s'écraser : le dernier écrit gagne. Re-signalé indépendamment par la revue de la Phase 15 (15 · WR-02, même fichier, même défaut) — cette phase a correctement verrouillé son propre registre <code>colour_rules.json</code> mais a laissé <code>device_config.json</code> tel quel.</span></span>
+      <span class="pill warn">Concurrence</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">6.2 · WR-02</span>
+      <span class="warn-name">Poll manuel — l'échec est avalé sans une ligne de log<span class="bug-desc">Le handler <code>/poll-now</code> attrape <code>Exception</code> et redirige, sans rien écrire, alors que le message affiché demande de « check the companion service logs ». Il n'y a rien à y lire.</span></span>
+      <span class="pill warn">Diagnostic</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">10 · WR-02</span>
+      <span class="warn-name">Heures calmes — une fenêtre début = fin s'enregistre et ne s'active jamais<span class="bug-desc">Une largeur nulle est un « jamais actif » voulu côté serveur, mais Settings l'enregistre avec le « saved » habituel : case cochée, horaires enregistrés, fonction morte, aucun retour.</span></span>
+      <span class="pill warn">UX</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">11 · WR-01</span>
+      <span class="warn-name"><code>WAKE_INTERVAL_MIN_S</code>/<code>MAX_S</code> dupliqués sans garde anti-dérive<span class="bug-desc"><code>stub-server/byos_server.py</code> redéfinit les bornes (frontière vendor, pas d'import), mais contrairement à <code>seconds_until_quiet_hours_end()</code> et <code>_HHMM_RE</code>, rien ne vérifie qu'elles restent égales.</span></span>
+      <span class="pill neutral">Dérive</span>
+    </div>
+    <div class="warn-row">
+      <span class="warn-tag">11 · WR-02</span>
+      <span class="warn-name">Intervalle de réveil — seul <code>ValueError</code> est attrapé<span class="bug-desc">La conversion <code>int()</code> ignore <code>TypeError</code>. Inatteignable via HTTP (toujours une chaîne), seulement par des appelants directs du handler.</span></span>
+      <span class="pill neutral">Contrat</span>
+    </div>
+
+    <p class="note-box"><strong>Clos, vérifié dans le code :</strong> 18 des 25 avertissements des dix revues antérieures à la Phase 13, et 4 des 13 de la Phase 13 elle-même (WR-02, 04, 06, 11, corrigés sur la branche de phase avant merge). Les Phases 14 et 15 ont ajouté deux nouveaux audits sécurité, chacun trouvant et refermant ses propres constats en cours de route : la revue de code de la Phase 14 est intégralement close (5/5, dont le bloquant CR-01), et 5 des 6 signalements de son audit sécurité aussi — seul le 14&nbsp;·&nbsp;SEC-4.1 reste ouvert. Le 13&nbsp;·&nbsp;T-13-18 (absence d'un test « zéro script ») est également clos : la Phase 14 a ajouté du JavaScript à la page Airlines avec sa propre modélisation de menaces, et un test compte désormais les balises <code>&lt;script&gt;</code>. Le 10&nbsp;·&nbsp;WR-01 (icône batterie figée pendant les heures calmes) n'est toujours pas compté ouvert : la Phase 12 (D-07) a tranché que rien ne se repeint pendant un état de maintien, batterie comprise. Les fichiers <code>REVIEW.md</code>/<code>SECURITY.md</code> ne sont jamais mis à jour après correction — c'est le code qui fait foi, et il faut le relire à chaque rafraîchissement.</p>
+  </section>
+
   <footer>
-    <span>Sources : <code>ROADMAP.md</code> · <code>STATE.md</code> · <code>REQUIREMENTS.md</code> · <code>seeds/</code> · <code>debug/</code> · 54 quick tasks</span>
+    <span>Sources : <code>ROADMAP.md</code> · <code>STATE.md</code> · <code>REQUIREMENTS.md</code> · <code>seeds/</code> · <code>debug/</code> · 54 quick tasks · <code>phases/*-REVIEW.md</code> · <code>phases/*-SECURITY.md</code></span>
     <span>* dernière date de plan livré — DEVICE-05 reste ouvert</span>
   </footer>
 
