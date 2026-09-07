@@ -1,6 +1,6 @@
 # SkyPane — CI pipeline (D-07 through D-12).
 #
-# Single workflow file, two jobs: `test` runs blocking lint + all 9
+# Single workflow file, two jobs: `test` runs blocking lint + all 16
 # harnesses + coverage threshold + attribution check on every push and
 # pull request; `deploy` only runs after `test` succeeds, only on a push
 # to the default branch (never a pull request), and pauses for a human
@@ -12,17 +12,58 @@
 # (firmware.yml) instead, because path-restricted triggers are a
 # workflow-level feature, not a job-level one, and that build is
 # independent of this pipeline.
+#
+# quick-260907-esc hardening, on top of the above:
+#   - Top-level `concurrency` (below): a superseded PR push cancels its own
+#     in-flight run. A push to `main` is never cancelled at this level,
+#     because its `deploy` job may be sitting on the production reviewer
+#     approval — cancelling the workflow out from under a paused approval
+#     would leave that approval pointing at a dead run.
+#   - `paths-ignore` on both triggers: a docs-only change (`**/*.md`,
+#     `.planning/**`, `.claude/**`, `LICENSE`) no longer runs this ~9-minute
+#     job at all. This is safe specifically because `main` has NO branch
+#     protection and NO required status checks configured in this
+#     repository — a skipped run blocks nothing. Deliberately does NOT
+#     ignore `hardware/**` or `adsb-test/**`: `ruff check .` lints the
+#     Python in both, so excluding them would silence a real lint gate.
+#   - `timeout-minutes` on every job: no job can ever consume GitHub's
+#     6-hour default, whether from a genuinely hung step or a runner-side
+#     stall.
+#   - A job-level `concurrency` group on `deploy` (see that job below): a
+#     newer push to `main` cancels an older deploy run still waiting on the
+#     reviewer, so approving a stale queued run can no longer rsync
+#     superseded code onto the VPS.
+#   - `cache: pip` on setup-python: server/requirements*.txt-keyed pip
+#     cache, so a repeat run doesn't re-download the same wheels.
 name: CI
+
+# Superseded PR pushes cancel their own in-flight run. A push to `main` is
+# intentionally NOT cancelled here (`cancel-in-progress` is PR-only) — see
+# the header comment above for why.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '.planning/**'
+      - '.claude/**'
+      - 'LICENSE'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - '.planning/**'
+      - '.claude/**'
+      - 'LICENSE'
 
 jobs:
   test:
     name: Lint, test, coverage, attribution
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -31,6 +72,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: server/requirements*.txt
 
       - name: Create virtualenv and install dependencies
         run: |
@@ -52,6 +95,15 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Job-level concurrency group, separate from the workflow-level one
+    # above: a newer push to `main` cancels an older `deploy` run still
+    # waiting on the production reviewer's approval. Without this, a
+    # reviewer approving a stale queued run would rsync code `main` has
+    # already moved past onto the production VPS.
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: true
     # The `environment:` declaration below is what makes GitHub pause this
     # job for a required reviewer (D-11) — but only once the "production"
     # environment actually exists, with a reviewer attached, in this
