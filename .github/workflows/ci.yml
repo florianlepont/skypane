@@ -20,8 +20,8 @@
 #     approval — cancelling the workflow out from under a paused approval
 #     would leave that approval pointing at a dead run.
 #   - `paths-ignore` on both triggers: a docs-only change (`**/*.md`,
-#     `.planning/**`, `.claude/**`, `LICENSE`) no longer runs this ~9-minute
-#     job at all. This is safe specifically because `main` has NO branch
+#     `.planning/**`, `.claude/**`, `LICENSE`) no longer runs this job at
+#     all. This is safe specifically because `main` has NO branch
 #     protection and NO required status checks configured in this
 #     repository — a skipped run blocks nothing. Deliberately does NOT
 #     ignore `hardware/**` or `adsb-test/**`: `ruff check .` lints the

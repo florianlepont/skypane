@@ -1072,6 +1072,11 @@ def _load_illustration_safely(path, target_w):
 
 
 _illustration_cache = {}
+# Bounded so the long-lived companion process cannot grow it without limit
+# across every (illustration, target width) pair it ever previews: past the
+# cap the cache is simply flushed and refilled - a miss only costs one PNG
+# decode + resize, exactly what every call cost before the cache existed.
+_ILLUSTRATION_CACHE_MAX_ENTRIES = 128
 
 
 def _resize_illustration(path, target_w):
@@ -1106,6 +1111,8 @@ def _resize_illustration(path, target_w):
         resized = rgba.resize((target_w, target_h), Image.LANCZOS)
 
     if cache_key is not None:
+        if len(_illustration_cache) >= _ILLUSTRATION_CACHE_MAX_ENTRIES:
+            _illustration_cache.clear()
         _illustration_cache[cache_key] = resized
     return resized.copy()
 

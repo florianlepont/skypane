@@ -36,6 +36,7 @@ All configuration is env vars — no argument parsing:
 import concurrent.futures
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -108,12 +109,20 @@ def _run_one(python, harness, out_dir, timeout_s, env):
             stdout=out_f,
             stderr=subprocess.STDOUT,
             env=env,
+            # Own session/process group, so a timeout can take down the
+            # harness AND the child servers several harnesses spawn
+            # (companion/app.py, stub-server/byos_server.py) - killing only
+            # the harness would orphan those, still bound to their ports.
+            start_new_session=True,
         )
         try:
             code = proc.wait(timeout=timeout_s)
             timed_out = False
         except subprocess.TimeoutExpired:
-            proc.kill()
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                proc.kill()
             proc.wait()
             code = proc.returncode
             timed_out = True
@@ -227,12 +236,6 @@ def main():
 
     # Slowest-first timing table — how to spot slow-test creep.
     ordered = sorted(HARNESSES, key=lambda h: results[h]["wall"], reverse=True)
-    table_lines = ["harness | wall(s) | status"]
-    table_lines.append("--- | --- | ---")
-    for h in ordered:
-        r = results[h]
-        status = "TIMEOUT" if r["timed_out"] else ("PASS" if r["code"] == 0 else "FAIL")
-        table_lines.append("%s | %.1f | %s" % (h, r["wall"], status))
 
     print("==> Timing (slowest first)")
     for h in ordered:

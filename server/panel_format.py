@@ -87,9 +87,9 @@ _PALETTE_SIZE = 256
 # nibble unshifted. One behavioural difference from the old dict lookup:
 # INDEX_TO_NIBBLE[idx] raised KeyError for an index outside 0..5, whereas
 # .get(i, 0) here maps any unknown index to nibble 0 (BLACK) instead. This
-# is not a silent hole - the len(raw) == WIDTH * HEIGHT assert below plus
-# render.py's _assert_legal_palette() dominance check both already reject a
-# canvas carrying an illegal index before it ever reaches pack_panel().
+# is not a silent hole: render.py's _assert_legal_palette() already rejects
+# a canvas carrying any illegal index before it ever reaches pack_panel()
+# (the len(raw) == WIDTH * HEIGHT assert below only guards the dimensions).
 _HIGH_NIBBLE_TABLE = bytes(INDEX_TO_NIBBLE.get(i, 0) << 4 for i in range(256))
 _LOW_NIBBLE_TABLE = bytes(INDEX_TO_NIBBLE.get(i, 0) for i in range(256))
 
