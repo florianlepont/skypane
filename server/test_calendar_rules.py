@@ -20,6 +20,7 @@ Usage:
 import io
 import os
 import re
+import socket
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,8 +42,17 @@ FIXTURE_EXPECTED_ENTRIES = 4
 # this repo's own documented discipline (see server/test_colour_rules.py's
 # own EXPECTED_CHECK_COUNT comment). Phase 16 plan 03 raised it to 31,
 # adding the registry (D-01), rolling window and throttle (D-03) checks.
-# Later plans in this phase raise it further as they add checks.
-EXPECTED_CHECK_COUNT = 31
+# Phase 16 plan 04 raised it to 55, adding the fetch-hardening,
+# secret-leak-containment and refresh-orchestration checks below.
+EXPECTED_CHECK_COUNT = 55
+
+# A real public unicast IPv4 address (no DNS lookup needed - urlparse()
+# already sees a literal IP as the hostname, and socket.getaddrinfo()
+# resolves a dotted-decimal literal without ever touching the network).
+# Only its RANGE classification matters to _address_is_public() here, not
+# whether anything is actually listening on it - this is never actually
+# connected to, since every check below injects its own fake transport.
+PUBLIC_IP = "93.184.216.34"
 
 
 def load_fixture_text(name):
@@ -62,6 +72,60 @@ def _entry(airline_iata, origin_iata, destination_iata, start_at, end_at):
         "start_at": start_at,
         "end_at": end_at,
     }
+
+
+def _mid_fixture_now():
+    """A fixed `now` timestamp (plan 16-04) that places every one of the
+    committed fixture's four valid events inside select_window_entries()'s
+    window - today's UTC day-start through +48h. All four fixture events
+    are on 2026-09-01, the earliest starting at 05:00Z and the latest
+    ending at 15:25Z; 06:00Z that same day sits after the day-start edge
+    and comfortably before the +48h forward edge for all of them.
+    """
+    from datetime import datetime, timezone
+    return datetime(2026, 9, 1, 6, 0, 0, tzinfo=timezone.utc).timestamp()
+
+
+class _FakeCalendarResponse:
+    """A hermetic stand-in for `requests.Response`, built from fixed fields
+    rather than a live call, in `server/test_enrich.py`'s `make_transport()`
+    shape - so no check in the plan 16-04 group below ever makes a real
+    network call.
+    """
+
+    def __init__(self, status_code=200, body=b"", headers=None, is_redirect=False):
+        self.status_code = status_code
+        self._body = body
+        self.headers = headers or {}
+        self.is_redirect = is_redirect
+        self.closed = False
+
+    def iter_content(self, chunk_size=8192):
+        for i in range(0, len(self._body), chunk_size):
+            yield self._body[i:i + chunk_size]
+
+    def close(self):
+        self.closed = True
+
+
+def make_calendar_transport(status_code=200, body=b"", headers=None, is_redirect=False,
+                             raise_exc=None, calls=None, timeouts=None):
+    """Build a fake transport matching `fetch_ics()`'s injectable
+    `transport(url, timeout)` contract - `test_enrich.make_transport()`'s
+    exact shape, adapted for `_FakeCalendarResponse`. Records every URL
+    (and, if `timeouts` is given, every timeout) it was invoked with, or
+    raises `raise_exc` instead of returning, simulating a transport
+    failure without ever touching a real socket.
+    """
+    def transport(url, timeout):
+        if calls is not None:
+            calls.append(url)
+        if timeouts is not None:
+            timeouts.append(timeout)
+        if raise_exc is not None:
+            raise raise_exc
+        return _FakeCalendarResponse(status_code, body, headers, is_redirect)
+    return transport
 
 
 def main():
@@ -674,6 +738,527 @@ def main():
             else:
                 os.environ[cr.CALENDAR_URL_ENV_VAR] = old_value
     check("a distinctive token set in the calendar URL environment variable appears in neither calendar_rules.json's bytes, the loaded dict's serialisation, nor anything printed to stderr during a round trip", _secret_never_reaches_the_file_or_the_log)
+
+    # --- Phase 16 plan 04: fetch-hardening, secret-leak-containment and
+    #     refresh-orchestration checks, added below the plan 16-03 checks
+    #     above. No check below ever makes a live network call - IP
+    #     literals resolve locally without DNS, and every hostname-based
+    #     scenario monkeypatches socket.getaddrinfo, restored in a
+    #     finally exactly like test_colour_rules.py does for its own
+    #     process-global cache. ---
+
+    # 32. A non-https scheme is refused, for four distinct shapes.
+    def _scheme_gate_refuses_non_https():
+        for bad in ("http://%s/a.ics" % PUBLIC_IP, "ftp://%s/a.ics" % PUBLIC_IP,
+                    "file:///etc/passwd", "not-a-url"):
+            if cr._url_is_safe(bad) is not False:
+                return False, "expected _url_is_safe(%r) to be False" % (bad,)
+        return True, ""
+    check("_url_is_safe() refuses a non-https scheme (http, ftp, file, and a schemeless string)", _scheme_gate_refuses_non_https)
+
+    # 33. A URL with no hostname at all is refused.
+    def _no_hostname_refused():
+        if cr._url_is_safe("https:///a.ics") is not False:
+            return False, "expected a hostless https URL to be refused"
+        return True, ""
+    check("_url_is_safe() refuses a URL with no hostname", _no_hostname_refused)
+
+    # 34. Loopback (v4 and v6), three private ranges, the link-local
+    #     metadata address, and a reserved address are all refused - none
+    #     of these require a DNS lookup, since urlparse() already sees a
+    #     literal IP as the hostname.
+    def _address_gate_refuses_every_unsafe_range():
+        unsafe = (
+            "https://127.0.0.1/a.ics",        # loopback v4
+            "https://[::1]/a.ics",             # loopback v6
+            "https://10.0.0.5/a.ics",          # private (RFC 1918)
+            "https://172.16.0.1/a.ics",        # private (RFC 1918)
+            "https://192.168.1.1/a.ics",       # private (RFC 1918)
+            "https://169.254.169.254/a.ics",   # link-local (cloud metadata)
+            "https://240.0.0.1/a.ics",         # reserved (Class E)
+        )
+        for url in unsafe:
+            if cr._url_is_safe(url) is not False:
+                return False, "expected _url_is_safe(%r) to be False" % (url,)
+        return True, ""
+    check("_url_is_safe() refuses loopback (v4/v6), three private ranges, the link-local metadata address, and a reserved address", _address_gate_refuses_every_unsafe_range)
+
+    # 35. A hostname that fails to resolve at all is refused - ".invalid"
+    #     is reserved by RFC 2606 to always fail to resolve, so this needs
+    #     no monkeypatch.
+    def _unresolvable_hostname_refused():
+        if cr._url_is_safe("https://this-genuinely-does-not-resolve.invalid/a.ics") is not False:
+            return False, "expected an unresolvable hostname to be refused"
+        return True, ""
+    check("_url_is_safe() refuses a hostname that fails to resolve at all", _unresolvable_hostname_refused)
+
+    # 36. DNS-rebinding headline proof: a hostname that resolves to a MIX
+    #     of one public and one private address is refused, not accepted
+    #     on the strength of the public one - a hostname-only
+    #     implementation would pass this hostname on the strength of its
+    #     *string* alone and never notice the private answer.
+    def _mixed_address_answer_refused():
+        real_getaddrinfo = socket.getaddrinfo
+        try:
+            socket.getaddrinfo = lambda host, port=None, *a, **k: [
+                (2, 1, 6, "", (PUBLIC_IP, 443)),
+                (2, 1, 6, "", ("10.1.2.3", 443)),
+            ]
+            if cr._url_is_safe("https://public-looking-name.example/a.ics") is not False:
+                return False, "a hostname resolving to one private address among public ones must be refused"
+        finally:
+            socket.getaddrinfo = real_getaddrinfo
+        return True, ""
+    check("_url_is_safe() refuses a hostname whose resolved addresses are a MIX of public and private - the DNS-rebinding case a hostname-only check would miss", _mixed_address_answer_refused)
+
+    # 37. The same hostname, monkeypatched to resolve to only public
+    #     addresses, is accepted - proving check 36 isn't vacuously always
+    #     False.
+    def _all_public_answer_accepted():
+        real_getaddrinfo = socket.getaddrinfo
+        try:
+            socket.getaddrinfo = lambda host, port=None, *a, **k: [
+                (2, 1, 6, "", (PUBLIC_IP, 443)),
+            ]
+            if cr._url_is_safe("https://public-looking-name.example/a.ics") is not True:
+                return False, "a hostname resolving to only public addresses should be accepted"
+        finally:
+            socket.getaddrinfo = real_getaddrinfo
+        return True, ""
+    check("_url_is_safe() accepts the same hostname when every resolved address is public", _all_public_answer_accepted)
+
+    # 38. A redirect Location pointing at a loopback address is refused -
+    #     proving the gate is re-applied per hop, not only to the
+    #     configured URL.
+    def _redirect_to_loopback_refused():
+        calls = []
+        transport = make_calendar_transport(
+            status_code=302, headers={"Location": "https://127.0.0.1/a.ics"},
+            is_redirect=True, calls=calls)
+        result = cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result is not None:
+            return False, "expected None when a redirect targets a loopback address"
+        if calls != ["https://%s/a.ics" % PUBLIC_IP]:
+            return False, "expected exactly one transport call (the redirect target must never be fetched): %r" % (calls,)
+        return True, ""
+    check("fetch_ics() refuses a redirect whose Location targets a loopback address, without ever fetching it", _redirect_to_loopback_refused)
+
+    # 39. A redirect response with no Location header returns nothing.
+    def _redirect_without_location_returns_none():
+        transport = make_calendar_transport(status_code=302, headers={}, is_redirect=True)
+        result = cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result is not None:
+            return False, "expected None for a redirect with no Location header"
+        return True, ""
+    check("fetch_ics() returns nothing for a redirect response with no Location header", _redirect_without_location_returns_none)
+
+    # 40. A relative Location is resolved against the current URL and then
+    #     re-validated (accepted here, since the resolved target stays
+    #     within the same safe host).
+    def _relative_redirect_resolved_and_refetched():
+        calls = []
+        responses = [
+            _FakeCalendarResponse(302, headers={"Location": "/moved.ics"}, is_redirect=True),
+            _FakeCalendarResponse(200, body=b"BEGIN:VCALENDAR"),
+        ]
+
+        def transport(url, timeout):
+            calls.append(url)
+            return responses[len(calls) - 1]
+
+        result = cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result != "BEGIN:VCALENDAR":
+            return False, "expected the relative redirect to be followed to its resolved target, got %r" % (result,)
+        if calls != ["https://%s/a.ics" % PUBLIC_IP, "https://%s/moved.ics" % PUBLIC_IP]:
+            return False, "expected the relative Location resolved against the current URL: %r" % (calls,)
+        return True, ""
+    check("fetch_ics() resolves a relative Location against the current URL and re-validates it before following it", _relative_redirect_resolved_and_refetched)
+
+    # 41. A redirect chain longer than CALENDAR_MAX_REDIRECTS returns
+    #     nothing, counted by the fake's own invocation count.
+    def _redirect_chain_bounded():
+        calls = []
+        transport = make_calendar_transport(
+            status_code=302, headers={"Location": "https://%s/next.ics" % PUBLIC_IP},
+            is_redirect=True, calls=calls)
+        result = cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result is not None:
+            return False, "expected None for a redirect chain longer than CALENDAR_MAX_REDIRECTS"
+        if len(calls) != cr.CALENDAR_MAX_REDIRECTS + 1:
+            return False, "expected exactly CALENDAR_MAX_REDIRECTS + 1 transport calls, got %d" % (len(calls),)
+        return True, ""
+    check("fetch_ics() gives up after CALENDAR_MAX_REDIRECTS + 1 transport calls rather than looping forever", _redirect_chain_bounded)
+
+    # 42. A body one byte over CALENDAR_MAX_RESPONSE_BYTES returns nothing.
+    def _oversized_body_refused():
+        body = b"x" * (cr.CALENDAR_MAX_RESPONSE_BYTES + 1)
+        transport = make_calendar_transport(status_code=200, body=body)
+        result = cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result is not None:
+            return False, "expected None for a body one byte over the cap"
+        return True, ""
+    check("fetch_ics() refuses a body one byte over CALENDAR_MAX_RESPONSE_BYTES", _oversized_body_refused)
+
+    # 43. The same oversized body, declaring a Content-Length of 1, is
+    #     still refused - the cap is on what was streamed, not on what
+    #     was claimed.
+    def _oversized_body_with_lying_content_length_refused():
+        body = b"x" * (cr.CALENDAR_MAX_RESPONSE_BYTES + 1)
+        transport = make_calendar_transport(status_code=200, body=body, headers={"Content-Length": "1"})
+        result = cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result is not None:
+            return False, "expected None even though the declared Content-Length was only 1 byte"
+        return True, ""
+    check("fetch_ics() refuses an oversized body even when it declares a Content-Length of 1 - the cap is on streamed bytes, never the declared length", _oversized_body_with_lying_content_length_refused)
+
+    # 44. A body exactly at the cap is accepted.
+    def _body_exactly_at_cap_accepted():
+        body = b"x" * cr.CALENDAR_MAX_RESPONSE_BYTES
+        transport = make_calendar_transport(status_code=200, body=body)
+        result = cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result != body.decode("utf-8"):
+            return False, "expected a body exactly at CALENDAR_MAX_RESPONSE_BYTES to be accepted"
+        return True, ""
+    check("fetch_ics() accepts a body exactly at CALENDAR_MAX_RESPONSE_BYTES", _body_exactly_at_cap_accepted)
+
+    # 45. A non-200 final status returns nothing.
+    def _non_200_status_refused():
+        transport = make_calendar_transport(status_code=500, body=b"error")
+        result = cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result is not None:
+            return False, "expected None for a non-200 final status"
+        return True, ""
+    check("fetch_ics() returns nothing for a non-200 final status", _non_200_status_refused)
+
+    # 46. The transport is invoked with a timeout argument equal to
+    #     CALENDAR_FETCH_TIMEOUT_S when none is supplied.
+    def _default_timeout_passed_to_transport():
+        timeouts = []
+        transport = make_calendar_transport(status_code=200, body=b"ok", timeouts=timeouts)
+        cr.fetch_ics("https://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if timeouts != [cr.CALENDAR_FETCH_TIMEOUT_S]:
+            return False, "expected the transport's timeout argument to be CALENDAR_FETCH_TIMEOUT_S, got %r" % (timeouts,)
+        return True, ""
+    check("fetch_ics() invokes the transport with CALENDAR_FETCH_TIMEOUT_S as the timeout argument by default", _default_timeout_passed_to_transport)
+
+    # 47. Secret containment - the group this plan exists for. A
+    #     distinctive token, hostname, path and query-parameter name set
+    #     in the calendar URL environment variable must appear in none of
+    #     the seven distinct failure paths' captured stderr, including a
+    #     transport exception whose message IS the full secret URL - the
+    #     exact shape several requests.exceptions.* subclasses take by
+    #     default.
+    def _secret_never_reaches_stderr_across_seven_failure_paths():
+        import requests
+        real_getaddrinfo = socket.getaddrinfo
+        token = "SEKRIT-FETCH-CONTAINMENT"
+        host = "calendar-secret-fetch-test.invalid"
+        secret_url = "https://%s/private-roster.ics?token=%s" % (host, token)
+        forbidden = (token, host, "private-roster.ics", "token=")
+
+        def fake_getaddrinfo(hostname, port=None, *a, **k):
+            if hostname == host:
+                return [(2, 1, 6, "", (PUBLIC_IP, 443))]
+            return real_getaddrinfo(hostname, port, *a, **k)
+
+        socket.getaddrinfo = fake_getaddrinfo
+        try:
+            scenarios = {
+                "refused scheme": lambda: cr.fetch_ics(
+                    secret_url.replace("https://", "http://")),
+                "refused address": lambda: cr.fetch_ics(
+                    secret_url.replace(host, "127.0.0.1")),
+                "refused redirect target": lambda: cr.fetch_ics(
+                    secret_url, transport=make_calendar_transport(
+                        status_code=302, is_redirect=True,
+                        headers={"Location": "https://127.0.0.1/x"})),
+                "hop-limit exhaustion": lambda: cr.fetch_ics(
+                    secret_url, transport=make_calendar_transport(
+                        status_code=302, is_redirect=True,
+                        headers={"Location": secret_url})),
+                "oversized body": lambda: cr.fetch_ics(
+                    secret_url, transport=make_calendar_transport(
+                        status_code=200, body=b"x" * (cr.CALENDAR_MAX_RESPONSE_BYTES + 1))),
+                "non-200 status": lambda: cr.fetch_ics(
+                    secret_url, transport=make_calendar_transport(status_code=404)),
+                "transport exception carrying the full URL": lambda: cr.fetch_ics(
+                    secret_url, transport=make_calendar_transport(
+                        raise_exc=requests.RequestException(secret_url))),
+            }
+            for label, run in scenarios.items():
+                buf = io.StringIO()
+                old_stderr = sys.stderr
+                sys.stderr = buf
+                try:
+                    result = run()
+                finally:
+                    sys.stderr = old_stderr
+                if result is not None:
+                    return False, "scenario %r unexpectedly succeeded: %r" % (label, result)
+                captured = buf.getvalue()
+                for leak in forbidden:
+                    if leak in captured:
+                        return False, "scenario %r leaked %r into stderr: %r" % (label, leak, captured)
+            return True, ""
+        finally:
+            socket.getaddrinfo = real_getaddrinfo
+    check("across seven distinct fetch_ics() failure paths - including a transport exception whose message is the full secret URL - neither the token, the host, the path, nor the query-parameter name reaches stderr", _secret_never_reaches_stderr_across_seven_failure_paths)
+
+    # 48. The same four substrings are absent from the persisted
+    #     calendar_rules.json after a full successful
+    #     refresh_calendar_registry() cycle.
+    def _secret_absent_from_persisted_registry_after_success():
+        import tempfile
+        real_getaddrinfo = socket.getaddrinfo
+        token = "SEKRIT-REGISTRY-CONTAINMENT"
+        host = "calendar-secret-registry-test.invalid"
+        secret_url = "https://%s/private-roster.ics?token=%s" % (host, token)
+        forbidden = (token, host, "private-roster.ics", "token=")
+        fixture_text = load_fixture_text(FIXTURE_ICS)
+
+        def fake_getaddrinfo(hostname, port=None, *a, **k):
+            if hostname == host:
+                return [(2, 1, 6, "", (PUBLIC_IP, 443))]
+            return real_getaddrinfo(hostname, port, *a, **k)
+
+        socket.getaddrinfo = fake_getaddrinfo
+        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = secret_url
+        try:
+            now = _mid_fixture_now()
+            with tempfile.TemporaryDirectory() as tmp:
+                transport = make_calendar_transport(status_code=200, body=fixture_text.encode())
+                code, _reg = cr.refresh_calendar_registry(tmp, now, transport=transport)
+                if code != cr.FETCH_OK:
+                    return False, "test setup failure: expected FETCH_OK, got %r" % (code,)
+                with open(cr.calendar_rules_path(tmp)) as fh:
+                    file_bytes = fh.read()
+                for leak in forbidden:
+                    if leak in file_bytes:
+                        return False, "the persisted registry leaked %r" % (leak,)
+            return True, ""
+        finally:
+            socket.getaddrinfo = real_getaddrinfo
+            if old_env is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check("neither the calendar URL's token, host, path, nor query-parameter name appears in calendar_rules.json after a full successful refresh_calendar_registry() cycle", _secret_absent_from_persisted_registry_after_success)
+
+    # 49. The unconfigured path performs no transport call and writes no
+    #     timestamp.
+    def _refresh_unconfigured_makes_no_call_and_writes_nothing():
+        import tempfile
+        old_env = os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+        try:
+            calls = []
+            transport = make_calendar_transport(status_code=200, body=b"unused", calls=calls)
+            with tempfile.TemporaryDirectory() as tmp:
+                code, reg = cr.refresh_calendar_registry(tmp, 1000.0, transport=transport)
+                if code != cr.FETCH_SKIPPED_UNCONFIGURED:
+                    return False, "expected FETCH_SKIPPED_UNCONFIGURED, got %r" % (code,)
+                if calls:
+                    return False, "expected no transport call when unconfigured, got %r" % (calls,)
+                if reg["last_attempt_at"] is not None:
+                    return False, "expected last_attempt_at to stay None when unconfigured, got %r" % (reg,)
+            return True, ""
+        finally:
+            if old_env is not None:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check("refresh_calendar_registry() makes no transport call and writes no last_attempt_at when the feature is unconfigured", _refresh_unconfigured_makes_no_call_and_writes_nothing)
+
+    # 50. The throttled path performs no transport call and prints
+    #     nothing, across twenty throttled cycles.
+    def _refresh_throttled_path_is_silent():
+        import tempfile
+        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                first_transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR")
+                cr.refresh_calendar_registry(tmp, 0.0, transport=first_transport)
+                calls = []
+                never_called = make_calendar_transport(status_code=200, body=b"unused", calls=calls)
+                buf = io.StringIO()
+                old_stderr = sys.stderr
+                sys.stderr = buf
+                try:
+                    for i in range(20):
+                        code, _reg = cr.refresh_calendar_registry(tmp, float(i), transport=never_called)
+                        if code != cr.FETCH_SKIPPED_THROTTLED:
+                            return False, "expected FETCH_SKIPPED_THROTTLED at cycle %d, got %r" % (i, code)
+                finally:
+                    sys.stderr = old_stderr
+                if calls:
+                    return False, "expected no transport call while throttled, got %r" % (calls,)
+                if buf.getvalue() != "":
+                    return False, "expected silent stderr on the throttled path, got %r" % (buf.getvalue(),)
+            return True, ""
+        finally:
+            if old_env is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check("refresh_calendar_registry() makes no transport call and prints nothing across twenty throttled cycles", _refresh_throttled_path_is_silent)
+
+    # 51. Eleven calls across simulated 30-second cycles perform exactly
+    #     one transport call - the throttle genuinely prevents a
+    #     per-cycle fetch.
+    def _refresh_throttle_holds_across_eleven_cycles():
+        import tempfile
+        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
+        try:
+            calls = []
+            transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR", calls=calls)
+            with tempfile.TemporaryDirectory() as tmp:
+                for i in range(11):
+                    cr.refresh_calendar_registry(tmp, 30.0 * i, transport=transport)
+                if len(calls) != 1:
+                    return False, "expected exactly one transport call across eleven 30s-spaced cycles, got %d" % (len(calls),)
+            return True, ""
+        finally:
+            if old_env is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check("eleven refresh_calendar_registry() calls spaced 30 seconds apart perform exactly one transport call", _refresh_throttle_holds_across_eleven_cycles)
+
+    # 52. A failure after a success moves last_attempt_at, leaves
+    #     last_synced_at, and leaves the persisted entries unchanged.
+    def _refresh_failure_after_success_preserves_the_window():
+        import tempfile
+        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
+        try:
+            fixture_text = load_fixture_text(FIXTURE_ICS)
+            now = _mid_fixture_now()
+            with tempfile.TemporaryDirectory() as tmp:
+                ok_transport = make_calendar_transport(status_code=200, body=fixture_text.encode())
+                code, reg = cr.refresh_calendar_registry(tmp, now, transport=ok_transport)
+                if code != cr.FETCH_OK or not reg["entries"]:
+                    return False, "test setup failure: expected a successful fetch with entries, got %r" % ((code, reg),)
+                synced_at = reg["last_synced_at"]
+                entries_before = list(reg["entries"])
+
+                later = now + cr.CALENDAR_FETCH_INTERVAL_S + 1
+                failing_transport = make_calendar_transport(status_code=500)
+                code2, reg2 = cr.refresh_calendar_registry(tmp, later, transport=failing_transport)
+                if code2 != cr.FETCH_FAILED:
+                    return False, "expected FETCH_FAILED, got %r" % (code2,)
+                if reg2["last_attempt_at"] != later:
+                    return False, "expected last_attempt_at to move to %r, got %r" % (later, reg2)
+                if reg2["last_synced_at"] != synced_at:
+                    return False, "expected last_synced_at to stay at %r, got %r" % (synced_at, reg2["last_synced_at"])
+                on_disk = cr.load_calendar_registry(tmp)
+                if on_disk["entries"] != entries_before:
+                    return False, "a failed fetch changed the persisted entries"
+            return True, ""
+        finally:
+            if old_env is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check("a failed refresh_calendar_registry() after a success moves last_attempt_at, leaves last_synced_at, and leaves the persisted entries unchanged", _refresh_failure_after_success_preserves_the_window)
+
+    # 53. A success writes a windowed parse of the committed fixture.
+    def _refresh_success_writes_the_fixtures_windowed_parse():
+        import tempfile
+        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
+        try:
+            fixture_text = load_fixture_text(FIXTURE_ICS)
+            now = _mid_fixture_now()
+            with tempfile.TemporaryDirectory() as tmp:
+                transport = make_calendar_transport(status_code=200, body=fixture_text.encode())
+                code, reg = cr.refresh_calendar_registry(tmp, now, transport=transport)
+                if code != cr.FETCH_OK:
+                    return False, "expected FETCH_OK, got %r" % (code,)
+                if len(reg["entries"]) != FIXTURE_EXPECTED_ENTRIES:
+                    return False, "expected %d windowed entries from the fixture, got %d: %r" % (
+                        FIXTURE_EXPECTED_ENTRIES, len(reg["entries"]), reg["entries"])
+                on_disk = cr.load_calendar_registry(tmp)
+                if on_disk["entries"] != reg["entries"]:
+                    return False, "the persisted entries did not match the returned registry"
+            return True, ""
+        finally:
+            if old_env is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check("a successful refresh_calendar_registry() cycle writes a windowed parse of the committed fixture, matching what is then readable on disk", _refresh_success_writes_the_fixtures_windowed_parse)
+
+    # 54. A successful fetch of a feed with nothing in the window is
+    #     reported as success with an empty entry list, distinguishable
+    #     from a failure only by last_synced_at having moved.
+    def _empty_window_success_distinguished_only_by_last_synced_at():
+        import tempfile
+        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
+        try:
+            empty_body = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
+            transport = make_calendar_transport(status_code=200, body=empty_body.encode())
+            with tempfile.TemporaryDirectory() as tmp:
+                code, reg = cr.refresh_calendar_registry(tmp, 5000.0, transport=transport)
+                if code != cr.FETCH_OK:
+                    return False, "expected FETCH_OK even for a legitimately empty window, got %r" % (code,)
+                if reg["entries"] != []:
+                    return False, "expected an empty entries list, got %r" % (reg["entries"],)
+                if reg["last_synced_at"] is None:
+                    return False, "expected last_synced_at to have moved on a genuine success, got None"
+            return True, ""
+        finally:
+            if old_env is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check("a successful fetch of a feed with nothing in the window reports FETCH_OK with an empty entry list, distinguished from a failure only by last_synced_at having moved", _empty_window_success_distinguished_only_by_last_synced_at)
+
+    # 55. refresh_calendar_registry() never raises: an unwritable state
+    #     dir, a body of random punctuation, a transport that raises, and
+    #     a transport that redirects forever, each return a result code
+    #     rather than propagating.
+    def _refresh_never_raises():
+        import tempfile
+        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
+        try:
+            # A path with a FILE as one of its components: os.makedirs()
+            # raises NotADirectoryError attempting to create it, a
+            # permission-independent way to force write_calendar_registry()
+            # to hit its own failure path on every OS this runs on
+            # (unlike a root-owned path, which may or may not be writable
+            # depending on how the test is invoked).
+            with tempfile.NamedTemporaryFile() as blocking_file:
+                unwritable_dir = os.path.join(blocking_file.name, "nested")
+
+                code, _reg = cr.refresh_calendar_registry(
+                    unwritable_dir, 1.0, transport=make_calendar_transport(status_code=200, body=b"x"))
+                if not isinstance(code, str):
+                    return False, "expected a result code (string) for an unwritable state dir, got %r" % (code,)
+
+                punctuation_transport = make_calendar_transport(status_code=200, body="!!!@#$%^&*()<<<>>>".encode())
+                code2, _reg2 = cr.refresh_calendar_registry(unwritable_dir, 5000.0, transport=punctuation_transport)
+                if not isinstance(code2, str):
+                    return False, "expected a result code for a punctuation body, got %r" % (code2,)
+
+                raising_transport = make_calendar_transport(raise_exc=Exception("simulated transport failure"))
+                code3, _reg3 = cr.refresh_calendar_registry(unwritable_dir, 10000.0, transport=raising_transport)
+                if not isinstance(code3, str):
+                    return False, "expected a result code for a raising transport, got %r" % (code3,)
+
+                looping_transport = make_calendar_transport(
+                    status_code=302, is_redirect=True, headers={"Location": "https://%s/next.ics" % PUBLIC_IP})
+                code4, _reg4 = cr.refresh_calendar_registry(unwritable_dir, 15000.0, transport=looping_transport)
+                if not isinstance(code4, str):
+                    return False, "expected a result code for a redirect-looping transport, got %r" % (code4,)
+            return True, ""
+        finally:
+            if old_env is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check("refresh_calendar_registry() never raises - an unwritable state dir, a punctuation body, a raising transport, and a redirect-looping transport all return a result code", _refresh_never_raises)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
