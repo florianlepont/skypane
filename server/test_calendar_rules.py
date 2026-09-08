@@ -446,13 +446,18 @@ def main():
             with open(colour_rules.colour_rules_path(tmp), "rb") as fh:
                 before_hash = hashlib.sha256(fh.read()).hexdigest()
 
+            # This check's subject is calendar/colour registry isolation, not
+            # retention - an explicit `now` bracketing the sentinels keeps
+            # the write path exercised the same way regardless of the wall
+            # clock.
+            now = 6.0
             entries_a = [_entry("XX", "AAA", "ORY", 1.0, 2.0)]
             entries_b = [
                 _entry("XX", "BBB", "ORY", 3.0, 4.0),
                 _entry("XX", "CCC", "ORY", 5.0, 6.0),
             ]
-            cr.write_calendar_registry(tmp, entries_a, 10.0, None)
-            cr.write_calendar_registry(tmp, entries_b, 20.0, "2026-09-07T00:00:00+00:00")
+            cr.write_calendar_registry(tmp, entries_a, 10.0, None, now=now)
+            cr.write_calendar_registry(tmp, entries_b, 20.0, "2026-09-07T00:00:00+00:00", now=now)
 
             after_registry = colour_rules.load_colour_rules(tmp)
             with open(colour_rules.colour_rules_path(tmp), "rb") as fh:
@@ -476,15 +481,20 @@ def main():
     #     with the earlier one.
     def _d03_whole_file_rewrite_never_merges():
         import tempfile
+        # This check's subject is whole-file replacement vs. merge, not
+        # retention - a fixed `now` bracketing both sentinel entry lists
+        # (epoch 1-6) keeps them in-window without touching the fixtures
+        # themselves.
+        now = 6.0
         with tempfile.TemporaryDirectory() as tmp:
             entries_a = [
                 _entry("XX", "AAA", "ORY", 1.0, 2.0),
                 _entry("XX", "BBB", "ORY", 3.0, 4.0),
             ]
             entries_b = [_entry("XX", "CCC", "ORY", 5.0, 6.0)]
-            cr.write_calendar_registry(tmp, entries_a, 100.0, "2026-09-07T00:00:00+00:00")
-            cr.write_calendar_registry(tmp, entries_b, 200.0, "2026-09-07T01:00:00+00:00")
-            loaded = cr.load_calendar_registry(tmp)
+            cr.write_calendar_registry(tmp, entries_a, 100.0, "2026-09-07T00:00:00+00:00", now=now)
+            cr.write_calendar_registry(tmp, entries_b, 200.0, "2026-09-07T01:00:00+00:00", now=now)
+            loaded = cr.load_calendar_registry(tmp, now)
             origins = sorted(e["origin_iata"] for e in loaded["entries"])
             if origins != ["CCC"]:
                 return False, ("expected only entries_b's entry to survive (no merge with "
@@ -497,11 +507,20 @@ def main():
     #     timestamps are still readable afterwards.
     def _d03_empty_write_empties_the_window():
         import tempfile
+        # An explicit `now` bracketing the sentinel entry (epoch 1-2) so the
+        # first write is genuinely in-window - otherwise the window would
+        # already have emptied it before the empty-write step ever ran,
+        # making this check's own assertion vacuous.
+        now = 2.0
         with tempfile.TemporaryDirectory() as tmp:
             cr.write_calendar_registry(
-                tmp, [_entry("XX", "AAA", "ORY", 1.0, 2.0)], 100.0, "2026-09-07T00:00:00+00:00")
-            cr.write_calendar_registry(tmp, [], 200.0, "2026-09-07T01:00:00+00:00")
-            loaded = cr.load_calendar_registry(tmp)
+                tmp, [_entry("XX", "AAA", "ORY", 1.0, 2.0)], 100.0, "2026-09-07T00:00:00+00:00",
+                now=now)
+            seeded = cr.load_calendar_registry(tmp, now)
+            if seeded["entries"] == []:
+                return False, "test setup failure: the seeded entry should be in-window, got []"
+            cr.write_calendar_registry(tmp, [], 200.0, "2026-09-07T01:00:00+00:00", now=now)
+            loaded = cr.load_calendar_registry(tmp, now)
             if loaded["entries"] != []:
                 return False, "expected an empty entries list after an empty write, got %r" % (loaded["entries"],)
             if loaded["last_attempt_at"] != 200.0 or loaded["last_synced_at"] != "2026-09-07T01:00:00+00:00":
@@ -564,6 +583,12 @@ def main():
     def _load_caps_at_max_entries_with_a_warning():
         import json
         import tempfile
+        # An explicit `now` bracketing the whole 0..CALENDAR_MAX_ENTRIES+49
+        # sentinel range: this check's subject is the entry cap, not
+        # retention, and cap-then-window (D-03's stated order) means the
+        # first CALENDAR_MAX_ENTRIES survivors of the cap must also all be
+        # in-window for the assertion below to hold.
+        now = float(cr.CALENDAR_MAX_ENTRIES + 49)
         with tempfile.TemporaryDirectory() as tmp:
             oversized = [
                 _entry("XX", "AAA", "ORY", float(i), float(i) + 1)
@@ -575,7 +600,7 @@ def main():
             old_stderr = sys.stderr
             sys.stderr = buf
             try:
-                loaded = cr.load_calendar_registry(tmp)
+                loaded = cr.load_calendar_registry(tmp, now)
             finally:
                 sys.stderr = old_stderr
             if len(loaded["entries"]) != cr.CALENDAR_MAX_ENTRIES:
@@ -713,6 +738,11 @@ def main():
         os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://example.invalid/feed.ics?token=%s" % token
         try:
             with tempfile.TemporaryDirectory() as tmp:
+                # This check's subject is secret containment, not retention -
+                # an explicit `now` bracketing the sentinel range keeps the
+                # persist/load round trip exercised the same way regardless
+                # of the wall clock.
+                now = float(cr.CALENDAR_MAX_ENTRIES + 4)
                 oversized = [
                     _entry("XX", "AAA", "ORY", float(i), float(i) + 1)
                     for i in range(cr.CALENDAR_MAX_ENTRIES + 5)
@@ -721,8 +751,8 @@ def main():
                 old_stderr = sys.stderr
                 sys.stderr = buf
                 try:
-                    cr.write_calendar_registry(tmp, oversized, 1.0, "2026-09-07T00:00:00+00:00")
-                    loaded = cr.load_calendar_registry(tmp)
+                    cr.write_calendar_registry(tmp, oversized, 1.0, "2026-09-07T00:00:00+00:00", now=now)
+                    loaded = cr.load_calendar_registry(tmp, now)
                 finally:
                     sys.stderr = old_stderr
                 captured_stderr = buf.getvalue()
@@ -1154,7 +1184,11 @@ def main():
                     return False, "expected last_attempt_at to move to %r, got %r" % (later, reg2)
                 if reg2["last_synced_at"] != synced_at:
                     return False, "expected last_synced_at to stay at %r, got %r" % (synced_at, reg2["last_synced_at"])
-                on_disk = cr.load_calendar_registry(tmp)
+                # Load with the same `later` clock the failed refresh cycle
+                # itself used, so this check's own read is not silently
+                # re-windowed against the wall clock instead of the cycle
+                # under test.
+                on_disk = cr.load_calendar_registry(tmp, later)
                 if on_disk["entries"] != entries_before:
                     return False, "a failed fetch changed the persisted entries"
             return True, ""
@@ -1181,7 +1215,10 @@ def main():
                 if len(reg["entries"]) != FIXTURE_EXPECTED_ENTRIES:
                     return False, "expected %d windowed entries from the fixture, got %d: %r" % (
                         FIXTURE_EXPECTED_ENTRIES, len(reg["entries"]), reg["entries"])
-                on_disk = cr.load_calendar_registry(tmp)
+                # Load with the same `now` this refresh cycle used, so this
+                # check's own read is not silently re-windowed against the
+                # wall clock instead of the cycle under test.
+                on_disk = cr.load_calendar_registry(tmp, now)
                 if on_disk["entries"] != reg["entries"]:
                     return False, "the persisted entries did not match the returned registry"
             return True, ""
