@@ -47,8 +47,13 @@ FIXTURE_EXPECTED_ENTRIES = 4
 # secret-leak-containment and refresh-orchestration checks below. Phase 16
 # plan 06 raised it to 74, adding match_calendar_theme()'s truth table,
 # direction-symmetry, runtime-derived-airline, route-shape-narrowing,
-# fixture-driven ambiguity and never-raises checks.
-EXPECTED_CHECK_COUNT = 76
+# fixture-driven ambiguity and never-raises checks. Quick task 260908-asr
+# (T-16-PRIV) raised it to 80, adding the on-disk-retention-across-failing-
+# cycles regression check the original goal verification missed, plus three
+# anti-drift checks covering the loader's on-read window, the writer's
+# refusal to persist what the loader would drop, and a behavioural
+# equivalence guard against a second window implementation ever appearing.
+EXPECTED_CHECK_COUNT = 80
 
 # A real public unicast IPv4 address (no DNS lookup needed - urlparse()
 # already sees a literal IP as the hostname, and socket.getaddrinfo()
@@ -1631,6 +1636,158 @@ def main():
             return False, "a finite entry was rejected — the check would pass vacuously"
         return True, ""
     check("_normalise_calendar_entry() rejects NaN/Infinity timestamps while still accepting a finite entry (CR-02)", _non_finite_timestamps_rejected)
+
+    # --- Quick task 260908-asr (T-16-PRIV): the regression check the
+    #     original goal verification missed, plus three anti-drift checks
+    #     (D-01/D-02/D-03/D-04). -----------------------------------------
+
+    # Check A: the required regression check. This is the verification the
+    # original goal check missed - the reason T-16-PRIV shipped. A feed
+    # that fails for three consecutive cycles must not leave a stale entry
+    # on disk indefinitely.
+    def _failing_refresh_trims_the_raw_file_across_consecutive_cycles():
+        import tempfile
+        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
+        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                # Seed the realistic way: a legitimate write at a seed_now
+                # where the entry is genuinely in-window - this reproduces
+                # the real production sequence (one successful fetch, then
+                # a feed that breaks), not a hand-edited file.
+                seed_now = 1_780_000_000.0
+                stale = _entry("XX", "AAA", "ORY", seed_now, seed_now + 7200.0)
+                if not cr.write_calendar_registry(
+                        tmp, [stale], seed_now, "2026-01-01T00:00:00+00:00", now=seed_now):
+                    return False, "test setup failure: seed write failed"
+                seeded_raw = json.load(open(cr.calendar_rules_path(tmp)))
+                if len(seeded_raw["entries"]) != 1:
+                    return False, ("test setup failure: the seeded entry should be in-window at "
+                                    "seed_now, got %r" % (seeded_raw["entries"],))
+
+                # 10 days later, the entry is stale. Drive three consecutive
+                # FAILING refresh cycles, advancing `now` by more than
+                # CALENDAR_FETCH_INTERVAL_S each time so the throttle
+                # genuinely lets each attempt through.
+                later = seed_now + 10 * 86400.0
+                failing_transport = make_calendar_transport(status_code=500)
+                for cycle in range(3):
+                    now = later + cycle * (cr.CALENDAR_FETCH_INTERVAL_S + 1.0)
+                    code, reg = cr.refresh_calendar_registry(tmp, now, transport=failing_transport)
+                    if code != cr.FETCH_FAILED:
+                        return False, "cycle %d: expected FETCH_FAILED, got %r - a check that " \
+                            "silently took the throttled path would prove nothing" % (cycle, code)
+                    # Read the RAW file, never through load_calendar_registry() -
+                    # the loader now windows on read, so it would return a
+                    # trimmed list even from an untrimmed file, masking
+                    # exactly the on-disk state this check exists to observe.
+                    raw = json.load(open(cr.calendar_rules_path(tmp)))
+                    if raw["entries"] != []:
+                        return False, "cycle %d: the stale entry survives on disk: %r" % (cycle, raw["entries"])
+                    if reg["entries"] != raw["entries"]:
+                        return False, "cycle %d: the returned registry != the on-disk entries (D-04)" % (cycle,)
+                    if raw["last_attempt_at"] != now:
+                        return False, "cycle %d: last_attempt_at did not move" % (cycle,)
+                    if raw["last_synced_at"] != "2026-01-01T00:00:00+00:00":
+                        return False, "cycle %d: a failing feed must not read as freshly synced" % (cycle,)
+            return True, ""
+        finally:
+            if old_env is None:
+                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
+            else:
+                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+    check(
+        "T-16-PRIV's own reproduction: an entry that ended ~10 days ago is absent from the RAW on-disk file "
+        "after every one of three consecutive FAILING refresh_calendar_registry() cycles, and the returned "
+        "registry matches the raw file on every cycle (D-04) - the verification the original goal check "
+        "missed",
+        _failing_refresh_trims_the_raw_file_across_consecutive_cycles)
+
+    # Check B: the loader applies the window on read - a hand-written file
+    # mixing one out-of-window and one in-window entry loads to the
+    # in-window entry only, and the read does not rewrite the file.
+    def _loader_applies_the_window_on_read_without_rewriting():
+        import tempfile
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        out_of_window = _entry("XX", "AAA", "ORY", now - 90000.0, now - 86400.0)  # ended yesterday
+        in_window = _entry("XX", "BBB", "ORY", now + 3600.0, now + 7200.0)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = cr.calendar_rules_path(tmp)
+            os.makedirs(tmp, exist_ok=True)
+            with open(path, "w") as fh:
+                json.dump({
+                    "entries": [out_of_window, in_window],
+                    "last_attempt_at": None, "last_synced_at": None,
+                }, fh)
+            with open(path, "rb") as fh:
+                before_bytes = fh.read()
+            loaded = cr.load_calendar_registry(tmp, now)
+            with open(path, "rb") as fh:
+                after_bytes = fh.read()
+            if [e["origin_iata"] for e in loaded["entries"]] != ["BBB"]:
+                return False, "expected only the in-window entry, got %r" % (loaded["entries"],)
+            if before_bytes != after_bytes:
+                return False, "load_calendar_registry() rewrote the file on a plain read"
+        return True, ""
+    check(
+        "a hand-written file mixing one out-of-window and one in-window entry loads to the in-window entry "
+        "only, and the read does not rewrite the file (D-01/D-02)",
+        _loader_applies_the_window_on_read_without_rewriting)
+
+    # Check C: the writer refuses to persist what the loader would drop -
+    # the extended form of write_calendar_registry()'s own documented
+    # invariant, now covering the window and not just shape and the cap.
+    def _writer_refuses_to_persist_what_the_window_would_drop():
+        import tempfile
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        stale = _entry("XX", "AAA", "ORY", now - 90000.0, now - 86400.0)
+        current = _entry("XX", "BBB", "ORY", now + 3600.0, now + 7200.0)
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.write_calendar_registry(
+                    tmp, [stale, current], 1.0, "2026-09-07T00:00:00+00:00", now=now):
+                return False, "test setup failure: write failed"
+            raw = json.load(open(cr.calendar_rules_path(tmp)))
+            if [e["origin_iata"] for e in raw["entries"]] != ["BBB"]:
+                return False, "expected only the current entry in the raw file, got %r" % (raw["entries"],)
+        return True, ""
+    check(
+        "a write containing a stale entry and a current entry puts only the current entry in the raw file "
+        "(D-01/D-03)",
+        _writer_refuses_to_persist_what_the_window_would_drop)
+
+    # Check D: the anti-drift guard (D-02) - a behavioural equivalence
+    # assertion, not a source grep. Goes red the moment a second window
+    # implementation appears anywhere on the load path and starts
+    # disagreeing with the sole implementation, select_window_entries().
+    def _loader_output_is_exactly_select_window_entries():
+        import tempfile
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        mixed = [
+            _entry("XX", "AAA", "ORY", now - 200000.0, now - 190000.0),  # ended yesterday
+            _entry("XX", "BBB", "ORY", now - 8 * 3600.0, now - 7 * 3600.0),  # landed earlier today
+            _entry("XX", "CCC", "ORY", now + 2 * 3600.0, now + 3 * 3600.0),  # later today
+            _entry("XX", "DDD", "ORY", now + 47 * 3600.0, now + 48 * 3600.0),  # 47h ahead
+            _entry("XX", "EEE", "ORY", now + 49 * 3600.0, now + 50 * 3600.0),  # 49h ahead - out
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = cr.calendar_rules_path(tmp)
+            os.makedirs(tmp, exist_ok=True)
+            with open(path, "w") as fh:
+                json.dump({"entries": mixed, "last_attempt_at": None, "last_synced_at": None}, fh)
+            loaded = cr.load_calendar_registry(tmp, now)
+            expected = cr.select_window_entries(mixed, now)
+            if loaded["entries"] != expected:
+                return False, ("load_calendar_registry()'s entries diverged from "
+                                "select_window_entries(list, now): got %r, expected %r"
+                                % (loaded["entries"], expected))
+        return True, ""
+    check(
+        "for any list and any now, the loader's entries are exactly select_window_entries(list, now) - the "
+        "anti-drift guard that goes red if a second window implementation ever appears (D-02)",
+        _loader_output_is_exactly_select_window_entries)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
