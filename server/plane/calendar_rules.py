@@ -58,6 +58,7 @@ itself is never exceeded even before a registry exists to expire it from.
 """
 import ipaddress
 import json
+import math
 import os
 import re
 import socket
@@ -410,6 +411,19 @@ def parse_ics_events(raw_text):
     rejected_other = 0
     in_event = False
     current = None
+    # Depth of any component nested INSIDE the open VEVENT (VALARM being the
+    # common one — Apple Calendar attaches one to any event carrying an
+    # alert). RFC 5545 allows this, and two bugs live here if it is ignored:
+    #
+    #   1. Treating any `END:` as the VEVENT's own end closes the event early
+    #      and discards it WITHOUT incrementing either rejection counter, so
+    #      a perfectly valid flight vanishes and nothing is ever logged.
+    #   2. Collecting properties while inside the nested component lets it
+    #      overwrite the parent's — a VALARM's own DESCRIPTION would land on
+    #      the flight.
+    #
+    # Both are avoided by tracking depth and only closing on `END:VEVENT`.
+    nested_depth = 0
 
     try:
         for line in lines:
@@ -422,10 +436,19 @@ def parse_ics_events(raw_text):
                 if value_upper == "VEVENT":
                     in_event = True
                     current = {}
+                    nested_depth = 0
+                elif in_event:
+                    nested_depth += 1
                 continue
 
             if name == "END":
-                if value_upper == "VEVENT" and in_event and current is not None:
+                if value_upper != "VEVENT":
+                    # Closing a nested component (or a stray END outside any
+                    # event). Never ends the VEVENT, never discards `current`.
+                    if in_event and nested_depth > 0:
+                        nested_depth -= 1
+                    continue
+                if in_event and current is not None:
                     entry, reason = _build_entry(current)
                     if entry is not None:
                         entries.append(entry)
@@ -435,11 +458,14 @@ def parse_ics_events(raw_text):
                         rejected_other += 1
                 in_event = False
                 current = None
+                nested_depth = 0
                 if len(entries) >= CALENDAR_MAX_ENTRIES:
                     break
                 continue
 
-            if in_event and current is not None and name in _TRACKED_PROPERTIES:
+            # `nested_depth == 0` keeps a nested component's properties out of
+            # the parent event — see the comment above.
+            if in_event and current is not None and nested_depth == 0 and name in _TRACKED_PROPERTIES:
                 current[name] = value
     except Exception:
         # Defence in depth: every branch above is already guarded, but a
@@ -554,6 +580,16 @@ def _normalise_calendar_entry(entry):
 
     start_at = float(start_at)
     end_at = float(end_at)
+    # NaN and +/-Infinity must be rejected explicitly. Python's json module
+    # parses them by default, `isinstance(nan, float)` is True, and EVERY
+    # comparison against NaN is False — so the `end_at < start_at` ordering
+    # guard below silently passes them, and so does the D-03 window filter and
+    # the D-04 match tolerance downstream. A single NaN-timestamped entry in a
+    # hand-edited calendar_rules.json would therefore become a permanent,
+    # unconditional match for its airline and route, immune to the clock.
+    # That is exactly the tamper vector T-16-INPUT exists to close.
+    if not math.isfinite(start_at) or not math.isfinite(end_at):
+        return None
     if end_at < start_at:
         return None
 

@@ -18,6 +18,7 @@ Usage:
     server/.venv/bin/python3 server/test_calendar_rules.py
 """
 import io
+import json
 import os
 import re
 import socket
@@ -47,7 +48,7 @@ FIXTURE_EXPECTED_ENTRIES = 4
 # plan 06 raised it to 74, adding match_calendar_theme()'s truth table,
 # direction-symmetry, runtime-derived-airline, route-shape-narrowing,
 # fixture-driven ambiguity and never-raises checks.
-EXPECTED_CHECK_COUNT = 74
+EXPECTED_CHECK_COUNT = 76
 
 # A real public unicast IPv4 address (no DNS lookup needed - urlparse()
 # already sees a literal IP as the hostname, and socket.getaddrinfo()
@@ -1536,6 +1537,63 @@ def main():
                     (registry, route, render_state, device_cfg, now), result)
         return True, ""
     check("match_calendar_theme() never raises for a non-dict registry, non-list entries, malformed entries, a non-dict route, a non-dict device_cfg, a non-numeric now, or an unconfirmed render state", _matcher_never_raises)
+
+    # --- Phase 16 code-review regressions (CR-01, CR-02) -----------------
+    # Both were reproduced against the shipped module by the phase's code
+    # review, and neither was covered by any existing check here — which is
+    # precisely why they survived a 13/13 goal verification and a 12-threat
+    # security audit. These two checks are the regression net.
+
+    # CR-01: an RFC 5545-legal component nested inside a VEVENT (VALARM being
+    # the common one — Apple Calendar attaches one to any event with an alert)
+    # must not end the event. The pre-fix parser treated ANY `END:` as the
+    # VEVENT's own, dropping a valid flight silently, without incrementing
+    # either rejection counter, so nothing was ever logged either.
+    def _nested_component_does_not_drop_the_event():
+        ics = "\r\n".join([
+            "BEGIN:VCALENDAR", "VERSION:2.0",
+            "BEGIN:VEVENT",
+            "UID:nested-1",
+            "DTSTART;VALUE=DATE-TIME:20260904T091500Z",
+            "DTEND;VALUE=DATE-TIME:20260904T104500Z",
+            "STATUS:CONFIRMED", "CATEGORIES:FLT",
+            "SUMMARY:ZQ7061 MPL-ORY(+0200)",
+            "BEGIN:VALARM", "ACTION:DISPLAY", "TRIGGER:-PT30M",
+            "DESCRIPTION:alarm text that must not reach the parent event",
+            "END:VALARM",
+            "END:VEVENT",
+            "END:VCALENDAR",
+        ])
+        got = cr.parse_ics_events(ics)
+        if len(got) != 1:
+            return False, "expected the flight to survive a nested VALARM, got %d entr(ies)" % (len(got),)
+        entry = got[0]
+        expected = {"airline_iata": "ZQ", "origin_iata": "MPL", "destination_iata": "ORY"}
+        actual = {k: entry.get(k) for k in expected}
+        if actual != expected:
+            return False, "expected %r, got %r" % (expected, actual)
+        return True, ""
+    check("parse_ics_events() keeps a flight whose VEVENT contains a nested VALARM, and the nested component's properties never reach the parent entry (CR-01)", _nested_component_does_not_drop_the_event)
+
+    # CR-02: json.loads() accepts NaN/Infinity by default, isinstance(nan,
+    # float) is True, and EVERY comparison against NaN is False — so a
+    # NaN-timestamped entry slipped past the ordering guard, then past D-03's
+    # window and D-04's tolerance, becoming a permanent unconditional match.
+    def _non_finite_timestamps_rejected():
+        for literal in ("NaN", "Infinity", "-Infinity"):
+            entry = json.loads(
+                '{"airline_iata":"ZQ","origin_iata":"MPL","destination_iata":"ORY",'
+                '"start_at":%s,"end_at":%s}' % (literal, literal))
+            if cr._normalise_calendar_entry(entry) is not None:
+                return False, "%s timestamps were accepted" % (literal,)
+        # a finite entry of the same shape must still be accepted, so the
+        # check cannot pass by rejecting everything
+        ok_entry = {"airline_iata": "ZQ", "origin_iata": "MPL",
+                    "destination_iata": "ORY", "start_at": 1.0, "end_at": 2.0}
+        if cr._normalise_calendar_entry(ok_entry) is None:
+            return False, "a finite entry was rejected — the check would pass vacuously"
+        return True, ""
+    check("_normalise_calendar_entry() rejects NaN/Infinity timestamps while still accepting a finite entry (CR-02)", _non_finite_timestamps_rejected)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
