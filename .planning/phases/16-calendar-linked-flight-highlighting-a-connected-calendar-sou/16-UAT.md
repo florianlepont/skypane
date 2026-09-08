@@ -1,37 +1,34 @@
 ---
-status: testing
+status: complete
 phase: 16-calendar-linked-flight-highlighting-a-connected-calendar-sou
 source: [16-VERIFICATION.md, 16-SECURITY.md]
 started: 2026-09-08T00:00:00Z
-updated: 2026-09-08T00:00:00Z
+updated: 2026-09-08T09:00:00Z
 ---
 
 ## Current Test
 
-number: 1
-name: Read the Calendar settings group and judge whether it promises only what the frame can deliver
-expected: |
-  Open the companion Settings page and read the new Calendar group. Two things
-  to judge, neither of which a test can settle:
-
-  1. **Does the copy overpromise?** Measured on your own production data: the
-     frame shows one aircraft at a time and missed all three of the calendar
-     owner's flights among 201 detections on her one recorded duty day. This
-     feature colours a flight only when that flight happens to be the one on
-     screen. The copy must not suggest the frame tracks, watches, follows or
-     notifies, and must not imply you will know when someone is flying.
-  2. **Does the group read well where it sits?** It is the last section inside
-     the settings form, after Display. The page is long now.
-
-  Also confirm the URL appears nowhere on the page — only a configured or
-  not-configured state and a last-synced time.
-awaiting: user response
+[testing complete]
 
 ## Tests
 
 ### 1. Read the Calendar settings group and judge whether it promises only what the frame can deliver
 expected: The Calendar group's heading, caption, status line and theme-picker hint together describe a feature that colours a flight when it happens to be displayed, and claim nothing more. The calendar URL is never rendered. The group reads comfortably at the bottom of an already-long Settings page.
-result: [pending]
+result: pass
+source: human
+verified: |
+  2026-09-08, by the developer, reading the actually-rendered Calendar group
+  in their own Chrome against a local instance of the phase's code (port 8656,
+  isolated state dir, started with a fake calendar URL so the connected state
+  was the one on screen). Approved with no changes requested.
+
+  Mechanically confirmed alongside it, so the human judgement was only about
+  the writing: the configured URL appears nowhere in the rendered HTML (probed
+  for the token, the domain, and even the bare `.ics` fragment); the only
+  surveillance verb present is "track", negated in its own sentence, with
+  watch/follow/monitor/notify/alert all absent; no upcoming-flight count or
+  preview is rendered; and the group sits seventh, between Display and the
+  per-flight rules.
 why_human: |
   The automated tests assert the emitted markup and pin the locked copy
   constants, and a word-boundary check rejects affirmative tracking language.
@@ -64,9 +61,9 @@ evidence: |
 ## Summary
 
 total: 2
-passed: 1
+passed: 2
 issues: 0
-pending: 1
+pending: 0
 skipped: 0
 blocked: 0
 
