@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 14
-status: "Phase 16 planned — 7 plans in 5 waves, ready to execute"
-stopped_at: Phase 16 context gathered
-last_updated: "2026-09-07T09:16:58.252Z"
-last_activity: 2026-09-06
-last_activity_desc: Phase 15 complete
+current_phase: 16
+status: "Phase 16 COMPLETE — 7/7 plans, verification passed, UAT 2/2, security 11/12 closed with 0 blocking"
+stopped_at: "Phase 16 closed 2026-09-08. SEED-003 fully delivered across phases 15 and 16. Two code-review blockers were found and fixed after the security audit passed (nested VEVENT component dropping flights, NaN timestamps bypassing the clock). Branch claude/seed-3-roster-highlight is 55+ commits ahead of main and NOT yet merged or deployed."
+last_updated: "2026-09-08T05:48:19.614Z"
+last_activity: 2026-09-08
+last_activity_desc: Phase 16 complete
 progress:
   total_phases: 24
-  completed_phases: 22
-  total_plans: 147
-  completed_plans: 146
+  completed_phases: 23
+  total_plans: 154
+  completed_plans: 153
   percent: 99
 current_phase_name: calendar-linked-flight-highlighting-a-connected-calendar-sou
 ---
@@ -46,7 +46,7 @@ See: .planning/PROJECT.md (updated 2026-08-04)
 
 ## Current Position
 
-Phase: 14
+Phase: 16
 
 **14-06 executed (2026-09-06), wave 3, the last plan in this wave to touch `companion/pages/airlines_page.py` before Wave 4's closing verification — absorbs Phase 13's standalone "Manually resolved prefixes" table into the gallery cards themselves.** Task 1 widened `_airline_card_html(index, airline_name, shapes, state_dir=None, manual_info=None)`: `manual_info=None` is byte-identical to the pre-existing plain curated card; present as `(prefix, superseded, needs_artwork)` — the exact trailing three fields of one `_manual_resolution_rows()` row, sliced by `render()` and consumed here, never re-derived (RESEARCH.md Pitfall 6) — it derives `mode`/`manual`/`heading`/`upload-action`/`delete-action`/`manual-note`/sighting-context attributes and generalises the trigger-tag rule so any card carrying a resolve prefix is a real `<a href="/airlines?resolve={prefix}">` (a plain curated card keeps its `<button>`). A superseded card's image/mode reflect the BUILT-IN airline's own current state (D-10) via one `enrich.static_airline_name_for_prefix()` call. `render()` gained an additive grid-injection step: `manual_info_by_name` keys a superseded row by the built-in name (the card the frame actually renders under) and an active row by its own stored name, and `injected_pairs` adds exactly one card for a genuinely novel active manual name not already curated. Task 2 deleted the standalone management table and its six now-orphaned rendering functions plus nine copy/class constants (the plan's own eight, plus `SUPERSEDED_CAPTION`, a ninth genuinely-orphaned one its enumeration missed), replacing it with `_manual_summary_html(manual_rows)` — a one-line, clickable `data-filter-set="manual"` summary reusing `list-filter.js`'s plan-14-03 hook — and deleted the now-dead `.manual-resolution__status--superseded` CSS rule. Four `test_status_pages.py` checks were retargeted in place (zero net count change) plus one pre-existing 14-03 check flipped from asserting the CSS rule's survival to its absence; 5 new Task-1 checks brought `EXPECTED_CHECK_COUNT` 158 → 163. Two Rule-1 bugs were auto-fixed along the way: a missing pair of format-string placeholders that crashed every card render (caught immediately by `test_view_pages.py`'s `render({})` regression check), and a superseded card's manual-note interpolating the built-in name into its own "the name you gave it" slot instead of the operator's actual stored name (fixed with one `manual_resolutions.load_manual_resolutions()` lookup scoped to that branch, caught by a pre-existing check's assertion going red). External gap-closure per 14-05-SUMMARY.md's own documented finding: `_resolve_name_form_html()` now emits `<p class="lightbox__resolve-scope"></p>`, and `panel-lookup.js`'s previously-discarded `data-view-panel-scope` read now writes into it. `scripts/run-all-tests.sh`: `Result: PASS`, 93% coverage. `git diff --name-only` against this plan's start: `companion/pages/airlines_page.py`, `companion/static/panel-lookup.js`, `companion/static/style.css`, `companion/test_status_pages.py` — zero files under `server/`, no new dependency. Wave 3 (14-04 through 14-06) is now complete; 14-08 (Wave 4's closing verification) is next.
 
@@ -149,7 +149,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-06 — Phase 15 complete
+Last activity: 2026-09-08 — Phase 16 complete
 Last activity: 2026-09-04 - Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence. Also merged in from origin/main: quick task 260904-e92 (Airlines gallery image weight, UIR-08) and Phase 06.6.4.1.1 (settings theme picker + typography/spacing direction pass, 6/6 plans complete).
 **08-01 executed (2026-08-31), the first of Wave 1's 2 parallel-safe plans.** `server/device_config.py`'s `THEMES` grew from the single `"sky"` entry to five: `white` (new `DEFAULT_THEME_ID`), `black`, `yellow`, `red` (all single-colour — `departing_index == arriving_index` — with contrast-correct ink: black ink on white/yellow, white ink on black/red, built only from `panel_format`'s named `IDX_*` constants) and the retained `sky` (unchanged Blue/Green, relabelled `"Sky"` from `"Sky (default)"`, no longer default). The flip silently propagated to `server/plane/render.py`'s `STATE_BACKGROUND`/`STATE_INK` module constants (evaluated from `DEFAULT_THEME_ID` at import time) with zero edit to `render.py` itself, confirming the registry's own extension contract. `server/test_config_history.py` grew 21→25 checks (five stale default-comparison literals corrected `"sky"`→`"white"` — not the plan's stated three, the real on-disk count was five; four new registry-contract checks added, one demonstrated failing via a deliberate ink-index swap then reverted before commit). `server/test_render.py` grew 76→78 (two dominant-nibble checks now expect White; the Sky-equals-default check rewritten as White-matches-default AND Sky-still-differs, so it can't pass if Sky were deleted; two new checks loop `THEME_IDS` for per-theme background dominance and ink-index agreement). `companion/test_config_page.py` grew 37→39, proving the CFG-01 picker absorbed all five themes with zero edit to `companion/pages/config_page.py`/`companion/app.py` (`git diff --stat` confirmed). One Rule 1 deviation outside the plan's stated `files_modified`: `server/test_pipeline_e2e.py`'s battery-icon-region check hardcoded the active-state ink nibble as White (0x1), true only under the retired Sky default's white ink — corrected to derive the expectation from `device_config.theme_ink_index()` for the theme `run_once()` actually reported. Full suite green except `server/test_poll_loop.py`'s pinned `panel.bin` digest (already stale pre-phase from an unrelated macOS/Linux FreeType difference, now additionally invalidated for real by the White-default flip — re-pin explicitly deferred to plan 08-05, not fixed here). None of the four new hues has been seen on real Spectra 6 ink yet — screen-confirmed only, same as Sky was before Phase 7; the registry's provenance comment now records this honestly, and plan 08-06's blocking on-glass session is where that check happens. `requirements.mark-complete D-01 D-02 D-03 D-04` returned all four as `not_found`, consistent with every prior 06.x-style decimal/CONTEXT-only phase's precedent — these are `08-CONTEXT.md` Decision IDs, not formal REQUIREMENTS.md entries. `roadmap.update-plan-progress "08"` confirmed `plan_count: 6, summary_count: 1, status: "In Progress"` (plans 02-06 remain). `state.advance-plan` again could not parse this file's prose-based Current Position section (same known limitation documented throughout this file's history) — `state.update-progress` computed `percent: 93` (64/69) correctly this time, no hand-correction needed.
 
@@ -202,7 +202,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 
 **Velocity:**
 
-- Total plans completed: 146 (re-derived at merge time from ROADMAP.md's own plan checkboxes across both merged phases, superseding both sides' pre-merge figures of 93 and 96)
+- Total plans completed: 108 (re-derived at merge time from ROADMAP.md's own plan checkboxes across both merged phases, superseding both sides' pre-merge figures of 93 and 96)
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -230,6 +230,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | 13 | 6 | - | - |
 | 14 | 8 | - | - |
 | 15 | 5 | - | - |
+| 16 | 7 | - | - |
 
 **Recent Trend:**
 

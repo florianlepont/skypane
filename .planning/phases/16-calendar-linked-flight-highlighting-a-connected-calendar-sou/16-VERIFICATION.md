@@ -1,14 +1,16 @@
 ---
 phase: 16-calendar-linked-flight-highlighting-a-connected-calendar-sou
 verified: 2026-09-07T23:58:35Z
-status: human_needed
+status: passed
 score: 13/13 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
+
   - test: "Load the companion Settings page with SKYPANE_CALENDAR_ICS_URL unset, then with it set to a real feed."
     expected: "The URL appears nowhere (page, page source, tooltip). The copy promises only that the frame colours a flight that happens to be on screen, with no suggestion of tracking/watching/announcing. The theme picker looks and behaves like the Rules add-form's, and changing it dirties the save bar like Wake interval does."
     why_human: "Visual/UX confirmation of copy tone and control behaviour cannot be fully certified by grep alone; workflow.human_verify_mode is end-of-phase, so this was deliberately deferred rather than blocking each plan."
+
   - test: "Run /gsd-secure-phase 16 — the mandatory retroactive security pass over the consolidated T-16-* threat register (SSRF, secret handling, DoS, tamper, privacy) across all seven plans."
     expected: "The security agent confirms the per-plan STRIDE mitigations actually close the register with no residual high-severity gap."
     why_human: "ROADMAP.md's 'Closes with' clause and 16-VALIDATION.md's Sampling Rate both name this as a mandatory phase-gate agent pass, not something this goal-backward code verification substitutes for. Not run yet — no 16-SECURITY.md exists in the phase directory."
