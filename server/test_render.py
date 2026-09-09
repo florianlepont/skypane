@@ -34,6 +34,7 @@ import io
 import os
 import sys
 import tempfile
+from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(HERE)
@@ -110,10 +111,14 @@ TEST_LONG_ROUTE = {
 
 
 def nibble_counts(buf):
+    # Counter(buf) counts each distinct byte value once in C, then each
+    # byte's count is expanded into its two nibbles - same {nibble: count}
+    # dict shape as the old per-byte Python loop, one pass over the buffer
+    # instead of two nibble-dict increments per byte.
     counts = {}
-    for b in buf:
-        for nibble in ((b >> 4) & 0xF, b & 0xF):
-            counts[nibble] = counts.get(nibble, 0) + 1
+    for byte, n in Counter(buf).items():
+        for nibble in ((byte >> 4) & 0xF, byte & 0xF):
+            counts[nibble] = counts.get(nibble, 0) + n
     return counts
 
 

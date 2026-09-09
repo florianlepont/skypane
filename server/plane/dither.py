@@ -29,6 +29,14 @@ from server import panel_format as pf
 WIDTH = pf.WIDTH
 HEIGHT = pf.HEIGHT
 
+# dithered_state_background() is pure - a flat field quantized through
+# Floyd-Steinberg against a fixed 2-entry palette is fully deterministic for
+# a given (bg_idx, lighten_fraction) - which is what makes memoizing it
+# sound. Callers draw onto the returned canvas with ImageDraw, so every
+# lookup MUST return a fresh .copy(); handing back the cached object itself
+# would let one render's drawing mutate the next render's background.
+_STATE_BACKGROUND_CACHE = {}
+
 
 def panel_palette_image():
     """Return a 1x1 "P" image whose palette is exactly panel_format's
@@ -66,6 +74,11 @@ def dithered_state_background(bg_idx, lighten_fraction=0.4):
     (`_assert_legal_palette()`'s dominance invariant in render.py) rather
     than White outnumbering it.
     """
+    cache_key = (bg_idx, lighten_fraction)
+    cached = _STATE_BACKGROUND_CACHE.get(cache_key)
+    if cached is not None:
+        return cached.copy()
+
     r, g, b = pf.PALETTE_RGB[bg_idx * 3 : bg_idx * 3 + 3]
     blend = (
         round(r + (255 - r) * lighten_fraction),
@@ -88,12 +101,17 @@ def dithered_state_background(bg_idx, lighten_fraction=0.4):
     # dithered's local indices are 0 (bg_idx's ink) / 1 (White) only - remap
     # onto the canvas's real index space, then reattach the full panel
     # palette so downstream index-fill drawing (ImageDraw with IDX_* fills)
-    # behaves exactly like a panel_format.new_canvas() canvas.
-    local_indices = dithered.getdata()
-    canvas = Image.new("P", (WIDTH, HEIGHT))
-    canvas.putdata([bg_idx if v == 0 else pf.IDX_WHITE for v in local_indices])
+    # behaves exactly like a panel_format.new_canvas() canvas. Vectorised via
+    # translate() instead of a getdata()/putdata() Python-level remap: local
+    # index 0 -> bg_idx, local index 1 -> IDX_WHITE, everything else (never
+    # produced by a 2-entry-palette quantize, but table-complete regardless)
+    # -> 0.
+    remap = bytes([bg_idx, pf.IDX_WHITE] + [0] * 254)
+    canvas = Image.frombytes("P", (WIDTH, HEIGHT), dithered.tobytes().translate(remap))
     canvas.putpalette(pf.padded_palette())
-    return canvas
+
+    _STATE_BACKGROUND_CACHE[cache_key] = canvas
+    return canvas.copy()
 
 
 def write_calibration_preview(out_dir):
