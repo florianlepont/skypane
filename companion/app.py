@@ -71,7 +71,8 @@ from companion.pages import (  # noqa: E402
 # (Handler._handle_manual_resolve_post() below) can never diverge.
 from companion.pages.airlines_page import unresolved_row_for_prefix  # noqa: E402
 from server import device_config, history_db  # noqa: E402
-from server.plane import colour_rules, illustrations, manual_resolutions  # noqa: E402
+from server.plane import (  # noqa: E402
+    calendar_rules, colour_rules, illustrations, manual_resolutions)
 import server.poll_loop as poll_loop  # noqa: E402
 
 DEFAULT_PORT = 8643
@@ -1008,6 +1009,29 @@ class Handler(BaseHTTPRequestHandler):
             # mid-request must always be visible on the very next
             # request, not just the next poll cycle.
             "colour_rules": colour_rules.load_colour_rules(state_dir),
+            # Phase 16 (16-05-PLAN.md): read fresh on every request, never
+            # captured at import time, so a redeployed env file takes
+            # effect on the next service restart with nothing cached in
+            # between — the same per-call shape env_wake_interval_default()
+            # above already carries. Security contract, stated plainly
+            # because it is the reason this key is a boolean and not a
+            # string: the calendar URL is a subscription secret, this
+            # process must never learn its value, and calendar_rules'
+            # sole accessor for that value therefore has no call site
+            # anywhere under companion/ — this key is the whole of what
+            # the web tier is allowed to know (T-16-SECRET).
+            "calendar_configured": calendar_rules.calendar_is_configured(),
+            # Read fresh per request from disk, never through the poll
+            # cycle's own process-scoped cache, for the identical reason
+            # manual_resolutions/colour_rules above are read fresh — this
+            # service is a long-running ThreadingHTTPServer, and a sync
+            # landing mid-session must be visible on the very next
+            # request. load_calendar_registry() is contractually
+            # never-raising (plan 16-03), which is what makes it safe to
+            # call unconditionally on every authenticated page render
+            # (T-16-DOS).
+            "calendar_last_synced_at": calendar_rules.load_calendar_registry(
+                state_dir)["last_synced_at"],
         }
 
     # --- shared page fragments -------------------------------------------

@@ -50,13 +50,15 @@ REPO_ROOT = os.path.dirname(HERE)
 # phase 6 added 6 harnesses — see 06-11-PLAN.md Task 3; 06.6.2-01 added
 # companion/test_contrast_check.py; phase 13 plan 01 added
 # server/test_manual_resolutions.py; phase 14 plan 01 added
-# server/test_colour_rules.py). 04-CONTEXT.md's D-07 list is 7 files
+# server/test_colour_rules.py; phase 16 plan 01 added
+# server/test_calendar_rules.py). 04-CONTEXT.md's D-07 list is 7 files
 # and is known-stale — do NOT "correct" this list back down to match it.
 # This list is the single source of truth CI (04-04) and README.md
 # (04-05) both defer to.
 HARNESSES = [
     "server/test_config_history.py",
     "server/test_colour_rules.py",
+    "server/test_calendar_rules.py",
     "server/test_dither.py",
     "server/test_enrich.py",
     "server/test_illustrations.py",

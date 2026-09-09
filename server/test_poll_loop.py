@@ -105,7 +105,18 @@ if REPO_ROOT not in sys.path:
 # and the hold early-return - each proven to ignore a matching rule and an
 # arrivals override; direction sensitivity through the real loop; and the
 # per-cycle registry-priming proof) - 64 + 6.
-EXPECTED_CHECK_COUNT = 70
+# 16-07 Task 2: +10 (wiring the calendar source into run_once(): the
+# both-branches invariant with a calendar match surviving a battery repaint
+# past the calendar entry's own time window (D-13/T-16-BRANCH); a calendar
+# match beating an exact-callsign rule (D-02); the three flight-less call
+# sites re-proven against a calendar entry; the CORRECTION 1 narrowing
+# against an airline-only route; a tampered poll_state.json's
+# last_calendar_theme_id falling back to the base theme (T-16-TAMPER); the
+# refresh never creating the registry file when unconfigured, nor
+# rewriting it across ten throttled cycles (T-16-DOS); and an explicit
+# regression fence proving Phase 15's own checks are unchanged with the
+# feature off) - 70 + 10.
+EXPECTED_CHECK_COUNT = 80
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -315,6 +326,60 @@ def _write_battery_state(state_dir, mv):
         json.dump({"battery_mv": mv, "received_at": 1.0}, fh)
 
 
+# Phase 16, plan 07: a real airline/far-end pair the calendar checks reuse
+# across every scenario below - TVF/TO (Transavia France) is the exact
+# ICAO/IATA pair 16-CONTEXT.md's measured findings and calendar_rules.py's
+# own docstring already cite, and enrich._ICAO_AIRLINE_PREFIXES already
+# maps "TVF" to "Transavia France" (the airline_only/prefix-fallback path
+# check 4 below exercises), so nothing here invents a fictitious carrier.
+_CAL_ICAO_PREFIX = "TVF"
+_CAL_AIRLINE_IATA = "TO"
+_CAL_ORIGIN_IATA = "ORY"
+_CAL_DESTINATION_IATA = "NCE"
+
+
+def _seed_calendar_cache(poll_loop, state_dir, callsign, origin_iata=_CAL_ORIGIN_IATA, destination_iata=_CAL_DESTINATION_IATA):
+    """Pre-seed poll_state.json's enrichment_cache with a resolved
+    "cache_hit"-shaped route for `callsign`, so a check can exercise
+    `origin_iata`/`destination_iata`/`callsign_iata` being present without
+    ever reaching a real adsbdb network call - the same
+    `enrich.lookup_route()` cache-hit shape `_route_from_entry()` produces.
+    `poll_loop` is passed in explicitly (rather than imported at module
+    scope) because `main()` imports it as a name local to itself, mirroring
+    every other module-level fixture helper in this file
+    (`_write_battery_state` above needs no such parameter only because it
+    never touches poll_loop.py's own persistence helpers).
+    """
+    poll_loop.save_poll_state(state_dir, {
+        "enrichment_cache": {
+            callsign: {
+                "found": True,
+                "airline_name": "Transavia France",
+                "origin_iata": origin_iata,
+                "origin_city": "Paris",
+                "destination_iata": destination_iata,
+                "destination_city": "Nice",
+                "callsign_iata": _CAL_AIRLINE_IATA + "1234",
+            }
+        }
+    })
+
+
+def _calendar_entry(reference_time, origin_iata=_CAL_ORIGIN_IATA, destination_iata=_CAL_DESTINATION_IATA, duration_s=5400.0):
+    """One D-01-shaped calendar registry entry, matching `reference_time`
+    for a DEPARTING detection (`_seed_calendar_cache()`'s route departs
+    `origin_iata` for `destination_iata`, so `start_at` - not `end_at` -
+    is the reference `match_calendar_theme()` compares against).
+    """
+    return {
+        "airline_iata": _CAL_AIRLINE_IATA,
+        "origin_iata": origin_iata,
+        "destination_iata": destination_iata,
+        "start_at": float(reference_time),
+        "end_at": float(reference_time) + duration_s,
+    }
+
+
 def _digest_verdict(digest, expected):
     """Judge a computed panel.bin digest against the pinned expected value,
     platform-gated: Linux (CI + the production VPS) is authoritative, so a
@@ -493,6 +558,7 @@ def main():
         # --- quick task 260827-oz9: cross-cycle persistence of the
         # unresolved-ICAO-prefix registry --------------------------------
 
+        import server.plane.calendar_rules as calendar_rules
         import server.plane.colour_rules as colour_rules
         import server.plane.enrich as enrich
         import server.plane.manual_resolutions as manual_resolutions
@@ -2933,6 +2999,488 @@ def main():
                 "cycle - proving the registry is primed every cycle, not cached once per process "
                 "(D-13/T-15-02)",
                 _colour_rules_registry_reloaded_every_cycle_from_its_own_state_dir,
+            )
+
+            # --- plan 16-07: wire the calendar source into run_once() -
+            # one throttled refresh per cycle, one match computed from
+            # settled inputs at the flight-detected render, persisted
+            # alongside the flight it describes and reused - never
+            # recomputed - by the held/repaint branch. 16-VALIDATION.md's
+            # poll-loop row; T-16-BRANCH/T-16-PLACEMENT/T-16-TAMPER/
+            # T-16-DOS. ------------------------------------------------
+
+            # 57. The both-branches invariant WITH a calendar match - the
+            # plan's headline proof (16-VALIDATION.md poll-loop row).
+            # Unlike every earlier resolver input, a calendar match is a
+            # function of the clock: the SAME flight, redrawn hours later
+            # by a battery-icon repaint, must still report the IDENTICAL
+            # effective_theme even though the clock has moved well past
+            # the calendar entry's own matching window - proving the held
+            # branch reuses the PERSISTED match rather than recomputing
+            # one that would legitimately differ by then.
+            def _calendar_match_survives_a_battery_repaint_past_its_own_window():
+                import server.plane.render as render
+
+                cal1_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-both-")
+                try:
+                    device_config.save_device_config(cal1_dir, calendar_theme_id="green")
+
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    match_time = CLOCK["t"]
+                    calendar_rules.write_calendar_registry(
+                        cal1_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
+                    _seed_calendar_cache(poll_loop, cal1_dir, "TVF7061")
+
+                    captured_theme_ids = []
+                    original = render.build_canvas
+
+                    def _spy(flight, state, **kwargs):
+                        captured_theme_ids.append(kwargs.get("theme_id"))
+                        return original(flight, state, **kwargs)
+
+                    poll_loop.render.build_canvas = _spy
+                    try:
+                        result1 = poll_loop.run_once(snapshot=_snapshot("cal0001", "TVF7061", CLIMB), state_dir=cal1_dir, geofence=GEOFENCE_PATH)
+
+                        # Change ONLY the battery state, and advance the
+                        # clock WELL PAST the calendar entry's own match
+                        # tolerance - the whole point of the check: a
+                        # version that recomputed the match in the held
+                        # branch would find no candidate this far out and
+                        # silently fall back to the base theme, passing a
+                        # same-minute test and failing only this one.
+                        _write_battery_state(cal1_dir, 3000)
+                        _tick(calendar_rules.CALENDAR_MATCH_TOLERANCE_S + 3600)
+                        result2 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal1_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        poll_loop.render.build_canvas = original
+
+                    if len(captured_theme_ids) != 2:
+                        return False, (
+                            "expected exactly 2 render.build_canvas() calls across the two cycles (one per "
+                            "branch), captured %r" % (captured_theme_ids,)
+                        )
+                    rendered_theme_1, rendered_theme_2 = captured_theme_ids
+
+                    for label, result, rendered_theme in (
+                        ("the flight-detected branch", result1, rendered_theme_1),
+                        ("the held/re-render branch", result2, rendered_theme_2),
+                    ):
+                        if result.get("effective_theme") != rendered_theme:
+                            return False, (
+                                "%s reported effective_theme=%r but actually called render.build_canvas() with "
+                                "theme_id=%r - the reported metadata and the real render call must never "
+                                "diverge" % (label, result.get("effective_theme"), rendered_theme)
+                            )
+
+                    if rendered_theme_2 != rendered_theme_1:
+                        return False, (
+                            "a battery-icon repaint of the SAME flight, hours after the calendar entry's own "
+                            "matching window closed, changed the theme_id actually passed to "
+                            "render.build_canvas() from %r to %r - the held/repaint branch must reuse the "
+                            "PERSISTED match rather than recompute one against the moved clock (D-13, "
+                            "T-16-BRANCH)" % (rendered_theme_1, rendered_theme_2)
+                        )
+                    if rendered_theme_1 != "green":
+                        return False, (
+                            "render.build_canvas() was called with theme_id=%r on both cycles, expected the "
+                            "operator's calendar theme 'green' - not the base theme - so the check would still "
+                            "fail if both branches were wrong in the same direction" % (rendered_theme_1,)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal1_dir, ignore_errors=True)
+            check(
+                "a battery-icon repaint of a calendar-matched flight, hours after the calendar entry's own time "
+                "window has closed, reports the identical effective_theme the flight-detected branch already "
+                "reported - the calendar theme, not the base theme - proving the held branch reuses the "
+                "persisted match rather than recomputing one against the moved clock (D-13, T-16-BRANCH, "
+                "16-VALIDATION.md poll-loop row)",
+                _calendar_match_survives_a_battery_repaint_past_its_own_window,
+            )
+
+            # 58. A calendar match beats an exact-callsign rule, end to end
+            # (D-02) - the developer's explicitly accepted consequence that
+            # a calendar match overrides even the narrowest manual rule an
+            # operator can write.
+            def _calendar_match_beats_an_exact_callsign_rule():
+                cal2_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-precedence-")
+                try:
+                    device_config.save_device_config(cal2_dir, calendar_theme_id="green")
+                    colour_rules.add_rule(cal2_dir, colour_rules.RULE_KIND_CALLSIGN, "TVF7062", "black")
+
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    match_time = CLOCK["t"]
+                    calendar_rules.write_calendar_registry(
+                        cal2_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
+                    _seed_calendar_cache(poll_loop, cal2_dir, "TVF7062")
+
+                    result = poll_loop.run_once(snapshot=_snapshot("cal0002", "TVF7062", CLIMB), state_dir=cal2_dir, geofence=GEOFENCE_PATH)
+                    if result.get("effective_theme") != "green":
+                        return False, (
+                            "a flight matching BOTH a calendar entry and its own exact-callsign rule reported "
+                            "effective_theme=%r, expected the calendar theme 'green' to win over the rule's "
+                            "'black' (D-02)" % (result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal2_dir, ignore_errors=True)
+            check(
+                "a calendar match beats a matching exact-callsign rule end to end through the real loop - the "
+                "calendar's designated theme, not the rule's (D-02)",
+                _calendar_match_beats_an_exact_callsign_rule,
+            )
+
+            # 59. The four flight-less call sites (this phase's narrower
+            # restatement of 15-VALIDATION.md row 9), case 1 of 3: a cycle
+            # that has never detected anything at all (the
+            # nothing-ever-detected `else` branch) reports the base theme,
+            # even with a calendar entry configured.
+            def _nothing_ever_detected_ignores_calendar_match():
+                cal3_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-flightless-a-")
+                try:
+                    device_config.save_device_config(cal3_dir, calendar_theme_id="green")
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    match_time = CLOCK["t"]
+                    calendar_rules.write_calendar_registry(
+                        cal3_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
+
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal3_dir, geofence=GEOFENCE_PATH)
+                    if result.get("effective_theme") != "white":
+                        return False, (
+                            "a cycle that has never detected anything reported effective_theme=%r, expected the "
+                            "base theme 'white' even with a calendar theme configured - a calendar match must "
+                            "never reach an empty state" % (result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal3_dir, ignore_errors=True)
+            check(
+                "the nothing-ever-detected empty-state call site reports effective_theme == the base theme with "
+                "a calendar theme configured - a calendar match must never reach an empty state",
+                _nothing_ever_detected_ignores_calendar_match,
+            )
+
+            # 60. The four flight-less call sites, case 2 of 3: the held
+            # branch's OWN empty-state call site - reached when a flight is
+            # persisted as last_flight but its confirmed_state never
+            # resolved - reports the base theme even with a calendar entry
+            # that would otherwise match that very flight's own route.
+            def _held_branch_with_no_confirmed_state_ignores_calendar_match():
+                cal4_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-flightless-b-")
+                try:
+                    device_config.save_device_config(cal4_dir, calendar_theme_id="green")
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    match_time = CLOCK["t"]
+                    calendar_rules.write_calendar_registry(
+                        cal4_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
+                    _seed_calendar_cache(poll_loop, cal4_dir, "TVF7065")
+
+                    # First cycle: baro_rate=0 sits inside runway_config's
+                    # deadband, so confirmed_state stays None - render_state
+                    # is "empty" and last_confirmed_state persists as None,
+                    # but last_flight IS persisted (check 53's own template).
+                    poll_loop.run_once(snapshot=_snapshot("cal0011", "TVF7065", 0), state_dir=cal4_dir, geofence=GEOFENCE_PATH)
+                    state_after_1 = poll_loop.load_poll_state(cal4_dir)
+                    if state_after_1.get("last_confirmed_state") is not None:
+                        return False, (
+                            "test setup did not produce an unconfirmed first detection: last_confirmed_state=%r"
+                            % (state_after_1.get("last_confirmed_state"),)
+                        )
+
+                    # Second cycle: nothing detected. Force the held
+                    # branch's transition gate open via a battery change so
+                    # its empty-state call site actually runs this cycle.
+                    _write_battery_state(cal4_dir, 3000)
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal4_dir, geofence=GEOFENCE_PATH)
+                    if result.get("effective_theme") != "white":
+                        return False, (
+                            "the held branch's empty-state call site (unconfirmed flight, battery transition) "
+                            "reported effective_theme=%r, expected the base theme 'white' - a calendar entry "
+                            "matching the persisted flight's own route must never leak onto this call site"
+                            % (result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal4_dir, ignore_errors=True)
+            check(
+                "the held branch's own empty-state call site (a persisted flight whose confirmed_state never "
+                "resolved) reports effective_theme == the base theme, even though a calendar entry matching "
+                "that flight's own route is present",
+                _held_branch_with_no_confirmed_state_ignores_calendar_match,
+            )
+
+            # 61. The four flight-less call sites, case 3 of 3: the hold
+            # early-return's own result dict reports the base theme under
+            # display-off, even with a calendar theme configured, a
+            # matching entry present, and a pre-hold flight persisted in
+            # poll_state.json with its own last_calendar_theme_id already
+            # set.
+            def _hold_early_return_ignores_calendar_match():
+                cal5_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-flightless-c-")
+                try:
+                    device_config.save_device_config(cal5_dir, calendar_theme_id="green", display_enabled=False)
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    match_time = CLOCK["t"]
+                    calendar_rules.write_calendar_registry(
+                        cal5_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
+                    poll_loop.save_poll_state(cal5_dir, {
+                        "last_flight": {"hex": "cal0012", "callsign": "TVF7066"},
+                        "last_confirmed_state": "departing",
+                        "last_calendar_theme_id": "green",
+                    })
+
+                    result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal5_dir, geofence=GEOFENCE_PATH)
+                    if result.get("state") != "display_off":
+                        return False, "test setup did not enter the display-off hold: state=%r" % (result.get("state"),)
+                    if result.get("effective_theme") != "white":
+                        return False, (
+                            "the hold early-return's result dict reported effective_theme=%r under display-off, "
+                            "expected the base theme 'white' - a persisted calendar match must never leak onto "
+                            "a hold screen" % (result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal5_dir, ignore_errors=True)
+            check(
+                "the hold early-return's result dict reports effective_theme == the base theme under "
+                "display-off, even with a calendar theme configured, a matching entry present, and a pre-hold "
+                "flight's own last_calendar_theme_id already persisted",
+                _hold_early_return_ignores_calendar_match,
+            )
+
+            # 62. The narrowing, through the real loop (CORRECTION 1): an
+            # airline-only route (the callsign's ICAO prefix resolves via
+            # the static table, but adsbdb itself - stubbed to a 404 miss
+            # for this whole section - returns nothing) carries no
+            # origin_iata/destination_iata/callsign_iata, proving a
+            # calendar match cannot fire on it even though a configured
+            # entry would otherwise match on airline and time.
+            def _airline_only_route_never_matches_the_calendar():
+                cal6_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-narrowing-")
+                try:
+                    device_config.save_device_config(cal6_dir, calendar_theme_id="green")
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    match_time = CLOCK["t"]
+                    calendar_rules.write_calendar_registry(
+                        cal6_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
+                    # Deliberately NOT seeded via _seed_calendar_cache(): no
+                    # enrichment_cache entry exists for this callsign, and
+                    # enrich.default_transport (stubbed to a 404 miss for
+                    # this whole section) never resolves it either - so the
+                    # only route this cycle can produce is the static-table
+                    # airline-only fallback for the TVF prefix, which
+                    # carries no origin_iata/destination_iata/callsign_iata.
+                    result = poll_loop.run_once(snapshot=_snapshot("cal0013", "TVF9999", CLIMB), state_dir=cal6_dir, geofence=GEOFENCE_PATH)
+
+                    state_after = poll_loop.load_poll_state(cal6_dir)
+                    route_after = state_after.get("last_route")
+                    if not isinstance(route_after, dict) or route_after.get("origin_iata") is not None:
+                        return False, (
+                            "test setup did not produce an airline-only route: last_route=%r" % (route_after,)
+                        )
+                    if result.get("effective_theme") != "white":
+                        return False, (
+                            "an airline-only-enriched detection, with a calendar entry that would otherwise "
+                            "match on airline and time, reported effective_theme=%r, expected the base theme "
+                            "'white' - a match must require origin_iata/destination_iata/callsign_iata to be "
+                            "present (CORRECTION 1)" % (result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal6_dir, ignore_errors=True)
+            check(
+                "an airline-only enrichment (no cached route, resolved only via the static ICAO-prefix table) "
+                "never lets a calendar match fire, even with an entry that would otherwise match on airline and "
+                "time - proving the narrowing end to end through the real loop (CORRECTION 1)",
+                _airline_only_route_never_matches_the_calendar,
+            )
+
+            # 63. A tampered poll_state.json cannot reach the panel
+            # (T-16-TAMPER) - the gate covering last_calendar_theme_id
+            # specifically, the only one of this phase's tamper defences
+            # that covers poll_state.json rather than device_config.json
+            # or the calendar registry.
+            def _tampered_last_calendar_theme_id_falls_back_to_base_theme():
+                cal7_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-tamper-")
+                try:
+                    device_config.save_device_config(cal7_dir, calendar_theme_id="green")
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    match_time = CLOCK["t"]
+                    calendar_rules.write_calendar_registry(
+                        cal7_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
+                    _seed_calendar_cache(poll_loop, cal7_dir, "TVF7063")
+
+                    result1 = poll_loop.run_once(snapshot=_snapshot("cal0006", "TVF7063", CLIMB), state_dir=cal7_dir, geofence=GEOFENCE_PATH)
+                    if result1.get("effective_theme") != "green":
+                        return False, (
+                            "test setup did not produce a calendar-matched cycle: effective_theme=%r"
+                            % (result1.get("effective_theme"),)
+                        )
+
+                    tampered = poll_loop.load_poll_state(cal7_dir)
+                    if tampered.get("last_calendar_theme_id") != "green":
+                        return False, (
+                            "the flight-detected branch did not persist last_calendar_theme_id: %r"
+                            % (tampered.get("last_calendar_theme_id"),)
+                        )
+                    tampered["last_calendar_theme_id"] = "not_a_registered_theme"
+                    poll_loop.save_poll_state(cal7_dir, tampered)
+
+                    _write_battery_state(cal7_dir, 3000)
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    result2 = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal7_dir, geofence=GEOFENCE_PATH)
+                    if result2.get("effective_theme") == "not_a_registered_theme":
+                        return False, (
+                            "a hand-edited poll_state.json's last_calendar_theme_id reached the panel "
+                            "unchanged: effective_theme=%r" % (result2.get("effective_theme"),)
+                        )
+                    if result2.get("effective_theme") != "white":
+                        return False, (
+                            "a tampered last_calendar_theme_id fell back to effective_theme=%r, expected the "
+                            "base theme 'white' (no manual rule configured in this scenario)"
+                            % (result2.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal7_dir, ignore_errors=True)
+            check(
+                "a hand-edited poll_state.json whose stored last_calendar_theme_id is not a registered theme "
+                "falls back to the base theme on the held branch's repaint, never reaching the panel "
+                "(T-16-TAMPER)",
+                _tampered_last_calendar_theme_id_falls_back_to_base_theme,
+            )
+
+            # 64. The refresh does not delay or destabilise a cycle - part
+            # 1 of 2: with the calendar env var unset, a full cycle
+            # completes normally and calendar_rules.json is never created.
+            def _unconfigured_cycle_never_creates_the_registry_file():
+                cal8_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-unconfigured-")
+                try:
+                    original_env = os.environ.pop(calendar_rules.CALENDAR_URL_ENV_VAR, None)
+                    try:
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        poll_loop.run_once(snapshot=_snapshot("cal0014", "TVF7064", CLIMB), state_dir=cal8_dir, geofence=GEOFENCE_PATH)
+                    finally:
+                        if original_env is not None:
+                            os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = original_env
+                    if os.path.exists(calendar_rules.calendar_rules_path(cal8_dir)):
+                        return False, "calendar_rules.json was created for a cycle with the calendar feature unconfigured"
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal8_dir, ignore_errors=True)
+            check(
+                "with the calendar env var unset, a full run_once() cycle completes normally and never creates "
+                "calendar_rules.json",
+                _unconfigured_cycle_never_creates_the_registry_file,
+            )
+
+            # 65. The refresh does not delay or destabilise a cycle - part
+            # 2 of 2: with the env var set and a registry already on disk
+            # carrying a fresh last_attempt_at, ten consecutive cycles
+            # inside the throttle interval leave the registry file's
+            # modification time and contents unchanged - proving the
+            # throttled path writes nothing (T-16-DOS).
+            def _throttled_cycles_never_rewrite_the_registry_file():
+                cal9_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-throttle-")
+                try:
+                    original_env = os.environ.get(calendar_rules.CALENDAR_URL_ENV_VAR)
+                    os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = "https://example.invalid/calendar.ics"
+                    try:
+                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                        calendar_rules.write_calendar_registry(cal9_dir, [], CLOCK["t"], None, now=CLOCK["t"])
+                        path = calendar_rules.calendar_rules_path(cal9_dir)
+                        before_mtime = os.path.getmtime(path)
+                        with open(path, "rb") as fh:
+                            before_bytes = fh.read()
+
+                        for _ in range(10):
+                            _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                            poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal9_dir, geofence=GEOFENCE_PATH)
+
+                        after_mtime = os.path.getmtime(path)
+                        with open(path, "rb") as fh:
+                            after_bytes = fh.read()
+                    finally:
+                        if original_env is None:
+                            os.environ.pop(calendar_rules.CALENDAR_URL_ENV_VAR, None)
+                        else:
+                            os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = original_env
+                    if after_mtime != before_mtime or after_bytes != before_bytes:
+                        return False, (
+                            "calendar_rules.json changed across 10 throttled cycles: mtime %r -> %r, bytes "
+                            "changed=%s" % (before_mtime, after_mtime, after_bytes != before_bytes)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal9_dir, ignore_errors=True)
+            check(
+                "with the calendar env var set and a fresh last_attempt_at already on disk, ten consecutive "
+                "cycles inside the throttle interval leave calendar_rules.json's modification time and "
+                "contents byte-identical - the throttled path performs no write (T-16-DOS)",
+                _throttled_cycles_never_rewrite_the_registry_file,
+            )
+
+            # 66. Nothing changes when the calendar feature is off - an
+            # explicit regression fence re-running the three Phase 15
+            # checks this plan's whole point is to leave untouched: a
+            # matching-rule cycle, an arrivals-override cycle, and a plain
+            # base-theme cycle all report exactly what they reported
+            # before this phase.
+            def _feature_off_leaves_every_pre_phase_behaviour_unchanged():
+                off_rule_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-off-rule-")
+                off_arr_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-off-arr-")
+                off_base_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-off-base-")
+                try:
+                    colour_rules.add_rule(off_rule_dir, colour_rules.RULE_KIND_CALLSIGN, "OFF1111", "black")
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    rule_result = poll_loop.run_once(snapshot=_snapshot("cal0015", "OFF1111", CLIMB), state_dir=off_rule_dir, geofence=GEOFENCE_PATH)
+                    if rule_result.get("effective_theme") != "black":
+                        return False, (
+                            "with no calendar configured, a matching-rule cycle reported effective_theme=%r, "
+                            "expected the rule's own theme 'black' unchanged from Phase 15"
+                            % (rule_result.get("effective_theme"),)
+                        )
+
+                    device_config.save_device_config(off_arr_dir, theme_arriving="yellow")
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    arr_result = poll_loop.run_once(snapshot=_snapshot("cal0016", "OFF2222", -CLIMB), state_dir=off_arr_dir, geofence=GEOFENCE_PATH)
+                    if arr_result.get("effective_theme") != "yellow":
+                        return False, (
+                            "with no calendar configured, a detected arriving flight with an arrivals override "
+                            "reported effective_theme=%r, expected the override 'yellow' unchanged from Phase "
+                            "15" % (arr_result.get("effective_theme"),)
+                        )
+
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    base_result = poll_loop.run_once(snapshot=_snapshot("cal0017", "OFF3333", CLIMB), state_dir=off_base_dir, geofence=GEOFENCE_PATH)
+                    if base_result.get("effective_theme") != "white":
+                        return False, (
+                            "with no calendar configured and no rule, a plain detection reported "
+                            "effective_theme=%r, expected the base theme 'white' unchanged from Phase 15"
+                            % (base_result.get("effective_theme"),)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(off_rule_dir, ignore_errors=True)
+                    shutil.rmtree(off_arr_dir, ignore_errors=True)
+                    shutil.rmtree(off_base_dir, ignore_errors=True)
+            check(
+                "with no calendar configured, a matching-rule cycle, an arrivals-override cycle and a plain "
+                "base-theme cycle all report exactly what they reported before this phase - an explicit "
+                "regression fence",
+                _feature_off_leaves_every_pre_phase_behaviour_unchanged,
             )
 
         finally:

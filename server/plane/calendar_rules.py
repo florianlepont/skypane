@@ -1,0 +1,1557 @@
+#!/usr/bin/env python3
+"""Phase 16's calendar-sourced theme input: the operator's connected iCal
+feed, parsed into a bounded list of match candidates.
+
+Across this phase this module owns four things: the throttled, hardened
+fetch of an operator-supplied iCal URL (plan 16-04), the hand-rolled RFC
+5545 subset parser below (this plan, 16-01), a rolling-window registry
+persisted at `{state_dir}/calendar_rules.json` (plan 16-03), and a pure
+match function comparing a detected, enriched flight against that registry
+(plan 16-06, `match_calendar_theme()`). This plan lands only the parser
+half: `unfold_ics_lines()`, `split_property()`, `parse_ics_datetime()` and
+`parse_ics_events()`, plus every constant and compiled allowlist the rest
+of the phase's plans share.
+
+**Leaf-import contract (copied, adapted, from `server/plane/colour_rules.py`'s
+own docstring):** this module imports stdlib only (`re`, `sys`, `os`,
+`json`, `threading`, `ipaddress`, `socket`, `urllib.parse`,
+`datetime`/`timezone`) plus `requests` — already a pinned dependency used
+by `detect.py` and `enrich.py`, so this plan's fetch step adds no new
+entry to `server/requirements.txt` — plus, as of plan 16-06,
+`server.device_config`, for the one membership test
+`match_calendar_theme()` needs against `device_config.THEMES` (the exact
+same single-module exception `colour_rules.py` itself carries, since
+`device_config.py` is itself a leaf that imports neither this module nor
+`colour_rules.py`). It must NEVER import `server.plane.colour_rules`,
+`server.plane.enrich`, `server.plane.detect`,
+`server.plane.illustrations`, `server.plane.manual_resolutions`, or
+`server.plane.render`.
+
+The `colour_rules` direction specifically is forbidden for a reason beyond
+the general leaf-layering discipline every other name in that list already
+carries: D-02's precedence between a calendar match and a manual rule is
+wired the OTHER way round — `poll_loop.py` computes a `calendar_theme_id`
+by calling this module's `match_calendar_theme()`, then passes that value
+into `colour_rules.resolve_effective_theme_id()` as a plain keyword
+argument. `colour_rules.py` never needs to know this module exists. If
+this module ever imported `colour_rules` back, `poll_loop -> calendar_rules
+-> colour_rules -> poll_loop` would be a real import cycle the moment
+`poll_loop.py` also imports `calendar_rules` directly (it does, from plan
+16-04 onward) — exactly the shape `colour_rules.py`'s own docstring already
+warns against for its own five forbidden imports.
+
+**Redeploy note (mirrors `colour_rules.py`/`manual_resolutions.py`):** once
+plan 16-03 lands, the registry this module writes lives at
+`{state_dir}/calendar_rules.json` — outside the git-tracked tree
+`deploy/deploy.sh` rsyncs with `--delete`, so it survives a redeploy the
+same way phase 15's colour-rule registry, `manual_resolutions.json`, and
+`device_config.json` already do.
+
+**Privacy clause:** this module's eventual persisted output describes a
+named person's near-term work schedule (D-03's own framing) sitting on a
+VPS. A persisted or in-memory record therefore carries the minimum the
+matcher needs and nothing else — see `parse_ics_events()`'s five-key
+entry shape below, which never carries a flight number, a UID, a summary
+or a description. D-03's rolling window (plan 16-03) is what bounds how
+long that minimum is retained; this plan's job is to make sure the minimum
+itself is never exceeded even before a registry exists to expire it from.
+"""
+import ipaddress
+import json
+import math
+import os
+import re
+import socket
+import sys
+import threading
+import time
+from datetime import datetime, timezone
+from urllib.parse import urljoin, urlparse
+
+import requests
+
+from server import device_config
+
+# --- Constants -------------------------------------------------------------
+
+# Self-identification for the one outbound call this module makes, in
+# detect.py's/enrich.py's own shape (detect.py:72-76, enrich.py's
+# USER_AGENT). A calendar provider is not a rate-limited public service
+# the way the ADS-B aggregators are, but naming this traffic honestly
+# costs nothing and matches the codebase's one existing convention for
+# every outbound request.
+USER_AGENT = (
+    "skypane-server/0.1 "
+    "(hobby project, Phase 16 calendar-linked flight highlighting; "
+    "see server/README.md for what this traffic is)"
+)
+
+# The registry's on-disk filename, mirroring COLOUR_RULES_FILENAME /
+# MANUAL_RESOLUTIONS_FILENAME's naming convention. Not read by any code
+# until plan 16-03 adds the load/save functions.
+CALENDAR_RULES_FILENAME = "calendar_rules.json"
+
+# This phase's first runtime secret outside companion/auth.py. Its VALUE
+# never leaves this module and never reaches a log line, a page, or
+# state_dir (T-16-SECRET) — only its presence is ever surfaced elsewhere
+# (companion/app.py's env_wake_interval_default()-style fail-open check).
+CALENDAR_URL_ENV_VAR = "SKYPANE_CALENDAR_ICS_URL"
+
+# Mirrors colour_rules.COLOUR_RULE_MAX_ENTRIES's role: a hard bound against
+# a hostile/malformed feed, not a plausible one — a real 48h roster window
+# measured well under ten events (16-CONTEXT.md finding 1).
+CALENDAR_MAX_ENTRIES = 200
+
+# Minimum seconds between fetch *attempts* (plan 16-04's throttle). A crew
+# roster is republished at most a few times a day; 30 minutes tracks that
+# cadence without hammering the operator's host every 30s poll cycle.
+CALENDAR_FETCH_INTERVAL_S = 1800
+
+# Per-request timeout (plan 16-04). Generous for a small iCal feed, short
+# enough that a hung upstream never meaningfully delays the 30s oneshot.
+CALENDAR_FETCH_TIMEOUT_S = 10.0
+
+# Hard response-size cap enforced by streaming, never by trusting a
+# response's own declared-length header (plan 16-04, T-16-DOS) - a
+# hostile or misconfigured server can omit, understate or exceed it.
+# 2 MiB comfortably exceeds any plausible multi-month roster export.
+CALENDAR_MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+
+# Bounded redirect-following (plan 16-04); each hop is re-validated against
+# the same SSRF gate as the original URL, never trusted transitively.
+CALENDAR_MAX_REDIRECTS = 5
+
+# D-03's rolling-window retention width in seconds: today plus 48h forward
+# (plan 16-03). The upper end of D-03's stated "24 to 48h" range.
+CALENDAR_WINDOW_FORWARD_S = 172800
+
+# Per-match tolerance in seconds around a calendar entry's DTSTART/DTEND
+# (plan 16-06): generous enough to absorb ordinary delay (90 minutes),
+# tight enough that the measured ~8h-apart NCE-ORY rotation pair is never
+# ambiguously close.
+CALENDAR_MATCH_TOLERANCE_S = 5400
+
+# The one CATEGORIES value that marks a VEVENT as a flight rather than
+# OFFD/CAHC/CPBL duty-roster noise (16-CONTEXT.md finding 1).
+CATEGORY_FLIGHT = "FLT"
+
+# The STATUS value the real export's two 1899-placeholder junk events
+# carry; filtered before their (deliberately invalid) dates are ever
+# parsed.
+STATUS_CANCELLED = "CANCELLED"
+
+# --- Registry file contract (plan 16-03) ------------------------------------
+#
+# calendar_rules.json's shape, D-01's separation from phase 15's rule
+# store, and D-03's whole-file-rewrite rolling window. See
+# calendar_rules_path(), load_calendar_registry() and
+# write_calendar_registry() below.
+# CALENDAR_RULES_FILENAME (D-01: deliberately not the filename phase 15's
+# colour-rule registry uses — an automatic source must never overwrite,
+# replace or delete a rule the operator typed by hand) is already
+# declared above.
+
+# The exact five-key shape parse_ics_events() emits, declared once so the
+# loader's key-set validation and this harness's fixtures share a single
+# definition of "a well-shaped entry" rather than two that could drift.
+CALENDAR_REGISTRY_KEYS = (
+    "airline_iata", "origin_iata", "destination_iata", "start_at", "end_at",
+)
+
+# Result constants for poll_loop.py's (plan 16-04) fetch outcome. These are
+# NOT flash keys, mirroring colour_rules.py's own ADD_* comment: nothing
+# about a flash exists at this tier, and companion/ never sees these.
+FETCH_OK = "fetch_ok"
+FETCH_SKIPPED_UNCONFIGURED = "fetch_skipped_unconfigured"
+FETCH_SKIPPED_THROTTLED = "fetch_skipped_throttled"
+FETCH_REJECTED_URL = "fetch_rejected_url"
+FETCH_FAILED = "fetch_failed"
+
+# WR-02-style fix (T-15-02's precedent, colour_rules.py:107-114), applied
+# here as defence in depth even though it is not load-bearing the way it is
+# for colour_rules.py's ThreadingHTTPServer writers: this file has a single
+# writer — the poll oneshot's fetch step — never companion/'s concurrent
+# request threads. The lock still wraps the entire load-check-mutate-write
+# sequence, not just the final atomic replace, so a future second writer
+# can never appear without this module already being race-safe against it.
+_WRITE_LOCK = threading.Lock()
+
+# --- Compiled positive allowlists ------------------------------------------
+#
+# Styled exactly like colour_rules.py's own compiled-regex block: each
+# allowlist is this module's share of the defence against an untrusted
+# feed body smuggling a crafted value into a parsed entry (T-16-INPUT).
+
+# A whole, stripped SUMMARY as "{flight token} {origin}-{destination}",
+# with an optional trailing parenthesised signed four-digit UTC-offset
+# suffix. The flight token's own charset ([A-Z0-9]{2,8}) mirrors
+# colour_rules._CALLSIGN_RULE_RE's same eight-character real-world bound.
+# The `offset` group is captured but never used for matching: it is the
+# far end's *local* UTC offset, informational only in this producer — the
+# authoritative times are DTSTART/DTEND, already UTC (CORRECTION 2).
+_SUMMARY_ROUTE_RE = re.compile(
+    r"^(?P<flight>[A-Z0-9]{2,8})\s+(?P<origin>[A-Z]{3})-(?P<destination>[A-Z]{3})"
+    r"(?:\((?P<offset>[+-]\d{4})\))?$"
+)
+
+# Exactly two characters from [A-Z0-9], with a lookahead requiring at
+# least one letter, so an all-digit pair (never a real IATA airline code)
+# is not mistaken for one.
+_AIRLINE_IATA_RE = re.compile(r"^(?=.*[A-Z])[A-Z0-9]{2}$")
+
+# Exactly three uppercase letters, matching every real IATA airport code.
+_AIRPORT_IATA_RE = re.compile(r"^[A-Z]{3}$")
+
+# Exactly eight digits, the letter T, six digits and a trailing Z — this
+# producer's one and only DTSTART/DTEND shape (CORRECTION 2: measured
+# 63/63 real events, zero TZID). Anything else is rejected, never guessed.
+_ICAL_UTC_RE = re.compile(r"^\d{8}T\d{6}Z$")
+
+# Properties this parser records per VEVENT block; every other property,
+# including any unrecognised X- extension, is read and silently ignored.
+_TRACKED_PROPERTIES = ("SUMMARY", "CATEGORIES", "STATUS", "DTSTART", "DTEND")
+
+
+def unfold_ics_lines(raw_text):
+    """RFC 5545 section 3.1 unfolding: rejoin a content line folded across
+    multiple physical lines into one logical line, BEFORE any property is
+    ever split out of it.
+
+    This must run first. Reversing the order — splitting into properties
+    off the raw physical lines — silently corrupts exactly the long
+    SUMMARY/DESCRIPTION values the rest of this module depends on: a
+    folded continuation line looks like a new, malformed property instead
+    of the tail of the previous one (16-RESEARCH.md Pitfall 1).
+
+    Normalises CRLF to LF first (this producer's own export is LF-only,
+    but a CRLF-terminated feed must unfold identically). Walks the
+    resulting lines; whenever a line's first character is a SPACE or a
+    HTAB *and* at least one logical line has already been started, that
+    one leading marker character is stripped and the remainder is
+    appended onto the previous logical line — never onto a new one.
+    A continuation-shaped line at the very start of the text (no previous
+    logical line to join onto) is kept as its own line rather than
+    raising an IndexError.
+
+    Non-string input returns an empty list. Never raises.
+    """
+    if not isinstance(raw_text, str):
+        return []
+    normalised = raw_text.replace("\r\n", "\n")
+    logical_lines = []
+    for line in normalised.split("\n"):
+        if line[:1] in (" ", "\t") and logical_lines:
+            logical_lines[-1] += line[1:]
+        else:
+            logical_lines.append(line)
+    return logical_lines
+
+
+def split_property(line):
+    """Split one already-unfolded logical line into `(name, params, value)`.
+
+    Partitions on the FIRST colon only: everything before it is the
+    name-and-parameters segment, everything after is the value. The bare
+    property name is everything in that segment before its first
+    semicolon, uppercased and stripped — so
+    `DTSTART;VALUE=DATE-TIME:20260901T060000Z` yields the name `DTSTART`,
+    the raw parameter segment `VALUE=DATE-TIME`, and the value
+    `20260901T060000Z` with the value's own colons (if any) left intact
+    (16-RESEARCH.md Pitfall 2).
+
+    A line with no colon at all returns `(None, None, None)` — this
+    producer is not known to ever emit a colon inside a quoted parameter
+    value (a real, if rare, RFC 5545 possibility), so that shape is
+    treated as explicitly out of the accepted subset: skipped by the
+    caller, never guessed at.
+    """
+    if not isinstance(line, str) or ":" not in line:
+        return None, None, None
+    name_and_params, _, value = line.partition(":")
+    segments = name_and_params.split(";", 1)
+    name = segments[0].strip().upper()
+    params = segments[1] if len(segments) > 1 else ""
+    return name, params, value
+
+
+def parse_ics_datetime(value):
+    """Parse this producer's one accepted DTSTART/DTEND shape — bare UTC
+    `YYYYMMDDTHHMMSSZ` — into a float epoch. Return `None` for anything
+    else.
+
+    CORRECTION 2 measured 63/63 real events in this shape with zero
+    `TZID` parameters, so this function implements no second format, no
+    `TZID` branch, and imports no timezone database (`zoneinfo`/`pytz`).
+    A future producer change that starts emitting a `TZID`-qualified or
+    `VALUE=DATE` value must fail loudly here — every caller counts and
+    logs this rejection class separately (see `parse_ics_events()`) — not
+    be silently mistimed by a guessed fallback format.
+
+    `strptime()`'s own call is wrapped so a syntactically-shaped but
+    calendrically impossible value (e.g. month 13) returns `None` rather
+    than raising. Never raises.
+    """
+    if not isinstance(value, str) or not _ICAL_UTC_RE.match(value):
+        return None
+    try:
+        parsed = datetime.strptime(value, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return parsed.timestamp()
+
+
+def _build_entry(props):
+    """Turn one closed VEVENT block's accumulated property dict into a
+    five-key entry, or reject it. Returns `(entry_or_None, reason)` where
+    `reason` is `"date_form"` (the event was otherwise valid but its
+    DTSTART/DTEND was not the bare-UTC form `parse_ics_datetime()`
+    accepts — CORRECTION 2's tripwire), `"other"` (any other rejection
+    reason: wrong category, cancelled, shape-invalid summary, invalid
+    airline/airport code, or an end time before its start), or `None`
+    (the event was accepted).
+
+    Gate order is load-bearing and intentionally NOT reorderable: category
+    first, then STATUS, then the SUMMARY shape, and only then the dates.
+    Running the date parser before the category filter would make the
+    fixture's all-day OFFD event (a VALUE=DATE value the date parser is
+    required to reject) inflate the rejection count on a perfectly
+    healthy feed — the category gate must dispose of it first, before the
+    date parser is ever consulted (16-VALIDATION.md's own framing of this
+    exact case).
+    """
+    categories_raw = props.get("CATEGORIES")
+    categories = (
+        [c.strip() for c in categories_raw.upper().split(",")]
+        if isinstance(categories_raw, str)
+        else []
+    )
+    if CATEGORY_FLIGHT not in categories:
+        return None, "other"
+
+    status_raw = props.get("STATUS")
+    if isinstance(status_raw, str) and status_raw.strip().upper() == STATUS_CANCELLED:
+        return None, "other"
+
+    summary_raw = props.get("SUMMARY")
+    if not isinstance(summary_raw, str):
+        return None, "other"
+    match = _SUMMARY_ROUTE_RE.match(summary_raw.strip())
+    if match is None:
+        return None, "other"
+
+    flight = match.group("flight")
+    origin = match.group("origin")
+    destination = match.group("destination")
+    if not _AIRLINE_IATA_RE.match(flight[:2]):
+        return None, "other"
+    if not _AIRPORT_IATA_RE.match(origin) or not _AIRPORT_IATA_RE.match(destination):
+        return None, "other"
+
+    # Only now — after category, status and summary shape have all
+    # already passed — does the date parser ever see this event.
+    start_at = parse_ics_datetime(props.get("DTSTART"))
+    end_at = parse_ics_datetime(props.get("DTEND"))
+    if start_at is None or end_at is None:
+        return None, "date_form"
+    if end_at < start_at:
+        return None, "other"
+
+    entry = {
+        "airline_iata": flight[:2],
+        "origin_iata": origin,
+        "destination_iata": destination,
+        "start_at": start_at,
+        "end_at": end_at,
+    }
+    return entry, None
+
+
+def parse_ics_events(raw_text):
+    """Parse an untrusted iCal feed body into a bounded, sorted list of
+    match-candidate entries. Never raises, regardless of input.
+
+    Unfolds first (`unfold_ics_lines()`), then walks the logical lines,
+    accumulating one property dict per `BEGIN:VEVENT` .. `END:VEVENT`
+    block — recording only the last-seen value for each of
+    `SUMMARY`/`CATEGORIES`/`STATUS`/`DTSTART`/`DTEND` and ignoring every
+    other property, including unknown `X-` ones. A block that is opened
+    but never closed before the text ends is discarded, never buffered to
+    EOF as a live block (T-16-DOS).
+
+    Each closed block goes through `_build_entry()`'s three ordered gates
+    (category, status, summary shape) before its dates are ever parsed.
+    A surviving entry is rebuilt from scratch as a five-key dict —
+    `airline_iata`, `origin_iata`, `destination_iata`, `start_at`,
+    `end_at` — never by reusing the accumulated property dict, so no
+    unvalidated key, no flight number, no UID and no summary/description
+    text can ever reach the returned list (T-16-INPUT, D-03's privacy
+    reasoning).
+
+    Accumulation stops the instant `CALENDAR_MAX_ENTRIES` surviving
+    entries have been collected; nothing past that point is parsed at
+    all. Rejections are counted in two separate, mutually exclusive
+    buckets — `"date_form"` (CORRECTION 2's tripwire class) and `"other"`
+    (everything else) — and when either count is non-zero, exactly one
+    line naming both counts (never a rejected value, never a DTSTART,
+    never a summary) is printed to stderr: a rejected flight time is a
+    named person's schedule, and `journalctl` is readable by anyone with
+    VPS access.
+
+    Returns entries sorted ascending by `start_at`.
+    """
+    if not isinstance(raw_text, str):
+        return []
+
+    try:
+        lines = unfold_ics_lines(raw_text)
+    except Exception:
+        return []
+
+    entries = []
+    rejected_date_form = 0
+    rejected_other = 0
+    in_event = False
+    current = None
+    # Depth of any component nested INSIDE the open VEVENT (VALARM being the
+    # common one — Apple Calendar attaches one to any event carrying an
+    # alert). RFC 5545 allows this, and two bugs live here if it is ignored:
+    #
+    #   1. Treating any `END:` as the VEVENT's own end closes the event early
+    #      and discards it WITHOUT incrementing either rejection counter, so
+    #      a perfectly valid flight vanishes and nothing is ever logged.
+    #   2. Collecting properties while inside the nested component lets it
+    #      overwrite the parent's — a VALARM's own DESCRIPTION would land on
+    #      the flight.
+    #
+    # Both are avoided by tracking depth and only closing on `END:VEVENT`.
+    nested_depth = 0
+
+    try:
+        for line in lines:
+            name, _params, value = split_property(line)
+            if name is None:
+                continue
+            value_upper = value.strip().upper() if isinstance(value, str) else ""
+
+            if name == "BEGIN":
+                if value_upper == "VEVENT":
+                    in_event = True
+                    current = {}
+                    nested_depth = 0
+                elif in_event:
+                    nested_depth += 1
+                continue
+
+            if name == "END":
+                if value_upper != "VEVENT":
+                    # Closing a nested component (or a stray END outside any
+                    # event). Never ends the VEVENT, never discards `current`.
+                    if in_event and nested_depth > 0:
+                        nested_depth -= 1
+                    continue
+                if in_event and current is not None:
+                    entry, reason = _build_entry(current)
+                    if entry is not None:
+                        entries.append(entry)
+                    elif reason == "date_form":
+                        rejected_date_form += 1
+                    elif reason == "other":
+                        rejected_other += 1
+                in_event = False
+                current = None
+                nested_depth = 0
+                if len(entries) >= CALENDAR_MAX_ENTRIES:
+                    break
+                continue
+
+            # `nested_depth == 0` keeps a nested component's properties out of
+            # the parent event — see the comment above.
+            if in_event and current is not None and nested_depth == 0 and name in _TRACKED_PROPERTIES:
+                current[name] = value
+    except Exception:
+        # Defence in depth: every branch above is already guarded, but a
+        # hostile/malformed feed must never abort the poll cycle no
+        # matter what (T-16-DOS) — degrade to whatever survived so far
+        # rather than propagate.
+        pass
+
+    if rejected_date_form or rejected_other:
+        print(
+            "calendar_rules: parse_ics_events() dropped %d event(s) "
+            "(%d rejected for an unrecognised date form, %d for another reason)"
+            % (rejected_date_form + rejected_other, rejected_date_form, rejected_other),
+            file=sys.stderr,
+        )
+
+    entries.sort(key=lambda entry: entry["start_at"])
+    return entries
+
+
+# --- Registry file contract (plan 16-03, D-01/D-03) -------------------------
+
+
+def calendar_rules_path(state_dir):
+    """Join `state_dir` and `CALENDAR_RULES_FILENAME`.
+
+    Mirrors `colour_rules.colour_rules_path()`. This file survives a
+    redeploy because `deploy/deploy.sh` rsyncs `server/` with `--delete`
+    while excluding the state directory, the same reason phase 15's
+    colour-rule registry, `manual_resolutions.json`, and
+    `device_config.json` already survive one.
+    """
+    return os.path.join(state_dir, CALENDAR_RULES_FILENAME)
+
+
+def calendar_is_configured():
+    """Return whether `CALENDAR_URL_ENV_VAR` is set to a non-blank value,
+    as a genuine `bool` — never the value itself.
+
+    Reads the environment on every call through `os.environ.get()` —
+    nothing captured at import time — matching the shared per-call shape
+    of `auth.configured_password()` and `app.env_wake_interval_default()`.
+    This function exists precisely so a caller that only needs to render
+    a configured-or-not status (companion/'s Settings status line, plan
+    16-05) never touches the secret value: it must never be reimplemented
+    as a truthiness test on `configured_calendar_url()`'s return inside a
+    caller's own scope.
+
+    Uses `env_wake_interval_default()`'s fail-open shape, not
+    `configured_password()`'s fail-closed one: an absent calendar
+    variable is a designed, legitimate empty state (the feature is simply
+    off), not an auth failure.
+    """
+    raw = os.environ.get(CALENDAR_URL_ENV_VAR)
+    return bool(raw and raw.strip())
+
+
+def configured_calendar_url():
+    """Return the stripped calendar URL, or `None`. The sole accessor of
+    the value.
+
+    Reads the environment on every call; nothing captured at import time
+    and no module-level cache. The return value is this phase's first
+    secret outside `companion/auth.py` (T-16-SECRET): it must never be
+    logged, never interpolated into an exception message, never written
+    to `state_dir`, and never returned to `companion/` — `companion/`
+    calls `calendar_is_configured()` instead, which answers the presence
+    question without ever touching this value.
+    """
+    raw = os.environ.get(CALENDAR_URL_ENV_VAR)
+    if not isinstance(raw, str):
+        return None
+    stripped = raw.strip()
+    return stripped or None
+
+
+def _normalise_calendar_entry(entry):
+    """Rebuild one candidate registry entry from scratch, returning a
+    fresh well-shaped dict or `None`. Never raises.
+
+    Re-applies, on every call, the exact allowlists `parse_ics_events()`
+    already applied at parse time: the key set must be exactly
+    `CALENDAR_REGISTRY_KEYS` (not a subset, not a superset), both airport
+    codes must match `_AIRPORT_IATA_RE`, the airline code must match
+    `_AIRLINE_IATA_RE`, both timestamps must be real numbers with `bool`
+    rejected explicitly (`bool` is an `int` subclass — the same guard
+    `poll_loop._as_timestamp()` already applies), and `end_at` must not
+    precede `start_at`. This is T-16-INPUT's defence: `calendar_rules.json`
+    is operator-inspectable on the VPS, and a hand-edited entry is this
+    tier's tamper vector, so every read re-validates rather than trusting
+    what a previous write already checked.
+    """
+    if not isinstance(entry, dict) or set(entry.keys()) != set(CALENDAR_REGISTRY_KEYS):
+        return None
+
+    airline_iata = entry.get("airline_iata")
+    origin_iata = entry.get("origin_iata")
+    destination_iata = entry.get("destination_iata")
+    start_at = entry.get("start_at")
+    end_at = entry.get("end_at")
+
+    if not isinstance(airline_iata, str) or not _AIRLINE_IATA_RE.match(airline_iata):
+        return None
+    if not isinstance(origin_iata, str) or not _AIRPORT_IATA_RE.match(origin_iata):
+        return None
+    if not isinstance(destination_iata, str) or not _AIRPORT_IATA_RE.match(destination_iata):
+        return None
+    if isinstance(start_at, bool) or not isinstance(start_at, (int, float)):
+        return None
+    if isinstance(end_at, bool) or not isinstance(end_at, (int, float)):
+        return None
+
+    start_at = float(start_at)
+    end_at = float(end_at)
+    # NaN and +/-Infinity must be rejected explicitly. Python's json module
+    # parses them by default, `isinstance(nan, float)` is True, and EVERY
+    # comparison against NaN is False — so the `end_at < start_at` ordering
+    # guard below silently passes them, and so does the D-03 window filter and
+    # the D-04 match tolerance downstream. A single NaN-timestamped entry in a
+    # hand-edited calendar_rules.json would therefore become a permanent,
+    # unconditional match for its airline and route, immune to the clock.
+    # That is exactly the tamper vector T-16-INPUT exists to close.
+    if not math.isfinite(start_at) or not math.isfinite(end_at):
+        return None
+    if end_at < start_at:
+        return None
+
+    return {
+        "airline_iata": airline_iata,
+        "origin_iata": origin_iata,
+        "destination_iata": destination_iata,
+        "start_at": start_at,
+        "end_at": end_at,
+    }
+
+
+def _resolve_retention_now(now):
+    """Resolve the retention clock for `_rebuild_capped_entries()`: return
+    `time.time()` for `None`, a `bool`, any non-`int`/`float` value, or a
+    non-finite (`NaN`/`+-Infinity`) value; otherwise return `float(now)`.
+
+    This guard exists because `select_window_entries()` itself returns
+    `[]` for any `now` it cannot convert to a UTC datetime (an unparseable
+    value, an overflowing timestamp, `NaN`, `+-Infinity`). Without this
+    resolver sitting in front of it, a hostile or simply absent `now`
+    reaching `_rebuild_capped_entries()` would silently ERASE a
+    perfectly valid registry instead of merely trimming it to the current
+    window — turning a retention fix into a data-loss bug. Reuses
+    `_normalise_calendar_entry()`'s own bool-reject-then-finite-check
+    discipline verbatim, for the identical reason that function already
+    documents at its own `start_at`/`end_at` guard.
+    """
+    if isinstance(now, bool) or not isinstance(now, (int, float)):
+        return time.time()
+    now = float(now)
+    if not math.isfinite(now):
+        return time.time()
+    return now
+
+
+def _rebuild_capped_entries(raw_entries, context, now):
+    """Rebuild every entry in `raw_entries` from scratch via
+    `_normalise_calendar_entry()`, stopping the instant `CALENDAR_MAX_ENTRIES`
+    survivors have accumulated, print — never raise — a one-line warning
+    naming `context`, the drop count and the cap when anything was
+    dropped (mirroring `load_colour_rules()`'s own `capped_remainder`
+    -accounted warning), and THEN reduce the survivors to D-03's rolling
+    window via `select_window_entries()` — the sole implementation of the
+    window's two edges; this helper never recomputes the day-start edge,
+    the forward edge, or `CALENDAR_WINDOW_FORWARD_S` itself. `now` is a
+    REQUIRED third positional argument (not defaulted) so a future caller
+    can never silently skip the window; a hostile or absent value is
+    resolved to real current time by `_resolve_retention_now()` before it
+    ever reaches `select_window_entries()`.
+
+    Three behaviours worth being explicit about, because each is a real
+    consequence a future reader would otherwise trip over:
+
+    - **The window's own drops are deliberately NOT folded into the
+      drop-count warning above.** That warning classifies an anomaly
+      (malformed, unsafe, or beyond the cap). Routine expiry is this
+      feature's designed steady state, and `load_calendar_registry()`
+      runs on every companion page render — folding expiry into the same
+      warning would flood the journal on every read of a file more than a
+      day old and misclassify normal retention as a fault.
+    - **Order: cap first, then window.** The cap bounds work on a hostile
+      file; the window then applies only to what survived the cap. The
+      accepted cost is that a file whose in-window entries happen to sit
+      beyond the cap position yields fewer than `CALENDAR_MAX_ENTRIES` —
+      that is the hostile-file bound doing its job, not a defect.
+    - **Sort.** `select_window_entries()` returns its result sorted
+      ascending by `start_at`, so both this helper's return value and
+      (via `write_calendar_registry()`) the persisted file are now always
+      sorted — previously both preserved file/caller order.
+
+    A non-list `raw_entries` (a hand-edited file whose `entries` key is
+    not a list) returns an empty list without printing, since there is
+    nothing to count as dropped versus what was never a candidate list to
+    begin with. Never raises regardless of `raw_entries`'s or `now`'s
+    shape.
+    """
+    if not isinstance(raw_entries, list):
+        return []
+
+    survivors = []
+    rejected = 0
+    capped_remainder = 0
+    for index, raw_entry in enumerate(raw_entries):
+        if len(survivors) >= CALENDAR_MAX_ENTRIES:
+            capped_remainder = len(raw_entries) - index
+            break
+        normalised = _normalise_calendar_entry(raw_entry)
+        if normalised is None:
+            rejected += 1
+            continue
+        survivors.append(normalised)
+
+    dropped = rejected + capped_remainder
+    if dropped:
+        print(
+            "calendar_rules: %s dropped %d entr%s (malformed/unsafe, or "
+            "beyond the %d-entry cap)"
+            % (context, dropped, "y" if dropped == 1 else "ies", CALENDAR_MAX_ENTRIES),
+            file=sys.stderr,
+        )
+    resolved_now = _resolve_retention_now(now)
+    return select_window_entries(survivors, resolved_now)
+
+
+def load_calendar_registry(state_dir, now=None):
+    """Read `{state_dir}/calendar_rules.json`; never raises.
+
+    A missing file, an unreadable file, invalid JSON, a JSON array, a
+    JSON string, or a dict whose `entries` is not a list all yield the
+    documented empty shape — a dict with `entries` mapping to `[]`,
+    `last_attempt_at` mapping to `None`, and `last_synced_at` mapping to
+    `None` — so every caller can index without a `.get()` dance.
+
+    Every surviving entry is rebuilt from scratch by
+    `_rebuild_capped_entries()` / `_normalise_calendar_entry()` — never
+    the parsed dict reused directly — re-applying the same allowlists
+    `parse_ics_events()` applied at parse time, because this file is
+    operator-inspectable on the VPS and a hand-edited entry is this
+    tier's tamper vector (T-16-INPUT). Accumulation stops at
+    `CALENDAR_MAX_ENTRIES` survivors, printing (never raising) a
+    one-line drop-count warning when anything was dropped.
+
+    `now` is D-03's retention clock, threaded through to
+    `_rebuild_capped_entries()`, which applies D-03's rolling window
+    (`select_window_entries()`) to the surviving entries before returning
+    them — so a stale, out-of-window entry sitting on disk is never
+    handed back to a caller, no matter how it got there. `None` (the
+    default, and every existing call site's current shape) resolves to
+    real current time. This is the loader half of the invariant this
+    module's docstring already states: `load_calendar_registry()` and
+    `write_calendar_registry()` agree on the window by construction,
+    because both route every entry list through this one shared helper.
+
+    Two timestamps, two domains, deliberately not interchangeable:
+    `last_attempt_at` is normalised to a `float` epoch-seconds value (or
+    `None`) because `calendar_fetch_is_due()` does arithmetic over it on
+    every poll cycle, the same domain `poll_loop.now_s()` already uses.
+    `last_synced_at` is normalised to a `str` (or `None`) because its
+    only consumer, `companion/layout.py`'s `concise_timestamp_html()`,
+    parses an ISO-8601 string the way `history_db.utc_now_iso()` already
+    produces one. `last_attempt_at` updates on every fetch attempt and is
+    the only thing the throttle consults; `last_synced_at` updates only
+    on a successful parse and is the only thing the companion's status
+    copy reads — conflating them either hammers a broken feed every 30
+    seconds forever or hides a persistently failing feed's staleness
+    from the operator.
+    """
+    try:
+        with open(calendar_rules_path(state_dir)) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    entries = _rebuild_capped_entries(data.get("entries"), "load_calendar_registry()", now)
+
+    last_attempt_at = data.get("last_attempt_at")
+    if isinstance(last_attempt_at, bool) or not isinstance(last_attempt_at, (int, float)):
+        last_attempt_at = None
+    else:
+        last_attempt_at = float(last_attempt_at)
+
+    last_synced_at = data.get("last_synced_at")
+    if not isinstance(last_synced_at, str):
+        last_synced_at = None
+
+    return {
+        "entries": entries,
+        "last_attempt_at": last_attempt_at,
+        "last_synced_at": last_synced_at,
+    }
+
+
+def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at, now=None):
+    """Replace `{state_dir}/calendar_rules.json` WHOLE with `entries`,
+    `last_attempt_at` and `last_synced_at`. Returns `True` on success,
+    `False` on any failure; never raises.
+
+    D-03 in one sentence: this function **replaces** the whole file, it
+    never merges, appends to, or diffs against what was there before —
+    that is what makes a past flight expire by replacement rather than by
+    a cleanup pass, and a merge would resurrect exactly the entries the
+    rolling window exists to drop.
+
+    Under `_WRITE_LOCK` (this file's single writer today is the poll
+    oneshot's fetch step, not `ThreadingHTTPServer`'s concurrent request
+    threads — the lock here is defence in depth, not the load-bearing
+    correctness property T-15-02 needed for phase 15's rule store): the
+    incoming `entries` are rebuilt through the identical per-field gates
+    `load_calendar_registry()` applies, via the shared
+    `_rebuild_capped_entries()` helper — including D-03's rolling window,
+    not merely the shape/cap gates — so a caller can never persist what
+    the loader would only drop again on the next read. Then the
+    tmp-write block is `colour_rules.py`'s shape verbatim — the state
+    directory is created, the JSON is written to a temp filename
+    embedding the process id and the thread id, dumped with an indent of
+    one, atomically replaced onto the real path, and on any failure the
+    temp file is removed (tolerating a failure to remove it) rather than
+    raising.
+
+    `now` is D-03's RETENTION clock, threaded into `_rebuild_capped_entries()`
+    exactly like `load_calendar_registry()`'s own `now`. It is
+    deliberately NOT the same thing as `last_attempt_at`, which is the
+    THROTTLE clock recorded verbatim in the persisted file and may
+    legitimately be `None` or a past value (`calendar_fetch_is_due()`
+    reads it, unrelated to windowing) — conflating the two would tie this
+    file's retention to the throttle's own pacing rather than to real
+    time. `None` (the default) resolves to real current time.
+    """
+    with _WRITE_LOCK:
+        capped_entries = _rebuild_capped_entries(
+            entries if isinstance(entries, list) else [], "write_calendar_registry()", now)
+
+        if isinstance(last_attempt_at, bool) or not isinstance(last_attempt_at, (int, float)):
+            normalised_attempt = None
+        else:
+            normalised_attempt = float(last_attempt_at)
+        normalised_synced = last_synced_at if isinstance(last_synced_at, str) else None
+
+        registry = {
+            "entries": capped_entries,
+            "last_attempt_at": normalised_attempt,
+            "last_synced_at": normalised_synced,
+        }
+
+        path = calendar_rules_path(state_dir)
+        tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
+        try:
+            os.makedirs(state_dir, exist_ok=True)
+            with open(tmp, "w") as fh:
+                json.dump(registry, fh, indent=1)
+            os.replace(tmp, path)
+        except Exception:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            return False
+
+    return True
+
+
+# --- Rolling window and throttle (plan 16-03, D-03) -------------------------
+
+
+def calendar_fetch_is_due(last_attempt_at, now, min_interval_s=None):
+    """May the throttled calendar fetch run on this cycle?
+
+    Written to `poll_loop.advance_is_due()`'s exact shape, because it
+    answers the identical structural question — durable state, not a
+    process timer: `deploy/skypane-poll.service` is `Type=oneshot`, fired
+    fresh by `deploy/skypane-poll.timer` every 30 seconds, so there is no
+    in-process scheduler to hold a next-fetch-due moment across cycles.
+    Every pacing decision in this codebase is therefore arithmetic over a
+    persisted timestamp, and this function is that arithmetic for the
+    calendar fetch.
+
+    Reads only `last_attempt_at`, which updates on **every** fetch
+    attempt whether it succeeded or not — so a permanently unreachable
+    feed is contacted at most once per `min_interval_s` rather than every
+    30 seconds forever. It deliberately does **not** read
+    `last_synced_at`, which updates only on a successful parse and exists
+    solely so the companion's status copy can tell the operator when the
+    feed last actually worked.
+
+    `min_interval_s` defaults to `CALENDAR_FETCH_INTERVAL_S`. Returns
+    `True` when `last_attempt_at` is `None`, is a `bool`, or is not a
+    real number (a fresh or hand-edited state always fetches). Returns
+    `True` when the elapsed time is negative — a clock step backwards
+    must not wedge the feature into never fetching again. THIS FUNCTION
+    defines no clock of its own: `now` is always passed in by its caller,
+    keeping `poll_loop.now_s()` the codebase's one replaceable clock seam
+    for the throttle decision. (This module as a whole is no longer
+    clock-free: `_resolve_retention_now()` gives the retention window a
+    default real-time seam of its own, used only by
+    `_rebuild_capped_entries()` — a distinct clock for a distinct
+    purpose, never consulted here.)
+    """
+    if min_interval_s is None:
+        min_interval_s = CALENDAR_FETCH_INTERVAL_S
+    if (last_attempt_at is None
+            or isinstance(last_attempt_at, bool)
+            or not isinstance(last_attempt_at, (int, float))):
+        return True
+    elapsed = now - last_attempt_at
+    if elapsed < 0:
+        return True
+    return elapsed >= min_interval_s
+
+
+def select_window_entries(entries, now):
+    """Reduce `entries` to D-03's rolling window: the start of the current
+    UTC day through `now + CALENDAR_WINDOW_FORWARD_S`. Returns a new
+    list, sorted ascending by `start_at`, capped at `CALENDAR_MAX_ENTRIES`;
+    never mutates `entries`. Never raises — a malformed entry is skipped,
+    not propagated.
+
+    The window width is this phase's resolution of a Claude's-Discretion
+    point: D-03 specifies today plus 24 to 48 hours forward and leaves
+    the exact width open. `CALENDAR_WINDOW_FORWARD_S` (48h) is that
+    range's stated upper bound, which is what makes a roster published
+    the evening before a two-sector day still useful. The back edge is
+    the literal start of the current UTC day rather than an invented
+    look-back, so the rule matches D-03's own words exactly.
+
+    Safety property that makes the back edge correct rather than merely
+    literal: the day-start edge is always further back than
+    `CALENDAR_MATCH_TOLERANCE_S` (a UTC day is at least 23 hours; the
+    match tolerance is 90 minutes), so no entry is ever dropped from the
+    window while `match_calendar_theme()` (plan 16-06) would still
+    consider it in range.
+
+    Privacy clause: a narrower window is strictly better here, because
+    this file holds a named person's near-term work schedule on a VPS,
+    and D-03 rejected mirroring the whole feed for exactly that reason.
+    """
+    if not isinstance(entries, list):
+        return []
+
+    try:
+        now_dt = datetime.fromtimestamp(now, tz=timezone.utc)
+        day_start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    except (OverflowError, OSError, ValueError, TypeError):
+        return []
+    forward_edge = now + CALENDAR_WINDOW_FORWARD_S
+
+    kept = []
+    for entry in entries:
+        normalised = _normalise_calendar_entry(entry)
+        if normalised is None:
+            continue
+        if normalised["end_at"] < day_start:
+            continue
+        if normalised["start_at"] > forward_edge:
+            continue
+        kept.append(normalised)
+
+    kept.sort(key=lambda entry: entry["start_at"])
+    return kept[:CALENDAR_MAX_ENTRIES]
+
+
+# --- Bounded, SSRF-hardened fetch (plan 16-04, T-16-SSRF/T-16-DOS/T-16-SECRET) ----
+#
+# This is the project's first outbound request to a host the operator (not
+# the developer) chose, and the calendar URL it fetches is this project's
+# first runtime secret held outside companion/auth.py. Four independent
+# bounds apply together, none sufficient alone: the resolved address must
+# be public (checked on every redirect hop, not only the configured URL),
+# the response body is capped while it is streamed, the request carries a
+# hard timeout, and the redirect hop count is bounded. See
+# 16-RESEARCH.md's "Bounded, IP-validated fetch skeleton" for the vetted
+# shape this implements, and Pitfall 4 there for why this module's own
+# exception-logging discipline deliberately diverges from detect.py's
+# neighbouring caller-catch idiom (detect.py:950-958's
+# "%s: %s" % (type(exc).__name__, exc) interpolates the exception object
+# itself - several requests.exceptions.* subclasses embed the request URL,
+# which here carries the calendar subscription token, in their default
+# __str__()).
+
+
+def _address_is_public(ip_text):
+    """Return `True` when `ip_text` parses as a public unicast address,
+    `False` otherwise - including when it fails to parse at all.
+
+    Deliberately delegates range classification to the standard library
+    (`ipaddress`) rather than hand-rolling CIDR arithmetic (16-RESEARCH.md's
+    own "Don't Hand-Roll" guidance): `ipaddress.ip_address()` covers both
+    IPv4 and IPv6 through the same call, and its `is_private`/`is_loopback`/
+    `is_link_local`/`is_reserved`/`is_multicast`/`is_unspecified` properties
+    are the audited, spec-following source of truth this project has no
+    reason to reimplement. Returns `False` rather than raising on an
+    unparseable value - an address this function cannot classify is treated
+    as unsafe, never as safe-by-default.
+    """
+    try:
+        address = ipaddress.ip_address(ip_text)
+    except (ValueError, TypeError):
+        return False
+    if (address.is_private or address.is_loopback or address.is_link_local
+            or address.is_reserved or address.is_multicast
+            or address.is_unspecified):
+        return False
+    return True
+
+
+def _host_is_safe(hostname, port=None):
+    """Return `True` only when EVERY address `hostname` resolves to is a
+    public unicast address; `False` on a resolution failure or if even one
+    resolved address is not public.
+
+    This function exists in this exact shape - resolve first, then check
+    every returned address - because checking the hostname *string* against
+    a blocklist and stopping there is defeated by DNS rebinding: the
+    hostname can resolve to a public address at validation time and a
+    private one at connection time, since nothing pins the two moments to
+    the same answer. The addresses the resolver actually returns are
+    therefore what must be checked, and a single private answer among
+    several public ones is enough to refuse the whole hostname - accepting
+    it on the strength of the public ones would let an attacker publish one
+    good answer and one bad one and rely on the caller connecting to
+    whichever happened to be tried.
+
+    Never raises: a resolution failure (`socket.gaierror`), an unparseable
+    hostname, or any other resolver error all return `False`.
+    """
+    try:
+        infos = socket.getaddrinfo(hostname, port)
+    except (socket.gaierror, UnicodeError, OSError):
+        return False
+    if not infos:
+        return False
+    for info in infos:
+        sockaddr = info[4]
+        address_text = sockaddr[0]
+        if not _address_is_public(address_text):
+            return False
+    return True
+
+
+def _url_is_safe(url):
+    """Return `True` only when `url`'s scheme is exactly `https`, it has a
+    hostname, and `_host_is_safe()` accepts every address that hostname
+    resolves to. Never raises - a URL `urlparse()` itself cannot make sense
+    of is refused, not guessed at.
+    """
+    try:
+        parsed = urlparse(url)
+    except (ValueError, TypeError):
+        return False
+    if parsed.scheme != "https":
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        port = parsed.port
+    except ValueError:
+        return False
+    return _host_is_safe(hostname, port)
+
+
+def default_calendar_transport(url, timeout):
+    """Thin `requests.get()` wrapper, `enrich.default_transport()`'s exact
+    shape: GET `url` with the module's `USER_AGENT`, `timeout`, streaming
+    enabled and automatic redirect following disabled, returning the
+    response object unread.
+
+    `fetch_ics()`'s injectable `transport` parameter exists specifically so
+    tests can replace this with a hermetic fake that replays a scripted
+    response instead of making a live network call - see
+    server/test_calendar_rules.py. Redirects are disabled here, not left to
+    `requests`, because `fetch_ics()` must re-validate each `Location`
+    target through `_url_is_safe()` before ever following it (T-16-SSRF) -
+    something `requests`'s own automatic redirect handling has no hook for.
+    """
+    return requests.get(
+        url,
+        headers={"User-Agent": USER_AGENT},
+        timeout=timeout,
+        stream=True,
+        allow_redirects=False,
+    )
+
+
+def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=None):
+    """Fetch `url` and return its decoded body text, or `None` on any
+    refusal or failure. Never raises.
+
+    Four independent bounds are applied together, each insufficient alone:
+    the scheme must be `https` and every resolved address must be public
+    (checked via `_url_is_safe()`, re-applied to `url` on every redirect
+    hop, not only the first); the response is read in chunks with a
+    running byte count, aborting the instant it exceeds `max_bytes` -
+    never by trusting a response's own declared-length header, which a
+    hostile or misconfigured server can omit, understate or exceed; the
+    request carries `timeout` seconds; and following at most
+    `max_redirects` redirect hops, past
+    which this function gives up rather than looping. All four default
+    from this module's own constants (`CALENDAR_FETCH_TIMEOUT_S`,
+    `CALENDAR_MAX_REDIRECTS`, `CALENDAR_MAX_RESPONSE_BYTES`) when not
+    supplied.
+
+    Redirects are never followed automatically (`default_calendar_transport()`
+    disables it): a redirect response's `Location` target becomes the next
+    loop iteration's URL, sent back through the identical `_url_is_safe()`
+    gate before it is ever requested - a target that fails it is refused,
+    exactly like the original URL. A relative `Location` is resolved
+    against the current URL first. A redirect with no `Location` header, a
+    non-200 final status, and an oversized streamed body all return `None`.
+
+    Logging discipline (T-16-SECRET, this task's headline acceptance
+    criterion): the only failure path in this function that logs at all is
+    the transport-exception catch below, and it logs `type(exc).__name__`
+    plus a fixed, hand-written description - never `exc` itself
+    interpolated, because several `requests.exceptions.*` subclasses embed
+    the request URL (which carries the calendar's access token) in their
+    default string form, and `journalctl -u skypane-poll` is readable by
+    anyone with VPS access. Nothing printed on any path in this function -
+    including the success path - ever contains the URL, its host, its
+    path, or its query. This continues a rule this project already states
+    for its one other runtime secret (`poll_loop.py`'s own docstring:
+    never log a bearer token or the BYOS setup secret), not a new one.
+    """
+    if timeout is None:
+        timeout = CALENDAR_FETCH_TIMEOUT_S
+    if max_redirects is None:
+        max_redirects = CALENDAR_MAX_REDIRECTS
+    if max_bytes is None:
+        max_bytes = CALENDAR_MAX_RESPONSE_BYTES
+    if transport is None:
+        transport = default_calendar_transport
+
+    current_url = url
+    for _ in range(max_redirects + 1):
+        if not _url_is_safe(current_url):
+            return None
+
+        try:
+            response = transport(current_url, timeout)
+        except Exception as exc:
+            # Deliberately broad (not just requests.RequestException): "any
+            # exception raised by the transport returns nothing rather than
+            # propagating" (this function's own behaviour contract) - a
+            # caller-supplied fake transport, or a future requests version,
+            # is not guaranteed to only ever raise a RequestException
+            # subclass, and this fetch must never abort a poll cycle no
+            # matter what raised.
+            #
+            # Deliberate divergence from detect.py:950-958's caller-catch
+            # idiom, which does "%s: %s" % (type(exc).__name__, exc) - see
+            # this function's own docstring and Pitfall 4 in
+            # 16-RESEARCH.md. Log the exception TYPE only, never `exc`
+            # itself, and never the URL.
+            print(
+                "calendar_rules: fetch_ics() transport call failed: %s"
+                % type(exc).__name__,
+                file=sys.stderr,
+            )
+            return None
+
+        if getattr(response, "is_redirect", False):
+            location = response.headers.get("Location")
+            response.close()
+            if not location:
+                return None
+            current_url = urljoin(current_url, location)
+            continue
+
+        if response.status_code != 200:
+            response.close()
+            return None
+
+        chunks = []
+        total = 0
+        try:
+            for chunk in response.iter_content(chunk_size=8192):
+                total += len(chunk)
+                if total > max_bytes:
+                    response.close()
+                    return None
+                chunks.append(chunk)
+        except Exception as exc:
+            # Deliberately broad - see the transport-call catch above.
+            print(
+                "calendar_rules: fetch_ics() reading the response body failed: %s"
+                % type(exc).__name__,
+                file=sys.stderr,
+            )
+            return None
+        response.close()
+        return b"".join(chunks).decode("utf-8", errors="replace")
+
+    # Too many redirect hops - give up rather than loop.
+    return None
+
+
+# --- Once-per-cycle throttle, fetch, parse, window and persist step --------
+#
+# The single function poll_loop.py (plan 16-07) calls once per cycle. It
+# performs no network I/O at all when the feature is unconfigured or the
+# throttle has not elapsed, since 16-CONTEXT.md requires the fetch never
+# delay a render and the 30-second poll oneshot's whole budget is short.
+
+
+def refresh_calendar_registry(state_dir, now, transport=None):
+    """Throttle, fetch, parse, window and persist the calendar registry for
+    this poll cycle. Returns `(result_code, registry)`, where `registry` is
+    always the dict the caller should use for this cycle - so a skipped or
+    failed cycle still hands back a usable rolling window without a second
+    read of the file. Never raises, for any combination of a missing state
+    dir, an unwritable state dir, a hostile body and a failing transport.
+
+    Three no-network guarantees, in order: no transport call at all when
+    `configured_calendar_url()` is `None` (the feature is off); no
+    transport call when `calendar_fetch_is_due()` says the throttle has not
+    elapsed - this is the branch that dominates in production, since the
+    poll timer fires every 30 seconds and the interval is
+    `CALENDAR_FETCH_INTERVAL_S`, so all but roughly one cycle in sixty stops
+    here; and at most one bounded `fetch_ics()` call otherwise.
+
+    `last_attempt_at` updates on every attempt that actually happens
+    (throttled-through and unconfigured cycles leave it untouched);
+    `last_synced_at` moves only after a body was fetched AND parsed, so a
+    permanently failing feed is neither retried every cycle nor displayed
+    as fresh. On a refused URL, a transport failure, or a body that parses
+    to nothing usable, the previously persisted entries are re-persisted
+    unchanged alongside the new `last_attempt_at` - overwriting them with
+    an empty list on a transient error would erase an otherwise-valid
+    rolling window before its natural expiry; the panel's designed
+    degradation is "no matches" only once the window genuinely ages out.
+    An empty result on a genuine success is still success: a roster with
+    nothing in the next 48 hours is a correct, legitimately empty window,
+    distinguishable from a broken feed only by `last_synced_at` having
+    moved - which is exactly why the two timestamps are tracked
+    separately.
+
+    Prints nothing on the throttled or unconfigured paths - the throttled
+    path runs on almost every cycle and would otherwise flood the journal.
+    On a completed attempt (success or failure) prints at most one line
+    naming this module, the result code and the entry count; never the URL,
+    never the result code paired with the URL, never anything derived from
+    the body.
+
+    D-04, this function's whole reason for threading `now` into all four
+    of its registry calls: the top-of-function `load_calendar_registry()`,
+    both `write_calendar_registry()` calls, and the `except` fallback's
+    `load_calendar_registry()` all receive the SAME `now`. Because the
+    top-of-function load is now itself windowed (`load_calendar_registry()`
+    routes through `_rebuild_capped_entries()`), the failure path's
+    re-persist of `registry["entries"]` is correct WITHOUT gaining a trim
+    call of its own - the list it re-persists was already windowed against
+    this cycle's `now` by that load. One place owns the window invariant;
+    the failure path inherits it for free. This is also what makes
+    `result_registry["entries"]` byte-equal to what lands on disk on BOTH
+    the success and the failure path: the same `now` windows both, so
+    there is never a second, silently-diverging implementation and never
+    a re-read of the file to reconcile the two.
+    """
+    # Wrapped so nothing escapes: every callee below is already
+    # never-raising on its own, but this function's contract is that
+    # poll_loop.run_once() (plan 16-07) can call it unconditionally and
+    # never gain a new failure mode from this tier - defence in depth
+    # against a future change to any callee above breaking that contract.
+    try:
+        registry = load_calendar_registry(state_dir, now)
+
+        url = configured_calendar_url()
+        if url is None:
+            # Not a failing feed - a feature that is simply off. Leaving
+            # last_attempt_at untouched means the first fetch after the
+            # operator configures the feature runs immediately rather
+            # than waiting out a full throttle interval.
+            return FETCH_SKIPPED_UNCONFIGURED, registry
+
+        if not calendar_fetch_is_due(registry["last_attempt_at"], now):
+            return FETCH_SKIPPED_THROTTLED, registry
+
+        body = fetch_ics(url, transport=transport)
+
+        if body is None:
+            # A transient blip must not erase an otherwise-valid rolling
+            # window before its natural expiry - persist the EXISTING
+            # (already-windowed, per D-04 above) entries and
+            # last_synced_at unchanged, moving only last_attempt_at.
+            write_calendar_registry(
+                state_dir, registry["entries"], now, registry["last_synced_at"], now=now)
+            result_registry = {
+                "entries": registry["entries"],
+                "last_attempt_at": now,
+                "last_synced_at": registry["last_synced_at"],
+            }
+            print(
+                "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
+                % (FETCH_FAILED, len(result_registry["entries"])),
+                file=sys.stderr,
+            )
+            return FETCH_FAILED, result_registry
+
+        parsed = parse_ics_events(body)
+        windowed = select_window_entries(parsed, now)
+        # An empty windowed result here is still success: a roster with
+        # nothing in the next 48 hours is a correct, legitimately empty
+        # window - distinguishable from a broken feed only by
+        # last_synced_at having moved.
+        last_synced_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        wrote_ok = write_calendar_registry(state_dir, windowed, now, last_synced_at, now=now)
+        result_registry = {
+            "entries": windowed,
+            "last_attempt_at": now,
+            "last_synced_at": last_synced_at,
+        }
+        result_code = FETCH_OK if wrote_ok else FETCH_FAILED
+        print(
+            "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
+            % (result_code, len(result_registry["entries"])),
+            file=sys.stderr,
+        )
+        return result_code, result_registry
+    except Exception:
+        # Defence in depth only - see the comment above. Fall back to
+        # whatever is durably on disk rather than propagate.
+        return FETCH_FAILED, load_calendar_registry(state_dir, now)
+
+
+# --- Matching (plan 16-06, D-04) --------------------------------------------
+#
+# The pure function poll_loop.py (plan 16-07) calls at BOTH of
+# colour_rules.resolve_effective_theme_id()'s call sites (D-13's
+# both-branches invariant), comparing a detected, enriched flight against
+# the loaded registry and the operator's chosen theme. Nothing above this
+# section depends on it; everything below is new in this plan.
+
+# This module's own copies of the two confirmed render-state strings
+# (runway_config.py's STATE_DEPARTING/STATE_ARRIVING), following the exact
+# comment colour_rules.py already carries for its own ARRIVING_STATE: the
+# primitive is deliberately duplicated rather than imported, because
+# importing runway_config would start eroding the leaf contract for a
+# two-character saving.
+DEPARTING_STATE = "departing"
+ARRIVING_STATE = "arriving"
+
+
+def _airline_iata_from_route(route):
+    """Derive the detected flight's 2-letter IATA airline code from
+    `route["callsign_iata"]`, or `None`.
+
+    **CORRECTION 1 (16-RESEARCH.md, applied 2026-09-07) — read this before
+    touching this function.** This research originally flagged, as its
+    single most important open question, that the calendar encodes the
+    airline as a 2-letter IATA prefix (e.g. `TO`) while `enrich.py`'s
+    `_ICAO_AIRLINE_PREFIXES` is keyed on the 3-letter ICAO prefix (e.g.
+    `TVF`) the detector actually sees, with nothing in this codebase
+    bridging the two — and it recommended building a new static table to
+    close that gap.
+
+    **That table is unnecessary, and MUST NOT be built, here or anywhere.**
+    The bridge already exists at runtime, in the same route dict this
+    matcher already holds: `route["callsign_iata"]`'s leading two
+    characters ARE the IATA airline code, sitting beside `airline_name`.
+    Verified across 300 real cached flights spanning ten carriers (TVF/TO
+    Transavia France, VLG/VY Vueling, EJU/EC easyJet Europe, CRL/SS
+    Corsairfly, TAP/TP TAP Portugal, CCM/XK CCM Airlines, FWI/TX Air
+    Caraïbes, RAM/AT Royal Air Maroc, DAH/AH Air Algerie, AFR/AF Air
+    France) — every pair derives cleanly with no lookup. A static table
+    would be a standing maintenance burden and a drift risk against
+    `enrich._ICAO_AIRLINE_PREFIXES` for a lookup that is already free at
+    runtime; do not reintroduce one.
+
+    Requires `callsign_iata` to be a string; strips and uppercases it,
+    takes its first two characters, and returns them only when they pass
+    `_AIRLINE_IATA_RE` (at least one letter, no all-digit pair). Returns
+    `None` for a non-dict `route`, a missing/non-string `callsign_iata`,
+    or a leading pair that fails the allowlist. Never raises.
+    """
+    if not isinstance(route, dict):
+        return None
+    callsign_iata = route.get("callsign_iata")
+    if not isinstance(callsign_iata, str):
+        return None
+    candidate = callsign_iata.strip().upper()[:2]
+    if _AIRLINE_IATA_RE.match(candidate):
+        return candidate
+    return None
+
+
+def _far_end_iata(route, render_state):
+    """The detected flight's "far end" airport for this direction: the
+    destination for a departure, the origin for an arrival. `None` for a
+    non-dict `route` or any render state other than the two confirmed
+    ones.
+
+    Kept as a symmetric pair with `_entry_far_end_iata()` below, rather
+    than inlined at each call site, so the direction symmetry the D-04
+    match key requires is checkable at a glance: the comparison this
+    module makes is always destination-against-destination or
+    origin-against-origin, never destination-against-origin, so a leg
+    flown the other way never matches an entry for the outbound.
+    """
+    if not isinstance(route, dict):
+        return None
+    if render_state == DEPARTING_STATE:
+        return route.get("destination_iata")
+    if render_state == ARRIVING_STATE:
+        return route.get("origin_iata")
+    return None
+
+
+def _entry_far_end_iata(entry, render_state):
+    """`_far_end_iata()`'s mirror for a calendar registry entry rather
+    than a detected route: the entry's `destination_iata` for a
+    departure, its `origin_iata` for an arrival. `None` for a non-dict
+    `entry` or any render state other than the two confirmed ones.
+    """
+    if not isinstance(entry, dict):
+        return None
+    if render_state == DEPARTING_STATE:
+        return entry.get("destination_iata")
+    if render_state == ARRIVING_STATE:
+        return entry.get("origin_iata")
+    return None
+
+
+def _reference_time(entry, render_state):
+    """The moment a calendar entry is measured against for this
+    direction: `start_at` for a departure (the aircraft leaves near
+    off-blocks), `end_at` for an arrival (it lands near on-blocks). `None`
+    for a non-dict `entry` or any render state other than the two
+    confirmed ones.
+    """
+    if not isinstance(entry, dict):
+        return None
+    if render_state == DEPARTING_STATE:
+        return entry.get("start_at")
+    if render_state == ARRIVING_STATE:
+        return entry.get("end_at")
+    return None
+
+
+def match_calendar_theme(registry, route, render_state, device_cfg, now):
+    """D-04's pure matcher: return the operator's configured calendar
+    theme id when — and only when — the detected, enriched `route` and
+    `render_state` agree with at least one candidate entry in `registry`
+    on airline, far-end airport and time. Returns `None` otherwise. Never
+    raises, for any combination of a non-dict `registry`, a non-list
+    `entries` value, a malformed entry, a non-dict `route`, a non-dict
+    `device_cfg` and a non-numeric `now`.
+
+    Deliberately excludes both the flight dict and `resolve_route()`'s
+    enrichment-provenance label from its parameter list. The flight dict
+    is excluded because nothing in D-04's key comes from it — the airline
+    comes from the enriched `route` and the direction from `render_state`
+    — and an unused parameter would invite a future change to start
+    matching on the raw callsign, which 16-CONTEXT.md's measured finding 2
+    rules out: only 11% of the dominant Orly carrier's flights carry a
+    commercial-looking IATA number, while `origin_iata`/`destination_iata`
+    are populated on 100% of enriched detections. The provenance label is
+    excluded because it is not meaningful at `poll_loop.py`'s second call
+    site — the held/repaint branch reports the value `"held"` there — so a
+    test against that label would silently disable the feature on every
+    repaint, while the field-presence test in step 3 below is exactly
+    equivalent to the `fresh_hit`/`cache_hit` restriction (CORRECTION 1)
+    and works identically at both sites.
+
+    Sequence:
+
+    1. Resolve the operator's chosen theme first: read
+       `device_cfg["calendar_theme_id"]`, require a string that is a
+       member of `device_config.THEMES`, and return `None` immediately
+       otherwise. Doing this first means an unconfigured or tampered
+       theme costs no comparison work at all — this module's own share of
+       T-16-TAMPER.
+    2. Require `render_state` to be one of the two confirmed flight
+       states.
+    3. Require `route` to be a dict carrying all three of `origin_iata`,
+       `destination_iata` and `callsign_iata` as non-empty strings, with
+       both airport codes passing `_AIRPORT_IATA_RE`. This is
+       CORRECTION 1's narrowing, encoded as a field-presence test: these
+       three fields exist only on a `fresh_hit` or a `cache_hit` — see
+       `enrich.airline_only_route()`, which sets all three to `None` for
+       an `airline_only`/`manual` result — so this test is exactly the
+       enrichment-provenance restriction, expressed in a form that is
+       still true at the held call site.
+    4. Derive the detected airline through `_airline_iata_from_route()`
+       and the detected far end through `_far_end_iata()`; return `None`
+       if either is missing.
+    5. Walk the registry's entries, re-validating each one from scratch
+       through `_normalise_calendar_entry()` (T-16-INPUT: a hand-edited
+       `calendar_rules.json` is this tier's tamper vector, so this
+       function never trusts that a previous writer already validated
+       what it is reading) — skipping any entry that is not a dict or
+       whose fields fail the same allowlists the loader applies. Keep an
+       entry as a candidate when its `airline_iata` equals the detected
+       airline, its own far end for this direction
+       (`_entry_far_end_iata()`) equals the detected far end, and the
+       absolute difference between `now` and its reference time
+       (`_reference_time()`) is at most `CALENDAR_MATCH_TOLERANCE_S`.
+    6. Return the configured theme when at least one candidate survives,
+       choosing the candidate with the smallest absolute time difference.
+       An exact tie breaks deterministically — by the earlier reference
+       time, then by the entry's own field ordering — so the result never
+       depends on iteration order. A single winner matters even though
+       every candidate yields the same theme id today: it keeps this
+       function honest about the physical fact that a flight is one
+       aircraft, and it is what a future per-entry theme would need.
+       `CALENDAR_MATCH_TOLERANCE_S` (90 minutes) is this phase's
+       resolution of a Claude's-Discretion point: generous enough to
+       absorb an ordinary delay, and far tighter than the roughly eight
+       hours separating the measured twice-daily same-route rotations
+       (16-CONTEXT.md finding 2), so a same-route collision is never
+       ambiguously close.
+
+    The whole body is guarded so a malformed registry, route, config or
+    clock returns `None` rather than raising — this function runs inside
+    the poll cycle and must never become a new way for a render to fail.
+    """
+    try:
+        theme_id = device_cfg.get("calendar_theme_id") if isinstance(device_cfg, dict) else None
+        if not isinstance(theme_id, str) or theme_id not in device_config.THEMES:
+            return None
+
+        if render_state not in (DEPARTING_STATE, ARRIVING_STATE):
+            return None
+
+        if not isinstance(route, dict):
+            return None
+        origin_iata = route.get("origin_iata")
+        destination_iata = route.get("destination_iata")
+        callsign_iata = route.get("callsign_iata")
+        if not isinstance(origin_iata, str) or not origin_iata:
+            return None
+        if not isinstance(destination_iata, str) or not destination_iata:
+            return None
+        if not isinstance(callsign_iata, str) or not callsign_iata:
+            return None
+        if not _AIRPORT_IATA_RE.match(origin_iata) or not _AIRPORT_IATA_RE.match(destination_iata):
+            return None
+
+        detected_airline = _airline_iata_from_route(route)
+        detected_far_end = _far_end_iata(route, render_state)
+        if detected_airline is None or detected_far_end is None:
+            return None
+
+        if isinstance(now, bool) or not isinstance(now, (int, float)):
+            return None
+
+        raw_entries = registry.get("entries") if isinstance(registry, dict) else None
+        if not isinstance(raw_entries, list):
+            return None
+
+        best = None  # (abs_diff, reference_time, tie_key) - smallest wins
+        for raw_entry in raw_entries:
+            normalised = _normalise_calendar_entry(raw_entry)
+            if normalised is None:
+                continue
+            if normalised["airline_iata"] != detected_airline:
+                continue
+            if _entry_far_end_iata(normalised, render_state) != detected_far_end:
+                continue
+            reference_time = _reference_time(normalised, render_state)
+            if reference_time is None:
+                continue
+            diff = abs(now - reference_time)
+            if diff > CALENDAR_MATCH_TOLERANCE_S:
+                continue
+            tie_key = (
+                normalised["airline_iata"], normalised["origin_iata"],
+                normalised["destination_iata"], normalised["start_at"],
+                normalised["end_at"],
+            )
+            candidate = (diff, reference_time, tie_key)
+            if best is None or candidate < best:
+                best = candidate
+
+        if best is None:
+            return None
+        return theme_id
+    except Exception:
+        # Defence in depth only - every branch above is already guarded,
+        # but this function runs inside the poll cycle and must never
+        # become a new way for a render to fail.
+        return None

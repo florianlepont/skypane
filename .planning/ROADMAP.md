@@ -40,6 +40,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 13: Add an illustration for an unidentified flight from the companion web interface** - Let the operator close a coverage gap from the two pages that already surface it (Health's unresolved-prefix registry, the Airlines gallery) instead of leaving the web UI for the manual runbook — promoted from `.planning/seeds/SEED-005-upload-illustration-for-unidentified-flights-from-the-web-ui.md` at the developer's request (2026-09-05). The hardened upload path already shipped (`260902-v26`/`260903-df3`); the open questions are how an unidentified flight mints a key without reopening threat `T-v26-02-01`, and whether uploading also resolves the airline. Not yet discussed or planned. (completed 2026-09-06)
 - [x] **Phase 14: Resolve an unidentified flight from the gallery lightbox, with coverage gaps as empty cards** - Fold Phase 13's resolve flow into the interaction pattern the Airlines gallery already uses: a coverage gap becomes an empty card in the grid, clicking it opens the shared `<dialog>` every other card opens, and the standalone management table is absorbed into the cards rather than deleted. Raised by the developer on seeing Phase 13's real page (2026-09-06) — the page already hosts that dialog and already puts the replace-upload form inside it, so the page section Phase 13 shipped was inconsistent with its own surroundings. Presentation-layer only; no server-side change expected. Not yet discussed or planned. (completed 2026-09-06)
 - [x] **Phase 15: Per-direction themes, per-flight colour rules and roster-linked highlighting** - Let something more specific than the one active theme decide the frame's look: a theme per direction (departures vs arrivals), a per-flight rule keyed on a callsign or ICAO24 hex, and automatic highlighting of the flights K Stewart works as crew, read from their duty roster — promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calendar-highlighting.md` at the developer's request (2026-09-06). Discussed 2026-09-06: the roster half is deferred (it stays in SEED-003 with the developer's intent recorded); this phase ships the seam, an optional arrivals theme, and rules keyed on callsign / hex / prefix that resolve to registered theme ids, all edited from Settings. Not yet planned. (completed 2026-09-06) (completed 2026-09-06)
+- [x] **Phase 16: Calendar-linked flight highlighting — a connected calendar sources colour rules automatically** - The last of SEED-003's three sub-ideas, deferred out of Phase 15 by that phase's D-01 and now unblocked: the operator connects a calendar, and a flight it lists is highlighted on the frame by the same per-flight rule mechanism Phase 15 shipped — a rule sourced automatically instead of typed. Generalised from the seed's person-specific framing to "connect your calendar" at the developer's request (2026-09-07). Scoped against a REAL roster export and REAL production detections before promotion; three measured findings below overturn the seed's own assumptions and one of them caps what the feature can honestly promise. Not yet discussed or planned. (completed 2026-09-07)
+- [ ] **Phase 17: Connect a calendar from the companion instead of over SSH** - Phase 16 shipped calendar matching but put its one input, the feed URL, in an environment variable edited over SSH. The developer's actual goal was "connect your calendar", which describes a gesture in the interface — so as shipped the feature is not connectable by the person meant to use it. This phase moves that input into Settings as a write-only field, and pays for the convenience with three guards the env-var design got for free. Not yet discussed or planned.
 
 ## Phase Details
 
@@ -888,3 +890,78 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 15-05-PLAN.md — Settings rules editor: add form, list with per-row delete, and the two immediate POST routes outside the dirty bar (D-10/D-11); carries the closing no-JS browser check [wave 3]
+
+### Phase 16: Calendar-linked flight highlighting — a connected calendar sources colour rules automatically
+
+**Goal:** The operator connects a calendar to the companion, and when the frame displays a flight that calendar lists, the panel uses a chosen theme for it. This is SEED-003's third sub-idea, the one Phase 15's D-01 deliberately deferred. It is deliberately built as *a rule with an automatic source* rather than a new subsystem: Phase 15 already ships the rule registry, the resolver and the precedence order, so this phase adds a source, not a mechanism.
+
+**Note on origin and scope change (2026-09-07):** Promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calendar-highlighting.md`, whose roster half stayed dormant when Phases 15's split shipped the other two. It is unblocked because the two prerequisites that blocked it are now satisfied: the export format is known (a real export was supplied and analysed, see below) and the developer has relayed the calendar owner's consent. **The framing is generalised at the developer's explicit request: this is "connect your calendar", not a feature named after one person.** That removes the person-specific naming the seed carried and makes the first real user simply the first user.
+
+**Three findings measured before promotion. Each overturns something the seed assumed — do not re-derive them, and do not plan against the seed's own text where it disagrees.**
+
+1. **The export format is solved, and it is richer than the seed feared.** The source is a `CrewWebPlus` iCal export (`PRODID:-//Apm Technologies//CrewWebPlus//EN`). Every flight event carries a fully structured summary — `SUMMARY:TO7061 MPL-ORY(+0200)` — parsing cleanly as `{flight number} {origin}-{destination}({utc offset})` on 15/15 events in the sample. `CATEGORIES:FLT` separates flights from leave and days off (`OFFD`, `CAHC`, `CPBL`), and `DTSTART`/`DTEND` are UTC block times. Two junk events carry `STATUS:CANCELLED` with a 1899 placeholder date and must be filtered. **The parser is a small, well-defined job.** The seed's worry that a duty event might carry only an internal duty code does not apply to this exporter.
+
+2. **The flight number cannot be the match key; the route plus a time window must be.** The calendar says `TO7061`; the frame detects the same MPL-ORY service as `TVF41XX` / `TO41XX`. Measured over 300 real cached flights: only 26% overall, and **11% of Transavia France flights**, carry an IATA value that looks like a commercial flight number. Transavia is the dominant carrier at Orly and the calendar owner's employer, so a flight-number match would fail roughly nine times in ten. What does work: `origin_iata`/`destination_iata` are populated on **100%** of enriched detections, including every rotating-callsign one. A same-route collision is resolved by time — NCE-ORY runs twice daily and the two rotations sit at ~06:55Z and ~15:15Z, eight hours apart. A useful and previously undocumented property surfaced here: these "rotating" callsigns are in fact **stable per scheduled rotation across days**, they simply are not the commercial flight number.
+
+3. **THE CAP ON WHAT THIS CAN PROMISE — read this before writing any copy.** The frame displays one aircraft at a time, selected from those in the runway-3 corridor at each poll. It does not see most movements. Measured on the calendar owner's only Orly duty day inside the recorded history (2026-09-04, 201 detections between 04:07Z and 12:21Z): **none of her three Orly flights were among them.** Her 10:45Z arrival was missed while the frame was actively tracking other aircraft in the same minute. **So this feature marks a flight when it happens to be the one on screen. It does not tell the operator that someone is flying.** The developer chose this design in full knowledge of that (2026-09-07), over a calendar-driven view that would have shown the flight regardless of detection. Copy, naming and any empty state must not overstate it.
+
+**Expected surface** (to be confirmed at plan time): a calendar source that fetches and parses an iCal feed on a throttled schedule inside the existing 30-second poll oneshot, persisting its parsed result to `state_dir` so a slow or failing upstream never delays a render; a matcher keyed on airline plus the far-end airport plus a time window, consulted after `enrich.resolve_route()` since it needs the resolved route; and a write into Phase 15's existing rule registry — or a parallel automatic-source registry consulted at the same seam — so the resolver, its precedence order and the Settings editor are reused rather than duplicated. Phase 15's D-02 deliberately reserved no field for this, so the record shape is this phase's decision.
+
+**Security — the first runtime-stored secret this project will hold.** A calendar subscription URL embeds a private token and grants access to a named person's schedule. Phase 15's own deferred notes locked the intended handling: an environment variable in `skypane.env`, the same class as `SKYPANE_COMPANION_PASSWORD`, never written to `state_dir`, never rendered, with Settings showing only "configured / not configured". It must never reach a log line, the Health page, the gallery or a flash message. Fetching an operator-supplied URL is also new outbound egress under operator control: HTTPS only, no private address ranges, bounded response size and timeout. `/gsd-secure-phase 16` is mandatory.
+
+**Privacy.** This stores and polls a named person's work schedule on a VPS. Consent was relayed by the developer on 2026-09-07 — recorded as relayed, which is their call to make. The generalisation to "connect your calendar" means the design must not hard-code that person anywhere.
+
+**Requirements**: None expected — unmapped phase promoted from a seed, matching Phases 10-15's precedent. To be confirmed at discuss time.
+**Depends on:** Phase 15 (the rule registry, the resolver, the precedence order and the Settings editor this phase feeds rather than rebuilds), and Phase 8 D-09 (`callsign_iata`, whose measured inadequacy as a match key is finding 2 above).
+**Closes with:** a `/gsd-secure-phase 16` pass over the secret handling and the outbound fetch. No on-glass verification expected if a calendar match resolves to an already-registered theme id, exactly as Phase 15's D-07 established — to be confirmed once the rule shape is settled.
+**Plans:** 7/7 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 16-01-PLAN.md — Wave 0 items: the redacted CrewWebPlus-shaped `.ics` fixture, the new `server/test_calendar_rules.py` harness with its suite registration, and `calendar_rules.py`'s RFC 5545 subset parser (unfold before split, category filter before date parse, bare-UTC only with a loud rejection otherwise)
+- [x] 16-02-PLAN.md — `device_config.json`'s optional `calendar_theme_id` key, validated on both the read and the write path, defaulting to `None` rather than a theme
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 16-03-PLAN.md — D-01's separate `{state_dir}/calendar_rules.json` registry with the never-raising/allowlist-revalidating/capped/atomic file contract, D-03's today-plus-48h rolling window rewritten whole, the durable throttle gate, and the two env-var accessors (value vs presence)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 16-04-PLAN.md — the SSRF-hardened bounded fetch (https only, resolved-IP validation re-applied per redirect hop, streamed size cap, hard timeout), secret-safe failure logging, and `refresh_calendar_registry()`
+- [x] 16-05-PLAN.md — the companion Settings Calendar group: three-state text-only status line, `calendar_theme_id` select, membership-gated POST, and the `skypane.env.example` documentation
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 16-06-PLAN.md — D-04's matcher (airline from `callsign_iata` at runtime, direction-symmetric far end, ±90min window, closest-in-time tiebreak, no match on `airline_only`/`manual`/`miss`) and D-02's additive `calendar_theme_id=` keyword on `resolve_effective_theme_id()`
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 16-07-PLAN.md — `poll_loop.py` wiring: one throttled refresh per cycle, one match from settled inputs, persisted beside `last_route` and reused by the held branch so Phase 15's both-branches invariant holds by construction
+
+### Phase 17: Connect a calendar from the companion instead of over SSH
+
+**Goal:** The operator pastes a calendar feed URL into the companion Settings page and the frame starts using it — no SSH, no service restart, no file edit on the VPS. Phase 16 built everything behind that input; this phase makes the input reachable.
+
+**Note on origin (2026-09-08):** Raised by the developer immediately after Phase 16 closed, on reading its Settings group: *"dans mon esprit ça pouvait être configuré directement sur le companion"*. That is a fair reading of their own stated goal. When the roster half of SEED-003 was generalised at their request, the words were **"connect your calendar"** — which describes something you do in a browser, not a line you add to `skypane.env` over SSH. Phase 16's discuss-phase nonetheless locked the environment variable, on a recommendation made during Phase 15's deferred-intent capture and carried forward without re-testing it against that goal. The design was defensible; the mismatch with the goal was not caught. This phase corrects it.
+
+**What Phase 16 got for free that this phase must now pay for.** The environment variable made one property structural rather than tested: the companion process only ever reads *whether* the URL is set, never the value, so no bug in the web tier could echo, log or render it. Moving the input into Settings means the companion must be able to **write** the secret, which reopens exactly that class. Three guards replace the structural one, and all three belong in the plan rather than in a comment:
+
+1. **Write-only in the interface.** The field accepts a value and never renders one back, the way a password field behaves. A configured calendar shows the same status text Phase 16 already ships, never a masked or partial URL.
+2. **Its own file, restrictive permissions.** Not `device_config.json`, which is operator-inspectable by design and read by several pages. A dedicated file the poll service reads and the companion only writes.
+3. **The read path stays where it is.** `server/plane/calendar_rules.py` already resolves the URL through one accessor; that accessor gains a file source. Nothing else in the poll pipeline learns a new way to obtain a secret.
+
+**The security question to settle honestly at discuss time, not assume.** The environment file and the state directory sit on the same VPS behind the same access, so the difference is narrower than it first sounds — whoever can read one can usually read the other. The real delta is the write path and the bug class it opens, not the storage location. Discuss-phase should decide whether the env var is **retired** or **kept as an override** (Phase 16's accessor already reads it, and a deployment may prefer a secret that never touches disk), and say plainly which wins when both are present.
+
+**Also to settle in discussion:** what happens to a previously-set value when the field is submitted empty — cleared, or left alone? Phase 15 hit exactly this with `theme_arriving` and needed a dedicated sentinel because `None` already meant "not supplied"; the same trap is waiting here, and the same precedent solves it. Whether the field validates the URL's shape before storing it (Phase 16's fetch already refuses non-HTTPS and private ranges at request time — an earlier check is friendlier but must not become a second, drifting source of truth). And whether connecting should trigger an immediate fetch rather than waiting up to thirty minutes for the next throttled one.
+
+**Expected surface** (to be confirmed at plan time): a write-only field in the existing Settings Calendar group, riding the same form and save bar; a dedicated secret file in `state_dir` with restrictive permissions, written by the companion, read by `calendar_rules.py`'s existing accessor; and `deploy/skypane.env.example` updated to say the variable is now optional.
+
+**Requirements**: None expected — unmapped phase, matching the Phase 10-16 precedent.
+**Depends on:** Phase 16 (everything this phase feeds: the accessor, the fetch, the registry, the Settings group and its copy deck).
+**Closes with:** a mandatory `/gsd-secure-phase 17`. This phase deliberately trades a structural security property for usability, so the audit is the point, not a formality — it must confirm the three guards above actually hold in the shipped code. No on-glass verification: nothing reaches the panel that Phase 16 did not already put there.
+**Plans:** 0 plans — not yet discussed or planned
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 17 to break down)
