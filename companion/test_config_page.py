@@ -3596,8 +3596,15 @@ def main():
                 {"airline_iata": "BA", "origin_iata": "LHR", "destination_iata": "ORY",
                  "start_at": 1893500000.0, "end_at": 1893503600.0},
             ]
+            # This check's subject is the Settings page's rendered copy, not
+            # retention - an explicit `now` bracketing the 2030-dated
+            # fixture entries keeps them in-window regardless of the wall
+            # clock (render() itself never reads this file back, so this
+            # has no effect on the assertions below, but it keeps the write
+            # path exercised the same way every run).
+            now = 1893456000.0
             if not calendar_rules.write_calendar_registry(
-                    tmpdir, entries, None, "2026-09-07T09:00:00+00:00"):
+                    tmpdir, entries, None, "2026-09-07T09:00:00+00:00", now=now):
                 return False, "expected the fixture registry write to succeed"
             ctx = dict(
                 _CALENDAR_BASE_CTX, calendar_configured=True,
@@ -3625,8 +3632,13 @@ def main():
                 {"airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "TLS",
                  "start_at": 1893456000.0, "end_at": 1893459600.0},
             ]
+            # This check's subject is D-01 isolation from the rules list, not
+            # retention - an explicit `now` bracketing the 2030-dated
+            # fixture entry keeps it in-window regardless of the wall clock,
+            # for the same reason given in the check above.
+            now = 1893456000.0
             if not calendar_rules.write_calendar_registry(
-                    tmpdir, entries, None, "2026-09-07T09:00:00+00:00"):
+                    tmpdir, entries, None, "2026-09-07T09:00:00+00:00", now=now):
                 return False, "expected the fixture registry write to succeed"
             result = colour_rules.add_rule(
                 tmpdir, colour_rules.RULE_KIND_CALLSIGN, "AFR1234", "black")

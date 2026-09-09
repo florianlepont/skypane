@@ -64,6 +64,7 @@ import re
 import socket
 import sys
 import threading
+import time
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
 
@@ -602,17 +603,70 @@ def _normalise_calendar_entry(entry):
     }
 
 
-def _rebuild_capped_entries(raw_entries, context):
+def _resolve_retention_now(now):
+    """Resolve the retention clock for `_rebuild_capped_entries()`: return
+    `time.time()` for `None`, a `bool`, any non-`int`/`float` value, or a
+    non-finite (`NaN`/`+-Infinity`) value; otherwise return `float(now)`.
+
+    This guard exists because `select_window_entries()` itself returns
+    `[]` for any `now` it cannot convert to a UTC datetime (an unparseable
+    value, an overflowing timestamp, `NaN`, `+-Infinity`). Without this
+    resolver sitting in front of it, a hostile or simply absent `now`
+    reaching `_rebuild_capped_entries()` would silently ERASE a
+    perfectly valid registry instead of merely trimming it to the current
+    window — turning a retention fix into a data-loss bug. Reuses
+    `_normalise_calendar_entry()`'s own bool-reject-then-finite-check
+    discipline verbatim, for the identical reason that function already
+    documents at its own `start_at`/`end_at` guard.
+    """
+    if isinstance(now, bool) or not isinstance(now, (int, float)):
+        return time.time()
+    now = float(now)
+    if not math.isfinite(now):
+        return time.time()
+    return now
+
+
+def _rebuild_capped_entries(raw_entries, context, now):
     """Rebuild every entry in `raw_entries` from scratch via
     `_normalise_calendar_entry()`, stopping the instant `CALENDAR_MAX_ENTRIES`
-    survivors have accumulated, and print — never raise — a one-line
-    warning naming `context`, the drop count and the cap when anything
-    was dropped, mirroring `load_colour_rules()`'s own
-    `capped_remainder`-accounted warning. A non-list `raw_entries`
-    (a hand-edited file whose `entries` key is not a list) returns an
-    empty list without printing, since there is nothing to count as
-    dropped versus what was never a candidate list to begin with. Never
-    raises regardless of `raw_entries`'s shape.
+    survivors have accumulated, print — never raise — a one-line warning
+    naming `context`, the drop count and the cap when anything was
+    dropped (mirroring `load_colour_rules()`'s own `capped_remainder`
+    -accounted warning), and THEN reduce the survivors to D-03's rolling
+    window via `select_window_entries()` — the sole implementation of the
+    window's two edges; this helper never recomputes the day-start edge,
+    the forward edge, or `CALENDAR_WINDOW_FORWARD_S` itself. `now` is a
+    REQUIRED third positional argument (not defaulted) so a future caller
+    can never silently skip the window; a hostile or absent value is
+    resolved to real current time by `_resolve_retention_now()` before it
+    ever reaches `select_window_entries()`.
+
+    Three behaviours worth being explicit about, because each is a real
+    consequence a future reader would otherwise trip over:
+
+    - **The window's own drops are deliberately NOT folded into the
+      drop-count warning above.** That warning classifies an anomaly
+      (malformed, unsafe, or beyond the cap). Routine expiry is this
+      feature's designed steady state, and `load_calendar_registry()`
+      runs on every companion page render — folding expiry into the same
+      warning would flood the journal on every read of a file more than a
+      day old and misclassify normal retention as a fault.
+    - **Order: cap first, then window.** The cap bounds work on a hostile
+      file; the window then applies only to what survived the cap. The
+      accepted cost is that a file whose in-window entries happen to sit
+      beyond the cap position yields fewer than `CALENDAR_MAX_ENTRIES` —
+      that is the hostile-file bound doing its job, not a defect.
+    - **Sort.** `select_window_entries()` returns its result sorted
+      ascending by `start_at`, so both this helper's return value and
+      (via `write_calendar_registry()`) the persisted file are now always
+      sorted — previously both preserved file/caller order.
+
+    A non-list `raw_entries` (a hand-edited file whose `entries` key is
+    not a list) returns an empty list without printing, since there is
+    nothing to count as dropped versus what was never a candidate list to
+    begin with. Never raises regardless of `raw_entries`'s or `now`'s
+    shape.
     """
     if not isinstance(raw_entries, list):
         return []
@@ -638,10 +692,11 @@ def _rebuild_capped_entries(raw_entries, context):
             % (context, dropped, "y" if dropped == 1 else "ies", CALENDAR_MAX_ENTRIES),
             file=sys.stderr,
         )
-    return survivors
+    resolved_now = _resolve_retention_now(now)
+    return select_window_entries(survivors, resolved_now)
 
 
-def load_calendar_registry(state_dir):
+def load_calendar_registry(state_dir, now=None):
     """Read `{state_dir}/calendar_rules.json`; never raises.
 
     A missing file, an unreadable file, invalid JSON, a JSON array, a
@@ -658,6 +713,17 @@ def load_calendar_registry(state_dir):
     tier's tamper vector (T-16-INPUT). Accumulation stops at
     `CALENDAR_MAX_ENTRIES` survivors, printing (never raising) a
     one-line drop-count warning when anything was dropped.
+
+    `now` is D-03's retention clock, threaded through to
+    `_rebuild_capped_entries()`, which applies D-03's rolling window
+    (`select_window_entries()`) to the surviving entries before returning
+    them — so a stale, out-of-window entry sitting on disk is never
+    handed back to a caller, no matter how it got there. `None` (the
+    default, and every existing call site's current shape) resolves to
+    real current time. This is the loader half of the invariant this
+    module's docstring already states: `load_calendar_registry()` and
+    `write_calendar_registry()` agree on the window by construction,
+    because both route every entry list through this one shared helper.
 
     Two timestamps, two domains, deliberately not interchangeable:
     `last_attempt_at` is normalised to a `float` epoch-seconds value (or
@@ -681,7 +747,7 @@ def load_calendar_registry(state_dir):
     if not isinstance(data, dict):
         data = {}
 
-    entries = _rebuild_capped_entries(data.get("entries"), "load_calendar_registry()")
+    entries = _rebuild_capped_entries(data.get("entries"), "load_calendar_registry()", now)
 
     last_attempt_at = data.get("last_attempt_at")
     if isinstance(last_attempt_at, bool) or not isinstance(last_attempt_at, (int, float)):
@@ -700,7 +766,7 @@ def load_calendar_registry(state_dir):
     }
 
 
-def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at):
+def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at, now=None):
     """Replace `{state_dir}/calendar_rules.json` WHOLE with `entries`,
     `last_attempt_at` and `last_synced_at`. Returns `True` on success,
     `False` on any failure; never raises.
@@ -717,18 +783,28 @@ def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at)
     correctness property T-15-02 needed for phase 15's rule store): the
     incoming `entries` are rebuilt through the identical per-field gates
     `load_calendar_registry()` applies, via the shared
-    `_rebuild_capped_entries()` helper, so a caller can never persist
-    what the loader would only drop again on the next read. Then the
+    `_rebuild_capped_entries()` helper — including D-03's rolling window,
+    not merely the shape/cap gates — so a caller can never persist what
+    the loader would only drop again on the next read. Then the
     tmp-write block is `colour_rules.py`'s shape verbatim — the state
     directory is created, the JSON is written to a temp filename
     embedding the process id and the thread id, dumped with an indent of
     one, atomically replaced onto the real path, and on any failure the
     temp file is removed (tolerating a failure to remove it) rather than
     raising.
+
+    `now` is D-03's RETENTION clock, threaded into `_rebuild_capped_entries()`
+    exactly like `load_calendar_registry()`'s own `now`. It is
+    deliberately NOT the same thing as `last_attempt_at`, which is the
+    THROTTLE clock recorded verbatim in the persisted file and may
+    legitimately be `None` or a past value (`calendar_fetch_is_due()`
+    reads it, unrelated to windowing) — conflating the two would tie this
+    file's retention to the throttle's own pacing rather than to real
+    time. `None` (the default) resolves to real current time.
     """
     with _WRITE_LOCK:
         capped_entries = _rebuild_capped_entries(
-            entries if isinstance(entries, list) else [], "write_calendar_registry()")
+            entries if isinstance(entries, list) else [], "write_calendar_registry()", now)
 
         if isinstance(last_attempt_at, bool) or not isinstance(last_attempt_at, (int, float)):
             normalised_attempt = None
@@ -787,9 +863,14 @@ def calendar_fetch_is_due(last_attempt_at, now, min_interval_s=None):
     `True` when `last_attempt_at` is `None`, is a `bool`, or is not a
     real number (a fresh or hand-edited state always fetches). Returns
     `True` when the elapsed time is negative — a clock step backwards
-    must not wedge the feature into never fetching again. This module
-    defines no clock of its own: `now` is always passed in, keeping
-    `poll_loop.now_s()` the codebase's one replaceable clock seam.
+    must not wedge the feature into never fetching again. THIS FUNCTION
+    defines no clock of its own: `now` is always passed in by its caller,
+    keeping `poll_loop.now_s()` the codebase's one replaceable clock seam
+    for the throttle decision. (This module as a whole is no longer
+    clock-free: `_resolve_retention_now()` gives the retention window a
+    default real-time seam of its own, used only by
+    `_rebuild_capped_entries()` — a distinct clock for a distinct
+    purpose, never consulted here.)
     """
     if min_interval_s is None:
         min_interval_s = CALENDAR_FETCH_INTERVAL_S
@@ -1135,6 +1216,21 @@ def refresh_calendar_registry(state_dir, now, transport=None):
     naming this module, the result code and the entry count; never the URL,
     never the result code paired with the URL, never anything derived from
     the body.
+
+    D-04, this function's whole reason for threading `now` into all four
+    of its registry calls: the top-of-function `load_calendar_registry()`,
+    both `write_calendar_registry()` calls, and the `except` fallback's
+    `load_calendar_registry()` all receive the SAME `now`. Because the
+    top-of-function load is now itself windowed (`load_calendar_registry()`
+    routes through `_rebuild_capped_entries()`), the failure path's
+    re-persist of `registry["entries"]` is correct WITHOUT gaining a trim
+    call of its own - the list it re-persists was already windowed against
+    this cycle's `now` by that load. One place owns the window invariant;
+    the failure path inherits it for free. This is also what makes
+    `result_registry["entries"]` byte-equal to what lands on disk on BOTH
+    the success and the failure path: the same `now` windows both, so
+    there is never a second, silently-diverging implementation and never
+    a re-read of the file to reconcile the two.
     """
     # Wrapped so nothing escapes: every callee below is already
     # never-raising on its own, but this function's contract is that
@@ -1142,7 +1238,7 @@ def refresh_calendar_registry(state_dir, now, transport=None):
     # never gain a new failure mode from this tier - defence in depth
     # against a future change to any callee above breaking that contract.
     try:
-        registry = load_calendar_registry(state_dir)
+        registry = load_calendar_registry(state_dir, now)
 
         url = configured_calendar_url()
         if url is None:
@@ -1160,10 +1256,10 @@ def refresh_calendar_registry(state_dir, now, transport=None):
         if body is None:
             # A transient blip must not erase an otherwise-valid rolling
             # window before its natural expiry - persist the EXISTING
-            # entries and last_synced_at unchanged, moving only
-            # last_attempt_at.
+            # (already-windowed, per D-04 above) entries and
+            # last_synced_at unchanged, moving only last_attempt_at.
             write_calendar_registry(
-                state_dir, registry["entries"], now, registry["last_synced_at"])
+                state_dir, registry["entries"], now, registry["last_synced_at"], now=now)
             result_registry = {
                 "entries": registry["entries"],
                 "last_attempt_at": now,
@@ -1183,7 +1279,7 @@ def refresh_calendar_registry(state_dir, now, transport=None):
         # window - distinguishable from a broken feed only by
         # last_synced_at having moved.
         last_synced_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        wrote_ok = write_calendar_registry(state_dir, windowed, now, last_synced_at)
+        wrote_ok = write_calendar_registry(state_dir, windowed, now, last_synced_at, now=now)
         result_registry = {
             "entries": windowed,
             "last_attempt_at": now,
@@ -1199,7 +1295,7 @@ def refresh_calendar_registry(state_dir, now, transport=None):
     except Exception:
         # Defence in depth only - see the comment above. Fall back to
         # whatever is durably on disk rather than propagate.
-        return FETCH_FAILED, load_calendar_registry(state_dir)
+        return FETCH_FAILED, load_calendar_registry(state_dir, now)
 
 
 # --- Matching (plan 16-06, D-04) --------------------------------------------

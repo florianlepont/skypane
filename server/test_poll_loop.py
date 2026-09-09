@@ -3028,7 +3028,7 @@ def main():
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     match_time = CLOCK["t"]
                     calendar_rules.write_calendar_registry(
-                        cal1_dir, [_calendar_entry(match_time)], match_time, None)
+                        cal1_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
                     _seed_calendar_cache(poll_loop, cal1_dir, "TVF7061")
 
                     captured_theme_ids = []
@@ -3113,7 +3113,7 @@ def main():
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     match_time = CLOCK["t"]
                     calendar_rules.write_calendar_registry(
-                        cal2_dir, [_calendar_entry(match_time)], match_time, None)
+                        cal2_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
                     _seed_calendar_cache(poll_loop, cal2_dir, "TVF7062")
 
                     result = poll_loop.run_once(snapshot=_snapshot("cal0002", "TVF7062", CLIMB), state_dir=cal2_dir, geofence=GEOFENCE_PATH)
@@ -3145,7 +3145,7 @@ def main():
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     match_time = CLOCK["t"]
                     calendar_rules.write_calendar_registry(
-                        cal3_dir, [_calendar_entry(match_time)], match_time, None)
+                        cal3_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
 
                     result = poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal3_dir, geofence=GEOFENCE_PATH)
                     if result.get("effective_theme") != "white":
@@ -3176,7 +3176,7 @@ def main():
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     match_time = CLOCK["t"]
                     calendar_rules.write_calendar_registry(
-                        cal4_dir, [_calendar_entry(match_time)], match_time, None)
+                        cal4_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
                     _seed_calendar_cache(poll_loop, cal4_dir, "TVF7065")
 
                     # First cycle: baro_rate=0 sits inside runway_config's
@@ -3228,7 +3228,7 @@ def main():
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     match_time = CLOCK["t"]
                     calendar_rules.write_calendar_registry(
-                        cal5_dir, [_calendar_entry(match_time)], match_time, None)
+                        cal5_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
                     poll_loop.save_poll_state(cal5_dir, {
                         "last_flight": {"hex": "cal0012", "callsign": "TVF7066"},
                         "last_confirmed_state": "departing",
@@ -3269,7 +3269,7 @@ def main():
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     match_time = CLOCK["t"]
                     calendar_rules.write_calendar_registry(
-                        cal6_dir, [_calendar_entry(match_time)], match_time, None)
+                        cal6_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
                     # Deliberately NOT seeded via _seed_calendar_cache(): no
                     # enrichment_cache entry exists for this callsign, and
                     # enrich.default_transport (stubbed to a 404 miss for
@@ -3315,7 +3315,7 @@ def main():
                     _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
                     match_time = CLOCK["t"]
                     calendar_rules.write_calendar_registry(
-                        cal7_dir, [_calendar_entry(match_time)], match_time, None)
+                        cal7_dir, [_calendar_entry(match_time)], match_time, None, now=match_time)
                     _seed_calendar_cache(poll_loop, cal7_dir, "TVF7063")
 
                     result1 = poll_loop.run_once(snapshot=_snapshot("cal0006", "TVF7063", CLIMB), state_dir=cal7_dir, geofence=GEOFENCE_PATH)
@@ -3397,7 +3397,7 @@ def main():
                     os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = "https://example.invalid/calendar.ics"
                     try:
                         _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
-                        calendar_rules.write_calendar_registry(cal9_dir, [], CLOCK["t"], None)
+                        calendar_rules.write_calendar_registry(cal9_dir, [], CLOCK["t"], None, now=CLOCK["t"])
                         path = calendar_rules.calendar_rules_path(cal9_dir)
                         before_mtime = os.path.getmtime(path)
                         with open(path, "rb") as fh:
