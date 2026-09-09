@@ -121,6 +121,79 @@ comes from and nothing about what is done with it.
      `FETCH_FAILED`, at `:163-167`) already provide that classification and should be reused
      rather than duplicated.
 
+### Amendments after research (2026-09-09)
+
+Three decisions settled after `17-RESEARCH.md` returned. The first corrects a defect in D-04 as
+originally written; the other two close the researcher's Open Questions 2 and 3 so the planner
+does not have to guess.
+
+- **D-07 (corrects D-04): the disconnect signal is a checkbox, not an empty field.** D-04 said
+  "emptying the field disconnects". That cannot work, and the defect is in D-04's wording, not in
+  the intent. D-01 and D-02 make the field write-only, so it renders **empty on every page load
+  regardless of state** — meaning an unrelated Settings save (changing a theme, say) submits it
+  empty and would disconnect the calendar every time.
+
+  The project already solved exactly this. `companion/pages/config_page.py:1726-1736` documents
+  the reasoning for `theme_arriving`: an unchecked checkbox is **absent** from the submission, and
+  that absence is the only signal able to distinguish "clear" from "leave alone" — `None` cannot
+  carry it, because `None` already means "not supplied, carry forward" for every field on this
+  write path.
+
+  So: a checkbox inside the Calendar group, rendered **only when a calendar is connected**,
+  unchecked by default. Checked plus save disconnects and erases the fetched flights. The
+  direction is deliberately the safe one — default does nothing — unlike `theme_arriving`, whose
+  checkbox is rendered *checked* when set and whose absence therefore means clear.
+
+  Consequences the plan must carry:
+  - An empty field on its own now means "carry forward" and nothing else. D-04's intent survives
+    intact; only its trigger changes.
+  - A non-empty URL submitted **together with** the disconnect box checked is contradictory. Reject
+    the whole save with a flash rather than guessing, following the `else: return
+    FLASH_SAVE_FAILED` branch already at `config_page.py:1737-1738`.
+  - D-05 is unaffected: submitting a *different* non-empty URL still replaces and clears the
+    previous calendar's entries. That path never involves the checkbox.
+  - The control stays inside the shared save bar. That is what the developer was protecting when
+    they rejected a standalone Disconnect button during discussion; a checkbox keeps it.
+
+- **D-08 (Open Question 2): `calendar_is_configured()` keeps returning a `bool`, and D-02's third
+  state gets its own narrow accessor.** Widening the existing accessor to a status string would
+  make every current truthiness test silently wrong — a non-empty string is truthy, so a
+  permission-drift status would read as "configured" at every existing call site, which is the
+  exact failure D-02 exists to prevent. Instead `calendar_is_configured()` returns `False` when the
+  mode has drifted (the feature is off, which is true), and a second, narrowly-scoped predicate
+  answers "off *because* the mode drifted" for the status line alone. Existing callers need no
+  change and cannot mishandle a type they never see.
+
+- **D-09 (Open Question 3): the immediate sync reuses `_POLL_LOCK`, with its existing non-blocking
+  acquire.** A separate lock would let a save-triggered calendar refresh run concurrently with a
+  poll cycle's own refresh; both do a read-modify-write of the registry, and
+  `calendar_rules._WRITE_LOCK` guards only the write, not the interval between load and write.
+  Reusing `_POLL_LOCK` means a save arriving during a running poll gets the same honest
+  "already running" answer `/poll-now` already gives (`companion/app.py:1913-1922`) instead of
+  racing. The cost — an unrelated Settings save can briefly contend with a poll — is bounded and
+  visible, which is the trade `_handle_poll_now()` already made deliberately.
+
+### Two findings from research that change what the plan must build
+
+Recorded here because both contradict what `<decisions>` assumed when it was written, and both were
+verified directly against the tree rather than taken on the researcher's word.
+
+- **`refresh_calendar_registry()` has no throttle-bypass parameter.** Its signature is
+  `(state_dir, now, transport=None)` and it calls `calendar_fetch_is_due(registry["last_attempt_at"],
+  now)` at `server/plane/calendar_rules.py:1155` with no interval argument — even though
+  `calendar_fetch_is_due()` itself already accepts `min_interval_s=None` at `:766`. D-06's
+  "bypass the 1800s throttle" is therefore **new work**, not a call-site option: the parameter must
+  be threaded through `refresh_calendar_registry()`, defaulting to today's behaviour so
+  `server/poll_loop.py:765`'s existing call is byte-for-byte unaffected.
+
+- **`FETCH_REJECTED_URL` is dead code.** `grep` across `server/` and `companion/` returns zero call
+  sites outside its own definition at `:166`; `fetch_ics()` collapses an SSRF-refused URL and a
+  genuine network failure into `FETCH_FAILED`. D-06's "the failure and its reason" therefore cannot
+  distinguish "that URL is not allowed" from "the fetch failed" without changing Phase 16's SSRF
+  internals, which is out of scope. **Plan for one honest generic failure message**, not a
+  per-cause copy deck. Do not wire `FETCH_REJECTED_URL` into the UI as though it fires — that would
+  ship a message no user can ever see. Whether to make it fire is a separate, later decision.
+
 ### Two corrections to Phase 16's recorded security posture
 
 These came out of the codebase scout during this discussion, they contradict statements made
