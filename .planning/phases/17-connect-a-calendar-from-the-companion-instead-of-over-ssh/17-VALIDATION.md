@@ -30,8 +30,8 @@ taken from research):
 |---|---|---|
 | `server/test_calendar_rules.py` | 80/80 | 76 before the T-16-PRIV merge — plan against 80 |
 | `server/test_poll_loop.py` | 80/80 | |
-| `companion/test_config_page.py` | 127/127 | file contains 5 successive `EXPECTED_CHECK_COUNT` assignments from past merges; only the last is live |
-| `companion/test_companion_app.py` | 165/165 | same shape, 5 assignments |
+| `companion/test_config_page.py` | 127/127 | 7 successive `EXPECTED_CHECK_COUNT` assignments from past merges; only the last is live |
+| `companion/test_companion_app.py` | 165/165 | same shape, 8 assignments |
 
 Full suite: **PASS**, 92% total coverage. `server/.venv/bin/ruff check .`: clean.
 
@@ -62,7 +62,7 @@ Behaviour-to-test mapping keys off the locked decisions — this phase has no ma
 | D-01 | The write survives a umask of 022 **and** 027 without widening | T-17-MODE | unit | `server/test_calendar_rules.py` | ✅ exists |
 | D-02 | A hand-widened mode makes `calendar_is_configured()` return `False` **and the value is never read** — assert the read path did not open the file, not merely that it returned False | T-17-MODE | unit | `server/test_calendar_rules.py` | ✅ exists |
 | D-02 | The distinct status renders in Settings and names the remedy | — | unit | `companion/test_config_page.py` | ✅ exists |
-| D-03 | Both accessors read the file; `SKYPANE_CALENDAR_ICS_URL` is fully inert — set the env var to a distinctive token and assert it changes nothing | T-17-SECRET | unit | `server/test_calendar_rules.py` | ⚠️ ~34 existing references to `CALENDAR_URL_ENV_VAR` are fixtures to rewrite, not just new checks |
+| D-03 | Both accessors read the file; `SKYPANE_CALENDAR_ICS_URL` is fully inert — set the env var to a distinctive token and assert it changes nothing | T-17-SECRET | unit | `server/test_calendar_rules.py` | ⚠️ 38 existing references to `CALENDAR_URL_ENV_VAR` are fixtures to rewrite, not just new checks |
 | D-04 + D-07 | Disconnect checkbox checked → URL cleared **and** fetched entries erased in the same save | T-17-PRIV | unit + integration | `server/test_calendar_rules.py` + `companion/test_companion_app.py` | ✅ exists |
 | D-07 | **An empty field with the box unchecked changes nothing** — the regression that D-07 exists to prevent. Save an unrelated setting twice and assert the calendar stays connected. | T-17-PRIV | integration | `companion/test_companion_app.py` | ✅ exists |
 | D-07 | A non-empty URL submitted with the box checked is rejected whole, nothing written | — | unit | `companion/test_config_page.py` | ✅ exists |
@@ -97,7 +97,7 @@ Existing infrastructure covers all phase behaviours. All four harnesses exist, a
 `scripts/run-all-tests.sh`, and have live `EXPECTED_CHECK_COUNT` ledgers to increment.
 
 One caveat for whoever edits the ledgers: `companion/test_config_page.py` and
-`companion/test_companion_app.py` each carry **five** `EXPECTED_CHECK_COUNT` assignments left by
+`companion/test_companion_app.py` carry **seven** and **eight** `EXPECTED_CHECK_COUNT` assignments respectively left by
 past merges, only the last of which is live. Editing an earlier one has no effect and the harness
 will still fail on the count. Edit the last assignment in the file.
 
