@@ -18,7 +18,6 @@ fields than the Flights page.
 
 Everything dynamic passes through `layout.escape_html()`.
 """
-from datetime import datetime, timezone
 
 import companion.layout as layout
 from companion.layout import escape_html
