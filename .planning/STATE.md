@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 16
-status: "Phase 16 COMPLETE — 7/7 plans, verification passed, UAT 2/2, security 11/12 closed with 0 blocking"
+current_phase: 17
+status: "Phase 17 COMPLETE — 4/4 plans, security 10/10 with threats_open 0, UAT 2/2. Two blockers found by the first real-calendar run, both fixed."
 stopped_at: "Phase 16 closed 2026-09-08. SEED-003 fully delivered across phases 15 and 16. Two code-review blockers were found and fixed after the security audit passed (nested VEVENT component dropping flights, NaN timestamps bypassing the clock). Branch claude/seed-3-roster-highlight is 55+ commits ahead of main and NOT yet merged or deployed."
 last_updated: "2026-09-08T05:48:19.614Z"
-last_activity: 2026-09-08
-last_activity_desc: Phase 16 complete
+last_activity: 2026-09-10
+last_activity_desc: Phase 17 complete
 progress:
   total_phases: 25
-  completed_phases: 23
-  total_plans: 154
-  completed_plans: 153
+  completed_phases: 24
+  total_plans: 158
+  completed_plans: 157
   percent: 99
-current_phase_name: calendar-linked-flight-highlighting-a-connected-calendar-sou
+current_phase_name: connect-a-calendar-from-the-companion-instead-of-over-ssh
 ---
 
 ---

@@ -116,7 +116,11 @@ if REPO_ROOT not in sys.path:
 # rewriting it across ten throttled cycles (T-16-DOS); and an explicit
 # regression fence proving Phase 15's own checks are unchanged with the
 # feature off) - 70 + 10.
-EXPECTED_CHECK_COUNT = 80
+# 17-02 Task 3: +1 (a dedicated D-06 regression check pinning
+# refresh_calendar_registry()'s new min_interval_s parameter to default to
+# None, driven through run_once()'s own production call site rather than
+# the calendar function directly) - 80 + 1.
+EXPECTED_CHECK_COUNT = 81
 
 # Pins the default-config panel.bin digest produced against the FLIGHT1
 # fixture (check 1's own _run("aaaaaa", "FLIGHT1 ") snapshot) - hand-
@@ -3360,18 +3364,16 @@ def main():
             )
 
             # 64. The refresh does not delay or destabilise a cycle - part
-            # 1 of 2: with the calendar env var unset, a full cycle
+            # 1 of 2: with no calendar secret file on disk, a full cycle
             # completes normally and calendar_rules.json is never created.
             def _unconfigured_cycle_never_creates_the_registry_file():
                 cal8_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-unconfigured-")
                 try:
-                    original_env = os.environ.pop(calendar_rules.CALENDAR_URL_ENV_VAR, None)
-                    try:
-                        _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
-                        poll_loop.run_once(snapshot=_snapshot("cal0014", "TVF7064", CLIMB), state_dir=cal8_dir, geofence=GEOFENCE_PATH)
-                    finally:
-                        if original_env is not None:
-                            os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = original_env
+                    # No secret file is written - a fresh state dir is
+                    # "unconfigured" by construction (D-03), with nothing to
+                    # arrange or restore.
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    poll_loop.run_once(snapshot=_snapshot("cal0014", "TVF7064", CLIMB), state_dir=cal8_dir, geofence=GEOFENCE_PATH)
                     if os.path.exists(calendar_rules.calendar_rules_path(cal8_dir)):
                         return False, "calendar_rules.json was created for a cycle with the calendar feature unconfigured"
                     return True, ""
@@ -3379,8 +3381,8 @@ def main():
                     colour_rules.set_colour_rules_state_dir(None)
                     shutil.rmtree(cal8_dir, ignore_errors=True)
             check(
-                "with the calendar env var unset, a full run_once() cycle completes normally and never creates "
-                "calendar_rules.json",
+                "with no calendar secret file present, a full run_once() cycle completes normally and never "
+                "creates calendar_rules.json",
                 _unconfigured_cycle_never_creates_the_registry_file,
             )
 
@@ -3393,28 +3395,21 @@ def main():
             def _throttled_cycles_never_rewrite_the_registry_file():
                 cal9_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-throttle-")
                 try:
-                    original_env = os.environ.get(calendar_rules.CALENDAR_URL_ENV_VAR)
-                    os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = "https://example.invalid/calendar.ics"
-                    try:
+                    assert calendar_rules.save_calendar_url(cal9_dir, "https://example.invalid/calendar.ics") is True
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    calendar_rules.write_calendar_registry(cal9_dir, [], CLOCK["t"], None, now=CLOCK["t"])
+                    path = calendar_rules.calendar_rules_path(cal9_dir)
+                    before_mtime = os.path.getmtime(path)
+                    with open(path, "rb") as fh:
+                        before_bytes = fh.read()
+
+                    for _ in range(10):
                         _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
-                        calendar_rules.write_calendar_registry(cal9_dir, [], CLOCK["t"], None, now=CLOCK["t"])
-                        path = calendar_rules.calendar_rules_path(cal9_dir)
-                        before_mtime = os.path.getmtime(path)
-                        with open(path, "rb") as fh:
-                            before_bytes = fh.read()
+                        poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal9_dir, geofence=GEOFENCE_PATH)
 
-                        for _ in range(10):
-                            _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
-                            poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal9_dir, geofence=GEOFENCE_PATH)
-
-                        after_mtime = os.path.getmtime(path)
-                        with open(path, "rb") as fh:
-                            after_bytes = fh.read()
-                    finally:
-                        if original_env is None:
-                            os.environ.pop(calendar_rules.CALENDAR_URL_ENV_VAR, None)
-                        else:
-                            os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = original_env
+                    after_mtime = os.path.getmtime(path)
+                    with open(path, "rb") as fh:
+                        after_bytes = fh.read()
                     if after_mtime != before_mtime or after_bytes != before_bytes:
                         return False, (
                             "calendar_rules.json changed across 10 throttled cycles: mtime %r -> %r, bytes "
@@ -3425,9 +3420,9 @@ def main():
                     colour_rules.set_colour_rules_state_dir(None)
                     shutil.rmtree(cal9_dir, ignore_errors=True)
             check(
-                "with the calendar env var set and a fresh last_attempt_at already on disk, ten consecutive "
-                "cycles inside the throttle interval leave calendar_rules.json's modification time and "
-                "contents byte-identical - the throttled path performs no write (T-16-DOS)",
+                "with a calendar secret file present and a fresh last_attempt_at already on disk, ten "
+                "consecutive cycles inside the throttle interval leave calendar_rules.json's modification "
+                "time and contents byte-identical - the throttled path performs no write (T-16-DOS)",
                 _throttled_cycles_never_rewrite_the_registry_file,
             )
 
@@ -3481,6 +3476,57 @@ def main():
                 "base-theme cycle all report exactly what they reported before this phase - an explicit "
                 "regression fence",
                 _feature_off_leaves_every_pre_phase_behaviour_unchanged,
+            )
+
+            # 67. Phase 17 plan 02 (D-06): refresh_calendar_registry() grew a
+            # min_interval_s parameter. This is the check that fails if its
+            # default is ever changed from the value that preserves today's
+            # pacing: poll_loop.py's own call site passes no interval
+            # argument at all, so a single cycle 60 seconds after a recorded
+            # attempt - well inside CALENDAR_FETCH_INTERVAL_S (1800s) - must
+            # still skip the fetch entirely. Driven through run_once()'s own
+            # fake-clock seam (the actual production call site), not by
+            # calling calendar_rules.refresh_calendar_registry() directly.
+            # No transport is injectable at this call site, so the evidence
+            # is indirect but conclusive: any transport attempt, successful
+            # or failing, moves last_attempt_at and therefore the file's
+            # mtime and bytes - byte-for-byte identity is exactly what "no
+            # transport call happened" looks like from outside the function.
+            def _default_min_interval_s_preserves_poll_loops_pacing():
+                cal10_dir = tempfile.mkdtemp(prefix="skypane-poll-loop-cal-default-interval-")
+                try:
+                    assert calendar_rules.save_calendar_url(cal10_dir, "https://example.invalid/calendar.ics") is True
+                    _tick(poll_loop.MIN_ADVANCE_INTERVAL_S + 30)
+                    seed_now = CLOCK["t"]
+                    calendar_rules.write_calendar_registry(cal10_dir, [], seed_now, None, now=seed_now)
+                    path = calendar_rules.calendar_rules_path(cal10_dir)
+                    before_mtime = os.path.getmtime(path)
+                    with open(path, "rb") as fh:
+                        before_bytes = fh.read()
+
+                    _tick(60)
+                    poll_loop.run_once(snapshot=_empty_snapshot(), state_dir=cal10_dir, geofence=GEOFENCE_PATH)
+
+                    after_mtime = os.path.getmtime(path)
+                    with open(path, "rb") as fh:
+                        after_bytes = fh.read()
+                    if after_mtime != before_mtime or after_bytes != before_bytes:
+                        return False, (
+                            "calendar_rules.json changed after a single cycle 60 seconds inside the "
+                            "standard interval - refresh_calendar_registry()'s min_interval_s default may "
+                            "no longer be None: mtime %r -> %r, bytes changed=%s"
+                            % (before_mtime, after_mtime, after_bytes != before_bytes)
+                        )
+                    return True, ""
+                finally:
+                    colour_rules.set_colour_rules_state_dir(None)
+                    shutil.rmtree(cal10_dir, ignore_errors=True)
+            check(
+                "poll_loop.py's own run_once() call site, which passes no min_interval_s argument, still "
+                "skips the calendar fetch 60 seconds after a recorded attempt - pinning "
+                "refresh_calendar_registry()'s new parameter to default to None so today's pacing is "
+                "unchanged (D-06)",
+                _default_min_interval_s_preserves_poll_loops_pacing,
             )
 
         finally:

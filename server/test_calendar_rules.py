@@ -53,7 +53,59 @@ FIXTURE_EXPECTED_ENTRIES = 4
 # anti-drift checks covering the loader's on-read window, the writer's
 # refusal to persist what the loader would drop, and a behavioural
 # equivalence guard against a second window implementation ever appearing.
-EXPECTED_CHECK_COUNT = 80
+# Phase 17 plan 01 raised it to 94, adding 14 checks for save_calendar_url()'s
+# 0600 writer (T-17-MODE - os.open()'s own mode argument at creation time, a
+# never-calls-os.chmod() check, both umasks, the pre-existing-destination
+# case), calendar_secret_mode_is_unsafe()'s guard including its negative check
+# (T-17-DRIFT) and absent-file case, and the registry-erase-on-every-change
+# behaviour (D-04/D-05) plus the rejected-value, stripped-content,
+# no-leftover-tmp-file and sentinel-identity checks.
+# Phase 17 plan 02 raised it to 101, rewriting every environment-mutating
+# fixture (38 references) to write the secret file via the shared
+# _write_calendar_secret() helper instead, and adding 7 checks for the
+# read-path swap: the value comes from the file, the retired environment
+# read is provably inert (D-03), a drifted file refuses without ever being
+# opened (D-02/T-17-DRIFT), a file written through the ordinary
+# umask-inheriting idiom is refused end to end, the bool contract holds by
+# identity across all three states (D-08), a hand-written trailing newline
+# is stripped on read, and min_interval_s bypasses the throttle while the
+# default preserves it (D-06).
+# 17-REVIEW.md CR-02 fix (2026-09-10) raised it to 102, adding a regression
+# for save_calendar_url(CLEAR_CALENDAR_URL): it must return False, not True,
+# when os.remove() fails for a reason other than the file already being
+# absent.
+# 17-REVIEW.md CR-01 fix (2026-09-10) raised it to 103, adding a two-thread
+# regression proving the new cross-process registry lock closes the race
+# between a companion disconnect and a concurrent, simulated poll-cycle
+# refresh (skypane-poll.service versus skypane-companion.service).
+# 17-REVIEW.md WR-01 fix (2026-09-10) raised it to 104, adding a regression
+# proving that replacing a connected calendar's URL leaves that calendar's
+# already-fetched flights untouched when the new secret's write fails
+# before ever reaching the registry erase.
+# 17-REVIEW.md UAT fix (2026-09-10) raised it to 110, adding six checks for
+# the webcal:// scheme defect (Apple Calendar's own share-link scheme was
+# refused outright): _normalise_calendar_url()'s own rewrite-only-webcal
+# contract, fetch_ics() accepting a webcal:// URL and the transport
+# observing an https:// request, three address-gate non-weakening cases
+# (private, loopback/"localhost", cloud metadata) still refused through a
+# webcal:// URL, http:// still refused (no downgrade path), a redirect
+# discovered from a normalised webcal:// URL still re-validated per hop,
+# and save_calendar_url() storing the normalised https:// form rather than
+# the raw webcal:// string.
+# 17-REVIEW.md UAT-02 fix (2026-09-10) raised it to 113, adding three checks
+# for the cap-before-window BLOCKER a real Apple Calendar feed exposed:
+# parse_ics_events() + select_window_entries() still surfacing a small
+# number of in-window entries from a feed listing more than
+# CALENDAR_MAX_ENTRIES history entries first (the exact real-world failure,
+# reproduced in a fixture), the same regression at the
+# load_calendar_registry()/_rebuild_capped_entries() registry layer, and
+# _resolve_retention_now()'s UF-16-05 closure - None, a bool, a non-numeric
+# value, NaN/+-Infinity, and a finite-but-absurd 1e300 all now resolve to a
+# real convertible clock rather than erasing a populated registry. One
+# pre-existing check (parse_ics_events()'s own bound) was renamed and
+# re-targeted at the new, much larger CALENDAR_MAX_RAW_EXAMINED ceiling
+# rather than removed, so it is not counted as one of the three additions.
+EXPECTED_CHECK_COUNT = 113
 
 # A real public unicast IPv4 address (no DNS lookup needed - urlparse()
 # already sees a literal IP as the hostname, and socket.getaddrinfo()
@@ -115,6 +167,25 @@ class _FakeCalendarResponse:
 
     def close(self):
         self.closed = True
+
+
+def _write_calendar_secret(state_dir, url):
+    """The single fixture path for "this test has a calendar configured"
+    (phase 17 plan 02, D-03), mirroring how the checks above already seed
+    calendar_rules.json directly via write_calendar_registry() rather than
+    going through a public write API for setup.
+
+    Calls the real cr.save_calendar_url(state_dir, url) and asserts the
+    return is True, so a fixture that silently fails to configure the
+    calendar fails loudly here rather than producing a mystifying
+    downstream FAIL several lines away. Replaces every environment-variable
+    save/set/restore dance this file used before the secret moved to a
+    per-test temporary state directory - there is no process-global state
+    left to leak between tests, so there is nothing to restore either.
+    """
+    import server.plane.calendar_rules as cr
+    assert cr.save_calendar_url(state_dir, url) is True, (
+        "test fixture failure: save_calendar_url(%r, %r) returned False" % (state_dir, url))
 
 
 def make_calendar_transport(status_code=200, body=b"", headers=None, is_redirect=False,
@@ -393,9 +464,15 @@ def main():
     check("parse_ics_events() never raises and returns an empty list for seven hostile bodies (empty, None, non-string, unterminated block, punctuation, no-colon lines, decoded random bytes)", _parse_ics_events_never_raises)
 
     # 19. A synthetic body repeating one valid flight event more times
-    #     than CALENDAR_MAX_ENTRIES returns exactly CALENDAR_MAX_ENTRIES
-    #     entries.
-    def _bounded_output_at_max_entries():
+    #     than CALENDAR_MAX_RAW_EXAMINED returns exactly
+    #     CALENDAR_MAX_RAW_EXAMINED entries - UAT-02's fix moved
+    #     parse_ics_events()'s own bound off the SMALLER CALENDAR_MAX_ENTRIES
+    #     (which used to discard every future flight in a real feed listing
+    #     history first - see check 19b below) onto this much larger,
+    #     DoS-only ceiling; CALENDAR_MAX_ENTRIES itself is enforced
+    #     downstream by select_window_entries(), after the window, never
+    #     here.
+    def _bounded_output_at_max_raw_examined():
         one_event = (
             "BEGIN:VEVENT\n"
             "UID:cap-test-%d@skypane.invalid\n"
@@ -406,15 +483,72 @@ def main():
             "DTEND;VALUE=DATE-TIME:20260901T081500Z\n"
             "END:VEVENT\n"
         )
-        repeat_count = cr.CALENDAR_MAX_ENTRIES + 200
+        repeat_count = cr.CALENDAR_MAX_RAW_EXAMINED + 200
         body = "BEGIN:VCALENDAR\nPRODID:-//test//test//EN\n" + "".join(
             one_event % i for i in range(repeat_count)
         ) + "END:VCALENDAR\n"
         entries = cr.parse_ics_events(body)
-        if len(entries) != cr.CALENDAR_MAX_ENTRIES:
-            return False, "expected exactly %d entries, got %d" % (cr.CALENDAR_MAX_ENTRIES, len(entries))
+        if len(entries) != cr.CALENDAR_MAX_RAW_EXAMINED:
+            return False, "expected exactly %d entries, got %d" % (cr.CALENDAR_MAX_RAW_EXAMINED, len(entries))
         return True, ""
-    check("parse_ics_events() on a body with more VEVENT blocks than CALENDAR_MAX_ENTRIES returns exactly CALENDAR_MAX_ENTRIES entries", _bounded_output_at_max_entries)
+    check("parse_ics_events() on a body with more VEVENT blocks than CALENDAR_MAX_RAW_EXAMINED returns exactly CALENDAR_MAX_RAW_EXAMINED entries", _bounded_output_at_max_raw_examined)
+
+    # 19b. UAT-02's decisive regression, reproduced at the parse_ics_events()
+    #      + select_window_entries() layer exactly as it happens in
+    #      refresh_calendar_registry(): a feed listing more than
+    #      CALENDAR_MAX_ENTRIES historical VEVENTs BEFORE a handful of
+    #      in-window ones must still surface the in-window ones. Before
+    #      UAT-02's fix, parse_ics_events() itself capped at
+    #      CALENDAR_MAX_ENTRIES in raw feed order, so the surviving 200 were
+    #      always the oldest 200 and select_window_entries() then had
+    #      nothing future left to keep - reproducing "0 of 8 survive" against
+    #      the developer's own real feed. This is the exact real-world
+    #      failure, reproduced in a fixture.
+    def _feed_history_before_window_still_surfaces_window_entries():
+        from datetime import datetime, timedelta, timezone
+
+        def vevent(dtstart, dtend, flight):
+            fmt = "%Y%m%dT%H%M%SZ"
+            return (
+                "BEGIN:VEVENT\n"
+                "SUMMARY:%s CDG-ORY\n" % flight +
+                "CATEGORIES:FLT\n"
+                "DTSTART:%s\n" % dtstart.strftime(fmt) +
+                "DTEND:%s\n" % dtend.strftime(fmt) +
+                "END:VEVENT\n"
+            )
+
+        now = _mid_fixture_now()
+        now_dt = datetime.fromtimestamp(now, tz=timezone.utc)
+        hist_base = datetime(2020, 1, 1, tzinfo=timezone.utc)
+
+        lines = ["BEGIN:VCALENDAR\n"]
+        history_count = cr.CALENDAR_MAX_ENTRIES + 50
+        for i in range(history_count):
+            d = hist_base + timedelta(days=i)
+            lines.append(vevent(d, d + timedelta(hours=2), "AF%03d" % (i % 1000)))
+        future_count = 8
+        for i in range(future_count):
+            d = now_dt + timedelta(hours=i * 2)
+            lines.append(vevent(d, d + timedelta(hours=1), "BA%03d" % i))
+        lines.append("END:VCALENDAR\n")
+        body = "".join(lines)
+
+        parsed = cr.parse_ics_events(body)
+        windowed = cr.select_window_entries(parsed, now)
+        future_survivors = [e for e in windowed if e["airline_iata"] == "BA"]
+        if len(future_survivors) != future_count:
+            return False, (
+                "expected all %d in-window future entries to survive a feed listing "
+                "%d historical entries first, got %d survivors (windowed total %d)"
+                % (future_count, history_count, len(future_survivors), len(windowed))
+            )
+        return True, ""
+    check(
+        "UAT-02: a feed listing more than CALENDAR_MAX_ENTRIES historical VEVENTs before a "
+        "small number of in-window ones still surfaces every in-window entry through "
+        "parse_ics_events() + select_window_entries() - the exact real-world failure reproduced",
+        _feed_history_before_window_still_surfaces_window_entries)
 
     # 20. Every returned entry has exactly the five expected keys, and
     #     serialising the whole list to JSON contains none of the
@@ -582,17 +716,19 @@ def main():
         return True, ""
     check("select_window_entries() excludes an entry carrying a 19th-century timestamp for a present-day now", _rolling_window_excludes_nineteenth_century_junk)
 
-    # 26. A file holding more than CALENDAR_MAX_ENTRIES well-formed
-    #     entries loads capped, with a drop-count warning captured from
-    #     stderr.
+    # 26. A file holding more than CALENDAR_MAX_ENTRIES well-formed,
+    #     ALL-IN-WINDOW entries loads capped, with a drop-count warning
+    #     captured from stderr - the cap is still fully enforced after
+    #     UAT-02's window-first reorder, it just now bounds the windowed
+    #     survivors rather than raw file order (see check 26b below for the
+    #     order-sensitive regression that pins the reorder itself).
     def _load_caps_at_max_entries_with_a_warning():
         import json
         import tempfile
         # An explicit `now` bracketing the whole 0..CALENDAR_MAX_ENTRIES+49
-        # sentinel range: this check's subject is the entry cap, not
-        # retention, and cap-then-window (D-03's stated order) means the
-        # first CALENDAR_MAX_ENTRIES survivors of the cap must also all be
-        # in-window for the assertion below to hold.
+        # sentinel range so every one of these entries is in-window
+        # regardless of order - this check's subject is the cap, not the
+        # reorder.
         now = float(cr.CALENDAR_MAX_ENTRIES + 49)
         with tempfile.TemporaryDirectory() as tmp:
             oversized = [
@@ -614,6 +750,79 @@ def main():
                 return False, "expected a drop-count warning on stderr, got %r" % (buf.getvalue(),)
         return True, ""
     check("load_calendar_registry() on a file holding more than CALENDAR_MAX_ENTRIES well-formed entries returns exactly CALENDAR_MAX_ENTRIES of them and prints a drop-count warning on stderr", _load_caps_at_max_entries_with_a_warning)
+
+    # 26b. UAT-02's decisive regression at the registry layer: a hand-edited
+    #      (or pre-fix-written) calendar_rules.json listing more than
+    #      CALENDAR_MAX_ENTRIES entries OUTSIDE the window before a small
+    #      number INSIDE it must still surface the in-window ones on load.
+    #      Before the fix, _rebuild_capped_entries() capped raw_entries in
+    #      LIST ORDER before ever windowing, so the historical entries
+    #      (listed first) filled the cap and the in-window entries (listed
+    #      last) were discarded before select_window_entries() ever ran -
+    #      reproducing exactly the developer's real-feed failure
+    #      ("0 of 8 survive"). Without the fix this returns zero.
+    def _registry_history_before_window_still_surfaces_window_entries():
+        import json
+        import tempfile
+        now = _mid_fixture_now()
+        history_count = cr.CALENDAR_MAX_ENTRIES + 50
+        future_count = 8
+        raw_entries = (
+            [_entry("XX", "AAA", "ORY", float(i), float(i) + 1) for i in range(history_count)]
+            + [_entry("BA", "CDG", "ORY", now + i * 60, now + i * 60 + 60) for i in range(future_count)]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(cr.calendar_rules_path(tmp), "w") as fh:
+                json.dump({"entries": raw_entries, "last_attempt_at": None, "last_synced_at": None}, fh)
+            loaded = cr.load_calendar_registry(tmp, now)
+            future_survivors = [e for e in loaded["entries"] if e["airline_iata"] == "BA"]
+            if len(future_survivors) != future_count:
+                return False, (
+                    "expected all %d in-window entries to survive a raw list holding %d "
+                    "out-of-window entries first, got %d survivors (total %d)"
+                    % (future_count, history_count, len(future_survivors), len(loaded["entries"]))
+                )
+        return True, ""
+    check(
+        "UAT-02: load_calendar_registry() on a raw entries list holding more than CALENDAR_MAX_ENTRIES "
+        "out-of-window entries before a small number of in-window ones still surfaces every in-window "
+        "entry - the exact real-world failure reproduced at the registry layer",
+        _registry_history_before_window_still_surfaces_window_entries)
+
+    # 26c. _resolve_retention_now()'s guard, including UF-16-05's closure:
+    #      None, a bool, a non-numeric value, NaN, +-Infinity, AND a finite
+    #      but absurd value (1e300, which overflows datetime.fromtimestamp()
+    #      despite being entirely finite) must all resolve to a real,
+    #      convertible clock rather than reaching select_window_entries()
+    #      as-is and erasing a populated registry.
+    def _resolve_retention_now_never_erases_a_populated_registry():
+        import tempfile
+        import time
+        # The genuine wall clock, not the fixture's fixed 2026-09-01 `now` -
+        # every bad value below is expected to resolve to time.time(), so
+        # the seeded entry must actually be in-window relative to REAL
+        # current time for that resolution to be provably correct.
+        real_now = time.time()
+        seeded = [_entry("BA", "CDG", "ORY", real_now, real_now + 60)]
+        bad_values = (None, True, False, "not-a-number", float("nan"),
+                      float("inf"), float("-inf"), 1e300, -1e300)
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.write_calendar_registry(tmp, seeded, real_now, None, now=real_now):
+                return False, "test fixture failure: write_calendar_registry() returned False"
+            for bad in bad_values:
+                loaded = cr.load_calendar_registry(tmp, bad)
+                if len(loaded["entries"]) != 1:
+                    return False, (
+                        "_resolve_retention_now(%r) let an absurd now erase a populated "
+                        "registry - expected 1 surviving entry, got %d"
+                        % (bad, len(loaded["entries"]))
+                    )
+        return True, ""
+    check(
+        "UF-16-05 closure: _resolve_retention_now() resolves None, a bool, a non-numeric value, "
+        "NaN/+-Infinity, and a finite-but-absurd value (1e300) all to a real convertible clock, "
+        "so none of them can erase a populated registry through load_calendar_registry()",
+        _resolve_retention_now_never_erases_a_populated_registry)
 
     # 27. Every hostile entry shape is dropped: a non-dict, a short dict,
     #     an over-long dict, a lowercase airport code, a three-character
@@ -731,52 +940,45 @@ def main():
         return True, ""
     check("the two persisted timestamps survive a round trip with distinct types (a number and an ISO string), and calendar_fetch_is_due() consults only last_attempt_at - changing last_synced_at alone never changes its verdict, changing last_attempt_at does", _two_timestamps_are_distinct_in_type_and_role)
 
-    # 31. A distinctive token set in the calendar URL environment
-    #     variable appears nowhere in the persisted file's bytes, nowhere
-    #     in the loaded dict's JSON serialisation, and nowhere in
-    #     anything the module printed to stderr during a round trip.
+    # 31. A distinctive token set in the calendar secret file appears
+    #     nowhere in the persisted registry file's bytes, nowhere in the
+    #     loaded dict's JSON serialisation, and nowhere in anything the
+    #     module printed to stderr during a round trip.
     def _secret_never_reaches_the_file_or_the_log():
         import json
         import tempfile
         token = "SEKRIT-TOKEN-CONTAINMENT-CHECK"
-        old_value = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://example.invalid/feed.ics?token=%s" % token
-        try:
-            with tempfile.TemporaryDirectory() as tmp:
-                # This check's subject is secret containment, not retention -
-                # an explicit `now` bracketing the sentinel range keeps the
-                # persist/load round trip exercised the same way regardless
-                # of the wall clock.
-                now = float(cr.CALENDAR_MAX_ENTRIES + 4)
-                oversized = [
-                    _entry("XX", "AAA", "ORY", float(i), float(i) + 1)
-                    for i in range(cr.CALENDAR_MAX_ENTRIES + 5)
-                ]
-                buf = io.StringIO()
-                old_stderr = sys.stderr
-                sys.stderr = buf
-                try:
-                    cr.write_calendar_registry(tmp, oversized, 1.0, "2026-09-07T00:00:00+00:00", now=now)
-                    loaded = cr.load_calendar_registry(tmp, now)
-                finally:
-                    sys.stderr = old_stderr
-                captured_stderr = buf.getvalue()
-                with open(cr.calendar_rules_path(tmp)) as fh:
-                    file_bytes = fh.read()
-                serialised = json.dumps(loaded)
-                if token in file_bytes:
-                    return False, "the calendar URL token leaked into calendar_rules.json"
-                if token in serialised:
-                    return False, "the calendar URL token leaked into the loaded dict's serialisation"
-                if token in captured_stderr:
-                    return False, "the calendar URL token leaked into stderr"
-            return True, ""
-        finally:
-            if old_value is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_value
-    check("a distinctive token set in the calendar URL environment variable appears in neither calendar_rules.json's bytes, the loaded dict's serialisation, nor anything printed to stderr during a round trip", _secret_never_reaches_the_file_or_the_log)
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://example.invalid/feed.ics?token=%s" % token)
+            # This check's subject is secret containment, not retention -
+            # an explicit `now` bracketing the sentinel range keeps the
+            # persist/load round trip exercised the same way regardless
+            # of the wall clock.
+            now = float(cr.CALENDAR_MAX_ENTRIES + 4)
+            oversized = [
+                _entry("XX", "AAA", "ORY", float(i), float(i) + 1)
+                for i in range(cr.CALENDAR_MAX_ENTRIES + 5)
+            ]
+            buf = io.StringIO()
+            old_stderr = sys.stderr
+            sys.stderr = buf
+            try:
+                cr.write_calendar_registry(tmp, oversized, 1.0, "2026-09-07T00:00:00+00:00", now=now)
+                loaded = cr.load_calendar_registry(tmp, now)
+            finally:
+                sys.stderr = old_stderr
+            captured_stderr = buf.getvalue()
+            with open(cr.calendar_rules_path(tmp)) as fh:
+                file_bytes = fh.read()
+            serialised = json.dumps(loaded)
+            if token in file_bytes:
+                return False, "the calendar URL token leaked into calendar_rules.json"
+            if token in serialised:
+                return False, "the calendar URL token leaked into the loaded dict's serialisation"
+            if token in captured_stderr:
+                return False, "the calendar URL token leaked into stderr"
+        return True, ""
+    check("a distinctive token set in the calendar secret file appears in neither calendar_rules.json's bytes, the loaded dict's serialisation, nor anything printed to stderr during a round trip", _secret_never_reaches_the_file_or_the_log)
 
     # --- Phase 16 plan 04: fetch-hardening, secret-leak-containment and
     #     refresh-orchestration checks, added below the plan 16-03 checks
@@ -1061,11 +1263,10 @@ def main():
             return real_getaddrinfo(hostname, port, *a, **k)
 
         socket.getaddrinfo = fake_getaddrinfo
-        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = secret_url
         try:
             now = _mid_fixture_now()
             with tempfile.TemporaryDirectory() as tmp:
+                _write_calendar_secret(tmp, secret_url)
                 transport = make_calendar_transport(status_code=200, body=fixture_text.encode())
                 code, _reg = cr.refresh_calendar_registry(tmp, now, transport=transport)
                 if code != cr.FETCH_OK:
@@ -1078,66 +1279,53 @@ def main():
             return True, ""
         finally:
             socket.getaddrinfo = real_getaddrinfo
-            if old_env is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
     check("neither the calendar URL's token, host, path, nor query-parameter name appears in calendar_rules.json after a full successful refresh_calendar_registry() cycle", _secret_absent_from_persisted_registry_after_success)
 
     # 49. The unconfigured path performs no transport call and writes no
     #     timestamp.
     def _refresh_unconfigured_makes_no_call_and_writes_nothing():
         import tempfile
-        old_env = os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-        try:
-            calls = []
-            transport = make_calendar_transport(status_code=200, body=b"unused", calls=calls)
-            with tempfile.TemporaryDirectory() as tmp:
-                code, reg = cr.refresh_calendar_registry(tmp, 1000.0, transport=transport)
-                if code != cr.FETCH_SKIPPED_UNCONFIGURED:
-                    return False, "expected FETCH_SKIPPED_UNCONFIGURED, got %r" % (code,)
-                if calls:
-                    return False, "expected no transport call when unconfigured, got %r" % (calls,)
-                if reg["last_attempt_at"] is not None:
-                    return False, "expected last_attempt_at to stay None when unconfigured, got %r" % (reg,)
-            return True, ""
-        finally:
-            if old_env is not None:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+        # No secret file is written - a fresh temporary state dir is
+        # "unconfigured" by construction, with nothing to arrange or
+        # restore (D-03).
+        calls = []
+        transport = make_calendar_transport(status_code=200, body=b"unused", calls=calls)
+        with tempfile.TemporaryDirectory() as tmp:
+            code, reg = cr.refresh_calendar_registry(tmp, 1000.0, transport=transport)
+            if code != cr.FETCH_SKIPPED_UNCONFIGURED:
+                return False, "expected FETCH_SKIPPED_UNCONFIGURED, got %r" % (code,)
+            if calls:
+                return False, "expected no transport call when unconfigured, got %r" % (calls,)
+            if reg["last_attempt_at"] is not None:
+                return False, "expected last_attempt_at to stay None when unconfigured, got %r" % (reg,)
+        return True, ""
     check("refresh_calendar_registry() makes no transport call and writes no last_attempt_at when the feature is unconfigured", _refresh_unconfigured_makes_no_call_and_writes_nothing)
 
     # 50. The throttled path performs no transport call and prints
     #     nothing, across twenty throttled cycles.
     def _refresh_throttled_path_is_silent():
         import tempfile
-        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
-        try:
-            with tempfile.TemporaryDirectory() as tmp:
-                first_transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR")
-                cr.refresh_calendar_registry(tmp, 0.0, transport=first_transport)
-                calls = []
-                never_called = make_calendar_transport(status_code=200, body=b"unused", calls=calls)
-                buf = io.StringIO()
-                old_stderr = sys.stderr
-                sys.stderr = buf
-                try:
-                    for i in range(20):
-                        code, _reg = cr.refresh_calendar_registry(tmp, float(i), transport=never_called)
-                        if code != cr.FETCH_SKIPPED_THROTTLED:
-                            return False, "expected FETCH_SKIPPED_THROTTLED at cycle %d, got %r" % (i, code)
-                finally:
-                    sys.stderr = old_stderr
-                if calls:
-                    return False, "expected no transport call while throttled, got %r" % (calls,)
-                if buf.getvalue() != "":
-                    return False, "expected silent stderr on the throttled path, got %r" % (buf.getvalue(),)
-            return True, ""
-        finally:
-            if old_env is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+            first_transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR")
+            cr.refresh_calendar_registry(tmp, 0.0, transport=first_transport)
+            calls = []
+            never_called = make_calendar_transport(status_code=200, body=b"unused", calls=calls)
+            buf = io.StringIO()
+            old_stderr = sys.stderr
+            sys.stderr = buf
+            try:
+                for i in range(20):
+                    code, _reg = cr.refresh_calendar_registry(tmp, float(i), transport=never_called)
+                    if code != cr.FETCH_SKIPPED_THROTTLED:
+                        return False, "expected FETCH_SKIPPED_THROTTLED at cycle %d, got %r" % (i, code)
+            finally:
+                sys.stderr = old_stderr
+            if calls:
+                return False, "expected no transport call while throttled, got %r" % (calls,)
+            if buf.getvalue() != "":
+                return False, "expected silent stderr on the throttled path, got %r" % (buf.getvalue(),)
+        return True, ""
     check("refresh_calendar_registry() makes no transport call and prints nothing across twenty throttled cycles", _refresh_throttled_path_is_silent)
 
     # 51. Eleven calls across simulated 30-second cycles perform exactly
@@ -1145,93 +1333,72 @@ def main():
     #     per-cycle fetch.
     def _refresh_throttle_holds_across_eleven_cycles():
         import tempfile
-        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
-        try:
-            calls = []
-            transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR", calls=calls)
-            with tempfile.TemporaryDirectory() as tmp:
-                for i in range(11):
-                    cr.refresh_calendar_registry(tmp, 30.0 * i, transport=transport)
-                if len(calls) != 1:
-                    return False, "expected exactly one transport call across eleven 30s-spaced cycles, got %d" % (len(calls),)
-            return True, ""
-        finally:
-            if old_env is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+        calls = []
+        transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR", calls=calls)
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+            for i in range(11):
+                cr.refresh_calendar_registry(tmp, 30.0 * i, transport=transport)
+            if len(calls) != 1:
+                return False, "expected exactly one transport call across eleven 30s-spaced cycles, got %d" % (len(calls),)
+        return True, ""
     check("eleven refresh_calendar_registry() calls spaced 30 seconds apart perform exactly one transport call", _refresh_throttle_holds_across_eleven_cycles)
 
     # 52. A failure after a success moves last_attempt_at, leaves
     #     last_synced_at, and leaves the persisted entries unchanged.
     def _refresh_failure_after_success_preserves_the_window():
         import tempfile
-        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
-        try:
-            fixture_text = load_fixture_text(FIXTURE_ICS)
-            now = _mid_fixture_now()
-            with tempfile.TemporaryDirectory() as tmp:
-                ok_transport = make_calendar_transport(status_code=200, body=fixture_text.encode())
-                code, reg = cr.refresh_calendar_registry(tmp, now, transport=ok_transport)
-                if code != cr.FETCH_OK or not reg["entries"]:
-                    return False, "test setup failure: expected a successful fetch with entries, got %r" % ((code, reg),)
-                synced_at = reg["last_synced_at"]
-                entries_before = list(reg["entries"])
+        fixture_text = load_fixture_text(FIXTURE_ICS)
+        now = _mid_fixture_now()
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+            ok_transport = make_calendar_transport(status_code=200, body=fixture_text.encode())
+            code, reg = cr.refresh_calendar_registry(tmp, now, transport=ok_transport)
+            if code != cr.FETCH_OK or not reg["entries"]:
+                return False, "test setup failure: expected a successful fetch with entries, got %r" % ((code, reg),)
+            synced_at = reg["last_synced_at"]
+            entries_before = list(reg["entries"])
 
-                later = now + cr.CALENDAR_FETCH_INTERVAL_S + 1
-                failing_transport = make_calendar_transport(status_code=500)
-                code2, reg2 = cr.refresh_calendar_registry(tmp, later, transport=failing_transport)
-                if code2 != cr.FETCH_FAILED:
-                    return False, "expected FETCH_FAILED, got %r" % (code2,)
-                if reg2["last_attempt_at"] != later:
-                    return False, "expected last_attempt_at to move to %r, got %r" % (later, reg2)
-                if reg2["last_synced_at"] != synced_at:
-                    return False, "expected last_synced_at to stay at %r, got %r" % (synced_at, reg2["last_synced_at"])
-                # Load with the same `later` clock the failed refresh cycle
-                # itself used, so this check's own read is not silently
-                # re-windowed against the wall clock instead of the cycle
-                # under test.
-                on_disk = cr.load_calendar_registry(tmp, later)
-                if on_disk["entries"] != entries_before:
-                    return False, "a failed fetch changed the persisted entries"
-            return True, ""
-        finally:
-            if old_env is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+            later = now + cr.CALENDAR_FETCH_INTERVAL_S + 1
+            failing_transport = make_calendar_transport(status_code=500)
+            code2, reg2 = cr.refresh_calendar_registry(tmp, later, transport=failing_transport)
+            if code2 != cr.FETCH_FAILED:
+                return False, "expected FETCH_FAILED, got %r" % (code2,)
+            if reg2["last_attempt_at"] != later:
+                return False, "expected last_attempt_at to move to %r, got %r" % (later, reg2)
+            if reg2["last_synced_at"] != synced_at:
+                return False, "expected last_synced_at to stay at %r, got %r" % (synced_at, reg2["last_synced_at"])
+            # Load with the same `later` clock the failed refresh cycle
+            # itself used, so this check's own read is not silently
+            # re-windowed against the wall clock instead of the cycle
+            # under test.
+            on_disk = cr.load_calendar_registry(tmp, later)
+            if on_disk["entries"] != entries_before:
+                return False, "a failed fetch changed the persisted entries"
+        return True, ""
     check("a failed refresh_calendar_registry() after a success moves last_attempt_at, leaves last_synced_at, and leaves the persisted entries unchanged", _refresh_failure_after_success_preserves_the_window)
 
     # 53. A success writes a windowed parse of the committed fixture.
     def _refresh_success_writes_the_fixtures_windowed_parse():
         import tempfile
-        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
-        try:
-            fixture_text = load_fixture_text(FIXTURE_ICS)
-            now = _mid_fixture_now()
-            with tempfile.TemporaryDirectory() as tmp:
-                transport = make_calendar_transport(status_code=200, body=fixture_text.encode())
-                code, reg = cr.refresh_calendar_registry(tmp, now, transport=transport)
-                if code != cr.FETCH_OK:
-                    return False, "expected FETCH_OK, got %r" % (code,)
-                if len(reg["entries"]) != FIXTURE_EXPECTED_ENTRIES:
-                    return False, "expected %d windowed entries from the fixture, got %d: %r" % (
-                        FIXTURE_EXPECTED_ENTRIES, len(reg["entries"]), reg["entries"])
-                # Load with the same `now` this refresh cycle used, so this
-                # check's own read is not silently re-windowed against the
-                # wall clock instead of the cycle under test.
-                on_disk = cr.load_calendar_registry(tmp, now)
-                if on_disk["entries"] != reg["entries"]:
-                    return False, "the persisted entries did not match the returned registry"
-            return True, ""
-        finally:
-            if old_env is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+        fixture_text = load_fixture_text(FIXTURE_ICS)
+        now = _mid_fixture_now()
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+            transport = make_calendar_transport(status_code=200, body=fixture_text.encode())
+            code, reg = cr.refresh_calendar_registry(tmp, now, transport=transport)
+            if code != cr.FETCH_OK:
+                return False, "expected FETCH_OK, got %r" % (code,)
+            if len(reg["entries"]) != FIXTURE_EXPECTED_ENTRIES:
+                return False, "expected %d windowed entries from the fixture, got %d: %r" % (
+                    FIXTURE_EXPECTED_ENTRIES, len(reg["entries"]), reg["entries"])
+            # Load with the same `now` this refresh cycle used, so this
+            # check's own read is not silently re-windowed against the
+            # wall clock instead of the cycle under test.
+            on_disk = cr.load_calendar_registry(tmp, now)
+            if on_disk["entries"] != reg["entries"]:
+                return False, "the persisted entries did not match the returned registry"
+        return True, ""
     check("a successful refresh_calendar_registry() cycle writes a windowed parse of the committed fixture, matching what is then readable on disk", _refresh_success_writes_the_fixtures_windowed_parse)
 
     # 54. A successful fetch of a feed with nothing in the window is
@@ -1239,25 +1406,18 @@ def main():
     #     from a failure only by last_synced_at having moved.
     def _empty_window_success_distinguished_only_by_last_synced_at():
         import tempfile
-        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
-        try:
-            empty_body = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
-            transport = make_calendar_transport(status_code=200, body=empty_body.encode())
-            with tempfile.TemporaryDirectory() as tmp:
-                code, reg = cr.refresh_calendar_registry(tmp, 5000.0, transport=transport)
-                if code != cr.FETCH_OK:
-                    return False, "expected FETCH_OK even for a legitimately empty window, got %r" % (code,)
-                if reg["entries"] != []:
-                    return False, "expected an empty entries list, got %r" % (reg["entries"],)
-                if reg["last_synced_at"] is None:
-                    return False, "expected last_synced_at to have moved on a genuine success, got None"
-            return True, ""
-        finally:
-            if old_env is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+        empty_body = "BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
+        transport = make_calendar_transport(status_code=200, body=empty_body.encode())
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+            code, reg = cr.refresh_calendar_registry(tmp, 5000.0, transport=transport)
+            if code != cr.FETCH_OK:
+                return False, "expected FETCH_OK even for a legitimately empty window, got %r" % (code,)
+            if reg["entries"] != []:
+                return False, "expected an empty entries list, got %r" % (reg["entries"],)
+            if reg["last_synced_at"] is None:
+                return False, "expected last_synced_at to have moved on a genuine success, got None"
+        return True, ""
     check("a successful fetch of a feed with nothing in the window reports FETCH_OK with an empty entry list, distinguished from a failure only by last_synced_at having moved", _empty_window_success_distinguished_only_by_last_synced_at)
 
     # 55. refresh_calendar_registry() never raises: an unwritable state
@@ -1266,45 +1426,51 @@ def main():
     #     rather than propagating.
     def _refresh_never_raises():
         import tempfile
-        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
-        try:
-            # A path with a FILE as one of its components: os.makedirs()
-            # raises NotADirectoryError attempting to create it, a
-            # permission-independent way to force write_calendar_registry()
-            # to hit its own failure path on every OS this runs on
-            # (unlike a root-owned path, which may or may not be writable
-            # depending on how the test is invoked).
-            with tempfile.NamedTemporaryFile() as blocking_file:
-                unwritable_dir = os.path.join(blocking_file.name, "nested")
+        with tempfile.TemporaryDirectory() as tmp:
+            # The URL now lives inside the same state_dir the registry
+            # itself is written to (D-03), so a nonexistent/unwritable
+            # state_dir no longer reaches the write path at all - the
+            # secret file's own stat() fails first, and
+            # configured_calendar_url() reports the feature as simply
+            # unconfigured, never touching a transport. To exercise this
+            # function's actual write-failure never-raises guarantee, the
+            # state_dir itself must exist and be readable (so the secret
+            # is genuinely configured) while the SPECIFIC registry write
+            # deterministically fails regardless of who runs the test:
+            # calendar_rules.json itself is made a directory, so
+            # write_calendar_registry()'s open()/os.replace() hit a type
+            # mismatch (IsADirectoryError) rather than a permission bit a
+            # root-run test would simply ignore.
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+            # save_calendar_url() above already created calendar_rules.json
+            # as an ordinary (empty) file via its own registry-erase step -
+            # remove it before replacing it with a directory of the same
+            # name.
+            os.remove(cr.calendar_rules_path(tmp))
+            os.makedirs(cr.calendar_rules_path(tmp))
 
-                code, _reg = cr.refresh_calendar_registry(
-                    unwritable_dir, 1.0, transport=make_calendar_transport(status_code=200, body=b"x"))
-                if not isinstance(code, str):
-                    return False, "expected a result code (string) for an unwritable state dir, got %r" % (code,)
+            code, _reg = cr.refresh_calendar_registry(
+                tmp, 1.0, transport=make_calendar_transport(status_code=200, body=b"x"))
+            if not isinstance(code, str):
+                return False, "expected a result code (string) for an unwritable registry path, got %r" % (code,)
 
-                punctuation_transport = make_calendar_transport(status_code=200, body="!!!@#$%^&*()<<<>>>".encode())
-                code2, _reg2 = cr.refresh_calendar_registry(unwritable_dir, 5000.0, transport=punctuation_transport)
-                if not isinstance(code2, str):
-                    return False, "expected a result code for a punctuation body, got %r" % (code2,)
+            punctuation_transport = make_calendar_transport(status_code=200, body="!!!@#$%^&*()<<<>>>".encode())
+            code2, _reg2 = cr.refresh_calendar_registry(tmp, 5000.0, transport=punctuation_transport)
+            if not isinstance(code2, str):
+                return False, "expected a result code for a punctuation body, got %r" % (code2,)
 
-                raising_transport = make_calendar_transport(raise_exc=Exception("simulated transport failure"))
-                code3, _reg3 = cr.refresh_calendar_registry(unwritable_dir, 10000.0, transport=raising_transport)
-                if not isinstance(code3, str):
-                    return False, "expected a result code for a raising transport, got %r" % (code3,)
+            raising_transport = make_calendar_transport(raise_exc=Exception("simulated transport failure"))
+            code3, _reg3 = cr.refresh_calendar_registry(tmp, 10000.0, transport=raising_transport)
+            if not isinstance(code3, str):
+                return False, "expected a result code for a raising transport, got %r" % (code3,)
 
-                looping_transport = make_calendar_transport(
-                    status_code=302, is_redirect=True, headers={"Location": "https://%s/next.ics" % PUBLIC_IP})
-                code4, _reg4 = cr.refresh_calendar_registry(unwritable_dir, 15000.0, transport=looping_transport)
-                if not isinstance(code4, str):
-                    return False, "expected a result code for a redirect-looping transport, got %r" % (code4,)
-            return True, ""
-        finally:
-            if old_env is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
-    check("refresh_calendar_registry() never raises - an unwritable state dir, a punctuation body, a raising transport, and a redirect-looping transport all return a result code", _refresh_never_raises)
+            looping_transport = make_calendar_transport(
+                status_code=302, is_redirect=True, headers={"Location": "https://%s/next.ics" % PUBLIC_IP})
+            code4, _reg4 = cr.refresh_calendar_registry(tmp, 15000.0, transport=looping_transport)
+            if not isinstance(code4, str):
+                return False, "expected a result code for a redirect-looping transport, got %r" % (code4,)
+        return True, ""
+    check("refresh_calendar_registry() never raises - an unwritable registry path, a punctuation body, a raising transport, and a redirect-looping transport all return a result code", _refresh_never_raises)
 
     # --- Plan 16-06: match_calendar_theme() (D-04 / CORRECTION 1) -----------
 
@@ -1647,55 +1813,48 @@ def main():
     # on disk indefinitely.
     def _failing_refresh_trims_the_raw_file_across_consecutive_cycles():
         import tempfile
-        old_env = os.environ.get(cr.CALENDAR_URL_ENV_VAR)
-        os.environ[cr.CALENDAR_URL_ENV_VAR] = "https://%s/a.ics" % PUBLIC_IP
-        try:
-            with tempfile.TemporaryDirectory() as tmp:
-                # Seed the realistic way: a legitimate write at a seed_now
-                # where the entry is genuinely in-window - this reproduces
-                # the real production sequence (one successful fetch, then
-                # a feed that breaks), not a hand-edited file.
-                seed_now = 1_780_000_000.0
-                stale = _entry("XX", "AAA", "ORY", seed_now, seed_now + 7200.0)
-                if not cr.write_calendar_registry(
-                        tmp, [stale], seed_now, "2026-01-01T00:00:00+00:00", now=seed_now):
-                    return False, "test setup failure: seed write failed"
-                seeded_raw = json.load(open(cr.calendar_rules_path(tmp)))
-                if len(seeded_raw["entries"]) != 1:
-                    return False, ("test setup failure: the seeded entry should be in-window at "
-                                    "seed_now, got %r" % (seeded_raw["entries"],))
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+            # Seed the realistic way: a legitimate write at a seed_now
+            # where the entry is genuinely in-window - this reproduces
+            # the real production sequence (one successful fetch, then
+            # a feed that breaks), not a hand-edited file.
+            seed_now = 1_780_000_000.0
+            stale = _entry("XX", "AAA", "ORY", seed_now, seed_now + 7200.0)
+            if not cr.write_calendar_registry(
+                    tmp, [stale], seed_now, "2026-01-01T00:00:00+00:00", now=seed_now):
+                return False, "test setup failure: seed write failed"
+            seeded_raw = json.load(open(cr.calendar_rules_path(tmp)))
+            if len(seeded_raw["entries"]) != 1:
+                return False, ("test setup failure: the seeded entry should be in-window at "
+                                "seed_now, got %r" % (seeded_raw["entries"],))
 
-                # 10 days later, the entry is stale. Drive three consecutive
-                # FAILING refresh cycles, advancing `now` by more than
-                # CALENDAR_FETCH_INTERVAL_S each time so the throttle
-                # genuinely lets each attempt through.
-                later = seed_now + 10 * 86400.0
-                failing_transport = make_calendar_transport(status_code=500)
-                for cycle in range(3):
-                    now = later + cycle * (cr.CALENDAR_FETCH_INTERVAL_S + 1.0)
-                    code, reg = cr.refresh_calendar_registry(tmp, now, transport=failing_transport)
-                    if code != cr.FETCH_FAILED:
-                        return False, "cycle %d: expected FETCH_FAILED, got %r - a check that " \
-                            "silently took the throttled path would prove nothing" % (cycle, code)
-                    # Read the RAW file, never through load_calendar_registry() -
-                    # the loader now windows on read, so it would return a
-                    # trimmed list even from an untrimmed file, masking
-                    # exactly the on-disk state this check exists to observe.
-                    raw = json.load(open(cr.calendar_rules_path(tmp)))
-                    if raw["entries"] != []:
-                        return False, "cycle %d: the stale entry survives on disk: %r" % (cycle, raw["entries"])
-                    if reg["entries"] != raw["entries"]:
-                        return False, "cycle %d: the returned registry != the on-disk entries (D-04)" % (cycle,)
-                    if raw["last_attempt_at"] != now:
-                        return False, "cycle %d: last_attempt_at did not move" % (cycle,)
-                    if raw["last_synced_at"] != "2026-01-01T00:00:00+00:00":
-                        return False, "cycle %d: a failing feed must not read as freshly synced" % (cycle,)
-            return True, ""
-        finally:
-            if old_env is None:
-                os.environ.pop(cr.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[cr.CALENDAR_URL_ENV_VAR] = old_env
+            # 10 days later, the entry is stale. Drive three consecutive
+            # FAILING refresh cycles, advancing `now` by more than
+            # CALENDAR_FETCH_INTERVAL_S each time so the throttle
+            # genuinely lets each attempt through.
+            later = seed_now + 10 * 86400.0
+            failing_transport = make_calendar_transport(status_code=500)
+            for cycle in range(3):
+                now = later + cycle * (cr.CALENDAR_FETCH_INTERVAL_S + 1.0)
+                code, reg = cr.refresh_calendar_registry(tmp, now, transport=failing_transport)
+                if code != cr.FETCH_FAILED:
+                    return False, "cycle %d: expected FETCH_FAILED, got %r - a check that " \
+                        "silently took the throttled path would prove nothing" % (cycle, code)
+                # Read the RAW file, never through load_calendar_registry() -
+                # the loader now windows on read, so it would return a
+                # trimmed list even from an untrimmed file, masking
+                # exactly the on-disk state this check exists to observe.
+                raw = json.load(open(cr.calendar_rules_path(tmp)))
+                if raw["entries"] != []:
+                    return False, "cycle %d: the stale entry survives on disk: %r" % (cycle, raw["entries"])
+                if reg["entries"] != raw["entries"]:
+                    return False, "cycle %d: the returned registry != the on-disk entries (D-04)" % (cycle,)
+                if raw["last_attempt_at"] != now:
+                    return False, "cycle %d: last_attempt_at did not move" % (cycle,)
+                if raw["last_synced_at"] != "2026-01-01T00:00:00+00:00":
+                    return False, "cycle %d: a failing feed must not read as freshly synced" % (cycle,)
+        return True, ""
     check(
         "T-16-PRIV's own reproduction: an entry that ended ~10 days ago is absent from the RAW on-disk file "
         "after every one of three consecutive FAILING refresh_calendar_registry() cycles, and the returned "
@@ -1788,6 +1947,920 @@ def main():
         "for any list and any now, the loader's entries are exactly select_window_entries(list, now) - the "
         "anti-drift guard that goes red if a second window implementation ever appears (D-02)",
         _loader_output_is_exactly_select_window_entries)
+
+    # --- Phase 17 plan 01: save_calendar_url()'s 0600 writer, the mode
+    # guard, and the registry erase-on-every-change behaviour. Every
+    # permission assertion below reads stat.S_IMODE(os.stat(path).st_mode)
+    # against an explicit octal literal - never an owner-relative
+    # readability test, which would pass identically at 0600 and 0644 and
+    # prove nothing, since this harness always runs as the file's owner.
+
+    # E1. The temporary file's mode is an ARGUMENT to the call that
+    # CREATES it - proved by spying on os.open() itself and recording the
+    # `mode` argument it was called with, not merely inspecting the
+    # file's mode at some later point. A check that only re-stats the
+    # file right before the rename (as an os.replace() wrapper would)
+    # cannot distinguish "created at 0600" from "created at 0644, then
+    # os.chmod()'ed to 0600 before the rename" - both leave the file at
+    # 0600 by the time os.replace() runs. Spying on os.open()'s mode
+    # argument is the only way to see whether a permission-widening
+    # window ever existed, which is D-01's actual requirement.
+    def _tmp_file_mode_is_0600_at_creation_time():
+        import stat as stat_mod
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            secret_path = cr.calendar_secret_path(tmp)
+            recorded = {}
+            real_open = cr.os.open
+            real_replace = cr.os.replace
+
+            def _spy_open(path, flags, mode=0o777, *args, **kwargs):
+                if path.startswith(secret_path):
+                    recorded["open_mode"] = mode
+                return real_open(path, flags, mode, *args, **kwargs)
+
+            def _spy_replace(src, dst):
+                if dst == secret_path:
+                    try:
+                        recorded["replace_mode"] = stat_mod.S_IMODE(os.stat(src).st_mode)
+                    except OSError:
+                        recorded["replace_mode"] = None
+                return real_replace(src, dst)
+
+            cr.os.open = _spy_open
+            cr.os.replace = _spy_replace
+            try:
+                ok = cr.save_calendar_url(tmp, "https://example.invalid/feed.ics")
+            finally:
+                cr.os.open = real_open
+                cr.os.replace = real_replace
+            if not ok:
+                return False, "test setup failure: save_calendar_url() returned False"
+            if "open_mode" not in recorded:
+                return False, (
+                    "os.open() was never called to create the secret file's temporary file - the mode "
+                    "must be an argument to the creating call, not a plain builtin open()")
+            if recorded["open_mode"] != 0o600:
+                return False, "os.open()'s own mode argument was %r, expected 0o600" % (recorded["open_mode"],)
+            if recorded.get("replace_mode") != 0o600:
+                return False, (
+                    "temporary file's mode at rename time was %r, expected 0o600" % (recorded.get("replace_mode"),))
+        return True, ""
+    check(
+        "save_calendar_url() passes 0o600 as os.open()'s own mode argument when creating its temporary "
+        "file - not merely a file that happens to read 0o600 later - and the mode still reads 0o600 at "
+        "the moment of the atomic rename (T-17-MODE)",
+        _tmp_file_mode_is_0600_at_creation_time)
+
+    # E1b. The direct statement of the prohibition: save_calendar_url()
+    # never calls os.chmod() at all. A post-write "fix up the mode"
+    # os.chmod() call is the exact anti-pattern D-01 forbids - it leaves
+    # a window in which the file exists at the wider bits - and this
+    # check catches it even in the (structurally impossible, given E1
+    # above) case where a chmod happened to land on 0600 before the
+    # rename ran.
+    def _writer_never_calls_chmod():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = []
+            real_chmod = cr.os.chmod
+
+            def _spy_chmod(path, mode, *args, **kwargs):
+                calls.append((path, mode))
+                return real_chmod(path, mode, *args, **kwargs)
+
+            cr.os.chmod = _spy_chmod
+            try:
+                ok = cr.save_calendar_url(tmp, "https://example.invalid/feed.ics")
+            finally:
+                cr.os.chmod = real_chmod
+            if not ok:
+                return False, "test setup failure: save_calendar_url() returned False"
+            if calls:
+                return False, "save_calendar_url() called os.chmod(%r) - the mode must never be a follow-up call" % (calls,)
+        return True, ""
+    check(
+        "save_calendar_url() never calls os.chmod() at all - the mode is set once, at file-creation time, "
+        "never as a follow-up permission change (T-17-MODE)",
+        _writer_never_calls_chmod)
+
+    # E2/E3. Final mode survives two different process umasks. Both
+    # restore the previous umask in a finally, since it is process-global
+    # and every later check in this harness inherits it.
+    def _final_mode_is_0600_under_umask_022():
+        import stat as stat_mod
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            old_umask = os.umask(0o022)
+            try:
+                ok = cr.save_calendar_url(tmp, "https://example.invalid/feed.ics")
+            finally:
+                os.umask(old_umask)
+            if not ok:
+                return False, "test setup failure: save_calendar_url() returned False"
+            mode = stat_mod.S_IMODE(os.stat(cr.calendar_secret_path(tmp)).st_mode)
+            if mode != 0o600:
+                return False, "expected 0o600 under umask 022, got %o" % (mode,)
+        return True, ""
+    check("save_calendar_url() writes mode 0600 under a process umask of 022", _final_mode_is_0600_under_umask_022)
+
+    def _final_mode_is_0600_under_umask_027():
+        import stat as stat_mod
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            old_umask = os.umask(0o027)
+            try:
+                ok = cr.save_calendar_url(tmp, "https://example.invalid/feed.ics")
+            finally:
+                os.umask(old_umask)
+            if not ok:
+                return False, "test setup failure: save_calendar_url() returned False"
+            mode = stat_mod.S_IMODE(os.stat(cr.calendar_secret_path(tmp)).st_mode)
+            if mode != 0o600:
+                return False, "expected 0o600 under umask 027, got %o" % (mode,)
+        return True, ""
+    check("save_calendar_url() writes mode 0600 under a process umask of 027", _final_mode_is_0600_under_umask_027)
+
+    # E4. os.replace() preserves the SOURCE file's mode and discards the
+    # destination's - proved by landing the rename on a pre-existing
+    # group-readable file and confirming the result is still 0600.
+    def _rename_does_not_inherit_destination_mode():
+        import stat as stat_mod
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = cr.calendar_secret_path(tmp)
+            old_umask = os.umask(0o022)
+            try:
+                with open(path, "w") as fh:
+                    fh.write("stale")
+            finally:
+                os.umask(old_umask)
+            pre_mode = stat_mod.S_IMODE(os.stat(path).st_mode)
+            if pre_mode == 0o600:
+                return False, "test setup failure: destination already 0600 before the call"
+            ok = cr.save_calendar_url(tmp, "https://example.invalid/feed.ics")
+            if not ok:
+                return False, "test setup failure: save_calendar_url() returned False"
+            post_mode = stat_mod.S_IMODE(os.stat(path).st_mode)
+            if post_mode != 0o600:
+                return False, (
+                    "expected 0o600 after replacing a pre-existing group-readable file, got %o" % (post_mode,))
+        return True, ""
+    check(
+        "save_calendar_url() leaves the destination at 0600 even when the rename lands on a pre-existing "
+        "group-readable file (T-17-MODE)",
+        _rename_does_not_inherit_destination_mode)
+
+    # E5. The negative guard check (T-17-DRIFT): a file created through
+    # this codebase's ordinary house idiom - a plain builtin open, no
+    # explicit mode - must be flagged unsafe. A suite that only ever
+    # exercises the correct writer proves nothing about whether the guard
+    # fires.
+    def _guard_flags_files_created_through_the_house_idiom():
+        import tempfile
+        unsafe_modes = (0o644, 0o640, 0o604, 0o660)
+        safe_modes = (0o600, 0o400)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = cr.calendar_secret_path(tmp)
+            for mode in unsafe_modes:
+                with open(path, "w") as fh:
+                    fh.write("x")
+                os.chmod(path, mode)
+                if cr.calendar_secret_mode_is_unsafe(tmp) is not True:
+                    return False, "mode 0o%o (the ordinary house idiom's 0o644 among them) was not flagged unsafe" % (mode,)
+            for mode in safe_modes:
+                os.chmod(path, mode)
+                if cr.calendar_secret_mode_is_unsafe(tmp) is not False:
+                    return False, "mode 0o%o was incorrectly flagged unsafe" % (mode,)
+            os.remove(path)
+        return True, ""
+    check(
+        "calendar_secret_mode_is_unsafe() reports True for a file created through this codebase's ordinary "
+        "umask-inheriting house idiom (0o644) and for 0o640/0o604/0o660, and False for 0o600/0o400 - the "
+        "negative check proving the guard actually fires, not merely that the correct writer is correct "
+        "(T-17-DRIFT)",
+        _guard_flags_files_created_through_the_house_idiom)
+
+    # E6. Absent file is not a permission problem, and the answer is a
+    # genuine bool.
+    def _guard_is_false_and_a_genuine_bool_when_absent():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            result = cr.calendar_secret_mode_is_unsafe(tmp)
+            if result is not False:
+                return False, "expected a genuine False for an absent secret file, got %r" % (result,)
+        return True, ""
+    check(
+        "calendar_secret_mode_is_unsafe() is a genuine bool False (is False, not merely falsy, never None) "
+        "on a state dir with no secret file",
+        _guard_is_false_and_a_genuine_bool_when_absent)
+
+    # E7. The clear branch: removes the file, returns True, and tolerates
+    # being called again with the file already gone.
+    def _clear_branch_removes_the_file_and_is_idempotent():
+        import stat as stat_mod
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.save_calendar_url(tmp, "https://example.invalid/feed.ics"):
+                return False, "test setup failure: initial write failed"
+            path = cr.calendar_secret_path(tmp)
+            if stat_mod.S_IMODE(os.stat(path).st_mode) != 0o600:
+                return False, "test setup failure: initial write was not 0o600"
+            if cr.save_calendar_url(tmp, cr.CLEAR_CALENDAR_URL) is not True:
+                return False, "clear did not return True"
+            if os.path.exists(path):
+                return False, "secret file still exists after clear"
+            if cr.save_calendar_url(tmp, cr.CLEAR_CALENDAR_URL) is not True:
+                return False, "clearing an already-absent file did not return True"
+        return True, ""
+    check(
+        "save_calendar_url(CLEAR_CALENDAR_URL) removes the secret file, returns True, and returns True again "
+        "when called a second time with the file already gone",
+        _clear_branch_removes_the_file_and_is_idempotent)
+
+    # E8. Erase on set/replace (D-05): seed real-shaped entries and a
+    # sync timestamp, then set a URL, and confirm both are gone.
+    def _erase_on_set_or_replace_d05():
+        import tempfile
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        seeded = [_entry("AF", "ORY", "JFK", now + 3600.0, now + 7200.0)]
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.write_calendar_registry(tmp, seeded, now, "2026-09-07T00:00:00+00:00", now=now):
+                return False, "test setup failure: seed write failed"
+            if not cr.save_calendar_url(tmp, "https://example.invalid/new-feed.ics", now=now):
+                return False, "save_calendar_url() returned False"
+            loaded = cr.load_calendar_registry(tmp, now)
+            if loaded["entries"] != []:
+                return False, "expected zero entries after setting a URL, got %r" % (loaded["entries"],)
+            if loaded["last_attempt_at"] is not None or loaded["last_synced_at"] is not None:
+                return False, (
+                    "expected both timestamps None after setting a URL, got %r/%r"
+                    % (loaded["last_attempt_at"], loaded["last_synced_at"]))
+        return True, ""
+    check(
+        "save_calendar_url() erases the fetched registry - zero entries and both timestamps None - on "
+        "setting a URL for the first time or replacing one with a different URL (D-05)",
+        _erase_on_set_or_replace_d05)
+
+    # E9. Erase on clear (D-04): same seed, then the sentinel; both the
+    # registry and the secret file must be gone.
+    def _erase_on_clear_d04():
+        import tempfile
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        seeded = [_entry("AF", "ORY", "JFK", now + 3600.0, now + 7200.0)]
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.write_calendar_registry(tmp, seeded, now, "2026-09-07T00:00:00+00:00", now=now):
+                return False, "test setup failure: seed write failed"
+            if not cr.save_calendar_url(tmp, "https://example.invalid/feed.ics", now=now):
+                return False, "test setup failure: initial save failed"
+            if not cr.save_calendar_url(tmp, cr.CLEAR_CALENDAR_URL, now=now):
+                return False, "clear returned False"
+            loaded = cr.load_calendar_registry(tmp, now)
+            if loaded["entries"] != []:
+                return False, "expected zero entries after clearing, got %r" % (loaded["entries"],)
+            if loaded["last_attempt_at"] is not None or loaded["last_synced_at"] is not None:
+                return False, "expected both timestamps None after clearing"
+            if os.path.exists(cr.calendar_secret_path(tmp)):
+                return False, "secret file still present after clearing"
+        return True, ""
+    check(
+        "save_calendar_url(CLEAR_CALENDAR_URL) erases the fetched registry and removes the secret file in "
+        "the same call (D-04)",
+        _erase_on_clear_d04)
+
+    # E10. Rejected values change nothing: an existing secret file's
+    # bytes and mode, and a seeded registry, are all untouched.
+    def _rejected_values_change_nothing():
+        import stat as stat_mod
+        import tempfile
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        seeded = [_entry("AF", "ORY", "JFK", now + 3600.0, now + 7200.0)]
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.save_calendar_url(tmp, "https://example.invalid/feed.ics", now=now):
+                return False, "test setup failure: initial save failed"
+            if not cr.write_calendar_registry(tmp, seeded, now, "2026-09-07T00:00:00+00:00", now=now):
+                return False, "test setup failure: re-seed failed"
+            path = cr.calendar_secret_path(tmp)
+            with open(path, "rb") as fh:
+                before_bytes = fh.read()
+            before_mode = stat_mod.S_IMODE(os.stat(path).st_mode)
+            for rejected in (None, "", "   ", 17):
+                if cr.save_calendar_url(tmp, rejected, now=now) is not False:
+                    return False, "expected False for rejected value %r" % (rejected,)
+                with open(path, "rb") as fh:
+                    after_bytes = fh.read()
+                if after_bytes != before_bytes:
+                    return False, "secret file content changed after rejected value %r" % (rejected,)
+                after_mode = stat_mod.S_IMODE(os.stat(path).st_mode)
+                if after_mode != before_mode:
+                    return False, "secret file mode changed after rejected value %r" % (rejected,)
+                loaded = cr.load_calendar_registry(tmp, now)
+                if [e["origin_iata"] for e in loaded["entries"]] != ["ORY"]:
+                    return False, "registry entries changed after rejected value %r" % (rejected,)
+        return True, ""
+    check(
+        "save_calendar_url() returns False and leaves an existing secret file's bytes and mode, and a "
+        "seeded registry, untouched for None, an empty string, a whitespace-only string and a non-string "
+        "value",
+        _rejected_values_change_nothing)
+
+    # E11. Content round-trips stripped, with an explicit mode check
+    # alongside it.
+    def _content_round_trips_stripped():
+        import stat as stat_mod
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.save_calendar_url(tmp, "  https://example.invalid/feed.ics?t=abc  \n"):
+                return False, "test setup failure: save_calendar_url() returned False"
+            path = cr.calendar_secret_path(tmp)
+            with open(path, "rb") as fh:
+                raw = fh.read()
+            if raw != b"https://example.invalid/feed.ics?t=abc":
+                return False, "expected the bare stripped URL with no trailing newline, got %r" % (raw,)
+            if stat_mod.S_IMODE(os.stat(path).st_mode) != 0o600:
+                return False, "expected the round-tripped file to still be 0o600"
+        return True, ""
+    check(
+        "save_calendar_url() strips leading/trailing whitespace and a trailing newline, writing the bare "
+        "URL with no trailing newline byte, at mode 0600",
+        _content_round_trips_stripped)
+
+    # E12. No temporary file survives a successful write or a rejected
+    # call.
+    def _no_temp_file_survives():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.save_calendar_url(tmp, "https://example.invalid/feed.ics"):
+                return False, "test setup failure: successful write failed"
+            if cr.save_calendar_url(tmp, "") is not False:
+                return False, "test setup failure: rejected call did not return False"
+            for name in os.listdir(tmp):
+                if name.endswith(".tmp"):
+                    return False, "a temporary file survived: %r" % (name,)
+        return True, ""
+    check(
+        "no file matching the temporary-name shape remains in state_dir after a successful write or a "
+        "rejected call",
+        _no_temp_file_survives)
+
+    # E13. The sentinel is identity-only: the literal string equal to the
+    # sentinel's conventional name takes the write branch, not the clear
+    # branch.
+    def _sentinel_is_identity_only():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.save_calendar_url(tmp, "CLEAR_CALENDAR_URL"):
+                return False, "test setup failure: the literal string 'CLEAR_CALENDAR_URL' was rejected"
+            path = cr.calendar_secret_path(tmp)
+            if not os.path.exists(path):
+                return False, "the literal string took the clear branch instead of the write branch"
+            with open(path, "rb") as fh:
+                raw = fh.read()
+            if raw != b"CLEAR_CALENDAR_URL":
+                return False, "expected the literal string written to the file, got %r" % (raw,)
+        return True, ""
+    check(
+        "passing the literal string 'CLEAR_CALENDAR_URL' takes the ordinary write branch, not the "
+        "sentinel's clear branch (identity comparison only)",
+        _sentinel_is_identity_only)
+
+    # --- Phase 17 plan 02: the read-path swap from the environment to the
+    #     secret file (D-02, D-03, D-06, D-08). ------------------------------
+
+    # F1. The value comes from the file.
+    def _accessor_reads_the_secret_file():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://example.invalid/feed.ics")
+            url = cr.configured_calendar_url(tmp)
+            if url != "https://example.invalid/feed.ics":
+                return False, "expected the file's exact value, got %r" % (url,)
+            if cr.calendar_is_configured(tmp) is not True:
+                return False, "expected calendar_is_configured() to be True (identity)"
+        return True, ""
+    check(
+        "configured_calendar_url() returns exactly the value written through save_calendar_url(), and "
+        "calendar_is_configured() is True (identity) for the same state_dir (D-03)",
+        _accessor_reads_the_secret_file)
+
+    # F2. The retired environment variable is inert - proved by spying on
+    #     os.environ.get() itself (the exact call shape the retired
+    #     accessors used) rather than by naming the retired variable, which
+    #     the zero-occurrence gate in the next task forbids writing anywhere
+    #     in this file. Spying on the access method rather than one specific
+    #     name is also the stronger guarantee: it would catch a resurrected
+    #     read under ANY name, not merely the one this project happened to
+    #     retire.
+    def _environment_is_never_consulted():
+        import tempfile
+        with tempfile.TemporaryDirectory() as configured_tmp:
+            _write_calendar_secret(configured_tmp, "https://example.invalid/feed.ics")
+            with tempfile.TemporaryDirectory() as unconfigured_tmp:
+                real_get = os.environ.get
+                calls = []
+
+                def spy_get(key, default=None):
+                    calls.append(key)
+                    return real_get(key, default)
+
+                os.environ.get = spy_get
+                try:
+                    url = cr.configured_calendar_url(configured_tmp)
+                    configured = cr.calendar_is_configured(configured_tmp)
+                    url2 = cr.configured_calendar_url(unconfigured_tmp)
+                    configured2 = cr.calendar_is_configured(unconfigured_tmp)
+                finally:
+                    os.environ.get = real_get
+                if calls:
+                    return False, (
+                        "os.environ.get() was called %d time(s) during accessor calls - a "
+                        "resurrected environment read: %r" % (len(calls), calls))
+                if url != "https://example.invalid/feed.ics":
+                    return False, "expected the secret file's value, got %r" % (url,)
+                if configured is not True:
+                    return False, "expected calendar_is_configured() to be True with a secret file present"
+                if url2 is not None:
+                    return False, "expected None with no secret file present, got %r" % (url2,)
+                if configured2 is not False:
+                    return False, "expected calendar_is_configured() to be False with no secret file present"
+        return True, ""
+    check(
+        "neither configured_calendar_url() nor calendar_is_configured() ever calls os.environ.get() - "
+        "the check that would catch a resurrected environment read, with and without a secret file "
+        "present (D-03)",
+        _environment_is_never_consulted)
+
+    # F3. A drifted file refuses, and the value is never read - proved by
+    #     observing the file was never opened, not merely by observing the
+    #     return value (D-02, T-17-DRIFT).
+    def _drifted_file_refuses_without_being_opened():
+        import builtins
+        import stat as stat_mod
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://example.invalid/feed.ics")
+            path = cr.calendar_secret_path(tmp)
+            os.chmod(path, 0o644)
+            if not (stat_mod.S_IMODE(os.stat(path).st_mode) & (stat_mod.S_IRWXG | stat_mod.S_IRWXO)):
+                return False, "test setup failure: chmod(0o644) did not produce a group/other-readable file"
+            real_open = builtins.open
+            opened_paths = []
+
+            def spy_open(file, *a, **k):
+                opened_paths.append(file)
+                return real_open(file, *a, **k)
+
+            builtins.open = spy_open
+            try:
+                url = cr.configured_calendar_url(tmp)
+            finally:
+                builtins.open = real_open
+            if url is not None:
+                return False, "expected None for a drifted-permission file, got %r" % (url,)
+            if path in opened_paths:
+                return False, (
+                    "the secret file's path was opened even though its permissions were drifted - "
+                    "the value may have been read into memory: %r" % (opened_paths,))
+        return True, ""
+    check(
+        "configured_calendar_url() refuses a secret file whose permissions have drifted, and never "
+        "opens it at all - proved by observing the file was not opened, not merely by observing the "
+        "return value (D-02, T-17-DRIFT)",
+        _drifted_file_refuses_without_being_opened)
+
+    # F4. A file written through the ordinary house idiom (not
+    #     save_calendar_url()'s explicit 0600) is refused end to end - the
+    #     negative counterpart to F1, going through the accessor rather than
+    #     calendar_secret_mode_is_unsafe() alone.
+    def _ordinary_umask_file_refused_end_to_end():
+        import stat as stat_mod
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = cr.calendar_secret_path(tmp)
+            with open(path, "w") as fh:
+                fh.write("https://example.invalid/feed.ics")
+            mode = stat_mod.S_IMODE(os.stat(path).st_mode)
+            if not (mode & (stat_mod.S_IRWXG | stat_mod.S_IRWXO)):
+                return False, (
+                    "test setup failure: the process umask produced an owner-only file (%o) - this "
+                    "check needs a group/other-readable file to be meaningful" % (mode,))
+            url = cr.configured_calendar_url(tmp)
+            if url is not None:
+                return False, (
+                    "expected None for a file written through the ordinary umask-inheriting idiom, "
+                    "got %r" % (url,))
+            if cr.calendar_is_configured(tmp) is not False:
+                return False, "expected calendar_is_configured() to be False for the same file"
+        return True, ""
+    check(
+        "a secret file written through this codebase's ordinary umask-inheriting house idiom (plain "
+        "open(path, 'w'), not save_calendar_url()'s explicit 0600) is refused end to end by "
+        "configured_calendar_url() and calendar_is_configured() - the negative counterpart to F1, "
+        "going through the accessor rather than the mode predicate alone",
+        _ordinary_umask_file_refused_end_to_end)
+
+    # F5. The boolean contract holds in all three states, by identity
+    #     comparison (D-08).
+    def _boolean_contract_in_three_states():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            if cr.calendar_is_configured(tmp) is not False:
+                return False, "expected False (identity) for an absent secret file"
+            _write_calendar_secret(tmp, "https://example.invalid/feed.ics")
+            if cr.calendar_is_configured(tmp) is not True:
+                return False, "expected True (identity) for a configured secret file"
+            path = cr.calendar_secret_path(tmp)
+            os.chmod(path, 0o644)
+            if cr.calendar_is_configured(tmp) is not False:
+                return False, "expected False (identity) for a drifted-permission secret file"
+        return True, ""
+    check(
+        "calendar_is_configured() returns a genuine bool - is True, is False, is False - across "
+        "absent, configured, and permission-drifted secret files, never a truthy status string (D-08)",
+        _boolean_contract_in_three_states)
+
+    # F6. A hand-written file's trailing newline is stripped by the reader,
+    #     not merely by the writer.
+    def _accessor_strips_hand_written_trailing_newline():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = cr.calendar_secret_path(tmp)
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w") as fh:
+                fh.write("https://example.invalid/feed.ics\n")
+            url = cr.configured_calendar_url(tmp)
+            if url != "https://example.invalid/feed.ics":
+                return False, "expected the trailing newline stripped, got %r" % (url,)
+        return True, ""
+    check(
+        "configured_calendar_url() strips a trailing newline from a hand-written secret file, "
+        "returning the bare URL",
+        _accessor_strips_hand_written_trailing_newline)
+
+    # F7. min_interval_s bypasses the throttle; the default preserves it
+    #     (D-06).
+    def _min_interval_s_bypasses_the_throttle():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+            seed_now = 1_800_000_000.0
+            if not cr.write_calendar_registry(tmp, [], seed_now, None, now=seed_now):
+                return False, "test setup failure: seed write failed"
+            now = seed_now + 60.0  # well inside CALENDAR_FETCH_INTERVAL_S (1800s)
+
+            calls = []
+            transport = make_calendar_transport(
+                status_code=200, body=b"BEGIN:VCALENDAR\nEND:VCALENDAR", calls=calls)
+
+            code, _reg = cr.refresh_calendar_registry(tmp, now, transport=transport)
+            if code != cr.FETCH_SKIPPED_THROTTLED:
+                return False, "expected FETCH_SKIPPED_THROTTLED with no interval override, got %r" % (code,)
+            if calls:
+                return False, "expected no transport call with the default (None) interval, got %r" % (calls,)
+
+            code2, _reg2 = cr.refresh_calendar_registry(tmp, now, transport=transport, min_interval_s=0)
+            if code2 != cr.FETCH_OK:
+                return False, "expected FETCH_OK when min_interval_s=0 bypasses the throttle, got %r" % (code2,)
+            if len(calls) != 1:
+                return False, "expected exactly one transport call once the throttle was bypassed, got %d" % (len(calls),)
+        return True, ""
+    check(
+        "refresh_calendar_registry(min_interval_s=0) bypasses the throttle and reaches the transport "
+        "even when the recorded last attempt is well inside the standard interval, while the default "
+        "(no interval argument) still honours the throttle (D-06)",
+        _min_interval_s_bypasses_the_throttle)
+
+    # --- 17-REVIEW.md CR-02 fix ---------------------------------------------
+
+    # G1 (CR-02 regression). A genuine removal failure - anything other
+    # than the file already being absent - must be reported as False, not
+    # silently swallowed into a reported success. Reproduced portably by
+    # making os.remove() raise PermissionError for the secret path only,
+    # the same class of failure `chflags uchg`/`chattr +i`/a read-only
+    # remount produces on the real OS. Fails against the pre-fix
+    # `except OSError: pass; return True` (which reports True here), and
+    # passes once FileNotFoundError and every other OSError are handled
+    # separately.
+    def _clear_branch_reports_failure_when_removal_actually_fails():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.save_calendar_url(tmp, "https://example.invalid/feed.ics"):
+                return False, "test setup failure: initial save failed"
+            path = cr.calendar_secret_path(tmp)
+            real_remove = cr.os.remove
+
+            def _spy_remove(target, *args, **kwargs):
+                if target == path:
+                    raise PermissionError(13, "Permission denied")
+                return real_remove(target, *args, **kwargs)
+
+            cr.os.remove = _spy_remove
+            try:
+                result = cr.save_calendar_url(tmp, cr.CLEAR_CALENDAR_URL)
+            finally:
+                cr.os.remove = real_remove
+
+            if result is not False:
+                return False, (
+                    "expected False when the secret file could not actually be removed, got %r" % (result,))
+            if not os.path.exists(path):
+                return False, "test setup failure: the file should still exist since removal was blocked"
+            if cr.calendar_is_configured(tmp) is not True:
+                return False, (
+                    "calendar_is_configured() should still report True - the file genuinely was not removed")
+        return True, ""
+    check(
+        "save_calendar_url(CLEAR_CALENDAR_URL) returns False, not True, when os.remove() fails for a "
+        "reason other than the file already being absent - a permission/immutable-flag/read-only-"
+        "filesystem failure must never be reported as a successful disconnect (CR-02)",
+        _clear_branch_reports_failure_when_removal_actually_fails)
+
+    # --- 17-REVIEW.md CR-01 fix ---------------------------------------------
+
+    # G2 (CR-01 regression). Two threads stand in for the two real,
+    # separate OS processes (skypane-poll.service and
+    # skypane-companion.service) racing the SAME registry: thread P
+    # simulates a poll cycle's refresh_calendar_registry(), blocked
+    # mid-fetch (the network read) via a transport that waits on an
+    # Event; this thread simulates a companion disconnect request
+    # arriving while P is still "in flight". Without the cross-process
+    # lock, P's write-after-fetch lands after the disconnect's erase and
+    # resurrects the just-disconnected calendar's flights - this check
+    # asserts the erase (the chronologically LAST completed operation)
+    # is what the final on-disk state reflects. Note on what this
+    # simulates: two threads in one process cannot literally reproduce
+    # two OS processes, but the lock this exercises,
+    # `cr._calendar_registry_lock()`, is implemented with
+    # `fcntl.flock()` - a kernel-level primitive keyed on the lock FILE,
+    # not on anything in either caller's memory - so its behaviour here
+    # (excluding a second concurrent acquirer until the first releases)
+    # is identical regardless of whether the two acquirers are two
+    # threads or two processes. This check deliberately never touches
+    # `_WRITE_LOCK` or `_POLL_LOCK` (both plain `threading.Lock`s,
+    # invisible across processes) - only the lock that actually closes
+    # this race.
+    def _cross_process_lock_closes_the_disconnect_race():
+        import tempfile
+        import threading
+        import time
+        now = _mid_fixture_now()
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_calendar_secret(tmp, "https://%s/a.ics" % PUBLIC_IP)
+
+            started = threading.Event()
+            release = threading.Event()
+
+            def _slow_transport(url, timeout):
+                started.set()
+                release.wait(timeout=10)
+                return _FakeCalendarResponse(200, fixture_text.encode())
+
+            poll_result = {}
+
+            def _poll_thread_body():
+                poll_result["code"], poll_result["registry"] = cr.refresh_calendar_registry(
+                    tmp, now, transport=_slow_transport)
+
+            disconnect_result = {}
+
+            def _disconnect_thread_body():
+                disconnect_result["ok"] = cr.save_calendar_url(tmp, cr.CLEAR_CALENDAR_URL, now=now)
+
+            t_poll = threading.Thread(target=_poll_thread_body)
+            t_poll.start()
+            if not started.wait(timeout=5):
+                t_poll.join(timeout=1)
+                return False, "test setup failure: the simulated poll cycle's fetch never started"
+
+            t_disconnect = threading.Thread(target=_disconnect_thread_body)
+            t_disconnect.start()
+            # Best-effort: give the disconnect thread a moment to actually
+            # reach and start blocking on the lock, so the interleaving is
+            # deterministic rather than accidentally already-serial. Not
+            # required for correctness - only for making the race
+            # reliably exercised rather than reliably avoided.
+            time.sleep(0.2)
+
+            release.set()
+            t_poll.join(timeout=10)
+            t_disconnect.join(timeout=10)
+
+            if t_poll.is_alive() or t_disconnect.is_alive():
+                return False, "test setup failure: a thread did not finish within its timeout"
+            if not disconnect_result.get("ok"):
+                return False, "test setup failure: the disconnect call returned False"
+
+            loaded = cr.load_calendar_registry(tmp, now)
+            if loaded["entries"] != []:
+                return False, (
+                    "the disconnect's erase was overwritten by the concurrently-running poll cycle's "
+                    "write - registry has %r entries after an explicit disconnect (CR-01)"
+                    % (loaded["entries"],))
+            if cr.calendar_is_configured(tmp):
+                return False, "expected calendar_is_configured() to be False after the disconnect"
+        return True, ""
+    check(
+        "a companion disconnect arriving while a (simulated) concurrent poll cycle is mid-fetch cannot "
+        "have its registry erase overwritten by that poll cycle's later write - the cross-process "
+        "registry lock, not either in-process threading.Lock, is what is exercised here (CR-01; "
+        "simulates two OS processes with two threads racing the real fcntl-based lock - see comment "
+        "above)",
+        _cross_process_lock_closes_the_disconnect_race)
+
+    # --- 17-REVIEW.md WR-01 fix ---------------------------------------------
+
+    # G3 (WR-01 regression). Replacing an already-connected calendar's URL
+    # must not cost that calendar its already-fetched flights when the
+    # NEW secret's write fails before it ever reaches the registry erase.
+    # Reproduced by making the tmp file's own write (os.fdopen/the content
+    # write, standing in for "disk full" or a briefly unwritable
+    # state_dir) fail. Fails against the pre-fix erase-before-write
+    # ordering (which erases the seeded entries unconditionally before
+    # ever attempting the secret write), and passes once the write is
+    # verified before the erase runs.
+    def _write_failure_before_erase_preserves_the_previous_calendars_flights():
+        import tempfile
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 7, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        seeded = [_entry("AF", "ORY", "JFK", now + 3600.0, now + 7200.0)]
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.save_calendar_url(tmp, "https://example.invalid/old-feed.ics", now=now):
+                return False, "test setup failure: initial save failed"
+            if not cr.write_calendar_registry(tmp, seeded, now, "2026-09-07T00:00:00+00:00", now=now):
+                return False, "test setup failure: seeding fetched entries failed"
+
+            real_fdopen = cr.os.fdopen
+
+            def _failing_fdopen(fd, *args, **kwargs):
+                os.close(fd)
+                raise OSError(28, "No space left on device")
+
+            cr.os.fdopen = _failing_fdopen
+            try:
+                result = cr.save_calendar_url(tmp, "https://example.invalid/new-feed.ics", now=now)
+            finally:
+                cr.os.fdopen = real_fdopen
+
+            if result is not False:
+                return False, "expected False when the secret's temp-file write fails, got %r" % (result,)
+            loaded = cr.load_calendar_registry(tmp, now)
+            if [e["origin_iata"] for e in loaded["entries"]] != ["ORY"]:
+                return False, (
+                    "the previous calendar's already-fetched flights were erased despite the secret "
+                    "write never succeeding - expected them untouched, got %r" % (loaded["entries"],))
+            if cr.configured_calendar_url(tmp) != "https://example.invalid/old-feed.ics":
+                return False, "expected the OLD url to still be configured after a failed replace"
+        return True, ""
+    check(
+        "save_calendar_url() replacing a connected calendar's URL leaves the previous calendar's "
+        "already-fetched flights untouched when the new secret's write fails before ever reaching the "
+        "registry erase (WR-01)",
+        _write_failure_before_erase_preserves_the_previous_calendars_flights)
+
+    # --- 17-REVIEW.md UAT fix (webcal:// scheme) ------------------------------
+    #
+    # UAT-discovered defect (filed 2026-09-10): the companion refused every
+    # `webcal://` calendar feed URL - the exact scheme Apple Calendar's own
+    # "Public Calendar" share links use - because `_url_is_safe()` only ever
+    # accepted `https`. Fixed by `_normalise_calendar_url()`, a scheme
+    # REWRITE applied upstream of the (unchanged) gate. The checks below
+    # prove the rewrite works, is applied on both paths that reach
+    # `fetch_ics()` (via `save_calendar_url()`'s stored form and via
+    # `fetch_ics()`'s own defensive re-normalisation), and weakens none of
+    # the gate's existing refusals.
+
+    # G4 (UAT regression). _normalise_calendar_url() itself: rewrites a
+    # webcal scheme (any case) to https, leaves every other scheme - and
+    # anything urlparse() cannot make sense of, including None - completely
+    # unchanged, and never raises.
+    def _normalise_calendar_url_rewrites_only_webcal():
+        cases = [
+            ("webcal://example.invalid/feed.ics", "https://example.invalid/feed.ics"),
+            ("WEBCAL://example.invalid/feed.ics", "https://example.invalid/feed.ics"),
+            ("https://example.invalid/feed.ics", "https://example.invalid/feed.ics"),
+            ("http://example.invalid/feed.ics", "http://example.invalid/feed.ics"),
+            ("ftp://example.invalid/feed.ics", "ftp://example.invalid/feed.ics"),
+            ("not-a-url", "not-a-url"),
+        ]
+        for given, expected in cases:
+            got = cr._normalise_calendar_url(given)
+            if got != expected:
+                return False, "expected _normalise_calendar_url(%r) == %r, got %r" % (given, expected, got)
+        if cr._normalise_calendar_url(None) is not None:
+            return False, "expected _normalise_calendar_url(None) to return None without raising"
+        return True, ""
+    check(
+        "_normalise_calendar_url() rewrites a webcal scheme (any case) to https, leaves every other "
+        "scheme and an unparseable value unchanged, and never raises on None (UAT)",
+        _normalise_calendar_url_rewrites_only_webcal)
+
+    # G5 (UAT regression). fetch_ics() accepts a webcal:// URL - the exact
+    # scheme Apple Calendar's own share links use - and the transport
+    # observes an https:// request, never a webcal:// one. Fails against
+    # the pre-fix gate (which refused webcal outright before any transport
+    # call was ever made).
+    def _fetch_ics_accepts_webcal_as_https():
+        calls = []
+        transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR", calls=calls)
+        result = cr.fetch_ics("webcal://%s/feed.ics" % PUBLIC_IP, transport=transport)
+        if result != "BEGIN:VCALENDAR":
+            return False, "expected a webcal:// URL to be fetched successfully, got %r" % (result,)
+        if calls != ["https://%s/feed.ics" % PUBLIC_IP]:
+            return False, "expected the transport to observe an https:// request, got %r" % (calls,)
+        return True, ""
+    check(
+        "fetch_ics() accepts a webcal:// URL - Apple Calendar's own share-link scheme - and the "
+        "transport observes an https:// request (UAT)",
+        _fetch_ics_accepts_webcal_as_https)
+
+    # G6 (UAT regression). The webcal rewrite must not weaken
+    # _url_is_safe()'s own address checks: a webcal:// URL pointing at a
+    # private address, at loopback via the literal IP AND the "localhost"
+    # name, and at the cloud metadata address are all still refused.
+    def _webcal_does_not_weaken_the_address_gate():
+        real_getaddrinfo = socket.getaddrinfo
+        try:
+            socket.getaddrinfo = lambda host, port=None, *a, **k: (
+                [(2, 1, 6, "", ("127.0.0.1", 443))] if host == "localhost"
+                else real_getaddrinfo(host, port, *a, **k))
+            unsafe = (
+                "webcal://10.0.0.5/feed.ics",         # private (RFC 1918)
+                "webcal://127.0.0.1/feed.ics",        # loopback, literal IP
+                "webcal://localhost/feed.ics",        # loopback, hostname
+                "webcal://169.254.169.254/feed.ics",  # cloud metadata (link-local)
+            )
+            for url in unsafe:
+                transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR")
+                result = cr.fetch_ics(url, transport=transport)
+                if result is not None:
+                    return False, "expected fetch_ics(%r) to be refused, got %r" % (url, result)
+            return True, ""
+        finally:
+            socket.getaddrinfo = real_getaddrinfo
+    check(
+        "the webcal:// rewrite does not weaken the address gate - fetch_ics() still refuses a "
+        "webcal:// URL pointing at a private address, at loopback (literal IP and \"localhost\"), and "
+        "at the cloud metadata address (UAT)",
+        _webcal_does_not_weaken_the_address_gate)
+
+    # G7 (UAT regression). There is no webcal -> http downgrade path: a
+    # plain http:// URL is still refused by fetch_ics(), exactly as before
+    # this fix - _normalise_calendar_url() only ever recognises webcal.
+    def _http_still_refused_no_downgrade_path():
+        transport = make_calendar_transport(status_code=200, body=b"BEGIN:VCALENDAR")
+        result = cr.fetch_ics("http://%s/feed.ics" % PUBLIC_IP, transport=transport)
+        if result is not None:
+            return False, "expected http:// to still be refused, got %r" % (result,)
+        return True, ""
+    check(
+        "fetch_ics() still refuses a plain http:// URL - there is no webcal -> http downgrade path "
+        "(UAT)",
+        _http_still_refused_no_downgrade_path)
+
+    # G8 (UAT regression). A redirect discovered while fetching an
+    # originally-webcal:// URL is still re-validated per hop, exactly like
+    # an ordinary https:// URL's own redirect (check 38 above) - refused
+    # when the Location targets a loopback address, and never fetched.
+    def _redirect_from_normalised_webcal_still_revalidated():
+        calls = []
+        transport = make_calendar_transport(
+            status_code=302, headers={"Location": "https://127.0.0.1/a.ics"},
+            is_redirect=True, calls=calls)
+        result = cr.fetch_ics("webcal://%s/a.ics" % PUBLIC_IP, transport=transport)
+        if result is not None:
+            return False, "expected None when a webcal:// URL's redirect targets a loopback address"
+        if calls != ["https://%s/a.ics" % PUBLIC_IP]:
+            return False, "expected exactly one transport call (the redirect target must never be fetched): %r" % (calls,)
+        return True, ""
+    check(
+        "a redirect discovered while fetching a webcal:// URL (normalised to https:// first) is still "
+        "re-validated per hop, refusing a Location that targets a loopback address (UAT)",
+        _redirect_from_normalised_webcal_still_revalidated)
+
+    # G9 (UAT regression). save_calendar_url() stores a webcal:// value
+    # already rewritten to its https:// form - the secret file itself
+    # never holds a webcal:// string, and configured_calendar_url() (the
+    # sole accessor) returns the same normalised form back.
+    def _save_calendar_url_stores_the_normalised_form():
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            if not cr.save_calendar_url(tmp, "webcal://example.invalid/feed.ics"):
+                return False, "test setup failure: save_calendar_url() returned False"
+            path = cr.calendar_secret_path(tmp)
+            with open(path, "rb") as fh:
+                raw = fh.read()
+            if raw != b"https://example.invalid/feed.ics":
+                return False, "expected the stored secret to be the normalised https:// form, got %r" % (raw,)
+            if cr.configured_calendar_url(tmp) != "https://example.invalid/feed.ics":
+                return False, "expected configured_calendar_url() to return the normalised https:// form"
+        return True, ""
+    check(
+        "save_calendar_url() stores a webcal:// value already rewritten to its https:// form, so the "
+        "secret file never holds a webcal:// string (UAT)",
+        _save_calendar_url_stores_the_normalised_form)
 
     total = len(results)
     passed = sum(1 for _, ok in results if ok)

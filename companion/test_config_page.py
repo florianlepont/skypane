@@ -20,6 +20,7 @@ urllib). No pytest.
 Usage:
     server/.venv/bin/python3 companion/test_config_page.py
 """
+import html
 import json
 import os
 import re
@@ -249,6 +250,26 @@ EXPECTED_CHECK_COUNT = 109
 # call count at execution time (127/127 pass), not trusted from
 # arithmetic alone.
 EXPECTED_CHECK_COUNT = 127
+# 17-03-PLAN.md Task 3: +11 (the write-only calendar_url field's no-
+# value-attribute check across all four calendar_group() states, the
+# five-needle containment check applied directly at calendar_group()
+# rather than only at render()/served-HTTP-bytes, the disconnect
+# checkbox's presence-and-unchecked check across all four states, the
+# drift status's exclusivity-and-ordering check, the drift status's
+# names-the-remedy-names-nothing-forbidden check, the D-07 empty-field-
+# with-no-checkbox regression across two unrelated saves (the single
+# most important check in this plan), the disconnect path, the D-05
+# replace path, and three all-or-nothing rejection checks — a URL+
+# checkbox contradiction, a crafted checkbox value, and an over-length
+# URL — one check per Task 3 <action> item. No pre-existing check needed
+# retargeting: calendar_group()'s widened signature and the four-branch
+# status resolution are exercised only through render(), which already
+# degrades calendar_drift to a falsy default, so every pre-existing
+# calendar check (Section 1b above) keeps passing unmodified.
+# 127 + 11 = 138, recomputed directly against the real on-disk check(...)
+# call count at execution time (138/138 pass), not trusted from
+# arithmetic alone.
+EXPECTED_CHECK_COUNT = 138
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -3432,10 +3453,20 @@ def main():
             raise AssertionError('expected a <p class="calendar-status"> element')
         return match.group(1)
 
+    # Phase 17 plan 02's rewritten CALENDAR_STATUS_NOT_CONFIGURED carries an
+    # apostrophe ("calendar's"), and calendar_group() interpolates it through
+    # layout.escape_html() - html.escape(value, quote=True) - like every
+    # other status string, so a comparison against the raw constant would
+    # look for an apostrophe that the rendered HTML never contains (it is
+    # &#x27; there instead). Escape here the identical way, once, rather
+    # than at each of the three call sites below.
+    _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED = html.escape(
+        config_page.CALENDAR_STATUS_NOT_CONFIGURED, quote=True)
+
     def _calendar_status_not_configured_is_exclusive():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         status = _calendar_status_text(config_page.render(ctx))
-        if config_page.CALENDAR_STATUS_NOT_CONFIGURED not in status:
+        if _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED not in status:
             return False, "expected the not-configured status string"
         if config_page.CALENDAR_STATUS_CONFIGURED_PENDING in status:
             return False, "expected the pending status string to be absent"
@@ -3451,7 +3482,7 @@ def main():
         status = _calendar_status_text(config_page.render(ctx))
         if config_page.CALENDAR_STATUS_CONFIGURED_PENDING not in status:
             return False, "expected the pending status string"
-        if config_page.CALENDAR_STATUS_NOT_CONFIGURED in status:
+        if _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED in status:
             return False, "expected the not-configured status string to be absent"
         if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX in status:
             return False, "expected the synced status prefix to be absent"
@@ -3469,7 +3500,7 @@ def main():
             return False, "expected the synced status prefix"
         if "ago)" not in status:
             return False, "expected a relative-age fragment, proving concise_timestamp_html() was used"
-        if config_page.CALENDAR_STATUS_NOT_CONFIGURED in status:
+        if _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED in status:
             return False, "expected the not-configured status string to be absent"
         if config_page.CALENDAR_STATUS_CONFIGURED_PENDING in status:
             return False, "expected the pending status string to be absent"
@@ -3561,28 +3592,25 @@ def main():
         path = "feeds/roster-export"
         query_param = "auth_token"
         url = "https://%s/%s?%s=%s" % (host, path, query_param, token)
-        old = os.environ.get(calendar_rules.CALENDAR_URL_ENV_VAR)
-        os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = url
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
         try:
-            configured = calendar_rules.calendar_is_configured()
+            assert calendar_rules.save_calendar_url(tmpdir, url) is True
+            configured = calendar_rules.calendar_is_configured(tmpdir)
             if not configured:
-                return False, "expected calendar_is_configured() to report True with the env var set"
+                return False, "expected calendar_is_configured() to report True with the secret file written"
             ctx = dict(
                 _CALENDAR_BASE_CTX, calendar_configured=configured,
                 calendar_last_synced_at=None)
             rendered = config_page.render(ctx)
         finally:
-            if old is None:
-                os.environ.pop(calendar_rules.CALENDAR_URL_ENV_VAR, None)
-            else:
-                os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = old
+            shutil.rmtree(tmpdir, ignore_errors=True)
         for needle in (token, host, path, query_param, url):
             if needle in rendered:
                 return False, "expected %r never to appear in the rendered page" % (needle,)
         return True, ""
     check(
-        "with the calendar URL env var set to a URL carrying a distinctive token, render() never emits the "
-        "token, the host, the path segment, or the query-parameter name (T-16-SECRET)",
+        "with the calendar secret file holding a URL carrying a distinctive token, render() never emits "
+        "the token, the host, the path segment, or the query-parameter name (T-16-SECRET)",
         _calendar_secret_never_reaches_render_function)
 
     def _calendar_no_preview_no_count_in_rendered_page():
@@ -3826,6 +3854,309 @@ def main():
     check(
         "handle_post with no calendar_theme_id field at all leaves an already-saved value untouched",
         _handle_post_calendar_theme_id_absent_leaves_unchanged)
+
+    # ==================================================================
+    # Section 1c (17-03-PLAN.md Task 3, D-01/D-02/D-07): the write-only
+    # calendar_url field, the disconnect checkbox, the fourth (drift)
+    # status state, and handle_post()'s three-way calendar resolution.
+    # The empty-field-with-no-checkbox regression check below is the
+    # single most important check in this plan (17-03-PLAN.md Task 3
+    # item 6) — it is the regression the checkbox exists to prevent, and
+    # it is invisible to any check that only exercises the calendar
+    # fields deliberately.
+    # ==================================================================
+
+    # Four distinguishable calendar_group() states, matching Task 1's
+    # own <behavior> bullets: (configured, drift, last_synced_at).
+    _CALENDAR_GROUP_STATES = (
+        (False, False, None),
+        (True, False, None),
+        (True, False, "2026-09-07T09:00:00+00:00"),
+        (False, True, None),
+    )
+
+    def _calendar_field_never_carries_value_in_any_state():
+        for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
+            html = config_page.calendar_group(
+                configured, drift, last_synced_at, "2026-09-07T09:12:04+00:00",
+                None, "white")
+            if 'name="calendar_url"' not in html:
+                return False, "expected the calendar_url field in state %r" % ((configured, drift),)
+            after_name = html.split('name="calendar_url"', 1)[1].split(">", 1)[0]
+            if "value=" in after_name:
+                return False, (
+                    "expected no value attribute on the calendar_url field in state %r"
+                    % ((configured, drift),))
+        return True, ""
+    check(
+        "the write-only calendar_url field renders in all four calendar_group() states and never carries "
+        "a value attribute",
+        _calendar_field_never_carries_value_in_any_state)
+
+    def _calendar_containment_at_the_renderer_five_needles():
+        # The same five needles _calendar_secret_never_reaches_served_
+        # http_bytes() (Section 3, below) uses, applied directly at
+        # calendar_group() - the function that would introduce a leak -
+        # rather than only at the served-HTTP-bytes boundary or the
+        # whole-page render() boundary the two other T-17-SECRET checks
+        # already cover.
+        token = "sk1-distinctive-token-9fq2"
+        host = "private-roster-calendar.example.internal"
+        path = "feeds/duty-export"
+        query_param = "auth_token"
+        url = "https://%s/%s?%s=%s" % (host, path, query_param, token)
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            assert calendar_rules.save_calendar_url(tmpdir, url) is True
+            configured = calendar_rules.calendar_is_configured(tmpdir)
+            drift = calendar_rules.calendar_secret_mode_is_unsafe(tmpdir)
+            html = config_page.calendar_group(
+                configured, drift, None, "2026-09-07T09:12:04+00:00", None, "white")
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        for needle in (token, host, path, query_param, url):
+            if needle in html:
+                return False, "expected %r never to appear in calendar_group()'s own markup" % (needle,)
+        return True, ""
+    check(
+        "calendar_group() itself, called directly rather than through render(), never emits the token, "
+        "host, path segment, query-parameter name, or whole URL of a configured calendar (T-17-SECRET, "
+        "leak caught at the function that introduces it)",
+        _calendar_containment_at_the_renderer_five_needles)
+
+    def _calendar_disconnect_checkbox_appears_only_when_expected_and_unchecked():
+        for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
+            html = config_page.calendar_group(
+                configured, drift, last_synced_at, "2026-09-07T09:12:04+00:00",
+                None, "white")
+            has_box = 'name="calendar_disconnect"' in html
+            expected = configured or drift
+            if has_box != expected:
+                return False, (
+                    "state %r: expected checkbox presence %r, got %r"
+                    % ((configured, drift), expected, has_box))
+            if has_box:
+                after = html.split('name="calendar_disconnect"', 1)[1]
+                if " checked" in after[:200]:
+                    return False, "expected the checkbox to render unchecked in state %r" % ((configured, drift),)
+        return True, ""
+    check(
+        "the disconnect checkbox appears only when the calendar is connected or drifted, and renders "
+        "unchecked in every state it appears in (D-07 - the safe default is doing nothing)",
+        _calendar_disconnect_checkbox_appears_only_when_expected_and_unchecked)
+
+    def _calendar_status_drift_is_exclusive_and_precedes_not_configured():
+        ctx = dict(
+            _CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None,
+            calendar_drift=True)
+        status = _calendar_status_text(config_page.render(ctx))
+        if config_page.CALENDAR_STATUS_PERMISSION_UNSAFE not in status:
+            return False, "expected the drift status string"
+        if _CALENDAR_STATUS_NOT_CONFIGURED_ESCAPED in status:
+            return False, "expected the not-configured status string to be absent when drifted (D-02 ordering)"
+        if config_page.CALENDAR_STATUS_CONFIGURED_PENDING in status:
+            return False, "expected the pending status string to be absent"
+        if config_page.CALENDAR_STATUS_CONFIGURED_SYNCED_PREFIX in status:
+            return False, "expected the synced status prefix to be absent"
+        return True, ""
+    check(
+        "with the stored calendar link's permissions drifted, render() emits only the drift status string "
+        "- not the not-configured string a drifted configured=False would otherwise produce (D-02 "
+        "ordering)",
+        _calendar_status_drift_is_exclusive_and_precedes_not_configured)
+
+    def _calendar_status_drift_names_remedy_and_nothing_forbidden():
+        text = config_page.CALENDAR_STATUS_PERMISSION_UNSAFE
+        if "/" in text or "\\" in text:
+            return False, "expected no path separator in the drift status string"
+        if ".json" in text or ".ics" in text or "calendar_rules" in text:
+            return False, "expected no filename in the drift status string"
+        if "http" in text.lower():
+            return False, "expected no part of a URL in the drift status string"
+        if "paste" not in text.lower() or "feed url" not in text.lower():
+            return False, "expected the drift status to name the remedy (paste the feed URL again)"
+        return True, ""
+    check(
+        "the permission-drift status string names the remedy (paste the feed URL again) and names no path "
+        "separator, filename, or part of a URL (D-02, 17-CONTEXT.md prohibitions)",
+        _calendar_status_drift_names_remedy_and_nothing_forbidden)
+
+    def _handle_post_empty_calendar_field_with_no_checkbox_is_a_no_op_across_two_unrelated_saves():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/feed.ics") is True
+            now = time.time()
+            entries = [{
+                "airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "TLS",
+                "start_at": now + 3600, "end_at": now + 7200}]
+            assert calendar_rules.write_calendar_registry(
+                tmpdir, entries, None, "2026-09-07T09:00:00+00:00", now=now)
+            ctx = {"state_dir": tmpdir}
+            for _ in range(2):
+                flash_key = config_page.handle_post(
+                    {"theme": "white", "calendar_url": ""}, ctx)
+                if flash_key != config_page.FLASH_SAVED:
+                    return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            if not calendar_rules.calendar_is_configured(tmpdir):
+                return False, "expected the calendar to remain configured after two unrelated saves"
+            registry = calendar_rules.load_calendar_registry(tmpdir, now=now)
+            if len(registry["entries"]) != 1:
+                return False, (
+                    "expected the fetched entry to survive untouched, got %r" % (registry["entries"],))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "the single most important check in this plan (D-07): a form that changes an unrelated setting "
+        "and carries an empty calendar_url field with no checkbox, submitted twice in a row via "
+        "handle_post(), leaves a configured calendar and its fetched entries completely untouched",
+        _handle_post_empty_calendar_field_with_no_checkbox_is_a_no_op_across_two_unrelated_saves)
+
+    def _handle_post_disconnect_clears_url_and_registry():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/feed.ics") is True
+            now = time.time()
+            entries = [{
+                "airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "TLS",
+                "start_at": now + 3600, "end_at": now + 7200}]
+            assert calendar_rules.write_calendar_registry(
+                tmpdir, entries, None, "2026-09-07T09:00:00+00:00", now=now)
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"calendar_disconnect": config_page.CALENDAR_DISCONNECT_CHECKBOX_VALUE}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            if calendar_rules.calendar_is_configured(tmpdir):
+                return False, "expected the calendar to be disconnected"
+            registry = calendar_rules.load_calendar_registry(tmpdir, now=now)
+            if registry["entries"]:
+                return False, "expected zero entries after disconnect, got %r" % (registry["entries"],)
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with the disconnect checkbox at its expected value succeeds, disconnects the "
+        "calendar, and empties its fetched-entries registry (D-04)",
+        _handle_post_disconnect_clears_url_and_registry)
+
+    def _handle_post_replace_url_stores_new_value_and_clears_registry():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/old.ics") is True
+            now = time.time()
+            entries = [{
+                "airline_iata": "AF", "origin_iata": "ORY", "destination_iata": "TLS",
+                "start_at": now + 3600, "end_at": now + 7200}]
+            assert calendar_rules.write_calendar_registry(
+                tmpdir, entries, None, "2026-09-07T09:00:00+00:00", now=now)
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"calendar_url": "https://example.invalid/new.ics"}, ctx)
+            if flash_key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (flash_key,)
+            new_url = calendar_rules.configured_calendar_url(tmpdir)
+            if new_url != "https://example.invalid/new.ics":
+                return False, "expected the new URL to be stored, got %r" % (new_url,)
+            registry = calendar_rules.load_calendar_registry(tmpdir, now=now)
+            if registry["entries"]:
+                return False, (
+                    "expected zero entries after replacing the URL, got %r" % (registry["entries"],))
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with a different non-empty URL stores the new URL and clears the previous "
+        "calendar's fetched-entries registry (D-05)",
+        _handle_post_replace_url_stores_new_value_and_clears_registry)
+
+    def _handle_post_contradiction_rejects_whole_save_including_unrelated_field():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/feed.ics") is True
+            before_device = open(device_config.device_config_path(tmpdir), "rb").read()
+            before_url = calendar_rules.configured_calendar_url(tmpdir)
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {
+                    "theme": "white",
+                    "calendar_url": "https://example.invalid/other.ics",
+                    "calendar_disconnect": config_page.CALENDAR_DISCONNECT_CHECKBOX_VALUE,
+                },
+                ctx)
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
+            after_device = open(device_config.device_config_path(tmpdir), "rb").read()
+            if before_device != after_device:
+                return False, (
+                    "expected device_config.json to be byte-identical, the unrelated setting was written")
+            if calendar_rules.configured_calendar_url(tmpdir) != before_url:
+                return False, "expected the previously configured calendar to be unchanged"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with a non-empty URL together with the disconnect checkbox, plus a changed "
+        "unrelated setting, rejects the whole save - neither the calendar nor the unrelated setting is "
+        "written (D-07 contradiction, all-or-nothing)",
+        _handle_post_contradiction_rejects_whole_save_including_unrelated_field)
+
+    def _handle_post_crafted_disconnect_value_rejects_whole_save():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/feed.ics") is True
+            before_device = open(device_config.device_config_path(tmpdir), "rb").read()
+            before_url = calendar_rules.configured_calendar_url(tmpdir)
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"theme": "white", "calendar_disconnect": "yes"}, ctx)
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
+            after_device = open(device_config.device_config_path(tmpdir), "rb").read()
+            if before_device != after_device:
+                return False, (
+                    "expected device_config.json to be byte-identical, the unrelated setting was written")
+            if calendar_rules.configured_calendar_url(tmpdir) != before_url:
+                return False, "expected the previously configured calendar to be unchanged"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with a crafted calendar_disconnect value rejects the whole save - neither the "
+        "calendar nor the unrelated setting is written",
+        _handle_post_crafted_disconnect_value_rejects_whole_save)
+
+    def _handle_post_overlength_url_rejects_whole_save():
+        tmpdir = tempfile.mkdtemp(prefix="skypane-config-page-unit-")
+        try:
+            _write_device_config(tmpdir, "black", "3")
+            assert calendar_rules.save_calendar_url(tmpdir, "https://example.invalid/feed.ics") is True
+            before_device = open(device_config.device_config_path(tmpdir), "rb").read()
+            before_url = calendar_rules.configured_calendar_url(tmpdir)
+            overlength = "https://example.invalid/" + "a" * (config_page.CALENDAR_URL_MAX_LEN + 100)
+            ctx = {"state_dir": tmpdir}
+            flash_key = config_page.handle_post(
+                {"theme": "white", "calendar_url": overlength}, ctx)
+            if flash_key != config_page.FLASH_SAVE_FAILED:
+                return False, "expected FLASH_SAVE_FAILED, got %r" % (flash_key,)
+            after_device = open(device_config.device_config_path(tmpdir), "rb").read()
+            if before_device != after_device:
+                return False, (
+                    "expected device_config.json to be byte-identical, the unrelated setting was written")
+            if calendar_rules.configured_calendar_url(tmpdir) != before_url:
+                return False, "expected the previously configured calendar to be unchanged"
+            return True, ""
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    check(
+        "handle_post with a calendar_url longer than CALENDAR_URL_MAX_LEN rejects the whole save - "
+        "neither the calendar nor the unrelated setting is written",
+        _handle_post_overlength_url_rejects_whole_save)
 
     # ==================================================================
     # Section 2: one end-to-end check — launches the real companion/app.py
@@ -4081,14 +4412,18 @@ def main():
         harness.cleanup()
 
     # ==================================================================
-    # Section 3 (16-05-PLAN.md Task 3, T-16-SECRET): a second, dedicated
-    # harness launched with the calendar URL env var set to a
-    # token-carrying URL, proving the secret never reaches the SERVED
-    # HTTP bytes — not just render()'s in-process return value (Section
-    # 1b's own check above covers that half). A separate subprocess is
-    # needed because Harness.start() snapshots os.environ once, at
-    # startup, and the main harness above was already started (in
-    # Section 2) without this variable set.
+    # Section 3 (16-05-PLAN.md Task 3, T-16-SECRET; rewritten by phase 17
+    # plan 02, D-03): a second, dedicated harness with a calendar
+    # configured, proving the secret never reaches the SERVED HTTP bytes —
+    # not just render()'s in-process return value (Section 1b's own check
+    # above covers that half). A separate subprocess keeps this one
+    # specific scenario isolated from every assertion the main Section 2
+    # harness already covers, rather than for any environment-snapshot
+    # reason — the secret now lives in this harness's own state directory
+    # on disk, which the running companion process reads fresh on every
+    # request (calendar_rules.configured_calendar_url()'s per-call,
+    # nothing-cached contract), so it could equally be written before or
+    # after the process starts.
     # ==================================================================
 
     calendar_token = "sk1-distinctive-token-2rv9"
@@ -4099,8 +4434,7 @@ def main():
         calendar_host, calendar_path, calendar_query_param, calendar_token)
 
     calendar_harness = Harness()
-    _old_calendar_env = os.environ.get(calendar_rules.CALENDAR_URL_ENV_VAR)
-    os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = calendar_url
+    assert calendar_rules.save_calendar_url(calendar_harness.tmpdir, calendar_url) is True
     try:
         calendar_harness.start()
         calendar_base = calendar_harness.base_url()
@@ -4119,15 +4453,11 @@ def main():
                     return False, "expected %r never to appear in the served response body" % (needle,)
             return True, ""
         check(
-            "with SKYPANE_CALENDAR_ICS_URL set to a URL carrying a distinctive token, a real authenticated "
-            "HTTP GET of the Settings page never serves the token, the host, the path segment, or the "
-            "query-parameter name in the response body (T-16-SECRET, real HTTP round trip)",
+            "with a calendar configured via its secret file to a URL carrying a distinctive token, a real "
+            "authenticated HTTP GET of the Settings page never serves the token, the host, the path "
+            "segment, or the query-parameter name in the response body (T-16-SECRET, real HTTP round trip)",
             _calendar_secret_never_reaches_served_http_bytes)
     finally:
-        if _old_calendar_env is None:
-            os.environ.pop(calendar_rules.CALENDAR_URL_ENV_VAR, None)
-        else:
-            os.environ[calendar_rules.CALENDAR_URL_ENV_VAR] = _old_calendar_env
         calendar_harness.stop()
         calendar_harness.cleanup()
 

@@ -60,6 +60,7 @@ if REPO_ROOT not in sys.path:
 from companion import auth, layout, theme_preview  # noqa: E402
 from companion.pages import health_page  # noqa: E402
 from server import device_config, history_db  # noqa: E402
+from server.plane import calendar_rules  # noqa: E402
 from server.plane import colour_rules  # noqa: E402
 from server.plane import illustrations as server_illustrations  # noqa: E402
 from server.plane import manual_resolutions  # noqa: E402
@@ -265,6 +266,21 @@ EXPECTED_CHECK_COUNT = 159  # 157 + 2 (13-REVIEW.md WR-11 fix: end-to-end
 # on-disk check(...) call count at execution time (165/165 pass), not
 # trusted from arithmetic alone.
 EXPECTED_CHECK_COUNT = 165
+EXPECTED_CHECK_COUNT = 177  # 165 + 12 (phase 17 plan 04 Task 3, D-06/D-09:
+# the save-triggered immediate calendar sync's real-HTTP-round-trip
+# outcomes — plural/singular flight count, a zero-entry feed's distinct
+# success, the single generic failure message with the URL still saved,
+# T-17-FLASH's five-needle leak guard, disconnect erasing the fetched
+# entries, the throttle bypass via min_interval_s=0 paired with poll_
+# loop.py's own unmodified call site still throttling, honest lock
+# contention (D-09), the lock released after a failed sync, an unrelated
+# save never reaching the refresh call, and the manual poll cooldown
+# left untouched by a calendar save — all via _InProcessHarness, since
+# these checks monkeypatch calendar_rules.default_calendar_transport and
+# socket.getaddrinfo, which a Harness subprocess's separate interpreter
+# could never observe. Recomputed directly against the real on-disk
+# check(...) call count at execution time (177/177 pass), not trusted
+# from arithmetic alone, per this file's own established discipline.
 
 
 def _ago_iso(seconds):
@@ -419,6 +435,184 @@ class Harness:
 
     def cleanup(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+
+class _InProcessHarness:
+    """A real `companion/app.py` `ThreadingHTTPServer`, running in a
+    background thread of THIS test process — deliberately NOT a
+    `Harness` subprocess (phase 17 plan 04, D-06/T-17-FLASH's checks).
+
+    The calendar-sync checks below need to monkeypatch `server.plane.
+    calendar_rules.default_calendar_transport` and `socket.getaddrinfo`
+    so a save-triggered fetch never touches a real socket — the exact
+    technique `server/test_calendar_rules.py`'s own `make_calendar_
+    transport()`/fake-`getaddrinfo` helpers already use in-process. A
+    monkeypatch made in this process has no effect on a `Harness`'s
+    `subprocess.Popen`'d child, which is a separate interpreter with its
+    own separate copy of every imported module — hence this second,
+    in-process harness rather than reusing `Harness` for this section.
+
+    Mirrors `companion/app.py`'s own `main()` construction exactly:
+    `Handler.args` set at class level, then a `ThreadingHTTPServer`
+    built the identical way. `auth.PASSWORD_ENV_VAR` is set explicitly
+    here, not inherited from this test module's own `main()` — by the
+    time Section 3/4 run, this file's own outer `try`/`finally` (Section
+    1/2's setup) has already restored the process environment to
+    whatever it was before this file started, since every `Harness`
+    subprocess check below sets the variable in its OWN child `env`
+    dict instead (`Harness.start()`, above), never relying on the
+    parent process's environment. This harness runs in-process, so it
+    must set it here, and restore it in `stop()`.
+    """
+
+    def __init__(self):
+        import argparse
+        from http.server import ThreadingHTTPServer
+
+        import companion.app as app_module
+
+        self.tmpdir = tempfile.mkdtemp(prefix="skypane-calendar-sync-")
+        self.port = Harness._pick_free_port()
+        self._app_module = app_module
+        self._previous_password = os.environ.get(auth.PASSWORD_ENV_VAR)
+        os.environ[auth.PASSWORD_ENV_VAR] = TEST_PASSWORD
+        app_module.Handler.args = argparse.Namespace(
+            state_dir=self.tmpdir, geofence=None)
+        self.server = ThreadingHTTPServer(("127.0.0.1", self.port), app_module.Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def base_url(self):
+        return "http://127.0.0.1:%d" % self.port
+
+    def stop(self):
+        self.server.shutdown()
+        self.server.server_close()
+        if self._previous_password is None:
+            os.environ.pop(auth.PASSWORD_ENV_VAR, None)
+        else:
+            os.environ[auth.PASSWORD_ENV_VAR] = self._previous_password
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+
+class _FakeCalendarResponse:
+    """Hermetic stand-in for `requests.Response`, `server/test_calendar_
+    rules.py`'s own class of the same shape exactly — no check below
+    ever makes a real network call.
+    """
+
+    def __init__(self, status_code=200, body=b""):
+        self.status_code = status_code
+        self._body = body
+        self.headers = {}
+        self.is_redirect = False
+        self.closed = False
+
+    def iter_content(self, chunk_size=8192):
+        yield self._body
+
+    def close(self):
+        self.closed = True
+
+
+def _make_calendar_transport(status_code=200, body=b"", raise_exc=None, calls=None):
+    """Build a fake `fetch_ics()`-shaped transport — `server/test_
+    calendar_rules.py`'s own `make_calendar_transport()` helper, adapted
+    for `_FakeCalendarResponse`. Records every URL it was invoked with
+    (or raises `raise_exc` instead of returning), simulating success or
+    failure without ever touching a real socket.
+    """
+    def transport(url, timeout):
+        if calls is not None:
+            calls.append(url)
+        if raise_exc is not None:
+            raise raise_exc
+        return _FakeCalendarResponse(status_code, body)
+    return transport
+
+
+class _stubbed_calendar_transport:
+    """Context manager: monkeypatches `calendar_rules.default_calendar_
+    transport` to `transport_fn` for the duration of the block,
+    restoring the real function on exit. `fetch_ics()` looks up
+    `default_calendar_transport` as a bare name in its own module's
+    global namespace when its `transport` parameter is `None` (the
+    companion's real call site never passes one), so patching the
+    attribute on the imported `calendar_rules` module object — the SAME
+    module object the in-process server thread's own code runs against,
+    since this is one process — is sufficient; no reload, no subprocess
+    env var, no second definition of the fetch path.
+    """
+
+    def __init__(self, transport_fn):
+        self.transport_fn = transport_fn
+        self._real = None
+
+    def __enter__(self):
+        self._real = calendar_rules.default_calendar_transport
+        calendar_rules.default_calendar_transport = self.transport_fn
+        return self
+
+    def __exit__(self, *exc_info):
+        calendar_rules.default_calendar_transport = self._real
+
+
+class _fake_public_hostname:
+    """Context manager: monkeypatches `socket.getaddrinfo` so `hostname`
+    resolves to a genuinely public-looking address for the duration of
+    the block, restoring the real resolver on exit — `server/test_
+    calendar_rules.py`'s own technique for getting a fabricated URL past
+    `calendar_rules._url_is_safe()`'s SSRF gate without a real DNS answer
+    or a real network call.
+    """
+
+    def __init__(self, hostname, address="93.184.216.34"):
+        self.hostname = hostname
+        self.address = address
+        self._real = None
+
+    def __enter__(self):
+        self._real = socket.getaddrinfo
+        real, hostname, address = self._real, self.hostname, self.address
+
+        def fake(host, port=None, *a, **k):
+            if host == hostname:
+                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port or 443))]
+            return real(host, port, *a, **k)
+        socket.getaddrinfo = fake
+        return self
+
+    def __exit__(self, *exc_info):
+        socket.getaddrinfo = self._real
+
+
+def _ics_body(entries):
+    """Build a minimal, real-shaped iCal body from `entries` — a list of
+    `(flight, origin, destination, hours_from_now)` tuples — matching
+    `calendar_rules._build_entry()`'s exact accepted shape (CATEGORIES:
+    FLT, a `FLIGHT ORI-DST` summary, bare-UTC DTSTART/DTEND). Every
+    DTSTART is computed from real wall-clock time at call time, since
+    the settings-post handler under test calls `poll_loop.now_s()`
+    (real `time.time()`) for its own `now` — there is no injectable
+    clock on this path the way `server/test_calendar_rules.py`'s
+    in-process `refresh_calendar_registry()` checks have.
+    """
+    def stamp(hours):
+        when = datetime.now(timezone.utc) + timedelta(hours=hours)
+        return when.strftime("%Y%m%dT%H%M%SZ")
+
+    lines = ["BEGIN:VCALENDAR"]
+    for flight, origin, destination, hours in entries:
+        lines += [
+            "BEGIN:VEVENT",
+            "SUMMARY:%s %s-%s" % (flight, origin, destination),
+            "CATEGORIES:FLT",
+            "DTSTART:%s" % stamp(hours),
+            "DTEND:%s" % stamp(hours + 1),
+            "END:VEVENT",
+        ]
+    lines.append("END:VCALENDAR")
+    return ("\r\n".join(lines) + "\r\n").encode("utf-8")
 
 
 def _login(harness, password=TEST_PASSWORD):
@@ -2080,10 +2274,14 @@ def main():
         # Phase 15 D-10 (15-05-PLAN.md): FLASH_KEY_RULE_REPLACED joins
         # FLASH_KEY_POLL_COOLDOWN as the second deliberately-interpolated
         # key ("{key}", D-09's "make replaced legible" requirement) —
-        # widened in place, not loosened: every other FLASH_MESSAGES value
-        # still carries no runtime placeholder at all.
+        # widened in place, not loosened. Phase 17 plan 04 (D-06) widens
+        # it again for FLASH_KEY_CALENDAR_CONNECTED's server-computed
+        # "{n}"/"{s}" (the on-disk entry count, never anything
+        # client-supplied) — every other FLASH_MESSAGES value still
+        # carries no runtime placeholder at all.
         _interpolated_keys = (
-            app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED)
+            app_module.FLASH_KEY_POLL_COOLDOWN, app_module.FLASH_KEY_RULE_REPLACED,
+            app_module.FLASH_KEY_CALENDAR_CONNECTED)
         for key, text in app_module.FLASH_MESSAGES.items():
             if key in _interpolated_keys:
                 continue
@@ -2091,14 +2289,16 @@ def main():
                 return False, (
                     "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r "
                     "(UI-SPEC Autonomous Decision 6: flash copy is fixed, never "
-                    "interpolated, except the cooldown and rule_replaced keys)" % (key, text))
+                    "interpolated, except the cooldown, rule_replaced and "
+                    "calendar_connected keys)" % (key, text))
         return True, ""
     check(
         "every FLASH_KEY_MANUAL_* constant is a FLASH_MESSAGES/FLASH_ROLES key; the six "
         "UI-SPEC deck strings resolve byte for byte through _resolve_flash_text(), an "
         "unknown key still resolves to None, and no FLASH_MESSAGES value carries a "
-        "runtime placeholder except the cooldown and rule_replaced keys (Phase 15 D-10 "
-        "widened this in place, not loosened)",
+        "runtime placeholder except the cooldown, rule_replaced and calendar_connected "
+        "keys (Phase 15 D-10 widened this in place, not loosened; Phase 17 plan 04 "
+        "widens it again for the same reason)",
         _flash_manual_keys_complete_and_byte_identical)
 
     class _FakeResolveCtxHandler(_FakePageContextHandler):
@@ -4551,6 +4751,484 @@ def main():
         check(
             "two genuinely overlapping POST /poll-now requests: exactly one gets the poll_already_running flash key, proving the server-side _POLL_LOCK serializes execution",
             _poll_now_concurrent_requests_serialize_on_the_lock)
+
+        # --- Section 4 (phase 17 plan 04, D-06/D-09): the save-triggered
+        # immediate calendar sync, its four outcomes, the throttle bypass,
+        # lock contention, and the T-17-FLASH leak guard. Every check here
+        # uses _InProcessHarness (a real ThreadingHTTPServer in THIS
+        # process, not a Harness subprocess) because it needs to
+        # monkeypatch calendar_rules.default_calendar_transport and
+        # socket.getaddrinfo — a monkeypatch a Harness subprocess, with
+        # its own separate interpreter, could never see.
+
+        def _calendar_connect_reports_plural_count():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                calls = []
+                hostname = "calendar-sync-plural.example"
+                url = "https://%s/feed.ics?token=PLURALCOUNTTOKEN" % hostname
+                body = _ics_body([
+                    ("AF1234", "CDG", "ORY", 2),
+                    ("BA5678", "LHR", "CDG", 4),
+                    ("KL2222", "AMS", "ORY", 6),
+                ])
+                with _stubbed_calendar_transport(
+                        _make_calendar_transport(body=body, calls=calls)), \
+                        _fake_public_hostname(hostname):
+                    status, headers, _b = http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_connected" not in location:
+                    return False, "expected the calendar_connected flash key, got %r" % location
+                status2, _h2, page_body = http_request(
+                    calendar_harness.base_url() + location, cookie=session)
+                if status2 != 200:
+                    return False, "expected 200 following the redirect, got %d" % status2
+                if b"3 flights" not in page_body:
+                    return False, "expected the rendered banner to name 3 flights, got %r" % (page_body,)
+                if calls != [url]:
+                    return False, "expected exactly one transport call with the submitted URL, got %r" % (calls,)
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "saving a calendar feed with three in-window flights performs exactly one refresh call and the rendered banner names the plural flight count (D-06)",
+            _calendar_connect_reports_plural_count)
+
+        def _calendar_connect_reports_singular_count():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-singular.example"
+                url = "https://%s/feed.ics?token=SINGULARCOUNTTOKEN" % hostname
+                body = _ics_body([("AF1234", "CDG", "ORY", 2)])
+                with _stubbed_calendar_transport(_make_calendar_transport(body=body)), \
+                        _fake_public_hostname(hostname):
+                    status, headers, _b = http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                location = headers.get("Location", "")
+                status2, _h2, page_body = http_request(
+                    calendar_harness.base_url() + location, cookie=session)
+                if status2 != 200:
+                    return False, "expected 200 following the redirect, got %d" % status2
+                if b"1 flight from this calendar" not in page_body:
+                    return False, "expected the singular form '1 flight', got %r" % (page_body,)
+                if b"1 flights" in page_body:
+                    return False, "the singular count must never carry a trailing 's'"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "saving a calendar feed with exactly one in-window flight pins the singular form ('1 flight', never '1 flights')",
+            _calendar_connect_reports_singular_count)
+
+        def _calendar_connect_zero_entries_still_succeeds():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-empty.example"
+                url = "https://%s/feed.ics?token=EMPTYFEEDTOKEN" % hostname
+                # A syntactically valid but empty feed - a parsed feed
+                # with nothing in the window is a different, legitimate
+                # outcome from a broken feed, and the two must be
+                # distinguishable (D-06's "zero is a legitimate,
+                # informative value").
+                body = b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"
+                with _stubbed_calendar_transport(_make_calendar_transport(body=body)), \
+                        _fake_public_hostname(hostname):
+                    status, headers, _b = http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_connected" not in location:
+                    return False, (
+                        "a zero-entry feed that parsed correctly must still report "
+                        "success, got %r" % location)
+                status2, _h2, page_body = http_request(
+                    calendar_harness.base_url() + location, cookie=session)
+                if b"0 flights" not in page_body:
+                    return False, "expected the rendered banner to name 0 flights, got %r" % (page_body,)
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a syntactically valid feed with nothing in the frame's window reports success with a 0 count, distinguishable from a failure",
+            _calendar_connect_zero_entries_still_succeeds)
+
+        def _calendar_sync_failure_reports_generic_message_and_still_saves():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-failure.example"
+                url = "https://%s/feed.ics?token=FAILURETOKEN" % hostname
+                with _stubbed_calendar_transport(
+                        _make_calendar_transport(raise_exc=ConnectionError("boom"))), \
+                        _fake_public_hostname(hostname):
+                    status, headers, _b = http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_sync_failed" not in location:
+                    return False, "expected the single calendar_sync_failed flash key, got %r" % location
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, (
+                        "the URL must be saved regardless of whether the immediate "
+                        "fetch succeeded")
+                import companion.app as app_module
+                # escape_html() rewrites this copy's apostrophe to
+                # "&#x27;" on render (17-02's own recorded surprise for
+                # CALENDAR_STATUS_NOT_CONFIGURED) - the rendered page is
+                # therefore compared against the ESCAPED form, never the
+                # raw FLASH_MESSAGES source string.
+                expected_text = layout.escape_html(
+                    app_module.FLASH_MESSAGES[app_module.FLASH_KEY_CALENDAR_SYNC_FAILED])
+                status2, _h2, page_body = http_request(
+                    calendar_harness.base_url() + location, cookie=session)
+                if expected_text.encode() not in page_body:
+                    return False, (
+                        "expected the single generic failure copy verbatim (HTML-escaped) "
+                        "in the rendered banner, got %r" % (page_body,))
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a failing fetch redirects with the single generic failure flash key, renders the exact failure copy, and the URL is saved regardless (D-06)",
+            _calendar_sync_failure_reports_generic_message_and_still_saves)
+
+        def _calendar_sync_failure_never_leaks_the_url():
+            # T-17-FLASH: a transport whose raised error's message embeds
+            # the full URL - the shape a real name-resolution or
+            # connection error has - must never surface any of five
+            # distinct needles (token, host, path segment,
+            # query-parameter name, whole URL) anywhere the operator can
+            # see: the redirect's Location header, or the served body of
+            # either response.
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "leak-check-host.example"
+                token = "LEAKTOKEN99999"
+                path_segment = "leak-path-segment"
+                query_param = "leakqueryparam"
+                url = "https://%s/private/%s/feed.ics?%s=%s" % (
+                    hostname, path_segment, query_param, token)
+                needles = [token, hostname, path_segment, query_param, url]
+                raise_exc = ConnectionError(
+                    "Failed to resolve %s: Name or service not known" % url)
+                with _stubbed_calendar_transport(
+                        _make_calendar_transport(raise_exc=raise_exc)), \
+                        _fake_public_hostname(hostname):
+                    status, headers, redirect_body = http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                for needle in needles:
+                    if needle in location:
+                        return False, "leak in Location header: %r found in %r" % (needle, location)
+                    if needle.encode() in redirect_body:
+                        return False, "leak in the redirect response body: %r" % (needle,)
+                status2, _h2, page_body = http_request(
+                    calendar_harness.base_url() + location, cookie=session)
+                for needle in needles:
+                    if needle.encode() in page_body:
+                        return False, (
+                            "leak in the served response body: %r found on the "
+                            "rendered Settings page" % (needle,))
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "T-17-FLASH: a raised error whose message embeds the full URL never surfaces the token, host, path segment, query-parameter name, or whole URL in the Location header or any served response body",
+            _calendar_sync_failure_never_leaks_the_url)
+
+        def _calendar_disconnect_reports_deletion_and_erases_entries():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-disconnect.example"
+                url = "https://%s/feed.ics?token=DISCONNECTTOKEN" % hostname
+                body = _ics_body([("AF1234", "CDG", "ORY", 2)])
+                with _stubbed_calendar_transport(_make_calendar_transport(body=body)), \
+                        _fake_public_hostname(hostname):
+                    http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                registry_before = calendar_rules.load_calendar_registry(calendar_harness.tmpdir)
+                if not registry_before["entries"]:
+                    return False, "test setup failure: expected at least one entry before disconnecting"
+
+                from companion.pages import config_page
+                status, headers, _b = http_request(
+                    calendar_harness.base_url() + "/settings", method="POST",
+                    data=urllib.parse.urlencode(
+                        {"calendar_disconnect": config_page.CALENDAR_DISCONNECT_CHECKBOX_VALUE}).encode(),
+                    cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_disconnected" not in location:
+                    return False, "expected the calendar_disconnected flash key, got %r" % location
+                if calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to be disconnected"
+                registry_after = calendar_rules.load_calendar_registry(calendar_harness.tmpdir)
+                if registry_after["entries"]:
+                    return False, (
+                        "expected every fetched flight to be deleted on disconnect, "
+                        "found %r" % (registry_after["entries"],))
+                status2, _h2, page_body = http_request(
+                    calendar_harness.base_url() + location, cookie=session)
+                if b"deleted" not in page_body:
+                    return False, "expected the rendered banner to state the flights were deleted"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "checking the disconnect box redirects with the disconnected flash key, and the calendar's previously-fetched flights are actually erased from disk (D-04)",
+            _calendar_disconnect_reports_deletion_and_erases_entries)
+
+        def _calendar_sync_bypasses_the_throttle_via_min_interval_zero():
+            """D-06's bypass, proven two ways.
+
+            The behavioural half: seed a recorded attempt a minute ago
+            (well inside the standard 1800s throttle) and confirm the
+            save-triggered sync still fetches and still reports success.
+
+            The wiring half, and the one that actually distinguishes
+            `min_interval_s=0` from an omitted argument on THIS call
+            path: `config_page.handle_post()`'s own call to
+            `calendar_rules.save_calendar_url()` (plan 17-01)
+            unconditionally erases the whole registry - including
+            `last_attempt_at`, resetting it to `None` - on every
+            successful set, BEFORE `_handle_settings_post()`'s own
+            refresh call ever runs. Since `calendar_fetch_is_due()`
+            already returns `True` unconditionally whenever
+            `last_attempt_at is None`, a seeded stale attempt is wiped
+            before the throttle is ever consulted - the fetch would run
+            here whether `min_interval_s` were 0, omitted, or anything
+            else. A spy on `refresh_calendar_registry()` itself is what
+            actually pins the argument.
+            """
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-throttle.example"
+                url = "https://%s/feed.ics?token=THROTTLEBYPASSTOKEN" % hostname
+                now = time.time()
+                calendar_rules.save_calendar_url(calendar_harness.tmpdir, url)
+                calendar_rules.write_calendar_registry(
+                    calendar_harness.tmpdir, [], now - 60, None, now=now)
+
+                captured_intervals = []
+                real_refresh = calendar_rules.refresh_calendar_registry
+
+                def _spy_refresh(state_dir, when, transport=None, min_interval_s=None):
+                    captured_intervals.append(min_interval_s)
+                    return real_refresh(
+                        state_dir, when, transport=transport, min_interval_s=min_interval_s)
+
+                calendar_rules.refresh_calendar_registry = _spy_refresh
+                try:
+                    with _stubbed_calendar_transport(_make_calendar_transport()), \
+                            _fake_public_hostname(hostname):
+                        status, headers, _b = http_request(
+                            calendar_harness.base_url() + "/settings", method="POST",
+                            data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                            cookie=session)
+                finally:
+                    calendar_rules.refresh_calendar_registry = real_refresh
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                if captured_intervals != [0]:
+                    return False, (
+                        "expected exactly one refresh_calendar_registry() call with "
+                        "min_interval_s=0 (not omitted, not None), got %r" % (captured_intervals,))
+                location = headers.get("Location", "")
+                if "flash=calendar_connected" not in location:
+                    return False, "expected the calendar_connected flash key, got %r" % location
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a save-triggered sync against a calendar with a 60s-old last_attempt_at still fetches and reports success, and refresh_calendar_registry() is called with min_interval_s=0 explicitly - not omitted, which a call-shape spy is the only thing that can actually distinguish here, since config_page.handle_post()'s own save_calendar_url() (17-01) already resets last_attempt_at to None on every set before this handler's own refresh call runs",
+            _calendar_sync_bypasses_the_throttle_via_min_interval_zero)
+
+        def _poll_modules_own_refresh_call_site_still_throttles():
+            # The opposite of the check above: refresh_calendar_registry()
+            # called the way server/poll_loop.py's own production call
+            # site calls it - with NO min_interval_s override - must still
+            # honour the standard throttle against the identical seeded
+            # state. Proves the bypass is scoped to companion/app.py's new
+            # call site alone, never widening the poll cycle's own
+            # throttle.
+            with tempfile.TemporaryDirectory() as tmp:
+                now = time.time()
+                url = "https://calendar-sync-throttle-control.example/feed.ics?token=CONTROLTOKEN"
+                calendar_rules.save_calendar_url(tmp, url)
+                calendar_rules.write_calendar_registry(tmp, [], now - 60, None, now=now)
+                calls = []
+                with _stubbed_calendar_transport(_make_calendar_transport(calls=calls)), \
+                        _fake_public_hostname("calendar-sync-throttle-control.example"):
+                    result_code, _registry = calendar_rules.refresh_calendar_registry(tmp, now)
+                if result_code != calendar_rules.FETCH_SKIPPED_THROTTLED:
+                    return False, "expected FETCH_SKIPPED_THROTTLED, got %r" % (result_code,)
+                if calls:
+                    return False, "expected no transport call when the standard throttle applies, got %r" % (calls,)
+                return True, ""
+        check(
+            "server/poll_loop.py's own refresh_calendar_registry() call shape (no min_interval_s override) still honours the standard throttle against the identical seeded state - the bypass is scoped to the new call site alone",
+            _poll_modules_own_refresh_call_site_still_throttles)
+
+        def _calendar_sync_lock_contention_is_honest():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-contention.example"
+                url = "https://%s/feed.ics?token=CONTENTIONTOKEN" % hostname
+                calls = []
+                import companion.app as app_module
+                locked = app_module._POLL_LOCK.acquire(blocking=False)
+                if not locked:
+                    return False, "test setup failure: could not acquire _POLL_LOCK from the test thread"
+                try:
+                    with _stubbed_calendar_transport(_make_calendar_transport(calls=calls)), \
+                            _fake_public_hostname(hostname):
+                        status, headers, _b = http_request(
+                            calendar_harness.base_url() + "/settings", method="POST",
+                            data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                            cookie=session)
+                finally:
+                    app_module._POLL_LOCK.release()
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=calendar_sync_deferred" not in location:
+                    return False, "expected the calendar_sync_deferred flash key, got %r" % location
+                if calls:
+                    return False, "expected no transport call while the lock was held, got %r" % (calls,)
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the URL to be saved even though the sync was deferred"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a save arriving while the poll lock is already held redirects with the deferred flash key, performs no fetch, and still saves the URL (D-09)",
+            _calendar_sync_lock_contention_is_honest)
+
+        def _calendar_sync_lock_is_released_after_a_failed_sync():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-release.example"
+                url = "https://%s/feed.ics?token=RELEASETOKEN" % hostname
+                with _stubbed_calendar_transport(
+                        _make_calendar_transport(raise_exc=ConnectionError("boom"))), \
+                        _fake_public_hostname(hostname):
+                    http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                import companion.app as app_module
+                reacquired = app_module._POLL_LOCK.acquire(blocking=False)
+                if reacquired:
+                    app_module._POLL_LOCK.release()
+                if not reacquired:
+                    return False, (
+                        "expected the poll lock to be free after one failed sync - a "
+                        "wedged trigger is the failure mode the finally-release exists "
+                        "to prevent")
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "after a save whose immediate fetch fails, the poll lock is still free - one failure never wedges a later manual poll trigger",
+            _calendar_sync_lock_is_released_after_a_failed_sync)
+
+        def _unrelated_settings_save_never_reaches_the_refresh_call():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-unrelated.example"
+                url = "https://%s/feed.ics?token=UNRELATEDTOKEN" % hostname
+                body = _ics_body([("AF1234", "CDG", "ORY", 2)])
+                with _stubbed_calendar_transport(_make_calendar_transport(body=body)), \
+                        _fake_public_hostname(hostname):
+                    http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                registry_before = calendar_rules.load_calendar_registry(calendar_harness.tmpdir)
+
+                calls = []
+                with _stubbed_calendar_transport(_make_calendar_transport(calls=calls)):
+                    status, headers, _b = http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"theme": "black"}).encode(),
+                        cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=saved" not in location:
+                    return False, "expected the ordinary saved flash key, got %r" % location
+                if calls:
+                    return False, (
+                        "expected an unrelated save to never reach the refresh call, "
+                        "got %r" % (calls,))
+                if not calendar_rules.calendar_is_configured(calendar_harness.tmpdir):
+                    return False, "expected the calendar to remain configured"
+                registry_after = calendar_rules.load_calendar_registry(calendar_harness.tmpdir)
+                if registry_after["entries"] != registry_before["entries"]:
+                    return False, "expected the fetched entries to be untouched by an unrelated save"
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a settings save that changes only the theme, against an already-connected calendar, redirects with the ordinary saved key, performs no fetch, and leaves the calendar and its fetched entries untouched",
+            _unrelated_settings_save_never_reaches_the_refresh_call)
+
+        def _calendar_save_does_not_touch_the_manual_poll_cooldown():
+            calendar_harness = _InProcessHarness()
+            try:
+                session = _login(calendar_harness)
+                hostname = "calendar-sync-cooldown.example"
+                url = "https://%s/feed.ics?token=COOLDOWNTOKEN" % hostname
+                with _stubbed_calendar_transport(_make_calendar_transport()), \
+                        _fake_public_hostname(hostname):
+                    http_request(
+                        calendar_harness.base_url() + "/settings", method="POST",
+                        data=urllib.parse.urlencode({"calendar_url": url}).encode(),
+                        cookie=session)
+                status, headers, _b = http_request(
+                    calendar_harness.base_url() + "/poll-now", method="POST", cookie=session)
+                if status != 303:
+                    return False, "expected a 303 redirect, got %d" % status
+                location = headers.get("Location", "")
+                if "flash=poll_cooldown" in location:
+                    return False, (
+                        "a calendar save must never consume the manual poll trigger's "
+                        "own cooldown, got %r" % location)
+                return True, ""
+            finally:
+                calendar_harness.stop()
+        check(
+            "a calendar save immediately followed by a manual poll trigger does not hit the poll cooldown - the two mechanisms are independent",
+            _calendar_save_does_not_touch_the_manual_poll_cooldown)
 
     finally:
         harness.stop()

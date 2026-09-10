@@ -216,6 +216,14 @@ FLASH_KEY_RULE_REGISTRY_FULL = config_page.FLASH_RULE_REGISTRY_FULL
 FLASH_KEY_RULE_SAVE_FAILED = config_page.FLASH_RULE_SAVE_FAILED
 FLASH_KEY_RULE_DELETED = config_page.FLASH_RULE_DELETED
 FLASH_KEY_RULE_DELETE_FAILED = config_page.FLASH_RULE_DELETE_FAILED
+# Phase 17 plan 04 (D-06/D-09): the four save-triggered-sync flash keys
+# are defined once in companion/pages/config_page.py, for the identical
+# reason FLASH_KEY_SAVED/FLASH_KEY_RULE_*/etc. above are — mirroring that
+# same rebinding pattern exactly.
+FLASH_KEY_CALENDAR_CONNECTED = config_page.FLASH_CALENDAR_CONNECTED
+FLASH_KEY_CALENDAR_SYNC_FAILED = config_page.FLASH_CALENDAR_SYNC_FAILED
+FLASH_KEY_CALENDAR_DISCONNECTED = config_page.FLASH_CALENDAR_DISCONNECTED
+FLASH_KEY_CALENDAR_SYNC_DEFERRED = config_page.FLASH_CALENDAR_SYNC_DEFERRED
 
 # A fixed key -> 06-UI-SPEC.md-copy dictionary — the flash mechanism only
 # ever renders one of these, never a value taken verbatim from the query
@@ -313,6 +321,47 @@ FLASH_MESSAGES = {
     FLASH_KEY_RULE_DELETE_FAILED: (
         "Couldn't delete that rule — the frame's state directory may "
         "not be writable."),
+    # Phase 17 plan 04 (D-06): the save-triggered immediate sync's four
+    # outcomes. FLASH_KEY_CALENDAR_CONNECTED's "{n}"/"{s}" are filled by
+    # _resolve_flash_text()'s third special case below, from a fresh
+    # on-disk read of the registry's entry count at render time — never
+    # carried through the redirect's query string (a client-supplied
+    # count would defeat this mechanism's whole "only fixed server-side
+    # copy" contract). States what the count means in checkable terms
+    # (flights from THIS calendar inside the frame's window) without
+    # ever implying the frame watches for them or will announce them —
+    # matching the locked Phase 16 register's own constraint.
+    FLASH_KEY_CALENDAR_CONNECTED: (
+        "Connected — {n} flight{s} from this calendar in the frame's "
+        "current window."),
+    # The single honest generic failure (D-06/17-CONTEXT.md's "one
+    # honest generic failure message, not a per-cause copy deck" —
+    # FETCH_REJECTED_URL has zero call sites, so there is no second
+    # cause this code can actually distinguish). Actionable, and
+    # honestly states the frame retries on its own schedule regardless
+    # — the URL was saved whether or not this one fetch succeeded. Never
+    # echoes anything the operator submitted, and no exception's text is
+    # ever read to build this string (T-17-FLASH).
+    FLASH_KEY_CALENDAR_SYNC_FAILED: (
+        "Saved, but couldn't sync that calendar right now — check the "
+        "URL and try again. The frame will keep retrying on its own "
+        "schedule."),
+    # States both halves of what a disconnect did (D-04): the calendar
+    # is disconnected, AND the flights it had supplied are gone from
+    # disk — a promise the code keeps and the operator has no other way
+    # to learn.
+    FLASH_KEY_CALENDAR_DISCONNECTED: (
+        "Calendar disconnected — the flights it supplied have been "
+        "deleted from the server."),
+    # Deliberately NOT FLASH_KEY_POLL_ALREADY_RUNNING's copy (D-09): that
+    # string says nothing about whether the save itself succeeded, which
+    # would leave the operator unsure their URL was even stored. The
+    # LOCK behaviour is what's reused here, not the copy — this key says
+    # plainly that the save landed and the sync will happen on the
+    # frame's own next scheduled poll.
+    FLASH_KEY_CALENDAR_SYNC_DEFERRED: (
+        "Saved — a poll was already running, so this calendar will "
+        "sync on the frame's next scheduled poll."),
 }
 
 # 06.6.2-06 (UXA-07): every FLASH_KEY_* -> the ARIA role its rendered
@@ -361,6 +410,14 @@ FLASH_ROLES = {
     FLASH_KEY_RULE_SAVE_FAILED: "alert",
     FLASH_KEY_RULE_DELETED: "status",
     FLASH_KEY_RULE_DELETE_FAILED: "alert",
+    # Phase 17 plan 04 (D-06): the failure takes the assertive role,
+    # matching every other genuine failure on this page
+    # (FLASH_KEY_SAVE_FAILED/FLASH_KEY_POLL_FAILED/etc. above); the other
+    # three are outcomes of a normal save flow, not failures.
+    FLASH_KEY_CALENDAR_CONNECTED: "status",
+    FLASH_KEY_CALENDAR_SYNC_FAILED: "alert",
+    FLASH_KEY_CALENDAR_DISCONNECTED: "status",
+    FLASH_KEY_CALENDAR_SYNC_DEFERRED: "status",
 }
 
 _STYLE_CSS_PATH = os.path.join(_HERE, "static", "style.css")
@@ -472,6 +529,18 @@ def _resolve_flash_text(flash_key, state_dir, rule_key=None):
     template = FLASH_MESSAGES[flash_key]
     if flash_key == FLASH_KEY_POLL_COOLDOWN:
         return template.format(n=poll_cooldown_remaining(state_dir))
+    if flash_key == FLASH_KEY_CALENDAR_CONNECTED:
+        # Phase 17 plan 04 (D-06): the third special case, and the only
+        # one this key needs. Read fresh from disk, on THIS redirect
+        # target's own render — never carried through the redirect's
+        # query string, which is client-supplied on the way back in and
+        # would violate this mechanism's "only fixed server-side copy"
+        # contract. load_calendar_registry() is contractually
+        # never-raising (plan 16-03), which is what makes it safe to
+        # call unconditionally here on every render that carries this
+        # key.
+        count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
+        return template.format(n=count, s="" if count == 1 else "s")
     if flash_key == FLASH_KEY_RULE_REPLACED:
         normalised_key = colour_rules.normalise_rule_callsign(rule_key)
         if normalised_key is None:
@@ -1009,18 +1078,24 @@ class Handler(BaseHTTPRequestHandler):
             # mid-request must always be visible on the very next
             # request, not just the next poll cycle.
             "colour_rules": colour_rules.load_colour_rules(state_dir),
-            # Phase 16 (16-05-PLAN.md): read fresh on every request, never
-            # captured at import time, so a redeployed env file takes
-            # effect on the next service restart with nothing cached in
-            # between — the same per-call shape env_wake_interval_default()
-            # above already carries. Security contract, stated plainly
-            # because it is the reason this key is a boolean and not a
-            # string: the calendar URL is a subscription secret, this
-            # process must never learn its value, and calendar_rules'
-            # sole accessor for that value therefore has no call site
-            # anywhere under companion/ — this key is the whole of what
-            # the web tier is allowed to know (T-16-SECRET).
-            "calendar_configured": calendar_rules.calendar_is_configured(),
+            # Phase 17 (17-02-PLAN.md): read fresh on every request, never
+            # captured at import time, so a change to the secret file or
+            # its permissions is visible on the very next request — the
+            # same per-call shape env_wake_interval_default() above
+            # already carries. This key is a boolean, not a string,
+            # because a status line only needs presence, not the value:
+            # the calendar URL is a subscription secret, and it has no
+            # rendering, logging or flash call site anywhere under
+            # companion/ (T-16-SECRET, T-17-SECRET). That is no longer a
+            # process-boundary claim — it never was one, since all three
+            # systemd units run as the same user and load the same
+            # environment file, and this process's ability to read the
+            # value itself is not new here either: `POST /poll-now`
+            # already calls the poll cycle in-process, and that cycle's
+            # own calendar refresh has always read this value. What is
+            # new, and deliberate, is that the companion also writes it
+            # now (`save_calendar_url()`, plan 17-01's Settings save).
+            "calendar_configured": calendar_rules.calendar_is_configured(state_dir),
             # Read fresh per request from disk, never through the poll
             # cycle's own process-scoped cache, for the identical reason
             # manual_resolutions/colour_rules above are read fresh — this
@@ -1032,6 +1107,15 @@ class Handler(BaseHTTPRequestHandler):
             # (T-16-DOS).
             "calendar_last_synced_at": calendar_rules.load_calendar_registry(
                 state_dir)["last_synced_at"],
+            # Phase 17 plan 04 (D-02/D-08): the narrow predicate plan
+            # 17-01 added, read fresh on every request for the identical
+            # reason calendar_configured/calendar_last_synced_at above
+            # are — this is a long-running threaded server, and a mode
+            # drifting mid-session has to be visible on the very next
+            # request. Consumed by config_page.calendar_group()'s fourth
+            # status branch alone; never widens calendar_configured's own
+            # bool contract (D-08).
+            "calendar_drift": calendar_rules.calendar_secret_mode_is_unsafe(state_dir),
         }
 
     # --- shared page fragments -------------------------------------------
@@ -1909,6 +1993,130 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_html(401, self._render_login_page(
             error="Incorrect password. Try again.", next_route=next_route))
 
+    def _handle_settings_post(self):
+        """POST /settings — an app.py-owned handler (D-06/D-09), a
+        sibling of `_handle_poll_now()` and `_handle_manual_resolve_
+        post()` above, because this write path must choose between more
+        than one outcome and the documented `handle_post(form, ctx) ->
+        flash_key` contract (companion/pages/__init__.py) returns only a
+        single key. Adds no route and no new gate — the session gate
+        stays exactly where it was, in `do_POST()`, before dispatch.
+
+        Body, in order:
+
+        1. `config_page.handle_post()` — every existing field validation
+           and the device-config/secret-file writes, completely
+           unchanged from before this plan.
+        2. Any non-`FLASH_KEY_SAVED` result is a rejection the page
+           module already decided; redirect with it and stop. No fetch
+           is ever attempted on a rejected save.
+        3. `config_page.submitted_calendar_signal()` — the SAME resolver
+           `handle_post()` itself just consulted, called again here
+           (never re-derived) so persistence and this sync decision can
+           never disagree about what the submission meant. `carry_
+           forward` (or anything the resolver did not itself return,
+           which cannot happen but is treated identically rather than
+           assumed away) redirects with the ordinary saved key — this
+           branch is byte-identical in observable behaviour to before
+           this plan, because it is the branch every settings save that
+           touches no calendar field takes.
+        4. `clear` — no fetch: there is nothing to fetch, and the erase
+           already happened inside `handle_post()`'s own call to
+           `calendar_rules.save_calendar_url()`.
+        5. `set` — D-09: acquire `_POLL_LOCK`, the SAME lock `_handle_
+           poll_now()` uses, with the same non-blocking acquire, rather
+           than a second lock. Corrected 2026-09-10 (CR-01/IN-01, Phase
+           17 review): this bullet previously claimed `_POLL_LOCK`
+           closes the race against "a poll cycle's own calendar
+           refresh" — that is false. `_POLL_LOCK` is a plain
+           `threading.Lock()` living in THIS process's memory; it only
+           ever serializes this call against another concurrent request
+           in the SAME companion process (a simultaneous `/poll-now`, or
+           a second `/settings` POST). `skypane-poll.service`'s own
+           refresh cycle is a separate OS process with its own,
+           unrelated copy of every lock in this file — `_POLL_LOCK` is
+           invisible to it, no matter how it is reused. The actual
+           cross-process protection against that race now lives inside
+           `calendar_rules.refresh_calendar_registry()` and
+           `calendar_rules.save_calendar_url()` themselves, via
+           `calendar_rules._calendar_registry_lock()` — an
+           `fcntl.flock()`-based lock over a dedicated file in
+           `state_dir`, acquired around each function's entire
+           read-modify-write sequence, and visible to any process,
+           including the poll service. `_POLL_LOCK` is still acquired
+           here, and is still correct for what it actually does: on
+           contention with another *companion* request, the deferred
+           key is the honest answer that the save landed and the sync
+           did not run in this request.
+        6. Inside the lock: `calendar_rules.refresh_calendar_registry()`
+           directly — never `poll_loop.run_once()`, which would run a
+           full detection/render cycle this save has no need for — with
+           `min_interval_s=0`. Zero, not omitted: omitting it resolves
+           to the standard throttle interval, which is the exact silent
+           no-op D-06 exists to prevent, and it produces no error and no
+           log line to reveal itself. The lock is released in a
+           `finally` covering every path out of this branch, so one
+           failed sync cannot wedge a later manual poll trigger.
+
+        No handler wraps the refresh call, and nothing in this method
+        ever reads the text of a caught error. `refresh_calendar_
+        registry()` is contractually never-raising — it carries its own
+        top-level catch-all that falls back to whatever is durably on
+        disk. A handler here would be dead code with one live
+        consequence: the moment anything touched a caught value, the
+        full request URL would be back in a message, because that is
+        what network and name-resolution error strings routinely
+        contain (T-17-FLASH).
+
+        The returned `(result_code, registry)` is branched on
+        explicitly, matching `_handle_manual_resolve_post()`'s own
+        recorded reasoning that an unrecognised value must not be able
+        to fall through with no outcome at all: the success constant
+        redirects with the connected key, and every other value —
+        including the two that cannot actually fire from here,
+        `FETCH_SKIPPED_THROTTLED` (impossible because the interval is
+        zero) and `FETCH_SKIPPED_UNCONFIGURED` (impossible because the
+        write just succeeded) — maps to the single failure key rather
+        than being assumed away.
+
+        The manual poll trigger's own cooldown machinery (the pair of
+        helpers `_handle_poll_now()` consults and updates above) is
+        neither consulted nor updated anywhere in this method: this is
+        not a poll, it renders nothing and drives no panel, and
+        borrowing that cooldown would let an unrelated settings save
+        block a real poll trigger for its duration.
+        """
+        state_dir = self.args.state_dir
+        form = self.read_form()
+        ctx = self.page_context()
+        flash_key = config_page.handle_post(form, ctx)
+        if flash_key != FLASH_KEY_SAVED:
+            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
+
+        calendar_signal = config_page.submitted_calendar_signal(form)
+        if calendar_signal == config_page.CALENDAR_URL_SIGNAL_CLEAR:
+            return self.redirect(
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
+        if calendar_signal != config_page.CALENDAR_URL_SIGNAL_SET:
+            # carry_forward — an unrelated settings save. No fetch, no
+            # lock acquisition: byte-identical to today's behaviour.
+            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_SAVED)))
+
+        if not _POLL_LOCK.acquire(blocking=False):
+            return self.redirect(
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+        try:
+            result_code, _registry = calendar_rules.refresh_calendar_registry(
+                state_dir, poll_loop.now_s(), min_interval_s=0)
+        finally:
+            _POLL_LOCK.release()
+
+        if result_code == calendar_rules.FETCH_OK:
+            return self.redirect(
+                "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECTED)))
+        return self.redirect(
+            "%s?flash=%s" % (SETTINGS_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+
     def _handle_poll_now(self):
         # UXA-15: non-blocking acquire, never a timeout (06.6.2-RESEARCH.md).
         if not _POLL_LOCK.acquire(blocking=False):
@@ -1964,10 +2172,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == SETTINGS_ROUTE:
             if not self.require_session():
                 return None
-            form = self.read_form()
-            ctx = self.page_context()
-            flash_key = config_page.handle_post(form, ctx)
-            return self.redirect("%s?flash=%s" % (SETTINGS_ROUTE, quote(flash_key)))
+            return self._handle_settings_post()
 
         if path == POLL_ROUTE:
             if not self.require_session():
