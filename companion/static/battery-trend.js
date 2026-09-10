@@ -102,15 +102,28 @@
   }
 
   function _toggleActive(el, isActive) {
-    var cls = " sparkline-hit--active";
-    var current = " " + el.className + " ";
-    var has = current.indexOf(" sparkline-hit--active ") !== -1;
+    // Phase 18 (audit, high): these hit targets are SVG <circle>
+    // elements, whose `className` is a read-only SVGAnimatedString —
+    // the old string concatenation never matched and the assignment
+    // threw under "use strict", so the active highlight never applied.
+    // classList works on SVG elements in every browser this app
+    // supports; the setAttribute fallback covers anything older.
+    var cls = "sparkline-hit--active";
+    if (el.classList) {
+      if (isActive) {
+        el.classList.add(cls);
+      } else {
+        el.classList.remove(cls);
+      }
+      return;
+    }
+    var current = " " + (el.getAttribute("class") || "") + " ";
+    var has = current.indexOf(" " + cls + " ") !== -1;
     if (isActive && !has) {
-      el.className = el.className + cls;
+      el.setAttribute("class", (current + cls).replace(/^\s+|\s+$/g, ""));
     } else if (!isActive && has) {
-      el.className = current
-        .split(" sparkline-hit--active ").join(" ")
-        .replace(/^\s+|\s+$/g, "");
+      el.setAttribute("class", current.split(" " + cls + " ").join(" ")
+        .replace(/^\s+|\s+$/g, ""));
     }
   }
 

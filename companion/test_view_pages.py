@@ -72,7 +72,7 @@ from server.plane import render as panel_render  # noqa: E402
 TEST_PASSWORD = "view-pages-test-password-please-ignore"
 APP_PATH = os.path.join(HERE, "app.py")
 STARTUP_DEADLINE_S = 10.0
-EXPECTED_CHECK_COUNT = 63  # + 8 (phase 14 plan 14-05 Task 2: 8 new
+EXPECTED_CHECK_COUNT = 65  # 63 + 2 (phase 18: Home page) — was 63 # + 8 (phase 14 plan 14-05 Task 2: 8 new
 # source-content checks pinning panel-lookup.js's own contract without a
 # live DOM - no image.src="" anywhere; image.removeAttribute("src") is
 # conditional, not unconditional at module scope; the shared populate
@@ -706,7 +706,7 @@ def main():
         tmp = _mkstate("h-page-header")
         try:
             rendered = history_page.render(_history_ctx(tmp))
-            if '<h1 class="page-title">History</h1>' not in rendered:
+            if '<h1 class="page-title">Flights</h1>' not in rendered:
                 return False, "expected the page_header()-rendered <h1 class=\"page-title\">History</h1>"
             if '<h1 class="text-heading">' in rendered:
                 return False, "expected no bare <h1 class=\"text-heading\"> heading"
@@ -1786,7 +1786,7 @@ def main():
             }
             for index, (expected_name, expected_iso) in expected_by_group.items():
                 expected_src = "/gallery/%s" % expected_name
-                expected_caption = history_page.LIGHTBOX_CAPTION_TEMPLATE % expected_iso
+                expected_caption = history_page.lightbox_caption_text(expected_iso)
 
                 tr_block = _row_block(rendered, "tr", index)
                 li_block = _row_block(rendered, "li", index)
@@ -2531,6 +2531,79 @@ def main():
     # been retired outright).
     # ======================================================================
 
+    # --- Phase 18: the Home page -------------------------------------------
+
+    def _home_page_render_with_seeded_state():
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        tmp = _mkstate("home")
+        try:
+            now = "2026-08-27T12:00:00+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T11:50:00+00:00", "hex": "3c6444", "callsign": "AFR1380",
+                 "airline": "Air France", "origin": "ORY", "destination": "TLS",
+                 "confirmed_state": "departing"},
+                {"ts": "2026-08-27T11:40:00+00:00", "hex": "4b1a72", "callsign": "<XYZ>"},
+            ])
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3750)
+            ctx = {
+                "state_dir": tmp, "now": now,
+                "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+                "device_config": {"display_enabled": False, "quiet_hours_enabled": True,
+                                  "quiet_hours_start": "22:00", "quiet_hours_end": "06:30"},
+                "health_state": {"device_state": "ok", "pipeline_state": "warn",
+                                 "battery_state": "ok", "device_html": "<b>d</b>",
+                                 "pipeline_html": "<b>p</b>"},
+                "poll_cooldown_remaining": 0,
+            }
+            rendered = home_page.render(ctx)
+            for needle in (
+                    '<h1 class="page-title">Home</h1>', "AFR1380", "Air France", "ORY → TLS",
+                    'src="/gallery/2026-08-27T11-50-00+00-00.png"', "Switch on",
+                    "On — 22:00 to 06:30", "Turn off", "Refresh now", "3750 mV",
+                    'value="on"', "quick-action--off", "quick-action--on",
+                    "≈ 50%"):
+                if needle not in rendered:
+                    return False, "expected %r in the Home page" % needle
+            if "<XYZ>" in rendered or "&lt;XYZ&gt;" not in rendered:
+                return False, "expected the hostile callsign to be escaped"
+            if rendered.count("recent-flight ") != 2 and rendered.count('class="recent-flight"') != 2:
+                return False, "expected exactly two recent-flight rows"
+            cooled = home_page.render(dict(ctx, poll_cooldown_remaining=12))
+            if "try again in 12s" not in cooled or "<button type=\"submit\" disabled>" not in cooled:
+                return False, "expected the refresh widget to honour the cooldown"
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "home_page.render() with seeded flights, a battery reading and a gallery entry renders the "
+        "status tiles (with a battery percentage estimate), the current-panel image, the three "
+        "quick-action widgets reflecting the saved state, escaped recent flights, and a disabled "
+        "refresh control during the cooldown",
+        _home_page_render_with_seeded_state)
+
+    def _home_page_render_degrades_with_nothing():
+        from companion.pages import home_page
+        rendered = home_page.render({})
+        for needle in (home_page.NO_FLIGHTS_HEADING, home_page.NO_PANEL_HEADING,
+                       home_page.NO_READING_TEXT, "Quick actions"):
+            if needle not in rendered:
+                return False, "expected %r for an empty ctx" % needle
+        if home_page.battery_percent(4200) != 100 or home_page.battery_percent(3300) != 0:
+            return False, "expected the percentage estimate to clamp at the full/empty voltages"
+        if home_page.battery_percent("x") is not None or home_page.battery_percent(0) is not None:
+            return False, "expected a non-numeric or zero reading to yield None"
+        if home_page._gallery_name_to_iso("2026-09-10T21-38-48+00-00.png") != "2026-09-10T21:38:48+00:00":
+            return False, "expected the gallery filename to round-trip to its ISO timestamp"
+        if home_page._gallery_name_to_iso("junk.png") is not None or home_page._gallery_name_to_iso(None) is not None:
+            return False, "expected an unparseable gallery name to yield None"
+        return True, ""
+    check(
+        "home_page.render({}) degrades to its empty states without raising, battery_percent() clamps "
+        "and rejects bad input, and the gallery filename parser round-trips or returns None",
+        _home_page_render_degrades_with_nothing)
+
     harness = Harness()
     try:
         harness.start()
@@ -2555,16 +2628,16 @@ def main():
             # bytes, against a real running service - the only consumer
             # of that route since quick task 260903-etm retired the
             # top-of-page render gallery.
-            status, _headers, body = http_request(base + "/history", cookie=session_cookie)
+            status, _headers, body = http_request(base + "/flights", cookie=session_cookie)
             if status != 200:
                 return False, "expected 200 for /history, got %d" % status
-            if b"History" not in body:
-                return False, "expected the 'History' heading in /history's response body"
+            if b"Flights" not in body:
+                return False, "expected the 'Flights' heading in /flights's response body"
 
             status, headers, body = http_request(base + "/preview", cookie=session_cookie)
             if status != 303:
                 return False, "expected a 303 redirect for /preview, got %d" % status
-            if headers.get("Location") != "/history":
+            if headers.get("Location") != "/flights":
                 return False, "expected /preview to redirect to /history, got %r" % headers.get("Location")
 
             status, _headers, body = http_request(base + "/preview.png", cookie=session_cookie)

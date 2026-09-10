@@ -285,6 +285,17 @@
     });
   }
 
+  // Phase 18 (audit): a click on the backdrop closes the dialog, the
+  // way every modal a household member has used behaves. A click
+  // INSIDE the dialog lands on one of its descendants, never on the
+  // <dialog> element itself, so evt.target === dialog is exactly "the
+  // backdrop was clicked".
+  dialog.addEventListener("click", function (evt) {
+    if (evt.target === dialog) {
+      dialog.close();
+    }
+  });
+
   // No Escape handler and no focus-management code is added here on
   // purpose: the native <dialog> element already provides Escape-to-
   // close, a backdrop, and focus-trap semantics for free — exactly why
@@ -354,6 +365,13 @@
     }
     if (autoTrigger) {
       openFromTrigger(autoTrigger);
+      // Phase 18 (audit): the same resolve section also renders in-page
+      // as the no-JS fallback; once the dialog copy is open, the page
+      // copy is a duplicate sitting behind the backdrop — hide it.
+      var fallback = document.querySelector("[data-resolve-fallback]");
+      if (fallback) {
+        fallback.hidden = true;
+      }
     }
   }
 

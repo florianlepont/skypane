@@ -7545,7 +7545,7 @@ def main():
                     # served-HTML twin of Task 4's render-level History
                     # guard runs against a real running service, not only
                     # an in-process render() call.
-                    ("/history", "History")):
+                    ("/flights", "Flights")):
                 status, _headers, body = http_request(base + path, cookie=session_cookie)
                 if status != 200:
                     return False, "expected 200 for %s, got %d" % (path, status)
@@ -7710,7 +7710,7 @@ def main():
                             "form) in the real /airlines HTTP response "
                             "body, got %d" % body_text.count('<input type="file"'))
 
-                elif path == "/history":
+                elif path == "/flights":
                     # quick task 260903-btu Task 5a: the served-HTML twin
                     # of Task 4's render()-level History guard.
                     body_text = body.decode("utf-8", errors="replace")

@@ -1,7 +1,19 @@
 """companion/pages/ — the SkyPane companion service's per-tab page-builder
-contract (06-CONTEXT.md D-25's original five-tab navigation structure,
-shrunk to four by 06.6.4.1-08/D-22 once Preview's page route was retired
-and its content absorbed into History, 06.6.4.1-05).
+contract.
+
+Phase 18 (companion audit / UX refactor) reorganised the tabs into two
+groups, declared once in companion/layout.py's NAV_GROUPS:
+
+    Everyday   — Home (home_page.py), Display (config_page.py, scope
+                 "display"), Flights (history_page.py), Airlines
+                 (airlines_page.py)
+    Advanced   — Health (health_page.py), Device (config_page.py, scope
+                 "device")
+
+The old single "/settings" page and the "/history" route survive only as
+fixed redirects. Which settings groups land on Display versus Device is
+declared per screen type in companion/screens.py — the seam for the
+several screen kinds SkyPane will eventually drive.
 
 Every page module in this package exposes:
 
