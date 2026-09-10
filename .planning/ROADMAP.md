@@ -41,7 +41,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 14: Resolve an unidentified flight from the gallery lightbox, with coverage gaps as empty cards** - Fold Phase 13's resolve flow into the interaction pattern the Airlines gallery already uses: a coverage gap becomes an empty card in the grid, clicking it opens the shared `<dialog>` every other card opens, and the standalone management table is absorbed into the cards rather than deleted. Raised by the developer on seeing Phase 13's real page (2026-09-06) — the page already hosts that dialog and already puts the replace-upload form inside it, so the page section Phase 13 shipped was inconsistent with its own surroundings. Presentation-layer only; no server-side change expected. Not yet discussed or planned. (completed 2026-09-06)
 - [x] **Phase 15: Per-direction themes, per-flight colour rules and roster-linked highlighting** - Let something more specific than the one active theme decide the frame's look: a theme per direction (departures vs arrivals), a per-flight rule keyed on a callsign or ICAO24 hex, and automatic highlighting of the flights K Stewart works as crew, read from their duty roster — promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calendar-highlighting.md` at the developer's request (2026-09-06). Discussed 2026-09-06: the roster half is deferred (it stays in SEED-003 with the developer's intent recorded); this phase ships the seam, an optional arrivals theme, and rules keyed on callsign / hex / prefix that resolve to registered theme ids, all edited from Settings. Not yet planned. (completed 2026-09-06) (completed 2026-09-06)
 - [x] **Phase 16: Calendar-linked flight highlighting — a connected calendar sources colour rules automatically** - The last of SEED-003's three sub-ideas, deferred out of Phase 15 by that phase's D-01 and now unblocked: the operator connects a calendar, and a flight it lists is highlighted on the frame by the same per-flight rule mechanism Phase 15 shipped — a rule sourced automatically instead of typed. Generalised from the seed's person-specific framing to "connect your calendar" at the developer's request (2026-09-07). Scoped against a REAL roster export and REAL production detections before promotion; three measured findings below overturn the seed's own assumptions and one of them caps what the feature can honestly promise. Not yet discussed or planned. (completed 2026-09-07)
-- [ ] **Phase 17: Connect a calendar from the companion instead of over SSH** - Phase 16 shipped calendar matching but put its one input, the feed URL, in an environment variable edited over SSH. The developer's actual goal was "connect your calendar", which describes a gesture in the interface — so as shipped the feature is not connectable by the person meant to use it. This phase moves that input into Settings as a write-only field, and pays for the convenience with three guards the env-var design got for free. Not yet discussed or planned.
+- [x] **Phase 17: Connect a calendar from the companion instead of over SSH** - Phase 16 shipped calendar matching but put its one input, the feed URL, in an environment variable edited over SSH. The developer's actual goal was "connect your calendar", which describes a gesture in the interface — so as shipped the feature is not connectable by the person meant to use it. This phase moves that input into Settings as a write-only field, and pays for the convenience with three guards the env-var design got for free. Not yet discussed or planned.
 
 ## Phase Details
 
@@ -960,8 +960,11 @@ Plans:
 **Requirements**: None expected — unmapped phase, matching the Phase 10-16 precedent.
 **Depends on:** Phase 16 (everything this phase feeds: the accessor, the fetch, the registry, the Settings group and its copy deck).
 **Closes with:** a mandatory `/gsd-secure-phase 17`. This phase deliberately trades a structural security property for usability, so the audit is the point, not a formality — it must confirm the three guards above actually hold in the shipped code. No on-glass verification: nothing reaches the panel that Phase 16 did not already put there.
-**Plans:** 0 plans — not yet discussed or planned
+**Plans:** 4/4 plans executed
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 17 to break down)
+- [x] 17-01-PLAN.md
+- [x] 17-02-PLAN.md
+- [x] 17-03-PLAN.md
+- [x] 17-04-PLAN.md

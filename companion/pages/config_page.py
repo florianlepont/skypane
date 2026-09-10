@@ -330,11 +330,8 @@ CALENDAR_SECTION_CAPTION = (
     "one. It can only colour a flight that happens to be on screen — "
     "it does not track or announce anything on its own. Applies on the "
     "frame's next scheduled poll, not immediately.")
-# Interpolates calendar_rules.CALENDAR_URL_ENV_VAR rather than retyping
-# the literal, so this copy and the env var name can never drift apart.
 CALENDAR_STATUS_NOT_CONFIGURED = (
-    "Not configured. Set `%s` in `skypane.env` on the server to connect "
-    "a calendar." % calendar_rules.CALENDAR_URL_ENV_VAR)
+    "Not connected. Paste your calendar's feed URL below to connect one.")
 CALENDAR_STATUS_CONFIGURED_PENDING = "Connected — waiting for the first sync."
 # The relative-timestamp slot is left open so calendar_group() can
 # interpolate concise_timestamp_html()'s raw markup without the escaping
@@ -348,6 +345,58 @@ CALENDAR_THEME_FIELD_LABEL = "Theme"
 CALENDAR_THEME_HINT = (
     "Used only when a flight from the calendar happens to be the one on "
     "screen.")
+
+# Phase 17 plan 03 (D-01/D-02/D-07) — Claude's-discretion wording, final
+# once written, matching the locked Phase 16 register above: plain,
+# honest, no surveillance verb, no promise the frame cannot keep. The
+# file the URL is stored in is never named anywhere below — the
+# developer pushed back explicitly on being shown implementation
+# mechanics without being told they were mechanics (17-CONTEXT.md
+# Specifics).
+CALENDAR_URL_FIELD_LABEL = "Calendar feed URL"
+CALENDAR_URL_HINT = (
+    "Your calendar's private iCal link. Stored on the server and never "
+    "shown back here — pasting a new one replaces the old.")
+# Names both halves of what checking the box does (D-07): the operator
+# deserves to see the flights-deletion consequence before they check it,
+# not discover it afterwards.
+CALENDAR_DISCONNECT_CHECKBOX_LABEL = (
+    "Disconnect this calendar and delete the flights it supplied")
+# Matches the shape of LED_CHECKBOX_VALUE/QUIET_HOURS_CHECKBOX_VALUE/
+# DISPLAY_CHECKBOX_VALUE/ARRIVING_CHECKBOX_VALUE above — the sole
+# accepted submitted value, shared by calendar_group()'s markup and
+# handle_post()'s validator (via submitted_calendar_signal() below) so
+# the two can never drift apart.
+CALENDAR_DISCONNECT_CHECKBOX_VALUE = "on"
+# D-02's fourth status state: the one string in this interface permitted
+# to reference "the server", because it is the one case where the
+# operator has to act there. Names no path, no filename, no part of the
+# URL. Deliberately carries no apostrophe/quote/ampersand — calendar_
+# group() interpolates every status string through escape_html(), and a
+# literal-substring check against the raw constant (this module's own
+# Task 1 verification) would otherwise be comparing against a character
+# escape_html() rewrites (the same apostrophe-escaping surprise plan
+# 17-02 recorded for CALENDAR_STATUS_NOT_CONFIGURED).
+CALENDAR_STATUS_PERMISSION_UNSAFE = (
+    "Connected, but ignored — its saved link on the server became "
+    "readable beyond this frame. Paste the feed URL again below to "
+    "store it safely.")
+# A shape bound against an absurd paste, not a definition of an
+# acceptable URL. The single arbiter of whether a URL is acceptable
+# stays the existing server-side safety gate (calendar_rules._url_is_
+# safe()) and the fetch itself; a second definition here would drift
+# from that one and start refusing feeds the fetch would accept.
+CALENDAR_URL_MAX_LEN = 2048
+
+# Phase 17 plan 04 (D-06/D-09): the four flash keys the save-triggered
+# immediate sync can produce, defined here for the identical reason
+# FLASH_SAVED/FLASH_POLL_TRIGGERED/etc. above are — companion/app.py
+# rebinds each under its own FLASH_KEY_CALENDAR_* name and owns the
+# message text/ARIA role, mirroring that same rebinding pattern exactly.
+FLASH_CALENDAR_CONNECTED = "calendar_connected"
+FLASH_CALENDAR_SYNC_FAILED = "calendar_sync_failed"
+FLASH_CALENDAR_DISCONNECTED = "calendar_disconnected"
+FLASH_CALENDAR_SYNC_DEFERRED = "calendar_sync_deferred"
 
 
 def _palette_hex(index):
@@ -874,7 +923,7 @@ def display_group(current_display_enabled):
 
 
 def calendar_group(
-        configured, last_synced_at, now, current_calendar_theme_id,
+        configured, drift, last_synced_at, now, current_calendar_theme_id,
         current_theme_id):
     """The Calendar settings group (16-UI-SPEC.md Section Anatomy): a
     seventh and last sibling inside the single merged `<form
@@ -894,10 +943,16 @@ def calendar_group(
     joining Poll/Quiet hours/Wake interval/Rules' card class rather than
     the Theme-specific one (16-UI-SPEC.md Section Anatomy).
 
-    The status line is resolved with an explicit three-branch decision:
-    not configured wins first; then configured-with-a-usable-
-    `last_synced_at`; then configured-otherwise (the pending string).
-    "Usable" is decided with `layout.parse_iso()`/`layout.age_seconds()`
+    Phase 17 plan 03 widens this to an explicit four-branch decision,
+    `drift` first: a permission-drifted stored link (D-02) wins over
+    everything else, because `configured` is already `False` in that
+    state (D-08 — `calendar_is_configured()`'s bool contract) and a
+    later check would therefore never see the drift branch at all,
+    making it indistinguishable from a calendar that was never connected
+    — exactly what D-02 exists to prevent. Then not configured; then
+    configured-with-a-usable-`last_synced_at`; then
+    configured-otherwise (the pending string). "Usable" is decided with
+    `layout.parse_iso()`/`layout.age_seconds()`
     directly, the same two calls `concise_timestamp_html()` makes
     internally — NOT by treating an empty return from that function as
     the unparseable signal, because `concise_timestamp_html()` only
@@ -915,6 +970,35 @@ def calendar_group(
     otherwise-universal escaping discipline is deliberately not applied
     uniformly.
 
+    Phase 17 plan 03 adds the write-only feed-URL field and the
+    disconnect checkbox (D-01/D-02/D-07). This function receives only
+    two booleans (`configured`, `drift`) and two timestamps — never the
+    URL itself — so the stored value cannot leak through this renderer
+    even by accident (T-17-SECRET); the field always renders with no
+    `value` attribute, no populated placeholder, and nothing derived
+    from the stored URL, in every one of the four status states. It is
+    `type="text"`, not `type="url"`, deliberately: a URL-typed input
+    would apply its own native client-side acceptability rule, which
+    could disagree with the server's own — the single arbiter of
+    acceptability stays `calendar_rules._url_is_safe()` and the fetch
+    itself. It is also not a masked input: write-only means the STORED
+    value is never rendered back, not that what the operator is
+    currently typing is hidden from them.
+
+    The disconnect checkbox renders only when `configured or drift` is
+    true — a drifted file still exists and still holds a URL, so the
+    promise that an explicit disconnection removes it must not be
+    blocked by a permissions problem — and it is ALWAYS rendered
+    unchecked; no branch of this function ever computes a `checked`
+    attribute for it. Its polarity is the deliberate mirror image of
+    `theme_fieldset()`'s arrivals checkbox a few hundred lines above:
+    that one renders CHECKED when the override is set and its ABSENCE
+    from the submission means clear; THIS one renders UNCHECKED always
+    and its PRESENCE in the submission means clear. Copying the
+    arrivals checkbox's polarity instead of its shape would disconnect
+    the calendar on every save that leaves the box unchecked — which is
+    every save that doesn't intend to disconnect anything.
+
     The `<select name="calendar_theme_id">` reuses `_rule_add_form_html()`'s
     exact option-building loop — one option per `device_config.THEME_IDS`
     member in order, text from `device_config.theme_label()`, no swatch —
@@ -924,7 +1008,13 @@ def calendar_group(
     a bare hook; 16-UI-SPEC.md Open Question 4 is resolved in favour of no
     new CSS rule — companion/static/style.css needs no change for it.
     """
-    if not configured:
+    # Drift first (D-02): a drifted file makes `configured` already
+    # False (D-08), so checking `not configured` before `drift` would
+    # make the drift state unreachable and indistinguishable from a
+    # calendar that was never connected.
+    if drift:
+        status_html = escape_html(CALENDAR_STATUS_PERMISSION_UNSAFE)
+    elif not configured:
         status_html = escape_html(CALENDAR_STATUS_NOT_CONFIGURED)
     else:
         usable = (
@@ -939,6 +1029,27 @@ def calendar_group(
                 timestamp_html)
         else:
             status_html = escape_html(CALENDAR_STATUS_CONFIGURED_PENDING)
+
+    # D-07: rendered only when a calendar is connected or its stored
+    # link has drifted (a drifted file still exists and still holds a
+    # URL — the disconnect promise must reach it too). ALWAYS unchecked;
+    # never compute a `checked` attribute here. Polarity is the mirror
+    # image of theme_fieldset()'s arrivals checkbox above: that one is
+    # rendered checked-when-set with absence meaning clear; this one is
+    # rendered unchecked-always with PRESENCE in the submission meaning
+    # clear. Copying the arrivals checkbox's polarity instead of its
+    # shape disconnects the calendar on every unrelated save.
+    disconnect_checkbox_html = ""
+    if configured or drift:
+        disconnect_checkbox_html = (
+            '<label class="settings-checkbox">'
+            '<input type="checkbox" name="calendar_disconnect" '
+            'id="calendar-disconnect" value="%s"> %s'
+            "</label>"
+        ) % (
+            escape_html(CALENDAR_DISCONNECT_CHECKBOX_VALUE),
+            escape_html(CALENDAR_DISCONNECT_CHECKBOX_LABEL),
+        )
 
     selected_calendar_theme_id = (
         current_calendar_theme_id if current_calendar_theme_id is not None
@@ -958,6 +1069,13 @@ def calendar_group(
         '<p class="text-label section-caption">%s</p>'
         '<p class="calendar-status">%s</p>'
         '<div class="rule-add-form__field">'
+        '<label for="calendar-url">%s</label>'
+        '<input type="text" id="calendar-url" name="calendar_url" '
+        'autocomplete="off" spellcheck="false" maxlength="%s">'
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+        "%s"
+        '<div class="rule-add-form__field">'
         '<label for="calendar-theme">%s</label>'
         '<select id="calendar-theme" name="calendar_theme_id" required>%s</select>'
         '<p class="text-label section-caption">%s</p>'
@@ -968,6 +1086,10 @@ def calendar_group(
         escape_html(CALENDAR_SECTION_HEADING),
         escape_html(CALENDAR_SECTION_CAPTION),
         status_html,
+        escape_html(CALENDAR_URL_FIELD_LABEL),
+        CALENDAR_URL_MAX_LEN,
+        escape_html(CALENDAR_URL_HINT),
+        disconnect_checkbox_html,
         escape_html(CALENDAR_THEME_FIELD_LABEL), theme_options,
         escape_html(CALENDAR_THEME_HINT),
     )
@@ -1460,6 +1582,11 @@ def render(ctx):
     current_calendar_theme_id = device_cfg.get("calendar_theme_id")
     calendar_configured = ctx.get("calendar_configured")
     calendar_last_synced_at = ctx.get("calendar_last_synced_at")
+    # Phase 17 plan 03 (D-02): plan 17-04 supplies this context key
+    # (calendar_rules.calendar_secret_mode_is_unsafe(state_dir)). Until
+    # then this degrades to a falsy default rather than raising, matching
+    # how calendar_configured/calendar_last_synced_at above already read.
+    calendar_drift = ctx.get("calendar_drift")
     cooldown_remaining = ctx.get("poll_cooldown_remaining", 0)
 
     # D-05 (06.6.4.1): the LED group used to be a sibling page-section,
@@ -1551,13 +1678,83 @@ def render(ctx):
         # form, immediately after Display and before the static save
         # fallback button — a pure zero-disruption append.
         calendar_group(
-            calendar_configured, calendar_last_synced_at, ctx.get("now"),
-            current_calendar_theme_id, current_theme_id),
+            calendar_configured, calendar_drift, calendar_last_synced_at,
+            ctx.get("now"), current_calendar_theme_id, current_theme_id),
         STATIC_SAVE_FALLBACK_ATTR,
         rules_section_html,
         poll_trigger_section(cooldown_remaining),
         dirty_bar_html,
     )
+
+
+# Phase 17 plan 03 (D-07): the four outcomes of the submitted calendar
+# fields' three-way resolution. Plain strings, never rendered and never
+# travel in a URL. Kept as four distinct sentinels (not e.g. two bools)
+# so a caller cannot mistake one outcome for another by falsy-comparing
+# the wrong pair.
+CALENDAR_URL_SIGNAL_CARRY_FORWARD = "carry_forward"
+CALENDAR_URL_SIGNAL_SET = "set"
+CALENDAR_URL_SIGNAL_CLEAR = "clear"
+CALENDAR_URL_SIGNAL_INVALID = "invalid"
+
+
+def submitted_calendar_signal(form):
+    """The single definition of what a submitted `calendar_url` +
+    `calendar_disconnect` pair means. Both `handle_post()` below and plan
+    17-04's request handler call this — never reimplement the logic — so
+    the two can never drift into disagreeing about what a given
+    submission meant.
+
+    Resolution order, each a real gate a caller must clear before the
+    next is even considered:
+
+    1. A `calendar_disconnect` present with any value other than
+       `CALENDAR_DISCONNECT_CHECKBOX_VALUE` is a crafted request shape,
+       not a user mistake — the same treatment every other checkbox on
+       this handler already gives a non-member value. Resolves invalid.
+    2. A `calendar_disconnect` present together with a non-empty
+       (stripped) `calendar_url` is contradictory: the operator has
+       asked to disconnect and to connect in the same submission, and
+       there is no defensible guess at which one they meant. Resolves
+       invalid rather than picking one.
+    3. A `calendar_disconnect` present (and clearing gate 2) resolves
+       clear.
+    4. An empty (or whitespace-only, or absent) `calendar_url` with no
+       checkbox resolves carry-forward — THE branch the whole checkbox
+       exists to make possible (D-07). D-01/D-02 make the field
+       write-only, so it renders empty on EVERY page load regardless of
+       state; an unrelated Settings save (changing a theme, say) would
+       therefore submit it empty too. Treating that as a disconnect
+       signal would disconnect the calendar on every save that doesn't
+       touch the calendar at all — this is the exact defect D-07 exists
+       to correct in D-04's original wording.
+    5. A stripped `calendar_url` longer than `CALENDAR_URL_MAX_LEN`
+       resolves invalid — a shape bound against an absurd paste, not a
+       second definition of an acceptable URL (see CALENDAR_URL_MAX_LEN's
+       own comment).
+    6. Otherwise resolves set.
+
+    Never raises, and never itself calls `calendar_rules.save_calendar_
+    url()` — resolving the signal and acting on it are deliberately two
+    separate steps so `handle_post()` can gate the persistence call
+    behind the OTHER fields' validation first (the all-or-nothing
+    contract) without this function needing to know about them.
+    """
+    raw_url = form.get("calendar_url")
+    stripped_url = raw_url.strip() if isinstance(raw_url, str) else ""
+    disconnect = form.get("calendar_disconnect")
+
+    if disconnect is not None and disconnect != CALENDAR_DISCONNECT_CHECKBOX_VALUE:
+        return CALENDAR_URL_SIGNAL_INVALID
+    if disconnect is not None and stripped_url:
+        return CALENDAR_URL_SIGNAL_INVALID
+    if disconnect is not None:
+        return CALENDAR_URL_SIGNAL_CLEAR
+    if not stripped_url:
+        return CALENDAR_URL_SIGNAL_CARRY_FORWARD
+    if len(stripped_url) > CALENDAR_URL_MAX_LEN:
+        return CALENDAR_URL_SIGNAL_INVALID
+    return CALENDAR_URL_SIGNAL_SET
 
 
 def handle_post(form, ctx):
@@ -1686,6 +1883,40 @@ def handle_post(form, ctx):
     would silently break the clear path. The result is passed as one more
     keyword argument on the same, still-singular persistence call below;
     the all-or-nothing rejection contract is unchanged.
+
+    Phase 17 plan 03 (D-01/D-02/D-07) adds `calendar_url` and
+    `calendar_disconnect`, resolved by `submitted_calendar_signal()`
+    above into exactly one of four outcomes rather than inline here, so
+    plan 17-04's request handler can share the identical resolution. An
+    `invalid` outcome joins the other membership gates below and rejects
+    the whole save before `save_device_config()` is ever called — same
+    all-or-nothing contract. The other three outcomes are acted on only
+    AFTER that call succeeds, and only `set`/`clear` ever call
+    `calendar_rules.save_calendar_url()` — `carry_forward` calls it not
+    at all, because every successful call to that writer erases the
+    fetched calendar registry (D-04/D-05), and calling it on a save that
+    never touched the calendar field would silently wipe the calendar's
+    flights on every unrelated settings change.
+
+    This checkbox's polarity is the deliberate INVERSE of
+    `theme_arriving_enabled`'s just above: that one is rendered checked
+    when the override is set and its ABSENCE from the submission means
+    clear; `calendar_disconnect` is rendered unchecked always and its
+    PRESENCE means clear. The direction is deliberately the safe one —
+    doing nothing is the default — because D-01/D-02 make the calendar
+    URL field write-only, so it is empty on every single page load
+    regardless of state; an absent-means-clear checkbox here (copying
+    `theme_arriving_enabled`'s own polarity instead of inverting it)
+    would disconnect the calendar on every save that doesn't touch it.
+
+    The device-config write goes first, unchanged from every save that
+    touches no calendar field, and the secret write is layered after it
+    deliberately: this leaves a narrow window in which the device config
+    has been written but the secret write then fails, but the operator
+    sees the generic failure flash and can simply retry, and the
+    alternative — writing the secret first — would perturb the ordering
+    of every save in this handler, existing or new, to close a window
+    that only opens when the state directory is already failing.
     """
     state_dir = ctx["state_dir"]
     submitted_theme = form.get("theme")
@@ -1699,8 +1930,16 @@ def handle_post(form, ctx):
     submitted_wake_interval = form.get("wake_interval_s")
     submitted_display = form.get("display_enabled")
     submitted_calendar_theme_id = form.get("calendar_theme_id")
+    submitted_calendar_url = form.get("calendar_url")
+    calendar_signal = submitted_calendar_signal(form)
 
     if submitted_theme is not None and submitted_theme not in device_config.THEME_IDS:
+        return FLASH_SAVE_FAILED
+    # Phase 17 plan 03 (D-07): the resolver's own `invalid` outcome joins
+    # every other membership/shape gate here, before any write — a
+    # crafted checkbox value, a contradictory URL+checkbox submission,
+    # and an over-length URL are all rejected the identical way.
+    if calendar_signal == CALENDAR_URL_SIGNAL_INVALID:
         return FLASH_SAVE_FAILED
     # Phase 16 (16-05-PLAN.md, T-16-TAMPER's HTTP-layer half): same
     # membership-test shape as theme/theme_arriving above. A non-member
@@ -1772,4 +2011,29 @@ def handle_post(form, ctx):
             calendar_theme_id=submitted_calendar_theme_id)
     except (ValueError, OSError):
         return FLASH_SAVE_FAILED
+
+    # Phase 17 plan 03 (D-01/D-02/D-04/D-05/D-07): the secret write is
+    # layered AFTER the device-config write above, and only on the two
+    # outcomes that actually touch the calendar URL. `carry_forward`
+    # calls calendar_rules.save_calendar_url() not at all — every
+    # successful call to it erases the fetched calendar registry, so
+    # calling it on a save that never touched the calendar field would
+    # silently wipe the calendar's flights on every unrelated settings
+    # change (T-17-PRIV). This ordering leaves a narrow window in which
+    # the device config has been written but this call then fails; the
+    # operator sees the generic failure flash and can retry, which is
+    # the cheaper trade against perturbing the ordering of every save in
+    # this handler to close a window that only opens when the state
+    # directory is already failing.
+    if calendar_signal == CALENDAR_URL_SIGNAL_CLEAR:
+        if not calendar_rules.save_calendar_url(
+                state_dir, calendar_rules.CLEAR_CALENDAR_URL):
+            return FLASH_SAVE_FAILED
+    elif calendar_signal == CALENDAR_URL_SIGNAL_SET:
+        if not calendar_rules.save_calendar_url(
+                state_dir, submitted_calendar_url.strip()):
+            return FLASH_SAVE_FAILED
+    # calendar_signal == CALENDAR_URL_SIGNAL_CARRY_FORWARD: no call at
+    # all (see docstring/comment above).
+
     return FLASH_SAVED

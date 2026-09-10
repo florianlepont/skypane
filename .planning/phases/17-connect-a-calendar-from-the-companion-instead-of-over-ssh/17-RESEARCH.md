@@ -642,7 +642,18 @@ not kept as a fallback (D-03 explicitly rejected a precedence-ordered override).
 Patterns 1-4); the two `[ASSUMED]`-flavoured items above are UI/UX design choices explicitly left
 to discretion by `17-CONTEXT.md`, not unverified facts.
 
-## Open Questions
+## Open Questions (ALL RESOLVED 2026-09-09)
+
+> **Resolved after this document was written.** All three were settled in
+> `17-CONTEXT.md` § *Amendments after research (2026-09-09)* and are implemented in the plans;
+> the text below is kept as the reasoning that produced the questions, not as open work.
+>
+> | Question | Resolution | Where |
+> |---|---|---|
+> | 1 — what control says "disconnect" | **D-07**: a checkbox rendered only when connected, unchecked by default; its *presence* disconnects. Mirror image of `theme_arriving`, whose box is rendered checked and whose *absence* clears. | `17-03-PLAN.md` |
+> | 2 — tri-state accessor vs a second narrow one | **D-08**: `calendar_is_configured()` keeps returning a genuine `bool` (a status string would read truthy at every existing call site); a narrow second predicate answers "off *because* the mode drifted". | `17-01`, `17-02` |
+> | 3 — reuse `_POLL_LOCK` or a new lock | **D-09**: reuse `_POLL_LOCK` with its non-blocking acquire, since `_WRITE_LOCK` guards only the write and not the read-modify-write interval. | `17-04-PLAN.md` |
+
 
 1. **What exact control lets the operator say "disconnect" when the text field is, and always
    looks, empty?**

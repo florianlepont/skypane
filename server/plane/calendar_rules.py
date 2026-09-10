@@ -56,21 +56,36 @@ or a description. D-03's rolling window (plan 16-03) is what bounds how
 long that minimum is retained; this plan's job is to make sure the minimum
 itself is never exceeded even before a registry exists to expire it from.
 """
+import contextlib
+import errno
 import ipaddress
 import json
 import math
 import os
 import re
 import socket
+import stat
 import sys
 import threading
 import time
 from datetime import datetime, timezone
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlunparse
 
 import requests
 
 from server import device_config
+
+# CR-01 fix: `fcntl.flock()` is the cross-process lock `_calendar_registry_
+# lock()` below is built on. POSIX-only — present on both of this project's
+# real targets (Linux in production, macOS in development) but absent on
+# Windows, which this project does not target. Imported defensively rather
+# than assumed, so a future port to an unsupported platform degrades (see
+# `_calendar_registry_lock()`'s own comment) instead of failing at import
+# time.
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - not exercised on this project's targets
+    fcntl = None
 
 # --- Constants -------------------------------------------------------------
 
@@ -91,16 +106,65 @@ USER_AGENT = (
 # until plan 16-03 adds the load/save functions.
 CALENDAR_RULES_FILENAME = "calendar_rules.json"
 
-# This phase's first runtime secret outside companion/auth.py. Its VALUE
-# never leaves this module and never reaches a log line, a page, or
-# state_dir (T-16-SECRET) — only its presence is ever surfaced elsewhere
-# (companion/app.py's env_wake_interval_default()-style fail-open check).
-CALENDAR_URL_ENV_VAR = "SKYPANE_CALENDAR_ICS_URL"
+# Phase 17's on-disk home for this secret (D-01/D-03). The environment
+# variable that used to carry this value is retired outright, name and
+# all — this file is now the only source, and nothing in this module
+# reads the process environment for it under any name. Holds a
+# subscription credential — the operator's calendar feed URL — so
+# it lives inside `state_dir` like every other piece of durable state:
+# neither `deploy/skypane-companion.service` nor `deploy/skypane-poll.service`
+# needs a new `ReadWritePaths=` entry, both already declare this path. And
+# because `deploy/deploy.sh` rsyncs `server/` with `--delete` while
+# excluding the state directory, this file survives a redeploy the same
+# way `calendar_rules.json`, `manual_resolutions.json` and
+# `device_config.json` already do. See `save_calendar_url()` below for why
+# this is the one file in this module whose mode is not a umask default.
+CALENDAR_SECRET_FILENAME = "calendar_url.secret"
+
+# CR-01 fix: the dedicated file `_calendar_registry_lock()` below takes an
+# `fcntl.flock()` on. Deliberately a THIRD name, distinct from both
+# CALENDAR_RULES_FILENAME and CALENDAR_SECRET_FILENAME — it holds no data
+# of its own (its content, if any, is never read), so its mode does not
+# need to match the secret's 0600, but it must never collide with either
+# real path or a lock taken on one file would silently also gate the
+# other.
+CALENDAR_REGISTRY_LOCK_FILENAME = "calendar_rules.lock"
+
+# Identity-compared clear sentinel (D-05), copied from
+# `device_config.CLEAR_THEME_ARRIVING`'s shape verbatim: "clear the stored
+# value" cannot be expressed by `None`, since `None` already means
+# "not supplied, carry forward" everywhere on this write path. Consumed
+# only by `save_calendar_url()`'s branch below, compared by `is` and never
+# by equality, never parsed, never persisted, and never returned to any
+# caller — so no value a crafted request could carry can ever collide
+# with it.
+CLEAR_CALENDAR_URL = object()
 
 # Mirrors colour_rules.COLOUR_RULE_MAX_ENTRIES's role: a hard bound against
 # a hostile/malformed feed, not a plausible one — a real 48h roster window
-# measured well under ten events (16-CONTEXT.md finding 1).
+# measured well under ten events (16-CONTEXT.md finding 1). This bounds
+# what may SURVIVE D-03's rolling retention window — see
+# select_window_entries() and _rebuild_capped_entries() below — never raw
+# feed/file order. Applying it before the window was UAT-02's bug: see
+# CALENDAR_MAX_RAW_EXAMINED immediately below for the distinct bound that
+# now guards the pre-window stage instead.
 CALENDAR_MAX_ENTRIES = 200
+
+# UAT-02 fix: a generous ceiling on how many raw candidates (VEVENT blocks
+# in parse_ics_events(), raw registry-file entries in
+# _rebuild_capped_entries()) are ever examined BEFORE CALENDAR_MAX_ENTRIES
+# above is applied — and applied only to what survives D-03's retention
+# window, never to raw feed/file order. This is a distinct, DoS-only bound
+# from CALENDAR_MAX_ENTRIES: the fix for UAT-02 was discovering that a real
+# feed listing history before future events made the OLD cap-in-raw-order
+# behaviour discard every future flight, because the 200-entry cap filled
+# up on historical events before the window ever got a chance to run. The
+# developer's own subscription feed (16-CONTEXT.md's real-data
+# measurement) carried 1074 real candidate entries across 1958 VEVENTs —
+# comfortably inside this ceiling, so a legitimate feed/file is now
+# examined in full; a pathological one (parsing note: "1e6 would not be
+# fine") is still bounded.
+CALENDAR_MAX_RAW_EXAMINED = 5000
 
 # Minimum seconds between fetch *attempts* (plan 16-04's throttle). A crew
 # roster is republished at most a few times a day; 30 minutes tracks that
@@ -174,7 +238,112 @@ FETCH_FAILED = "fetch_failed"
 # request threads. The lock still wraps the entire load-check-mutate-write
 # sequence, not just the final atomic replace, so a future second writer
 # can never appear without this module already being race-safe against it.
+#
+# IN-01 (Phase 17 review): that "single writer" framing is about
+# in-process request threads only — it does NOT mean this lock serializes
+# against this module's actual second writer, which has existed since
+# this file was written: `skypane-poll.service`'s own, separate OS
+# process calling `refresh_calendar_registry()` versus
+# `skypane-companion.service`'s own, separate OS process calling
+# `save_calendar_url()`. A `threading.Lock` cannot ever be visible across
+# two processes, no matter how it is reused or renamed — this lock only
+# ever protects the final tmp-write against a same-process caller. The
+# lock that actually closes the cross-process race (CR-01) is
+# `_calendar_registry_lock()` immediately below, acquired around the
+# ENTIRE read-modify-write sequence in both `refresh_calendar_registry()`
+# and `save_calendar_url()`, not just the final replace.
 _WRITE_LOCK = threading.Lock()
+
+# CR-01 fix: bounded wait for `_calendar_registry_lock()` below. Set
+# comfortably above `CALENDAR_FETCH_TIMEOUT_S` (10.0s) — the longest a
+# legitimate holder should ever keep the lock is one `fetch_ics()` call
+# plus a small JSON write — so a save arriving mid-poll-cycle almost
+# always succeeds once the poll cycle's own fetch finishes, rather than
+# failing on a lock that would have come free moments later.
+CALENDAR_REGISTRY_LOCK_TIMEOUT_S = 15.0
+CALENDAR_REGISTRY_LOCK_POLL_S = 0.05
+
+
+def _calendar_registry_lock_path(state_dir):
+    return os.path.join(state_dir, CALENDAR_REGISTRY_LOCK_FILENAME)
+
+
+@contextlib.contextmanager
+def _calendar_registry_lock(state_dir):
+    """Cross-process advisory lock over calendar_rules.json's ENTIRE
+    read-modify-write sequence (CR-01 fix).
+
+    Why `_WRITE_LOCK` above cannot do this job: `skypane-poll.service`
+    (`server/poll_loop.py`, a oneshot fired every 30s by its own systemd
+    timer) and `skypane-companion.service` (`companion/app.py`, a
+    long-running `ThreadingHTTPServer`) are two separate OS processes,
+    each with its own Python interpreter and its own, unrelated copy of
+    every module-level `threading.Lock()` in this file. A
+    `threading.Lock` can only ever exclude other THREADS inside the SAME
+    process's memory; it is invisible to a second process entirely, no
+    matter how it is named, reused, or how confidently a docstring
+    elsewhere claims otherwise (see the corrected comment on `_WRITE_LOCK`
+    above, and D-09's corrected comment in `companion/app.py`).
+    `fcntl.flock()` is a kernel-level primitive keyed on the lock file
+    itself, so it is one of the few primitives genuinely shared by both
+    services — both already run as the same `skypane` user against the
+    same `state_dir` (`deploy/skypane-companion.service` and
+    `deploy/skypane-poll.service`'s shared `ReadWritePaths=`).
+
+    POSIX-only (`fcntl` is not available on Windows — see the import
+    guard at the top of this module). Fine for this project's two real
+    targets, Linux in production and macOS in development; a Windows
+    port would need a different primitive (e.g. `msvcrt.locking`). On a
+    platform without `fcntl` this degrades to no locking at all rather
+    than raising at import time — a known, accepted gap for a platform
+    this project does not ship to, not a silent guarantee that the race
+    is closed there too.
+
+    Acquisition is bounded, never blocking forever: polls for the lock
+    every `CALENDAR_REGISTRY_LOCK_POLL_S` up to
+    `CALENDAR_REGISTRY_LOCK_TIMEOUT_S`, then raises `TimeoutError` rather
+    than proceeding unlocked — proceeding unlocked on timeout would
+    silently reopen the exact race this lock exists to close. Both call
+    sites (`refresh_calendar_registry()` and `save_calendar_url()`) catch
+    this and degrade to their own existing failure contract (neither
+    function ever raises out to its caller) instead of letting it escape.
+    A stuck holder therefore costs the OTHER side at most
+    `CALENDAR_REGISTRY_LOCK_TIMEOUT_S` seconds — it can never wedge the
+    poll loop or an HTTP request indefinitely.
+
+    Released in a `finally`, on every path including an exception raised
+    by the caller's own body inside the `with` block.
+    """
+    if fcntl is None:
+        # No cross-process primitive on this platform. Fall through
+        # unlocked — a documented gap (see docstring above), not a crash.
+        yield
+        return
+
+    os.makedirs(state_dir, exist_ok=True)
+    path = _calendar_registry_lock_path(state_dir)
+    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        deadline = time.monotonic() + CALENDAR_REGISTRY_LOCK_TIMEOUT_S
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError as exc:
+                if exc.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        "calendar_rules: timed out waiting for the cross-process "
+                        "registry lock at %r" % (path,)
+                    )
+                time.sleep(CALENDAR_REGISTRY_LOCK_POLL_S)
+        try:
+            yield
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
 
 # --- Compiled positive allowlists ------------------------------------------
 #
@@ -387,9 +556,18 @@ def parse_ics_events(raw_text):
     text can ever reach the returned list (T-16-INPUT, D-03's privacy
     reasoning).
 
-    Accumulation stops the instant `CALENDAR_MAX_ENTRIES` surviving
+    Accumulation stops the instant `CALENDAR_MAX_RAW_EXAMINED` surviving
     entries have been collected; nothing past that point is parsed at
-    all. Rejections are counted in two separate, mutually exclusive
+    all. This is a DoS-only bound, deliberately far above any plausible
+    feed size (UAT-02) — capping this loop at the SMALLER
+    `CALENDAR_MAX_ENTRIES` was the bug a real Apple Calendar feed exposed:
+    a real feed lists history before future events, so a 200-entry cap
+    applied here, before this function's caller ever windows the result
+    (`select_window_entries()`), silently discarded every future flight.
+    `CALENDAR_MAX_ENTRIES` is still enforced — just downstream, by
+    `select_window_entries()`, and only against what survives D-03's
+    retention window rather than raw feed order. Rejections are counted
+    in two separate, mutually exclusive
     buckets — `"date_form"` (CORRECTION 2's tripwire class) and `"other"`
     (everything else) — and when either count is non-zero, exactly one
     line naming both counts (never a rejected value, never a DTSTART,
@@ -460,7 +638,7 @@ def parse_ics_events(raw_text):
                 in_event = False
                 current = None
                 nested_depth = 0
-                if len(entries) >= CALENDAR_MAX_ENTRIES:
+                if len(entries) >= CALENDAR_MAX_RAW_EXAMINED:
                     break
                 continue
 
@@ -502,42 +680,101 @@ def calendar_rules_path(state_dir):
     return os.path.join(state_dir, CALENDAR_RULES_FILENAME)
 
 
-def calendar_is_configured():
-    """Return whether `CALENDAR_URL_ENV_VAR` is set to a non-blank value,
-    as a genuine `bool` — never the value itself.
+def calendar_secret_path(state_dir):
+    """Join `state_dir` and `CALENDAR_SECRET_FILENAME`.
 
-    Reads the environment on every call through `os.environ.get()` —
-    nothing captured at import time — matching the shared per-call shape
-    of `auth.configured_password()` and `app.env_wake_interval_default()`.
+    The filename is a module constant, declared once above, and is never
+    derived from any caller-supplied value — a path-traversal payload
+    embedded in a submitted calendar URL is therefore structurally
+    impossible here, regardless of what content validation any caller of
+    `save_calendar_url()` performs upstream. Mirrors `calendar_rules_path()`.
+    """
+    return os.path.join(state_dir, CALENDAR_SECRET_FILENAME)
+
+
+def calendar_is_configured(state_dir):
+    """Return whether a calendar URL is on file at
+    `calendar_secret_path(state_dir)`, as a genuine `bool` — never the
+    value itself, never a richer status.
+
+    `return configured_calendar_url(state_dir) is not None` — the
+    explicit identity comparison, not a truthiness test on the return,
+    is what keeps this a genuine `bool` in all three reachable states:
+    configured, absent, and permission-drifted (D-08). A drifted file
+    resolves to the same `False` a genuinely absent one does — the
+    feature is off either way, which is true — because widening this
+    return into a status string would make every existing truthiness
+    test at every existing call site silently read a permission-drift
+    status as "configured". The one caller that needs to tell "off" from
+    "off *because* the mode drifted" apart is the Settings status line,
+    and it consults the separate, narrowly-scoped
+    `calendar_secret_mode_is_unsafe()` predicate for that, never this
+    one.
+
     This function exists precisely so a caller that only needs to render
     a configured-or-not status (companion/'s Settings status line, plan
     16-05) never touches the secret value: it must never be reimplemented
     as a truthiness test on `configured_calendar_url()`'s return inside a
     caller's own scope.
 
-    Uses `env_wake_interval_default()`'s fail-open shape, not
-    `configured_password()`'s fail-closed one: an absent calendar
-    variable is a designed, legitimate empty state (the feature is simply
-    off), not an auth failure.
+    An absent calendar is a designed, legitimate empty state (the
+    feature is simply off), not an auth failure — the same fail-open
+    register `configured_calendar_url()` below documents in full.
     """
-    raw = os.environ.get(CALENDAR_URL_ENV_VAR)
-    return bool(raw and raw.strip())
+    return configured_calendar_url(state_dir) is not None
 
 
-def configured_calendar_url():
-    """Return the stripped calendar URL, or `None`. The sole accessor of
+def configured_calendar_url(state_dir):
+    """Return the stripped calendar URL read from
+    `calendar_secret_path(state_dir)`, or `None`. The sole accessor of
     the value.
 
-    Reads the environment on every call; nothing captured at import time
-    and no module-level cache. The return value is this phase's first
-    secret outside `companion/auth.py` (T-16-SECRET): it must never be
-    logged, never interpolated into an exception message, never written
-    to `state_dir`, and never returned to `companion/` — `companion/`
-    calls `calendar_is_configured()` instead, which answers the presence
-    question without ever touching this value.
+    Reads the file on every call; nothing captured at import time and no
+    module-level cache — a mid-session change to the file, or to its
+    permissions, is visible on the very next call. Consults
+    `_calendar_secret_mode_is_safe()` FIRST, before the file is ever
+    opened, and returns `None` unless it is exactly `True` — the
+    `is not True` shape, so both the absent case (`None` from the guard)
+    and the drifted case (`False` from the guard) refuse through the
+    same branch without a second one. This ordering is load-bearing, not
+    incidental (D-02, T-17-DRIFT): checking the mode after opening the
+    file would mean the value was already read into the process's memory
+    by the time a drifted mode was noticed, which is exactly the outcome
+    the guard exists to prevent.
+
+    Only once the guard passes is the file opened, inside a `try`
+    catching `OSError` so a race between the guard and the open (the file
+    removed in between, say) fails the same way an absent file does. The
+    read content is stripped before being returned — not cosmetic: a
+    value read back from a file a human may later hand-edit routinely
+    picks up a trailing newline in a way an environment variable never
+    did, and an unstripped URL fails the fetch in a way that looks like a
+    bad feed rather than a formatting artifact.
+
+    The return value is this project's first on-disk secret outside
+    `companion/auth.py` (T-16-SECRET, T-17-SECRET): it must never be
+    logged, never interpolated into an exception message, and never
+    written anywhere else in `state_dir`. It is no longer true that this
+    value is "never returned to `companion/`" — that claim was true of
+    `companion/`'s own module code and false of the companion's process
+    even before this phase: `POST /poll-now` calls the poll cycle
+    in-process, and that cycle refreshes the calendar, which reads this
+    value. No process boundary ever existed here — all three systemd
+    units run as the same user and load the same environment file. The
+    honest property, carried forward from before this phase and true
+    after it, is narrower and does not depend on a process boundary: no
+    rendering, logging or flash call site anywhere under `companion/`
+    ever touches this value, even though the companion process now
+    legitimately both writes it (`save_calendar_url()`, plan 17-01) and
+    reads it (this function, via the in-process poll trigger).
     """
-    raw = os.environ.get(CALENDAR_URL_ENV_VAR)
-    if not isinstance(raw, str):
+    path = calendar_secret_path(state_dir)
+    if _calendar_secret_mode_is_safe(path) is not True:
+        return None
+    try:
+        with open(path) as fh:
+            raw = fh.read()
+    except OSError:
         return None
     stripped = raw.strip()
     return stripped or None
@@ -605,8 +842,9 @@ def _normalise_calendar_entry(entry):
 
 def _resolve_retention_now(now):
     """Resolve the retention clock for `_rebuild_capped_entries()`: return
-    `time.time()` for `None`, a `bool`, any non-`int`/`float` value, or a
-    non-finite (`NaN`/`+-Infinity`) value; otherwise return `float(now)`.
+    `time.time()` for `None`, a `bool`, any non-`int`/`float` value, a
+    non-finite (`NaN`/`+-Infinity`) value, or a finite value that still
+    cannot be converted to a UTC datetime; otherwise return `float(now)`.
 
     This guard exists because `select_window_entries()` itself returns
     `[]` for any `now` it cannot convert to a UTC datetime (an unparseable
@@ -618,49 +856,104 @@ def _resolve_retention_now(now):
     `_normalise_calendar_entry()`'s own bool-reject-then-finite-check
     discipline verbatim, for the identical reason that function already
     documents at its own `start_at`/`end_at` guard.
+
+    UF-16-05 closure (UAT-02): `math.isfinite()` alone is not enough. A
+    value like `1e300` is entirely finite yet still overflows
+    `datetime.fromtimestamp()` inside `select_window_entries()` — the
+    exact same silent-erasure failure mode as `NaN` or `+-Infinity`, just
+    reached through a different exception (`OverflowError` there, not the
+    `isfinite()` check here). This function is the one call site that
+    exists specifically to keep an absurd `now` from ever reaching that
+    conversion, so it now proves convertibility directly — with the same
+    `datetime.fromtimestamp(now, tz=timezone.utc)` call
+    `_window_filtered_entries()` uses — rather than trusting `isfinite()`
+    as a proxy for it.
     """
     if isinstance(now, bool) or not isinstance(now, (int, float)):
         return time.time()
     now = float(now)
     if not math.isfinite(now):
         return time.time()
+    try:
+        datetime.fromtimestamp(now, tz=timezone.utc)
+    except (OverflowError, OSError, ValueError):
+        return time.time()
     return now
 
 
 def _rebuild_capped_entries(raw_entries, context, now):
     """Rebuild every entry in `raw_entries` from scratch via
-    `_normalise_calendar_entry()`, stopping the instant `CALENDAR_MAX_ENTRIES`
-    survivors have accumulated, print — never raise — a one-line warning
-    naming `context`, the drop count and the cap when anything was
-    dropped (mirroring `load_colour_rules()`'s own `capped_remainder`
-    -accounted warning), and THEN reduce the survivors to D-03's rolling
-    window via `select_window_entries()` — the sole implementation of the
-    window's two edges; this helper never recomputes the day-start edge,
-    the forward edge, or `CALENDAR_WINDOW_FORWARD_S` itself. `now` is a
-    REQUIRED third positional argument (not defaulted) so a future caller
-    can never silently skip the window; a hostile or absent value is
-    resolved to real current time by `_resolve_retention_now()` before it
-    ever reaches `select_window_entries()`.
+    `_normalise_calendar_entry()`, apply D-03's rolling window via
+    `_window_filtered_entries()` — the same edge-computation
+    `select_window_entries()` itself uses, never recomputed here — and
+    THEN cap the windowed survivors at `CALENDAR_MAX_ENTRIES`, printing
+    — never raising — a one-line warning naming `context` and the drop
+    count when anything genuinely anomalous was dropped (mirroring
+    `load_colour_rules()`'s own `capped_remainder`-accounted warning).
+    `now` is a REQUIRED third positional argument (not defaulted) so a
+    future caller can never silently skip the window; a hostile, absent,
+    or merely-absurd value is resolved to real current time by
+    `_resolve_retention_now()` before it ever reaches
+    `_window_filtered_entries()`.
+
+    **UAT-02 fix — order: window first, then cap.** Before this fix, the
+    cap was applied to `raw_entries` in raw file order BEFORE the window
+    ever ran: the loop stopped the instant `CALENDAR_MAX_ENTRIES`
+    survivors had accumulated, in whatever order `raw_entries` happened
+    to list them. Proven against the developer's own real Apple Calendar
+    subscription feed (1074 real candidate entries, spanning 2025-04 to
+    2026-09): a real feed lists history before future events, so the
+    surviving 200 were always the OLDEST 200 — every future flight sat
+    beyond the cap boundary and was discarded before the window (which
+    would have kept them) ever ran. The feature was structurally
+    incapable of ever surfacing a flight. The fix reorders this: every
+    examined raw entry that normalises cleanly is windowed FIRST, and
+    `CALENDAR_MAX_ENTRIES` is applied only to what survives the window —
+    the set that is actually relevant. **The cap is still fully
+    enforced** — a file with more than `CALENDAR_MAX_ENTRIES` entries
+    genuinely INSIDE the window is still truncated to the cap; only the
+    window's edges (never raw file position) decide which survive.
+
+    **Bounding raw examination is a separate concern from the cap.**
+    Normalising every one of `raw_entries` before windowing is unbounded
+    work in the one case this helper exists to defend against: an
+    operator hand-edited `calendar_rules.json` (T-16-INPUT). Rather than
+    resurrect the window-blind entry-cap this fix just removed, raw
+    examination is bounded generously above any plausible legitimate
+    registry size by `CALENDAR_MAX_RAW_EXAMINED` — only the first that
+    many raw entries are ever normalised, regardless of validity or
+    window membership. 1074 real entries is unremarkable and comfortably
+    inside that ceiling; a file with orders of magnitude more (the
+    hostile case) is still bounded.
 
     Three behaviours worth being explicit about, because each is a real
     consequence a future reader would otherwise trip over:
 
-    - **The window's own drops are deliberately NOT folded into the
-      drop-count warning above.** That warning classifies an anomaly
-      (malformed, unsafe, or beyond the cap). Routine expiry is this
-      feature's designed steady state, and `load_calendar_registry()`
-      runs on every companion page render — folding expiry into the same
-      warning would flood the journal on every read of a file more than a
-      day old and misclassify normal retention as a fault.
-    - **Order: cap first, then window.** The cap bounds work on a hostile
-      file; the window then applies only to what survived the cap. The
-      accepted cost is that a file whose in-window entries happen to sit
-      beyond the cap position yields fewer than `CALENDAR_MAX_ENTRIES` —
-      that is the hostile-file bound doing its job, not a defect.
-    - **Sort.** `select_window_entries()` returns its result sorted
-      ascending by `start_at`, so both this helper's return value and
-      (via `write_calendar_registry()`) the persisted file are now always
-      sorted — previously both preserved file/caller order.
+    - **The drop-count warning now covers three genuinely anomalous
+      cases, and only those.** Malformed/unsafe entries, raw entries
+      beyond the `CALENDAR_MAX_RAW_EXAMINED` examination ceiling, and
+      well-formed IN-WINDOW entries that were still cut by the
+      `CALENDAR_MAX_ENTRIES` cap — the last of these is `len()`-derived
+      from `_window_filtered_entries()`'s own uncapped return, never a
+      recomputed edge. Being outside the window is deliberately NOT
+      folded into this count. That is this feature's designed steady
+      state, and `load_calendar_registry()` runs on every companion page
+      render — folding routine expiry into the same warning would flood
+      the journal on every read of a file more than a day old and
+      misclassify normal retention as a fault. This is what "truthful"
+      means here: a calendar simply containing history must never print
+      a scary warning; a hand-edited file with too many raw entries, or
+      one that still overflows the cap after windowing, should.
+    - **Sort.** `_window_filtered_entries()` (via `select_window_entries()`
+      -equivalent ordering) returns its result sorted ascending by
+      `start_at`, so both this helper's return value and (via
+      `write_calendar_registry()`) the persisted file are always sorted.
+    - **UF-16-05 closure.** `_resolve_retention_now()` now proves `now`
+      is actually convertible to a UTC datetime, not merely finite — see
+      that function's own docstring. A `None`, non-finite, OR
+      finite-but-absurd (`1e300`) `now` all resolve to real current time
+      before reaching the window, so none of them can erase a populated
+      registry; they can only ever trim it.
 
     A non-list `raw_entries` (a hand-edited file whose `entries` key is
     not a list) returns an empty list without printing, since there is
@@ -671,29 +964,33 @@ def _rebuild_capped_entries(raw_entries, context, now):
     if not isinstance(raw_entries, list):
         return []
 
+    examined = raw_entries[:CALENDAR_MAX_RAW_EXAMINED]
+    examined_remainder = len(raw_entries) - len(examined)
+
     survivors = []
     rejected = 0
-    capped_remainder = 0
-    for index, raw_entry in enumerate(raw_entries):
-        if len(survivors) >= CALENDAR_MAX_ENTRIES:
-            capped_remainder = len(raw_entries) - index
-            break
+    for raw_entry in examined:
         normalised = _normalise_calendar_entry(raw_entry)
         if normalised is None:
             rejected += 1
             continue
         survivors.append(normalised)
 
-    dropped = rejected + capped_remainder
+    resolved_now = _resolve_retention_now(now)
+    windowed_all = _window_filtered_entries(survivors, resolved_now)
+    cap_remainder = max(0, len(windowed_all) - CALENDAR_MAX_ENTRIES)
+
+    dropped = rejected + examined_remainder + cap_remainder
     if dropped:
         print(
-            "calendar_rules: %s dropped %d entr%s (malformed/unsafe, or "
-            "beyond the %d-entry cap)"
-            % (context, dropped, "y" if dropped == 1 else "ies", CALENDAR_MAX_ENTRIES),
+            "calendar_rules: %s dropped %d entr%s (malformed/unsafe, beyond "
+            "the %d-entry raw-examination ceiling, or beyond the %d-entry "
+            "cap after windowing)"
+            % (context, dropped, "y" if dropped == 1 else "ies",
+               CALENDAR_MAX_RAW_EXAMINED, CALENDAR_MAX_ENTRIES),
             file=sys.stderr,
         )
-    resolved_now = _resolve_retention_now(now)
-    return select_window_entries(survivors, resolved_now)
+    return windowed_all[:CALENDAR_MAX_ENTRIES]
 
 
 def load_calendar_registry(state_dir, now=None):
@@ -710,9 +1007,12 @@ def load_calendar_registry(state_dir, now=None):
     the parsed dict reused directly — re-applying the same allowlists
     `parse_ics_events()` applied at parse time, because this file is
     operator-inspectable on the VPS and a hand-edited entry is this
-    tier's tamper vector (T-16-INPUT). Accumulation stops at
-    `CALENDAR_MAX_ENTRIES` survivors, printing (never raising) a
-    one-line drop-count warning when anything was dropped.
+    tier's tamper vector (T-16-INPUT). Raw examination stops at
+    `CALENDAR_MAX_RAW_EXAMINED` entries (a DoS-only bound); the window is
+    applied to what survives THAT, and only the windowed result is capped
+    at `CALENDAR_MAX_ENTRIES` (UAT-02) — printing (never raising) a
+    one-line drop-count warning when anything genuinely anomalous was
+    dropped.
 
     `now` is D-03's retention clock, threaded through to
     `_rebuild_capped_entries()`, which applies D-03's rolling window
@@ -836,6 +1136,248 @@ def write_calendar_registry(state_dir, entries, last_attempt_at, last_synced_at,
     return True
 
 
+def save_calendar_url(state_dir, value, now=None):
+    """Write, replace, or clear the calendar subscription URL held at
+    `calendar_secret_path(state_dir)`. Returns a genuine `True`/`False`;
+    never raises — matching `write_calendar_registry()`'s own contract.
+
+    `value is CLEAR_CALENDAR_URL` (identity only — never a truthiness or
+    equality test, so the literal string `"CLEAR_CALENDAR_URL"` takes the
+    ordinary write branch, not this one) takes the clear branch and
+    removes the file, tolerating ONLY its own absence
+    (`FileNotFoundError`) — CR-02 fix: every other `OSError` (permission
+    denied, an immutable/read-only filesystem, ...) is a genuine removal
+    failure and must be reported as `False`, never silently converted
+    into a reported success the way a bare `except OSError: pass` did
+    before this fix. Any other value must be a `str` whose `.strip()` is
+    non-empty, or this function returns `False` immediately, having done
+    nothing at all — no registry erase, no file write, no attempt.
+
+    On the CLEAR branch, the fetched calendar registry is erased FIRST
+    (`write_calendar_registry(state_dir, [], None, None, now=now)`),
+    before the secret file is removed at all. This ordering is
+    load-bearing, not incidental: "disconnected" has to mean nothing of a
+    named person's schedule remains on the server (D-04), and doing the
+    erase afterwards would let a failure to remove the file leave a
+    disconnected calendar's flights on disk, exactly what D-04 forbids.
+    If the erase call itself returns `False`, this function returns
+    `False` without ever touching the secret file.
+
+    On the SET/replace branch, the order is reversed from the clear
+    branch on purpose (WR-01 fix): the NEW secret is written to a temp
+    file and that write is verified to succeed FIRST; only once it has,
+    the registry erase runs; only once THAT has succeeded does the final
+    `os.replace()` make the new URL live. Before this fix the erase ran
+    unconditionally before the secret write was even attempted, so a
+    local write failure (disk full, `state_dir` briefly unwritable) left
+    an already-working, still-connected calendar's just-erased flights
+    gone for no reason the operator could act on, while the URL itself
+    was untouched. Building and verifying the temp file first means a
+    failure there touches neither the old secret nor the old registry —
+    the call returns `False` having done nothing observable at all,
+    matching every other rejected/failed path in this function. D-05's
+    guarantee (no window with a new calendar's URL configured beside the
+    previous calendar's flights) still holds: the erase still happens
+    before the atomic rename that makes the new URL live, and for the
+    whole duration of this function the cross-process registry lock
+    below excludes any other reader or writer from observing an
+    intermediate state at all.
+
+    Acquires `_calendar_registry_lock()` (CR-01 fix) around the entire
+    erase-then-write/write-then-erase sequence above — a cross-process,
+    `fcntl`-based lock, NOT `_WRITE_LOCK`. `write_calendar_registry()`
+    already acquires
+    `_WRITE_LOCK` itself for its own final tmp-write, and that lock is
+    non-reentrant, so taking it a second time here would deadlock the
+    process on the first save; `_calendar_registry_lock()` is a
+    different, dedicated lock file for exactly this reason, in addition
+    to being the one primitive that is visible to
+    `skypane-poll.service`'s own separate process — the actual second
+    writer this function has always had to share the registry with. If
+    the lock cannot be acquired within `CALENDAR_REGISTRY_LOCK_TIMEOUT_S`,
+    the resulting `TimeoutError` is caught below and this function
+    returns `False` rather than let it escape — never blocking an HTTP
+    request indefinitely, matching this function's own never-raises
+    contract. The temporary secret filename still embeds the process id
+    and thread id, so two same-process concurrent callers never collide
+    on it even though the registry lock already serializes them.
+
+    The value itself must never be printed, logged, interpolated into an
+    exception message, or included in any string this module emits to
+    stderr — this function never does so, and the `except Exception`
+    branch below deliberately discards the exception rather than
+    formatting it.
+
+    UAT-discovered defect fix (17-REVIEW.md, filed 2026-09-10): the
+    SET/replace branch stores `_normalise_calendar_url(value.strip())`,
+    not the raw stripped input — a `webcal://` URL is written to disk
+    already rewritten to `https://`. Storing the normalised form (rather
+    than what the operator pasted) is deliberate: `calendar_group()`
+    (companion/pages/config_page.py) documents this field as write-only —
+    the stored value is never rendered back to the operator in any of its
+    four status states — so there is no UI cost to the two differing, and
+    the upside is real: every reader of `configured_calendar_url()`
+    (`fetch_ics()` via `refresh_calendar_registry()`, today, and any
+    future caller) sees a single canonical scheme rather than needing its
+    own copy of the `webcal` rewrite. `fetch_ics()` normalises again on
+    its own input regardless — seeded specifically for a
+    `calendar_rules.json`-adjacent secret file a human hand-edited
+    directly on the VPS (state_dir is operator-inspectable), which never
+    passed through this function at all.
+    """
+    if value is CLEAR_CALENDAR_URL:
+        clearing = True
+    elif isinstance(value, str) and value.strip():
+        clearing = False
+    else:
+        return False
+
+    path = calendar_secret_path(state_dir)
+
+    try:
+        with _calendar_registry_lock(state_dir):
+            if clearing:
+                if not write_calendar_registry(state_dir, [], None, None, now=now):
+                    return False
+                try:
+                    os.remove(path)
+                except FileNotFoundError:
+                    # Already absent - the one tolerated case the
+                    # docstring promises. Every OTHER OSError
+                    # (permission denied, an immutable/read-only
+                    # filesystem, ...) is a genuine failure and falls
+                    # through to the `except OSError: return False`
+                    # below rather than being swallowed here (CR-02 fix).
+                    pass
+                except OSError:
+                    return False
+                return True
+
+            # set/replace: build and VERIFY the new secret in a temp file
+            # BEFORE the registry erase runs (WR-01 fix - see docstring).
+            tmp = "%s.%d.%d.tmp" % (path, os.getpid(), threading.get_ident())
+            try:
+                os.makedirs(state_dir, exist_ok=True)
+                # COPY THIS SHAPE VERBATIM (tmp-naming, makedirs,
+                # os.replace, cleanup-on-exception) — but the file-open
+                # call is NOT `open(tmp, "w")` like every other state
+                # write in this codebase. Every other state write in
+                # this file inherits the process umask (0644 in
+                # practice). deploy/provision.sh puts `caddy` — the
+                # internet-facing reverse proxy's own account — in this
+                # file's group and sets setgid on the state directory,
+                # so a umask-created file here would be readable by that
+                # account. The mode is an argument to THIS call, the one
+                # that creates the file, rather than a follow-up
+                # os.chmod(), because applying it afterwards leaves a
+                # window in which the file exists at the wider bits.
+                # os.replace() below preserves the SOURCE file's mode
+                # and silently discards the destination's, so the
+                # temporary file's mode set here is the only one that
+                # matters — getting it wrong produces no visible symptom
+                # at all.
+                # _normalise_calendar_url() rewrites only a `webcal://`
+                # scheme to `https://` (see its own docstring) - every
+                # other value, including an already-`https://` one,
+                # round-trips through it completely unchanged. See this
+                # function's own docstring for why the NORMALISED form is
+                # what gets stored.
+                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                with os.fdopen(fd, "w") as fh:
+                    fh.write(_normalise_calendar_url(value.strip()))
+            except Exception:
+                if os.path.exists(tmp):
+                    try:
+                        os.remove(tmp)
+                    except OSError:
+                        pass
+                return False
+
+            # The new secret is verified-written and durable at `tmp` -
+            # only now does the previous calendar's registry get erased
+            # (WR-01 fix).
+            if not write_calendar_registry(state_dir, [], None, None, now=now):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                return False
+
+            try:
+                os.replace(tmp, path)
+            except OSError:
+                if os.path.exists(tmp):
+                    try:
+                        os.remove(tmp)
+                    except OSError:
+                        pass
+                return False
+
+            return True
+    except TimeoutError:
+        # The cross-process registry lock could not be acquired within
+        # CALENDAR_REGISTRY_LOCK_TIMEOUT_S - report the honest failure
+        # rather than let TimeoutError escape this function's
+        # never-raises contract, and never proceed unlocked.
+        return False
+
+
+def _calendar_secret_mode_is_safe(path):
+    """Read `path`'s permission bits without ever opening its contents.
+
+    Returns one of three distinguishable values, not a plain bool:
+    `None` when `os.stat()` raises `OSError` — the file is simply absent,
+    which is not a permission problem at all; `True` when
+    `stat.S_IMODE(os.stat(path).st_mode)` shares no bit with
+    `stat.S_IRWXG | stat.S_IRWXO` (owner-only); `False` otherwise (any
+    group or other bit set).
+
+    The absent case is kept as a distinct third value, not folded into
+    either boolean, because a caller reporting status to the operator
+    (plan 17-02's read path, and `calendar_secret_mode_is_unsafe()` below)
+    has to be able to tell "the feature is off" apart from "the feature
+    is off *because* something on the server changed" — collapsing the
+    two here would make that distinction impossible one level up.
+    """
+    try:
+        mode = stat.S_IMODE(os.stat(path).st_mode)
+    except OSError:
+        return None
+    return not (mode & (stat.S_IRWXG | stat.S_IRWXO))
+
+
+def calendar_secret_mode_is_unsafe(state_dir):
+    """`True` only when the secret file exists AND its permission bits
+    carry any group or other bit. `False` both when the file is
+    owner-only and when it does not exist at all (D-02, D-08).
+
+    The `is False` comparison against `_calendar_secret_mode_is_safe()`'s
+    three-valued result is deliberate and must never be relaxed to a bare
+    negation: `not None` is `True` in Python, so negating the helper's
+    result would report an absent file as a permission problem, which is
+    exactly wrong.
+
+    This predicate deliberately stays narrow rather than becoming a
+    second way to answer "is the calendar configured?". Widening
+    `calendar_is_configured()` from a bool into a status string would
+    make every existing truthiness test at every existing call site
+    silently read a permission-drift status as "configured" — a
+    non-empty string is truthy — which is the exact failure D-02 exists
+    to prevent. So `calendar_is_configured()` keeps its boolean contract
+    and answers `False` for a drifted file (the feature genuinely is
+    off, which is true), and this second, deliberately narrow predicate
+    exists to answer one further question for one caller — the Settings
+    status line: "off *because* of drift?" It must not acquire additional
+    callers or additional return shapes.
+
+    Deliberately does NOT repair the mode. A silent re-tightening would
+    destroy the only evidence that the secret was ever exposed, and the
+    value may already have been read by whoever widened it — the
+    operator has to be told, not quietly rescued.
+    """
+    return _calendar_secret_mode_is_safe(calendar_secret_path(state_dir)) is False
+
+
 # --- Rolling window and throttle (plan 16-03, D-03) -------------------------
 
 
@@ -884,6 +1426,48 @@ def calendar_fetch_is_due(last_attempt_at, now, min_interval_s=None):
     return elapsed >= min_interval_s
 
 
+def _window_filtered_entries(entries, now):
+    """Shared window-filter-and-sort core behind `select_window_entries()`
+    below: the start of the current UTC day through
+    `now + CALENDAR_WINDOW_FORWARD_S`, sorted ascending by `start_at`.
+    Deliberately NOT capped at `CALENDAR_MAX_ENTRIES` — callers apply that
+    themselves, `select_window_entries()` by slicing its return, and
+    `_rebuild_capped_entries()` by both slicing AND counting how much the
+    slice cut, for its truthful drop-count warning (UAT-02). Splitting
+    this out is what keeps `select_window_entries()` "the sole
+    implementation of the window's two edges" true in fact as well as in
+    name: `_rebuild_capped_entries()` needs the pre-cap count, but must
+    never recompute the day-start edge, the forward edge, or
+    `CALENDAR_WINDOW_FORWARD_S` itself to get it.
+
+    Never mutates `entries`. Never raises — a malformed entry is skipped,
+    not propagated.
+    """
+    if not isinstance(entries, list):
+        return []
+
+    try:
+        now_dt = datetime.fromtimestamp(now, tz=timezone.utc)
+        day_start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    except (OverflowError, OSError, ValueError, TypeError):
+        return []
+    forward_edge = now + CALENDAR_WINDOW_FORWARD_S
+
+    kept = []
+    for entry in entries:
+        normalised = _normalise_calendar_entry(entry)
+        if normalised is None:
+            continue
+        if normalised["end_at"] < day_start:
+            continue
+        if normalised["start_at"] > forward_edge:
+            continue
+        kept.append(normalised)
+
+    kept.sort(key=lambda entry: entry["start_at"])
+    return kept
+
+
 def select_window_entries(entries, now):
     """Reduce `entries` to D-03's rolling window: the start of the current
     UTC day through `now + CALENDAR_WINDOW_FORWARD_S`. Returns a new
@@ -909,30 +1493,15 @@ def select_window_entries(entries, now):
     Privacy clause: a narrower window is strictly better here, because
     this file holds a named person's near-term work schedule on a VPS,
     and D-03 rejected mirroring the whole feed for exactly that reason.
+
+    This function's own contract (signature, ordering, sort guarantee) is
+    unchanged by UAT-02's fix — only its internal edge-computation moved
+    into the shared `_window_filtered_entries()` helper above, so every
+    existing caller (`refresh_calendar_registry()`,
+    `_rebuild_capped_entries()`, every test) sees byte-identical behaviour
+    for the same input.
     """
-    if not isinstance(entries, list):
-        return []
-
-    try:
-        now_dt = datetime.fromtimestamp(now, tz=timezone.utc)
-        day_start = now_dt.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-    except (OverflowError, OSError, ValueError, TypeError):
-        return []
-    forward_edge = now + CALENDAR_WINDOW_FORWARD_S
-
-    kept = []
-    for entry in entries:
-        normalised = _normalise_calendar_entry(entry)
-        if normalised is None:
-            continue
-        if normalised["end_at"] < day_start:
-            continue
-        if normalised["start_at"] > forward_edge:
-            continue
-        kept.append(normalised)
-
-    kept.sort(key=lambda entry: entry["start_at"])
-    return kept[:CALENDAR_MAX_ENTRIES]
+    return _window_filtered_entries(entries, now)[:CALENDAR_MAX_ENTRIES]
 
 
 # --- Bounded, SSRF-hardened fetch (plan 16-04, T-16-SSRF/T-16-DOS/T-16-SECRET) ----
@@ -1013,11 +1582,60 @@ def _host_is_safe(hostname, port=None):
     return True
 
 
+def _normalise_calendar_url(url):
+    """Rewrite a `webcal://` scheme to `https://`, leaving every other URL
+    (including one `urlparse()` cannot make sense of) completely
+    unchanged. Never raises.
+
+    UAT-discovered defect fix (17-REVIEW.md, filed 2026-09-10):
+    `webcal://` is not a distinct transport - it is the de-facto
+    convention Apple Calendar's own "Public Calendar" share links use to
+    mean "subscribe to this iCal feed"; the actual fetch behind it is an
+    ordinary HTTPS request. Before this fix, an operator pasting exactly
+    the URL Apple Calendar hands them failed `_url_is_safe()`'s
+    `parsed.scheme != "https"` check and got the generic sync-failure
+    message, with no indication the URL itself was fine.
+
+    This function is the ONLY place `webcal` is ever recognised, and it
+    runs strictly BEFORE `_url_is_safe()` - the gate itself is untouched
+    (still `parsed.scheme != "https"`, nothing added to that comparison).
+    Normalising upstream, rather than teaching the gate a second
+    acceptable scheme, keeps `_url_is_safe()` as the single, unweakened
+    arbiter of what is safe to fetch: every rule it already enforces
+    (https-only, a resolvable hostname, no private/link-local/reserved
+    address, re-applied per redirect hop) applies identically to a
+    `webcal://` URL once it reaches the gate as an ordinary `https://`
+    one.
+
+    Never maps `webcal` to plain `http`: `webcal://` implies TLS in
+    every calendar client that emits it, and the URL frequently carries
+    an access token in its query string, so silently downgrading it
+    would leak that token over an unencrypted connection. There is no
+    caller-facing way to ask for that downgrade - it is simply not a
+    mapping this function knows.
+    """
+    try:
+        parsed = urlparse(url)
+    except (ValueError, TypeError):
+        return url
+    if parsed.scheme.lower() != "webcal":
+        return url
+    return urlunparse(parsed._replace(scheme="https"))
+
+
 def _url_is_safe(url):
     """Return `True` only when `url`'s scheme is exactly `https`, it has a
     hostname, and `_host_is_safe()` accepts every address that hostname
     resolves to. Never raises - a URL `urlparse()` itself cannot make sense
     of is refused, not guessed at.
+
+    Deliberately does NOT recognise `webcal` itself (or any scheme other
+    than `https`) - see `_normalise_calendar_url()` immediately above,
+    which every caller reaching this gate (`fetch_ics()`, and
+    `save_calendar_url()`'s stored-form choice) already runs first. This
+    function staying a single, narrow `== "https"` comparison is what
+    keeps it the one place "acceptable scheme" is defined, rather than
+    letting that definition drift across two call sites.
     """
     try:
         parsed = urlparse(url)
@@ -1096,6 +1714,26 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
     path, or its query. This continues a rule this project already states
     for its one other runtime secret (`poll_loop.py`'s own docstring:
     never log a bearer token or the BYOS setup secret), not a new one.
+
+    UAT-discovered defect fix (17-REVIEW.md, filed 2026-09-10): `url` is
+    run through `_normalise_calendar_url()` exactly once, here, before
+    the redirect loop below ever starts - rewriting a `webcal://` scheme
+    to `https://` so `_url_is_safe()`'s own gate (unchanged, still
+    https-only) accepts it. This is the ONE choke point both callers that
+    can reach this function - the companion's save-time sync and
+    `poll_loop.py`'s regular cycle - already share via
+    `refresh_calendar_registry()`, so normalising here covers both
+    without either caller needing its own copy of this logic.
+    `save_calendar_url()` ALSO normalises before writing (so the common
+    case never round-trips a `webcal://` string through the state
+    directory at all); normalising again here is what still converts a
+    hand-edited `calendar_rules.json` secret file (state_dir is
+    operator-inspectable on the VPS) that was never written through
+    `save_calendar_url()`. Redirect targets discovered inside the loop
+    below are NOT separately normalised - a `Location` header is a live
+    HTTP response naming its own next hop, never a calendar-client
+    convention, so there is no legitimate `webcal://` shape to expect
+    there.
     """
     if timeout is None:
         timeout = CALENDAR_FETCH_TIMEOUT_S
@@ -1106,7 +1744,7 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
     if transport is None:
         transport = default_calendar_transport
 
-    current_url = url
+    current_url = _normalise_calendar_url(url)
     for _ in range(max_redirects + 1):
         if not _url_is_safe(current_url):
             return None
@@ -1178,7 +1816,7 @@ def fetch_ics(url, timeout=None, transport=None, max_redirects=None, max_bytes=N
 # delay a render and the 30-second poll oneshot's whole budget is short.
 
 
-def refresh_calendar_registry(state_dir, now, transport=None):
+def refresh_calendar_registry(state_dir, now, transport=None, min_interval_s=None):
     """Throttle, fetch, parse, window and persist the calendar registry for
     this poll cycle. Returns `(result_code, registry)`, where `registry` is
     always the dict the caller should use for this cycle - so a skipped or
@@ -1193,6 +1831,19 @@ def refresh_calendar_registry(state_dir, now, transport=None):
     poll timer fires every 30 seconds and the interval is
     `CALENDAR_FETCH_INTERVAL_S`, so all but roughly one cycle in sixty stops
     here; and at most one bounded `fetch_ics()` call otherwise.
+
+    `min_interval_s` is passed straight through to `calendar_fetch_is_due()`,
+    which already resolves `None` to `CALENDAR_FETCH_INTERVAL_S` on its own -
+    `None` is this function's default precisely so it preserves that
+    resolution rather than choosing a second, competing default. `server/
+    poll_loop.py`'s call passes nothing and therefore gets the standard
+    interval, byte-for-byte the same pacing it had before this parameter
+    existed. The only caller expected to pass anything else is the
+    Settings save (D-06): connecting a calendar shortly after an unrelated
+    poll cycle must not silently do nothing for up to half an hour, so
+    that one call site passes `min_interval_s=0` to bypass the throttle for
+    that single attempt. The poll loop's own throttle is otherwise
+    untouched.
 
     `last_attempt_at` updates on every attempt that actually happens
     (throttled-through and unconfigured cycles leave it untouched);
@@ -1237,61 +1888,74 @@ def refresh_calendar_registry(state_dir, now, transport=None):
     # poll_loop.run_once() (plan 16-07) can call it unconditionally and
     # never gain a new failure mode from this tier - defence in depth
     # against a future change to any callee above breaking that contract.
+    # This same `except Exception` is also what absorbs `TimeoutError`
+    # from `_calendar_registry_lock()` below (CR-01 fix) when the lock
+    # cannot be acquired within CALENDAR_REGISTRY_LOCK_TIMEOUT_S - a stuck
+    # holder degrades this cycle to FETCH_FAILED against whatever is
+    # durably on disk, exactly like any other failure this function
+    # already tolerates, rather than wedging the poll loop.
     try:
-        registry = load_calendar_registry(state_dir, now)
+        # CR-01 fix: the ENTIRE load-throttle-fetch-write sequence runs
+        # under the cross-process registry lock, not just the final
+        # write - a lock that only covered write_calendar_registry()'s
+        # own call would still let a concurrent save's erase land between
+        # this function's `load` and its own `write`, which is exactly
+        # the interleaving CR-01 found.
+        with _calendar_registry_lock(state_dir):
+            registry = load_calendar_registry(state_dir, now)
 
-        url = configured_calendar_url()
-        if url is None:
-            # Not a failing feed - a feature that is simply off. Leaving
-            # last_attempt_at untouched means the first fetch after the
-            # operator configures the feature runs immediately rather
-            # than waiting out a full throttle interval.
-            return FETCH_SKIPPED_UNCONFIGURED, registry
+            url = configured_calendar_url(state_dir)
+            if url is None:
+                # Not a failing feed - a feature that is simply off. Leaving
+                # last_attempt_at untouched means the first fetch after the
+                # operator configures the feature runs immediately rather
+                # than waiting out a full throttle interval.
+                return FETCH_SKIPPED_UNCONFIGURED, registry
 
-        if not calendar_fetch_is_due(registry["last_attempt_at"], now):
-            return FETCH_SKIPPED_THROTTLED, registry
+            if not calendar_fetch_is_due(registry["last_attempt_at"], now, min_interval_s):
+                return FETCH_SKIPPED_THROTTLED, registry
 
-        body = fetch_ics(url, transport=transport)
+            body = fetch_ics(url, transport=transport)
 
-        if body is None:
-            # A transient blip must not erase an otherwise-valid rolling
-            # window before its natural expiry - persist the EXISTING
-            # (already-windowed, per D-04 above) entries and
-            # last_synced_at unchanged, moving only last_attempt_at.
-            write_calendar_registry(
-                state_dir, registry["entries"], now, registry["last_synced_at"], now=now)
+            if body is None:
+                # A transient blip must not erase an otherwise-valid rolling
+                # window before its natural expiry - persist the EXISTING
+                # (already-windowed, per D-04 above) entries and
+                # last_synced_at unchanged, moving only last_attempt_at.
+                write_calendar_registry(
+                    state_dir, registry["entries"], now, registry["last_synced_at"], now=now)
+                result_registry = {
+                    "entries": registry["entries"],
+                    "last_attempt_at": now,
+                    "last_synced_at": registry["last_synced_at"],
+                }
+                print(
+                    "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
+                    % (FETCH_FAILED, len(result_registry["entries"])),
+                    file=sys.stderr,
+                )
+                return FETCH_FAILED, result_registry
+
+            parsed = parse_ics_events(body)
+            windowed = select_window_entries(parsed, now)
+            # An empty windowed result here is still success: a roster with
+            # nothing in the next 48 hours is a correct, legitimately empty
+            # window - distinguishable from a broken feed only by
+            # last_synced_at having moved.
+            last_synced_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            wrote_ok = write_calendar_registry(state_dir, windowed, now, last_synced_at, now=now)
             result_registry = {
-                "entries": registry["entries"],
+                "entries": windowed,
                 "last_attempt_at": now,
-                "last_synced_at": registry["last_synced_at"],
+                "last_synced_at": last_synced_at,
             }
+            result_code = FETCH_OK if wrote_ok else FETCH_FAILED
             print(
                 "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
-                % (FETCH_FAILED, len(result_registry["entries"])),
+                % (result_code, len(result_registry["entries"])),
                 file=sys.stderr,
             )
-            return FETCH_FAILED, result_registry
-
-        parsed = parse_ics_events(body)
-        windowed = select_window_entries(parsed, now)
-        # An empty windowed result here is still success: a roster with
-        # nothing in the next 48 hours is a correct, legitimately empty
-        # window - distinguishable from a broken feed only by
-        # last_synced_at having moved.
-        last_synced_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        wrote_ok = write_calendar_registry(state_dir, windowed, now, last_synced_at, now=now)
-        result_registry = {
-            "entries": windowed,
-            "last_attempt_at": now,
-            "last_synced_at": last_synced_at,
-        }
-        result_code = FETCH_OK if wrote_ok else FETCH_FAILED
-        print(
-            "calendar_rules: refresh_calendar_registry() result=%s entries=%d"
-            % (result_code, len(result_registry["entries"])),
-            file=sys.stderr,
-        )
-        return result_code, result_registry
+            return result_code, result_registry
     except Exception:
         # Defence in depth only - see the comment above. Fall back to
         # whatever is durably on disk rather than propagate.
