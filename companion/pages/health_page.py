@@ -855,13 +855,17 @@ _SPARKLINE_DENSE_POINT_THRESHOLD = _sparkline_dense_threshold(_SPARKLINE_NARROWE
 # human-verification list.
 _SPARKLINE_DENSE_HIT_RADIUS_PX = 4
 
-# 260902-l0b: a fixed, English month-abbreviation table, deliberately NOT
-# `datetime.strftime("%b")` — this app's own UI text is English
-# throughout regardless of the developer's own French (see this page's
-# other timestamp helpers' docstrings), and `%b` is locale-dependent: a
-# server process with any other locale active would silently render a
+# 260902-l0b: a fixed month-abbreviation table, deliberately NOT
+# `datetime.strftime("%b")` — `%b` is locale-dependent: a server
+# process with any other locale active would silently render a
 # French/German/etc. abbreviation here. A fixed table has no such
-# failure mode.
+# failure mode. This comment used to add "this app's own UI text is
+# English throughout" — that predates D-01 (20-01-PLAN.md) and no
+# longer describes this app; it is left English-only here as a
+# deliberate, narrow scope boundary of 20-03-PLAN.md Task 2, which
+# names only `layout.local_clock_text()`/`layout.relative_age_text()`
+# for D-07's language-aware date text, not this chart's own private
+# axis-label helper.
 _MONTH_ABBR = (
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
