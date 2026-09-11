@@ -207,6 +207,22 @@ RUNWAY_SECTION_CAPTION = (
 LED_SECTION_CAPTION = (
     "Lit only during the device's brief wake window, not visible from "
     "the wall side. Applies on the next scheduled poll.")
+
+# 19-11-PLAN.md Task 3 (D-12/A-30): stable DOM ids for the group headings
+# a radiogroup's aria-labelledby points at, and for each hint paragraph
+# an aria-describedby points at — constants here, never a literal at a
+# render site, matching this file's own convention (see e.g.
+# RUNWAY_IMAGE_ROUTE_PREFIX above). Only the groups that actually gain
+# `role="radiogroup"` (the two theme chip grids and the runway row) get
+# a *_GROUP_HEADING_ID; every hint below gets a *_CAPTION_ID/*_HINT_ID
+# regardless, since a hint can describe a single-control field too (a
+# checkbox, a time/number input, a <select>) with no radiogroup at all.
+THEME_SECTION_CAPTION_ID = "theme-caption"
+THEME_GROUP_HEADING_ID = "theme-group-heading"
+THEME_ARRIVING_GROUP_HEADING_ID = "theme-arriving-group-heading"
+RUNWAY_SECTION_CAPTION_ID = "runway-caption"
+RUNWAY_GROUP_HEADING_ID = "runway-group-heading"
+LED_SECTION_CAPTION_ID = "led-caption"
 POLL_SECTION_HEADING = "Manual refresh"
 POLL_SECTION_CAPTION = (
     "Manually trigger an immediate poll cycle instead of waiting for "
@@ -226,6 +242,9 @@ QUIET_HOURS_SECTION_HEADING = "Quiet hours"
 QUIET_HOURS_SECTION_CAPTION = (
     "Pauses the frame's wake, poll and display cycle overnight. Applies "
     "on the next scheduled poll, which may now be hours away.")
+# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
+# comment above.
+QUIET_HOURS_SECTION_CAPTION_ID = "quiet-hours-caption"
 
 # 19-10-PLAN.md (D-14/S-04): three one-tap presets, client-side only - no
 # server change (see quiet_hours_group()'s docstring). The Night preset's
@@ -264,6 +283,9 @@ WAKE_INTERVAL_SECTION_CAPTION = (
     "life and staler info at a glance. Applies on the next scheduled "
     "poll.")
 WAKE_INTERVAL_PLACEHOLDER_TEXT = "Uses server default"
+# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
+# comment above.
+WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 
 # 12-UI-SPEC.md Copywriting Contract, locked verbatim (D-02, 12-CONTEXT.md).
 # Unlike every other caption on this page, this one does not reuse the
@@ -278,6 +300,9 @@ DISPLAY_SECTION_CAPTION = (
     "Turns the physical panel off remotely, without touching the "
     "hardware. Takes effect within about 5 minutes, both switching off "
     "and back on.")
+# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
+# comment above.
+DISPLAY_SECTION_CAPTION_ID = "display-caption"
 
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
@@ -456,6 +481,10 @@ CALENDAR_THEME_FIELD_LABEL = "Theme"
 CALENDAR_THEME_HINT = (
     "Used only when a flight from the calendar happens to be the one on "
     "screen.")
+# 19-11-PLAN.md Task 3 (D-12/A-30): see THEME_SECTION_CAPTION_ID's own
+# comment above — these two calendar hints are per-field, not
+# group-level, but link to their control the identical way.
+CALENDAR_THEME_HINT_ID = "calendar-theme-hint"
 
 # Phase 17 plan 03 (D-01/D-02/D-07) — Claude's-discretion wording, final
 # once written, matching the locked Phase 16 register above: plain,
@@ -468,6 +497,7 @@ CALENDAR_URL_FIELD_LABEL = "Calendar feed URL"
 CALENDAR_URL_HINT = (
     "Your calendar's private iCal link. Stored on the server and never "
     "shown back here — pasting a new one replaces the old.")
+CALENDAR_URL_HINT_ID = "calendar-url-hint"
 # Names both halves of what disconnecting does (D-07): the operator
 # deserves to see the flights-deletion consequence before they act, not
 # discover it afterwards. 19-11-PLAN.md (D-08/A-26): the in-form checkbox
@@ -575,20 +605,56 @@ def _field_error_html(errors, field, control_id):
     ) % (escape_html(control_id), escape_html(message))
 
 
-def _field_error_attrs(errors, field, control_id):
-    """The `aria-invalid="true" aria-describedby="{control_id}-error"`
-    attribute fragment for the control `_field_error_html()` above just
-    built an anchor for — the empty string when `field` carries no
-    message in `errors`. Applied to controls that have exactly one
-    natural DOM element to decorate (a text/number/time input, a
-    checkbox, or a `<select>`); the three radio-group fields (theme,
-    theme_arriving, tracked_runway) render their error message the same
-    way but skip this attribute fragment, since no single native input
-    in a same-named radio group is uniquely "the" control to describe.
+def _describedby_attr(*ids):
+    """19-11-PLAN.md Task 3 (D-12/A-30): the single builder of every
+    `aria-describedby` attribute fragment this file emits. Drops every
+    falsy id — so a caller can pass a hint id and an error id (which is
+    often `None`/`""`) side by side with no conditional of its own — and
+    joins the survivors with ONE space, in the order given (this file's
+    own convention below is always hint first, then error). Returns the
+    empty string when no id survives, so no control this file renders
+    ever emits a bare `aria-describedby=""`.
     """
-    if not (errors and errors.get(field)):
+    present = [control_id for control_id in ids if control_id]
+    if not present:
         return ""
-    return ' aria-invalid="true" aria-describedby="%s-error"' % escape_html(control_id)
+    return ' aria-describedby="%s"' % escape_html(" ".join(present))
+
+
+def _field_error_attrs(errors, field, control_id, hint_id=None):
+    """The ARIA attribute fragment for the control `_field_error_html()`
+    above just built an error anchor for, folding in an optional
+    `hint_id` (19-11-PLAN.md Task 3, D-12/A-30) via `_describedby_attr()`
+    above — hint first, then the error id, matching that helper's own
+    documented order. `hint_id` defaults to `None` so every pre-Task-3
+    call site (which never passed it) keeps emitting byte-identical
+    output: with no error and no hint, this still returns `""`.
+
+    Three shapes, depending on what's present:
+      - no error, no `hint_id`: `""` (unchanged since 19-07-PLAN.md).
+      - no error, a `hint_id`: ` aria-describedby="{hint_id}"` alone —
+        no `aria-invalid`, since there is nothing invalid to report.
+      - an error (`hint_id` present or not): ` aria-invalid="true"`
+        plus a combined `aria-describedby` naming the hint (if given)
+        and `{control_id}-error` (`_field_error_html()`'s own anchor
+        id), in that order.
+
+    Applied to controls that have exactly one natural DOM element to
+    decorate (a text/number/time input, a checkbox, or a `<select>`);
+    the three radio-group fields (theme, theme_arriving, tracked_runway)
+    render their error message the same way but skip this attribute
+    fragment entirely — no single native input in a same-named radio
+    group is uniquely "the" control to describe, and (Task 3) their
+    hint linking instead lands on the `role="radiogroup"` CONTAINER via
+    a direct `_describedby_attr(hint_id)` call at each of those two call
+    sites, never through this function.
+    """
+    has_error = bool(errors and errors.get(field))
+    error_id = ("%s-error" % control_id) if has_error else None
+    describedby = _describedby_attr(hint_id, error_id)
+    if has_error:
+        return ' aria-invalid="true"%s' % describedby
+    return describedby
 
 
 def _submitted_or_current(submitted, field, current):
@@ -773,10 +839,28 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
     `THEME_ARRIVING_TOGGLE_ID`. The single-theme read-only branch above
     has no editable control and is therefore never passed a `theme`
     error in practice — this function does not special-case that away.
+
+    19-11-PLAN.md Task 3 (D-12/A-30): this multi-theme branch's two chip
+    grids gain the group semantics a `<fieldset>`/`<legend>` would
+    otherwise supply, WITHOUT adding either element (the four pinned
+    zero-`<fieldset>` checks in `companion/test_config_page.py` forbid
+    it, and this file's own docstrings above already give the reason).
+    `role="radiogroup"` plus `aria-labelledby` — pointing at this
+    group's own `<h2>` (`THEME_GROUP_HEADING_ID`) for the first grid,
+    and at the "Arrivals theme" label (`THEME_ARRIVING_GROUP_HEADING_ID`)
+    for the second — is the compatible alternative D-12 itself names.
+    Both grids ALSO gain `aria-describedby` pointing at the shared
+    `THEME_SECTION_CAPTION_ID` hint (there is only one hint for the
+    whole group, describing both grids identically), via
+    `_theme_chip_grid_html()`'s existing `extra_attr` seam — the exact
+    seam the arrivals grid's own `ARRIVAL_GRID_ATTR` already uses,
+    reused rather than duplicated with a second seam. The single-theme
+    read-only branch below has no radio group at all (a one-option
+    "choice" is not one), so it gains neither attribute.
     """
     caption_html = (
-        '<p class="text-label section-caption">%s</p>'
-        % escape_html(THEME_SECTION_CAPTION))
+        '<p class="text-label section-caption" id="%s">%s</p>'
+        % (escape_html(THEME_SECTION_CAPTION_ID), escape_html(THEME_SECTION_CAPTION)))
     if len(device_config.THEME_IDS) == 1:
         theme_id = (
             current_theme_id if current_theme_id in device_config.THEMES
@@ -804,7 +888,10 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
         )
 
     effective_theme_id = _submitted_or_current(submitted, "theme", current_theme_id)
-    first_grid = _theme_chip_grid_html("theme", effective_theme_id)
+    first_grid_attr = 'role="radiogroup" aria-labelledby="%s"%s' % (
+        escape_html(THEME_GROUP_HEADING_ID), _describedby_attr(THEME_SECTION_CAPTION_ID))
+    first_grid = _theme_chip_grid_html(
+        "theme", effective_theme_id, extra_attr=first_grid_attr)
     theme_error_html = _field_error_html(errors, "theme", "theme")
 
     checkbox_checked = _submitted_checkbox_checked(
@@ -820,9 +907,12 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
     effective_arriving = (
         submitted_theme_arriving if submitted_theme_arriving is not None
         else effective_theme_id)
+    second_grid_attr = 'role="radiogroup" aria-labelledby="%s"%s %s' % (
+        escape_html(THEME_ARRIVING_GROUP_HEADING_ID),
+        _describedby_attr(THEME_SECTION_CAPTION_ID), ARRIVAL_GRID_ATTR)
     second_grid = _theme_chip_grid_html(
         "theme_arriving", effective_arriving,
-        extra_class="theme-chip-grid--arrivals", extra_attr=ARRIVAL_GRID_ATTR)
+        extra_class="theme-chip-grid--arrivals", extra_attr=second_grid_attr)
     theme_arriving_error_html = _field_error_html(errors, "theme_arriving", "theme-arriving")
     # Only the revealed (second) grid gets a label: before the checkbox
     # exists there is exactly one grid and it needs no label (unchanged
@@ -831,20 +921,24 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
     # first grid as the default/departures one — a second "Departures"
     # label on the first grid would be an extra line of chrome that
     # wording already makes redundant (15-UI-SPEC.md Section Anatomy §1).
+    # 19-11-PLAN.md Task 3 (D-12/A-30): this label also carries
+    # THEME_ARRIVING_GROUP_HEADING_ID — the second grid's own
+    # aria-labelledby target above.
     return (
         '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">Theme</h2>'
+        '<h2 class="text-heading" id="%s">Theme</h2>'
         "%s"
         "%s%s"
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="theme_arriving_enabled" id="%s" value="%s"%s%s> %s'
         "</label>"
         "%s"
-        '<p class="text-label theme-direction-label">%s</p>'
+        '<p class="text-label theme-direction-label" id="%s">%s</p>'
         "%s%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Theme"),
+        escape_html(THEME_GROUP_HEADING_ID),
         caption_html,
         first_grid, theme_error_html,
         escape_html(THEME_ARRIVING_TOGGLE_ID),
@@ -853,6 +947,7 @@ def theme_fieldset(current_theme_id, current_theme_arriving=None, errors=None, s
         theme_arriving_enabled_attrs,
         escape_html(THEME_ARRIVING_CHECKBOX_LABEL),
         theme_arriving_enabled_error_html,
+        escape_html(THEME_ARRIVING_GROUP_HEADING_ID),
         escape_html(THEME_DIRECTION_LABEL),
         second_grid, theme_arriving_error_html,
     )
@@ -922,6 +1017,15 @@ def runway_fieldset(current_runway_id, images_available=(), errors=None, submitt
     `theme` above — no single radio in the group gains
     `aria-invalid`/`aria-describedby`, for the identical reason
     `theme_fieldset()`'s own docstring already gives.
+
+    19-11-PLAN.md Task 3 (D-12/A-30): the `.runway-row` wrapper itself
+    gains `role="radiogroup"` plus `aria-labelledby` (pointing at this
+    group's own `<h2>`, `RUNWAY_GROUP_HEADING_ID`) and `aria-describedby`
+    (pointing at `RUNWAY_SECTION_CAPTION_ID`'s hint) — the identical
+    compatible-with-zero-`<fieldset>` pattern `theme_fieldset()` applies
+    to its two chip grids, for the identical reason (see that function's
+    own Task 3 docstring paragraph and this file's standing
+    fieldset-free-design rationale above).
     """
     effective_runway_id = _submitted_or_current(
         submitted, "tracked_runway", current_runway_id)
@@ -955,16 +1059,20 @@ def runway_fieldset(current_runway_id, images_available=(), errors=None, submitt
             )
         )
     runway_error_html = _field_error_html(errors, "tracked_runway", "tracked-runway")
+    row_attr = 'role="radiogroup" aria-labelledby="%s"%s' % (
+        escape_html(RUNWAY_GROUP_HEADING_ID), _describedby_attr(RUNWAY_SECTION_CAPTION_ID))
     return (
         '<div class="theme-status" %s="%s">'
-        '<h2 class="text-heading">Runway</h2>'
-        '<p class="text-label section-caption">%s</p>'
-        '<div class="runway-row">%s</div>'
+        '<h2 class="text-heading" id="%s">Runway</h2>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
+        '<div class="runway-row" %s>%s</div>'
         "%s"
         "</div>"
     ) % (
         DIRTY_SECTION_ATTR, escape_html("Runway"),
-        escape_html(RUNWAY_SECTION_CAPTION),
+        escape_html(RUNWAY_GROUP_HEADING_ID),
+        escape_html(RUNWAY_SECTION_CAPTION_ID), escape_html(RUNWAY_SECTION_CAPTION),
+        row_attr,
         "".join(cards),
         runway_error_html,
     )
@@ -989,6 +1097,16 @@ def led_group(current_led_enabled, errors=None, submitted=None):
     by D-04/D-05 in 06.6.3), it is named the same way they are — an `<h2
     class="text-heading">` — so all three groups read at one consistent
     heading level, matching the Poll section's own heading role.
+
+    19-11-PLAN.md Task 3 (D-12/A-30): this checkbox has exactly one
+    natural DOM element, so it needs no `role="radiogroup"` of its own
+    (unlike Theme's two chip grids and the Runway row) — but the
+    fieldset-free design this whole file follows stands on the same
+    reasoning stated here and at `theme_fieldset()`'s/
+    `runway_fieldset()`'s own Task 3 paragraphs: D-12 supplies missing
+    group semantics via ARIA attributes (`aria-describedby` here,
+    `role="radiogroup"` + `aria-labelledby` there) rather than ever
+    reaching for a literal `<fieldset>`/`<legend>`.
 
     quick task 260901-re6: `LED_SECTION_CAPTION` is a single muted
     caption, styled and positioned identically to Theme's and Runway's
@@ -1016,15 +1134,23 @@ def led_group(current_led_enabled, errors=None, submitted=None):
     state from the submission (absent-means-unchecked, matching
     `handle_post()`'s own resolution of this exact field) and render its
     "unexpected switch value" error, anchored on the checkbox itself.
+
+    19-11-PLAN.md Task 3 (D-12/A-30): this checkbox — a single-control
+    group, unlike Theme/Runway's radio groups above — gains
+    `aria-describedby` pointing at `LED_SECTION_CAPTION_ID`'s hint
+    directly, via `_field_error_attrs()`'s own `hint_id` parameter;
+    combined with any error id in one space-separated value (hint
+    first), never a second, competing `aria-describedby`.
     """
     checked = _submitted_checkbox_checked(
         submitted, "led_enabled", LED_CHECKBOX_VALUE, current_led_enabled)
-    error_attrs = _field_error_attrs(errors, "led_enabled", "led-enabled")
+    error_attrs = _field_error_attrs(
+        errors, "led_enabled", "led-enabled", hint_id=LED_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "led_enabled", "led-enabled")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="led_enabled" value="%s"%s%s> Enable diagnostic LED'
         "</label>"
@@ -1033,7 +1159,7 @@ def led_group(current_led_enabled, errors=None, submitted=None):
     ) % (
         DIRTY_SECTION_ATTR, escape_html(LED_SECTION_HEADING),
         escape_html(LED_SECTION_HEADING),
-        escape_html(LED_SECTION_CAPTION),
+        escape_html(LED_SECTION_CAPTION_ID), escape_html(LED_SECTION_CAPTION),
         escape_html(LED_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
         error_html,
     )
@@ -1105,12 +1231,19 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     enabled_error_attrs = _field_error_attrs(errors, "quiet_hours_enabled", "quiet-hours-enabled")
     enabled_error_html = _field_error_html(errors, "quiet_hours_enabled", "quiet-hours-enabled")
 
+    # 19-11-PLAN.md Task 3 (D-12/A-30): the group's single hint links to
+    # BOTH time inputs (there is no separate per-field hint for Start vs
+    # End) via `_field_error_attrs()`'s `hint_id` parameter — the enable
+    # checkbox above is not in D-12's own named single-control list and
+    # keeps its unlinked (error-only) attrs.
     effective_start = _submitted_or_current(submitted, "quiet_hours_start", current_start)
-    start_error_attrs = _field_error_attrs(errors, "quiet_hours_start", "quiet-hours-start")
+    start_error_attrs = _field_error_attrs(
+        errors, "quiet_hours_start", "quiet-hours-start", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
     start_error_html = _field_error_html(errors, "quiet_hours_start", "quiet-hours-start")
 
     effective_end = _submitted_or_current(submitted, "quiet_hours_end", current_end)
-    end_error_attrs = _field_error_attrs(errors, "quiet_hours_end", "quiet-hours-end")
+    end_error_attrs = _field_error_attrs(
+        errors, "quiet_hours_end", "quiet-hours-end", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
     end_error_html = _field_error_html(errors, "quiet_hours_end", "quiet-hours-end")
 
     # 19-10-PLAN.md (D-14/S-04): the preset row. Reuses .runway-row -
@@ -1142,7 +1275,7 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s%s> Enable quiet hours'
         "</label>"
@@ -1156,7 +1289,7 @@ def quiet_hours_group(current_enabled, current_start, current_end, errors=None, 
     ) % (
         DIRTY_SECTION_ATTR, escape_html(QUIET_HOURS_SECTION_HEADING),
         escape_html(QUIET_HOURS_SECTION_HEADING),
-        escape_html(QUIET_HOURS_SECTION_CAPTION),
+        escape_html(QUIET_HOURS_SECTION_CAPTION_ID), escape_html(QUIET_HOURS_SECTION_CAPTION),
         escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", enabled_error_attrs,
         enabled_error_html,
         preset_row_html,
@@ -1235,12 +1368,13 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None):
                 and not isinstance(current_wake_interval_s, bool)
                 and device_config.WAKE_INTERVAL_MIN_S <= current_wake_interval_s <= device_config.WAKE_INTERVAL_MAX_S
             ) else "")
-    error_attrs = _field_error_attrs(errors, "wake_interval_s", "wake-interval-s")
+    error_attrs = _field_error_attrs(
+        errors, "wake_interval_s", "wake-interval-s", hint_id=WAKE_INTERVAL_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "wake_interval_s", "wake-interval-s")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         "<label>Wake interval (seconds) "
         '<input type="number" name="wake_interval_s" min="%d" max="%d"'
         ' placeholder="%s"%s%s></label>'
@@ -1249,7 +1383,7 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None):
     ) % (
         DIRTY_SECTION_ATTR, escape_html(WAKE_INTERVAL_SECTION_HEADING),
         escape_html(WAKE_INTERVAL_SECTION_HEADING),
-        escape_html(WAKE_INTERVAL_SECTION_CAPTION),
+        escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID), escape_html(WAKE_INTERVAL_SECTION_CAPTION),
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
         escape_html(WAKE_INTERVAL_PLACEHOLDER_TEXT),
         value_attr, error_attrs,
@@ -1293,12 +1427,13 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     """
     checked = _submitted_checkbox_checked(
         submitted, "display_enabled", DISPLAY_CHECKBOX_VALUE, current_display_enabled)
-    error_attrs = _field_error_attrs(errors, "display_enabled", "display-enabled")
+    error_attrs = _field_error_attrs(
+        errors, "display_enabled", "display-enabled", hint_id=DISPLAY_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "display_enabled", "display-enabled")
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         '<label class="settings-checkbox">'
         '<input type="checkbox" name="display_enabled" value="%s"%s%s> Enable display'
         "</label>"
@@ -1307,7 +1442,7 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     ) % (
         DIRTY_SECTION_ATTR, escape_html(DISPLAY_SECTION_HEADING),
         escape_html(DISPLAY_SECTION_HEADING),
-        escape_html(DISPLAY_SECTION_CAPTION),
+        escape_html(DISPLAY_SECTION_CAPTION_ID), escape_html(DISPLAY_SECTION_CAPTION),
         escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
         error_html,
     )
@@ -1437,14 +1572,21 @@ def calendar_group(
         )
         for theme_id in device_config.THEME_IDS
     )
+    # 19-11-PLAN.md Task 3 (D-12/A-30): the calendar theme <select> and
+    # the calendar URL <input> are both single-control fields (D-12's
+    # own named list) — each gains aria-describedby pointing at its OWN
+    # per-field hint (CALENDAR_THEME_HINT/CALENDAR_URL_HINT), not the
+    # group-level CALENDAR_SECTION_CAPTION, via _field_error_attrs()'s
+    # hint_id parameter.
     calendar_theme_error_attrs = _field_error_attrs(
-        errors, "calendar_theme_id", "calendar-theme")
+        errors, "calendar_theme_id", "calendar-theme", hint_id=CALENDAR_THEME_HINT_ID)
     calendar_theme_error_html = _field_error_html(
         errors, "calendar_theme_id", "calendar-theme")
     # T-16-SECRET / T-19-12: the write-only calendar_url input's value
     # stays empty always, never repopulated from `submitted` — see the
     # docstring above. Only the error attrs/message are new here.
-    calendar_url_error_attrs = _field_error_attrs(errors, "calendar_url", "calendar-url")
+    calendar_url_error_attrs = _field_error_attrs(
+        errors, "calendar_url", "calendar-url", hint_id=CALENDAR_URL_HINT_ID)
     calendar_url_error_html = _field_error_html(errors, "calendar_url", "calendar-url")
     return (
         '<div class="page-section" %s="%s">'
@@ -1455,13 +1597,13 @@ def calendar_group(
         '<label for="calendar-url">%s</label>'
         '<input type="text" id="calendar-url" name="calendar_url" '
         'autocomplete="off" spellcheck="false" maxlength="%s"%s>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         "%s"
         "</div>"
         '<div class="rule-add-form__field">'
         '<label for="calendar-theme">%s</label>'
         '<select id="calendar-theme" name="calendar_theme_id" required%s>%s</select>'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="text-label section-caption" id="%s">%s</p>'
         "%s"
         "</div>"
         "</div>"
@@ -1472,11 +1614,11 @@ def calendar_group(
         status_html,
         escape_html(CALENDAR_URL_FIELD_LABEL),
         CALENDAR_URL_MAX_LEN, calendar_url_error_attrs,
-        escape_html(CALENDAR_URL_HINT),
+        escape_html(CALENDAR_URL_HINT_ID), escape_html(CALENDAR_URL_HINT),
         calendar_url_error_html,
         escape_html(CALENDAR_THEME_FIELD_LABEL),
         calendar_theme_error_attrs, theme_options,
-        escape_html(CALENDAR_THEME_HINT),
+        escape_html(CALENDAR_THEME_HINT_ID), escape_html(CALENDAR_THEME_HINT),
         calendar_theme_error_html,
     )
 
