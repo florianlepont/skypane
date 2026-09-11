@@ -1415,7 +1415,7 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
     """
     if submitted is not None and "wake_interval_s" in submitted:
         raw_submitted = submitted["wake_interval_s"]
-        value_attr = ' value="%s"' % escape_html(str(raw_submitted)) if raw_submitted else ""
+        value_attr = ' value="%s"' % escape_html(raw_submitted) if raw_submitted else ""
     else:
         value_attr = (
             ' value="%d"' % current_wake_interval_s
