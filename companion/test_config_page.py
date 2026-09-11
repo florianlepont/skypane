@@ -371,6 +371,26 @@ EXPECTED_CHECK_COUNT = 184  # 20-07-PLAN.md Task 1 (D-10/D-11/D-12): +3
 # assertion rather than adding a new check(...) call. 181 + 3 = 184,
 # recomputed directly against the real on-disk check(...) call count at
 # execution time (184/184 pass), not trusted from arithmetic alone.
+EXPECTED_CHECK_COUNT = 190  # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): +6
+# (a Display render carries exactly one action="/quick/display" form and
+# one action="/quick/quiet-hours" form; neither is a descendant of
+# <form id=settings-form>; the rendered Display page contains no <form>
+# nested inside another <form> anywhere — the pinned regression test for
+# Pitfall 1; all four scheduled inputs carry form="settings-form"; the
+# shared "Applies the next time the frame wakes up." sentence appears
+# exactly twice; a POST through handle_post() with the same field set as
+# before this task still saves identically) net of retargeting four
+# pre-existing checks that this task's own restructuring of display_
+# group()/quiet_hours_group() genuinely broke (running the whole suite
+# BEFORE writing any new check, per this task's own instruction, found
+# these four: the Display-checkbox-checked-state check, the dirty-bar-
+# sibling-of-form check, and two Calendar-placement checks — all four
+# had assumed the FIRST "</form>" in a SCOPE_ALL/legacy render was the
+# settings form's own closing tag, which stopped holding once display_
+# group()/quiet_hours_group() started embedding their own small
+# quick-action <form> ahead of it). 184 + 6 = 190, recomputed directly
+# against the real on-disk check(...) call count at execution time
+# (190/190 pass), not trusted from arithmetic alone.
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -972,19 +992,27 @@ def main():
         # Bullet 3: render() with an empty device_config produces a
         # checked box (D-09 reaching the page, not just the loader), and
         # {"display_enabled": False} produces an unchecked one.
+        #
+        # 20-07-PLAN.md Task 2 (D-19): display_group()'s own quick-action
+        # slot now renders several nested <div>s BEFORE the checkbox
+        # inside the same outer wrapper — the old "slice to the first
+        # </div> after the dirty-section marker" no longer reaches the
+        # checkbox at all (it now closes an inner quick-action <div>
+        # instead). Retargeted to find the checkbox's own <input> tag
+        # directly, which is robust to whatever precedes it in the card.
         rendered = config_page.render({"device_config": {}, "state_dir": "/tmp"})
         if rendered.count('name="display_enabled"') != 1:
             return False, "expected exactly one display_enabled input"
-        segment = rendered[rendered.index('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.DISPLAY_SECTION_HEADING)):]
-        segment = segment[:segment.index("</div>")]
-        if " checked" not in segment:
+        checkbox_marker = rendered.index('<input type="checkbox" name="display_enabled"')
+        checkbox_tag = rendered[checkbox_marker:rendered.index(">", checkbox_marker) + 1]
+        if " checked" not in checkbox_tag:
             return False, "expected an empty device_config to render the Display box checked (D-09)"
 
         rendered_off = config_page.render({
             "device_config": {"display_enabled": False}, "state_dir": "/tmp"})
-        segment_off = rendered_off[rendered_off.index('%s="%s"' % (config_page.DIRTY_SECTION_ATTR, config_page.DISPLAY_SECTION_HEADING)):]
-        segment_off = segment_off[:segment_off.index("</div>")]
-        if " checked" in segment_off:
+        checkbox_marker_off = rendered_off.index('<input type="checkbox" name="display_enabled"')
+        checkbox_tag_off = rendered_off[checkbox_marker_off:rendered_off.index(">", checkbox_marker_off) + 1]
+        if " checked" in checkbox_tag_off:
             return False, "expected device_config={'display_enabled': False} to render the box unchecked"
         return True, ""
     check(
@@ -1174,10 +1202,24 @@ def main():
             return False, "expected exactly one config-form <form>, no duplicate"
         if "</form>" not in rendered:
             return False, "expected a closing </form> tag"
-        form_end = rendered.index("</form>")
         if "data-dirty-bar" not in rendered:
             return False, "expected data-dirty-bar to appear in render()'s output"
         bar_pos = rendered.index("data-dirty-bar")
+        # 20-07-PLAN.md Task 2 (D-19): SCOPE_ALL's legacy flat join still
+        # calls the now-restructured display_group()/quiet_hours_group()
+        # (both are still members of scope_groups(SCOPE_ALL)'s own fixed
+        # tuple), and each now embeds its own small quick-action <form>
+        # ahead of the settings form's real closing tag — so the FIRST
+        # "</form>" in the document is no longer necessarily the settings
+        # form's own. The bottom static Save button is the last thing the
+        # settings form itself emits before its own closing tag (render()'s
+        # own template: "...Save settings</button></form>"), so the
+        # settings form's real "</form>" is the first one AFTER that
+        # button's own text.
+        save_button_pos = rendered.index("Save settings")
+        if save_button_pos >= bar_pos:
+            return False, "expected the bottom Save settings button to appear before the dirty bar"
+        form_end = rendered.index("</form>", save_button_pos)
         if bar_pos <= form_end:
             return False, "expected data-dirty-bar to appear AFTER </form> closes, not inside it"
         poll_heading = '<h2 class="text-heading">%s</h2>' % config_page.POLL_SECTION_HEADING
@@ -4391,7 +4433,13 @@ def main():
             '<h2 class="text-heading">%s</h2>' % config_page.DISPLAY_SECTION_HEADING)
         calendar_index = rendered.index(
             '<h2 class="text-heading">%s</h2>' % config_page.CALENDAR_SECTION_HEADING)
-        form_close_index = rendered.index("</form>")
+        # 20-07-PLAN.md Task 2 (D-19): display_group() now embeds its own
+        # small quick-action <form>, which closes well before the
+        # settings form's own closing tag — the FIRST "</form>" in the
+        # whole document is that inner form's, not the settings form's.
+        # The real one is the first "</form>" AFTER the Calendar heading
+        # (Calendar itself embeds no form of its own).
+        form_close_index = rendered.index("</form>", calendar_index)
         if not (display_index < calendar_index < form_close_index):
             return False, (
                 "expected Display < Calendar < </form>, got %d, %d, %d"
@@ -4408,8 +4456,14 @@ def main():
         ctx = dict(_CALENDAR_BASE_CTX, calendar_configured=False, calendar_last_synced_at=None)
         rendered = config_page.render(ctx)
         form_start = rendered.index('<form class="config-form"')
-        form_end = rendered.index("</form>") + len("</form>")
         select_index = rendered.index('name="calendar_theme_id"')
+        # 20-07-PLAN.md Task 2 (D-19): the first "</form>" in the whole
+        # document is now display_group()'s own small quick-action
+        # <form>, which closes before the calendar_theme_id select even
+        # renders (Calendar follows Display in SCOPE_ALL's fixed order)
+        # — the real settings-form closing tag is the first "</form>"
+        # AFTER the select itself.
+        form_end = rendered.index("</form>", select_index) + len("</form>")
         if not (form_start < select_index < form_end):
             return False, "expected the calendar_theme_id select to sit inside the settings form"
         calendar_start = rendered.index(
@@ -4990,6 +5044,135 @@ def main():
         "every grouped card the Display scope renders under one of its three supersections carries "
         "a --nested modifier class (D-12)",
         _every_grouped_card_under_a_display_supersection_carries_nested_class)
+
+    # ==================================================================
+    # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): the instant switches, and
+    # the form restructure that makes them valid HTML.
+    # ==================================================================
+
+    _TASK2_BASE_CTX = {
+        "device_config": {
+            "display_enabled": True, "quiet_hours_enabled": True,
+            "quiet_hours_start": "22:00", "quiet_hours_end": "06:00",
+        },
+        "state_dir": "/tmp", "poll_cooldown_remaining": 0,
+    }
+
+    def _display_render_carries_exactly_two_quick_action_forms():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        if rendered.count('action="%s"' % config_page.QUICK_DISPLAY_ROUTE) != 1:
+            return False, "expected exactly one action=\"/quick/display\" form"
+        if rendered.count('action="%s"' % config_page.QUICK_QUIET_HOURS_ROUTE) != 1:
+            return False, "expected exactly one action=\"/quick/quiet-hours\" form"
+        return True, ""
+    check(
+        "a Display render contains exactly one action=\"/quick/display\" form and one "
+        "action=\"/quick/quiet-hours\" form (D-19)",
+        _display_render_carries_exactly_two_quick_action_forms)
+
+    def _quick_action_forms_are_not_descendants_of_settings_form():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        settings_form_close = rendered.index("</form>", rendered.index("Save settings"))
+        for route in (config_page.QUICK_DISPLAY_ROUTE, config_page.QUICK_QUIET_HOURS_ROUTE):
+            quick_form_pos = rendered.index('action="%s"' % route)
+            if quick_form_pos < settings_form_close:
+                return False, (
+                    "expected the %s quick-action form to appear after the settings "
+                    "form's own closing tag, not nested inside it" % route)
+        return True, ""
+    check(
+        "neither quick-action form is a descendant of <form id=settings-form> — both appear after "
+        "its own closing tag (D-19/Pitfall 1)",
+        _quick_action_forms_are_not_descendants_of_settings_form)
+
+    def _display_render_carries_no_form_nested_inside_a_form():
+        # The pinned regression test for Pitfall 1: a whole-body scan
+        # for any "<form" whose nearest preceding unclosed "<form" has
+        # not yet been closed — i.e. no <form> is ever a descendant of
+        # another <form> anywhere in the rendered Display page.
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        depth = 0
+        pos = 0
+        while True:
+            open_pos = rendered.find("<form", pos)
+            close_pos = rendered.find("</form>", pos)
+            if open_pos == -1 and close_pos == -1:
+                break
+            if open_pos != -1 and (close_pos == -1 or open_pos < close_pos):
+                if depth >= 1:
+                    return False, (
+                        "expected no <form> nested inside another <form>, found one "
+                        "opening at offset %d" % open_pos)
+                depth += 1
+                pos = open_pos + len("<form")
+            else:
+                depth -= 1
+                pos = close_pos + len("</form>")
+        if depth != 0:
+            return False, "expected every <form> to be closed, got an unbalanced depth of %d" % depth
+        return True, ""
+    check(
+        "the rendered Display page contains no <form> nested inside another <form> anywhere "
+        "(D-19/Pitfall 1, the required structural fix)",
+        _display_render_carries_no_form_nested_inside_a_form)
+
+    def _four_scheduled_inputs_carry_form_settings_form():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        for needle in (
+                '<input type="checkbox" name="display_enabled" value="on" checked form="settings-form"',
+                '<input type="checkbox" name="quiet_hours_enabled" value="on" checked form="settings-form"',
+                '<input type="time" name="quiet_hours_start" value="22:00" required form="settings-form"',
+                '<input type="time" name="quiet_hours_end" value="06:00" required form="settings-form"'):
+            if needle not in rendered:
+                return False, "expected %r in the rendered Display page" % (needle,)
+        return True, ""
+    check(
+        "all four scheduled inputs (display_enabled, quiet_hours_enabled, quiet_hours_start, "
+        "quiet_hours_end) carry form=\"settings-form\" via the SETTINGS_FORM_ID constant (D-19)",
+        _four_scheduled_inputs_carry_form_settings_form)
+
+    def _applies_next_wake_sentence_appears_exactly_twice():
+        rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        count = rendered.count(escape_html(config_page.QUICK_ACTION_APPLIES_SENTENCE))
+        if count != 2:
+            return False, (
+                "expected the shared instant-switch sentence to appear exactly twice, got %d" % count)
+        return True, ""
+    check(
+        "the shared \"Applies the next time the frame wakes up.\" sentence appears exactly twice on "
+        "the Display page — once per instant switch (D-19)",
+        _applies_next_wake_sentence_appears_exactly_twice)
+
+    def _handle_post_same_field_set_after_restructure_saves_the_same_config():
+        # D-13: only the DOM position of display_group()/quiet_hours_
+        # group() changed — handle_post()'s own field set and its
+        # absent-checkbox carry-forward are untouched, so a POST with
+        # the same field set as before this task still saves identically.
+        tmp = tempfile.mkdtemp(prefix="skypane-config-task2-")
+        try:
+            key = config_page.handle_post(
+                {
+                    "scope": "display", "theme": "black", "display_enabled": "on",
+                    "quiet_hours_enabled": "on", "quiet_hours_start": "23:00",
+                    "quiet_hours_end": "07:00",
+                },
+                {"state_dir": tmp})
+            if key != config_page.FLASH_SAVED:
+                return False, "expected FLASH_SAVED, got %r" % (key,)
+            cfg = device_config.load_device_config(tmp)
+            if (
+                cfg["theme"] != "black" or cfg["display_enabled"] is not True
+                or cfg["quiet_hours_enabled"] is not True
+                or cfg["quiet_hours_start"] != "23:00" or cfg["quiet_hours_end"] != "07:00"
+            ):
+                return False, "expected the same field set to persist identically, got %r" % (cfg,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a POST through handle_post() with the same field set as before the Task 2 restructure "
+        "still produces the same saved config (D-13/T-20-26)",
+        _handle_post_same_field_set_after_restructure_saves_the_same_config)
 
     def _submitted_scope_and_return_route_are_allowlisted():
         if config_page.submitted_scope({}) != config_page.SCOPE_ALL:

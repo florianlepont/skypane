@@ -343,6 +343,36 @@ DISPLAY_SECTION_CAPTION = (
 # comment above.
 DISPLAY_SECTION_CAPTION_ID = "display-caption"
 
+# 20-07-PLAN.md Task 2 (D-19): the Screen on/off and Quiet hours groups'
+# own instant-switch quick-action slot. Home's own (module-private, on
+# the Home page) route/copy constants are byte-for-byte duplicates,
+# never imported (a page module may never import another page module,
+# companion/pages/__init__.py's own boundary) — 20-06 deletes Home's
+# own copies once its soon-to-be-retired Quick actions card is retired
+# (D-16). The quick-action `<form>`s'
+# own action attributes below are written as literal path text, not a
+# `%s` interpolation of these constants (this file's own acceptance
+# gate greps the literal form-action text) — but the two constants stay
+# defined here, equal to those same paths, for
+# companion/test_config_page.py's own checks to reference without
+# retyping either path a third time.
+QUICK_DISPLAY_ROUTE = "/quick/display"
+QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
+QUICK_ACTION_SCREEN_LABEL = "Screen"
+QUICK_ACTION_ON_TEXT = "On"
+QUICK_ACTION_OFF_TEXT = "Off"
+QUICK_ACTION_SWITCH_ON_BUTTON = "Switch on"
+QUICK_ACTION_SWITCH_OFF_BUTTON = "Switch off"
+QUICK_ACTION_QUIET_LABEL = "Quiet hours"
+QUICK_ACTION_QUIET_ON_TEMPLATE = "On — %s to %s"
+QUICK_ACTION_QUIET_OFF_TEXT = "Off"
+QUICK_ACTION_QUIET_TURN_ON_BUTTON = "Turn on"
+QUICK_ACTION_QUIET_TURN_OFF_BUTTON = "Turn off"
+# D-19/20-UI-SPEC.md Section Anatomy D: one shared sentence for both
+# switches — never two independently-worded copies of the identical
+# fact.
+QUICK_ACTION_APPLIES_SENTENCE = "Applies the next time the frame wakes up."
+
 # Read elsewhere, not just here — this module's existing
 # duplicated-not-imported must-equal discipline (matches
 # OPEN_CLASS/MOBILE_NAV_OPEN_CLASS's own precedent): DIRTY_SECTION_ATTR
@@ -1243,15 +1273,23 @@ def led_group(current_led_enabled, errors=None, submitted=None, next_wake_clock=
 def quiet_hours_group(
         current_enabled, current_start, current_end, errors=None, submitted=None,
         next_wake_clock=None):
-    """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md): a
-    fourth sibling of the Theme/Runway/Diagnostic LED groups inside the
-    single merged `<form action="{SETTINGS_ROUTE}">`, built against
-    `led_group()`'s exact structure above — same `.theme-status` wrapper
-    idiom, same `<h2 class="text-heading">` naming (no `<fieldset>`/
-    `<legend>`, for the identical reason `led_group()`'s own docstring
-    already documents: a `<legend>` only has accessible-name semantics
-    inside a `<fieldset>`, which these sibling groups deliberately do not
-    have).
+    """The Quiet hours settings group (10-05-PLAN.md, 10-UI-SPEC.md;
+    restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1): this card is
+    now a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a literal
+    descendant — see `display_group()`'s own Task 2 docstring paragraph
+    for the full reasoning (its own instant switch would otherwise be a
+    `<form>` nested inside `<form id="{SETTINGS_FORM_ID}">`, which HTML
+    forbids). The enable checkbox and both time inputs keep submitting
+    with the shared Save via a `form="{SETTINGS_FORM_ID}"` attribute on
+    each, the same cross-DOM idiom `display_group()` now uses too.
+
+    Same `.theme-status` wrapper idiom, same `<h2 class="text-heading">`
+    naming as before this task (no `<fieldset>`/`<legend>`, for the
+    identical reason `led_group()`'s own docstring already documents: a
+    `<legend>` only has accessible-name semantics inside a `<fieldset>`,
+    which these sibling groups deliberately do not have) — only the
+    card's DOM position and the three controls' `form=` attribute
+    change.
 
     Controls render in this locked order (10-UI-SPEC.md's Interaction
     Contract): the enable checkbox, then a "Start" `<input type="time">`,
@@ -1349,18 +1387,57 @@ def quiet_hours_group(
         escape_html(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL),
     )
 
+    # D-19 (20-UI-SPEC.md Section Anatomy D): the instant switch, above a
+    # hairline and the shared "applies on next wake" sentence, at the top
+    # of the card, before the scheduled checkbox/time inputs. `is_on`
+    # reads the CURRENT persisted state (`current_enabled`/`current_start`/
+    # `current_end`), never the submission being repopulated below —
+    # matching Home's own (soon-to-be-retired, D-16) Quick-actions
+    # widget, whose `quiet_on = cfg.get(...) is True` this mirrors
+    # exactly.
+    is_on = current_enabled is True
+    next_state = layout.QUICK_STATE_OFF if is_on else layout.QUICK_STATE_ON
+    state_text = (
+        QUICK_ACTION_QUIET_ON_TEMPLATE % (current_start, current_end)
+        if is_on else QUICK_ACTION_QUIET_OFF_TEXT)
+    quick_action_html = (
+        '<div class="quick-action-slot">'
+        '<div class="quick-action quick-action--%s">'
+        '<div class="quick-action__text">'
+        '<span class="text-label quick-action__label">%s%s</span>'
+        '<span class="text-body quick-action__state">%s</span>'
+        "</div>"
+        '<form method="post" action="/quick/quiet-hours" class="quick-action__form">'
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+        "</div>"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (
+        "on" if is_on else "off",
+        layout.icon_html("icon-moon", size=16, extra_class="quick-action__icon"),
+        escape_html(QUICK_ACTION_QUIET_LABEL),
+        escape_html(state_text),
+        layout.QUICK_STATE_FIELD, escape_html(next_state),
+        escape_html(
+            QUICK_ACTION_QUIET_TURN_OFF_BUTTON if is_on else QUICK_ACTION_QUIET_TURN_ON_BUTTON),
+        escape_html(QUICK_ACTION_APPLIES_SENTENCE),
+    )
+
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
+        "%s"
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s%s> Enable quiet hours'
+        '<input type="checkbox" name="quiet_hours_enabled" value="%s"%s form="%s"%s> Enable quiet hours'
         "</label>"
         "%s"
         "%s"
-        '<label>Start <input type="time" name="quiet_hours_start" value="%s" required%s></label>'
+        '<label>Start <input type="time" name="quiet_hours_start" value="%s" required form="%s"%s></label>'
         "%s"
-        '<label>End <input type="time" name="quiet_hours_end" value="%s" required%s></label>'
+        '<label>End <input type="time" name="quiet_hours_end" value="%s" required form="%s"%s></label>'
         "%s"
         "</div>"
     ) % (
@@ -1368,12 +1445,14 @@ def quiet_hours_group(
         escape_html(QUIET_HOURS_SECTION_HEADING),
         escape_html(QUIET_HOURS_SECTION_CAPTION_ID),
         escape_html(_with_next_wake(QUIET_HOURS_SECTION_CAPTION, next_wake_clock)),
-        escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", enabled_error_attrs,
+        quick_action_html,
+        escape_html(QUIET_HOURS_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
+        enabled_error_attrs,
         enabled_error_html,
         preset_row_html,
-        escape_html(effective_start), start_error_attrs,
+        escape_html(effective_start), SETTINGS_FORM_ID, start_error_attrs,
         start_error_html,
-        escape_html(effective_end), end_error_attrs,
+        escape_html(effective_end), SETTINGS_FORM_ID, end_error_attrs,
         end_error_html,
     )
 
@@ -1471,22 +1550,27 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
 
 
 def display_group(current_display_enabled, errors=None, submitted=None):
-    """The Display settings group (12-UI-SPEC.md, 12-CONTEXT.md D-08/D-09):
-    a sixth and last sibling of the Theme/Runway/Diagnostic LED/Quiet
-    hours/Wake interval groups inside the single merged `<form
-    action="{SETTINGS_ROUTE}">`, built directly against `led_group()`'s
-    exact structure above — a lone checkbox with no dependent fields is
-    exactly `led_group()`'s shape, not `quiet_hours_group()`'s (which has
-    two dependent time inputs this group deliberately does not gain). Same
-    `.theme-status` wrapper idiom, same `<h2 class="text-heading">` naming
-    (no `<fieldset>`/`<legend>`, for the identical reason `led_group()`'s
-    own docstring already documents).
+    """The Display settings group (12-UI-SPEC.md, 12-CONTEXT.md D-08/D-09;
+    restructured by 20-07-PLAN.md Task 2, D-19/Pitfall 1): this card is
+    now a SIBLING of `<form id="{SETTINGS_FORM_ID}">`, never a literal
+    descendant — `render()` no longer folds this builder's output into
+    `groups_html`, and calls it separately, emitting it after `</form>`
+    closes (the same slot `calendar_disconnect_section()` already
+    occupies). This is the required structural fix for the instant
+    switch below: its own `<form method="post" action="{QUICK_DISPLAY_
+    ROUTE}">` would otherwise nest inside `<form id="{SETTINGS_FORM_ID}">`,
+    which HTML forbids. The `display_enabled` checkbox keeps submitting
+    with the shared Save via a `form="{SETTINGS_FORM_ID}"` attribute
+    instead — the exact cross-DOM submission idiom already shipped for
+    the dirty-bar's Save button and the screen-type `<select>` in this
+    same file.
 
-    The developer's own framing challenge for this phase — *"pas possible
-    de juste faire ON/OFF ?"* — is the reason this function must stay this
-    small: exactly one `.theme-status` wrapper, one `.settings-checkbox`
-    label, one checkbox input, and nothing else. No helper field, no
-    schedule, no sibling control whose enabled state depends on this one.
+    Same `.theme-status` wrapper idiom, same `<h2 class="text-heading">`
+    naming as before this task (no `<fieldset>`/`<legend>`, for the
+    identical reason `led_group()`'s own docstring already documents) —
+    only the card's DOM position and the checkbox's `form=` attribute
+    change; its own `name`/`value`/`checked` sequence, and every
+    surrounding paragraph/label, are unchanged from before this task.
 
     `DISPLAY_SECTION_CAPTION` states the ~5-minute apply latency in both
     directions (D-02) rather than the generic next-scheduled-poll clause
@@ -1494,9 +1578,20 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     page whose apply-timing is genuinely different — see the constant's
     own comment above for why.
 
-    Every interpolated current value — the heading, the caption, and the
-    checkbox value — is routed through `escape_html()`, matching this
-    file's universal escaping discipline.
+    D-19 (20-UI-SPEC.md Section Anatomy D): the instant-switch slot — the
+    switch itself, posting to `QUICK_DISPLAY_ROUTE` (unchanged from
+    `/quick/display`'s own existing session-gated route and redirect
+    target, 20-01-PLAN.md Task 2), above a hairline, followed by the
+    shared "Applies the next time the frame wakes up." sentence — renders
+    at the top of this card, before the scheduled checkbox. `is_on` is
+    resolved the same way Home's own (soon-to-be-retired, D-16)
+    Quick-actions widget resolves it: `is not False`, so a config
+    predating this field (`None`) reads as on, matching
+    `DEFAULT_DISPLAY_ENABLED`'s own default-on posture.
+
+    Every interpolated current value — the heading, the caption, the
+    checkbox value, and every quick-action string — is routed through
+    `escape_html()`, matching this file's universal escaping discipline.
 
     19-07-PLAN.md Task 2 (D-07): `errors`/`submitted` (both fully
     defaulted) let a rejected save repopulate this checkbox's `checked`
@@ -1516,12 +1611,38 @@ def display_group(current_display_enabled, errors=None, submitted=None):
     error_attrs = _field_error_attrs(
         errors, "display_enabled", "display-enabled", hint_id=DISPLAY_SECTION_CAPTION_ID)
     error_html = _field_error_html(errors, "display_enabled", "display-enabled")
+    is_on = current_display_enabled is not False
+    next_state = layout.QUICK_STATE_OFF if is_on else layout.QUICK_STATE_ON
+    quick_action_html = (
+        '<div class="quick-action-slot">'
+        '<div class="quick-action quick-action--%s">'
+        '<div class="quick-action__text">'
+        '<span class="text-label quick-action__label">%s%s</span>'
+        '<span class="text-body quick-action__state">%s</span>'
+        "</div>"
+        '<form method="post" action="/quick/display" class="quick-action__form">'
+        '<input type="hidden" name="%s" value="%s">'
+        '<button type="submit">%s</button>'
+        "</form>"
+        "</div>"
+        '<p class="text-label section-caption">%s</p>'
+        "</div>"
+    ) % (
+        "on" if is_on else "off",
+        layout.icon_html("icon-power", size=16, extra_class="quick-action__icon"),
+        escape_html(QUICK_ACTION_SCREEN_LABEL),
+        escape_html(QUICK_ACTION_ON_TEXT if is_on else QUICK_ACTION_OFF_TEXT),
+        layout.QUICK_STATE_FIELD, escape_html(next_state),
+        escape_html(QUICK_ACTION_SWITCH_OFF_BUTTON if is_on else QUICK_ACTION_SWITCH_ON_BUTTON),
+        escape_html(QUICK_ACTION_APPLIES_SENTENCE),
+    )
     return (
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
+        "%s"
         '<label class="settings-checkbox">'
-        '<input type="checkbox" name="display_enabled" value="%s"%s%s> Enable display'
+        '<input type="checkbox" name="display_enabled" value="%s"%s form="%s"%s> Enable display'
         "</label>"
         "%s"
         "</div>"
@@ -1529,7 +1650,9 @@ def display_group(current_display_enabled, errors=None, submitted=None):
         DIRTY_SECTION_ATTR, escape_html(DISPLAY_SECTION_HEADING),
         escape_html(DISPLAY_SECTION_HEADING),
         escape_html(DISPLAY_SECTION_CAPTION_ID), escape_html(DISPLAY_SECTION_CAPTION),
-        escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", error_attrs,
+        quick_action_html,
+        escape_html(DISPLAY_CHECKBOX_VALUE), " checked" if checked else "", SETTINGS_FORM_ID,
+        error_attrs,
         error_html,
     )
 
@@ -2170,15 +2293,25 @@ def _display_groups_html(builders, groups):
     Device and legacy all-scope paths still use unchanged (this task's
     own instruction: leave those two untouched).
 
+    Returns a 2-tuple `(in_form_html, on_supersection_html)` — 20-07-
+    PLAN.md Task 2 (D-19/Pitfall 1): Screen on/off and Quiet hours are no
+    longer literal descendants of `<form id="{SETTINGS_FORM_ID}">` (their
+    own instant-switch `<form>`s would otherwise nest inside it, which
+    HTML forbids), so "When it is on"'s own header and both its cards
+    must render as a unit AFTER `</form>` closes — `render()` emits
+    `in_form_html` inside the form and `on_supersection_html` after it,
+    in that order, keeping the locked Look/What it watches/When it is on
+    reading order across the form boundary.
+
     Flight colours (the per-flight colour-rules editor) is ALSO
     conceptually part of "Look" per D-12's own locked order (Theme,
     Flight colours, Calendar) but is deliberately NOT built here: its own
     add form and each delete row are real `<form>` elements, and every
-    card this function assembles is a literal descendant of
+    card `in_form_html` assembles is a literal descendant of
     `<form id="settings-form">` (unchanged from before this plan) — HTML
     forbids nesting a `<form>` inside another `<form>` (the exact Pitfall
     1 this phase's own D-13 amendment names for Screen on/off and Quiet
-    hours, which Task 2 resolves for those two specifically). `render()`
+    hours, which this task resolves for those two specifically). `render()`
     keeps emitting the Flight colours section as a sibling immediately
     after `</form>` closes — the same DOM position it already occupied
     before this plan — which is the position its own `<form>` requirement
@@ -2199,14 +2332,7 @@ def _display_groups_html(builders, groups):
     runway_html = (
         _nested_wrapper_html(builders[screens.GROUP_RUNWAY](), "theme-status", "theme-status--nested")
         if screens.GROUP_RUNWAY in groups else "")
-    display_html = (
-        _nested_wrapper_html(builders[screens.GROUP_DISPLAY](), "theme-status", "theme-status--nested")
-        if screens.GROUP_DISPLAY in groups else "")
-    quiet_hours_html = (
-        _nested_wrapper_html(
-            builders[screens.GROUP_QUIET_HOURS](), "theme-status", "theme-status--nested")
-        if screens.GROUP_QUIET_HOURS in groups else "")
-    return (
+    in_form_html = (
         layout.section_intro_html(
             DISPLAY_LOOK_SECTION_ID, i18n.t(DISPLAY_LOOK_HEADING), i18n.t(DISPLAY_LOOK_INTRO))
         + theme_html + calendar_html
@@ -2214,10 +2340,27 @@ def _display_groups_html(builders, groups):
             DISPLAY_WATCHES_SECTION_ID, i18n.t(DISPLAY_WATCHES_HEADING),
             i18n.t(DISPLAY_WATCHES_INTRO))
         + runway_html
-        + layout.section_intro_html(
+    )
+    # 20-07-PLAN.md Task 2: display_group()/quiet_hours_group() are
+    # called here (still, exactly as before this task — the same
+    # dict-of-lambdas `builders` this function has always read from),
+    # but their OWN return value is now a card that carries its own
+    # instant-switch <form> and scheduled inputs bound to
+    # SETTINGS_FORM_ID via the form= attribute, never itself joined into
+    # `in_form_html` above.
+    display_html = (
+        _nested_wrapper_html(builders[screens.GROUP_DISPLAY](), "theme-status", "theme-status--nested")
+        if screens.GROUP_DISPLAY in groups else "")
+    quiet_hours_html = (
+        _nested_wrapper_html(
+            builders[screens.GROUP_QUIET_HOURS](), "theme-status", "theme-status--nested")
+        if screens.GROUP_QUIET_HOURS in groups else "")
+    on_supersection_html = (
+        layout.section_intro_html(
             DISPLAY_ON_SECTION_ID, i18n.t(DISPLAY_ON_HEADING), i18n.t(DISPLAY_ON_INTRO))
         + display_html + quiet_hours_html
     )
+    return in_form_html, on_supersection_html
 
 
 def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
@@ -2412,8 +2555,11 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # 20-07-PLAN.md Task 1 (D-12, 20-UI-SPEC.md Section Anatomy C):
         # three headed supersections replace the flat join — see
         # _display_groups_html()'s own docstring for the Flight-colours/
-        # Calendar placement reasoning.
-        groups_html = _display_groups_html(builders, groups)
+        # Calendar placement reasoning. Task 2 (D-19/Pitfall 1): the
+        # second element ("When it is on"'s own header plus the Screen
+        # on/off and Quiet hours cards) renders AFTER </form> closes —
+        # see the same docstring's own "returns a 2-tuple" paragraph.
+        groups_html, display_on_supersection_html = _display_groups_html(builders, groups)
     elif scope == SCOPE_DEVICE:
         # 19-12-PLAN.md Task 2 (D-22, Device-page half): the Edit
         # artwork link is Device-only, joining the screen caption/
@@ -2438,7 +2584,14 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         show_rules = False
         show_poll = bool(screen.get("has_manual_poll"))
         show_calendar_disconnect = False
+        # 20-07-PLAN.md Task 1 (D-10): Device's own advanced_groups no
+        # longer includes GROUP_DISPLAY/GROUP_QUIET_HOURS at all (both
+        # moved to Display's everyday_groups), so this flat join never
+        # calls display_group()/quiet_hours_group() on this scope —
+        # their own instant-switch <form> never has a chance to nest
+        # inside this scope's <form id="settings-form">.
         groups_html = "".join(builders[g]() for g in groups if g in builders)
+        display_on_supersection_html = ""
     else:
         header = layout.page_header("Settings")
         hidden_html = ""
@@ -2451,6 +2604,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         # live scoped pages; SCOPE_ALL stays exactly as it was.
         show_calendar_disconnect = False
         groups_html = "".join(builders[g]() for g in groups if g in builders)
+        display_on_supersection_html = ""
 
     rules_section_html = _rules_section_html(ctx) if show_rules else ""
     if rules_section_html and scope == SCOPE_DISPLAY:
@@ -2493,6 +2647,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         "%s"
         "%s"
         "%s"
+        "%s"
     ) % (
         SETTINGS_FORM_ID,
         SETTINGS_ROUTE,
@@ -2501,6 +2656,11 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
         STATIC_SAVE_FALLBACK_ATTR,
         rules_section_html,
         calendar_disconnect_html,
+        # 20-07-PLAN.md Task 2 (D-19/Pitfall 1): "When it is on"'s own
+        # header plus the Screen on/off and Quiet hours cards — always ""
+        # on the Device/SCOPE_ALL paths (both set it to "" explicitly
+        # above), so this addition changes nothing for either.
+        display_on_supersection_html,
         poll_section_html,
         dirty_bar_html,
     )
