@@ -58,6 +58,7 @@ SESSION_COOKIE_NAME = "sp_session"
 UI_THEME_COOKIE_NAME = "sp_ui_theme"
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_LOCKOUT_S = 300
+INSECURE_COOKIES_ENV_VAR = "SKYPANE_COMPANION_INSECURE_COOKIES"
 
 # A-33/D-16: a per-process random salt, generated once at import time,
 # that never leaves this process (never embedded in a cookie, never
@@ -224,18 +225,40 @@ def verify_session_token(value):
     return expiry > time.time_ns()
 
 
+def secure_cookie_flag():
+    """The `"; Secure"` cookie-attribute fragment, or `""` — A-34/D-17.
+
+    Caddy terminating TLS in front of this service is still the
+    production posture, and `Secure` stays on by default for exactly
+    that reason. This flag exists solely so a plain-http LAN or dev run
+    (no Caddy/TLS in front) is not silently, unwinnably bounced back to
+    /login on every login attempt, because a browser will never send a
+    Secure cookie back over plain http.
+
+    Read fresh from the environment on every call (matching
+    configured_password()'s own read-fresh idiom, so a systemd unit
+    change needs no code change), and fails closed: any value other
+    than exactly "1" — including "true", "yes", or an empty string —
+    leaves Secure ON.
+    """
+    if os.environ.get(INSECURE_COOKIES_ENV_VAR) == "1":
+        return ""
+    return "; Secure"
+
+
 def session_set_cookie_header(token):
     """Return the Set-Cookie header *value* for a fresh session.
 
     HttpOnly keeps the token out of reach of any injected script;
     SameSite=Strict is the CSRF control for the state-changing
     endpoints (there is exactly one origin and no legitimate cross-site
-    use); Secure is unconditional because Caddy always terminates TLS
-    in front of this service (06-RESEARCH.md Pitfall 3).
+    use); Secure is on by default, off only via the explicit dev-only
+    SKYPANE_COMPANION_INSECURE_COOKIES=1 opt-out (A-34/D-17, see
+    secure_cookie_flag()).
     """
     return (
-        "%s=%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d"
-        % (SESSION_COOKIE_NAME, token, SESSION_TTL_S))
+        "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
+        % (SESSION_COOKIE_NAME, token, secure_cookie_flag(), SESSION_TTL_S))
 
 
 def logout_set_cookie_header():
@@ -244,8 +267,8 @@ def logout_set_cookie_header():
     flags as the cookie it replaces.
     """
     return (
-        "%s=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0"
-        % (SESSION_COOKIE_NAME,))
+        "%s=; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=0"
+        % (SESSION_COOKIE_NAME, secure_cookie_flag()))
 
 
 def parse_cookies(header_value):

@@ -273,6 +273,9 @@ EXPECTED_CHECK_COUNT = 194  # 192 + 2 (phase 19 plan 02 Task 1, D-15/A-32:
 EXPECTED_CHECK_COUNT = 198  # 194 + 4 (phase 19 plan 02 Task 2, D-16/A-33:
 # the derived-signing-key check, the revoke()/is_revoked() round-trip and
 # pruning-on-expiry checks, and the real-HTTP replay-after-logout check).
+EXPECTED_CHECK_COUNT = 201  # 198 + 3 (phase 19 plan 02 Task 3, D-17/A-34:
+# the insecure-cookies-drops-Secure check, the fails-closed-on-"true"
+# check, and the deploy/skypane.env.example documentation check).
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -775,6 +778,66 @@ def main():
         check(
             "session_set_cookie_header() carries HttpOnly/Secure/SameSite=Strict/Path",
             _session_cookie_header_carries_security_flags)
+
+        def _insecure_cookies_flag_drops_secure_but_keeps_other_flags():
+            # A-34/D-17: the exact opt-out value "1" drops Secure from
+            # both cookie builders while every other flag survives.
+            saved = os.environ.get(auth.INSECURE_COOKIES_ENV_VAR)
+            os.environ[auth.INSECURE_COOKIES_ENV_VAR] = "1"
+            try:
+                session_header = auth.session_set_cookie_header(auth.issue_session_token())
+                logout_header = auth.logout_set_cookie_header()
+                for header in (session_header, logout_header):
+                    if "Secure" in header:
+                        return False, "expected Secure to be absent, got %r" % (header,)
+                    for needle in ("HttpOnly", "SameSite=Strict", "Path=/"):
+                        if needle not in header:
+                            return False, "missing %r in %r" % (needle, header)
+                return True, ""
+            finally:
+                if saved is None:
+                    os.environ.pop(auth.INSECURE_COOKIES_ENV_VAR, None)
+                else:
+                    os.environ[auth.INSECURE_COOKIES_ENV_VAR] = saved
+        check(
+            "SKYPANE_COMPANION_INSECURE_COOKIES=1 drops Secure from both cookie builders "
+            "while HttpOnly/SameSite=Strict/Path survive (A-34/D-17)",
+            _insecure_cookies_flag_drops_secure_but_keeps_other_flags)
+
+        def _insecure_cookies_flag_fails_closed_on_other_values():
+            # Any value other than exactly "1" — including a
+            # truthy-looking "true" — must leave Secure on.
+            saved = os.environ.get(auth.INSECURE_COOKIES_ENV_VAR)
+            os.environ[auth.INSECURE_COOKIES_ENV_VAR] = "true"
+            try:
+                header = auth.session_set_cookie_header(auth.issue_session_token())
+                if "Secure" not in header:
+                    return False, "expected Secure to remain on for a non-'1' value, got %r" % (header,)
+                return True, ""
+            finally:
+                if saved is None:
+                    os.environ.pop(auth.INSECURE_COOKIES_ENV_VAR, None)
+                else:
+                    os.environ[auth.INSECURE_COOKIES_ENV_VAR] = saved
+        check(
+            "SKYPANE_COMPANION_INSECURE_COOKIES=\"true\" fails closed - Secure stays on "
+            "(A-34/D-17)",
+            _insecure_cookies_flag_fails_closed_on_other_values)
+
+        def _env_example_documents_insecure_cookies_flag():
+            env_example_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "..", "deploy", "skypane.env.example")
+            with open(env_example_path, "r") as fh:
+                contents = fh.read()
+            if auth.INSECURE_COOKIES_ENV_VAR not in contents:
+                return False, (
+                    "expected %r to be documented in deploy/skypane.env.example"
+                    % (auth.INSECURE_COOKIES_ENV_VAR,))
+            return True, ""
+        check(
+            "deploy/skypane.env.example documents SKYPANE_COMPANION_INSECURE_COOKIES (A-34/D-17)",
+            _env_example_documents_insecure_cookies_flag)
 
         def _logout_cookie_expires_immediately():
             header = auth.logout_set_cookie_header()

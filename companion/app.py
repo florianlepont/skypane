@@ -2221,9 +2221,12 @@ class Handler(BaseHTTPRequestHandler):
         submitted = form.get("ui_theme")
         cookie_header = None
         if submitted in layout.UI_THEME_CHOICES:
+            # A-34/D-17: routed through auth.secure_cookie_flag() so this
+            # cookie and the session cookie cannot drift on the Secure flag.
             cookie_header = (
-                "%s=%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d"
-                % (auth.UI_THEME_COOKIE_NAME, submitted, THEME_COOKIE_MAX_AGE_S))
+                "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d"
+                % (auth.UI_THEME_COOKIE_NAME, submitted, auth.secure_cookie_flag(),
+                   THEME_COOKIE_MAX_AGE_S))
         return self.redirect(self._referring_tab(), set_cookie=cookie_header)
 
     def do_POST(self):
