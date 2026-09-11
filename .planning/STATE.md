@@ -2,19 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 18
-status: "Phase 18 COMPLETE — companion audit & UX refactor shipped on claude/web-companion-audit-ux-refactor-bqx7si (46-finding ledger in 18-AUDIT.md, 18 fixed). Previously: Phase 17 COMPLETE — 4/4 plans, security 10/10 with threats_open 0, UAT 2/2. Two blockers found by the first real-calendar run, both fixed."
-stopped_at: "Phase 16 closed 2026-09-08. SEED-003 fully delivered across phases 15 and 16. Two code-review blockers were found and fixed after the security audit passed (nested VEVENT component dropping flights, NaN timestamps bypassing the clock). Branch claude/seed-3-roster-highlight is 55+ commits ahead of main and NOT yet merged or deployed."
-last_updated: "2026-09-08T05:48:19.614Z"
-last_activity: 2026-09-10
-last_activity_desc: Phase 18 complete — companion audit & UX refactor
+status: executing
+stopped_at: Phase 16 context gathered
+last_updated: "2026-09-11T06:50:10.176Z"
+last_activity: 2026-09-11
 progress:
-  total_phases: 25
-  completed_phases: 24
-  total_plans: 158
-  completed_plans: 157
-  percent: 99
-current_phase_name: companion-audit-and-ux-refactor
+  total_phases: 32
+  completed_phases: 28
+  total_plans: 167
+  completed_plans: 154
+  percent: 88
 ---
 
 ---
@@ -23,7 +20,7 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Phases 14 and 15 shipped — PR #55 and this branch
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
@@ -149,7 +146,7 @@ Plans: Phases 1-4 (incl. 03.1 inserted) all complete. Phase 03: 4/4 executed (03
 
 Status: Executing Phase 06.6.4.1 (8/9 plans; Task 2's developer verification checklist is the sole remaining item). Phase 11 and the sibling Phase 06.6.4.1.1 are both complete, merged in from separate branches.
 Also merged 2026-08-30 (third merge, this one — `git merge origin/main` into `claude/backlog-6x-phases-d6bb33` after this branch had drifted 32 commits behind, resolving conflicts in this file and `companion/test_companion_app.py`): origin/main's quick task 260829-0rl (2026-08-29) — `send_bytes()` in `companion/app.py` gained a `public` parameter (default `False`/private), fixing Phase 06.4's code-review finding WR-02 (shared/intermediary caching risk on authenticated byte-serving routes); `/static/style.css`'s route opted into `public=True` since it's pre-auth and content-identical for every client. While merging, found and fixed directly (not a conflict, a merge-introduced inconsistency): `_serve_script_file()` — the shared body for `/static/battery-trend.js` and `/static/nav-dropdown.js`, both pre-auth routes shipped by this branch's own 06.6.1-05 — hadn't opted into `public=True` the way `/static/style.css`'s route had, simply because that method didn't exist yet when `public` was added on main; added `public=True` there too, with a docstring line explaining why. `_serve_gallery_image()`/`_serve_runway_image()` (session-gated) correctly remain on the private default — verified, no change needed. `companion/test_companion_app.py`'s `EXPECTED_CHECK_COUNT` conflict (this branch's `68` vs origin's `52`) resolved to `69` — both branches' independent additions summed (this branch's 06.6.1 work + origin's 1 new WR-02 regression check, which had already auto-merged cleanly elsewhere in the file).
-Last activity: 2026-09-08 — Phase 16 complete
+Last activity: 2026-09-11
 Last activity: 2026-09-04 - Completed quick task 260904-kug: marked SEED-001 and SEED-002 fulfilled, citing Phase 10 and Phase 11 as shipping evidence. Also merged in from origin/main: quick task 260904-e92 (Airlines gallery image weight, UIR-08) and Phase 06.6.4.1.1 (settings theme picker + typography/spacing direction pass, 6/6 plans complete).
 **08-01 executed (2026-08-31), the first of Wave 1's 2 parallel-safe plans.** `server/device_config.py`'s `THEMES` grew from the single `"sky"` entry to five: `white` (new `DEFAULT_THEME_ID`), `black`, `yellow`, `red` (all single-colour — `departing_index == arriving_index` — with contrast-correct ink: black ink on white/yellow, white ink on black/red, built only from `panel_format`'s named `IDX_*` constants) and the retained `sky` (unchanged Blue/Green, relabelled `"Sky"` from `"Sky (default)"`, no longer default). The flip silently propagated to `server/plane/render.py`'s `STATE_BACKGROUND`/`STATE_INK` module constants (evaluated from `DEFAULT_THEME_ID` at import time) with zero edit to `render.py` itself, confirming the registry's own extension contract. `server/test_config_history.py` grew 21→25 checks (five stale default-comparison literals corrected `"sky"`→`"white"` — not the plan's stated three, the real on-disk count was five; four new registry-contract checks added, one demonstrated failing via a deliberate ink-index swap then reverted before commit). `server/test_render.py` grew 76→78 (two dominant-nibble checks now expect White; the Sky-equals-default check rewritten as White-matches-default AND Sky-still-differs, so it can't pass if Sky were deleted; two new checks loop `THEME_IDS` for per-theme background dominance and ink-index agreement). `companion/test_config_page.py` grew 37→39, proving the CFG-01 picker absorbed all five themes with zero edit to `companion/pages/config_page.py`/`companion/app.py` (`git diff --stat` confirmed). One Rule 1 deviation outside the plan's stated `files_modified`: `server/test_pipeline_e2e.py`'s battery-icon-region check hardcoded the active-state ink nibble as White (0x1), true only under the retired Sky default's white ink — corrected to derive the expectation from `device_config.theme_ink_index()` for the theme `run_once()` actually reported. Full suite green except `server/test_poll_loop.py`'s pinned `panel.bin` digest (already stale pre-phase from an unrelated macOS/Linux FreeType difference, now additionally invalidated for real by the White-default flip — re-pin explicitly deferred to plan 08-05, not fixed here). None of the four new hues has been seen on real Spectra 6 ink yet — screen-confirmed only, same as Sky was before Phase 7; the registry's provenance comment now records this honestly, and plan 08-06's blocking on-glass session is where that check happens. `requirements.mark-complete D-01 D-02 D-03 D-04` returned all four as `not_found`, consistent with every prior 06.x-style decimal/CONTEXT-only phase's precedent — these are `08-CONTEXT.md` Decision IDs, not formal REQUIREMENTS.md entries. `roadmap.update-plan-progress "08"` confirmed `plan_count: 6, summary_count: 1, status: "In Progress"` (plans 02-06 remain). `state.advance-plan` again could not parse this file's prose-based Current Position section (same known limitation documented throughout this file's history) — `state.update-progress` computed `percent: 93` (64/69) correctly this time, no hand-correction needed.
 
@@ -359,6 +356,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 ## Accumulated Context
 
 ### Roadmap Evolution
+
 - Phase 19 added: Companion audit follow-through — fix the open findings from 18-AUDIT.md (2026-09-11)
 
 - Phase 16 added (2026-09-07) — "Calendar-linked flight highlighting — a connected calendar sources colour rules automatically", promoted from `.planning/seeds/SEED-003-theme-direction-scope-color-rules-calendar-highlighting.md`. This is the seed's third sub-idea, the one Phase 15's D-01 deferred; it is unblocked because both of its prerequisites are now met — the export format is known from a real supplied export, and the developer relayed the calendar owner's consent. **Generalised at the developer's request from the seed's person-specific framing to "connect your calendar"**, so no person is named in the design. Scoped against real data before promotion, producing three findings that overturn the seed's own assumptions: (1) the CrewWebPlus iCal export is fully structured — `SUMMARY:TO7061 MPL-ORY(+0200)` parses 15/15 — so the parser is small and the seed's "might be an internal duty code" worry does not apply; (2) the flight number is useless as a match key (26% of 300 real cached flights carry a commercial-looking IATA number, and only 11% of Transavia France ones, the dominant Orly carrier and the owner's employer), while origin/destination is populated on 100% of enriched detections and a same-route collision resolves by time — the NCE-ORY rotations sit ~8h apart, and rotating callsigns turn out to be stable per rotation across days, previously undocumented; (3) **the cap** — on the owner's only Orly duty day inside recorded history, none of her three flights were among the frame's 201 detections, one of them missed while the frame tracked other aircraft in the same minute, because the frame shows one aircraft at a time and does not see most movements. The developer chose this design anyway, over a calendar-driven view that would not depend on detection, knowing it marks a flight only when that flight happens to be on screen. Copy must not overstate it. Added via `gsd-tools query phase.add`, which again left ROADMAP.md's top-level `## Phases` bullet untouched (the documented CLI gap recorded for Phases 12-15) — bullet and Goal written by hand.
