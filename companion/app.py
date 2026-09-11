@@ -2316,17 +2316,28 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             return self._handle_quick_toggle("quiet_hours_enabled")
 
+        # 19-04-PLAN.md (D-18/A-35, T-19-04): gated like every other
+        # state-changing route above — an unauthenticated caller setting
+        # another visitor's UI theme cookie is a real state change, not
+        # a cosmetic no-op.
         if path == THEME_ROUTE:
+            if not self.require_session():
+                return None
             return self._handle_theme_post()
 
+        # 19-04-PLAN.md (D-18/A-35, T-19-04): gated too, even though an
+        # unauthenticated POST /logout looks harmless at first glance —
+        # it is a CSRF-shaped forced-sign-out of whoever holds the
+        # session, and gating it costs a signed-out caller nothing since
+        # they are already signed out. A-33/D-16 (plan 19-02): also
+        # revokes the presented token server-side before clearing the
+        # client's cookie, so replaying the same cookie value after Sign
+        # out no longer verifies.
         if path == LOGOUT_ROUTE:
-            # A-33/D-16: revoke the presented token server-side before
-            # clearing the client's cookie, so replaying the same cookie
-            # value after Sign out no longer verifies. The 19-04 plan
-            # adds the require_session() gate to this branch; this plan
-            # only adds the revoke() call.
-            cookies = auth.parse_cookies(self.headers.get("Cookie"))
-            token = cookies.get(auth.SESSION_COOKIE_NAME)
+            if not self.require_session():
+                return None
+            token = auth.parse_cookies(
+                self.headers.get("Cookie")).get(auth.SESSION_COOKIE_NAME)
             if token:
                 auth.revoke(token)
             return self.redirect(LOGIN_ROUTE, set_cookie=auth.logout_set_cookie_header())

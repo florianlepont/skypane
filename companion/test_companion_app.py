@@ -284,6 +284,9 @@ EXPECTED_CHECK_COUNT = 208  # 204 + 4 (19-04-PLAN.md Task 2, D-18/T-19-05:
 # the exact-CSP-equality check, the strict-script-src-no-unsafe-inline
 # check, the redirect-carries-four-hardening-headers check, and the
 # static-CSS-response-carries-CSP check).
+EXPECTED_CHECK_COUNT = 210  # 208 + 2 (19-04-PLAN.md Task 3, D-18/T-19-04:
+# unauthenticated POST /ui-theme and POST /logout both redirect to
+# /login checks).
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -3501,6 +3504,40 @@ def main():
         check(
             "the static CSS response (the send_bytes() path) also carries the CSP header",
             _static_css_response_carries_csp)
+
+        # --- 19-04-PLAN.md Task 3 (D-18, T-19-04): session-gate           ---
+        # --- POST /ui-theme and POST /logout                              ---
+
+        def _ui_theme_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(
+                base + "/ui-theme", method="POST", data=b"ui_theme=dark")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /ui-theme to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            set_cookie = headers.get("Set-Cookie", "")
+            if auth.UI_THEME_COOKIE_NAME in set_cookie:
+                return False, (
+                    "expected no ui_theme Set-Cookie header on an unauthenticated "
+                    "POST /ui-theme, got %r" % set_cookie)
+            return True, ""
+        check(
+            "POST /ui-theme with no session cookie redirects to /login and does not set a "
+            "ui_theme cookie (T-19-04: an unauthenticated caller cannot set another visitor's "
+            "UI theme)",
+            _ui_theme_post_without_session_redirects_to_login)
+
+        def _logout_post_without_session_redirects_to_login():
+            status, headers, _ = http_request(base + "/logout", method="POST")
+            if status != 303 or headers.get("Location") != "/login":
+                return False, (
+                    "expected an unauthenticated POST /logout to redirect to /login, "
+                    "got %d/%r" % (status, headers.get("Location")))
+            return True, ""
+        check(
+            "POST /logout with no session cookie redirects to /login (T-19-04: gating a "
+            "logout costs a signed-out caller nothing)",
+            _logout_post_without_session_redirects_to_login)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---
