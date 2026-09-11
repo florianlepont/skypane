@@ -98,6 +98,38 @@ MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
 # a slow real client on this LAN/VPN deployment while bounding the worst case.
 REQUEST_SOCKET_TIMEOUT_S = 30
 
+# 19-04-PLAN.md (D-18/A-35, T-19-06/T-19-17/T-19-18/T-19-19): the
+# orchestrator-amended Content-Security-Policy sent on every response
+# (see _send_hardening_headers() below). This is an authenticated admin
+# panel reachable from the public internet with no CSP at all before
+# this plan.
+#   script-src 'self'  — deliberately no 'unsafe-inline' and no nonce.
+#     This is where the real XSS risk lives, and Task 1 of this plan
+#     (19-04-PLAN.md) removed the app's last two inline <script>
+#     elements (companion/pages/config_page.py's poll_trigger_section(),
+#     externalized to companion/static/poll-cooldown.js), so nothing
+#     needs an exception here.
+#   style-src 'self' 'unsafe-inline'  — solely for the seven
+#     style="background:..." theme-swatch attributes in
+#     companion/pages/config_page.py's _theme_chip_grid_html() and its
+#     single-theme/calendar-section siblings. Every one of those values
+#     comes from the fixed 18-member server/device_config.py THEMES
+#     registry and is never user input, so this allowance carries no
+#     injection path; a class-per-theme CSS refactor was rejected
+#     because it would churn dozens of pinned render checks for no
+#     security gain.
+#   img-src 'self' data:  — the `data:` value is needed for the inline
+#     favicon/icon data URI companion/layout.py already emits.
+#   form-action 'self'  — every <form> on the site posts back to this
+#     same origin; complements the existing SameSite=Strict session
+#     cookie against cross-origin form posting.
+#   frame-ancestors 'none'  — the modern companion to the existing
+#     X-Frame-Options: DENY below, which is kept for older browsers.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; img-src 'self' data:; "
+    "style-src 'self' 'unsafe-inline'; script-src 'self'; "
+    "form-action 'self'; frame-ancestors 'none'"
+)
 # D-07 (11-04): the same environment variable deploy/skypane-byos.service
 # passes to byos_server.py as --sleep. It reaches this process because
 # deploy/skypane-companion.service declares the identical
@@ -867,10 +899,16 @@ class Handler(BaseHTTPRequestHandler):
         authenticated page can be framed by a third-party site for
         clickjacking, and with no X-Content-Type-Options a MIME-sniffing
         quirk is one upstream misconfiguration away from an XSS vector.
+
+        19-04-PLAN.md (D-18/A-35): the fourth header, Content-Security-
+        Policy, completes that stated intent — see
+        CONTENT_SECURITY_POLICY's own module-level comment for the
+        directive-by-directive rationale.
         """
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
 
     def send_html(self, code, html_str):
         body = html_str.encode("utf-8")
@@ -910,11 +948,16 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def redirect(self, location, set_cookie=None):
+        # 19-04-PLAN.md (D-18/A-35, T-19-05): a 303 used to send none of
+        # send_html()'s/send_bytes()'s headers; Cache-Control: no-store
+        # matters here because a 303 can carry a Set-Cookie.
         self.send_response(303)
         self.send_header("Location", location)
         if set_cookie:
             self.send_header("Set-Cookie", set_cookie)
         self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self._send_hardening_headers()
         self.end_headers()
 
     # --- auth ----------------------------------------------------------

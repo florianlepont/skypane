@@ -280,6 +280,10 @@ EXPECTED_CHECK_COUNT = 204  # 201 + 3 (19-04-PLAN.md Task 1, D-18/A-35:
 # poll-cooldown.js's public-serving/ES5-safe/route-src-agreement checks;
 # the eight-deferred-scripts check is retargeted in place from the
 # seven-deferred-scripts check, not counted as new).
+EXPECTED_CHECK_COUNT = 208  # 204 + 4 (19-04-PLAN.md Task 2, D-18/T-19-05:
+# the exact-CSP-equality check, the strict-script-src-no-unsafe-inline
+# check, the redirect-carries-four-hardening-headers check, and the
+# static-CSS-response-carries-CSP check).
 # the save-triggered immediate calendar sync's real-HTTP-round-trip
 # outcomes — plural/singular flight count, a zero-entry feed's distinct
 # success, the single generic failure message with the URL still saved,
@@ -3435,6 +3439,68 @@ def main():
             "every HTML response (an authenticated page and the login page alike) carries Cache-Control: "
             "no-store, so the back button and shared caches never replay a page after sign-out",
             _html_pages_are_no_store)
+
+        # --- 19-04-PLAN.md Task 2 (D-18, T-19-06/T-19-17/T-19-18/T-19-19): ---
+        # --- CSP on every response, and hardened redirects (T-19-05)      ---
+
+        def _authenticated_html_carries_exact_csp():
+            import companion.app as app_module
+            status, headers, _ = http_request(base + "/", cookie=session_cookie)
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            csp = headers.get("Content-Security-Policy")
+            if csp != app_module.CONTENT_SECURITY_POLICY:
+                return False, (
+                    "expected the CSP header to equal companion.app."
+                    "CONTENT_SECURITY_POLICY exactly, got %r vs %r"
+                    % (csp, app_module.CONTENT_SECURITY_POLICY))
+            return True, ""
+        check(
+            "an authenticated HTML response carries a Content-Security-Policy header equal "
+            "(string equality, not substring) to companion.app.CONTENT_SECURITY_POLICY",
+            _authenticated_html_carries_exact_csp)
+
+        def _csp_script_src_strict_no_unsafe_inline():
+            import companion.app as app_module
+            csp = app_module.CONTENT_SECURITY_POLICY
+            if "script-src 'self'" not in csp:
+                return False, "expected script-src 'self' in the CSP, got %r" % csp
+            if "script-src 'self' 'unsafe-inline'" in csp:
+                return False, "expected script-src to NOT carry 'unsafe-inline', got %r" % csp
+            return True, ""
+        check(
+            "the CSP's script-src directive is 'self' with no 'unsafe-inline' anywhere in it "
+            "(Task 1 removed the app's last two inline <script> elements, so no exception is needed)",
+            _csp_script_src_strict_no_unsafe_inline)
+
+        def _redirect_carries_four_hardening_headers():
+            # The unauthenticated redirect to /login is a 303 reachable
+            # with no cookie at all — exercises redirect()'s hardening
+            # headers on the simplest possible path.
+            status, headers, _ = http_request(base + "/display")
+            if status != 303:
+                return False, "expected a 303 redirect, got %d" % status
+            for header_name in (
+                    "X-Content-Type-Options", "X-Frame-Options",
+                    "Referrer-Policy", "Content-Security-Policy"):
+                if header_name not in headers:
+                    return False, "expected %r on a 303 redirect response" % header_name
+            return True, ""
+        check(
+            "a 303 redirect response (the unauthenticated bounce to /login) carries all four "
+            "hardening headers, including the CSP — before this plan redirect() sent none of them",
+            _redirect_carries_four_hardening_headers)
+
+        def _static_css_response_carries_csp():
+            status, headers, _ = http_request(base + "/static/style.css")
+            if status != 200:
+                return False, "expected 200, got %d" % status
+            if "Content-Security-Policy" not in headers:
+                return False, "expected the CSP header on the static CSS response too"
+            return True, ""
+        check(
+            "the static CSS response (the send_bytes() path) also carries the CSP header",
+            _static_css_response_carries_csp)
 
         # --- 11-04 end-to-end: the real SKYPANE_SLEEP_S pre-fill, over a  ---
         # --- dedicated Harness instance (the environment must be set     ---
