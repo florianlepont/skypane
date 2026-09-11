@@ -3370,6 +3370,15 @@ def main():
         # 06.6.4.1-04's D-11/D-12 — Health gains no state-changing
         # control. Reads the module source directly, filters out
         # nothing.
+        #
+        # 19-09-PLAN.md (D-02): retargeted in place — button_count grew
+        # from 1 to 2 when the Pause/Resume control (a real
+        # <button type="button" data-refresh-toggle>) joined the
+        # pre-existing D-16 docstring mention. The zero-<form> half of
+        # this check is exactly why that new button is still compatible
+        # with T-13-13's own promise: it is a bare, formless, GET-free
+        # client-side toggle — it submits nothing anywhere, so it is not
+        # a "state-changing control" in the sense this check polices.
         source_path = os.path.join(HERE, "pages", "health_page.py")
         with open(source_path, encoding="utf-8") as fh:
             source = fh.read()
@@ -3377,15 +3386,16 @@ def main():
         button_count = source.count("<button")
         if form_count != 0:
             return False, "expected zero '<form' occurrences in health_page.py, got %d" % form_count
-        if button_count != 1:
+        if button_count != 2:
             return False, (
-                "expected exactly one '<button' occurrence (the pre-existing D-16 docstring mention), "
-                "got %d" % button_count)
+                "expected exactly two '<button' occurrences (the pre-existing D-16 docstring "
+                "mention plus the 19-09-PLAN.md Pause/Resume control), got %d" % button_count)
         return True, ""
     check(
-        "companion/pages/health_page.py still contains zero HTML form elements and exactly one '<button' "
-        "literal (the pre-existing D-16 docstring mention) — Health gains no state-changing control "
-        "(phase 13 D-10, T-13-13)",
+        "companion/pages/health_page.py still contains zero HTML form elements and exactly two "
+        "'<button' literals (the pre-existing D-16 docstring mention and the formless Pause/Resume "
+        "toggle) — Health still gains no state-changing (form-submitting) control (phase 13 D-10, "
+        "T-13-13; retargeted in place by 19-09-PLAN.md Task 1, D-02)",
         _health_still_has_no_form_and_exactly_one_button_literal)
 
     def _quick_260902_gjj_muted_captions_compose_section_caption():
@@ -5544,25 +5554,28 @@ def main():
         _quick_260903_peo_pipeline_second_line_absent_detection_fallback)
 
     def _quick_260903_peo_persistent_freshness_note():
-        # UIR-18: a persistent, server-rendered liveness note joins the
-        # existing hidden refresh pill inside ONE block-level wrapper —
-        # the anonymous-block-box guard from 260902-ep7 (BUG 1). Pins the
-        # structural contract (the wrapper is the .page-header's next
-        # child right after the <h1>, and the pill's own markup is
-        # untouched inside it), not just the note's text.
+        # 19-09-PLAN.md (D-02, A-20): retargeted in place (same check
+        # name/function, same structural-contract shape) for the honest
+        # "Updated HH:MM" rewrite. UIR-18's original structural contract
+        # survives — a persistent, server-rendered note joins the hidden
+        # refresh pill inside ONE block-level wrapper (260902-ep7's
+        # anonymous-block-box guard) that is .page-header's next child
+        # right after the <h1> — and gains three more assertions this
+        # task adds: the note carries no relative-age suffix at all, a
+        # single data-refresh-clock span holds the full ISO in its
+        # title, and a single data-refresh-toggle button renders inside
+        # the same wrapper with both label attributes and a starting
+        # aria-pressed="false".
         tmp = _mkstate("h-persistent-freshness")
         try:
             now_iso = _iso(_now())
             rendered = health_page.render(_ctx(tmp, now=now_iso))
 
-            expected_note = layout.concise_timestamp_html(now_iso, now_iso)
-            if expected_note not in rendered:
-                return False, (
-                    "expected the persistent note to render "
-                    "concise_timestamp_html(now, now) byte-identically")
-            prefix = layout.escape_html(health_page.PERSISTENT_FRESHNESS_PREFIX_TEXT)
+            prefix = layout.escape_html(health_page.FRESHNESS_PREFIX_TEXT)
             if prefix not in rendered:
-                return False, "expected the persistent note's prefix text in the rendered page"
+                return False, "expected the honest 'Updated ' prefix text in the rendered page"
+            if health_page.FRESHNESS_PREFIX_TEXT != "Updated ":
+                return False, "expected FRESHNESS_PREFIX_TEXT to read 'Updated '"
 
             if '<p class="page-header__freshness' not in rendered:
                 return False, "expected a block-level .page-header__freshness wrapper"
@@ -5571,8 +5584,46 @@ def main():
             wrapper_slice = rendered[wrapper_start:wrapper_end]
             if "data-refresh-pill" not in wrapper_slice:
                 return False, "expected the hidden refresh pill inside the freshness wrapper"
-            if expected_note not in wrapper_slice:
-                return False, "expected the persistent note inside the same freshness wrapper as the pill"
+            if " ago" in wrapper_slice:
+                return False, (
+                    "expected no relative-age suffix inside .page-header__freshness — "
+                    "'(0s ago)' was structurally always zero (A-20)")
+
+            if wrapper_slice.count("data-refresh-clock") != 1:
+                return False, (
+                    "expected exactly one data-refresh-clock span, got %d"
+                    % wrapper_slice.count("data-refresh-clock"))
+            clock_at = wrapper_slice.index("data-refresh-clock")
+            clock_tag = wrapper_slice[
+                wrapper_slice.rindex("<", 0, clock_at):wrapper_slice.index(">", clock_at) + 1]
+            if ('title="%s"' % now_iso) not in clock_tag:
+                return False, "expected the clock span's title to carry the full ISO instant"
+
+            if wrapper_slice.count("data-refresh-toggle") != 1:
+                return False, (
+                    "expected exactly one data-refresh-toggle button, got %d"
+                    % wrapper_slice.count("data-refresh-toggle"))
+            toggle_at = wrapper_slice.index("data-refresh-toggle")
+            toggle_end = wrapper_slice.index("</button>", toggle_at) + len("</button>")
+            toggle_tag_end = wrapper_slice.index(">", toggle_at) + 1
+            toggle_open_tag = wrapper_slice[
+                wrapper_slice.rindex("<", 0, toggle_at):toggle_tag_end]
+            if 'aria-pressed="false"' not in toggle_open_tag:
+                return False, "expected the toggle to start aria-pressed=\"false\""
+            if "data-pause-text=" not in toggle_open_tag:
+                return False, "expected the toggle to carry data-pause-text"
+            if "data-resume-text=" not in toggle_open_tag:
+                return False, "expected the toggle to carry data-resume-text"
+            toggle_label = wrapper_slice[toggle_tag_end:toggle_end - len("</button>")]
+            if not toggle_label.strip():
+                return False, "expected the toggle to have a non-empty accessible label (its own text)"
+
+            # Substring ordering, the same way this guard has always
+            # pinned the anonymous-block-box fix: prefix, then clock,
+            # then pill, then toggle, all inside the one wrapper.
+            prefix_at = wrapper_slice.index(prefix)
+            if not (prefix_at < clock_at < wrapper_slice.index("data-refresh-pill") < toggle_at):
+                return False, "expected prefix, clock, pill and toggle in that source order"
 
             header_start = rendered.index('<div class="page-header">')
             header_end = rendered.index("</div>", header_start) + len("</div>")
@@ -5604,10 +5655,12 @@ def main():
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
     check(
-        "Health's header renders a persistent server-rendered liveness note beside the "
-        "unchanged hidden refresh pill, both inside one block-level .page-header__freshness "
-        "wrapper that is the .page-header's next child right after the <h1> (quick task "
-        "260903-peo, UIR-18)",
+        "Health's header renders an honest 'Updated HH:MM' clock (no relative-age suffix, full ISO "
+        "in the clock span's title) beside the unchanged hidden refresh pill and a new Pause/Resume "
+        "toggle (aria-pressed=\"false\", both label attributes, a non-empty accessible label), all "
+        "inside one block-level .page-header__freshness wrapper that is the .page-header's next "
+        "child right after the <h1>, in prefix/clock/pill/toggle source order (19-09-PLAN.md Task 1, "
+        "D-02/A-20; supersedes quick task 260903-peo/UIR-18's 'Live — refreshed (Ns ago)' contract)",
         _quick_260903_peo_persistent_freshness_note)
 
     def _quick_260902_v2v_uir_03_07_12_13_fixes():
