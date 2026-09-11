@@ -18,11 +18,13 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from companion.auth import UI_THEME_COOKIE_NAME
-# 20-01-PLAN.md Task 2/3 (D-01..D-09): companion.prefs is a shared,
-# page-independent module (like companion.auth above) — layout.py
-# importing it carries no cycle, since it imports nothing from this
-# module or from companion.app (companion.app is the one that imports
-# layout.py, never the reverse).
+# 20-01-PLAN.md Task 2/3 (D-01..D-09): companion.i18n/companion.prefs
+# are both shared, page-independent modules (like companion.auth
+# above) — layout.py importing them carries no cycle, since neither
+# imports anything from this module or from companion.app
+# (companion.app is the one that imports layout.py, never the
+# reverse).
+import companion.i18n as i18n
 import companion.prefs as prefs
 
 SITE_TITLE = "SkyPane"
@@ -719,7 +721,11 @@ def _nav_links(active):
     for route, label in NAV_TABS:
         slug = nav_slug(route)
         is_active = slug == active
-        links.append((is_active, escape_html(route), escape_html(label), slug))
+        # D-05/D-09 (20-01-PLAN.md Task 3): the label is looked up
+        # through i18n.t() at render time — NAV_TABS/NAV_GROUPS keep
+        # their English values (D-01); escape_html() still wraps the
+        # result, exactly like any other t() call site.
+        links.append((is_active, escape_html(route), escape_html(i18n.t(label)), slug))
     return links
 
 
@@ -729,14 +735,32 @@ def _nav_groups(active):
     group. Phase 18: the one place the group structure is walked, so the
     sidebar and the dropdown can never disagree about which tab sits
     under the "Advanced" label.
+
+    D-30 (20-01-PLAN.md Task 3): in simple mode, the group whose label
+    is ADVANCED_GROUP_LABEL (Health, Device) is omitted from the
+    returned list entirely — server-side omission, not a CSS
+    `display:none` (20-UI-SPEC.md Structural Note 6: this is the
+    choice that also lets a later plan's disclosures render *different
+    text* in simple mode, not two copies of the same markup). This is
+    presentation only: `/health` and `/device` stay reachable by URL
+    and stay session-gated (companion/pages/__init__.py's ctx contract
+    states the same thing for ctx["simple_mode"] itself). Because the
+    Health link is omitted along with the rest of its group, the
+    Health nav-tab notification dot (drawn from `health_alert` at each
+    renderer's own call site) is never emitted either — one omission,
+    not two independent suppressions to keep in sync.
     """
     links = _nav_links(active)
     groups = []
     offset = 0
+    simple = prefs.simple_mode()
     for group_label, entries in NAV_GROUPS:
         count = len(entries)
-        groups.append((escape_html(group_label), links[offset:offset + count]))
+        group_links = links[offset:offset + count]
         offset += count
+        if simple and group_label == ADVANCED_GROUP_LABEL:
+            continue
+        groups.append((escape_html(i18n.t(group_label)), group_links))
     return groups
 
 
@@ -860,9 +884,56 @@ def _theme_form_html(resolved_theme):
             '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s">%s</button>'
             % (escape_html(choice), css_class, "true" if is_active else "false",
                escape_html(choice.capitalize())))
+    # D-02/D-29 (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): an aria-label
+    # disambiguates this now-identical-looking segmented group from the
+    # two new siblings below — the theme ids ("Auto"/"Light"/"Dark")
+    # are identifiers already, so only the group label is translated.
     return (
-        '<form class="theme-form" method="post" action="/ui-theme">%s</form>'
-        % "".join(options))
+        '<form class="theme-form" method="post" action="/ui-theme" aria-label="%s">%s</form>'
+        % (escape_html(i18n.t("Theme")), "".join(options)))
+
+
+def _lang_form_html(resolved_lang):
+    """The FR/EN language switch (D-02, 20-01-PLAN.md Task 3) — a
+    sibling of _theme_form_html() above, identical in shape. "FR"/"EN"
+    are identifiers (D-05) and are never passed through i18n.t().
+    """
+    options = []
+    for choice in prefs.LANG_CHOICES:
+        is_active = choice == resolved_lang
+        css_class = (
+            "theme-option theme-option--active"
+            if is_active else "theme-option")
+        options.append(
+            '<button type="submit" name="ui_lang" value="%s" class="%s" aria-pressed="%s">%s</button>'
+            % (escape_html(choice), css_class, "true" if is_active else "false",
+               escape_html(choice.upper())))
+    return (
+        '<form class="theme-form" method="post" action="/ui-lang" aria-label="%s">%s</form>'
+        % (escape_html(i18n.t("Language")), "".join(options)))
+
+
+def _mode_form_html(resolved_mode):
+    """The Simple/Full simple-mode switch (D-29, 20-01-PLAN.md Task 3)
+    — a sibling of _theme_form_html() above, identical in shape. The
+    button labels are the mode names themselves ("Simple"/"Full"),
+    translated through i18n.t() — unlike the language switch's "FR"/
+    "EN", these are real words, not identifiers (20-UI-SPEC.md §I).
+    """
+    options = []
+    labels = {"simple": "Simple", "full": "Full"}
+    for choice in prefs.MODE_CHOICES:
+        is_active = choice == resolved_mode
+        css_class = (
+            "theme-option theme-option--active"
+            if is_active else "theme-option")
+        options.append(
+            '<button type="submit" name="ui_mode" value="%s" class="%s" aria-pressed="%s">%s</button>'
+            % (escape_html(choice), css_class, "true" if is_active else "false",
+               escape_html(i18n.t(labels[choice]))))
+    return (
+        '<form class="theme-form" method="post" action="/ui-mode" aria-label="%s">%s</form>'
+        % (escape_html(i18n.t("Simple mode")), "".join(options)))
 
 
 def _logout_form_html():
@@ -884,12 +955,14 @@ def _logout_form_html():
     """
     return (
         '<form method="post" action="/logout" class="logout-form">'
-        '<button type="submit">Sign out</button>'
+        '<button type="submit">%s</button>'
         "</form>"
-    )
+    ) % escape_html(i18n.t("Sign out"))
 
 
-def _mobile_nav_html(active, theme_form_html, health_alert=None):
+def _mobile_nav_html(
+        active, theme_form_html, health_alert=None,
+        lang_form_html="", mode_form_html=""):
     """The hamburger toggle button plus the dropdown panel it controls —
     the <960px nav renderer (D-06, 06.6.1-UI-SPEC.md's Layout Contract).
 
@@ -901,7 +974,10 @@ def _mobile_nav_html(active, theme_form_html, health_alert=None):
     _theme_form_html(), so page_shell() keeps building it exactly once
     and passing the same string to both copies — this is what makes the
     "both theme-form copies present" check meaningful rather than an
-    accident.
+    accident. `lang_form_html`/`mode_form_html` (D-02/D-29, 20-01-PLAN.md
+    Task 3) follow the identical discipline — page_shell() builds all
+    three exactly once and passes the same strings to both footer
+    copies, so they can never drift.
 
     The panel is always rendered without MOBILE_NAV_OPEN_CLASS — the
     server never renders it open. A server-rendered open state would
@@ -942,9 +1018,11 @@ def _mobile_nav_html(active, theme_form_html, health_alert=None):
     ) % (
         NAV_TOGGLE_ID, escape_html(NAV_TOGGLE_LABEL), MOBILE_NAV_ID,
         icon_html("icon-hamburger", size=24))
+    # D-02/D-29 (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): resolved
+    # order — language, theme, simple mode, Sign out.
     footer_html = (
-        '<div class="mobile-nav__footer">%s%s</div>'
-        % (theme_form_html, _logout_form_html()))
+        '<div class="mobile-nav__footer">%s%s%s%s</div>'
+        % (lang_form_html, theme_form_html, mode_form_html, _logout_form_html()))
     panel_html = (
         '<div id="%s" class="mobile-nav">'
         '<nav class="mobile-nav__nav" aria-label="Primary navigation">%s</nav>'
@@ -966,7 +1044,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     usable before signing in). login_shell() is a deliberately
     separate, smaller sibling of page_shell(), not a parameterized
     branch inside it — it shares page_shell()'s outer document
-    structure (doctype, `<html lang="en" data-ui-theme="...">`,
+    structure (doctype, `<html lang="..." data-ui-theme="...">`,
     `<head>` with charset/viewport/title/stylesheet link/
     FAVICON_LINK_HTML, reusing that constant rather than duplicating
     the data-URI literal) but its `<body>` contains only the login
@@ -1055,10 +1133,14 @@ def page_shell(
     """
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
+    resolved_mode = "simple" if prefs.simple_mode() else "full"
     sidebar_html = sidebar_nav(active, health_alert=health_alert)
     theme_form_html = _theme_form_html(resolved_theme)
+    lang_form_html = _lang_form_html(resolved_lang)
+    mode_form_html = _mode_form_html(resolved_mode)
     mobile_nav_html = _mobile_nav_html(
-        active, theme_form_html, health_alert=health_alert)
+        active, theme_form_html, health_alert=health_alert,
+        lang_form_html=lang_form_html, mode_form_html=mode_form_html)
     flash_html = flash or ""
     banner_html = banner or ""
 
@@ -1089,10 +1171,13 @@ def page_shell(
     # 06.6.2-05 (D-17): the sidebar's theme picker and Sign out control,
     # grouped into one footer region — the exact artifact Phase 06.6.3
     # was told to expect by name (a .sidebar-footer wrapper). Replaces
-    # the previous bare theme_form_html-only slot.
+    # the previous bare theme_form_html-only slot. D-02/D-29
+    # (20-01-PLAN.md Task 3, 20-UI-SPEC.md §I): resolved order —
+    # language, theme, simple mode, Sign out; this and
+    # _mobile_nav_html()'s own footer_html must change together.
     sidebar_footer_html = (
-        '<div class="sidebar-footer">%s%s</div>'
-        % (theme_form_html, _logout_form_html()))
+        '<div class="sidebar-footer">%s%s%s%s</div>'
+        % (lang_form_html, theme_form_html, mode_form_html, _logout_form_html()))
 
     # 06.6.2-05 (UXA-10): the first focusable element in <body>, before
     # even ICON_DEFS_HTML — a keyboard/screen-reader user's very first
