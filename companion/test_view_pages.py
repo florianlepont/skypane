@@ -256,7 +256,17 @@ EXPECTED_CHECK_COUNT = 83  # 79 + 4 (19-08-PLAN.md Task 3: D-22's edit-gated lig
 # 25 (pre-06.6-03) + 3 (06.6-03 Task 1: History Timestamp column reads
 # "ISO (Nm ago)"; Task 2: Preview's Captured caption reads "Captured ISO
 # (Nm ago)"; Task 3: corroboration copy cross-page drift guard, D-03)
-EXPECTED_CHECK_COUNT = 90  # 20-06-PLAN.md Task 2 (D-17.2/D-18/D-20): +3
+EXPECTED_CHECK_COUNT = 92  # 20-06-PLAN.md Task 3 (D-05/D-09): +2 (90 -> 92)
+# — a fully-seeded Home render under lang='fr' end to end (page title,
+# section headings, status-row labels, next-update headline, no English
+# leaking in, callsign/airline data untranslated) plus the identical
+# render under the default language re-asserting every pre-existing
+# English needle, and a check that every key in companion/i18n_fr/
+# home.py's own CATALOG is also a key of the merged companion.i18n_fr.
+# CATALOG (proving the auto-merge package picked the module up).
+# Recomputed directly against the real on-disk check(...) call count at
+# execution time (92/92 pass), not trusted from arithmetic alone.
+# 90 = 20-06-PLAN.md Task 2 (D-17.2/D-18/D-20): +3
 # (87 -> 90) — the recent-flights thumbnail resolved-vs-placeholder check,
 # the hero's flight-one-liner presence/absence plus .preview-frame-before-
 # .status-card document-order check, and a French-render check proving
@@ -3158,6 +3168,81 @@ def main():
         "thumbnail's alt text translate while the callsign/airline name stay untranslated data "
         "(D-05)",
         _home_page_french_render_translates_headings_and_alt_text_not_data)
+
+    def _home_page_full_seeded_render_french_end_to_end():
+        from companion.pages import home_page
+        from server import history_db as _hdb
+        import companion.prefs as _prefs
+        tmp = _mkstate("home-fr")
+        try:
+            now = "2026-08-27T12:00:00+00:00"
+            _seed_runway_events(tmp, [
+                {"ts": "2026-08-27T11:50:00+00:00", "hex": "3c6444", "callsign": "AFR1380",
+                 "airline": "Air France", "origin": "ORY", "destination": "TLS",
+                 "confirmed_state": "departing"},
+            ])
+            with _hdb.open_db(tmp) as conn:
+                _hdb.record_device_health(conn, "2026-08-27T11:55:00+00:00", battery_mv=3750)
+            ctx = {
+                "state_dir": tmp, "now": now,
+                "gallery_entries": ["2026-08-27T11-50-00+00-00.png"],
+                "last_checkin_ts": "2026-08-27T11:55:00+00:00",
+                "device_config": {"wake_interval_s": 900, "display_enabled": True},
+                "health_state": {"device_state": "ok", "pipeline_state": "warn",
+                                 "battery_state": "ok",
+                                 "device_detail_html": '<span class="mono">14:00 (5m ago)</span>',
+                                 "pipeline_html": "<p>A little stale</p>"},
+                "simple_mode": False,
+            }
+            try:
+                _prefs.set_request_prefs(lang="fr")
+                rendered_fr = home_page.render(ctx)
+            finally:
+                _prefs.set_request_prefs(lang="en")
+            for needle in (
+                    ">Accueil<", "Vols récents", "Voir tous les vols", "Cadre", "Batterie",
+                    "Données de vol", "Au départ"):
+                if needle not in rendered_fr:
+                    return False, "expected the French %r in the French Home render" % (needle,)
+            if "Prochaine mise à jour" not in rendered_fr and "Attendue depuis" not in rendered_fr:
+                return False, "expected either French next-update headline wording"
+            for english_only in (
+                    "Recent flights", "See all flights", ">Frame<", ">Battery<", "Departing"):
+                if english_only in rendered_fr:
+                    return False, "expected no English %r leaking into the French render" % (
+                        english_only,)
+            if "AFR1380" not in rendered_fr or "Air France" not in rendered_fr:
+                return False, "expected the callsign/airline data to stay untranslated in French"
+
+            rendered_en = home_page.render(ctx)
+            for needle in (
+                    '<h1 class="page-title">Home</h1>', "Recent flights", "See all flights",
+                    home_page.FRAME_ROW_LABEL, home_page.BATTERY_ROW_LABEL,
+                    home_page.DATA_ROW_LABEL, "Next update ≈"):
+                if needle not in rendered_en:
+                    return False, "expected the English %r in the default-language Home render" % (
+                        needle,)
+            return True, ""
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    check(
+        "a fully-seeded Home render under lang='fr' shows the French page title, section "
+        "headings, status-row labels and next-update headline with no English string leaking "
+        "in (while the callsign/airline data stays untranslated), and the identical seeded "
+        "render under the default language still carries every pre-existing English needle",
+        _home_page_full_seeded_render_french_end_to_end)
+
+    def _home_catalog_keys_all_present_in_merged_catalog():
+        import companion.i18n_fr as i18n_fr
+        import companion.i18n_fr.home as i18n_fr_home
+        missing = [k for k in i18n_fr_home.CATALOG if k not in i18n_fr.CATALOG]
+        if missing:
+            return False, "keys missing from the merged CATALOG: %r" % (missing,)
+        return True, ""
+    check(
+        "every key in companion/i18n_fr/home.py's own CATALOG is also a key of the merged "
+        "companion.i18n_fr.CATALOG, proving the auto-merge package picked the module up",
+        _home_catalog_keys_all_present_in_merged_catalog)
 
     def _home_page_full_render_has_no_quick_actions_and_three_status_rows():
         from companion.pages import home_page
